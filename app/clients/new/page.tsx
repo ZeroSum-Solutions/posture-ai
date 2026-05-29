@@ -101,7 +101,7 @@ export default function NewClientPage() {
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px', background: '#0A0A0B',
     border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
-    color: '#F5F5F5', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+    color: '#F5F5F5', fontSize: '0.9rem', boxSizing: 'border-box',
     minHeight: '44px',
   }
   const labelStyle: React.CSSProperties = {
@@ -128,59 +128,75 @@ export default function NewClientPage() {
         borderRadius: '16px',
         padding: '24px 20px',
       }}>
-        <form onSubmit={handleSubmit} noValidate>
+        <form onSubmit={handleSubmit} noValidate aria-label="New client form">
           {error && (
-            <div style={{
-              background: 'rgba(239,68,68,0.12)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '8px', padding: '12px',
-              color: '#EF4444', fontSize: '0.875rem', marginBottom: '20px',
-            }}>
+            <div
+              role="alert"
+              aria-live="assertive"
+              style={{
+                background: 'rgba(239,68,68,0.12)',
+                border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: '8px', padding: '12px',
+                color: '#EF4444', fontSize: '0.875rem', marginBottom: '20px',
+              }}
+            >
               {error}
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '4px' }}>
             <div>
-              <label style={labelStyle}>First Name <span style={{ color: '#EF4444' }}>*</span></label>
+              <label htmlFor="first_name" style={labelStyle}>
+                First Name <span style={{ color: '#EF4444' }} aria-hidden="true">*</span>
+              </label>
               <input
+                id="first_name"
                 type="text" name="first_name" value={form.first_name}
                 onChange={handleChange} placeholder="First name"
+                aria-required="true"
+                aria-describedby={fieldErrors.first_name ? 'error-first-name' : undefined}
                 style={{ ...inputStyle, borderColor: fieldErrors.first_name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
               />
               {fieldErrors.first_name && (
-                <p data-testid="error-first-name" style={errorStyle} role="alert">{fieldErrors.first_name}</p>
+                <p id="error-first-name" data-testid="error-first-name" style={errorStyle} role="alert">{fieldErrors.first_name}</p>
               )}
             </div>
             <div>
-              <label style={labelStyle}>Last Name <span style={{ color: '#EF4444' }}>*</span></label>
+              <label htmlFor="last_name" style={labelStyle}>
+                Last Name <span style={{ color: '#EF4444' }} aria-hidden="true">*</span>
+              </label>
               <input
+                id="last_name"
                 type="text" name="last_name" value={form.last_name}
                 onChange={handleChange} placeholder="Last name"
+                aria-required="true"
+                aria-describedby={fieldErrors.last_name ? 'error-last-name' : undefined}
                 style={{ ...inputStyle, borderColor: fieldErrors.last_name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
               />
               {fieldErrors.last_name && (
-                <p data-testid="error-last-name" style={errorStyle} role="alert">{fieldErrors.last_name}</p>
+                <p id="error-last-name" data-testid="error-last-name" style={errorStyle} role="alert">{fieldErrors.last_name}</p>
               )}
             </div>
           </div>
 
           <div style={{ ...fieldStyle, marginTop: '16px' }}>
-            <label style={labelStyle}>Date of Birth</label>
+            <label htmlFor="date_of_birth" style={labelStyle}>Date of Birth</label>
             <input
+              id="date_of_birth"
               ref={dobRef}
               type="date" name="date_of_birth" value={form.date_of_birth}
               onChange={handleChange}
+              aria-describedby={fieldErrors.date_of_birth ? 'error-date-of-birth' : undefined}
               style={{ ...inputStyle, colorScheme: 'dark', borderColor: fieldErrors.date_of_birth ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
             />
             {fieldErrors.date_of_birth && (
-              <p data-testid="error-date-of-birth" style={errorStyle} role="alert">{fieldErrors.date_of_birth}</p>
+              <p id="error-date-of-birth" data-testid="error-date-of-birth" style={errorStyle} role="alert">{fieldErrors.date_of_birth}</p>
             )}
           </div>
 
           <div style={fieldStyle}>
-            <label style={labelStyle}>Sex at Birth</label>
-            <select name="sex_at_birth" value={form.sex_at_birth} onChange={handleChange} style={inputStyle}>
+            <label htmlFor="sex_at_birth" style={labelStyle}>Sex at Birth</label>
+            <select id="sex_at_birth" name="sex_at_birth" value={form.sex_at_birth} onChange={handleChange} style={inputStyle}>
               <option value="">Select...</option>
               <option value="male">Male</option>
               <option value="female">Female</option>
@@ -191,34 +207,41 @@ export default function NewClientPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px', marginBottom: '4px' }}>
             <div>
-              <label style={labelStyle}>Height (cm)</label>
+              <label htmlFor="height_cm" style={labelStyle}>Height (cm)</label>
               <input
+                id="height_cm"
                 type="number" name="height_cm" value={form.height_cm}
                 onChange={handleChange} placeholder="e.g. 175" step="0.1"
+                aria-describedby={fieldErrors.height_cm ? 'error-height-cm' : undefined}
                 style={{ ...inputStyle, borderColor: fieldErrors.height_cm ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
               />
               {fieldErrors.height_cm && (
-                <p data-testid="error-height-cm" style={errorStyle} role="alert">{fieldErrors.height_cm}</p>
+                <p id="error-height-cm" data-testid="error-height-cm" style={errorStyle} role="alert">{fieldErrors.height_cm}</p>
               )}
             </div>
             <div>
-              <label style={labelStyle}>Weight (kg)</label>
+              <label htmlFor="weight_kg" style={labelStyle}>Weight (kg)</label>
               <input
+                id="weight_kg"
                 type="number" name="weight_kg" value={form.weight_kg}
                 onChange={handleChange} placeholder="e.g. 70" step="0.1"
+                aria-describedby={fieldErrors.weight_kg ? 'error-weight-kg' : undefined}
                 style={{ ...inputStyle, borderColor: fieldErrors.weight_kg ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
               />
               {fieldErrors.weight_kg && (
-                <p data-testid="error-weight-kg" style={errorStyle} role="alert">{fieldErrors.weight_kg}</p>
+                <p id="error-weight-kg" data-testid="error-weight-kg" style={errorStyle} role="alert">{fieldErrors.weight_kg}</p>
               )}
             </div>
           </div>
 
           <div style={{ ...fieldStyle, marginTop: '16px' }}>
-            <label style={labelStyle}>Notes</label>
-            <textarea name="notes" value={form.notes} onChange={handleChange}
+            <label htmlFor="notes" style={labelStyle}>Notes</label>
+            <textarea
+              id="notes"
+              name="notes" value={form.notes} onChange={handleChange}
               placeholder="Optional notes about this client" rows={3}
-              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', minHeight: '80px' }} />
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', minHeight: '80px' }}
+            />
           </div>
 
           {/* Consent checkbox - required */}
@@ -227,14 +250,17 @@ export default function NewClientPage() {
             border: '1px solid ' + (fieldErrors.consent ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.25)'),
             borderRadius: '10px', padding: '16px', marginBottom: '8px',
           }}>
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+            <label htmlFor="consent_checkbox" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
               <input
+                id="consent_checkbox"
                 type="checkbox"
                 checked={consentChecked}
                 onChange={e => {
                   setConsentChecked(e.target.checked)
                   if (e.target.checked) setFieldErrors(prev => { const next = { ...prev }; delete next.consent; return next })
                 }}
+                aria-required="true"
+                aria-describedby={fieldErrors.consent ? 'error-consent' : undefined}
                 style={{ marginTop: '2px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0, minHeight: 'unset' }}
               />
               <span style={{ fontSize: '0.875rem', color: '#D4D4D8', lineHeight: 1.5 }}>
@@ -245,7 +271,7 @@ export default function NewClientPage() {
             </label>
           </div>
           {fieldErrors.consent && (
-            <p data-testid="error-consent" style={{ ...errorStyle, marginBottom: '16px' }} role="alert">{fieldErrors.consent}</p>
+            <p id="error-consent" data-testid="error-consent" style={{ ...errorStyle, marginBottom: '16px' }} role="alert">{fieldErrors.consent}</p>
           )}
 
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' }}>

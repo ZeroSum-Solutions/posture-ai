@@ -928,7 +928,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
       <div data-testid="disclaimer" style={{
         background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
-        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5 }}>
+        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#D4D4D8', lineHeight: 1.5 }}>
         Posture AI is a <strong style={{ color: '#6366F1' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
       </div>
 
