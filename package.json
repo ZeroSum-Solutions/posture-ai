@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest"
+    "test": "vitest",
+    "test-feature5": "node test-api-feature5.mjs",
+    "test-tf3": "node tf3.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
