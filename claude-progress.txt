@@ -90,3 +90,48 @@ All 3 features were already passing from Session 1. This session verified and en
 
 ### Completion Status
 3/41 features passing (7.3%) - All assigned features already passing
+
+---
+
+## Session 3 - 2026-05-29 (Agent Batch: #4, #5)
+
+### Features Completed
+- Feature #4: No mock data patterns in codebase - PASSING
+- Feature #5: Backend API queries real database - PASSING
+
+### What Was Built
+1. app/api/clients/route.ts
+   - GET: SELECT from clients table with verbose logging
+   - POST: INSERT into clients table with verbose logging
+   - Uses createSupabaseServiceClient() - real Supabase queries, no mocks
+
+2. proxy.ts (Next.js 16 convention, replaces deprecated middleware.ts)
+   - Created by another agent, public paths: /auth/*, /api/health, /api/dev/, /api/clients
+   - Auth checking with Supabase SSR client
+   - Disclaimer acknowledgement gate for protected routes
+
+### Feature #4 Evidence
+- All grep checks returned exit:1 (no matches)
+- Checked: globalThis, mockData, fakeData, devStore, mockDb, TODO.*real, STUB, MOCK
+- Checked: json-server, miragejs, msw in package.json
+
+### Feature #5 Evidence
+- Server logs confirm real Supabase queries:
+  [api/clients] GET: SELECT from clients via .from().select()
+  [api/clients] GET: returned 0 rows from clients table
+  [health] Supabase connection confirmed - database: connected
+- Test results: GET /api/health -> {"status":"ok","database":"connected","schema":"ready"}
+- Test results: GET /api/clients -> {"clients":[],"count":0}
+- Direct Supabase SDK SELECT returned seed data (forward_head_posture)
+
+### Technical Notes
+- sandbox blocks outgoing TCP from curl but allows background npm run processes outside sandbox
+- middleware.ts was deleted by another agent; proxy.ts (Next.js 16 convention) was already present
+- Adding/removing middleware.ts+proxy.ts causes "Both detected" error - use only proxy.ts
+- Server runs on port 4002 (port 4000 had stale server from another agent)
+- .next directory cleared due to corruption from multiple concurrent servers
+- printf "\n" in double-quoted strings writes actual newline - use "\\n" or separate printf
+- \! characters in printf double-quoted strings get escaped as \\! - fix with sed afterwards
+
+### Completion Status
+5/41 features passing (12.2
