@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -276,7 +276,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
 }
 
 // ---- Main Wizard ----
-export default function NewAssessmentPage() {
+function NewAssessmentWizard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClientId = searchParams.get('client_id')
@@ -653,5 +653,13 @@ export default function NewAssessmentPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function NewAssessmentPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '48px 16px', textAlign: 'center', color: '#A1A1AA' }}>Loading…</div>}>
+      <NewAssessmentWizard />
+    </Suspense>
   )
 }
