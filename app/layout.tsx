@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import NavBar from '@/components/NavBar'
 
 export const metadata: Metadata = {
   title: 'Posture AI',
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <body style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0A0A0B' }}>
+        <NavBar />
         <main style={{ flex: 1 }}>
           {children}
         </main>
@@ -20,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           fontSize: '12px',
           textAlign: 'center'
         }}>
-          ⚠️ Screening only — not a medical diagnosis. Results require interpretation by qualified professionals.
+          Screening only — not a medical diagnosis. Results require interpretation by qualified professionals.
         </footer>
       </body>
     </html>
