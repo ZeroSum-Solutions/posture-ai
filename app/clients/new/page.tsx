@@ -69,17 +69,18 @@ export default function NewClientPage() {
     width: '100%', padding: '10px 12px', background: '#0A0A0B',
     border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
     color: '#F5F5F5', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+    minHeight: '44px',
   }
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: '6px',
+    display: 'block', fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '6px',
   }
   const fieldStyle: React.CSSProperties = { marginBottom: '16px' }
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '640px', margin: '0 auto' }}>
+    <div style={{ padding: '24px 16px', maxWidth: '640px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Link href="/clients" style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem' }}>
-          ← Back to Clients
+        <Link href="/clients" style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+          &#8592; Back to Clients
         </Link>
       </div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '24px' }}>
@@ -89,7 +90,7 @@ export default function NewClientPage() {
         background: '#161618',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '16px',
-        padding: '32px',
+        padding: '24px 20px',
       }}>
         <form onSubmit={handleSubmit}>
           {error && (
@@ -97,13 +98,13 @@ export default function NewClientPage() {
               background: 'rgba(239,68,68,0.12)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '8px', padding: '12px',
-              color: '#EF4444', fontSize: '0.85rem', marginBottom: '20px',
+              color: '#EF4444', fontSize: '0.875rem', marginBottom: '20px',
             }}>
               {error}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '16px' }}>
             <div>
               <label style={labelStyle}>First Name *</label>
               <input type="text" name="first_name" value={form.first_name}
@@ -133,7 +134,7 @@ export default function NewClientPage() {
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px', marginBottom: '16px' }}>
             <div>
               <label style={labelStyle}>Height (cm)</label>
               <input type="number" name="height_cm" value={form.height_cm}
@@ -150,7 +151,7 @@ export default function NewClientPage() {
             <label style={labelStyle}>Notes</label>
             <textarea name="notes" value={form.notes} onChange={handleChange}
               placeholder="Optional notes about this client" rows={3}
-              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', minHeight: '80px' }} />
           </div>
 
           {/* Consent checkbox - required */}
@@ -164,7 +165,7 @@ export default function NewClientPage() {
                 type="checkbox"
                 checked={consentChecked}
                 onChange={e => setConsentChecked(e.target.checked)}
-                style={{ marginTop: '2px', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }}
+                style={{ marginTop: '2px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0, minHeight: 'unset' }}
               />
               <span style={{ fontSize: '0.875rem', color: '#D4D4D8', lineHeight: 1.5 }}>
                 <strong style={{ color: '#F5F5F5' }}>Client has consented to posture imaging.</strong>{' '}
@@ -174,12 +175,13 @@ export default function NewClientPage() {
             </label>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <Link href="/clients" style={{
               flex: 1, padding: '11px', background: 'rgba(255,255,255,0.06)',
               color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '8px', fontWeight: 600, fontSize: '0.95rem',
-              textAlign: 'center', textDecoration: 'none', display: 'block',
+              textAlign: 'center', textDecoration: 'none', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', minWidth: '100px',
             }}>
               Cancel
             </Link>
@@ -189,6 +191,7 @@ export default function NewClientPage() {
               color: loading || !consentChecked ? '#6B7280' : '#fff',
               border: 'none', borderRadius: '8px', fontWeight: 600,
               fontSize: '0.95rem', cursor: loading || !consentChecked ? 'not-allowed' : 'pointer',
+              minWidth: '120px',
             }}>
               {loading ? 'Creating...' : 'Create Client'}
             </button>
