@@ -1,14 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Routes that don't require auth
+// Routes that do not require auth
 const PUBLIC_PATHS = [
   '/auth/sign-in',
   '/auth/sign-up',
   '/auth/callback',
   '/api/health',
   '/api/dev/',
-  '/api/clients',
 ]
 
 // Routes that require auth but not disclaimer acknowledgement
