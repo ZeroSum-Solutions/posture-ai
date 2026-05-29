@@ -11,6 +11,7 @@ export async function GET(
 
   const { id: clientId } = await params
   const excludeId = req.nextUrl.searchParams.get('exclude')
+  const includeFindings = req.nextUrl.searchParams.get('include_findings') === 'true'
 
   // Verify client belongs to this practitioner
   const { data: client } = await supabase
@@ -26,11 +27,15 @@ export async function GET(
 
   let query = supabase
     .from('assessments')
-    .select('id, assessed_at, overall_grade, overall_score, status')
+    .select(
+      includeFindings
+        ? 'id, assessed_at, overall_grade, overall_score, status, assessment_findings(imbalance_key, label, severity_pct, zone, region)'
+        : 'id, assessed_at, overall_grade, overall_score, status'
+    )
     .eq('client_id', clientId)
     .eq('practitioner_id', user.id)
     .eq('status', 'complete')
-    .order('assessed_at', { ascending: false })
+    .order('assessed_at', { ascending: true })
 
   if (excludeId) {
     query = query.neq('id', excludeId)

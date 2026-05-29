@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceArea, Legend,
+} from 'recharts'
 
 interface Client {
   id: string
@@ -17,13 +21,40 @@ interface Client {
   created_at: string
 }
 
-type Tab = 'assessments' | 'info'
+interface Finding {
+  imbalance_key: string
+  label: string | null
+  severity_pct: number | null
+  zone: string | null
+  region: string | null
+}
+
+interface Assessment {
+  id: string
+  assessed_at: string
+  overall_grade: string | null
+  overall_score: number | null
+  status: string
+  assessment_findings?: Finding[]
+}
+
+type Tab = 'assessments' | 'progress' | 'info'
+
+const GRADE_TO_PCT: Record<string, number> = {
+  S: 100, A: 83, B: 66, C: 50, D: 33, E: 0,
+}
+
+const IMBALANCE_COLORS = [
+  '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+  '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#14B8A6',
+]
 
 export default function ClientDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
   const [client, setClient] = useState<Client | null>(null)
+  const [assessments, setAssessments] = useState<Assessment[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('assessments')
   const [archiving, setArchiving] = useState(false)
@@ -42,6 +73,13 @@ export default function ClientDetailPage() {
         .single()
       if (error || !data) { router.push('/clients'); return }
       setClient(data)
+
+      // Fetch assessments with findings for trend charts
+      const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`)
+      if (res.ok) {
+        const json = await res.json()
+        setAssessments(json.assessments || [])
+      }
       setLoading(false)
     }
     load()
@@ -91,6 +129,41 @@ export default function ClientDetailPage() {
     transition: 'all 0.15s ease',
   })
 
+  // Build trend data for charts
+  const hasMultipleAssessments = assessments.length >= 2
+
+  // Collect all unique imbalance keys across assessments
+  const imbalanceKeys: string[] = []
+  const imbalanceLabels: Record<string, string> = {}
+  assessments.forEach((a) => {
+    (a.assessment_findings || []).forEach((f) => {
+      if (!imbalanceKeys.includes(f.imbalance_key)) {
+        imbalanceKeys.push(f.imbalance_key)
+        imbalanceLabels[f.imbalance_key] = f.label || f.imbalance_key
+      }
+    })
+  })
+
+  // Build chart data points
+  const trendData = assessments.map((a) => {
+    const point: Record<string, number | string> = {
+      date: new Date(a.assessed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      grade_pct: a.overall_grade ? (GRADE_TO_PCT[a.overall_grade] ?? 0) : 0,
+    }
+    const findingsMap: Record<string, number> = {}
+    ;(a.assessment_findings || []).forEach((f) => {
+      if (f.severity_pct !== null) {
+        findingsMap[f.imbalance_key] = f.severity_pct
+      }
+    })
+    imbalanceKeys.forEach((key) => {
+      if (findingsMap[key] !== undefined) {
+        point[key] = findingsMap[key]
+      }
+    })
+    return point
+  })
+
   return (
     <div style={{ padding: '32px 24px', maxWidth: '960px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
@@ -109,6 +182,8 @@ export default function ClientDetailPage() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: '12px',
       }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '8px' }}>
@@ -127,7 +202,7 @@ export default function ClientDetailPage() {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => setShowArchiveConfirm(true)}
             style={{
@@ -209,16 +284,22 @@ export default function ClientDetailPage() {
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '10px',
         padding: '4px',
+        flexWrap: 'wrap',
       }}>
         <button style={tabStyle('assessments')} onClick={() => setActiveTab('assessments')}>
           Assessments
         </button>
+        {hasMultipleAssessments && (
+          <button style={tabStyle('progress')} onClick={() => setActiveTab('progress')}>
+            Progress
+          </button>
+        )}
         <button style={tabStyle('info')} onClick={() => setActiveTab('info')}>
           Info
         </button>
       </div>
 
-      {/* Tab Content */}
+      {/* Assessments Tab */}
       {activeTab === 'assessments' && (
         <div style={{
           background: '#161618',
@@ -228,12 +309,148 @@ export default function ClientDetailPage() {
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>
             Assessment History
           </h2>
-          <p style={{ color: '#A1A1AA', fontSize: '0.9rem' }}>
-            No assessments yet. Click &quot;+ New Assessment&quot; to start.
-          </p>
+          {assessments.length === 0 ? (
+            <p style={{ color: '#A1A1AA', fontSize: '0.9rem' }}>
+              No assessments yet. Click &quot;+ New Assessment&quot; to start.
+            </p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {[...assessments].reverse().map((a) => {
+                const date = new Date(a.assessed_at).toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                })
+                return (
+                  <li key={a.id} style={{
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    paddingBottom: '12px', marginBottom: '12px',
+                  }}>
+                    <Link href={`/assessments/${a.id}`} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      textDecoration: 'none',
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: '#F5F5F5', fontWeight: 500 }}>
+                          Assessment — {date}
+                        </div>
+                        {a.overall_score !== null && (
+                          <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>
+                            Score: {a.overall_score}/100
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {a.overall_grade && (
+                          <span style={{
+                            fontSize: '0.85rem', fontWeight: 700, color: '#6366F1',
+                            background: 'rgba(99,102,241,0.12)', borderRadius: '6px', padding: '2px 8px',
+                          }}>
+                            Grade {a.overall_grade}
+                          </span>
+                        )}
+                        <span style={{ color: '#A1A1AA' }}>›</span>
+                      </div>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
       )}
 
+      {/* Progress / Trend Charts Tab */}
+      {activeTab === 'progress' && hasMultipleAssessments && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Overall Grade Trend */}
+          <div style={{
+            background: '#161618', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px', padding: '24px',
+          }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '8px' }}>
+              Overall Grade Trend
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: '#A1A1AA', marginBottom: '16px' }}>
+              Grade converted to 0–100 scale (S=100, A=83, B=66, C=50, D=33, E=0)
+            </p>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis dataKey="date" tick={{ fill: '#A1A1AA', fontSize: 11 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: '#A1A1AA', fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                  labelStyle={{ color: '#F5F5F5' }}
+                  itemStyle={{ color: '#A1A1AA' }}
+                />
+                {/* Zone bands */}
+                <ReferenceArea y1={66} y2={100} fill="rgba(16,185,129,0.08)" label={{ value: 'Maintain', fill: '#10B981', fontSize: 10, position: 'insideTopRight' }} />
+                <ReferenceArea y1={33} y2={66} fill="rgba(245,158,11,0.08)" label={{ value: 'Warning', fill: '#F59E0B', fontSize: 10, position: 'insideTopRight' }} />
+                <ReferenceArea y1={0} y2={33} fill="rgba(239,68,68,0.08)" label={{ value: 'Danger', fill: '#EF4444', fontSize: 10, position: 'insideTopRight' }} />
+                <Line
+                  type="monotone"
+                  dataKey="grade_pct"
+                  name="Grade"
+                  stroke="#6366F1"
+                  strokeWidth={2}
+                  dot={{ fill: '#6366F1', r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Imbalance Severity Trends */}
+          {imbalanceKeys.length > 0 && (
+            <div style={{
+              background: '#161618', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '16px', padding: '24px',
+            }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '8px' }}>
+                Imbalance Severity Over Time
+              </h2>
+              <p style={{ fontSize: '0.78rem', color: '#A1A1AA', marginBottom: '16px' }}>
+                Severity % per imbalance — lower is better
+              </p>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tick={{ fill: '#A1A1AA', fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#A1A1AA', fontSize: 11 }} unit="%" />
+                  <Tooltip
+                    contentStyle={{ background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    labelStyle={{ color: '#F5F5F5' }}
+                    itemStyle={{ color: '#A1A1AA' }}
+                    formatter={(value: number, name: string) => [`${value.toFixed(1)}%`, imbalanceLabels[name] || name]}
+                  />
+                  <Legend
+                    formatter={(value) => imbalanceLabels[value] || value}
+                    wrapperStyle={{ fontSize: '11px', color: '#A1A1AA' }}
+                  />
+                  {/* Zone reference bands */}
+                  <ReferenceArea y1={0} y2={33} fill="rgba(16,185,129,0.06)" />
+                  <ReferenceArea y1={33} y2={66} fill="rgba(245,158,11,0.06)" />
+                  <ReferenceArea y1={66} y2={100} fill="rgba(239,68,68,0.06)" />
+                  {imbalanceKeys.map((key, i) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      name={key}
+                      stroke={IMBALANCE_COLORS[i % IMBALANCE_COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Info Tab */}
       {activeTab === 'info' && (
         <div style={{
           background: '#161618',
@@ -243,7 +460,7 @@ export default function ClientDetailPage() {
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>
             Client Information
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
             {dob && (
               <div>
                 <div style={{ fontSize: '0.8rem', color: '#A1A1AA', marginBottom: '4px' }}>Date of Birth</div>
