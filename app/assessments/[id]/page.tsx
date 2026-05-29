@@ -28,6 +28,31 @@ interface Capture {
   signed_url: string | null
   source: string
 }
+interface Exercise {
+  id: string
+  slug: string
+  name: string
+  category: string
+  primary_deviation_keys: string[]
+  min_zone: string
+  instructions: string
+  sets: number
+  hold_seconds: number
+}
+
+const ZONE_ORDER: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
+function zoneAtOrAbove(findingZone: string, minZone: string): boolean {
+  return (ZONE_ORDER[findingZone] ?? -1) >= (ZONE_ORDER[minZone] ?? 0)
+}
+function deriveExerciseRecommendations(exercises: Exercise[], findings: Finding[]): Exercise[] {
+  const reliableFindings = findings.filter(f => f.zone !== 'unreliable')
+  return exercises.filter(ex =>
+    ex.primary_deviation_keys.some(key => {
+      const finding = reliableFindings.find(f => f.imbalance_key === key)
+      return finding && zoneAtOrAbove(finding.zone, ex.min_zone)
+    })
+  )
+}
 
 interface Assessment {
   id: string
@@ -675,6 +700,100 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
   )
 }
 
+// ---- Exercises Section ----
+const CATEGORY_LABELS: Record<string, string> = {
+  stretch: 'Stretch',
+  strengthen: 'Strengthen',
+  mobility: 'Mobility',
+  activation: 'Activation',
+  informational: 'Info',
+}
+const CATEGORY_COLORS: Record<string, string> = {
+  stretch: '#6366F1',
+  strengthen: '#22C55E',
+  mobility: '#F59E0B',
+  activation: '#EC4899',
+  informational: '#71717A',
+}
+
+function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
+  const [open, setOpen] = useState(false)
+  const catColor = CATEGORY_COLORS[exercise.category] ?? '#6366F1'
+  const catLabel = CATEGORY_LABELS[exercise.category] ?? exercise.category
+
+  return (
+    <div
+      data-testid={`exercise-item-${exercise.slug}`}
+      style={{
+        background: '#161618', border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 10, overflow: 'hidden', marginBottom: 8,
+      }}
+    >
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          width: '100%', textAlign: 'left', background: 'none', border: 'none',
+          padding: '14px 16px', cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: 10,
+        }}
+      >
+        <span style={{
+          padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700,
+          background: catColor + '22', color: catColor, textTransform: 'uppercase',
+          letterSpacing: '0.05em', flexShrink: 0,
+        }}>{catLabel}</span>
+        <span style={{ flex: 1, fontWeight: 600, color: '#F5F5F5', fontSize: '0.9rem' }}>
+          {exercise.name}
+        </span>
+        <span style={{
+          color: '#52525B', fontSize: '0.8rem', transition: 'transform 0.2s',
+          display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <p style={{ color: '#D4D4D8', fontSize: '0.875rem', lineHeight: 1.6, margin: '12px 0 10px' }}>
+            {exercise.instructions}
+          </p>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {exercise.sets > 0 && (
+              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366F1' }}>{exercise.sets}</div>
+                <div style={{ fontSize: '0.7rem', color: '#71717A', textTransform: 'uppercase' }}>Sets</div>
+              </div>
+            )}
+            {exercise.hold_seconds > 0 && (
+              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366F1' }}>{exercise.hold_seconds}s</div>
+                <div style={{ fontSize: '0.7rem', color: '#71717A', textTransform: 'uppercase' }}>Hold</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ExercisesSection({ exercises }: { exercises: Exercise[] }) {
+  if (exercises.length === 0) return null
+
+  return (
+    <div data-testid="exercises-section" style={{ marginBottom: 24 }}>
+      <h2 style={{
+        fontSize: '0.875rem', fontWeight: 600, color: '#A1A1AA',
+        marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
+      }}>
+        Recommended Corrective Exercises
+      </h2>
+      {exercises.map(ex => (
+        <ExerciseAccordionItem key={ex.id} exercise={ex} />
+      ))}
+    </div>
+  )
+}
+
 // ---- Main Results Page ----
 export default function AssessmentResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
@@ -689,6 +808,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [allExercises, setAllExercises] = useState<Exercise[]>([])
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -717,6 +838,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             setPriorAssessments(priorData.assessments || [])
           }
         }
+        // Fetch exercises
+        const exRes = await fetch('/api/exercises')
+        if (exRes.ok) {
+          const exData = await exRes.json()
+          setAllExercises(exData.exercises || [])
+        }
       } catch {
         setError('Failed to load assessment.')
       } finally {
@@ -725,6 +852,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     }
     load()
   }, [assessmentId, router])
+
+  useEffect(() => {
+    if (allExercises.length > 0 && findings.length > 0) {
+      setExercises(deriveExerciseRecommendations(allExercises, findings))
+    }
+  }, [allExercises, findings])
 
   async function handleGeneratePdf() {
     if (!assessmentId) return
@@ -796,7 +929,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       <div data-testid="disclaimer" style={{
         background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
         borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5 }}>
-        <strong style={{ color: '#6366F1' }}>Screening Only</strong> — Not a medical diagnosis. For educational and screening purposes only. Results require interpretation by a qualified professional.
+        Posture AI is a <strong style={{ color: '#6366F1' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
       </div>
 
       <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
@@ -826,10 +959,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
       {findings.length > 0 && <FindingsSection findings={findings} />}
 
+      <ExercisesSection exercises={exercises} />
+
       <div style={{
         background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
         borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: '#71717A', lineHeight: 1.5, marginBottom: 24 }}>
-        <strong style={{ color: '#EF4444' }}>SCREENING ONLY.</strong> These findings are for educational and screening purposes only. Do not substitute for clinical examination.
+        <strong style={{ color: '#EF4444' }}>SCREENING TOOL ONLY.</strong> These findings are for educational and informational purposes only. Always consult a qualified health professional for evaluation and clinical decisions.
       </div>
 
       {pdfUrl && (

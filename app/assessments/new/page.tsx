@@ -555,6 +555,14 @@ export default function NewAssessmentPage() {
               {selectedClient ? <>Client: <strong style={{ color: '#F5F5F5' }}>{clientName}</strong></> : 'Test mode — no client required'}
             </p>
           </div>
+          {/* Non-diagnostic disclaimer - required on capture step */}
+          <div data-testid="capture-disclaimer" style={{
+            background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+            borderRadius: '8px', padding: '10px 14px', marginBottom: '16px',
+            fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.5,
+          }}>
+            <strong style={{ color: '#6366F1' }}>Screening Tool Only</strong> — Posture AI is a screening tool. Results are for informational purposes only and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
+          </div>
 
           {testMode ? (
             <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>

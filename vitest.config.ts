@@ -5,6 +5,9 @@ export default defineConfig({
   cacheDir: '/tmp/claude/vitest-cache',
   test: {
     environment: 'node',
+    coverage: {
+      enabled: false,
+    },
   },
   resolve: {
     alias: {
