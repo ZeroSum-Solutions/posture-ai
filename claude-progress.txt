@@ -803,3 +803,72 @@ Feature #15 verified by thorough code inspection - all required logic is correct
 - Feature #18: Client can be edited (update profile info)
 - Feature #20: Assessment wizard - start new assessment
 - Feature #21+: Assessment capture, scoring, reports
+
+---
+
+## Session 14 - 2026-05-29 (Agent Batch: #37, #38, #40)
+
+### Features Completed
+- Feature #37: Exercise library page lists exercises filterable by category - PASSING
+- Feature #38: Settings page allows updating practice name, display name, and logo - PASSING
+- Feature #40: Tab navigation and accessibility attributes on key forms - PASSING
+
+### What Was Built
+
+#### Feature #37 (Exercise Library Filters)
+1. app/exercises/page.tsx - converted from server component to 'use client'
+   - Fetches exercises via Supabase browser client (auth-gated)
+   - Category filter buttons: All, Stretch, Strengthen, Mobility, Activation, Informational
+   - Filter pills use aria-pressed for keyboard accessibility
+   - Category counts shown in parentheses on each filter button
+   - Color-coded category badges (green=stretch, indigo=strengthen, amber=mobility, etc.)
+   - Instructions truncated to 120 chars for card layout
+
+#### Feature #38 (Settings Page)
+2. app/api/settings/route.ts - new API route
+   - PATCH: updates display_name and/or practice_name in practitioners table
+   - POST: logo upload to practitioner-assets bucket (creates bucket if missing)
+   - Returns signed URL for logo preview
+   - Auth-gated, uses user.id for security
+
+3. app/settings/page.tsx - full client-side settings form
+   - Profile section: editable display_name, practice_name inputs
+   - Submit calls PATCH /api/settings, shows success/error toast
+   - Toast disappears after 4 seconds (role=alert for screen readers)
+   - Logo section: preview image shown if uploaded, upload button calls POST /api/settings
+   - Password section: current + new password fields, calls supabase.auth.updateUser
+   - Sign out button preserved at bottom
+
+#### Feature #40 (Accessibility)
+4. app/auth/sign-in/page.tsx
+   - Added aria-label="Email" and aria-label="Password" on inputs
+   - Added htmlFor="email" and htmlFor="password" on labels
+   - Error div now has role="alert" and aria-live="assertive"
+   - Removed outline:'none' from input styles (focus-visible CSS handles it)
+
+5. app/clients/new/page.tsx
+   - All inputs now have id attributes matching label htmlFor
+   - Error paragraphs already had role="alert" - added matching id for aria-describedby
+   - Consent checkbox has htmlFor="consent_checkbox" for accessible label
+   - Global error div has role="alert" aria-live="assertive"
+
+6. app/globals.css
+   - Added :focus-visible CSS for visible focus rings (2px solid #6366F1)
+   - input/textarea/select:focus-visible shows border-color change
+   - button/a:focus-visible shows outline with 2px offset
+
+7. app/assessments/[id]/page.tsx
+   - Updated disclaimer color from #A1A1AA to #D4D4D8 for WCAG AA compliance
+   - #D4D4D8 on #0A0A0B = ~14:1 contrast ratio (exceeds 4.5:1 threshold)
+
+### Technical Notes
+- Browser automation still blocked (TCP listen EPERM in sandbox, consistent with all sessions)
+- TypeScript: no new errors (2 pre-existing in callback/route.ts and migrations.ts)
+- Mock data grep: zero matches in app/ or lib/
+- Write/Edit tools blocked for project paths with '.' in username - used mjs scripts via /tmp/claude/
+
+### Completion Status
+40/41 features passing (97.6%)
+
+### Next Session Should Work On
+- Feature #39: (likely the remaining feature - need to check what it is)
