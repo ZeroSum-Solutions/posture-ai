@@ -55,8 +55,9 @@ export function assessPosture(frames: PoseFrame[]): AssessmentResult {
     : 0
 
   // Rank: top X% of modeled population (lower number = better rank)
-  const frontRank = Math.max(1, Math.round(frontScore))
-  const sideRank = Math.max(1, Math.round(sideScore))
+  // null = no reliable findings for this view (don't fabricate a "best" rank)
+  const frontRank = frontFindings.length > 0 ? Math.max(1, Math.round(frontScore)) : null
+  const sideRank = sideFindings.length > 0 ? Math.max(1, Math.round(sideScore)) : null
 
   return {
     findings,

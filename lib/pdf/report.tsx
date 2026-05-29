@@ -291,8 +291,8 @@ export interface PdfAssessment {
   overall_score: number
   overall_grade: string
   overall_percentile: number
-  front_rank: number
-  side_rank: number
+  front_rank: number | null
+  side_rank: number | null
   assessed_at: string
   clients: { first_name: string; last_name: string }
 }

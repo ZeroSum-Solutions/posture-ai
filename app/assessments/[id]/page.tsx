@@ -60,8 +60,8 @@ interface Assessment {
   overall_score: number
   overall_grade: OverallGrade
   overall_percentile: number
-  front_rank: number
-  side_rank: number
+  front_rank: number | null
+  side_rank: number | null
   assessed_at: string
   clients: { id: string; first_name: string; last_name: string }
 }
@@ -475,9 +475,14 @@ function SkeletalDiagramSection({
   frontRank: number | null
   sideRank: number | null
 }) {
+  function ordinal(n: number): string {
+    const v = n % 100
+    if (v >= 11 && v <= 13) return `${n}th`
+    return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+  }
   function rankLabel(rank: number | null): string {
-    if (rank === null || rank === undefined) return '—'
-    return `Rank ${rank}th out of 100`
+    if (rank === null || rank === undefined) return 'Rank N/A — insufficient data'
+    return `Rank ${ordinal(rank)} out of 100`
   }
 
   return (

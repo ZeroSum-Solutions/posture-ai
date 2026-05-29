@@ -508,3 +508,27 @@ describe('Mirror invariance (real MediaPipe front-view convention)', () => {
     expect(withinEpsilon(f.deviation, 7.13)).toBe(true)
   })
 })
+
+// ============================================================
+// Per-view rank for an all-unreliable view → null (not 1/best)
+// A view with zero reliable findings must not report "Rank 1st".
+// ============================================================
+describe('Per-view rank for an all-unreliable view', () => {
+  it('returns null rank when a view has no reliable findings (not 1/best)', () => {
+    const lowVisSide = sideFrame({
+      left_ear:       { x: 0.570, y: 0.150, visibility: 0.30 },
+      right_ear:      { x: 0.560, y: 0.150, visibility: 0.25 },
+      left_shoulder:  { x: 0.500, y: 0.250, visibility: 0.35 },
+      right_shoulder: { x: 0.510, y: 0.250, visibility: 0.20 },
+      left_hip:       { x: 0.500, y: 0.550, visibility: 0.40 },
+      right_hip:      { x: 0.505, y: 0.550, visibility: 0.20 },
+      left_knee:      { x: 0.500, y: 0.750, visibility: 0.40 },
+      right_knee:     { x: 0.505, y: 0.750, visibility: 0.20 },
+      left_ankle:     { x: 0.500, y: 0.930, visibility: 0.40 },
+      right_ankle:    { x: 0.505, y: 0.930, visibility: 0.20 },
+    })
+    const result = assessPosture([SHOULDER_FRAME, lowVisSide])
+    expect(result.ranks.side).toBeNull()
+    expect(typeof result.ranks.front).toBe('number')
+  })
+})

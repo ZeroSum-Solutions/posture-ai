@@ -1,15 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 export default function OnboardingPage() {
   const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   async function handleAccept() {
-    if (!accepted) return
+    if (!accepted || loading) return
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -19,8 +17,9 @@ export default function OnboardingPage() {
         .update({ non_diagnostic_ack_at: new Date().toISOString() })
         .eq('id', user.id)
     }
-    router.push('/dashboard')
-    router.refresh()
+    // Hard navigation: forces the server-side gate to re-read the fresh
+    // ack and avoids a stale Next.js router-cache redirect back to /onboarding.
+    window.location.assign('/dashboard')
   }
 
   return (

@@ -36,7 +36,7 @@ export interface AssessmentResult {
   overallScore: number
   overallGrade: OverallGrade
   overallPercentile: number
-  ranks: { front: number; side: number }
+  ranks: { front: number | null; side: number | null }
   generatedAt: string
   engineVersion: string
   disclaimer: string
