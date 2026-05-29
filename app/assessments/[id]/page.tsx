@@ -18,6 +18,15 @@ interface Finding {
   view_used: string
   confidence: number
   causes_text?: string
+  tight_muscles?: string[]
+  weak_muscles?: string[]
+}
+
+interface Capture {
+  id: string
+  view: string
+  signed_url: string | null
+  source: string
 }
 
 interface Assessment {
@@ -65,6 +74,420 @@ const REGION_LABELS: Record<string, string> = {
   leg: 'Legs',
 }
 
+// ---- Muscle → Body-Map Coordinates ----
+// viewBox: 0 0 80 180 for front and back
+const MUSCLE_REGIONS: Record<string, { view: 'front' | 'back'; cx: number; cy: number; rx: number; ry: number }> = {
+  'suboccipitals': { view: 'back', cx: 40, cy: 8, rx: 9, ry: 5 },
+  'upper trapezius': { view: 'back', cx: 40, cy: 20, rx: 22, ry: 8 },
+  'levator scapulae': { view: 'back', cx: 34, cy: 14, rx: 8, ry: 7 },
+  'sternocleidomastoid': { view: 'front', cx: 36, cy: 15, rx: 6, ry: 7 },
+  'deep cervical flexors': { view: 'front', cx: 40, cy: 14, rx: 10, ry: 5 },
+  'lower trapezius': { view: 'back', cx: 40, cy: 54, rx: 16, ry: 7 },
+  'middle trapezius': { view: 'back', cx: 40, cy: 40, rx: 18, ry: 7 },
+  'pectoralis major': { view: 'front', cx: 40, cy: 36, rx: 20, ry: 11 },
+  'pectoralis minor': { view: 'front', cx: 40, cy: 30, rx: 13, ry: 8 },
+  'anterior deltoid': { view: 'front', cx: 22, cy: 28, rx: 7, ry: 8 },
+  'rhomboids': { view: 'back', cx: 40, cy: 43, rx: 10, ry: 10 },
+  'serratus anterior': { view: 'front', cx: 26, cy: 52, rx: 7, ry: 12 },
+  'thoracic erector spinae': { view: 'back', cx: 40, cy: 48, rx: 5, ry: 18 },
+  'latissimus dorsi': { view: 'back', cx: 40, cy: 62, rx: 22, ry: 14 },
+  'deep thoracic flexors': { view: 'front', cx: 40, cy: 42, rx: 14, ry: 10 },
+  'abdominals': { view: 'front', cx: 40, cy: 66, rx: 13, ry: 18 },
+  'hip flexors': { view: 'front', cx: 40, cy: 93, rx: 16, ry: 7 },
+  'lumbar erector spinae': { view: 'back', cx: 40, cy: 76, rx: 5, ry: 12 },
+  'gastrocnemius': { view: 'back', cx: 40, cy: 153, rx: 10, ry: 15 },
+  'gluteals': { view: 'back', cx: 40, cy: 93, rx: 20, ry: 11 },
+  'hamstrings': { view: 'back', cx: 40, cy: 118, rx: 12, ry: 21 },
+  'gluteus medius': { view: 'back', cx: 40, cy: 86, rx: 14, ry: 7 },
+  'tensor fasciae latae': { view: 'front', cx: 20, cy: 97, rx: 7, ry: 10 },
+  'quadratus lumborum': { view: 'back', cx: 40, cy: 75, rx: 14, ry: 7 },
+  'quadriceps': { view: 'front', cx: 40, cy: 116, rx: 20, ry: 20 },
+  'vastus medialis (vmo)': { view: 'front', cx: 40, cy: 140, rx: 13, ry: 7 },
+  'adductors': { view: 'front', cx: 40, cy: 120, rx: 9, ry: 16 },
+  'obliques': { view: 'front', cx: 40, cy: 66, rx: 18, ry: 13 },
+  'one-side hip rotators': { view: 'back', cx: 40, cy: 91, rx: 14, ry: 10 },
+  'it band': { view: 'front', cx: 20, cy: 116, rx: 5, ry: 20 },
+  'popliteus': { view: 'back', cx: 40, cy: 136, rx: 8, ry: 6 },
+}
+
+function normalizeMuscle(name: string): string {
+  return name.toLowerCase().trim().replace(/\s*\([^)]*\)/g, '').trim()
+}
+
+function getMuscleRegion(name: string) {
+  const key = normalizeMuscle(name)
+  if (MUSCLE_REGIONS[key]) return MUSCLE_REGIONS[key]
+  for (const [k, v] of Object.entries(MUSCLE_REGIONS)) {
+    if (key.includes(k) || k.includes(key)) return v
+  }
+  return null
+}
+
+// Schematic body silhouette paths (front and back, viewBox 0 0 80 180)
+function BodySilhouette({ view }: { view: 'front' | 'back' }) {
+  const bodyColor = '#2A2A2E'
+  const strokeColor = '#3F3F46'
+
+  if (view === 'front') {
+    return (
+      <>
+        {/* Head */}
+        <circle cx="40" cy="10" r="9" fill={bodyColor} stroke={strokeColor} strokeWidth="1.2"/>
+        {/* Neck */}
+        <rect x="37" y="19" width="6" height="6" rx="1" fill={bodyColor} stroke={strokeColor} strokeWidth="1"/>
+        {/* Torso */}
+        <path d="M 20 25 L 60 25 L 64 80 L 16 80 Z" fill={bodyColor} stroke={strokeColor} strokeWidth="1.2"/>
+        {/* Left arm */}
+        <path d="M 20 25 L 10 55 L 8 80" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+        {/* Right arm */}
+        <path d="M 60 25 L 70 55 L 72 80" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+        {/* Left thigh */}
+        <path d="M 16 80 L 28 130" stroke={strokeColor} strokeWidth="4" fill="none" strokeLinecap="round"/>
+        {/* Right thigh */}
+        <path d="M 64 80 L 52 130" stroke={strokeColor} strokeWidth="4" fill="none" strokeLinecap="round"/>
+        {/* Left shin */}
+        <path d="M 28 130 L 26 165" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+        {/* Right shin */}
+        <path d="M 52 130 L 54 165" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+        {/* Left foot */}
+        <path d="M 18 165 L 30 165" stroke={strokeColor} strokeWidth="2" fill="none" strokeLinecap="round"/>
+        {/* Right foot */}
+        <path d="M 50 165 L 62 165" stroke={strokeColor} strokeWidth="2" fill="none" strokeLinecap="round"/>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {/* Head */}
+      <circle cx="40" cy="10" r="9" fill={bodyColor} stroke={strokeColor} strokeWidth="1.2"/>
+      {/* Neck */}
+      <rect x="37" y="19" width="6" height="6" rx="1" fill={bodyColor} stroke={strokeColor} strokeWidth="1"/>
+      {/* Torso */}
+      <path d="M 20 25 L 60 25 L 64 80 L 16 80 Z" fill={bodyColor} stroke={strokeColor} strokeWidth="1.2"/>
+      {/* Left arm */}
+      <path d="M 20 25 L 10 55 L 8 80" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+      {/* Right arm */}
+      <path d="M 60 25 L 70 55 L 72 80" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+      {/* Left thigh */}
+      <path d="M 16 80 L 28 130" stroke={strokeColor} strokeWidth="4" fill="none" strokeLinecap="round"/>
+      {/* Right thigh */}
+      <path d="M 64 80 L 52 130" stroke={strokeColor} strokeWidth="4" fill="none" strokeLinecap="round"/>
+      {/* Left shin */}
+      <path d="M 28 130 L 26 165" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+      {/* Right shin */}
+      <path d="M 52 130 L 54 165" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round"/>
+      {/* Left foot */}
+      <path d="M 18 165 L 30 165" stroke={strokeColor} strokeWidth="2" fill="none" strokeLinecap="round"/>
+      {/* Right foot */}
+      <path d="M 50 165 L 62 165" stroke={strokeColor} strokeWidth="2" fill="none" strokeLinecap="round"/>
+    </>
+  )
+}
+
+// Muscle Body-Map SVG
+function MuscleBodyMap({
+  tightMuscles,
+  weakMuscles,
+}: {
+  tightMuscles: string[]
+  weakMuscles: string[]
+}) {
+  // Collect highlighted regions
+  const tightRegions = tightMuscles.map(m => ({ muscle: m, region: getMuscleRegion(m) })).filter(x => x.region)
+  const weakRegions = weakMuscles.map(m => ({ muscle: m, region: getMuscleRegion(m) })).filter(x => x.region)
+
+  // Split by view
+  const frontTight = tightRegions.filter(r => r.region?.view === 'front')
+  const frontWeak = weakRegions.filter(r => r.region?.view === 'front')
+  const backTight = tightRegions.filter(r => r.region?.view === 'back')
+  const backWeak = weakRegions.filter(r => r.region?.view === 'back')
+
+  const hasAny = frontTight.length > 0 || frontWeak.length > 0 || backTight.length > 0 || backWeak.length > 0
+
+  if (!hasAny) return null
+
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      {/* Front view */}
+      {(frontTight.length > 0 || frontWeak.length > 0) && (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '0.6rem', color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Front</div>
+          <svg viewBox="0 0 80 175" width="72" height="157" style={{ display: 'block', background: '#0A0A0B', borderRadius: 6 }}>
+            <BodySilhouette view="front"/>
+            {frontTight.map((item, i) => (
+              <ellipse
+                key={'ft-' + i}
+                cx={item.region!.cx} cy={item.region!.cy}
+                rx={item.region!.rx} ry={item.region!.ry}
+                fill="#EF444440" stroke="#EF4444" strokeWidth="1.2"
+              />
+            ))}
+            {frontWeak.map((item, i) => (
+              <ellipse
+                key={'fw-' + i}
+                cx={item.region!.cx} cy={item.region!.cy}
+                rx={item.region!.rx} ry={item.region!.ry}
+                fill="#6366F140" stroke="#6366F1" strokeWidth="1.2"
+              />
+            ))}
+          </svg>
+        </div>
+      )}
+
+      {/* Back view */}
+      {(backTight.length > 0 || backWeak.length > 0) && (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '0.6rem', color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Back</div>
+          <svg viewBox="0 0 80 175" width="72" height="157" style={{ display: 'block', background: '#0A0A0B', borderRadius: 6 }}>
+            <BodySilhouette view="back"/>
+            {backTight.map((item, i) => (
+              <ellipse
+                key={'bt-' + i}
+                cx={item.region!.cx} cy={item.region!.cy}
+                rx={item.region!.rx} ry={item.region!.ry}
+                fill="#EF444440" stroke="#EF4444" strokeWidth="1.2"
+              />
+            ))}
+            {backWeak.map((item, i) => (
+              <ellipse
+                key={'bw-' + i}
+                cx={item.region!.cx} cy={item.region!.cy}
+                rx={item.region!.rx} ry={item.region!.ry}
+                fill="#6366F140" stroke="#6366F1" strokeWidth="1.2"
+              />
+            ))}
+          </svg>
+        </div>
+      )}
+
+      {/* Named muscle lists */}
+      <div style={{ flex: 1, minWidth: 100 }}>
+        {tightMuscles.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}/>
+              Tight
+            </div>
+            {tightMuscles.map((m, i) => (
+              <div key={i} style={{ fontSize: '0.72rem', color: '#EF4444', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
+            ))}
+          </div>
+        )}
+        {weakMuscles.length > 0 && (
+          <div>
+            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366F1', display: 'inline-block' }}/>
+              Weak
+            </div>
+            {weakMuscles.map((m, i) => (
+              <div key={i} style={{ fontSize: '0.72rem', color: '#6366F1', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---- Skeletal Diagram: Front View positions ----
+const FRONT_ANNOTATION_POSITIONS: Record<string, { x: number; y: number; label: string }> = {
+  anterior_imbalanced_shoulders: { x: 90, y: 62, label: 'Shoulder' },
+  posterior_imbalanced_shoulders: { x: 90, y: 62, label: 'Shoulder' },
+  pelvic_obliquity: { x: 90, y: 218, label: 'Pelvis' },
+  genu_varum_valgum_left: { x: 60, y: 305, label: 'L Knee' },
+  genu_varum_valgum_right: { x: 120, y: 305, label: 'R Knee' },
+}
+
+// ---- Skeletal Diagram: Side View positions ----
+const SIDE_ANNOTATION_POSITIONS: Record<string, { x: number; y: number; label: string }> = {
+  forward_head_posture: { x: 82, y: 28, label: 'Head' },
+  t1_tilt_backward: { x: 68, y: 115, label: 'T1' },
+  anterior_pelvic_shift: { x: 75, y: 220, label: 'Pelvis' },
+  knee_extension_back_knee: { x: 75, y: 305, label: 'Knee' },
+}
+
+function AngleMarker({ x, y, color, severity, label }: { x: number; y: number; color: string; severity: number; label: string }) {
+  const r = severity >= 50 ? 16 : severity >= 20 ? 12 : 9
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r + 4} fill={color + '18'} stroke={color} strokeWidth="1.5" strokeDasharray="3,2"/>
+      <circle cx={x} cy={y} r={3} fill={color}/>
+      <text x={x} y={y + r + 14} textAnchor="middle" fill={color} fontSize="8" fontWeight="700">
+        {label}
+      </text>
+    </g>
+  )
+}
+
+function DirectionArrow({ x, y, color, direction, view }: { x: number; y: number; color: string; direction: string; view: 'front' | 'side' }) {
+  const dx = view === 'front'
+    ? (direction.includes('Left') || direction.includes('left') ? -14 : 14)
+    : (direction.includes('Forward') || direction.includes('forward') || direction.includes('Anterior') ? 14 : -14)
+  const dy = view === 'side' && direction.includes('Forward') ? -8 : 0
+  return (
+    <line
+      x1={x} y1={y}
+      x2={x + dx} y2={y + dy}
+      stroke={color}
+      strokeWidth="2.5"
+      markerEnd={`url(#arrow-${color.replace('#', '')})`}
+    />
+  )
+}
+
+function FrontSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUrl: string | null }) {
+  const relevantFindings = findings.filter(f => f.view_used === 'front' && FRONT_ANNOTATION_POSITIONS[f.imbalance_key])
+  const uniqueColors = [...new Set(relevantFindings.map(f => ZONE_COLORS[f.zone]))]
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      {captureUrl && (
+        <div style={{ position: 'absolute', top: 4, right: -48, width: 40, height: 60, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden', background: '#111' }}>
+          <img src={captureUrl} alt="Front view" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+      )}
+      <svg viewBox="0 0 180 410" width="160" height="365" aria-label="Front view skeletal diagram" style={{ display: 'block' }}>
+        <defs>
+          {uniqueColors.map(color => (
+            <marker key={color} id={`arrow-${color.replace('#', '')}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={color}/>
+            </marker>
+          ))}
+        </defs>
+        <circle cx="90" cy="26" r="20" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
+        <line x1="90" y1="46" x2="90" y2="62" stroke="#3F3F46" strokeWidth="2.5"/>
+        <line x1="48" y1="62" x2="132" y2="62" stroke="#3F3F46" strokeWidth="3"/>
+        <line x1="48" y1="62" x2="28" y2="132" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="28" y1="132" x2="16" y2="190" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="132" y1="62" x2="152" y2="132" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="152" y1="132" x2="164" y2="190" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="90" y1="62" x2="90" y2="218" stroke="#3F3F46" strokeWidth="2.5"/>
+        <path d="M 90 80 Q 62 95 58 120" stroke="#3F3F46" strokeWidth="1.5" fill="none" opacity="0.5"/>
+        <path d="M 90 80 Q 118 95 122 120" stroke="#3F3F46" strokeWidth="1.5" fill="none" opacity="0.5"/>
+        <line x1="62" y1="218" x2="118" y2="218" stroke="#3F3F46" strokeWidth="3"/>
+        <line x1="62" y1="218" x2="58" y2="305" stroke="#3F3F46" strokeWidth="2.5"/>
+        <line x1="118" y1="218" x2="122" y2="305" stroke="#3F3F46" strokeWidth="2.5"/>
+        <circle cx="58" cy="305" r="5" stroke="#3F3F46" strokeWidth="2" fill="#161618"/>
+        <circle cx="122" cy="305" r="5" stroke="#3F3F46" strokeWidth="2" fill="#161618"/>
+        <line x1="58" y1="310" x2="56" y2="390" stroke="#3F3F46" strokeWidth="2.5"/>
+        <line x1="122" y1="310" x2="124" y2="390" stroke="#3F3F46" strokeWidth="2.5"/>
+        <line x1="42" y1="392" x2="68" y2="392" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="112" y1="392" x2="138" y2="392" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="90" y1="0" x2="90" y2="410" stroke="rgba(99,102,241,0.2)" strokeWidth="1" strokeDasharray="4,4"/>
+        {relevantFindings.map(f => {
+          const pos = FRONT_ANNOTATION_POSITIONS[f.imbalance_key]
+          const color = ZONE_COLORS[f.zone]
+          return (
+            <g key={f.imbalance_key}>
+              <AngleMarker x={pos.x} y={pos.y} color={color} severity={f.severity_pct} label={pos.label}/>
+              {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' && (
+                <DirectionArrow x={pos.x} y={pos.y} color={color} direction={f.direction} view="front"/>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
+function SideSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUrl: string | null }) {
+  const relevantFindings = findings.filter(f => f.view_used === 'side' && SIDE_ANNOTATION_POSITIONS[f.imbalance_key])
+  const uniqueColors = [...new Set(relevantFindings.map(f => ZONE_COLORS[f.zone]))]
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      {captureUrl && (
+        <div style={{ position: 'absolute', top: 4, right: -48, width: 40, height: 60, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden', background: '#111' }}>
+          <img src={captureUrl} alt="Side view" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+      )}
+      <svg viewBox="0 0 150 410" width="130" height="357" aria-label="Side view skeletal diagram" style={{ display: 'block' }}>
+        <defs>
+          {uniqueColors.map(color => (
+            <marker key={color} id={`arrow-side-${color.replace('#', '')}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={color}/>
+            </marker>
+          ))}
+        </defs>
+        <circle cx="80" cy="26" r="20" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
+        <path d="M 75 46 Q 70 54 68 62" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
+        <path d="M 68 62 Q 64 80 62 100" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
+        <line x1="68" y1="62" x2="88" y2="120" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="88" y1="120" x2="95" y2="178" stroke="#3F3F46" strokeWidth="2"/>
+        <path d="M 62 100 Q 58 135 60 165" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
+        <path d="M 60 165 Q 64 192 66 218" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
+        <path d="M 66 218 Q 72 228 70 238" stroke="#3F3F46" strokeWidth="3" fill="none"/>
+        <line x1="70" y1="238" x2="72" y2="305" stroke="#3F3F46" strokeWidth="2.5"/>
+        <circle cx="72" cy="305" r="5" stroke="#3F3F46" strokeWidth="2" fill="#161618"/>
+        <line x1="72" y1="310" x2="74" y2="390" stroke="#3F3F46" strokeWidth="2.5"/>
+        <line x1="60" y1="390" x2="100" y2="390" stroke="#3F3F46" strokeWidth="2"/>
+        <line x1="72" y1="0" x2="72" y2="410" stroke="rgba(99,102,241,0.2)" strokeWidth="1" strokeDasharray="4,4"/>
+        {relevantFindings.map(f => {
+          const pos = SIDE_ANNOTATION_POSITIONS[f.imbalance_key]
+          const color = ZONE_COLORS[f.zone]
+          return (
+            <g key={f.imbalance_key}>
+              <AngleMarker x={pos.x} y={pos.y} color={color} severity={f.severity_pct} label={pos.label}/>
+              {f.direction && f.direction !== 'Neutral' && (
+                <DirectionArrow x={pos.x} y={pos.y} color={color} direction={f.direction} view="side"/>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
+function SkeletalDiagramSection({
+  findings, frontCapture, sideCapture, frontRank, sideRank,
+}: {
+  findings: Finding[]
+  frontCapture: Capture | null
+  sideCapture: Capture | null
+  frontRank: number | null
+  sideRank: number | null
+}) {
+  function rankLabel(rank: number | null): string {
+    if (rank === null || rank === undefined) return '—'
+    return `Rank ${rank}th out of 100`
+  }
+
+  return (
+    <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Postural Alignment Diagram
+      </h2>
+      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
+          <FrontSkeleton findings={findings} captureUrl={frontCapture?.signed_url ?? null}/>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#71717A', fontWeight: 500 }}>{rankLabel(frontRank)}</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
+          <SideSkeleton findings={findings} captureUrl={sideCapture?.signed_url ?? null}/>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#71717A', fontWeight: 500 }}>{rankLabel(sideRank)}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
+        {[{ color: '#22C55E', label: 'Maintain' }, { color: '#F59E0B', label: 'Warning' }, { color: '#EF4444', label: 'Danger' }].map(({ color, label }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }}/>
+            <span style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ marginTop: 14, fontSize: '0.68rem', color: '#52525B', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5 }}>
+        Diagrams are schematic representations only and do not depict literal measurements or anatomical accuracy.
+        Markers indicate regions of interest detected during screening.
+      </p>
+    </div>
+  )
+}
+
 // ---- Grade Ring Component ----
 function GradeRing({ grade, score }: { grade: OverallGrade; score: number }) {
   const color = gradeColor(grade)
@@ -77,26 +500,17 @@ function GradeRing({ grade, score }: { grade: OverallGrade; score: number }) {
     <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
       <svg width="100" height="100" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
-        <circle
-          cx="50" cy="50" r={r} fill="none"
-          stroke={color} strokeWidth="10"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-          strokeLinecap="round"
-          transform="rotate(-90 50 50)"
-        />
+        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="10"
+          strokeDasharray={circumference} strokeDashoffset={dashOffset}
+          strokeLinecap="round" transform="rotate(-90 50 50)"/>
       </svg>
-      <div style={{
-        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-      }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontSize: '2rem', fontWeight: 900, color, lineHeight: 1 }}>{grade}</span>
       </div>
     </div>
   )
 }
 
-// ---- Score Gradient Bar ----
 function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
   const color = gradeColor(grade)
   const positionPct = Math.min(100, Math.max(0, score))
@@ -105,19 +519,10 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
     <div>
       <div style={{ position: 'relative', height: 12, borderRadius: 6, overflow: 'hidden',
         background: 'linear-gradient(to right, #22C55E 0%, #22C55E 15%, #F59E0B 50%, #EF4444 85%, #EF4444 100%)',
-        marginBottom: 8,
-      }}>
-        <div style={{
-          position: 'absolute',
-          left: positionPct + '%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 18, height: 18,
-          borderRadius: '50%',
-          background: color,
-          border: '3px solid #0A0A0B',
-          boxShadow: '0 0 8px ' + color + '88',
-        }} />
+        marginBottom: 8 }}>
+        <div style={{ position: 'absolute', left: positionPct + '%', top: '50%', transform: 'translate(-50%, -50%)',
+          width: 18, height: 18, borderRadius: '50%', background: color, border: '3px solid #0A0A0B',
+          boxShadow: '0 0 8px ' + color + '88' }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#71717A' }}>
         <span style={{ color: '#22C55E' }}>S (Best)</span>
@@ -128,21 +533,16 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
   )
 }
 
-// ---- Band Reference Table ----
 function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
   return (
     <div>
       <h3 style={{ fontSize: '0.78rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grade Reference</h3>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {GRADE_BANDS.map(b => (
-          <div key={b.grade} style={{
-            padding: '6px 10px',
-            borderRadius: 8,
+          <div key={b.grade} style={{ padding: '6px 10px', borderRadius: 8,
             background: b.grade === currentGrade ? b.color + '22' : 'rgba(255,255,255,0.04)',
             border: '1px solid ' + (b.grade === currentGrade ? b.color : 'rgba(255,255,255,0.08)'),
-            textAlign: 'center',
-            minWidth: 56,
-          }}>
+            textAlign: 'center', minWidth: 56 }}>
             <div style={{ fontSize: '1rem', fontWeight: 900, color: b.color }}>{b.grade}</div>
             <div style={{ fontSize: '0.68rem', color: '#71717A', marginTop: 1 }}>{b.range}</div>
             <div style={{ fontSize: '0.65rem', color: '#52525B' }}>{b.desc}</div>
@@ -157,6 +557,8 @@ function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
 function FindingCard({ f }: { f: Finding }) {
   const isUnreliable = f.zone === 'unreliable'
   const zoneColor = ZONE_COLORS[f.zone]
+  const [expanded, setExpanded] = useState(false)
+  const hasMuscles = (f.tight_muscles && f.tight_muscles.length > 0) || (f.weak_muscles && f.weak_muscles.length > 0)
 
   return (
     <div
@@ -164,8 +566,7 @@ function FindingCard({ f }: { f: Finding }) {
       style={{
         background: isUnreliable ? '#111113' : '#161618',
         border: '1px solid ' + (isUnreliable ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'),
-        borderRadius: 12,
-        padding: 16,
+        borderRadius: 12, padding: 16,
         borderLeft: '3px solid ' + zoneColor,
         opacity: isUnreliable ? 0.65 : 1,
       }}
@@ -178,18 +579,12 @@ function FindingCard({ f }: { f: Finding }) {
         </span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {isUnreliable && (
-            <span style={{
-              padding: '2px 8px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
-              background: 'rgba(113,113,122,0.2)', color: '#71717A',
-              border: '1px solid rgba(113,113,122,0.4)',
-              textTransform: 'uppercase',
-            }}>Unreliable</span>
+            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
+              background: 'rgba(113,113,122,0.2)', color: '#71717A', border: '1px solid rgba(113,113,122,0.4)',
+              textTransform: 'uppercase' }}>Unreliable</span>
           )}
-          <span style={{
-            padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-            background: zoneColor + '22',
-            color: zoneColor, textTransform: 'uppercase',
-          }}>{f.zone}</span>
+          <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
+            background: zoneColor + '22', color: zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
         </div>
       </div>
 
@@ -201,7 +596,7 @@ function FindingCard({ f }: { f: Finding }) {
         )}
       </div>
 
-      {/* Severity bar (not shown for unreliable) */}
+      {/* Severity bar */}
       {!isUnreliable && (
         <div style={{ marginBottom: f.causes_text ? 12 : 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -209,28 +604,42 @@ function FindingCard({ f }: { f: Finding }) {
             <span style={{ fontSize: '0.72rem', fontWeight: 600, color: zoneColor }}>{f.severity_pct}%</span>
           </div>
           <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', width: f.severity_pct + '%',
-              background: zoneColor,
-              borderRadius: 3, transition: 'width 0.5s ease',
-            }} />
+            <div style={{ height: '100%', width: f.severity_pct + '%', background: zoneColor, borderRadius: 3, transition: 'width 0.5s ease' }} />
           </div>
         </div>
       )}
 
       {/* Behavioral causes */}
       {f.causes_text && (
-        <div style={{
-          marginTop: 10,
-          padding: '8px 12px',
-          background: 'rgba(255,255,255,0.03)',
-          borderRadius: 8,
-          fontSize: '0.8rem',
-          color: '#A1A1AA',
-          lineHeight: 1.5,
-        }}>
+        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5 }}>
           <span style={{ fontWeight: 600, color: '#71717A', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
           {f.causes_text}
+        </div>
+      )}
+
+      {/* Muscle Analysis expandable section */}
+      {hasMuscles && (
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            style={{
+              background: 'none', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+              color: '#A1A1AA', fontSize: '0.75rem', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+            }}
+          >
+            <span style={{ color: '#6366F1' }}>Muscle Analysis</span>
+            <span style={{ marginLeft: 'auto', color: '#52525B', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+          </button>
+          {expanded && (
+            <div style={{ marginTop: 12, padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: 10 }}>
+              <MuscleBodyMap
+                tightMuscles={f.tight_muscles || []}
+                weakMuscles={f.weak_muscles || []}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -271,6 +680,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const router = useRouter()
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
+  const [captures, setCaptures] = useState<Capture[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [assessmentId, setAssessmentId] = useState<string>('')
@@ -298,7 +708,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         const data = await r.json()
         setAssessment(data.assessment)
         setFindings(data.findings || [])
-        // Fetch prior assessments for this client for comparison
+        setCaptures(data.captures || [])
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
           const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId)
@@ -364,10 +774,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const percentile = assessment.overall_percentile
   const color = gradeColor(grade)
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
+  const frontCapture = captures.find(c => c.view === 'front') ?? null
+  const sideCapture = captures.find(c => c.view === 'side') ?? null
 
   return (
     <div style={{ padding: '24px 16px', maxWidth: 960, margin: '0 auto' }}>
-      {/* Back link */}
       <div style={{ marginBottom: 20 }}>
         <Link href={'/clients/' + assessment.clients.id}
           style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
@@ -382,86 +793,63 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
-      {/* Non-diagnostic disclaimer */}
       <div data-testid="disclaimer" style={{
         background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
-        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5,
-      }}>
+        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5 }}>
         <strong style={{ color: '#6366F1' }}>Screening Only</strong> — Not a medical diagnosis. For educational and screening purposes only. Results require interpretation by a qualified professional.
       </div>
 
-      {/* Overall Rating Panel */}
-      <div style={{
-        background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16,
-        padding: 24, marginBottom: 24,
-      }}>
+      <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Overall Rating
         </h2>
-
         <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 24 }}>
           <GradeRing grade={grade} score={score} />
           <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>
-              Top {percentile}%
-            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>Top {percentile}%</div>
             <div style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: 16 }}>
               Score: {score}/100 — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
             </div>
             <ScoreBar score={score} grade={grade} />
           </div>
         </div>
-
         <BandTable currentGrade={grade} />
       </div>
 
-      {/* Findings */}
+      <SkeletalDiagramSection
+        findings={findings}
+        frontCapture={frontCapture}
+        sideCapture={sideCapture}
+        frontRank={assessment.front_rank}
+        sideRank={assessment.side_rank}
+      />
+
       {findings.length > 0 && <FindingsSection findings={findings} />}
 
-      {/* Footer disclaimer */}
       <div style={{
         background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
-        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: '#71717A', lineHeight: 1.5,
-        marginBottom: 24,
-      }}>
+        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: '#71717A', lineHeight: 1.5, marginBottom: 24 }}>
         <strong style={{ color: '#EF4444' }}>SCREENING ONLY.</strong> These findings are for educational and screening purposes only. Do not substitute for clinical examination.
       </div>
 
-      {/* PDF Report */}
       {pdfUrl && (
-        <div style={{
-          background: '#161618', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 12,
-          padding: 16, marginBottom: 16,
-        }}>
+        <div style={{ background: '#161618', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <p style={{ color: '#22C55E', fontSize: '0.875rem', marginBottom: 8 }}>PDF report generated successfully.</p>
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
             padding: '10px 20px', borderRadius: 8, background: '#6366F1',
-            color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block',
-          }}>Download PDF</a>
+            color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>Download PDF</a>
         </div>
       )}
-      {pdfError && (
-        <div style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>
-      )}
+      {pdfError && <div style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
 
-      {/* Comparison selector for PDF */}
       {priorAssessments.length > 0 && (
-        <div style={{
-          background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
-          padding: 16, marginBottom: 16,
-        }}>
+        <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <label style={{ fontSize: '0.8rem', color: '#A1A1AA', display: 'block', marginBottom: 8 }}>
             Compare PDF to prior assessment (optional):
           </label>
-          <select
-            value={compareToId}
-            onChange={e => setCompareToId(e.target.value)}
-            style={{
-              padding: '8px 12px', borderRadius: 8, background: '#0A0A0B',
-              border: '1px solid rgba(255,255,255,0.15)', color: '#F5F5F5',
-              fontSize: '0.875rem', width: '100%', cursor: 'pointer',
-            }}
-          >
+          <select value={compareToId} onChange={e => setCompareToId(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: 8, background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.15)',
+              color: '#F5F5F5', fontSize: '0.875rem', width: '100%', cursor: 'pointer' }}>
             <option value="">No comparison (single assessment)</option>
             {priorAssessments.map(a => (
               <option key={a.id} value={a.id}>
@@ -472,32 +860,23 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link href={'/clients/' + assessment.clients.id} style={{
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
           color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)',
-          fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44,
-        }}>Back to Client</Link>
-        <button
-          onClick={handleGeneratePdf}
-          disabled={pdfLoading}
-          style={{
-            padding: '12px 24px', borderRadius: 10,
+          fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Back to Client</Link>
+        <button onClick={handleGeneratePdf} disabled={pdfLoading}
+          style={{ padding: '12px 24px', borderRadius: 10,
             background: pdfLoading ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.15)',
             color: pdfLoading ? '#6366F1aa' : '#6366F1',
             border: '1px solid rgba(99,102,241,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading ? 'wait' : 'pointer',
-            minHeight: 44,
-          }}
-        >
+            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading ? 'wait' : 'pointer', minHeight: 44 }}>
           {pdfLoading ? 'Generating PDF...' : 'Generate PDF'}
         </button>
         <Link href="/assessments/new" style={{
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
           color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.08)',
-          fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44,
-        }}>New Assessment</Link>
+          fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>New Assessment</Link>
       </div>
     </div>
   )

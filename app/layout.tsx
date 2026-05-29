@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           fontSize: '12px',
           textAlign: 'center'
         }}>
-          Screening only — not a medical diagnosis. Results require interpretation by qualified professionals.
+          Screening only — not a medical diagnosis. Consult a qualified healthcare professional before making any clinical decisions.
         </footer>
       </body>
     </html>
