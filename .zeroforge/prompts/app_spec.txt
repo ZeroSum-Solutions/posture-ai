@@ -1,0 +1,410 @@
+<project_specification>
+  <project_name>Posture AI</project_name>
+
+  <overview>
+    Posture AI is a markerless, AI-assisted posture and musculoskeletal screening web app for movement professionals. A practitioner captures a client's standing posture from front, side, and back views (webcam OR uploaded photo), and the app computes a clinical battery of posture imbalances — each as an angle deviation from a 0 degree standard plus a risk percentage — then renders a two-page report: an Overall Rating (letter grade S-E + percentile) with annotated front/side skeletal diagrams, and a region-grouped list of body imbalances each showing the deviation, a maintain/warning/danger risk bar, behavioral causes, a schematic tight/weak muscle map, and corrective exercises. It tracks change across assessments and exports a branded PDF. It democratizes the assessment science of a $7,000 clinic posture rig (MotiPhysio) into an accessible browser app.
+
+    CRITICAL BUILD CONSTRAINTS (read carefully):
+    1. The clinical scoring engine MUST be a PURE, framework-free TypeScript module (no React, no DOM, no network, no MediaPipe import). It takes detected pose landmarks (plain JSON) and returns assessment results deterministically. This is the heart of the app and must have heavy unit-test (vitest) coverage with hand-authored landmark fixtures. Same input -> identical output, always.
+    2. Posture angles are pure GEOMETRY computed from landmark coordinates. Risk percentages and the letter grade are DETERMINISTIC clinical thresholds (a tunable config table) — NOT a trained ML model. The only machine-learning component is the pose-landmark detector (MediaPipe), which produces joint coordinates.
+    3. Capture supports TWO input modes: live camera AND image/video upload. Build the UPLOAD path FIRST. A test-mode seam must allow injecting landmark JSON directly (bypassing the camera/MediaPipe) so the full results UI and PDF are deterministically testable headlessly with Playwright.
+    4. This is a SCREENING tool, NOT a medical diagnosis. A non-diagnostic disclaimer is a required field on every result and report surface. Use screening vocabulary (maintain / warning / danger; optimal / mild / moderate / significant) — never "normal/abnormal/diagnosis".
+    5. Backend is Supabase (Postgres + Auth + Storage) with Row-Level Security so a practitioner can only ever read their own clients' data.
+    6. HEADLESS AGENT CONSTRAINT: every agent runs headless with no human approver. NEVER use the `Workflow` tool — its mandatory review gate hangs the session. Do NOT spawn sub-agents, Tasks, or orchestration. The initializer MUST create features by calling the `feature_create_bulk` MCP tool directly (multiple calls of up to 50 each). The `<feature_budget>` element below is the authoritative feature count — create exactly that many.
+
+    Audience: physical therapists, fitness/movement professionals, athletic trainers, chiropractors, and ergonomic/wellness coaches. A solo/consumer user is simply their own single client (same data model).
+  </overview>
+
+  <technology_stack>
+    <frontend>
+      <framework>Next.js 16 (App Router) with React 19 and TypeScript</framework>
+      <styling>Tailwind CSS v4 with shadcn/ui components</styling>
+      <state_management>React Server Components + TanStack Query (React Query) for client data; React hooks/context for local UI state</state_management>
+      <animation>Framer Motion (motion package)</animation>
+      <charts>Recharts (progress trend lines with band reference areas)</charts>
+      <pose_detection>@mediapipe/tasks-vision PoseLandmarker (BlazePose GHUM, 33 landmarks incl. 3D world landmarks). WASM assets and the .task model are SELF-HOSTED in /public (never loaded from a CDN at runtime).</pose_detection>
+      <pdf>@react-pdf/renderer (client-side PDF generation, verifiable via renderToBuffer)</pdf>
+      <port>3000</port>
+    </frontend>
+    <backend>
+      <runtime>Next.js Route Handlers + Server Actions (Node runtime)</runtime>
+      <database>Supabase Postgres with Row-Level Security; @supabase/ssr for server/browser/middleware clients</database>
+      <auth>Supabase Auth (email/password + Google OAuth)</auth>
+      <storage>Supabase Storage private buckets for captured images and generated PDFs (signed URLs only)</storage>
+    </backend>
+    <communication>
+      <api>Next.js Route Handlers (/api/*) and Server Actions; Supabase client SDK for data access</api>
+    </communication>
+    <testing>
+      <unit>Vitest for the pure scoring engine, PDF buffer generation, recommendation derivation, and RLS isolation</unit>
+      <e2e>Playwright for end-to-end flows; the canonical deterministic e2e injects committed landmark JSON fixtures (test mode) and bypasses MediaPipe</e2e>
+    </testing>
+  </technology_stack>
+
+  <prerequisites>
+    <environment_setup>
+      - Node.js 20+ and npm
+      - A Supabase project; env vars NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY in .env (provided already)
+      - MediaPipe tasks-vision WASM + pose_landmarker_full.task vendored into /public via a copy script
+      - Database migrations live in supabase/migrations and are applied out-of-band (do not attempt to create the cloud project)
+    </environment_setup>
+  </prerequisites>
+
+  <core_features>
+    <foundation>
+      - Next.js 16 App Router project scaffolded with TypeScript, Tailwind v4, shadcn/ui, Framer Motion, TanStack Query, and Vitest configured
+      - Supabase SSR clients wired (server, browser, middleware) with env var validation
+      - Mobile-first dark-surface layout shell with app navigation
+      - PWA: manifest.json (standalone, dark theme) and a service worker caching the app shell
+    </foundation>
+
+    <clinical_scoring_engine>
+      - A pure TypeScript module at src/lib/posture-engine/ with NO React/DOM/network/MediaPipe dependencies
+      - Input contract: an array of PoseFrame objects (one per captured view), each a map of named landmarks {x,y,z,visibility} in metric world coordinates plus normalized image coordinates and the view label (front | side | back)
+      - Geometry utilities: angle-between-vectors, angle-from-vertical/horizontal, signed angles, plane projection, midpoint, all unit-tested against known triangles
+      - Compute each of the 10 imbalance metrics from the correct view via geometry (see clinical_reference): deviation in degrees from a 0 degree standard plus a direction label
+      - Deterministic risk scoring: map each deviation to a severityPct (0-100) and a zone (maintain 0-33 / warning 33-66 / danger 66-100) via a piecewise-linear ramp driven by per-metric tunable threshold constants in a single thresholds config file
+      - Composite scoring: an overallScore (0-100, higher is worse) aggregated from reliable findings, mapped to a letter grade via the band table (S 0-5, A 5-15, B 15-50, C 50-85, D 85-95, E 95-100), a modeled percentile ("Top X%"), and a per-view rank (front and side, "Nth out of 100") derived from a defined, configurable normative model (clearly labeled as modeled, not a real cohort)
+      - Confidence gating: each metric's confidence = min visibility of the landmarks it used; if below a reliability floor the metric is flagged reliable:false, zone:"unreliable", and excluded from the overall aggregate. The engine NEVER throws on missing/occluded landmarks — it degrades gracefully
+      - Output contract: AssessmentResult { findings[] each {key,label,region,deviation,standard,unit,direction,severityPct,zone,viewUsed,confidence,reliable,landmarksUsed}, overallScore, overallGrade, overallPercentile, ranks{front,side}, generatedAt, engineVersion, disclaimer, missingViews[] }
+      - Heavy Vitest coverage: for each metric, fixtures at optimal/warning/danger with hand-computable expected deviation, zone, and severityPct (tight epsilon); boundary tests at each band edge; a low-visibility fixture asserting unreliable + exclusion; composite grade/percentile/rank determinism
+    </clinical_scoring_engine>
+
+    <capture_pipeline>
+      - Image/video UPLOAD capture for front, side, and back views (build this BEFORE live camera): drag/drop or file input, JPEG/PNG, thumbnail preview, retake; front + side required, back optional
+      - MediaPipe PoseLandmarker provider (singleton, lazy-loaded, IMAGE mode) that runs on a captured frame and returns landmarks; an adapter converts MediaPipe's indexed landmark array into the engine's named-landmark PoseFrame (the magic index->name map lives here, never in the engine)
+      - Test-mode seam: when NEXT_PUBLIC_POSTURE_TEST_MODE / ?testMode=1 is active, the capture stage returns an injected PoseFrame from a window hook or committed fixture instead of invoking MediaPipe, so the engine + UI + PDF run for real headlessly
+      - Live webcam capture (added AFTER upload): getUserMedia preview, on-screen alignment plumb-line + silhouette guide, a fit check that highlights when required landmarks are visible, 3-2-1 auto-capture, freeze to canvas -> same PoseFrame as upload. Graceful fallback if camera permission denied
+      - Persist per view: the captured image (to Supabase Storage) and the extracted PoseFrame JSON (to the capture row) so assessments are reproducible/re-scorable
+    </capture_pipeline>
+
+    <authentication>
+      - Practitioner sign-up and sign-in with email/password and Google OAuth (Supabase Auth)
+      - Auth callback route exchanging the OAuth code for a session
+      - A practitioners profile row auto-created on first sign-in (Postgres trigger on auth.users)
+      - One-time non-diagnostic disclaimer acknowledgement gate (onboarding) enforced by middleware before any protected route
+      - Sign-out; protected-route redirect to sign-in when unauthenticated
+    </authentication>
+
+    <client_management>
+      - List of clients (searchable) for the signed-in practitioner
+      - Create a client (first/last name, DOB, sex at birth, height, weight, notes) with an explicit "client has consented to posture imaging" checkbox that records a consent timestamp
+      - Client detail page: profile header (name, DOB, consent), an assessment history tab, and an editable info tab
+      - Soft-archive a client
+    </client_management>
+
+    <assessment_flow>
+      - Guided new-assessment wizard: (1) select/confirm client, (2) capture/upload front+side+back, (3) processing, (4) results
+      - Submission API: validates practitioner auth, creates an assessment row (status processing), uploads the three images to Storage, writes capture rows with their PoseFrame JSON
+      - Scoring application: run the pure engine on the captured PoseFrames, write one assessment_findings row per imbalance, write the composite grade/percentile/ranks onto the assessment, derive exercise_recommendations deterministically, set status complete
+      - Processing screen polls assessment status and redirects to results on complete (error state with retry on failure)
+    </assessment_flow>
+
+    <results_report_ui>
+      - Overall Rating panel: large letter-grade ring (S-E) with the "Top X%" percentile on a maintain->warning->danger gradient bar, plus the grade-band reference table (S 0-5, A 5-15, B 15-50, C 50-85, D 85-95, E 95-100)
+      - Annotated skeletal sheet: front and side skeleton template diagrams (SVG) with computed red angle markers + directional arrows for the relevant imbalances, the client's captured photo shown as an inset, and a per-view rank ("Rank Nth out of 100"). A footnote clarifies the skeleton illustration is schematic and not the literal measured angle
+      - Region-grouped body-imbalance cards (groups in order: Head/Shoulders, Spine, Pelvis, Leg) — each card shows the imbalance name, deviation vs standard 0 degrees with direction, a maintain/warning/danger risk bar with the severity %, and the "behavior fixes and causes" text
+      - Schematic muscle map per imbalance: a front/back body SVG that highlights tight muscle groups in red and weak muscle groups in blue for the selected imbalance, plus named tight/weak muscle lists
+      - Recommended corrective exercises per assessment (accordion: name, category, instructions, sets/holds)
+      - Every results surface shows the non-diagnostic disclaimer
+    </results_report_ui>
+
+    <pdf_report>
+      - A two-page, client-ready branded PDF via @react-pdf/renderer rendered client-side:
+        Page 1 = client header + Overall Rating (grade, percentile, band table) + annotated front/side skeletal diagrams + per-view ranks + a notes area.
+        Page 2 = region-grouped imbalance list, each with deviation, risk bar, causes, tight/weak muscles, and recommended exercises.
+      - A non-diagnostic disclaimer on every page footer
+      - Before/after delta columns when a prior assessment for the same client exists
+      - Generation route uploads the PDF blob to a private Storage bucket (service-role) and records a reports row; report page previews via iframe and offers download
+    </pdf_report>
+
+    <progress_tracking>
+      - Per-client trend charts (Recharts): each imbalance's severity % and the overall grade over time, with maintain/warning/danger reference-area zones
+      - Before/after deltas between assessments
+      - Dashboard: client count, assessments this week, recent activity, "New Assessment" CTA
+    </progress_tracking>
+
+    <exercise_library_and_knowledge_base>
+      - Seeded clinical knowledge base: the 10 imbalance definitions (region, standard, view, tunable thresholds, behavioral causes text, tight/weak muscle lists with body-map region ids) — see clinical_reference
+      - Seeded corrective exercise library mapped to imbalance keys + minimum zone; deterministic recommendation derivation (recommend an exercise when its triggering imbalance is at/above its minimum zone)
+      - Browsable exercise library page (filter by category)
+    </exercise_library_and_knowledge_base>
+
+    <safety_and_settings>
+      - Persistent non-diagnostic disclaimer surfaces (capture, results, report, footer)
+      - Settings: practice name, display name, logo upload (for PDF branding), password change
+      - RLS isolation enforced and tested: a practitioner can never read another practitioner's clients/assessments/findings
+    </safety_and_settings>
+  </core_features>
+
+  <clinical_reference>
+    <!-- Authoritative seed content for the knowledge base. Janda/Kendall-informed,
+         SCREENING-only, thresholds are tunable defaults. Each imbalance: standard is 0 degrees;
+         zone edges are tunable; severityPct via piecewise-linear ramp on |deviation|. -->
+    <imbalance key="forward_head_posture" region="head_shoulders" view="side" unit="deg">
+      <causes>Prolonged neck flexion (phone/desk), monitor positioned too low, loss of the normal cervical curve.</causes>
+      <tight>suboccipitals, upper trapezius, levator scapulae, sternocleidomastoid</tight>
+      <weak>deep cervical flexors, lower trapezius</weak>
+    </imbalance>
+    <imbalance key="anterior_imbalanced_shoulders" region="head_shoulders" view="front" unit="deg">
+      <causes>Leaning the upper body to one side, carrying a bag on one side, desk work, press-dominant training.</causes>
+      <tight>pectoralis major, pectoralis minor, anterior deltoid, upper trapezius</tight>
+      <weak>rhomboids, middle trapezius, lower trapezius, serratus anterior</weak>
+    </imbalance>
+    <imbalance key="posterior_imbalanced_shoulders" region="head_shoulders" view="front_back" unit="deg">
+      <causes>Shoulder hiking, one-sided load carrying, chronic upper-trap tension.</causes>
+      <tight>upper trapezius, levator scapulae (elevated side)</tight>
+      <weak>lower trapezius (elevated side)</weak>
+    </imbalance>
+    <imbalance key="t1_tilt_backward" region="spine" view="side" unit="deg">
+      <causes>Repeatedly bending the spine backward, inability to stay upright when seated, poor seated support.</causes>
+      <tight>thoracic erector spinae, latissimus dorsi</tight>
+      <weak>deep thoracic flexors, abdominals</weak>
+    </imbalance>
+    <imbalance key="pelvic_obliquity" region="pelvis" view="front" unit="deg">
+      <causes>Crossing the legs, prolonged sedentary posture, asymmetric weight-bearing, leg-length difference.</causes>
+      <tight>quadratus lumborum and adductors (elevated side), opposite gluteus medius</tight>
+      <weak>gluteus medius (elevated side)</weak>
+    </imbalance>
+    <imbalance key="anterior_pelvic_shift" region="pelvis" view="side" unit="deg">
+      <causes>Wearing high heels for long periods, excess abdominal weight, prolonged standing sway.</causes>
+      <tight>hip flexors, lumbar erector spinae, gastrocnemius</tight>
+      <weak>gluteals, hamstrings, abdominals</weak>
+    </imbalance>
+    <imbalance key="pelvic_axial_rotation" region="pelvis" view="transverse" unit="deg">
+      <causes>Crossing the legs, one-sided sports/loading, sedentary asymmetry.</causes>
+      <tight>one-side hip rotators and obliques</tight>
+      <weak>opposite obliques and gluteals</weak>
+    </imbalance>
+    <imbalance key="genu_varum_valgum_left" region="leg" view="front" unit="deg">
+      <causes>Bow-legged or knock-kneed gait habits, cross-legged sitting, footwear.</causes>
+      <tight>tensor fasciae latae / IT band and lateral structures (varum) or adductors (valgum)</tight>
+      <weak>gluteus medius, vastus medialis (VMO)</weak>
+    </imbalance>
+    <imbalance key="genu_varum_valgum_right" region="leg" view="front" unit="deg">
+      <causes>Bow-legged or knock-kneed gait habits, cross-legged sitting, footwear.</causes>
+      <tight>tensor fasciae latae / IT band and lateral structures (varum) or adductors (valgum)</tight>
+      <weak>gluteus medius, vastus medialis (VMO)</weak>
+    </imbalance>
+    <imbalance key="knee_extension_back_knee" region="leg" view="side" unit="deg">
+      <causes>Wearing high heels, joint hyperlaxity, abdominal weight shifting the center of mass backward.</causes>
+      <tight>quadriceps, gastrocnemius</tight>
+      <weak>hamstrings, popliteus</weak>
+    </imbalance>
+  </clinical_reference>
+
+  <database_schema>
+    <tables>
+      <practitioners>
+        - id (PK, = auth.users.id), display_name, practice_name, logo_storage_path
+        - non_diagnostic_ack_at (timestamptz, null until accepted)
+        - created_at, updated_at
+        - RLS: id = auth.uid()
+      </practitioners>
+      <clients>
+        - id (PK), practitioner_id (FK -> practitioners.id, NOT NULL)
+        - first_name, last_name, date_of_birth, sex_at_birth (enum), height_cm, weight_kg, notes
+        - consent_recorded_at, archived_at, created_at, updated_at
+        - RLS: practitioner_id = auth.uid()
+      </clients>
+      <assessments>
+        - id (PK), client_id (FK), practitioner_id (FK, denormalized for RLS)
+        - assessed_at, status (processing|complete|failed), scoring_engine_version
+        - overall_score (numeric), overall_grade (enum S-E), overall_percentile (numeric), front_rank (int), side_rank (int)
+        - assessment_type (default 'static', open for future 'dynamic'), notes, created_at
+        - RLS: practitioner_id = auth.uid()
+      </assessments>
+      <assessment_findings>
+        - id (PK), assessment_id (FK), practitioner_id (denormalized)
+        - imbalance_key, region, label, deviation (numeric), standard (numeric default 0), unit
+        - direction, severity_pct (numeric 0-100), zone (enum maintain|warning|danger|unreliable)
+        - view_used (enum), confidence (numeric 0-1)
+        - UNIQUE(assessment_id, imbalance_key); index (practitioner_id, imbalance_key, created_at)
+        - RLS: practitioner_id = auth.uid()
+      </assessment_findings>
+      <captures>
+        - id (PK), assessment_id (FK), practitioner_id (denormalized)
+        - view (enum front|side|back), storage_path, source (upload|webcam), width_px, height_px
+        - pose_frame (jsonb), model_version, created_at
+        - RLS: practitioner_id = auth.uid()
+      </captures>
+      <reports>
+        - id (PK), assessment_id (FK), practitioner_id, storage_path, generated_at, compared_to_assessment_id (nullable FK)
+        - RLS: practitioner_id = auth.uid()
+      </reports>
+      <imbalance_definitions>
+        - key (PK), region, label, default_view, standard_value, unit
+        - threshold_config (jsonb: zone edges + severity ramp), causes_text, tight_muscles (jsonb), weak_muscles (jsonb)
+        - RLS: SELECT to authenticated USING (true); seeded via service role
+      </imbalance_definitions>
+      <exercises>
+        - id (PK), slug (unique), name, category (stretch|strengthen|mobility|activation|informational)
+        - primary_deviation_keys (text[]), min_zone (enum), instructions, sets, hold_seconds, video_url
+        - RLS: SELECT to authenticated USING (true)
+      </exercises>
+      <exercise_recommendations>
+        - id (PK), assessment_id (FK), practitioner_id, exercise_id (FK), triggering_imbalance_key, sort_order
+        - UNIQUE(assessment_id, exercise_id); RLS: practitioner_id = auth.uid()
+      </exercise_recommendations>
+    </tables>
+    <storage_buckets>
+      - posture-captures (private): {practitioner_id}/{client_id}/{assessment_id}/{view}.jpg
+      - posture-reports (private): {practitioner_id}/{assessment_id}/report.pdf
+      - practitioner-assets (private): {practitioner_id}/logo.{ext}
+      - Storage RLS: first path segment must equal auth.uid(); access via signed URLs only
+    </storage_buckets>
+  </database_schema>
+
+  <api_endpoints_summary>
+    <auth>
+      - Server Actions: signUp, signInWithPassword, signInWithGoogle, signOut, acceptDisclaimer, updateProfile
+      - GET /auth/callback (OAuth code exchange)
+    </auth>
+    <clients>
+      - Server Actions: createClient, updateClient, archiveClient (all practitioner-scoped)
+    </clients>
+    <assessments>
+      - POST /api/assessments (multipart: client_id + front/side/back images) -> creates assessment + captures, returns assessment_id
+      - GET /api/assessments/[id]/status -> { status }
+      - POST /api/assessments/[id]/score -> runs engine, writes findings + composite + recommendations, sets complete
+    </assessments>
+    <reports>
+      - POST /api/reports (assessment_id, optional compared_to_assessment_id) -> uploads PDF blob to Storage (service role), inserts reports row, returns signed URL
+    </reports>
+  </api_endpoints_summary>
+
+  <ui_layout>
+    <shell>
+      - Mobile-first, dark surfaces. Top app bar + responsive nav (Dashboard, Clients, Exercises, Settings). Persistent non-diagnostic disclaimer in the footer.
+    </shell>
+    <results_two_page_report>
+      - Page 1: client header; Overall Rating (grade ring + percentile bar + band table); annotated FRONT and SIDE skeletal diagrams with angle markers/arrows + photo inset + per-view rank; notes box.
+      - Page 2: region-grouped imbalance cards (Head/Shoulders -> Spine -> Pelvis -> Leg) each with deviation vs 0, maintain/warning/danger risk bar with %, causes text, tight(red)/weak(blue) muscle map, recommended exercises.
+    </results_two_page_report>
+  </ui_layout>
+
+  <design_system>
+    <aesthetic>Modern, clean, professional clinical-but-friendly. Mobile-first. Dark surfaces with high-contrast text. NOT a pixel-clone of any existing sheet — this is a fresh modern design that replicates the capabilities.</aesthetic>
+    <color_palette>
+      - Background dark: #0A0A0B; Surface: #161618; Border: rgba(255,255,255,0.08)
+      - Text primary: #F5F5F5; Text secondary: #A1A1AA
+      - Brand/primary accent: #6366F1 (indigo)
+      - Zone colors: maintain/optimal = #22C55E (green); warning = #F59E0B (amber); danger = #EF4444 (red)
+      - Grade ring uses the zone gradient (green -> amber -> red) mapped to S..E
+    </color_palette>
+    <typography>
+      - UI: Inter, system-ui, sans-serif. Numeric/metric emphasis: tabular-nums. Headings: font-semibold.
+    </typography>
+    <components>
+      - Grade ring (circular progress with letter), gradient risk bars with a percentage marker, region-grouped cards, annotated SVG skeleton (front/side), schematic muscle body-map SVG (front/back) with highlightable region paths, Recharts trend lines with band ReferenceAreas.
+    </components>
+    <animations>Subtle Framer Motion transitions (150-300ms), fade/slide for results reveal, skeleton loaders during processing.</animations>
+  </design_system>
+
+  <key_interactions>
+    <assessment_flow>
+      1. Practitioner clicks New Assessment, selects a client.
+      2. Uploads or captures front, side, back views (front+side required).
+      3. App runs pose detection + the pure scoring engine; processing screen shows progress.
+      4. Results render: overall grade + annotated skeletal sheet + region-grouped imbalance cards with risk bars, causes, muscle maps, and exercises.
+      5. Practitioner generates a branded two-page PDF and/or saves it to the client file.
+    </assessment_flow>
+    <progress_flow>
+      1. Open a client with 2+ assessments.
+      2. View per-imbalance severity and overall-grade trend lines with band zones and before/after deltas.
+    </progress_flow>
+  </key_interactions>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Foundation and Supabase wiring</title>
+      <tasks>
+        - Scaffold Next.js 16 App Router + TS + Tailwind v4 + shadcn/ui + Framer Motion + TanStack Query + Vitest
+        - Wire @supabase/ssr server/browser/middleware clients with env validation
+        - Dark-surface mobile-first layout shell with navigation and disclaimer footer
+      </tasks>
+    </step>
+    <step number="2">
+      <title>Database schema, RLS, and knowledge-base seed</title>
+      <tasks>
+        - Migration: enums + practitioners/clients/assessments/assessment_findings/captures/reports with RLS and the handle_new_user trigger
+        - Migration: imbalance_definitions seed (the 10 imbalances from clinical_reference) + exercises seed + exercise_recommendations
+        - Migration: storage buckets + path-segment RLS policies
+        - Vitest RLS isolation suite (cross-practitioner reads denied)
+      </tasks>
+    </step>
+    <step number="3">
+      <title>Pure scoring engine (heavily unit-tested)</title>
+      <tasks>
+        - posture-engine types, landmark name map, and geometry utilities
+        - The 10 imbalance metric computations from the correct views
+        - Thresholds config -> severityPct + zone; confidence gating
+        - Composite overallScore -> grade (S-E) + modeled percentile + per-view ranks
+        - assessPosture orchestrator; comprehensive Vitest fixtures and boundary tests
+      </tasks>
+    </step>
+    <step number="4">
+      <title>Auth and client management</title>
+      <tasks>
+        - Sign-in/up (+Google), auth callback, disclaimer onboarding gate (middleware)
+        - Client list, create-client sheet with consent, client detail (tabs)
+      </tasks>
+    </step>
+    <step number="5">
+      <title>Capture (upload first) and scoring application</title>
+      <tasks>
+        - Assessment wizard: client select -> upload front/side/back -> processing -> results
+        - MediaPipe PoseLandmarker provider + index->name adapter + TEST-MODE landmark injection seam
+        - Submission API (Storage upload + capture rows + pose_frame), scoring application (findings + composite + recommendations), status poller
+        - Live webcam capture path added AFTER upload works
+      </tasks>
+    </step>
+    <step number="6">
+      <title>Results UI: the on-screen two-page report</title>
+      <tasks>
+        - Overall Rating panel (grade ring + percentile bar + band table)
+        - Annotated front/side skeletal sheet (SVG markers/arrows + photo inset + per-view rank)
+        - Region-grouped imbalance cards (deviation + maintain/warning/danger bar + causes)
+        - Schematic tight/weak muscle body-map per imbalance; recommended-exercises accordion
+      </tasks>
+    </step>
+    <step number="7">
+      <title>PDF report, progress tracking, library, polish</title>
+      <tasks>
+        - Two-page @react-pdf/renderer report + generation/upload route + report page (iframe + download)
+        - Per-client trend charts + before/after deltas; dashboard
+        - Exercise library page; settings (practice/logo/password)
+        - PWA manifest + service worker; disclaimer surfaces everywhere
+      </tasks>
+    </step>
+    <step number="8">
+      <title>Verification</title>
+      <tasks>
+        - Playwright e2e using injected landmark fixtures: upload -> grade ring + per-view ranks + imbalance cards + muscle maps + disclaimer render; PDF generates (%PDF)
+        - Ensure vitest engine + RLS suites green; build clean
+      </tasks>
+    </step>
+  </implementation_steps>
+
+  <feature_budget>50</feature_budget>
+  <feature_count>50</feature_count>
+
+  <success_criteria>
+    <functionality>
+      - A practitioner can sign up, accept the disclaimer, create a client, run an assessment via image upload, and view the full two-page report (overall grade + annotated skeletal sheet + region-grouped imbalance cards with risk bars, causes, tight/weak muscle maps, and exercises)
+      - The pure scoring engine returns deterministic, correct geometry/severity/zone/grade for fixture inputs
+      - A branded two-page PDF generates and downloads; a second assessment shows progress trends
+      - Data persists in Supabase and is isolated per practitioner by RLS
+    </functionality>
+    <verifiability>
+      - Vitest green: engine geometry + zones + composite grade/percentile/rank determinism, confidence gating, PDF buffer (%PDF), recommendation derivation, RLS cross-tenant denial
+      - Playwright green: the upload->results->PDF flow using injected landmark fixtures (no camera/ML in the deterministic path), with data-testid hooks on the grade, each finding card, muscle-map regions, and the disclaimer
+    </verifiability>
+    <safety>
+      - A non-diagnostic disclaimer renders on capture, results, and every PDF page; screening vocabulary only; unreliable low-confidence metrics are flagged and excluded from the aggregate
+    </safety>
+    <design_polish>
+      - Modern dark mobile-first UI; clear zone color semantics (green/amber/red); smooth transitions; professional, client-ready report and PDF
+    </design_polish>
+  </success_criteria>
+</project_specification>
