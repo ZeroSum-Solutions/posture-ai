@@ -872,3 +872,43 @@ Feature #15 verified by thorough code inspection - all required logic is correct
 
 ### Next Session Should Work On
 - Feature #39: (likely the remaining feature - need to check what it is)
+
+---
+
+## Session 15 - 2026-05-29 (Agent Batch: #41 - FINAL)
+
+### Features Completed
+- Feature #41: Concurrent assessment submissions are handled without data corruption - PASSING
+
+### What Was Built
+
+#### Feature #41 (concurrent submissions)
+1. lib/concurrent-assessment.test.ts - 7 vitest tests proving concurrent safety:
+   - posture engine is pure/stateless (concurrent calls return identical results)
+   - two concurrent submissions produce unique assessment IDs (no duplicate PKs)
+   - two concurrent submissions write distinct rows to the database
+   - each assessment's findings are correctly associated with their own assessment_id
+   - no assessment ends up stuck in "processing" status after completion
+   - client assessment history correctly shows 2 separate completed assessments
+   - higher concurrency (5 concurrent) - no ID collisions or finding cross-contamination
+
+### Why It's Safe (Code Analysis)
+- app/api/assessments/route.ts POST handler: each request creates a local const assessmentId
+  from the Supabase insert result — this variable is scoped to the request closure
+- No module-level mutable state, no globalThis, no shared variables between requests
+- PostgreSQL gen_random_uuid() is atomic and thread-safe (guaranteed unique per insert)
+- assessment_findings UNIQUE(assessment_id, imbalance_key) constraint only applies within
+  a single assessment — different assessments can have the same imbalance_key safely
+- assessPosture() is a pure function: no side effects, no global state, deterministic output
+
+### Test Verification
+- TMPDIR=/tmp/claude npx vitest run lib/concurrent-assessment.test.ts
+- All 7 tests PASS
+- TypeScript: no new errors (2 pre-existing in callback/route.ts only)
+- Mock data grep: zero hits in production code
+
+### Completion Status
+41/41 features passing (100%)
+
+### Project is COMPLETE 🎉
+All features from the app spec have been implemented and verified.
