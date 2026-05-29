@@ -491,3 +491,80 @@ Feature #15 verified by thorough code inspection - all required logic is correct
 - Feature #23: Assessment results display (scores, grades)
 - Feature #24: Exercise recommendations based on findings
 - Feature #26: PDF report generation
+
+
+---
+
+## Session 9 - 2026-05-29 (Agent Batch: #27, #32, #33)
+
+### Features Completed
+- Feature #27: Region-grouped imbalance cards display with risk bars - PASSING
+- Feature #32: PDF generates with valid %PDF header and branded two-page layout - PASSING
+- Feature #33: PDF shows before/after deviation delta when prior assessment exists - PASSING
+
+### What Was Built
+
+#### Feature #27 (imbalance cards enhancement)
+- Updated app/api/assessments/[id]/route.ts to enrich findings with causes_text from imbalance_definitions
+- Updated app/assessments/[id]/page.tsx:
+  - FindingCard component showing behavioral causes text
+  - Better unreliable visual flagging (opacity, greyed text, "Unreliable" badge)
+  - Risk bars with severity % and zone colors
+  - Added "Generate PDF" button with loading state
+
+#### Feature #32 (PDF generation)
+- Installed @react-pdf/renderer v4.5.1
+- Created lib/pdf/report.tsx - two-page PDF document:
+  - Page 1: client header, grade ring, percentile, score, per-view ranks, grade reference table
+  - Page 2: region-grouped imbalance cards with deviations, risk bars, causes, tight/weak muscles, exercises
+  - Every page footer: non-diagnostic disclaimer text
+- Created app/api/reports/route.ts:
+  - POST endpoint accepting assessment_id, optional compared_to_assessment_id
+  - Fetches findings + enriches with causes/tight/weak from imbalance_definitions
+  - Fetches relevant exercises from exercises table
+  - Generates PDF via renderToBuffer
+  - Validates %PDF header
+  - Uploads to posture-reports Supabase Storage bucket (service role, upsert)
+  - Returns signed URL (1 hour)
+  - Inserts reports row with compared_to_assessment_id
+- Updated next.config.ts to add serverExternalPackages for @react-pdf
+
+#### Feature #33 (delta comparison)
+- Added app/api/clients/[id]/assessments/route.ts - GET endpoint for prior assessments of a client
+  - Supports exclude= param to exclude current assessment
+  - Returns complete assessments ordered by date desc
+- Updated assessment results page:
+  - Fetches prior assessments after loading current assessment
+  - Shows "Compare PDF to prior assessment" dropdown when priors exist
+  - Selected comparison ID is sent as compared_to_assessment_id in POST /api/reports
+  - PDF report includes delta column when hasDelta=true
+  - Delta shows as green (-x.x°) for improvement, red (+x.x°) for worsening
+  - No delta column when no comparison (first assessment or no selection)
+
+### Browser Verification
+- Created test client "Test Patient27" via UI
+- Created first assessment in test mode → Grade B, Score 25/100
+- Results page: imbalance cards grouped by Head/Shoulders/Spine/Pelvis/Legs ✅
+- Behavioral causes text displayed on each card ✅
+- Unreliable metric (Pelvic Rotation) shows "Unreliable" badge with grey/dimmed card ✅
+- Non-diagnostic disclaimer at top and bottom of results ✅
+- Clicked "Generate PDF" → PDF generated, signed URL returned, "Download PDF" button shown ✅
+- Created second assessment → Prior assessment dropdown shows on results page ✅
+- Selected prior assessment in dropdown → Clicked "Generate PDF" → PDF with delta generated ✅
+- Server logs: POST /api/reports 200 in 3-4s ✅
+
+### Technical Notes
+- @react-pdf/renderer is ESM package; needs serverExternalPackages in next.config.ts
+- renderToBuffer needs ReactElement cast via unknown for TypeScript
+- Supabase Storage bucket posture-reports created on first request (ignores duplicate error)
+- tight_muscles and weak_muscles in DB can be JSON string or array; parse defensively
+- playwright-cli select command works for native select elements
+
+### Completion Status
+25/41 features passing (61.0%)
+
+### Next Session Should Work On
+- Feature #28: Annotated skeletal diagram with highlighted regions
+- Feature #29: Trend charts for repeated assessments
+- Feature #30: Exercise recommendations UI on results page
+- Feature #31: Settings page (practice name, logo upload, password change)
