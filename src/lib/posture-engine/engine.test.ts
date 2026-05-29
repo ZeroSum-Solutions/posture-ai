@@ -458,3 +458,53 @@ describe('Low confidence landmarks', () => {
     expect(result.overallScore).toBe(expectedScore)
   })
 })
+
+// ============================================================
+// Mirror invariance — real MediaPipe front-view convention
+// MediaPipe labels landmarks by the SUBJECT's anatomy, so on a
+// front-facing photo the subject's LEFT lands on the image's RIGHT
+// (left_shoulder.x > right_shoulder.x). A left-right mirror of the
+// same posture must NOT change a tilt magnitude. Regression test for
+// the reflex-angle bug (signed horizontal run in atan2 → ~180°).
+// ============================================================
+describe('Mirror invariance (real MediaPipe front-view convention)', () => {
+  // SHOULDER_FRAME mirrored: subject-left landmarks on the image's right
+  const MIRRORED_SHOULDER_FRAME = frontFrame({
+    left_shoulder:  { x: 0.650, y: 0.200, visibility: 0.90 },
+    right_shoulder: { x: 0.350, y: 0.250, visibility: 0.90 },
+    left_hip:       { x: 0.620, y: 0.530, visibility: 0.90 },
+    right_hip:      { x: 0.380, y: 0.530, visibility: 0.90 },
+    left_knee:      { x: 0.620, y: 0.730, visibility: 0.90 },
+    right_knee:     { x: 0.380, y: 0.730, visibility: 0.90 },
+    left_ankle:     { x: 0.620, y: 0.930, visibility: 0.90 },
+    right_ankle:    { x: 0.380, y: 0.930, visibility: 0.90 },
+  })
+
+  it('anterior shoulder deviation is mirror-invariant ≈ 9.46° (not ~170°)', () => {
+    const f = anteriorImbalancedShoulders(MIRRORED_SHOULDER_FRAME)
+    expect(withinEpsilon(f.deviation, 9.46)).toBe(true)
+    expect(f.direction).toBe('Right Low') // subject's right shoulder is lower
+  })
+
+  it('posterior shoulder deviation is mirror-invariant ≈ 9.46°', () => {
+    const f = posteriorImbalancedShoulders(MIRRORED_SHOULDER_FRAME, undefined)
+    expect(withinEpsilon(f.deviation, 9.46)).toBe(true)
+  })
+
+  // PELVIS_FRONT_FRAME mirrored: subject-left hip on the image's right
+  const MIRRORED_PELVIS_FRAME = frontFrame({
+    left_shoulder:  { x: 0.650, y: 0.220, visibility: 0.90 },
+    right_shoulder: { x: 0.350, y: 0.220, visibility: 0.90 },
+    left_hip:       { x: 0.620, y: 0.520, visibility: 0.90 },
+    right_hip:      { x: 0.380, y: 0.550, visibility: 0.90 },
+    left_knee:      { x: 0.620, y: 0.730, visibility: 0.90 },
+    right_knee:     { x: 0.380, y: 0.730, visibility: 0.90 },
+    left_ankle:     { x: 0.620, y: 0.930, visibility: 0.90 },
+    right_ankle:    { x: 0.380, y: 0.930, visibility: 0.90 },
+  })
+
+  it('pelvic obliquity deviation is mirror-invariant ≈ 7.13° (not ~173°)', () => {
+    const f = pelvicObliquity(MIRRORED_PELVIS_FRAME)
+    expect(withinEpsilon(f.deviation, 7.13)).toBe(true)
+  })
+})

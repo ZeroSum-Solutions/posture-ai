@@ -55,9 +55,10 @@ export function anteriorImbalancedShoulders(front: PoseFrame): Finding {
   if (!ls || !rs) return makeFinding(key, 'Shoulder Imbalance (Front)', 'head_shoulders', 0, 'Level', 'front', 0, [])
 
   const conf = minVis(ls, rs)
-  // angle of shoulder line from horizontal
-  // atan2(left.y - right.y, right.x - left.x): + = left is lower
-  const deviation = Math.atan2(ls.y - rs.y, rs.x - ls.x) * (180 / Math.PI)
+  // angle of shoulder line from horizontal. |Δx| makes the magnitude
+  // mirror-invariant (MediaPipe puts the subject's left on the image's
+  // right); sign(Δy) gives direction: + = subject's left shoulder lower
+  const deviation = Math.atan2(ls.y - rs.y, Math.abs(rs.x - ls.x)) * (180 / Math.PI)
   const direction = Math.abs(deviation) < 0.5 ? 'Level' : deviation > 0 ? 'Left Low' : 'Right Low'
   return makeFinding(key, 'Shoulder Imbalance (Front)', 'head_shoulders', Math.abs(deviation), direction, 'front', conf, ['left_shoulder','right_shoulder'])
 }
@@ -71,7 +72,7 @@ export function posteriorImbalancedShoulders(front: PoseFrame, back?: PoseFrame)
   if (!ls || !rs) return makeFinding(key, 'Shoulder Imbalance (Back)', 'head_shoulders', 0, 'Level', 'front', 0, [])
 
   const conf = minVis(ls, rs)
-  const deviation = Math.atan2(ls.y - rs.y, rs.x - ls.x) * (180 / Math.PI)
+  const deviation = Math.atan2(ls.y - rs.y, Math.abs(rs.x - ls.x)) * (180 / Math.PI)
   const direction = Math.abs(deviation) < 0.5 ? 'Level' : deviation > 0 ? 'Left Low' : 'Right Low'
   const viewUsed = back ? 'back' : 'front'
   return makeFinding(key, 'Shoulder Imbalance (Back)', 'head_shoulders', Math.abs(deviation), direction, viewUsed, conf, ['left_shoulder','right_shoulder'])
@@ -109,7 +110,7 @@ export function pelvicObliquity(front: PoseFrame): Finding {
   if (!lh || !rh) return makeFinding(key, 'Pelvic Obliquity', 'pelvis', 0, 'Level', 'front', 0, [])
 
   const conf = minVis(lh, rh)
-  const deviation = Math.atan2(lh.y - rh.y, rh.x - lh.x) * (180 / Math.PI)
+  const deviation = Math.atan2(lh.y - rh.y, Math.abs(rh.x - lh.x)) * (180 / Math.PI)
   const direction = Math.abs(deviation) < 0.5 ? 'Level' : deviation > 0 ? 'Left Low' : 'Right Low'
   return makeFinding(key, 'Pelvic Obliquity', 'pelvis', Math.abs(deviation), direction, 'front', conf, ['left_hip','right_hip'])
 }
