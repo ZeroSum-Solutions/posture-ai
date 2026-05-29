@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest",
-    "test-feature5": "node test-api-feature5.mjs",
-    "test-tf3": "node tf3.mjs"
+    "test": "vitest"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",

@@ -5,6 +5,12 @@ node_modules/
 .zeroforge/.agent.lock
 .sb_dbpass.tmp
 
+# build-harness log + throwaway verification scripts (carried secrets — purged from history)
+.zeroforge/*.log
+test-api-feature5.mjs
+test-feature3.mjs
+tf3.mjs
+
 .playwright-cli/
 .playwright/
 .next/
