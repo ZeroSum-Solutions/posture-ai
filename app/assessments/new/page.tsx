@@ -404,10 +404,23 @@ function NewAssessmentWizard() {
     try {
       const clientId = selectedClient?.id
 
+      // Run MediaPipe pose detection on each captured view → real PoseFrames.
+      // (Lazy-imported so MediaPipe only loads when an assessment is submitted.)
+      let frames: unknown[] | undefined = undefined
+      if (!testMode) {
+        const { detectPose } = await import('@/lib/pose/detect')
+        frames = []
+        for (const v of ['front', 'side', 'back'] as ViewKey[]) {
+          const cap = captures[v]
+          if (!cap.preview) continue
+          frames.push(await detectPose(cap.preview, v))
+        }
+      }
+
       const response = await fetch('/api/assessments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, test_mode: testMode }),
+        body: JSON.stringify({ client_id: clientId, test_mode: testMode, frames }),
       })
 
       if (!response.ok) {

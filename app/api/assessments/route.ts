@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { client_id, test_mode } = body
+    const { client_id, test_mode, frames: bodyFrames } = body
     if (!client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
     const service = createSupabaseServiceClient()
@@ -44,9 +44,22 @@ export async function POST(req: NextRequest) {
     const assessmentId = assessment.id
     console.log('[api/assessments] Created assessment:', assessmentId, '(test_mode:', test_mode, ')')
 
-    // Run scoring engine
+    // Run scoring engine — use the real MediaPipe frames sent by the client when
+    // present; otherwise fall back to the bundled fixture (test mode / no detection).
     try {
-      const frames = TEST_FIXTURE.frames as PoseFrame[]
+      const usingReal = !test_mode && Array.isArray(bodyFrames) && bodyFrames.length > 0
+      const frames = (usingReal ? bodyFrames : TEST_FIXTURE.frames) as PoseFrame[]
+
+      // Persist the captured pose frames (reproducible / re-scorable)
+      const capturesToInsert = frames.map((f) => ({
+        assessment_id: assessmentId,
+        practitioner_id: user.id,
+        view: f.view,
+        source: usingReal ? 'upload' : 'fixture',
+        pose_frame: f as unknown as object,
+      }))
+      await service.from('captures').insert(capturesToInsert)
+
       const result = assessPosture(frames)
 
       // Save findings
