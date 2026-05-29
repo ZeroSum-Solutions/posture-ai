@@ -24,15 +24,16 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-  const { first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, practitioner_id } = body as {
+  const { first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, practitioner_id, consent_recorded_at } = body as {
     first_name?: string; last_name?: string; date_of_birth?: string
     sex_at_birth?: string; height_cm?: number; weight_kg?: number
-    notes?: string; practitioner_id?: string
+    notes?: string; practitioner_id?: string; consent_recorded_at?: string
   }
   if (!first_name || !last_name) return NextResponse.json({ error: 'first_name and last_name are required' }, { status: 400 })
   if (!practitioner_id) return NextResponse.json({ error: 'practitioner_id is required' }, { status: 400 })
+  if (!consent_recorded_at) return NextResponse.json({ error: 'Client consent is required. consent_recorded_at must be provided.' }, { status: 400 })
   console.log('[api/clients] POST: INSERT INTO clients via .from().insert() - ' + first_name + ' ' + last_name)
-  const row: Record<string, unknown> = { practitioner_id, first_name, last_name }
+  const row: Record<string, unknown> = { practitioner_id, first_name, last_name, consent_recorded_at }
   if (date_of_birth) row.date_of_birth = date_of_birth
   if (sex_at_birth) row.sex_at_birth = sex_at_birth
   if (height_cm != null) row.height_cm = height_cm
