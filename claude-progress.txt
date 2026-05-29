@@ -568,3 +568,57 @@ Feature #15 verified by thorough code inspection - all required logic is correct
 - Feature #29: Trend charts for repeated assessments
 - Feature #30: Exercise recommendations UI on results page
 - Feature #31: Settings page (practice name, logo upload, password change)
+
+---
+
+## Session 10 - 2026-05-29 (Agent Batch: #34, #35, #36)
+
+### Features Completed
+- Feature #34: Dashboard displays client count, assessments this week, and recent activity - PASSING
+- Feature #35: Per-client trend charts display severity percentage over time - PASSING
+- Feature #36: Before/after deltas between assessments computed and displayed - PASSING
+
+### What Was Built
+
+#### Feature #34 (Dashboard enhancement)
+1. app/dashboard/page.tsx
+   - Client count now filters archived_at IS NULL (excludes archived clients)
+   - Added Recent Activity feed (last 5 complete assessments with client name, date, grade)
+   - Fetches assessments via Supabase join: assessments(clients(first_name, last_name))
+   - New Assessment CTA button already existed
+
+#### Feature #35 (Trend charts)
+1. app/clients/[id]/page.tsx
+   - Added Progress tab (only shown when client has 2+ assessments)
+   - Overall Grade Trend: LineChart with zone bands (Maintain/Warning/Danger as ReferenceArea)
+   - Imbalance Severity Over Time: Multi-line chart with one line per imbalance key
+   - Both charts use ResponsiveContainer width="100%" for mobile responsiveness
+   - Legend shows human-readable imbalance labels
+
+2. app/api/clients/[id]/assessments/route.ts
+   - Added include_findings=true query param
+   - Returns assessment_findings(imbalance_key, label, severity_pct, zone, region) when requested
+   - Changed sort to ascending for chronological chart order
+
+#### Feature #36 (Before/after delta comparison)
+1. app/clients/[id]/page.tsx (extended)
+   - Added Compare tab (only shown when client has 2+ assessments)
+   - Assessment selectors: Before (baseline) and After (comparison) dropdowns
+   - Defaults to earliest vs latest assessment
+   - Overall Grade Change: Grade X → Grade Y with improved/regressed/no-change badge
+   - Imbalance Deltas table: metric name, before deviation, after deviation, delta, status
+   - Status: green "↓ Improved" if severity decreased, red "↑ Regressed" if increased, "—" if no change
+
+2. app/api/clients/[id]/assessments/route.ts (updated)
+   - Added deviation, unit, standard fields to findings when include_findings=true
+
+### Browser Verification
+- Dashboard: Total Clients=1, Assessments This Week=2, Recent Activity showing 2 assessments ✅
+- Client detail - Progress tab: Grade trend chart + 10-imbalance severity chart with zone bands ✅
+- Client detail - Compare tab: Assessment selectors, grade change, delta table ✅
+- Single assessment client: Compare/Progress tabs hidden, no crash ✅
+- Zero console errors throughout ✅
+
+### Completion Status
+28/41 features passing (68.3%)
+
