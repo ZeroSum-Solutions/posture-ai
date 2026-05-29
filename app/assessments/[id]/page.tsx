@@ -17,6 +17,7 @@ interface Finding {
   zone: Zone
   view_used: string
   confidence: number
+  causes_text?: string
 }
 
 interface Assessment {
@@ -31,7 +32,7 @@ interface Assessment {
   clients: { id: string; first_name: string; last_name: string }
 }
 
-// Grade → color mapping (S/A=green, B/C=amber, D/E=red)
+// Grade → color mapping
 function gradeColor(grade: OverallGrade): string {
   if (grade === 'S' || grade === 'A') return '#22C55E'
   if (grade === 'B' || grade === 'C') return '#F59E0B'
@@ -69,17 +70,13 @@ function GradeRing({ grade, score }: { grade: OverallGrade; score: number }) {
   const color = gradeColor(grade)
   const r = 42
   const circumference = 2 * Math.PI * r
-  // Fill arc based on score (0=full circle fill for S, 100=empty for E)
-  // Invert: lower score = more filled = better
   const fillPct = Math.max(0, 100 - score) / 100
   const dashOffset = circumference * (1 - fillPct)
 
   return (
     <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
       <svg width="100" height="100" viewBox="0 0 100 100">
-        {/* Background track */}
         <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
-        {/* Filled arc */}
         <circle
           cx="50" cy="50" r={r} fill="none"
           stroke={color} strokeWidth="10"
@@ -102,17 +99,14 @@ function GradeRing({ grade, score }: { grade: OverallGrade; score: number }) {
 // ---- Score Gradient Bar ----
 function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
   const color = gradeColor(grade)
-  // Position marker: score 0=left (green), 100=right (red)
   const positionPct = Math.min(100, Math.max(0, score))
 
   return (
     <div>
-      {/* Gradient bar */}
       <div style={{ position: 'relative', height: 12, borderRadius: 6, overflow: 'hidden',
         background: 'linear-gradient(to right, #22C55E 0%, #22C55E 15%, #F59E0B 50%, #EF4444 85%, #EF4444 100%)',
         marginBottom: 8,
       }}>
-        {/* Score position marker */}
         <div style={{
           position: 'absolute',
           left: positionPct + '%',
@@ -159,6 +153,90 @@ function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
   )
 }
 
+// ---- Finding Card ----
+function FindingCard({ f }: { f: Finding }) {
+  const isUnreliable = f.zone === 'unreliable'
+  const zoneColor = ZONE_COLORS[f.zone]
+
+  return (
+    <div
+      data-testid={`finding-card-${f.imbalance_key}`}
+      style={{
+        background: isUnreliable ? '#111113' : '#161618',
+        border: '1px solid ' + (isUnreliable ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'),
+        borderRadius: 12,
+        padding: 16,
+        borderLeft: '3px solid ' + zoneColor,
+        opacity: isUnreliable ? 0.65 : 1,
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+        <span style={{ fontWeight: 600, color: isUnreliable ? '#71717A' : '#F5F5F5', fontSize: '0.9rem' }}>
+          {f.label}
+          <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#71717A' }}>({f.view_used} view)</span>
+        </span>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {isUnreliable && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
+              background: 'rgba(113,113,122,0.2)', color: '#71717A',
+              border: '1px solid rgba(113,113,122,0.4)',
+              textTransform: 'uppercase',
+            }}>Unreliable</span>
+          )}
+          <span style={{
+            padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
+            background: zoneColor + '22',
+            color: zoneColor, textTransform: 'uppercase',
+          }}>{f.zone}</span>
+        </div>
+      </div>
+
+      {/* Deviation */}
+      <div style={{ fontSize: '0.875rem', color: isUnreliable ? '#52525B' : '#D4D4D8', marginBottom: 10 }}>
+        <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation from 0&deg; standard
+        {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' && (
+          <span style={{ color: '#A1A1AA' }}> — {f.direction}</span>
+        )}
+      </div>
+
+      {/* Severity bar (not shown for unreliable) */}
+      {!isUnreliable && (
+        <div style={{ marginBottom: f.causes_text ? 12 : 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.72rem', color: '#71717A' }}>Severity</span>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: zoneColor }}>{f.severity_pct}%</span>
+          </div>
+          <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: f.severity_pct + '%',
+              background: zoneColor,
+              borderRadius: 3, transition: 'width 0.5s ease',
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Behavioral causes */}
+      {f.causes_text && (
+        <div style={{
+          marginTop: 10,
+          padding: '8px 12px',
+          background: 'rgba(255,255,255,0.03)',
+          borderRadius: 8,
+          fontSize: '0.8rem',
+          color: '#A1A1AA',
+          lineHeight: 1.5,
+        }}>
+          <span style={{ fontWeight: 600, color: '#71717A', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
+          {f.causes_text}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- Findings Section ----
 function FindingsSection({ findings }: { findings: Finding[] }) {
   const grouped = findings.reduce((acc, f) => {
@@ -180,43 +258,7 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
             {REGION_LABELS[region] ?? region}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {grouped[region].map(f => (
-              <div key={f.id} style={{
-                background: '#161618', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 12, padding: 16,
-                borderLeft: '3px solid ' + ZONE_COLORS[f.zone],
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-                  <span style={{ fontWeight: 600, color: '#F5F5F5', fontSize: '0.9rem' }}>
-                    {f.label}
-                    <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#A1A1AA' }}>({f.view_used} view)</span>
-                  </span>
-                  <span style={{
-                    padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-                    background: ZONE_COLORS[f.zone] + '22',
-                    color: ZONE_COLORS[f.zone], textTransform: 'uppercase',
-                  }}>{f.zone}</span>
-                </div>
-                <div style={{ fontSize: '0.875rem', color: '#D4D4D8', marginBottom: 10 }}>
-                  <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation
-                  {f.direction && f.direction !== 'Neutral' && <span style={{ color: '#A1A1AA' }}> — {f.direction}</span>}
-                </div>
-                {/* Severity bar */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: '0.72rem', color: '#71717A' }}>Severity</span>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: ZONE_COLORS[f.zone] }}>{f.severity_pct}%</span>
-                  </div>
-                  <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: f.severity_pct + '%',
-                      background: ZONE_COLORS[f.zone],
-                      borderRadius: 3, transition: 'width 0.5s ease',
-                    }} />
-                  </div>
-                </div>
-              </div>
-            ))}
+            {grouped[region].map(f => <FindingCard key={f.id} f={f} />)}
           </div>
         </div>
       ))}
@@ -232,6 +274,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [assessmentId, setAssessmentId] = useState<string>('')
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
+  const [compareToId, setCompareToId] = useState<string>('')
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -251,6 +298,15 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         const data = await r.json()
         setAssessment(data.assessment)
         setFindings(data.findings || [])
+        // Fetch prior assessments for this client for comparison
+        if (data.assessment?.clients?.id) {
+          const clientId = data.assessment.clients.id
+          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId)
+          if (priorRes.ok) {
+            const priorData = await priorRes.json()
+            setPriorAssessments(priorData.assessments || [])
+          }
+        }
       } catch {
         setError('Failed to load assessment.')
       } finally {
@@ -259,6 +315,30 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     }
     load()
   }, [assessmentId, router])
+
+  async function handleGeneratePdf() {
+    if (!assessmentId) return
+    setPdfLoading(true)
+    setPdfError(null)
+    try {
+      const r = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessment_id: assessmentId, compared_to_assessment_id: compareToId || undefined }),
+      })
+      if (!r.ok) {
+        const err = await r.json()
+        setPdfError(err.error || 'PDF generation failed')
+        return
+      }
+      const data = await r.json()
+      setPdfUrl(data.signed_url)
+    } catch {
+      setPdfError('Failed to generate PDF.')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -302,8 +382,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
-      {/* Disclaimer */}
-      <div style={{
+      {/* Non-diagnostic disclaimer */}
+      <div data-testid="disclaimer" style={{
         background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
         borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5,
       }}>
@@ -320,10 +400,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </h2>
 
         <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 24 }}>
-          {/* Grade ring SVG */}
           <GradeRing grade={grade} score={score} />
-
-          {/* Percentile and score */}
           <div style={{ flex: 1, minWidth: 160 }}>
             <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>
               Top {percentile}%
@@ -331,12 +408,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             <div style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: 16 }}>
               Score: {score}/100 — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
             </div>
-            {/* Score gradient bar */}
             <ScoreBar score={score} grade={grade} />
           </div>
         </div>
 
-        {/* Band table */}
         <BandTable currentGrade={grade} />
       </div>
 
@@ -352,6 +427,51 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         <strong style={{ color: '#EF4444' }}>SCREENING ONLY.</strong> These findings are for educational and screening purposes only. Do not substitute for clinical examination.
       </div>
 
+      {/* PDF Report */}
+      {pdfUrl && (
+        <div style={{
+          background: '#161618', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 12,
+          padding: 16, marginBottom: 16,
+        }}>
+          <p style={{ color: '#22C55E', fontSize: '0.875rem', marginBottom: 8 }}>PDF report generated successfully.</p>
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
+            padding: '10px 20px', borderRadius: 8, background: '#6366F1',
+            color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block',
+          }}>Download PDF</a>
+        </div>
+      )}
+      {pdfError && (
+        <div style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>
+      )}
+
+      {/* Comparison selector for PDF */}
+      {priorAssessments.length > 0 && (
+        <div style={{
+          background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
+          padding: 16, marginBottom: 16,
+        }}>
+          <label style={{ fontSize: '0.8rem', color: '#A1A1AA', display: 'block', marginBottom: 8 }}>
+            Compare PDF to prior assessment (optional):
+          </label>
+          <select
+            value={compareToId}
+            onChange={e => setCompareToId(e.target.value)}
+            style={{
+              padding: '8px 12px', borderRadius: 8, background: '#0A0A0B',
+              border: '1px solid rgba(255,255,255,0.15)', color: '#F5F5F5',
+              fontSize: '0.875rem', width: '100%', cursor: 'pointer',
+            }}
+          >
+            <option value="">No comparison (single assessment)</option>
+            {priorAssessments.map(a => (
+              <option key={a.id} value={a.id}>
+                {new Date(a.assessed_at).toLocaleDateString()} — Grade {a.overall_grade}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link href={'/clients/' + assessment.clients.id} style={{
@@ -359,9 +479,23 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44,
         }}>Back to Client</Link>
+        <button
+          onClick={handleGeneratePdf}
+          disabled={pdfLoading}
+          style={{
+            padding: '12px 24px', borderRadius: 10,
+            background: pdfLoading ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.15)',
+            color: pdfLoading ? '#6366F1aa' : '#6366F1',
+            border: '1px solid rgba(99,102,241,0.3)',
+            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading ? 'wait' : 'pointer',
+            minHeight: 44,
+          }}
+        >
+          {pdfLoading ? 'Generating PDF...' : 'Generate PDF'}
+        </button>
         <Link href="/assessments/new" style={{
-          padding: '12px 24px', borderRadius: 10, background: 'rgba(99,102,241,0.12)',
-          color: '#6366F1', border: '1px solid rgba(99,102,241,0.3)',
+          padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
+          color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.08)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44,
         }}>New Assessment</Link>
       </div>

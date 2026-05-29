@@ -22,7 +22,7 @@ export async function GET(
     .eq('practitioner_id', user.id)
     .single()
 
-  if (error || !assessment) {
+  if (error) {
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   }
 
@@ -32,5 +32,25 @@ export async function GET(
     .eq('assessment_id', id)
     .order('region')
 
-  return NextResponse.json({ assessment, findings: findings || [] })
+  // Enrich findings with causes_text from imbalance_definitions
+  const keys = (findings || []).map((f: { imbalance_key: string }) => f.imbalance_key)
+  const causesMap: Record<string, string> = {}
+  if (keys.length > 0) {
+    const { data: defs } = await supabase
+      .from('imbalance_definitions')
+      .select('key, causes_text, tight_muscles, weak_muscles')
+      .in('key', keys)
+    if (defs) {
+      for (const d of defs) {
+        causesMap[d.key] = d.causes_text || ''
+      }
+    }
+  }
+
+  const enrichedFindings = (findings || []).map((f: Record<string, unknown>) => ({
+    ...f,
+    causes_text: causesMap[f.imbalance_key as string] || '',
+  }))
+
+  return NextResponse.json({ assessment, findings: enrichedFindings })
 }
