@@ -135,3 +135,76 @@ All 3 features were already passing from Session 1. This session verified and en
 
 ### Completion Status
 5/41 features passing (12.2
+---
+
+## Session 3 - 2026-05-29 (Agent Batch: #5, #6, #9)
+
+### Features Completed
+- Feature #5: Backend API queries real database - PASSING (already was passing from previous agent)
+- Feature #6: App loads without errors and navigation renders - PASSING
+- Feature #9: Practitioner can sign up with email and password - PASSING
+
+### What Was Built
+1. NavBar component (components/NavBar.tsx)
+   - Sticky top navigation with Posture AI branding
+   - Links: Dashboard, Clients, Exercises, Settings
+   - Active state highlighting via usePathname
+
+2. Updated app/layout.tsx
+   - Imports NavBar
+   - Dark background (#0A0A0B)
+   - Disclaimer footer
+
+3. Auth pages
+   - app/auth/sign-in/page.tsx - email/password sign-in
+   - app/auth/sign-up/page.tsx - new account registration
+   - app/auth/callback/route.ts - OAuth code exchange
+   - app/api/auth/sign-out/route.ts - sign-out endpoint
+
+4. Onboarding disclaimer gate (app/onboarding/page.tsx)
+   - Non-diagnostic disclaimer text
+   - Checkbox acknowledgement
+   - Updates practitioners.non_diagnostic_ack_at
+
+5. Route pages
+   - app/dashboard/page.tsx - stats cards (real DB queries)
+   - app/clients/page.tsx - client list with empty state
+   - app/exercises/page.tsx - exercise library from seed data
+   - app/settings/page.tsx - user profile
+
+6. Updated proxy.ts (Next.js 16 middleware)
+   - Auth enforcement: unauthenticated → /auth/sign-in
+   - Disclaimer gate: no ack → /onboarding
+   - Public paths: /auth/*, /api/health, /api/dev/
+   - Onboarding paths: /onboarding (auth but no disclaimer required)
+
+7. Dev utility
+   - app/api/dev/create-test-user/route.ts - creates confirmed test user via admin API
+   - Used to verify trigger creates practitioners row
+
+### Key Technical Notes
+- Next.js 16 renamed middleware.ts → proxy.ts with `export async function proxy()`
+- Turbopack cache can corrupt when deleted then rebuilt too quickly; warm with health check before first page request
+- createSupabaseServerClient is async (must use await)
+- createSupabaseBrowserClient from lib/supabase/client.ts
+- exercises table uses `primary_deviation_keys TEXT[]` not `imbalance_key`
+- Supabase email rate limits apply in dev - use admin API to create test users
+
+### Browser Verification
+- Navigated to localhost:3001 → redirected to /auth/sign-in ✅
+- Sign-in page: dark background, nav bar (Dashboard/Clients/Exercises/Settings), form ✅
+- Sign-in with testpractitioner@postureai.test → redirected to /onboarding ✅
+- Accepted disclaimer → redirected to /dashboard ✅
+- Dashboard: shows "0 Total Clients", "0 Assessments This Week" (real DB) ✅
+- Exercises: shows 10 seeded exercises with categories, instructions, sets/holds ✅
+- /api/clients: returns {"clients":[],"count":0} with log "[api/clients] GET: SELECT from clients" ✅
+- Zero console errors throughout ✅
+
+### Completion Status
+7/41 features passing (17.1%)
+
+### Next Session Should Work On
+- Feature #7 or nearby: client management CRUD (create, view, archive clients)
+- Feature #10: Practitioner sign-in + onboarding flow end-to-end
+- Feature #11: Disclaimer gate enforced on protected routes
+- Assessment wizard features
