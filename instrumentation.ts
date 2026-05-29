@@ -6,7 +6,8 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     try {
-      const { applyMigrations } = await import('@/lib/db/migrations')
+      // Use relative path instead of @ alias - Turbopack doesn't resolve @ in dynamic imports
+      const { applyMigrations } = await import('./lib/db/migrations')
       await applyMigrations()
 
       // Verify the tables after migration by querying a few
