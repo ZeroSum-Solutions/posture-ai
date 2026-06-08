@@ -8,6 +8,8 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./fixtures": "./src/fixtures/index.ts",
+    "./fixtures/test-landmarks": "./fixtures/test-landmarks.json",
     "./metrics": "./src/metrics.ts",
     "./thresholds": "./src/thresholds.ts",
     "./geometry": "./src/geometry.ts",
