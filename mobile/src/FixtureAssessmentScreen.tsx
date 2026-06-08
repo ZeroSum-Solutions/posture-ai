@@ -1,8 +1,11 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
-import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
+import { assessPosture } from '@posture-ai/engine'
 import type { AssessmentResult, Finding } from '@posture-ai/engine'
 
-const assessment = assessPosture(testLandmarksFrames)
+import { createInitialPoseFrameSourceState, getAssessableFrames } from './poseFrameSource'
+
+const fixtureSource = createInitialPoseFrameSourceState()
+const assessment = assessPosture(getAssessableFrames(fixtureSource))
 
 function ordinal(n: number): string {
   const mod100 = n % 100
