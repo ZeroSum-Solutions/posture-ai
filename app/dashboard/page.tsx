@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 type Assessment = {
   id: string
@@ -21,6 +22,8 @@ export default async function DashboardPage() {
     .eq('practitioner_id', user.id)
     .is('archived_at', null)
 
+  // Server component: per-request clock read is intentional here.
+  // eslint-disable-next-line react-hooks/purity
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const { count: weekAssessments } = await supabase
     .from('assessments')
@@ -42,7 +45,7 @@ export default async function DashboardPage() {
     <div style={{ padding: '32px 24px', maxWidth: '960px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5' }}>Dashboard</h1>
-        <a
+        <Link
           href="/assessments/new"
           style={{
             padding: '10px 18px',
@@ -55,7 +58,7 @@ export default async function DashboardPage() {
           }}
         >
           + New Assessment
-        </a>
+        </Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         <StatCard label="Total Clients" value={clientCount ?? 0} />
@@ -123,9 +126,9 @@ export default async function DashboardPage() {
         ) : (
           <p style={{ color: '#A1A1AA', fontSize: '0.85rem', margin: 0 }}>
             No assessments yet.{' '}
-            <a href="/assessments/new" style={{ color: '#6366F1' }}>
+            <Link href="/assessments/new" style={{ color: '#6366F1' }}>
               Run your first assessment →
-            </a>
+            </Link>
           </p>
         )}
       </div>

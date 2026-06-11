@@ -858,8 +858,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     load()
   }, [assessmentId, router])
 
+  // Derived state via effect; convert to useMemo in P5 polish.
   useEffect(() => {
     if (allExercises.length > 0 && findings.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setExercises(deriveExerciseRecommendations(allExercises, findings))
     }
   }, [allExercises, findings])
