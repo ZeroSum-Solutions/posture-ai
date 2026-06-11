@@ -196,7 +196,7 @@ export async function applyMigrations(): Promise<void> {
     return
   }
 
-  let client: any
+  let client: InstanceType<typeof import('pg').Client> | undefined
   try {
     // Dynamic import to avoid bundler issues
     const pg = await import('pg')
@@ -215,8 +215,8 @@ export async function applyMigrations(): Promise<void> {
     await client.query(SEED_DATA_SQL)
     console.log('[migrations] ✅ Seed data applied (20260101000001)')
 
-  } catch (err: any) {
-    console.error('[migrations] Failed:', err?.message || err)
+  } catch (err) {
+    console.error('[migrations] Failed:', err instanceof Error ? err.message : err)
   } finally {
     if (client) {
       try { await client.end() } catch {}

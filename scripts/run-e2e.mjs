@@ -1,0 +1,32 @@
+// Resolves the local Supabase stack's URL + keys into E2E_* env vars, then
+// runs Playwright. Fails fast with a clear message if the stack is down.
+import { execFileSync, spawnSync } from 'node:child_process'
+
+let statusOut
+try {
+  statusOut = execFileSync('npx', ['supabase', 'status', '-o', 'env'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+} catch {
+  console.error('Local Supabase stack is not running. Start it with:\n  npx supabase start')
+  process.exit(1)
+}
+
+const env = { ...process.env }
+for (const line of statusOut.split('\n')) {
+  const m = line.match(/^([A-Z_]+)="(.*)"$/)
+  if (m) env[`SUPABASE_LOCAL_${m[1]}`] = m[2]
+}
+
+env.E2E_SUPABASE_URL = env.SUPABASE_LOCAL_API_URL
+env.E2E_SUPABASE_ANON_KEY = env.SUPABASE_LOCAL_ANON_KEY
+env.E2E_SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_LOCAL_SERVICE_ROLE_KEY
+
+if (!env.E2E_SUPABASE_URL || !env.E2E_SUPABASE_ANON_KEY || !env.E2E_SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('Could not parse API_URL/ANON_KEY/SERVICE_ROLE_KEY from `supabase status -o env`. Output was:\n' + statusOut)
+  process.exit(1)
+}
+
+const result = spawnSync('npx', ['playwright', 'test', ...process.argv.slice(2)], {
+  stdio: 'inherit',
+  env,
+})
+process.exit(result.status ?? 1)

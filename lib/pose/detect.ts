@@ -5,7 +5,7 @@
 // (snake_case landmark names, normalized 0-1 coords + visibility, relative z).
 
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
-import type { PoseFrame, ViewLabel } from '@/lib/posture-engine/types'
+import type { PoseFrame, ViewLabel } from '@posture-ai/engine/types'
 
 // BlazePose 33-landmark order. Index -> engine landmark name.
 const POSE_LANDMARK_NAMES = [

@@ -2,12 +2,17 @@
   "name": "posture-ai",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/posture-engine"
+  ],
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "vitest"
+    "lint": "eslint .",
+    "test": "vitest",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
@@ -35,6 +40,7 @@
     "eslint-config-next": "16.2.6",
     "jsdom": "^26.1.0",
     "postcss": "^8",
+    "supabase": "^2.106.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.1"
