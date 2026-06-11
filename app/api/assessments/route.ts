@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
-import { assessPosture } from '@/lib/posture-engine'
-import type { PoseFrame } from '@/lib/posture-engine'
-import TEST_FIXTURE from '@/lib/posture-engine/fixtures/test-landmarks.json'
+import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
+import type { PoseFrame } from '@posture-ai/engine'
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
     // present; otherwise fall back to the bundled fixture (test mode / no detection).
     try {
       const usingReal = !test_mode && Array.isArray(bodyFrames) && bodyFrames.length > 0
-      const frames = (usingReal ? bodyFrames : TEST_FIXTURE.frames) as PoseFrame[]
+      const frames = (usingReal ? bodyFrames : testLandmarksFrames) as PoseFrame[]
 
       // Persist the captured pose frames (reproducible / re-scorable)
       const capturesToInsert = frames.map((f) => ({

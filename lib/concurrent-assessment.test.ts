@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { assessPosture } from './posture-engine'
-import type { PoseFrame } from './posture-engine'
-import TEST_FIXTURE from './posture-engine/fixtures/test-landmarks.json'
+import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
+import type { PoseFrame } from '@posture-ai/engine'
 
 // ---------------------------------------------------------------------------
 // Feature #41: Concurrent assessment submissions are handled without data corruption
@@ -106,7 +105,7 @@ const PRACTITIONER_ID = 'practitioner-test-uuid-001'
 
 describe('Feature #41: Concurrent assessment submissions', () => {
   it('posture engine is pure — concurrent calls return identical deterministic results', async () => {
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
 
     // Call assessPosture concurrently 5 times
     const [r1, r2, r3, r4, r5] = await Promise.all([
@@ -127,7 +126,7 @@ describe('Feature #41: Concurrent assessment submissions', () => {
 
   it('two concurrent submissions produce unique assessment IDs', async () => {
     const db = new MockDb()
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
 
     // Fire two concurrent assessments for the SAME client
     const [result1, result2] = await Promise.all([
@@ -147,7 +146,7 @@ describe('Feature #41: Concurrent assessment submissions', () => {
 
   it('two concurrent submissions write distinct rows to the database', async () => {
     const db = new MockDb()
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
 
     await Promise.all([
       simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames }),
@@ -169,7 +168,7 @@ describe('Feature #41: Concurrent assessment submissions', () => {
 
   it('each assessment findings are correctly associated with their own assessment_id', async () => {
     const db = new MockDb()
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
 
     const [result1, result2] = await Promise.all([
       simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames }),
@@ -195,7 +194,7 @@ describe('Feature #41: Concurrent assessment submissions', () => {
 
   it('no assessment ends up stuck in "processing" status after completion', async () => {
     const db = new MockDb()
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
 
     await Promise.all([
       simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames }),
@@ -215,7 +214,7 @@ describe('Feature #41: Concurrent assessment submissions', () => {
 
   it('client assessment history shows 2 separate completed assessments', async () => {
     const db = new MockDb()
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
 
     await Promise.all([
       simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames }),
@@ -235,7 +234,7 @@ describe('Feature #41: Concurrent assessment submissions', () => {
 
   it('higher concurrency (5 concurrent) — no ID collisions or finding cross-contamination', async () => {
     const db = new MockDb()
-    const frames = TEST_FIXTURE.frames as PoseFrame[]
+    const frames = testLandmarksFrames as PoseFrame[]
     const N = 5
 
     const results = await Promise.all(

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import type { Zone } from '@/lib/posture-engine'
+import type { Zone } from '@posture-ai/engine'
 
 interface Client {
   id: string
@@ -514,7 +514,7 @@ function NewAssessmentWizard() {
               <p style={{ color: '#A1A1AA', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : filteredClients.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#A1A1AA' }}>
-                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <a href="/clients/new" style={{ color: '#6366F1' }}>Create a client</a></span>}
+                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: '#6366F1' }}>Create a client</Link></span>}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
