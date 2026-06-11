@@ -37,7 +37,7 @@ Model assets: full = 9.4 MB, lite = 5.8 MB (one-time download, cacheable long-te
 
 Across all 3 views × 3 browsers:
 
-- Mean landmark coordinate delta ≤ **0.0103** normalized (~1% of image dimension); max ≤ 0.02.
+- Mean landmark coordinate delta ≤ **0.0103** normalized (~1% of image dimension); max ≤ 0.02 on front/side, ≤ 0.07 on back (single outlier landmark; all back-view reliability gates still pass for both models).
 - Engine reliability gates (`RELIABILITY_FLOOR = 0.5` on min landmark visibility):
   **lite passes every gate that full passes**. The single failing gate (side-view
   "knees", min-vis 0.28 full / 0.39 lite) fails for BOTH models and is inherent to
