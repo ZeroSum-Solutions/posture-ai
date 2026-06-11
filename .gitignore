@@ -21,3 +21,8 @@ supabase/.temp/
 # agent/build runtime artifacts (2026-06-04)
 .claude/handoffs/
 .vercel
+# playwright
+e2e/.auth/
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo
