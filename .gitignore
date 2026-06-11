@@ -1,5 +1,8 @@
 .env
 .env.local
+.env.*
+!.env.example
+.vercel/
 node_modules/
 .zeroforge/features.db
 .zeroforge/.agent.lock
@@ -17,3 +20,4 @@ tf3.mjs
 supabase/.temp/
 # agent/build runtime artifacts (2026-06-04)
 .claude/handoffs/
+.vercel
