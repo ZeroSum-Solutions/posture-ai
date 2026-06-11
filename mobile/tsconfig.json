@@ -1,6 +1,11 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@posture-ai/engine": ["../packages/posture-engine/src/index.ts"],
+      "@posture-ai/engine/*": ["../packages/posture-engine/src/*"]
+    }
   }
 }

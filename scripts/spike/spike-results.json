@@ -1,0 +1,510 @@
+{
+  "results": [
+    {
+      "browser": "chromium-iphone14",
+      "model": "pose_landmarker_full",
+      "photo": "front",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 1,
+      "modelLoadMs": 110,
+      "coldDetectMs": 4892,
+      "warmDetectMs": 130,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-iphone14",
+      "model": "pose_landmarker_full",
+      "photo": "side",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 56,
+      "coldDetectMs": 4987,
+      "warmDetectMs": 134,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-iphone14",
+      "model": "pose_landmarker_full",
+      "photo": "back",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 57,
+      "coldDetectMs": 5075,
+      "warmDetectMs": 134,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-iphone14",
+      "model": "pose_landmarker_lite",
+      "photo": "front",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 77,
+      "coldDetectMs": 4974,
+      "warmDetectMs": 109,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-iphone14",
+      "model": "pose_landmarker_lite",
+      "photo": "side",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 74,
+      "coldDetectMs": 5050,
+      "warmDetectMs": 113,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-iphone14",
+      "model": "pose_landmarker_lite",
+      "photo": "back",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 53,
+      "coldDetectMs": 5034,
+      "warmDetectMs": 111,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-desktop",
+      "model": "pose_landmarker_full",
+      "photo": "front",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 92,
+      "coldDetectMs": 5213,
+      "warmDetectMs": 131,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-desktop",
+      "model": "pose_landmarker_full",
+      "photo": "side",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 48,
+      "coldDetectMs": 5196,
+      "warmDetectMs": 134,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-desktop",
+      "model": "pose_landmarker_full",
+      "photo": "back",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 49,
+      "coldDetectMs": 5178,
+      "warmDetectMs": 125,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-desktop",
+      "model": "pose_landmarker_lite",
+      "photo": "front",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 43,
+      "coldDetectMs": 5032,
+      "warmDetectMs": 113,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-desktop",
+      "model": "pose_landmarker_lite",
+      "photo": "side",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 55,
+      "coldDetectMs": 5072,
+      "warmDetectMs": 108,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "chromium-desktop",
+      "model": "pose_landmarker_lite",
+      "photo": "back",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 41,
+      "coldDetectMs": 5013,
+      "warmDetectMs": 112,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "webkit-iphone14",
+      "model": "pose_landmarker_full",
+      "photo": "front",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 7,
+      "modelLoadMs": 161,
+      "coldDetectMs": 248,
+      "warmDetectMs": 18,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "webkit-iphone14",
+      "model": "pose_landmarker_full",
+      "photo": "side",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 142,
+      "coldDetectMs": 254,
+      "warmDetectMs": 19,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "webkit-iphone14",
+      "model": "pose_landmarker_full",
+      "photo": "back",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 129,
+      "coldDetectMs": 237,
+      "warmDetectMs": 17,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "webkit-iphone14",
+      "model": "pose_landmarker_lite",
+      "photo": "front",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 135,
+      "coldDetectMs": 228,
+      "warmDetectMs": 16,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "webkit-iphone14",
+      "model": "pose_landmarker_lite",
+      "photo": "side",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 128,
+      "coldDetectMs": 233,
+      "warmDetectMs": 17,
+      "landmarkCount": 33
+    },
+    {
+      "browser": "webkit-iphone14",
+      "model": "pose_landmarker_lite",
+      "photo": "back",
+      "ok": true,
+      "delegate": "GPU",
+      "filesetMs": 0,
+      "modelLoadMs": 124,
+      "coldDetectMs": 256,
+      "warmDetectMs": 15,
+      "landmarkCount": 33
+    }
+  ],
+  "analysis": {
+    "chromium-iphone14/front": {
+      "meanDx": 0.0049,
+      "meanDy": 0.0036,
+      "maxDx": 0.0186,
+      "maxDy": 0.0123,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 1,
+          "minVisLite": 0.998,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.999,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.811,
+          "minVisLite": 0.863,
+          "fullPasses": true,
+          "litePasses": true
+        }
+      }
+    },
+    "chromium-iphone14/side": {
+      "meanDx": 0.0052,
+      "meanDy": 0.0058,
+      "maxDx": 0.0192,
+      "maxDy": 0.0195,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 0.999,
+          "minVisLite": 0.996,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.997,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.28,
+          "minVisLite": 0.392,
+          "fullPasses": false,
+          "litePasses": false
+        }
+      }
+    },
+    "chromium-iphone14/back": {
+      "meanDx": 0.0102,
+      "meanDy": 0.0065,
+      "maxDx": 0.0654,
+      "maxDy": 0.0195,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 1,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.999,
+          "minVisLite": 1,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.976,
+          "minVisLite": 0.953,
+          "fullPasses": true,
+          "litePasses": true
+        }
+      }
+    },
+    "chromium-desktop/front": {
+      "meanDx": 0.0049,
+      "meanDy": 0.0036,
+      "maxDx": 0.0186,
+      "maxDy": 0.0123,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 1,
+          "minVisLite": 0.998,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.999,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.811,
+          "minVisLite": 0.863,
+          "fullPasses": true,
+          "litePasses": true
+        }
+      }
+    },
+    "chromium-desktop/side": {
+      "meanDx": 0.0052,
+      "meanDy": 0.0058,
+      "maxDx": 0.0192,
+      "maxDy": 0.0195,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 0.999,
+          "minVisLite": 0.996,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.997,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.28,
+          "minVisLite": 0.392,
+          "fullPasses": false,
+          "litePasses": false
+        }
+      }
+    },
+    "chromium-desktop/back": {
+      "meanDx": 0.0102,
+      "meanDy": 0.0065,
+      "maxDx": 0.0654,
+      "maxDy": 0.0195,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 1,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.999,
+          "minVisLite": 1,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.976,
+          "minVisLite": 0.953,
+          "fullPasses": true,
+          "litePasses": true
+        }
+      }
+    },
+    "webkit-iphone14/front": {
+      "meanDx": 0.0045,
+      "meanDy": 0.0041,
+      "maxDx": 0.0187,
+      "maxDy": 0.0144,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 1,
+          "minVisLite": 0.998,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.999,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.805,
+          "minVisLite": 0.837,
+          "fullPasses": true,
+          "litePasses": true
+        }
+      }
+    },
+    "webkit-iphone14/side": {
+      "meanDx": 0.0059,
+      "meanDy": 0.005,
+      "maxDx": 0.0162,
+      "maxDy": 0.0141,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 0.999,
+          "minVisLite": 0.996,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.998,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.299,
+          "minVisLite": 0.413,
+          "fullPasses": false,
+          "litePasses": false
+        }
+      }
+    },
+    "webkit-iphone14/back": {
+      "meanDx": 0.0103,
+      "meanDy": 0.006,
+      "maxDx": 0.0682,
+      "maxDy": 0.0187,
+      "reliabilityGates": {
+        "forward_head": {
+          "minVisFull": 1,
+          "minVisLite": 0.999,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "shoulders": {
+          "minVisFull": 1,
+          "minVisLite": 1,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "pelvis": {
+          "minVisFull": 0.999,
+          "minVisLite": 1,
+          "fullPasses": true,
+          "litePasses": true
+        },
+        "knees": {
+          "minVisFull": 0.978,
+          "minVisLite": 0.959,
+          "fullPasses": true,
+          "litePasses": true
+        }
+      }
+    }
+  }
+}
