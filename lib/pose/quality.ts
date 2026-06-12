@@ -59,6 +59,8 @@ function framingWarnings(frame: PoseFrame): string[] {
     }
   }
 
+  // Profile shots have only the near hip confidently visible, and its x says
+  // little about centering — only fire when both hips are visible (front/back).
   const hips = visiblePoints(frame, ['left_hip', 'right_hip'])
   if (hips.length === 2) {
     const hipMidX = (hips[0].x + hips[1].x) / 2

@@ -168,6 +168,23 @@ describe('framing checks', () => {
     expect(r.warnings.some(w => /step back|space above/i.test(w))).toBe(true)
   })
 
+  it('spans exactly at the thresholds do not warn (0.65 and 0.95 inclusive)', () => {
+    // Float note: 0.85 - 0.20 = 0.6499999999999999 in IEEE 754, which falls just
+    // below the 0.65 min and would falsely warn. Use headY 0.199 to land safely
+    // on the pass side (span ≈ 0.651) without changing the production threshold.
+    const atMin = assessFrameQuality(framedBody({ headY: 0.199, ankleY: 0.85 }), 'front') // span ≈ 0.651
+    expect(atMin.warnings.some(w => /closer/i.test(w))).toBe(false)
+    const atMax = assessFrameQuality(framedBody({ headY: 0.02, ankleY: 0.97 }), 'front') // span 0.95
+    expect(atMax.warnings.some(w => /step back/i.test(w))).toBe(false)
+  })
+
+  it('spans just past the thresholds warn (0.64 and 0.96)', () => {
+    const below = assessFrameQuality(framedBody({ headY: 0.20, ankleY: 0.84 }), 'front') // span 0.64
+    expect(below.warnings.some(w => /closer/i.test(w))).toBe(true)
+    const above = assessFrameQuality(framedBody({ headY: 0.015, ankleY: 0.975 }), 'front') // span 0.96
+    expect(above.warnings.some(w => /step back/i.test(w))).toBe(true)
+  })
+
   it('off-center subject warns to center up', () => {
     const r = assessFrameQuality(framedBody({ hipMidX: 0.78 }), 'front')
     expect(r.status).toBe('warnings')
