@@ -50,7 +50,7 @@ export default async function DashboardPage() {
           style={{
             padding: '10px 18px',
             borderRadius: '8px',
-            background: '#6366F1',
+            background: '#4F46E5',
             color: '#fff',
             textDecoration: 'none',
             fontWeight: 600,
@@ -107,7 +107,7 @@ export default async function DashboardPage() {
                           style={{
                             fontSize: '0.85rem',
                             fontWeight: 700,
-                            color: '#6366F1',
+                            color: '#818CF8',
                             background: 'rgba(99,102,241,0.12)',
                             borderRadius: '6px',
                             padding: '2px 8px',
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
         ) : (
           <p style={{ color: '#A1A1AA', fontSize: '0.85rem', margin: 0 }}>
             No assessments yet.{' '}
-            <Link href="/assessments/new" style={{ color: '#6366F1' }}>
+            <Link href="/assessments/new" style={{ color: '#818CF8' }}>
               Run your first assessment →
             </Link>
           </p>

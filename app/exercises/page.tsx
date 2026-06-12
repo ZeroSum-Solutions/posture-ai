@@ -83,7 +83,7 @@ export default function ExercisesPage() {
           >
             {CATEGORY_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
             {cat !== 'all' && (
-              <span style={{ marginLeft: '6px', fontSize: '0.75rem', opacity: 0.7 }}>
+              <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>
                 ({exercises.filter(e => e.category === cat).length})
               </span>
             )}
@@ -131,7 +131,7 @@ export default function ExercisesPage() {
                 </p>
               )}
               {(ex.sets || ex.hold_seconds) && (
-                <p style={{ fontSize: '0.8rem', color: '#6366F1', marginTop: '4px' }}>
+                <p style={{ fontSize: '0.8rem', color: '#818CF8', marginTop: '4px' }}>
                   {ex.sets && `${ex.sets} sets`}{ex.sets && ex.hold_seconds && ' · '}{ex.hold_seconds && `${ex.hold_seconds}s hold`}
                 </p>
               )}

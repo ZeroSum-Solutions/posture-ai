@@ -237,7 +237,7 @@ export default function ClientDetailPage() {
   return (
     <div style={{ padding: '32px 24px', maxWidth: '960px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Link href="/clients" style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem' }}>
+        <Link href="/clients" style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem' }}>
           ← Back to Clients
         </Link>
       </div>
@@ -281,7 +281,7 @@ export default function ClientDetailPage() {
           <Link
             href={`/assessments/new?client_id=${client.id}`}
             style={{
-              padding: '10px 18px', borderRadius: '8px', background: '#6366F1',
+              padding: '10px 18px', borderRadius: '8px', background: '#4F46E5',
               color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem',
               whiteSpace: 'nowrap',
             }}
@@ -359,7 +359,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {a.overall_grade && (
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#6366F1', background: 'rgba(99,102,241,0.12)', borderRadius: '6px', padding: '2px 8px' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#818CF8', background: 'rgba(99,102,241,0.12)', borderRadius: '6px', padding: '2px 8px' }}>
                             Grade {a.overall_grade}
                           </span>
                         )}
@@ -468,7 +468,7 @@ export default function ClientDetailPage() {
               </h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#6366F1' }}>Grade {baseGrade}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#818CF8' }}>Grade {baseGrade}</div>
                   <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>Before</div>
                 </div>
                 <div style={{ fontSize: '1.5rem', color: gradeImproved ? '#10B981' : gradeRegressed ? '#EF4444' : '#A1A1AA' }}>

@@ -136,7 +136,7 @@ export default function SignInPage() {
           marginBottom: '16px',
         }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-          <span style={{ fontSize: '0.8rem', color: '#71717A' }}>or</span>
+          <span style={{ fontSize: '0.8rem', color: '#8A8A93' }}>or</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
         </div>
 
@@ -199,7 +199,7 @@ export default function SignInPage() {
           </button>
           <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#A1A1AA' }}>
             No account yet?{' '}
-            <Link href="/auth/sign-up" style={{ color: '#6366F1', textDecoration: 'none' }}>
+            <Link href="/auth/sign-up" style={{ color: '#818CF8', textDecoration: 'none' }}>
               Create one
             </Link>
           </p>

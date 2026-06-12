@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -321,21 +321,21 @@ function MuscleBodyMap({
         )}
         {weakMuscles.length > 0 && (
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366F1', display: 'inline-block' }}/>
+            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4F46E5', display: 'inline-block' }}/>
               Weak
             </div>
             {weakLinks.length > 0
               ? weakLinks.map((m) => (
                   <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
                     <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
-                      style={{ color: '#6366F1', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(99,102,241,0.4)' }}>
+                      style={{ color: '#818CF8', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(99,102,241,0.4)' }}>
                       • {m.name}
                     </Link>
                   </div>
                 ))
               : weakMuscles.map((m, i) => (
-              <div key={i} style={{ fontSize: '0.72rem', color: '#6366F1', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
+              <div key={i} style={{ fontSize: '0.72rem', color: '#818CF8', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
             ))}
           </div>
         )}
@@ -521,14 +521,14 @@ function SkeletalDiagramSection({
       </h2>
       <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
           <FrontSkeleton findings={findings} captureUrl={frontCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#71717A', fontWeight: 500 }}>{rankLabel(frontRank)}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{rankLabel(frontRank)}</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
           <SideSkeleton findings={findings} captureUrl={sideCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#71717A', fontWeight: 500 }}>{rankLabel(sideRank)}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{rankLabel(sideRank)}</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
@@ -583,7 +583,7 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
           width: 18, height: 18, borderRadius: '50%', background: color, border: '3px solid #0A0A0B',
           boxShadow: '0 0 8px ' + color + '88' }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#71717A' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#8A8A93' }}>
         <span style={{ color: '#22C55E' }}>S (Best)</span>
         <span>Score: {score}</span>
         <span style={{ color: '#EF4444' }}>E (Worst)</span>
@@ -603,7 +603,7 @@ function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
             border: '1px solid ' + (b.grade === currentGrade ? b.color : 'rgba(255,255,255,0.08)'),
             textAlign: 'center', minWidth: 56 }}>
             <div style={{ fontSize: '1rem', fontWeight: 900, color: b.color }}>{b.grade}</div>
-            <div style={{ fontSize: '0.68rem', color: '#71717A', marginTop: 1 }}>{b.range}</div>
+            <div style={{ fontSize: '0.68rem', color: '#8A8A93', marginTop: 1 }}>{b.range}</div>
             <div style={{ fontSize: '0.65rem', color: '#52525B' }}>{b.desc}</div>
           </div>
         ))}
@@ -634,12 +634,12 @@ function FindingCard({ f }: { f: Finding }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <span style={{ fontWeight: 600, color: isUnreliable ? '#71717A' : '#F5F5F5', fontSize: '0.9rem' }}>
           {f.label}
-          <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#71717A' }}>({f.view_used} view)</span>
+          <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#8A8A93' }}>({f.view_used} view)</span>
         </span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {isUnreliable && (
             <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
-              background: 'rgba(113,113,122,0.2)', color: '#71717A', border: '1px solid rgba(113,113,122,0.4)',
+              background: 'rgba(113,113,122,0.2)', color: '#8A8A93', border: '1px solid rgba(113,113,122,0.4)',
               textTransform: 'uppercase' }}>Unreliable</span>
           )}
           <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
@@ -659,7 +659,7 @@ function FindingCard({ f }: { f: Finding }) {
       {!isUnreliable && (
         <div style={{ marginBottom: f.causes_text ? 12 : 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: '0.72rem', color: '#71717A' }}>Severity</span>
+            <span style={{ fontSize: '0.72rem', color: '#8A8A93' }}>Severity</span>
             <span style={{ fontSize: '0.72rem', fontWeight: 600, color: zoneColor }}>{f.severity_pct}%</span>
           </div>
           <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
@@ -671,7 +671,7 @@ function FindingCard({ f }: { f: Finding }) {
       {/* Behavioral causes */}
       {f.causes_text && (
         <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5 }}>
-          <span style={{ fontWeight: 600, color: '#71717A', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
+          <span style={{ fontWeight: 600, color: '#8A8A93', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
           {f.causes_text}
         </div>
       )}
@@ -688,7 +688,7 @@ function FindingCard({ f }: { f: Finding }) {
               display: 'flex', alignItems: 'center', gap: 6, width: '100%',
             }}
           >
-            <span style={{ color: '#6366F1' }}>Muscle Analysis</span>
+            <span style={{ color: '#818CF8' }}>Muscle Analysis</span>
             <span style={{ marginLeft: 'auto', color: '#52525B', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
           </button>
           {expanded && (
@@ -724,7 +724,7 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
       </h2>
       {regions.map(region => (
         <div key={region} style={{ marginBottom: 16 }}>
-          <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6366F1', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#818CF8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {REGION_LABELS[region] ?? region}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -795,14 +795,14 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
           <div style={{ display: 'flex', gap: 16 }}>
             {exercise.sets > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366F1' }}>{exercise.sets}</div>
-                <div style={{ fontSize: '0.7rem', color: '#71717A', textTransform: 'uppercase' }}>Sets</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.sets}</div>
+                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
             {exercise.hold_seconds > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366F1' }}>{exercise.hold_seconds}s</div>
-                <div style={{ fontSize: '0.7rem', color: '#71717A', textTransform: 'uppercase' }}>Hold</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.hold_seconds}s</div>
+                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Hold</div>
               </div>
             )}
           </div>
@@ -844,7 +844,6 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
-  const [exercises, setExercises] = useState<Exercise[]>([])
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
 
   useEffect(() => {
@@ -889,13 +888,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     load()
   }, [assessmentId, router])
 
-  // Derived state via effect; convert to useMemo in P5 polish.
-  useEffect(() => {
-    if (allExercises.length > 0 && findings.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExercises(deriveExerciseRecommendations(allExercises, findings))
-    }
-  }, [allExercises, findings])
+  const exercises = useMemo(
+    () => (allExercises.length > 0 && findings.length > 0 ? deriveExerciseRecommendations(allExercises, findings) : []),
+    [allExercises, findings]
+  )
 
   async function handleGeneratePdf() {
     if (!assessmentId) return
@@ -935,7 +931,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center' }}>
         <p style={{ color: '#EF4444', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
-        <Link href="/clients" style={{ color: '#6366F1', textDecoration: 'none' }}>Back to Clients</Link>
+        <Link href="/clients" style={{ color: '#818CF8', textDecoration: 'none' }}>Back to Clients</Link>
       </div>
     )
   }
@@ -952,7 +948,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     <div style={{ padding: '24px 16px', maxWidth: 960, margin: '0 auto' }}>
       <div style={{ marginBottom: 20 }}>
         <Link href={'/clients/' + assessment.clients.id}
-          style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
+          style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
           ← Back to {clientName}
         </Link>
       </div>
@@ -967,7 +963,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       <div data-testid="disclaimer" style={{
         background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
         borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#D4D4D8', lineHeight: 1.5 }}>
-        Posture AI is a <strong style={{ color: '#6366F1' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
+        Posture AI is a <strong style={{ color: '#818CF8' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
       </div>
 
       <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
@@ -1001,7 +997,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
       <div style={{
         background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
-        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: '#71717A', lineHeight: 1.5, marginBottom: 24 }}>
+        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: '#8A8A93', lineHeight: 1.5, marginBottom: 24 }}>
         <strong style={{ color: '#EF4444' }}>SCREENING TOOL ONLY.</strong> These findings are for educational and informational purposes only. Always consult a qualified health professional for evaluation and clinical decisions.
       </div>
 
@@ -1009,7 +1005,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         <div style={{ background: '#161618', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <p style={{ color: '#22C55E', fontSize: '0.875rem', marginBottom: 8 }}>PDF report generated successfully.</p>
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
-            padding: '10px 20px', borderRadius: 8, background: '#6366F1',
+            padding: '10px 20px', borderRadius: 8, background: '#4F46E5',
             color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>Download PDF</a>
         </div>
       )}
