@@ -75,7 +75,9 @@ export function normalizeFrame(frame: PoseFrame): PoseFrame {
   const landmarks: PoseFrame['landmarks'] = {}
   for (const [name, lm] of Object.entries(frame.landmarks)) {
     const scaled = aspect === 1 ? lm : { ...lm, x: lm.x * aspect }
-    landmarks[name] = roll === 0 ? { ...scaled } : rotatePoint(scaled, roll, pivot)
+    // When roll === 0, aspect !== 1 (the fast-path handled the no-op case),
+    // so `scaled` is already a fresh object — safe to use directly.
+    landmarks[name] = roll === 0 ? scaled : rotatePoint(scaled, roll, pivot)
   }
   return { ...frame, landmarks }
 }

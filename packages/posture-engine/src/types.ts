@@ -18,6 +18,7 @@ export interface PoseFrame {
   captureRollDeg?: number
   /** Image width / height (e.g. 0.75 for 720×960 portrait). */
   aspectRatio?: number
+  /** How the frame was produced; uploads can never be sensor-verified. */
   source?: 'camera' | 'upload'
 }
 

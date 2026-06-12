@@ -78,6 +78,22 @@ describe('normalizeFrame', () => {
     expect(close(out.landmarks.left_ankle.y, 0.9)).toBe(true)
   })
 
+  it('applies aspect correction before de-rotation about the scaled-centre pivot (combined path)', () => {
+    // landmark (0.4, 0.2) on a 3:4 image with the camera rolled +10°:
+    // scaled x = 0.4·0.75 = 0.3; rotate by +10° about (0.375, 0.5).
+    // Hand-computed: x' = 0.375 + (−0.075·cos10° − (−0.3)·sin10°) ≈ 0.3532339
+    //                y' = 0.5  + (−0.075·sin10° + (−0.3)·cos10°) ≈ 0.1915341
+    const f: PoseFrame = {
+      view: 'front',
+      aspectRatio: 0.75,
+      captureRollDeg: 10,
+      landmarks: { nose: { x: 0.4, y: 0.2, visibility: 0.9 } },
+    }
+    const out = normalizeFrame(f)
+    expect(close(out.landmarks.nose.x, 0.3532339)).toBe(true)
+    expect(close(out.landmarks.nose.y, 0.1915341)).toBe(true)
+  })
+
   it('keeps view/metadata fields on the returned frame', () => {
     const f: PoseFrame = {
       view: 'side', aspectRatio: 0.75, captureRollDeg: 3, source: 'camera',
