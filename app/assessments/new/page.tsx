@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import type { Zone } from '@posture-ai/engine'
+import type { PoseFrame } from '@posture-ai/engine/types'
+import type { FrameQuality } from '@/lib/pose/quality'
 
 interface Client {
   id: string
@@ -14,10 +15,16 @@ interface Client {
 
 type ViewKey = 'front' | 'side' | 'back'
 
+// Per-slot quality state
+type SlotStatus = 'idle' | 'checking' | 'ok' | 'no_person' | 'warnings'
+
 interface CaptureSlot {
   file: File | null
   preview: string | null
   source: 'upload' | 'camera' | null
+  poseFrame: PoseFrame | null
+  quality: FrameQuality | null
+  slotStatus: SlotStatus
 }
 
 type Captures = Record<ViewKey, CaptureSlot>
@@ -25,14 +32,6 @@ type Captures = Record<ViewKey, CaptureSlot>
 const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
-
-// Zone colors
-const ZONE_COLORS: Record<Zone, string> = {
-  maintain: '#22C55E',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  unreliable: '#71717A',
-}
 
 // ---- ViewUploadSlot ----
 interface ViewSlotProps {
@@ -64,6 +63,8 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
     e.target.value = ''
   }
 
+  const { slotStatus, quality } = capture
+
   return (
     <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
@@ -85,10 +86,34 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
             background: 'rgba(0,0,0,0.75)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
             fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
           }}>Retake</button>
-          <div style={{
-            position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(16,185,129,0.9)',
-            borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, color: '#fff',
-          }}>Ready</div>
+
+          {/* Per-slot status badge */}
+          {slotStatus === 'checking' && (
+            <div style={{
+              position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)',
+              borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, color: '#A1A1AA',
+            }}>Checking photo…</div>
+          )}
+          {slotStatus === 'ok' && (
+            <div style={{
+              position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(16,185,129,0.9)',
+              borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, color: '#fff',
+            }}>Ready</div>
+          )}
+          {slotStatus === 'no_person' && (
+            <div style={{
+              position: 'absolute', bottom: '8px', left: '8px', right: '8px',
+              background: 'rgba(239,68,68,0.9)', borderRadius: '6px',
+              padding: '4px 10px', fontSize: '0.75rem', fontWeight: 700, color: '#fff',
+            }}>No person detected — retake</div>
+          )}
+          {slotStatus === 'warnings' && (
+            <div style={{
+              position: 'absolute', bottom: '8px', left: '8px',
+              background: 'rgba(245,158,11,0.9)', borderRadius: '6px',
+              padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, color: '#fff',
+            }}>Review</div>
+          )}
         </div>
       ) : (
         <div
@@ -114,7 +139,26 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
         </div>
       )}
 
-      <input ref={inputRef} type="file" accept="image/jpeg,image/png" style={{ display: 'none' }} onChange={handleFileChange} />
+      {/* Warnings banner */}
+      {slotStatus === 'warnings' && quality && quality.warnings.length > 0 && (
+        <div style={{
+          marginTop: '10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: '8px', padding: '8px 12px',
+        }}>
+          {quality.warnings.map((w, i) => (
+            <p key={i} style={{ color: '#F59E0B', fontSize: '0.78rem', margin: i > 0 ? '4px 0 0' : 0 }}>• {w}</p>
+          ))}
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
     </div>
   )
 }
@@ -130,12 +174,40 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const [phase, setPhase] = useState<'live' | 'countdown' | 'preview' | 'error'>('live')
   const [countdown, setCountdown] = useState(3)
   const [capturedUrl, setCapturedUrl] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const label = view === 'front' ? 'Front' : view === 'side' ? 'Side' : 'Back'
+
+  function getErrorMessage(err: unknown): string {
+    if (err instanceof DOMException || (err && typeof err === 'object' && 'name' in err)) {
+      const name = (err as { name: string }).name
+      if (name === 'NotAllowedError') return 'Camera access denied. Please allow camera permission and try again.'
+      if (name === 'NotFoundError') return 'No camera found on this device.'
+      if (name === 'NotReadableError') return 'Camera is in use by another app.'
+      if (name === 'SecurityError') return 'Camera requires a secure (HTTPS) connection.'
+    }
+    return 'Could not access the camera. Please try again.'
+  }
+
+  async function acquireWakeLock() {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+    try {
+      wakeLockRef.current = await (navigator as Navigator & { wakeLock: { request(type: string): Promise<WakeLockSentinel> } }).wakeLock.request('screen')
+    } catch {
+      // Wake lock is best-effort — silently ignore failures
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {})
+      wakeLockRef.current = null
+    }
+  }
 
   const captureFrame = useCallback(() => {
     const video = videoRef.current
@@ -149,6 +221,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
     setCapturedUrl(dataUrl)
     setPhase('preview')
+    releaseWakeLock()
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()) }
   }, [])
 
@@ -161,13 +234,26 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
         })
         if (!active) { stream.getTracks().forEach(t => t.stop()); return }
         streamRef.current = stream
+
+        // Detect stream ending mid-session (e.g. camera disconnected)
+        stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+          if (active) {
+            setErrorMsg('Camera disconnected — restart or upload instead.')
+            setPhase('error')
+          }
+        })
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          await videoRef.current.play()
+          try {
+            await videoRef.current.play()
+          } catch {
+            // Some browsers block autoplay; not fatal — user can tap capture
+          }
         }
-      } catch {
+      } catch (err) {
         if (active) {
-          setErrorMsg('Camera access denied. Please allow camera permission and try again.')
+          setErrorMsg(getErrorMessage(err))
           setPhase('error')
         }
       }
@@ -175,6 +261,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     startCamera()
     return () => {
       active = false
+      releaseWakeLock()
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()) }
     }
   }, [])
@@ -186,7 +273,11 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     return () => clearTimeout(timer)
   }, [phase, countdown, captureFrame])
 
-  function startCountdown() { setCountdown(3); setPhase('countdown') }
+  function startCountdown() {
+    acquireWakeLock()
+    setCountdown(3)
+    setPhase('countdown')
+  }
 
   async function handleRetake() {
     setCapturedUrl(null)
@@ -197,9 +288,22 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
         video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 960 } }
       })
       streamRef.current = stream
-      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play() }
-    } catch {
-      setErrorMsg('Could not restart camera.')
+
+      stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+        setErrorMsg('Camera disconnected — restart or upload instead.')
+        setPhase('error')
+      })
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        try {
+          await videoRef.current.play()
+        } catch {
+          // non-fatal
+        }
+      }
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err))
       setPhase('error')
     }
   }
@@ -215,7 +319,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
         {phase === 'error' && (
           <div style={{ padding: '24px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)' }}>
             <p style={{ color: '#EF4444', fontWeight: 600, margin: '0 0 8px' }}>Camera Unavailable</p>
-            <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: '0 0 16px' }}>{errorMsg}</p>
+            <p data-testid="camera-error-msg" style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: '0 0 16px' }}>{errorMsg}</p>
             <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', fontWeight: 600 }}>Use File Upload Instead</button>
           </div>
         )}
@@ -289,12 +393,16 @@ function NewAssessmentWizard() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [loadingClients, setLoadingClients] = useState(true)
   const [captures, setCaptures] = useState<Captures>({
-    front: { file: null, preview: null, source: null },
-    side: { file: null, preview: null, source: null },
-    back: { file: null, preview: null, source: null },
+    front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
+    side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
+    back: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
   })
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [activeCameraSlot, setActiveCameraSlot] = useState<ViewKey | null>(null)
+
+  // Model load state (shown while warming up)
+  const [modelLoading, setModelLoading] = useState(false)
+  const [modelError, setModelError] = useState(false)
 
   // Assessment API state
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
@@ -322,6 +430,27 @@ function NewAssessmentWizard() {
     }
     loadClients()
   }, [preselectedClientId, router])
+
+  // Warm up the landmarker when step 2 mounts (hides ~5s Chromium cold-start)
+  useEffect(() => {
+    if (step !== 2 || testMode) return
+    let cancelled = false
+    async function warm() {
+      setModelLoading(true)
+      setModelError(false)
+      try {
+        const { warmUpLandmarker } = await import('@/lib/pose/detect')
+        warmUpLandmarker()
+        // Warm-up is fire-and-forget; clear the indicator after a brief settle
+        await new Promise(r => setTimeout(r, 500))
+        if (!cancelled) setModelLoading(false)
+      } catch {
+        if (!cancelled) { setModelLoading(false); setModelError(true) }
+      }
+    }
+    warm()
+    return () => { cancelled = true }
+  }, [step, testMode])
 
   // Step 3: Poll assessment status and redirect when complete
   useEffect(() => {
@@ -371,22 +500,72 @@ function NewAssessmentWizard() {
       })
     : clients
 
+  // Run detectPose + assessFrameQuality after each capture/upload
+  async function runPreflight(view: ViewKey, preview: string) {
+    setCaptures(prev => ({
+      ...prev,
+      [view]: { ...prev[view], slotStatus: 'checking' },
+    }))
+
+    try {
+      const { detectPose } = await import('@/lib/pose/detect')
+      const { assessFrameQuality } = await import('@/lib/pose/quality')
+
+      const poseFrame = await detectPose(preview, view)
+      const quality = assessFrameQuality(poseFrame, view)
+
+      const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
+        : quality.status === 'warnings' ? 'warnings'
+        : 'ok'
+
+      setCaptures(prev => ({
+        ...prev,
+        [view]: { ...prev[view], poseFrame, quality, slotStatus },
+      }))
+    } catch (err) {
+      console.error('[wizard] preflight error:', err)
+      // On model-load failure, don't block submission — mark idle
+      setCaptures(prev => ({
+        ...prev,
+        [view]: { ...prev[view], slotStatus: 'idle' },
+      }))
+      setModelError(true)
+    }
+  }
+
   function handleFileUpload(view: ViewKey, file: File) {
     const preview = URL.createObjectURL(file)
-    setCaptures(prev => ({ ...prev, [view]: { file, preview, source: 'upload' } }))
+    setCaptures(prev => ({
+      ...prev,
+      [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle' },
+    }))
     setUploadError(null)
+    if (!testMode) runPreflight(view, preview)
   }
 
   function handleRetake(view: ViewKey) {
     const old = captures[view]
     if (old.preview && old.source === 'upload') URL.revokeObjectURL(old.preview)
-    setCaptures(prev => ({ ...prev, [view]: { file: null, preview: null, source: null } }))
+    setCaptures(prev => ({
+      ...prev,
+      [view]: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
+    }))
   }
 
   function handleCameraCapture(view: ViewKey, dataUrl: string) {
-    setCaptures(prev => ({ ...prev, [view]: { file: null, preview: dataUrl, source: 'camera' } }))
+    setCaptures(prev => ({
+      ...prev,
+      [view]: { file: null, preview: dataUrl, source: 'camera', poseFrame: null, quality: null, slotStatus: 'idle' },
+    }))
     setActiveCameraSlot(null)
     setUploadError(null)
+    if (!testMode) runPreflight(view, dataUrl)
+  }
+
+  // Check if submit should be blocked: a required slot has 'no_person' status
+  function hasBlockingSlot(): boolean {
+    const required: ViewKey[] = ['front', 'side']
+    return required.some(v => captures[v].preview && captures[v].slotStatus === 'no_person')
   }
 
   async function validateAndProceed() {
@@ -394,6 +573,10 @@ function NewAssessmentWizard() {
     if (!testMode) {
       if (!captures.front.preview) { setUploadError('Front view is required before proceeding.'); return }
       if (!captures.side.preview) { setUploadError('Side view is required before proceeding.'); return }
+      if (hasBlockingSlot()) {
+        setUploadError('One or more views has no person detected. Please retake those photos.')
+        return
+      }
     }
 
     setUploadError(null)
@@ -404,16 +587,21 @@ function NewAssessmentWizard() {
     try {
       const clientId = selectedClient?.id
 
-      // Run MediaPipe pose detection on each captured view → real PoseFrames.
-      // (Lazy-imported so MediaPipe only loads when an assessment is submitted.)
+      // Reuse cached PoseFrames if available; fall back to detection if needed.
       let frames: unknown[] | undefined = undefined
       if (!testMode) {
-        const { detectPose } = await import('@/lib/pose/detect')
         frames = []
         for (const v of ['front', 'side', 'back'] as ViewKey[]) {
           const cap = captures[v]
           if (!cap.preview) continue
-          frames.push(await detectPose(cap.preview, v))
+          if (cap.poseFrame) {
+            // Reuse the frame from preflight — no re-detection needed
+            frames.push(cap.poseFrame)
+          } else {
+            // Preflight was skipped or failed — detect now
+            const { detectPose } = await import('@/lib/pose/detect')
+            frames.push(await detectPose(cap.preview, v))
+          }
         }
       }
 
@@ -576,6 +764,18 @@ function NewAssessmentWizard() {
           }}>
             <strong style={{ color: '#6366F1' }}>Screening Tool Only</strong> — Posture AI is a screening tool. Results are for informational purposes only and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
           </div>
+
+          {/* Model loading / error indicators */}
+          {!testMode && modelLoading && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.8rem', color: '#71717A' }}>
+              Preparing pose engine…
+            </div>
+          )}
+          {!testMode && modelError && (
+            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.8rem', color: '#EF4444' }}>
+              Could not load the pose engine — check connection and retry.
+            </div>
+          )}
 
           {testMode ? (
             <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>

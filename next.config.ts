@@ -5,5 +5,18 @@ const nextConfig: NextConfig = {
   // Playwright drives the dev server via 127.0.0.1; without this Next 16 blocks
   // dev chunks/HMR as cross-origin and pages never hydrate (dev-only setting).
   allowedDevOrigins: ['127.0.0.1'],
+  async headers() {
+    return [
+      {
+        source: '/mediapipe/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ]
+  },
 }
 export default nextConfig
