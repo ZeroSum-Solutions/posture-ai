@@ -52,6 +52,43 @@ test.describe('camera error handling and quality preflight', () => {
     await context.close()
   })
 
+  test('camera works without orientation sensors: no gate, no indicator', async ({ page }) => {
+    // Fake getUserMedia so the camera modal opens without OS dialogs.
+    // DeviceOrientationEvent fires no events in desktop Chromium → the
+    // useCameraLevel hook degrades to 'unsupported' → roll stays null.
+    await page.addInitScript(() => {
+      // Minimal fake MediaStream: a canvas capture track is enough for the
+      // video element to enter 'live' phase without a real camera.
+      const canvas = document.createElement('canvas')
+      canvas.width = 2
+      canvas.height = 2
+      const fakeStream: MediaStream = (canvas as HTMLCanvasElement & { captureStream(): MediaStream }).captureStream()
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+        value: async () => fakeStream,
+        writable: true,
+        configurable: true,
+      })
+    })
+
+    const stamp = Date.now().toString().slice(-7)
+    await createClient(page, 'E2E', `Level${stamp}`)
+
+    await page.goto('/assessments/new')
+    await selectClientInWizard(page, `E2E Level${stamp}`)
+
+    const useCameraBtn = page.getByRole('button', { name: 'Use Camera' }).first()
+    await expect(useCameraBtn).toBeVisible({ timeout: 10_000 })
+    await useCameraBtn.click()
+
+    // Camera modal opens in 'live' phase; capture buttons are visible and enabled.
+    await expect(page.getByRole('button', { name: '3-2-1 Auto Capture' })).toBeEnabled({ timeout: 10_000 })
+
+    // Desktop Chromium fires no DeviceOrientation events → roll stays null →
+    // level-indicator is never rendered, and tilt-blocked cannot appear.
+    await expect(page.locator('[data-testid="level-indicator"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="tilt-blocked"]')).toHaveCount(0)
+  })
+
   test('uploading a non-person image shows no-person state and blocks submit', async ({ page }) => {
     test.setTimeout(120_000)
 
