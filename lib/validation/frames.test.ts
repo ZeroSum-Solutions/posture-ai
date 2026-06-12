@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { testLandmarksFrames } from '@posture-ai/engine'
+import { testLandmarksFrames, assessPosture } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from './frames'
 
 const CLIENT_ID = '2f5d3f6a-4b1c-4f6e-9b3a-1c2d3e4f5a6b'
@@ -153,6 +153,19 @@ describe('parseAssessmentPayload', () => {
         const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
         expect(r.ok, JSON.stringify(patch)).toBe(false)
       }
+    })
+
+    it('round-trips camera metadata into the engine: parsed frames score as tilt-corrected and level-verified', () => {
+      const body = validBody()
+      const frames = body.frames.map(f => ({
+        ...f, captureRollDeg: 4.2, aspectRatio: 0.75, source: 'camera',
+      }))
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+      if (!r.ok || !r.data.frames) throw new Error('expected parsed frames')
+      const result = assessPosture(r.data.frames)
+      expect(result.tiltCorrected).toBe(true)
+      expect(result.levelVerified).toBe(true)
     })
   })
 })
