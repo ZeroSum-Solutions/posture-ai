@@ -6,16 +6,31 @@ import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
+  const allowed = await enforceRateLimit(createSupabaseServiceClient(), {
+    route: 'reports', userId: user.id, limit: 10, windowSeconds: 60,
+  })
+  if (!allowed) {
+    logEvent({ route: 'POST /api/reports', outcome: 'rate_limited', status: 429, userHash: hashUser(user.id) })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
+
+  let body: { assessment_id?: string; compared_to_assessment_id?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
   const { assessment_id, compared_to_assessment_id } = body
 
-  if (!assessment_id) {
+  if (!assessment_id || typeof assessment_id !== 'string') {
     return NextResponse.json({ error: 'assessment_id required' }, { status: 400 })
   }
 

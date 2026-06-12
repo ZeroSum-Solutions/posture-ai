@@ -10,6 +10,8 @@ const supabaseEnv = {
   NEXT_PUBLIC_SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? '',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? '',
   SUPABASE_SERVICE_ROLE_KEY: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? '',
+  // Server-side gate for fixture scoring; never set in production.
+  POSTURE_TEST_MODE_ENABLED: '1',
 }
 
 export default defineConfig({
