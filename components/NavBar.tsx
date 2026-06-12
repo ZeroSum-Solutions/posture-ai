@@ -13,6 +13,7 @@ export default function NavBar() {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/clients', label: 'Clients' },
     { href: '/exercises', label: 'Exercises' },
+    { href: '/muscles', label: 'Muscles' },
     { href: '/settings', label: 'Settings' },
   ]
 

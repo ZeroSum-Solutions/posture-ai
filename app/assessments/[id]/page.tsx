@@ -20,6 +20,13 @@ interface Finding {
   causes_text?: string
   tight_muscles?: string[]
   weak_muscles?: string[]
+  tight_muscle_links?: MuscleLink[]
+  weak_muscle_links?: MuscleLink[]
+}
+
+interface MuscleLink {
+  slug: string
+  name: string
 }
 
 interface Capture {
@@ -214,9 +221,13 @@ function BodySilhouette({ view }: { view: 'front' | 'back' }) {
 function MuscleBodyMap({
   tightMuscles,
   weakMuscles,
+  tightLinks = [],
+  weakLinks = [],
 }: {
   tightMuscles: string[]
   weakMuscles: string[]
+  tightLinks?: MuscleLink[]
+  weakLinks?: MuscleLink[]
 }) {
   // Collect highlighted regions
   const tightRegions = tightMuscles.map(m => ({ muscle: m, region: getMuscleRegion(m) })).filter(x => x.region)
@@ -294,7 +305,16 @@ function MuscleBodyMap({
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}/>
               Tight
             </div>
-            {tightMuscles.map((m, i) => (
+            {tightLinks.length > 0
+              ? tightLinks.map((m) => (
+                  <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
+                    <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
+                      style={{ color: '#EF4444', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(239,68,68,0.4)' }}>
+                      • {m.name}
+                    </Link>
+                  </div>
+                ))
+              : tightMuscles.map((m, i) => (
               <div key={i} style={{ fontSize: '0.72rem', color: '#EF4444', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
             ))}
           </div>
@@ -305,7 +325,16 @@ function MuscleBodyMap({
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366F1', display: 'inline-block' }}/>
               Weak
             </div>
-            {weakMuscles.map((m, i) => (
+            {weakLinks.length > 0
+              ? weakLinks.map((m) => (
+                  <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
+                    <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
+                      style={{ color: '#6366F1', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(99,102,241,0.4)' }}>
+                      • {m.name}
+                    </Link>
+                  </div>
+                ))
+              : weakMuscles.map((m, i) => (
               <div key={i} style={{ fontSize: '0.72rem', color: '#6366F1', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
             ))}
           </div>
@@ -667,6 +696,8 @@ function FindingCard({ f }: { f: Finding }) {
               <MuscleBodyMap
                 tightMuscles={f.tight_muscles || []}
                 weakMuscles={f.weak_muscles || []}
+                tightLinks={f.tight_muscle_links || []}
+                weakLinks={f.weak_muscle_links || []}
               />
             </div>
           )}
