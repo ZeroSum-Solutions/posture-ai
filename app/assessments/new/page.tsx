@@ -151,11 +151,13 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
         </div>
       )}
 
+      {/* No `capture` attribute: on iOS/Android it forces the camera app and
+          removes the photo-library option. The bare input gives the native
+          chooser (library / take photo), with camera permission handled by the OS. */}
       <input
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
