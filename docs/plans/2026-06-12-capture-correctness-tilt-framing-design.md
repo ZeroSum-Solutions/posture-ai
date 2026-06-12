@@ -100,7 +100,9 @@ detectPose(preview,view) ──attaches aspectRatio,source──► PoseFrame{
                                                     ▼
 assessPosture(frames):
   for each frame:
-     corrected = normalizeFrame(frame)   // aspect-correct  + de-rotate by −roll
+     corrected = normalizeFrame(frame)   // aspect-correct + de-rotate (−roll in
+                                         // y-up terms = +captureRollDeg in the
+                                         // engine's y-down screen coords)
   run 10 metrics on corrected frames
   attach tiltCorrected / levelVerified flags to result
 ```

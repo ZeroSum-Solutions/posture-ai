@@ -441,7 +441,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
                 borderRadius: 10, padding: '10px 14px', marginBottom: 10,
                 fontSize: '0.82rem', color: '#EF4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
               }}>
-                <span>Phone is tilted {Math.abs(roll!).toFixed(1)}° — straighten it to capture.</span>
+                <span>Phone is tilted {Math.abs(roll ?? 0).toFixed(1)}° — straighten it to capture.</span>
                 <button onClick={() => setOverrideTilt(true)} style={{
                   background: 'none', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6,
                   color: '#EF4444', fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
