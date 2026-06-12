@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { PoseFrame, Landmark } from '../src/types'
 import { rotatePoint, normalizeFrame } from '../src/geometry'
+import { assessPosture, testLandmarksFrames } from '../src'
 
 const EPS = 1e-6
 
@@ -104,5 +105,111 @@ describe('normalizeFrame', () => {
     expect(out.captureRollDeg).toBe(3)
     expect(out.aspectRatio).toBe(0.75)
     expect(out.source).toBe('camera')
+  })
+})
+
+// Helper: simulate a photo of `frame`'s scene taken with a camera rolled by
+// rollDeg on an image with the given aspect ratio. Works in corrected space
+// (x·aspect), applies the inverse rotation, then maps back to image space.
+function simulateTiltedCapture(frame: PoseFrame, rollDeg: number, aspect: number): PoseFrame {
+  const pivot = { x: 0.5 * aspect, y: 0.5 }
+  const landmarks: PoseFrame['landmarks'] = {}
+  for (const [name, lm] of Object.entries(frame.landmarks)) {
+    const corrected = { ...lm, x: lm.x * aspect }
+    const tilted = rotatePoint(corrected, -rollDeg, pivot)
+    landmarks[name] = { ...tilted, x: tilted.x / aspect }
+  }
+  return { ...frame, landmarks, captureRollDeg: rollDeg, aspectRatio: aspect }
+}
+
+describe('assessPosture tilt correction (engine equivalence)', () => {
+  const levelFrames = testLandmarksFrames.map(f => ({ ...f, aspectRatio: 0.75 }))
+
+  it('a tilted capture with matching captureRollDeg scores identically to the level capture', () => {
+    const tiltedFrames = testLandmarksFrames.map(f => simulateTiltedCapture(f, 4.2, 0.75))
+    const level = assessPosture(levelFrames)
+    const tilted = assessPosture(tiltedFrames)
+    expect(tilted.findings.length).toBe(level.findings.length)
+    tilted.findings.forEach((f, i) => {
+      expect(f.key).toBe(level.findings[i].key)
+      expect(Math.abs(f.deviation - level.findings[i].deviation)).toBeLessThan(1e-6)
+      expect(f.zone).toBe(level.findings[i].zone)
+    })
+    expect(tilted.overallScore).toBe(level.overallScore)
+  })
+
+  it('flags: tiltCorrected true / levelVerified true when all frames carry a roll', () => {
+    const tiltedFrames = testLandmarksFrames.map(f => simulateTiltedCapture(f, 3, 0.75))
+    const r = assessPosture(tiltedFrames)
+    expect(r.tiltCorrected).toBe(true)
+    expect(r.levelVerified).toBe(true)
+  })
+
+  it('flags: measured-level capture (roll 0) is levelVerified but not tiltCorrected', () => {
+    const frames = testLandmarksFrames.map(f => ({ ...f, captureRollDeg: 0, aspectRatio: 0.75 }))
+    const r = assessPosture(frames)
+    expect(r.tiltCorrected).toBe(false)
+    expect(r.levelVerified).toBe(true)
+  })
+
+  it('flags: any frame without captureRollDeg makes levelVerified false', () => {
+    const frames = testLandmarksFrames.map((f, i) =>
+      i === 0 ? { ...f, aspectRatio: 0.75 } : { ...f, captureRollDeg: 0, aspectRatio: 0.75 }
+    )
+    const r = assessPosture(frames)
+    expect(r.levelVerified).toBe(false)
+  })
+
+  it('flags: empty frame list is not levelVerified', () => {
+    const r = assessPosture([])
+    expect(r.levelVerified).toBe(false)
+    expect(r.tiltCorrected).toBe(false)
+  })
+})
+
+describe('aspect-ratio golden values (intentional score shift, spec §6)', () => {
+  // Hand-derived by replaying the engine math on the canonical fixture with
+  // x scaled by 0.75. Side-view from-vertical angles DROP (they were
+  // overstated); front-view from-horizontal angles RISE (understated).
+  const frames = testLandmarksFrames.map(f => ({ ...f, aspectRatio: 0.75 }))
+  const EPSILON = 0.05
+
+  it('locks the aspect-corrected canonical result', () => {
+    const r = assessPosture(frames)
+    expect(r.overallScore).toBe(25)
+    expect(r.overallGrade).toBe('B')
+    expect(r.overallPercentile).toBe(75)
+    expect(r.ranks.front).toBe(21) // was 18 uncorrected
+    expect(r.ranks.side).toBe(29)  // was 35 uncorrected
+
+    const byKey = Object.fromEntries(r.findings.map(f => [f.key, f]))
+    expect(Math.abs(byKey['forward_head_posture'].deviation - 8.7778)).toBeLessThan(EPSILON)        // was 11.63
+    expect(Math.abs(byKey['anterior_imbalanced_shoulders'].deviation - 3.8655)).toBeLessThan(EPSILON) // was 2.90
+    expect(Math.abs(byKey['t1_tilt_backward'].deviation - 2.7702)).toBeLessThan(EPSILON)            // was 3.69
+    expect(byKey['t1_tilt_backward'].zone).toBe('maintain')                                          // was 'warning'
+    expect(Math.abs(byKey['anterior_pelvic_shift'].deviation - 2.7702)).toBeLessThan(EPSILON)
+    expect(Math.abs(byKey['knee_extension_back_knee'].deviation - 2.9112)).toBeLessThan(EPSILON)
+    expect(Math.abs(byKey['genu_varum_valgum_left'].deviation - 0.6218)).toBeLessThan(EPSILON)
+  })
+
+  it('frames WITHOUT aspectRatio keep the historical values (no silent re-scoring)', () => {
+    const r = assessPosture(testLandmarksFrames)
+    expect(r.overallScore).toBe(25)
+    expect(r.ranks.front).toBe(18)
+    expect(r.ranks.side).toBe(35)
+  })
+
+  it('hand value: FHP fixture frame at aspect 0.75 → atan2(0.07·0.75, 0.10) ≈ 27.70°', () => {
+    const fhp: PoseFrame = {
+      view: 'side',
+      aspectRatio: 0.75,
+      landmarks: {
+        left_ear:      { x: 0.570, y: 0.150, visibility: 0.90 },
+        left_shoulder: { x: 0.500, y: 0.250, visibility: 0.90 },
+      },
+    }
+    const r = assessPosture([fhp])
+    const f = r.findings.find(x => x.key === 'forward_head_posture')!
+    expect(Math.abs(f.deviation - 27.70)).toBeLessThan(0.05) // raw math gave 34.99
   })
 })
