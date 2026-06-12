@@ -65,4 +65,34 @@ describe('useCameraLevel', () => {
     await act(async () => { await result.current.requestAccess() })
     expect(result.current.permission).toBe('denied')
   })
+
+  it('does not register a listener when requestAccess resolves after unmount', async () => {
+    let resolvePermission: (v: 'granted') => void
+    const pending = new Promise<'granted'>(res => { resolvePermission = res })
+    w['DeviceOrientationEvent'] = class {
+      static requestPermission = vi.fn().mockReturnValue(pending)
+    }
+    const addSpy = vi.spyOn(window, 'addEventListener')
+    const { result, unmount } = renderHook(() => useCameraLevel())
+    const req = result.current.requestAccess()
+    unmount()
+    await act(async () => { resolvePermission!('granted'); await req })
+    const calls = addSpy.mock.calls.filter(c => c[0] === 'deviceorientation')
+    expect(calls).toHaveLength(0)
+    addSpy.mockRestore()
+  })
+
+  it('removes exactly the listeners it added on unmount', () => {
+    w['DeviceOrientationEvent'] = class {} // no requestPermission (non-iOS path)
+    const addSpy = vi.spyOn(window, 'addEventListener')
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+    const { unmount } = renderHook(() => useCameraLevel())
+    unmount()
+    const added = addSpy.mock.calls.filter(c => c[0] === 'deviceorientation').length
+    const removed = removeSpy.mock.calls.filter(c => c[0] === 'deviceorientation').length
+    expect(added).toBe(1)
+    expect(removed).toBe(1)
+    addSpy.mockRestore()
+    removeSpy.mockRestore()
+  })
 })
