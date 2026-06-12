@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { rollPitchFromOrientation } from './orientation-math'
 
-export type LevelPermission = 'pending' | 'needs-request' | 'granted' | 'denied' | 'unsupported'
+/** 'pending' removed — initial state is now computed synchronously via lazy useState. */
+export type LevelPermission = 'needs-request' | 'granted' | 'denied' | 'unsupported'
 
 export interface CameraLevel {
   permission: LevelPermission
@@ -27,12 +28,17 @@ function inPortrait(): boolean {
   return screen.orientation.type.startsWith('portrait')
 }
 
+function initialPermission(): LevelPermission {
+  if (typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) return 'unsupported'
+  const doe = window.DeviceOrientationEvent as unknown as DOEWithPermission
+  return typeof doe.requestPermission === 'function' ? 'needs-request' : 'granted'
+}
+
 export function useCameraLevel(): CameraLevel {
-  const [permission, setPermission] = useState<LevelPermission>('pending')
+  const [permission, setPermission] = useState<LevelPermission>(initialPermission)
   const [rollDeg, setRollDeg] = useState<number | null>(null)
   const [pitchDeg, setPitchDeg] = useState<number | null>(null)
   const rollRef = useRef<number | null>(null)
-  const mountedRef = useRef(true)
   // -Infinity so the FIRST event always passes the throttle (also under fake
   // timers in tests, where Date.now() starts at 0).
   const lastUpdateRef = useRef(-Infinity)
@@ -64,18 +70,8 @@ export function useCameraLevel(): CameraLevel {
   }, [handleEvent])
 
   useEffect(() => {
-    mountedRef.current = true
-    if (typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) {
-      setPermission('unsupported')
-      return
-    }
-    const doe = window.DeviceOrientationEvent as unknown as DOEWithPermission
-    if (typeof doe.requestPermission === 'function') {
-      setPermission('needs-request') // iOS: wait for an explicit gesture
-    } else {
-      setPermission('granted')
-      startListening()
-    }
+    if (permission !== 'granted') return
+    startListening()
     const timer = setTimeout(() => {
       // API present but silent (desktop): degrade so the UI doesn't wait forever.
       if (rollRef.current === null) {
@@ -83,32 +79,28 @@ export function useCameraLevel(): CameraLevel {
       }
     }, NO_EVENT_TIMEOUT_MS)
     return () => {
-      mountedRef.current = false
       clearTimeout(timer)
       if (listeningRef.current) {
         window.removeEventListener('deviceorientation', handleEvent as EventListener)
         listeningRef.current = false
       }
     }
-  }, [handleEvent, startListening])
+  }, [permission, handleEvent, startListening])
 
   const requestAccess = useCallback(async () => {
     const doe = window.DeviceOrientationEvent as unknown as DOEWithPermission
     if (typeof doe.requestPermission !== 'function') return
     try {
       const result = await doe.requestPermission()
-      if (result === 'granted' && mountedRef.current) {
+      if (result === 'granted') {
         setPermission('granted')
-        startListening()
-      } else if (result === 'granted') {
-        // resolved after unmount — drop silently, no listener to leak
       } else {
         setPermission('denied')
       }
     } catch {
       setPermission('denied')
     }
-  }, [startListening])
+  }, [])
 
   return { permission, rollDeg, pitchDeg, rollRef, requestAccess }
 }
