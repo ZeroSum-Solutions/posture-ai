@@ -66,7 +66,8 @@ describe('useCameraLevel', () => {
     expect(result.current.permission).toBe('denied')
   })
 
-  it('does not register a listener when requestAccess resolves after unmount', async () => {
+  // Post-restructure invariant: setState after unmount is a no-op, so the permission effect (the only startListening caller) can never fire.
+  it('never registers a listener when permission resolves after unmount', async () => {
     let resolvePermission: (v: 'granted') => void
     const pending = new Promise<'granted'>(res => { resolvePermission = res })
     w['DeviceOrientationEvent'] = class {
