@@ -131,10 +131,10 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
         >
           <span style={{ fontSize: '2rem' }}>📷</span>
           <p style={{ color: '#A1A1AA', fontSize: '0.8rem', textAlign: 'center', margin: 0 }}>Drop image or click to upload</p>
-          <p style={{ color: '#71717A', fontSize: '0.75rem', margin: 0 }}>JPEG or PNG</p>
+          <p style={{ color: '#8A8A93', fontSize: '0.75rem', margin: 0 }}>JPEG or PNG</p>
           <button onClick={(e) => { e.stopPropagation(); onUseCamera() }} style={{
             padding: '8px 14px', borderRadius: '8px', background: 'rgba(99,102,241,0.15)',
-            color: '#6366F1', border: '1px solid rgba(99,102,241,0.3)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+            color: '#818CF8', border: '1px solid rgba(99,102,241,0.3)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
           }}>Use Camera</button>
         </div>
       )}
@@ -341,10 +341,10 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
                 </div>
               )}
             </div>
-            <p style={{ color: '#71717A', fontSize: '0.78rem', textAlign: 'center', margin: '8px 0 14px' }}>Align subject along the plumb-line guide</p>
+            <p style={{ color: '#8A8A93', fontSize: '0.78rem', textAlign: 'center', margin: '8px 0 14px' }}>Align subject along the plumb-line guide</p>
             {phase === 'live' && (
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={startCountdown} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: '#6366F1', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>3-2-1 Auto Capture</button>
+                <button onClick={startCountdown} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>3-2-1 Auto Capture</button>
                 <button onClick={captureFrame} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture Now</button>
               </div>
             )}
@@ -368,7 +368,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
             <p style={{ color: '#A1A1AA', fontSize: '0.8rem', textAlign: 'center', margin: '10px 0 14px' }}>Preview - use this photo or retake</p>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={handleRetake} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, cursor: 'pointer' }}>Retake</button>
-              <button onClick={() => capturedUrl && onCapture(capturedUrl)} style={{ flex: 2, padding: '12px', borderRadius: '10px', background: '#6366F1', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>Use This Photo</button>
+              <button onClick={() => capturedUrl && onCapture(capturedUrl)} style={{ flex: 2, padding: '12px', borderRadius: '10px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>Use This Photo</button>
             </div>
           </div>
         )}
@@ -642,12 +642,12 @@ function NewAssessmentWizard() {
   return (
     <div style={{ padding: '24px 16px', maxWidth: '960px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Link href="/clients" style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>← Back to Clients</Link>
+        <Link href="/clients" style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>← Back to Clients</Link>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', margin: 0 }}>New Assessment</h1>
         {testMode && (
-          <span style={{ padding: '3px 10px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#6366F1' }}>
+          <span style={{ padding: '3px 10px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#818CF8' }}>
             TEST MODE
           </span>
         )}
@@ -664,15 +664,15 @@ function NewAssessmentWizard() {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 <div style={{
                   width: '32px', height: '32px', borderRadius: '50%',
-                  background: isActive ? '#6366F1' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
+                  background: isActive ? '#4F46E5' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
                   border: '2px solid ' + (isActive ? '#6366F1' : isDone ? '#10B981' : 'rgba(255,255,255,0.15)'),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: isActive || isDone ? '#fff' : '#71717A',
+                  color: isActive || isDone ? '#fff' : '#8A8A93',
                   fontSize: '0.85rem', fontWeight: 700, flexShrink: 0,
                 }}>
                   {isDone ? '✓' : stepNum}
                 </div>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? '#6366F1' : isDone ? '#10B981' : '#71717A', whiteSpace: 'nowrap' }}>{label}</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? '#818CF8' : isDone ? '#34D399' : '#8A8A93', whiteSpace: 'nowrap' }}>{label}</span>
               </div>
               {i < STEPS.length - 1 && (
                 <div style={{ flex: 1, height: '2px', background: isDone ? '#10B981' : 'rgba(255,255,255,0.08)', margin: '14px 8px 0', minWidth: '16px' }} />
@@ -690,19 +690,19 @@ function NewAssessmentWizard() {
             <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>Search and select the client you are assessing.</p>
           </div>
           {testMode && (
-            <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.875rem', color: '#6366F1' }}>
+            <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.875rem', color: '#818CF8' }}>
               Test mode active — fixture landmarks will be used instead of MediaPipe.
             </div>
           )}
           <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
             <input type="text" placeholder="Search clients by name..." value={clientSearch} onChange={e => setClientSearch(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#F5F5F5', fontSize: '0.95rem', outline: 'none', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#F5F5F5', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
             />
             {loadingClients ? (
               <p style={{ color: '#A1A1AA', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : filteredClients.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#A1A1AA' }}>
-                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: '#6366F1' }}>Create a client</Link></span>}
+                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: '#818CF8' }}>Create a client</Link></span>}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
@@ -717,7 +717,7 @@ function NewAssessmentWizard() {
                     }}>
                       <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
                         {c.first_name} {c.last_name}
-                        {isSelected && <span style={{ color: '#6366F1', marginLeft: '8px' }}>✓ Selected</span>}
+                        {isSelected && <span style={{ color: '#818CF8', marginLeft: '8px' }}>✓ Selected</span>}
                       </span>
                       {c.date_of_birth && (
                         <span style={{ display: 'block', fontSize: '0.8rem', color: '#A1A1AA', marginTop: '2px' }}>
@@ -735,7 +735,7 @@ function NewAssessmentWizard() {
               disabled={!selectedClient}
               style={{
                 padding: '12px 28px', borderRadius: '10px',
-                background: selectedClient ? '#6366F1' : 'rgba(99,102,241,0.25)',
+                background: selectedClient ? '#4F46E5' : 'rgba(99,102,241,0.25)',
                 color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
                 cursor: selectedClient ? 'pointer' : 'not-allowed', minHeight: '44px',
               }}>
@@ -762,12 +762,12 @@ function NewAssessmentWizard() {
             borderRadius: '8px', padding: '10px 14px', marginBottom: '16px',
             fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.5,
           }}>
-            <strong style={{ color: '#6366F1' }}>Screening Tool Only</strong> — Posture AI is a screening tool. Results are for informational purposes only and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
+            <strong style={{ color: '#818CF8' }}>Screening Tool Only</strong> — Posture AI is a screening tool. Results are for informational purposes only and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
           </div>
 
           {/* Model loading / error indicators */}
           {!testMode && modelLoading && (
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.8rem', color: '#71717A' }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.8rem', color: '#8A8A93' }}>
               Preparing pose engine…
             </div>
           )}
@@ -780,7 +780,7 @@ function NewAssessmentWizard() {
           {testMode ? (
             <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
               <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                <p style={{ color: '#6366F1', fontWeight: 600, margin: '0 0 8px' }}>Test Mode Active</p>
+                <p style={{ color: '#818CF8', fontWeight: 600, margin: '0 0 8px' }}>Test Mode Active</p>
                 <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>
                   Pre-computed fixture landmarks will be injected directly into the scoring engine.
                   Results will be saved to the database and you will be redirected to the results page.
@@ -808,7 +808,7 @@ function NewAssessmentWizard() {
 
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
             <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
-            <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(99,102,241,0.4)' : '#6366F1', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
+            <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(99,102,241,0.4)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
               {submitting ? 'Submitting...' : testMode ? 'Run Test Analysis' : 'Analyze Posture'}
             </button>
           </div>
@@ -828,15 +828,15 @@ function NewAssessmentWizard() {
                 <p style={{ color: '#EF4444', fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
                 <p style={{ color: '#A1A1AA', margin: '0 0 20px' }}>{processingError}</p>
                 <button onClick={handleRetry} style={{
-                  padding: '12px 24px', borderRadius: '10px', background: '#6366F1', color: '#fff',
+                  padding: '12px 24px', borderRadius: '10px', background: '#4F46E5', color: '#fff',
                   border: 'none', fontWeight: 600, cursor: 'pointer', minHeight: '44px',
                 }}>Try Again</button>
               </div>
             </div>
           ) : (
-            // Loading spinner + status
-            <div>
-              <div style={{ width: '64px', height: '64px', border: '4px solid rgba(99,102,241,0.2)', borderTop: '4px solid #6366F1', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
+            // Loading spinner + status (announced to screen readers)
+            <div role="status" aria-live="polite">
+              <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(99,102,241,0.2)', borderTop: '4px solid #6366F1', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
               <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
               <h2 style={{ color: '#F5F5F5', fontSize: '1.3rem', fontWeight: 700, marginBottom: '8px' }}>
                 {testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}

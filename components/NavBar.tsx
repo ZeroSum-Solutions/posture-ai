@@ -42,7 +42,7 @@ export default function NavBar() {
       zIndex: 100,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366F1', whiteSpace: 'nowrap' }}>Posture AI</span>
+        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8', whiteSpace: 'nowrap' }}>Posture AI</span>
       </div>
 
       {/* Desktop nav links */}
@@ -114,9 +114,9 @@ export default function NavBar() {
             justifyContent: 'center',
           }}
         >
-          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#6366F1' : '#A1A1AA', borderRadius: '2px' }} />
-          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#6366F1' : '#A1A1AA', borderRadius: '2px' }} />
-          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#6366F1' : '#A1A1AA', borderRadius: '2px' }} />
+          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#4F46E5' : '#A1A1AA', borderRadius: '2px' }} />
+          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#4F46E5' : '#A1A1AA', borderRadius: '2px' }} />
+          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#4F46E5' : '#A1A1AA', borderRadius: '2px' }} />
         </button>
       )}
 

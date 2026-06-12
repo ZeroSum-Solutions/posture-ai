@@ -323,7 +323,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   const weakMuscles = Array.isArray(f.weak_muscles) ? f.weak_muscles : []
 
   return (
-    <View style={[styles.findingCard, { borderLeftColor: zoneColor }, isUnreliable ? styles.unreliableOverlay : {}]}>
+    <View wrap={false} style={[styles.findingCard, { borderLeftColor: zoneColor }, isUnreliable ? styles.unreliableOverlay : {}]}>
       <View style={styles.findingRow}>
         <Text style={[styles.findingLabel, { color: isUnreliable ? '#71717A' : '#F5F5F5' }]}>
           {f.label}
@@ -378,6 +378,11 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
             </View>
           )}
         </View>
+      )}
+      {(tightMuscles.length > 0 || weakMuscles.length > 0) && (
+        <Text style={[styles.muscleText, { marginTop: 3, color: '#8A8A93' }]}>
+          See the in-app Muscle Guide for anatomy, screening notes, and exercise progressions.
+        </Text>
       )}
     </View>
   )

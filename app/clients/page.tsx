@@ -60,7 +60,7 @@ export default function ClientsPage() {
           style={{
             padding: '10px 18px',
             borderRadius: '8px',
-            background: '#6366F1',
+            background: '#4F46E5',
             color: '#fff',
             textDecoration: 'none',
             fontWeight: 600,
@@ -85,8 +85,7 @@ export default function ClientsPage() {
             borderRadius: '8px',
             color: '#F5F5F5',
             fontSize: '0.9rem',
-            outline: 'none',
-            boxSizing: 'border-box' as const,
+                        boxSizing: 'border-box' as const,
           }}
         />
       </div>

@@ -11,7 +11,7 @@ export default function NotFound() {
       padding: '32px',
       textAlign: 'center',
     }}>
-      <h1 style={{ fontSize: '4rem', fontWeight: 800, color: '#6366F1', marginBottom: '8px' }}>404</h1>
+      <h1 style={{ fontSize: '4rem', fontWeight: 800, color: '#818CF8', marginBottom: '8px' }}>404</h1>
       <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '12px' }}>
         Page Not Found
       </h2>
@@ -22,7 +22,7 @@ export default function NotFound() {
         href="/dashboard"
         style={{
           padding: '10px 24px',
-          background: '#6366F1',
+          background: '#4F46E5',
           color: '#fff',
           borderRadius: '8px',
           textDecoration: 'none',

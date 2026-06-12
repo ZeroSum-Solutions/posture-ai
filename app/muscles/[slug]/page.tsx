@@ -80,7 +80,7 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
 
   return (
     <div style={{ padding: '32px 24px', maxWidth: '760px', margin: '0 auto' }}>
-      <Link href="/muscles" style={{ color: '#6366F1', fontSize: '0.85rem', textDecoration: 'none' }}>
+      <Link href="/muscles" style={{ color: '#818CF8', fontSize: '0.85rem', textDecoration: 'none' }}>
         ← Muscle Guide
       </Link>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '12px 0 4px', flexWrap: 'wrap' }}>
@@ -94,7 +94,7 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
           </span>
         )}
       </div>
-      <p style={{ color: '#71717A', fontSize: '0.85rem', margin: '0 0 20px' }}>
+      <p style={{ color: '#8A8A93', fontSize: '0.85rem', margin: '0 0 20px' }}>
         {REGION_LABELS[muscle.region] ?? muscle.region}
       </p>
 
@@ -177,7 +177,7 @@ function ExerciseRow({ row, showLevel = false }: { row: ExerciseMuscleRow; showL
             </span>
           )}
           {(ex.sets || ex.hold_seconds) && (
-            <span style={{ fontSize: '0.75rem', color: '#6366F1' }}>
+            <span style={{ fontSize: '0.75rem', color: '#818CF8' }}>
               {ex.sets ? `${ex.sets} sets` : ''}{ex.sets && ex.hold_seconds ? ' · ' : ''}{ex.hold_seconds ? `${ex.hold_seconds}s` : ''}
             </span>
           )}

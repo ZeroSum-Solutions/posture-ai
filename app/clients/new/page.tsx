@@ -115,7 +115,7 @@ export default function NewClientPage() {
   return (
     <div style={{ padding: '24px 16px', maxWidth: '640px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Link href="/clients" style={{ color: '#6366F1', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+        <Link href="/clients" style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
           &#8592; Back to Clients
         </Link>
       </div>

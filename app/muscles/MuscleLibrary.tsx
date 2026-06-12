@@ -40,8 +40,7 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
         style={{
           width: '100%', padding: '10px 14px', borderRadius: '10px', marginBottom: '24px',
           background: '#161618', border: '1px solid rgba(255,255,255,0.12)', color: '#F5F5F5',
-          fontSize: '0.9rem', outline: 'none',
-        }}
+          fontSize: '0.9rem',         }}
       />
 
       {filtered.length === 0 && (

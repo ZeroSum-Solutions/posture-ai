@@ -63,7 +63,7 @@ export default function SignUpPage() {
             fontSize: '0.9rem',
           }}>
             Check your email to confirm your account, then{' '}
-            <Link href="/auth/sign-in" style={{ color: '#6366F1', textDecoration: 'underline' }}>
+            <Link href="/auth/sign-in" style={{ color: '#818CF8', textDecoration: 'underline' }}>
               sign in
             </Link>.
           </div>
@@ -100,8 +100,7 @@ export default function SignUpPage() {
                   borderRadius: '8px',
                   color: '#F5F5F5',
                   fontSize: '0.9rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
+                                    boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -124,8 +123,7 @@ export default function SignUpPage() {
                   borderRadius: '8px',
                   color: '#F5F5F5',
                   fontSize: '0.9rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
+                                    boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -149,7 +147,7 @@ export default function SignUpPage() {
             </button>
             <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#A1A1AA' }}>
               Already have an account?{' '}
-              <Link href="/auth/sign-in" style={{ color: '#6366F1', textDecoration: 'none' }}>
+              <Link href="/auth/sign-in" style={{ color: '#818CF8', textDecoration: 'none' }}>
                 Sign in
               </Link>
             </p>

@@ -130,8 +130,7 @@ export default function SettingsPage() {
     borderRadius: '8px',
     color: '#F5F5F5',
     fontSize: '0.9rem',
-    outline: 'none',
-    boxSizing: 'border-box',
+        boxSizing: 'border-box',
   }
 
   const labelStyle: React.CSSProperties = {
@@ -269,7 +268,7 @@ export default function SettingsPage() {
         >
           {logoUploading ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
         </button>
-        <p style={{ fontSize: '0.8rem', color: '#71717A', marginTop: '8px' }}>
+        <p style={{ fontSize: '0.8rem', color: '#8A8A93', marginTop: '8px' }}>
           JPEG, PNG, or WebP. Shown on PDF reports.
         </p>
       </div>
