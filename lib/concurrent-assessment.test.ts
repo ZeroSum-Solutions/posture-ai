@@ -261,4 +261,25 @@ describe('Feature #41: Concurrent assessment submissions', () => {
     const singleRunFindings = assessPosture(frames).findings.length
     expect(db.getAllFindings()).toHaveLength(N * singleRunFindings)
   })
+
+  it('release load sanity (10 concurrent) — distinct rows, no cross-contamination, all complete', async () => {
+    const db = new MockDb()
+    const frames = testLandmarksFrames as PoseFrame[]
+    const N = 10
+
+    const results = await Promise.all(
+      Array.from({ length: N }, () =>
+        simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames })
+      )
+    )
+
+    expect(results.every(r => r.status === 'complete')).toBe(true)
+    expect(new Set(results.map(r => r.id)).size).toBe(N)
+    for (const result of results) {
+      const findings = db.getFindingsForAssessment(result.id)
+      expect(findings.every(f => f.assessment_id === result.id)).toBe(true)
+    }
+    const singleRunFindings = assessPosture(frames).findings.length
+    expect(db.getAllFindings()).toHaveLength(N * singleRunFindings)
+  })
 })
