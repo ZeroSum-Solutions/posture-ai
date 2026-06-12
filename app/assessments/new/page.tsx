@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
+import { useCameraLevel } from '@/lib/capture/use-camera-level'
 
 interface Client {
   id: string
@@ -25,6 +26,8 @@ interface CaptureSlot {
   poseFrame: PoseFrame | null
   quality: FrameQuality | null
   slotStatus: SlotStatus
+  /** Sensor-measured camera roll for camera captures; null for uploads/no-sensor. */
+  captureRollDeg: number | null
 }
 
 type Captures = Record<ViewKey, CaptureSlot>
@@ -150,6 +153,11 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
           ))}
         </div>
       )}
+      {capture.preview && capture.source === 'upload' && (
+        <p data-testid="upload-level-note" style={{ color: '#8A8A93', fontSize: '0.72rem', margin: '8px 0 0' }}>
+          Camera level not verified for uploads — results may be less accurate.
+        </p>
+      )}
 
       {/* No `capture` attribute: on iOS/Android it forces the camera app and
           removes the photo-library option. The bare input gives the native
@@ -168,7 +176,7 @@ function ViewUploadSlot({ view, capture, onFileUpload, onRetake, onUseCamera }: 
 // ---- CameraCapture ----
 interface CameraCaptureProps {
   view: ViewKey
-  onCapture: (dataUrl: string) => void
+  onCapture: (dataUrl: string, captureRollDeg: number | null) => void
   onClose: () => void
 }
 
@@ -181,6 +189,18 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
   const [countdown, setCountdown] = useState(3)
   const [capturedUrl, setCapturedUrl] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const level = useCameraLevel()
+  const [overrideTilt, setOverrideTilt] = useState(false)
+  const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
+  const [previewQuality, setPreviewQuality] = useState<FrameQuality | null>(null)
+
+  const roll = level.rollDeg
+  // Gate thresholds (spec §4.1): green ≤2°, amber ≤5° (allowed, corrected),
+  // red >5° (blocked, manual override available).
+  const tiltZone: 'green' | 'amber' | 'red' | null =
+    roll === null ? null : Math.abs(roll) <= 2 ? 'green' : Math.abs(roll) <= 5 ? 'amber' : 'red'
+  const tiltBlocked = tiltZone === 'red' && !overrideTilt
 
   const label = view === 'front' ? 'Front' : view === 'side' ? 'Side' : 'Back'
 
@@ -221,11 +241,12 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     if (!ctx) return
     ctx.drawImage(video, 0, 0)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+    setRollAtCapture(level.rollRef.current)
     setCapturedUrl(dataUrl)
     setPhase('preview')
     releaseWakeLock()
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()) }
-  }, [])
+  }, [level.rollRef])
 
   useEffect(() => {
     let active = true
@@ -275,6 +296,24 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     return () => clearTimeout(timer)
   }, [phase, countdown, captureFrame])
 
+  // Best-effort framing feedback on the captured still, so the user can
+  // retake inside the modal. The wizard's preflight remains authoritative.
+  useEffect(() => {
+    if (phase !== 'preview' || !capturedUrl) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const { detectPose } = await import('@/lib/pose/detect')
+        const { assessFrameQuality } = await import('@/lib/pose/quality')
+        const frame = await detectPose(capturedUrl, view, 'camera')
+        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
+      } catch {
+        // non-fatal: the slot preflight still runs after "Use This Photo"
+      }
+    })()
+    return () => { cancelled = true }
+  }, [phase, capturedUrl, view])
+
   function startCountdown() {
     acquireWakeLock()
     setCountdown(3)
@@ -282,6 +321,9 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
   }
 
   async function handleRetake() {
+    setRollAtCapture(null)
+    setPreviewQuality(null)
+    setOverrideTilt(false)
     setCapturedUrl(null)
     setPhase('live')
     setCountdown(3)
@@ -310,6 +352,12 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     }
   }
 
+  const plumbColor =
+    tiltZone === 'green' ? 'rgba(34,197,94,0.85)'
+    : tiltZone === 'amber' ? 'rgba(245,158,11,0.85)'
+    : tiltZone === 'red' ? 'rgba(239,68,68,0.9)'
+    : 'rgba(99,102,241,0.7)'
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
       <div style={{ background: '#0F0F11', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '480px' }}>
@@ -331,12 +379,29 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
             <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', background: '#000', lineHeight: 0 }}>
               <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', display: 'block', maxHeight: '360px', objectFit: 'cover' }} />
               <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(99,102,241,0.7)" strokeWidth="0.4" strokeDasharray="3,3" />
+                <line x1="50" y1="0" x2="50" y2="100" stroke={plumbColor} strokeWidth="0.4" strokeDasharray="3,3" />
                 <line x1="10" y1="18" x2="90" y2="18" stroke="rgba(255,255,255,0.25)" strokeWidth="0.25" strokeDasharray="2,4" />
                 <line x1="10" y1="35" x2="90" y2="35" stroke="rgba(255,255,255,0.25)" strokeWidth="0.25" strokeDasharray="2,4" />
                 <line x1="10" y1="55" x2="90" y2="55" stroke="rgba(255,255,255,0.25)" strokeWidth="0.25" strokeDasharray="2,4" />
                 <line x1="10" y1="75" x2="90" y2="75" stroke="rgba(255,255,255,0.25)" strokeWidth="0.25" strokeDasharray="2,4" />
               </svg>
+              {roll !== null && (
+                <div data-testid="level-indicator" style={{
+                  position: 'absolute', top: 8, left: 8, borderRadius: 6, padding: '3px 10px',
+                  fontSize: '0.75rem', fontWeight: 700, color: '#fff',
+                  background: tiltZone === 'green' ? 'rgba(16,185,129,0.9)' : tiltZone === 'amber' ? 'rgba(245,158,11,0.9)' : 'rgba(239,68,68,0.92)',
+                }}>
+                  {tiltZone === 'green' ? 'Level' : `Tilted ${roll > 0 ? 'right' : 'left'} ${Math.abs(roll).toFixed(1)}°`}
+                </div>
+              )}
+              {roll !== null && level.pitchDeg !== null && Math.abs(level.pitchDeg) > 15 && (
+                <div style={{
+                  position: 'absolute', top: 8, right: 8, borderRadius: 6, padding: '3px 10px',
+                  fontSize: '0.72rem', fontWeight: 600, color: '#fff', background: 'rgba(245,158,11,0.9)',
+                }}>
+                  Aim the camera straight ahead
+                </div>
+              )}
               {phase === 'countdown' && countdown > 0 && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
                   <span style={{ fontSize: '5rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{countdown}</span>
@@ -344,10 +409,40 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
               )}
             </div>
             <p style={{ color: '#8A8A93', fontSize: '0.78rem', textAlign: 'center', margin: '8px 0 14px' }}>Align subject along the plumb-line guide</p>
+            {level.permission === 'needs-request' && (
+              <button onClick={level.requestAccess} style={{
+                display: 'block', margin: '0 auto 12px', padding: '8px 14px', borderRadius: 8,
+                background: 'rgba(99,102,241,0.15)', color: '#818CF8',
+                border: '1px solid rgba(99,102,241,0.3)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              }}>Enable level meter</button>
+            )}
+            {(level.permission === 'denied' || level.permission === 'unsupported') && (
+              <p style={{ color: '#8A8A93', fontSize: '0.72rem', textAlign: 'center', margin: '0 0 12px' }}>
+                Level check unavailable — hold the phone upright and straight.
+              </p>
+            )}
+            {typeof screen !== 'undefined' && screen.orientation && !screen.orientation.type.startsWith('portrait') && (
+              <p style={{ color: '#F59E0B', fontSize: '0.78rem', textAlign: 'center', margin: '0 0 12px', fontWeight: 600 }}>
+                Hold the phone upright (portrait) to capture.
+              </p>
+            )}
+            {phase === 'live' && tiltBlocked && (
+              <div data-testid="tilt-blocked" style={{
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 10,
+                fontSize: '0.82rem', color: '#EF4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+              }}>
+                <span>Phone is tilted {Math.abs(roll!).toFixed(1)}° — straighten it to capture.</span>
+                <button onClick={() => setOverrideTilt(true)} style={{
+                  background: 'none', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6,
+                  color: '#EF4444', fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>Capture anyway</button>
+              </div>
+            )}
             {phase === 'live' && (
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={startCountdown} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>3-2-1 Auto Capture</button>
-                <button onClick={captureFrame} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture Now</button>
+                <button onClick={startCountdown} disabled={tiltBlocked} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: tiltBlocked ? 'rgba(79,70,229,0.35)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: tiltBlocked ? 'not-allowed' : 'pointer' }}>3-2-1 Auto Capture</button>
+                <button onClick={captureFrame} disabled={tiltBlocked} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', color: tiltBlocked ? '#6B6B73' : '#F5F5F5', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.875rem', cursor: tiltBlocked ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>Capture Now</button>
               </div>
             )}
             {phase === 'countdown' && (
@@ -366,11 +461,29 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={capturedUrl} alt="Captured frame" style={{ width: '100%', display: 'block', maxHeight: '360px', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(16,185,129,0.9)', borderRadius: '6px', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>Captured</div>
+              {rollAtCapture !== null && (
+                <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.75)', borderRadius: '6px', padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600, color: Math.abs(rollAtCapture) <= 2 ? '#34D399' : '#F59E0B' }}>
+                  {Math.abs(rollAtCapture) <= 2 ? 'Level ✓' : `Roll ${rollAtCapture.toFixed(1)}° — will be corrected`}
+                </div>
+              )}
             </div>
             <p style={{ color: '#A1A1AA', fontSize: '0.8rem', textAlign: 'center', margin: '10px 0 14px' }}>Preview - use this photo or retake</p>
+            {previewQuality && previewQuality.status === 'ok' && (
+              <p style={{ color: '#34D399', fontSize: '0.78rem', textAlign: 'center', margin: '0 0 10px' }}>Framing looks good</p>
+            )}
+            {previewQuality && previewQuality.status === 'no_person' && (
+              <p style={{ color: '#EF4444', fontSize: '0.78rem', textAlign: 'center', margin: '0 0 10px', fontWeight: 600 }}>No person detected — retake</p>
+            )}
+            {previewQuality && previewQuality.warnings.length > 0 && (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px', marginBottom: 10 }}>
+                {previewQuality.warnings.map((w, i) => (
+                  <p key={i} style={{ color: '#F59E0B', fontSize: '0.75rem', margin: i > 0 ? '4px 0 0' : 0 }}>• {w}</p>
+                ))}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={handleRetake} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, cursor: 'pointer' }}>Retake</button>
-              <button onClick={() => capturedUrl && onCapture(capturedUrl)} style={{ flex: 2, padding: '12px', borderRadius: '10px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>Use This Photo</button>
+              <button onClick={() => capturedUrl && onCapture(capturedUrl, rollAtCapture)} style={{ flex: 2, padding: '12px', borderRadius: '10px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>Use This Photo</button>
             </div>
           </div>
         )}
@@ -395,9 +508,9 @@ function NewAssessmentWizard() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [loadingClients, setLoadingClients] = useState(true)
   const [captures, setCaptures] = useState<Captures>({
-    front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
-    side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
-    back: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
+    front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
+    side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
+    back: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
   })
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [activeCameraSlot, setActiveCameraSlot] = useState<ViewKey | null>(null)
@@ -503,7 +616,7 @@ function NewAssessmentWizard() {
     : clients
 
   // Run detectPose + assessFrameQuality after each capture/upload
-  async function runPreflight(view: ViewKey, preview: string) {
+  async function runPreflight(view: ViewKey, preview: string, source: 'camera' | 'upload', captureRollDeg: number | null) {
     setCaptures(prev => ({
       ...prev,
       [view]: { ...prev[view], slotStatus: 'checking' },
@@ -513,7 +626,8 @@ function NewAssessmentWizard() {
       const { detectPose } = await import('@/lib/pose/detect')
       const { assessFrameQuality } = await import('@/lib/pose/quality')
 
-      const poseFrame = await detectPose(preview, view)
+      const detected = await detectPose(preview, view, source)
+      const poseFrame: PoseFrame = captureRollDeg !== null ? { ...detected, captureRollDeg } : detected
       const quality = assessFrameQuality(poseFrame, view)
 
       const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
@@ -535,33 +649,34 @@ function NewAssessmentWizard() {
     }
   }
 
-  function handleFileUpload(view: ViewKey, file: File) {
-    const preview = URL.createObjectURL(file)
+  async function handleFileUpload(view: ViewKey, file: File) {
+    const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
+    const preview = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
     setCaptures(prev => ({
       ...prev,
-      [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle' },
+      [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
     }))
     setUploadError(null)
-    if (!testMode) runPreflight(view, preview)
+    if (!testMode) runPreflight(view, preview, 'upload', null)
   }
 
   function handleRetake(view: ViewKey) {
     const old = captures[view]
-    if (old.preview && old.source === 'upload') URL.revokeObjectURL(old.preview)
+    if (old.preview && old.preview.startsWith('blob:')) URL.revokeObjectURL(old.preview)
     setCaptures(prev => ({
       ...prev,
-      [view]: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle' },
+      [view]: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
     }))
   }
 
-  function handleCameraCapture(view: ViewKey, dataUrl: string) {
+  function handleCameraCapture(view: ViewKey, dataUrl: string, captureRollDeg: number | null) {
     setCaptures(prev => ({
       ...prev,
-      [view]: { file: null, preview: dataUrl, source: 'camera', poseFrame: null, quality: null, slotStatus: 'idle' },
+      [view]: { file: null, preview: dataUrl, source: 'camera', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg },
     }))
     setActiveCameraSlot(null)
     setUploadError(null)
-    if (!testMode) runPreflight(view, dataUrl)
+    if (!testMode) runPreflight(view, dataUrl, 'camera', captureRollDeg)
   }
 
   // Check if submit should be blocked: a required slot has 'no_person' status
@@ -602,7 +717,8 @@ function NewAssessmentWizard() {
           } else {
             // Preflight was skipped or failed — detect now
             const { detectPose } = await import('@/lib/pose/detect')
-            frames.push(await detectPose(cap.preview, v))
+            const detected = await detectPose(cap.preview, v, cap.source ?? 'upload')
+            frames.push(cap.captureRollDeg !== null ? { ...detected, captureRollDeg: cap.captureRollDeg } : detected)
           }
         }
       }
@@ -863,7 +979,7 @@ function NewAssessmentWizard() {
 
       {activeCameraSlot && (
         <CameraCapture view={activeCameraSlot}
-          onCapture={(dataUrl) => handleCameraCapture(activeCameraSlot, dataUrl)}
+          onCapture={(dataUrl, rollDeg) => handleCameraCapture(activeCameraSlot, dataUrl, rollDeg)}
           onClose={() => setActiveCameraSlot(null)}
         />
       )}
