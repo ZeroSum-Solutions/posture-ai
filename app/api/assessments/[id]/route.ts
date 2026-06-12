@@ -15,7 +15,7 @@ export async function GET(
     .from('assessments')
     .select(`
       id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, scoring_engine_version, assessed_at, notes,
+      front_rank, side_rank, scoring_engine_version, tilt_corrected, level_verified, assessed_at, notes,
       clients!inner(id, first_name, last_name)
     `)
     .eq('id', id)
@@ -78,11 +78,11 @@ export async function GET(
   const service = createSupabaseServiceClient()
   const { data: rawCaptures } = await service
     .from('captures')
-    .select('id, view, storage_path, source')
+    .select('id, view, storage_path, source, pose_frame')
     .eq('assessment_id', id)
 
   // Generate signed URLs for captures that have storage paths
-  const captures: Array<{ id: string; view: string; signed_url: string | null; source: string }> = []
+  const captures: Array<{ id: string; view: string; signed_url: string | null; source: string; capture_roll_deg: number | null }> = []
   for (const cap of (rawCaptures || [])) {
     let signed_url: string | null = null
     if (cap.storage_path) {
@@ -91,7 +91,11 @@ export async function GET(
         .createSignedUrl(cap.storage_path, 3600)
       signed_url = urlData?.signedUrl ?? null
     }
-    captures.push({ id: cap.id, view: cap.view, signed_url, source: cap.source })
+    const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
+    captures.push({
+      id: cap.id, view: cap.view, signed_url, source: cap.source,
+      capture_roll_deg: typeof roll === 'number' ? roll : null,
+    })
   }
 
   return NextResponse.json({ assessment, findings: enrichedFindings, captures })
