@@ -13,6 +13,7 @@ export default [
       'playwright-report/**',
       'scripts/spike/**',
       'public/**',
+      '.claude/**',
     ],
   },
 ]
