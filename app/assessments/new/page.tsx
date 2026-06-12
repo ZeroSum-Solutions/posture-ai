@@ -291,10 +291,19 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
 
   useEffect(() => {
     if (phase !== 'countdown') return
-    if (countdown <= 0) { captureFrame(); return }
+    if (countdown <= 0) {
+      // Re-check the gate at the shutter instant — the phone may have tilted
+      // past the red threshold during the countdown.
+      if (tiltBlocked) {
+        const abort = setTimeout(() => { setPhase('live'); setCountdown(3) }, 0)
+        return () => clearTimeout(abort)
+      }
+      captureFrame()
+      return
+    }
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [phase, countdown, captureFrame])
+  }, [phase, countdown, captureFrame, tiltBlocked])
 
   // Best-effort framing feedback on the captured still, so the user can
   // retake inside the modal. The wizard's preflight remains authoritative.
@@ -427,7 +436,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
               </p>
             )}
             {phase === 'live' && tiltBlocked && (
-              <div data-testid="tilt-blocked" style={{
+              <div data-testid="tilt-blocked" id="tilt-blocked-banner" role="status" aria-live="polite" style={{
                 background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: 10, padding: '10px 14px', marginBottom: 10,
                 fontSize: '0.82rem', color: '#EF4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
@@ -441,8 +450,8 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
             )}
             {phase === 'live' && (
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={startCountdown} disabled={tiltBlocked} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: tiltBlocked ? 'rgba(79,70,229,0.35)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: tiltBlocked ? 'not-allowed' : 'pointer' }}>3-2-1 Auto Capture</button>
-                <button onClick={captureFrame} disabled={tiltBlocked} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', color: tiltBlocked ? '#6B6B73' : '#F5F5F5', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.875rem', cursor: tiltBlocked ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>Capture Now</button>
+                <button onClick={startCountdown} disabled={tiltBlocked} aria-describedby={tiltBlocked ? 'tilt-blocked-banner' : undefined} style={{ flex: 1, padding: '12px', borderRadius: '10px', background: tiltBlocked ? 'rgba(79,70,229,0.35)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: tiltBlocked ? 'not-allowed' : 'pointer' }}>3-2-1 Auto Capture</button>
+                <button onClick={captureFrame} disabled={tiltBlocked} aria-describedby={tiltBlocked ? 'tilt-blocked-banner' : undefined} style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', color: tiltBlocked ? '#6B6B73' : '#F5F5F5', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.875rem', cursor: tiltBlocked ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>Capture Now</button>
               </div>
             )}
             {phase === 'countdown' && (
@@ -474,7 +483,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
             {previewQuality && previewQuality.status === 'no_person' && (
               <p style={{ color: '#EF4444', fontSize: '0.78rem', textAlign: 'center', margin: '0 0 10px', fontWeight: 600 }}>No person detected — retake</p>
             )}
-            {previewQuality && previewQuality.warnings.length > 0 && (
+            {previewQuality && previewQuality.status === 'warnings' && previewQuality.warnings.length > 0 && (
               <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px', marginBottom: 10 }}>
                 {previewQuality.warnings.map((w, i) => (
                   <p key={i} style={{ color: '#F59E0B', fontSize: '0.75rem', margin: i > 0 ? '4px 0 0' : 0 }}>• {w}</p>
@@ -650,12 +659,14 @@ function NewAssessmentWizard() {
   }
 
   async function handleFileUpload(view: ViewKey, file: File) {
+    const oldPreview = captures[view].preview
     const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
     const preview = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
     setCaptures(prev => ({
       ...prev,
       [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
     }))
+    if (oldPreview && oldPreview.startsWith('blob:')) URL.revokeObjectURL(oldPreview)
     setUploadError(null)
     if (!testMode) runPreflight(view, preview, 'upload', null)
   }
