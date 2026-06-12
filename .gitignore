@@ -26,3 +26,5 @@ e2e/.auth/
 test-results/
 playwright-report/
 tsconfig.tsbuildinfo
+# mediapipe wasm assets (copied from pinned package at build/dev time)
+public/mediapipe/wasm/
