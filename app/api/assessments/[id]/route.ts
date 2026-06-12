@@ -51,11 +51,27 @@ export async function GET(
     }
   }
 
+  // Normalized muscle links (knowledge base). Empty until the muscle KB is
+  // seeded; the UI falls back to the legacy JSONB strings in that case.
+  const linkMap: Record<string, { tight: { slug: string; name: string }[]; weak: { slug: string; name: string }[] }> = {}
+  if (keys.length > 0) {
+    const { data: linkRows } = await supabase
+      .from('muscle_imbalance_links')
+      .select('imbalance_key, role, muscle_slug, muscles(name)')
+      .in('imbalance_key', keys)
+    for (const row of (linkRows ?? []) as unknown as { imbalance_key: string; role: 'tight' | 'weak'; muscle_slug: string; muscles: { name: string } | null }[]) {
+      const entry = (linkMap[row.imbalance_key] ??= { tight: [], weak: [] })
+      entry[row.role].push({ slug: row.muscle_slug, name: row.muscles?.name ?? row.muscle_slug })
+    }
+  }
+
   const enrichedFindings = (findings || []).map((f: Record<string, unknown>) => ({
     ...f,
     causes_text: defMap[f.imbalance_key as string]?.causes_text || '',
     tight_muscles: defMap[f.imbalance_key as string]?.tight_muscles || [],
     weak_muscles: defMap[f.imbalance_key as string]?.weak_muscles || [],
+    tight_muscle_links: linkMap[f.imbalance_key as string]?.tight || [],
+    weak_muscle_links: linkMap[f.imbalance_key as string]?.weak || [],
   }))
 
   // Fetch captures (photos) for this assessment
