@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         assessment_id: assessmentId,
         practitioner_id: user.id,
         view: f.view,
-        source: useFixture ? 'fixture' : 'upload',
+        source: useFixture ? 'fixture' : (f.source ?? 'upload'),
         pose_frame: f as unknown as object,
       }))
       await service.from('captures').insert(capturesToInsert)
@@ -122,6 +122,8 @@ export async function POST(req: NextRequest) {
           front_rank: result.ranks.front,
           side_rank: result.ranks.side,
           scoring_engine_version: result.engineVersion,
+          tilt_corrected: result.tiltCorrected,
+          level_verified: result.levelVerified,
         })
         .eq('id', assessmentId)
 

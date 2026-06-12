@@ -80,9 +80,14 @@ export function warmUpLandmarker(): void {
  * Detect pose landmarks in a captured image (object URL or data URL) and map
  * them to the engine's PoseFrame. If no person is detected, the frame's
  * landmarks are empty and the engine degrades the affected metrics to
- * "unreliable" rather than emitting bad numbers.
+ * "unreliable" rather than emitting bad numbers. The returned frame also
+ * carries the image's aspect ratio and an optional source tag for downstream use.
  */
-export async function detectPose(src: string, view: ViewLabel): Promise<PoseFrame> {
+export async function detectPose(
+  src: string,
+  view: ViewLabel,
+  source?: 'camera' | 'upload'
+): Promise<PoseFrame> {
   const landmarker = await getLandmarker()
   const img = await loadImage(src)
   const result = landmarker.detect(img)
@@ -101,5 +106,10 @@ export async function detectPose(src: string, view: ViewLabel): Promise<PoseFram
       }
     })
   }
-  return { view, landmarks }
+  const frame: PoseFrame = { view, landmarks }
+  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+    frame.aspectRatio = img.naturalWidth / img.naturalHeight
+  }
+  if (source) frame.source = source
+  return frame
 }

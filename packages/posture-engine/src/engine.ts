@@ -1,4 +1,5 @@
 import { PoseFrame, AssessmentResult, OverallGrade, ViewLabel } from './types'
+import { normalizeFrame } from './geometry'
 import {
   forwardHeadPosture, anteriorImbalancedShoulders, posteriorImbalancedShoulders,
   t1TiltBackward, pelvicObliquity, anteriorPelvicShift, pelvicAxialRotation,
@@ -6,13 +7,21 @@ import {
 } from './metrics'
 import { toGrade, toPercentile } from './thresholds'
 
-export const ENGINE_VERSION = '1.0.0'
+export const ENGINE_VERSION = '1.1.0'
 
 export const DISCLAIMER =
   'SCREENING ONLY — Not a medical diagnosis. These findings are for educational and screening purposes only. ' +
   'Results require interpretation by qualified professionals. Do not substitute for clinical examination.'
 
-export function assessPosture(frames: PoseFrame[]): AssessmentResult {
+export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
+  // Single insertion point: every metric below consumes aspect-corrected,
+  // de-rotated landmarks (spec §4.4). Frames without metadata pass through.
+  const frames = rawFrames.map(normalizeFrame)
+  const tiltCorrected = rawFrames.some(f => (f.captureRollDeg ?? 0) !== 0)
+  // Uploads can never be sensor-verified, even if a client supplies a roll.
+  const levelVerified = rawFrames.length > 0 &&
+    rawFrames.every(f => f.captureRollDeg !== undefined && f.source !== 'upload')
+
   const front = frames.find(f => f.view === 'front')
   const side = frames.find(f => f.view === 'side')
   const back = frames.find(f => f.view === 'back')
@@ -69,5 +78,7 @@ export function assessPosture(frames: PoseFrame[]): AssessmentResult {
     engineVersion: ENGINE_VERSION,
     disclaimer: DISCLAIMER,
     missingViews,
+    tiltCorrected,
+    levelVerified,
   }
 }

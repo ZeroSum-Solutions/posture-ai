@@ -10,6 +10,16 @@ export type ViewLabel = 'front' | 'side' | 'back'
 export interface PoseFrame {
   view: ViewLabel
   landmarks: Record<string, Landmark>
+  /**
+   * Signed camera roll in degrees, measured by device sensors at the capture
+   * instant. Present only for sensor-verified live captures. Positive = the
+   * phone's top edge was tilted to the photographer's right.
+   */
+  captureRollDeg?: number
+  /** Image width / height (e.g. 0.75 for 720×960 portrait). */
+  aspectRatio?: number
+  /** How the frame was produced; uploads can never be sensor-verified. */
+  source?: 'camera' | 'upload'
 }
 
 export type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -41,4 +51,8 @@ export interface AssessmentResult {
   engineVersion: string
   disclaimer: string
   missingViews: ViewLabel[]
+  /** True when at least one frame carried a non-zero measured camera roll that was removed. */
+  tiltCorrected: boolean
+  /** True when every submitted frame came from sensor-verified capture (captureRollDeg present and not an upload). */
+  levelVerified: boolean
 }

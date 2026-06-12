@@ -1,4 +1,4 @@
-import { Landmark } from './types'
+import { Landmark, PoseFrame } from './types'
 
 /** Angle in degrees at vertex b, formed by points a-b-c */
 export function angle2D(a: Landmark, b: Landmark, c: Landmark): number {
@@ -34,4 +34,50 @@ export function midpoint(a: Landmark, b: Landmark): Landmark {
 /** Minimum visibility of provided landmarks */
 export function minVis(...lms: (Landmark | undefined)[]): number {
   return Math.min(...lms.map(l => l?.visibility ?? 0))
+}
+
+const DEG2RAD = Math.PI / 180
+
+/**
+ * Rotate a point about a pivot in y-down screen coordinates.
+ * thetaDeg follows the captureRollDeg convention: applying θ = captureRollDeg
+ * undoes the apparent scene rotation caused by a camera rolled by θ
+ * (positive = phone top tilted to the photographer's right).
+ * Returns a new Landmark; never mutates the input.
+ */
+export function rotatePoint(
+  p: Landmark,
+  thetaDeg: number,
+  pivot: { x: number; y: number }
+): Landmark {
+  const t = thetaDeg * DEG2RAD
+  const cos = Math.cos(t)
+  const sin = Math.sin(t)
+  const dx = p.x - pivot.x
+  const dy = p.y - pivot.y
+  return { ...p, x: pivot.x + dx * cos - dy * sin, y: pivot.y + dx * sin + dy * cos }
+}
+
+/**
+ * Map a frame into a square, level reference space:
+ *  - aspect-correct: x' = x * aspectRatio so both axes share a physical scale
+ *  - de-rotate: rotate landmarks by captureRollDeg about the image centre so a
+ *    photo taken with a rolled camera reads as if the camera were level
+ * Frames without metadata pass through unchanged (aspect defaults to 1, roll
+ * to 0), so historical payloads and fixtures keep their exact scores.
+ * Returns a new frame; never mutates the input.
+ */
+export function normalizeFrame(frame: PoseFrame): PoseFrame {
+  const aspect = frame.aspectRatio ?? 1
+  const roll = frame.captureRollDeg ?? 0
+  if (aspect === 1 && roll === 0) return frame
+  const pivot = { x: 0.5 * aspect, y: 0.5 }
+  const landmarks: PoseFrame['landmarks'] = {}
+  for (const [name, lm] of Object.entries(frame.landmarks)) {
+    const scaled = aspect === 1 ? lm : { ...lm, x: lm.x * aspect }
+    // When roll === 0, aspect !== 1 (the fast-path handled the no-op case),
+    // so `scaled` is already a fresh object — safe to use directly.
+    landmarks[name] = roll === 0 ? scaled : rotatePoint(scaled, roll, pivot)
+  }
+  return { ...frame, landmarks }
 }

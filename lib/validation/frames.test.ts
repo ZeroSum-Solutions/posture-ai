@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { testLandmarksFrames } from '@posture-ai/engine'
+import { testLandmarksFrames, assessPosture } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from './frames'
 
 const CLIENT_ID = '2f5d3f6a-4b1c-4f6e-9b3a-1c2d3e4f5a6b'
@@ -91,5 +91,81 @@ describe('parseAssessmentPayload', () => {
   it('exposes a sane payload size cap', () => {
     expect(MAX_PAYLOAD_BYTES).toBeGreaterThanOrEqual(64 * 1024)
     expect(MAX_PAYLOAD_BYTES).toBeLessThanOrEqual(1024 * 1024)
+  })
+
+  describe('capture metadata fields', () => {
+    it('accepts captureRollDeg, aspectRatio and source on a frame', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.data.frames?.[0]).toMatchObject({ captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' })
+      }
+    })
+
+    it('rejects captureRollDeg beyond ±45', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], captureRollDeg: 60 }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.status).toBe(422)
+    })
+
+    it('rejects aspectRatio outside 0.1–10', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], aspectRatio: 0.05 }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+
+    it('rejects unknown source values', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], source: 'fixture' }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+
+    it('still accepts frames without any metadata (historical payloads)', () => {
+      const r = parseAssessmentPayload(validBody(), { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+    })
+
+    it('accepts the exact bounds: captureRollDeg ±45, aspectRatio 0.1 and 10, roll 0', () => {
+      const body = validBody()
+      for (const patch of [
+        { captureRollDeg: 45 }, { captureRollDeg: -45 }, { captureRollDeg: 0 },
+        { aspectRatio: 0.1 }, { aspectRatio: 10 },
+      ]) {
+        const frames = [{ ...body.frames[0], ...patch }]
+        const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+        expect(r.ok, JSON.stringify(patch)).toBe(true)
+      }
+    })
+
+    it('rejects values just past the bounds', () => {
+      const body = validBody()
+      for (const patch of [
+        { captureRollDeg: 45.001 }, { captureRollDeg: -45.001 },
+        { aspectRatio: 0.099 }, { aspectRatio: 10.001 },
+      ]) {
+        const frames = [{ ...body.frames[0], ...patch }]
+        const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+        expect(r.ok, JSON.stringify(patch)).toBe(false)
+      }
+    })
+
+    it('round-trips camera metadata into the engine: parsed frames score as tilt-corrected and level-verified', () => {
+      const body = validBody()
+      const frames = body.frames.map(f => ({
+        ...f, captureRollDeg: 4.2, aspectRatio: 0.75, source: 'camera',
+      }))
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+      if (!r.ok || !r.data.frames) throw new Error('expected parsed frames')
+      const result = assessPosture(r.data.frames)
+      expect(result.tiltCorrected).toBe(true)
+      expect(result.levelVerified).toBe(true)
+    })
   })
 })

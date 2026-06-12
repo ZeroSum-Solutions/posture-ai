@@ -34,6 +34,7 @@ interface Capture {
   view: string
   signed_url: string | null
   source: string
+  capture_roll_deg: number | null
 }
 interface Exercise {
   id: string
@@ -69,6 +70,8 @@ interface Assessment {
   overall_percentile: number
   front_rank: number | null
   side_rank: number | null
+  tilt_corrected: boolean | null
+  level_verified: boolean | null
   assessed_at: string
   clients: { id: string; first_name: string; last_name: string }
 }
@@ -943,6 +946,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const frontCapture = captures.find(c => c.view === 'front') ?? null
   const sideCapture = captures.find(c => c.view === 'side') ?? null
+  const rollNotes = captures
+    .filter(c => typeof c.capture_roll_deg === 'number' && Math.abs(c.capture_roll_deg) >= 0.05)
+    .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
 
   return (
     <div style={{ padding: '24px 16px', maxWidth: 960, margin: '0 auto' }}>
@@ -958,6 +964,25 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>
           {clientName} — {new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
+        {assessment.level_verified === true && (
+          <span data-testid="level-badge" style={{
+            display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 6,
+            background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)',
+            color: '#34D399', fontSize: '0.75rem', fontWeight: 600,
+          }}>
+            Camera level verified
+            {assessment.tilt_corrected && rollNotes.length > 0 && ` — tilt-corrected (${rollNotes.join(', ')})`}
+          </span>
+        )}
+        {assessment.level_verified === false && (
+          <span data-testid="level-badge" style={{
+            display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 6,
+            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+            color: '#F59E0B', fontSize: '0.75rem', fontWeight: 600,
+          }}>
+            ⚠ Camera level not verified — results may be less accurate
+          </span>
+        )}
       </div>
 
       <div data-testid="disclaimer" style={{
