@@ -2,6 +2,11 @@
 // runs Playwright. Fails fast with a clear message if the stack is down.
 import { execFileSync, spawnSync } from 'node:child_process'
 
+// Playwright's webServer runs `npx next dev`, which does NOT trigger npm
+// pre-scripts — copy the self-hosted MediaPipe WASM assets explicitly or
+// detection hangs forever in fresh checkouts (CI).
+execFileSync('node', ['scripts/copy-mediapipe-wasm.mjs'], { stdio: 'inherit' })
+
 let statusOut
 try {
   statusOut = execFileSync('npx', ['supabase', 'status', '-o', 'env'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })

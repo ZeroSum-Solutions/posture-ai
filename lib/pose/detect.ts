@@ -20,10 +20,14 @@ const POSE_LANDMARK_NAMES = [
   'left_foot_index', 'right_foot_index',
 ] as const
 
-// Version-pinned to the installed @mediapipe/tasks-vision (0.10.35).
-const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
+// Self-hosted assets (copied from the pinned @mediapipe/tasks-vision package at build time).
+const WASM_URL = '/mediapipe/wasm'
+
+// Model selection: NEXT_PUBLIC_POSE_MODEL=lite (default) | full
+const modelVariant = process.env.NEXT_PUBLIC_POSE_MODEL === 'full' ? 'full' : 'lite'
+const MODEL_URL = modelVariant === 'full'
+  ? '/mediapipe/models/pose_landmarker_full.task'
+  : '/mediapipe/models/pose_landmarker_lite.task'
 
 let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
@@ -59,6 +63,16 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error('Failed to load captured image'))
     img.src = src
+  })
+}
+
+/**
+ * Warm up the landmarker by starting the model load without running detection.
+ * Call this when the capture step mounts to hide the ~5 s Chromium cold-start.
+ */
+export function warmUpLandmarker(): void {
+  getLandmarker().catch(() => {
+    // Warm-up is best-effort; errors surface when detectPose is actually called.
   })
 }
 
