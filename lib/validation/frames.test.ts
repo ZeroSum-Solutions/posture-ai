@@ -99,6 +99,9 @@ describe('parseAssessmentPayload', () => {
       const frames = [{ ...body.frames[0], captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' }]
       const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
       expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.data.frames?.[0]).toMatchObject({ captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' })
+      }
     })
 
     it('rejects captureRollDeg beyond ±45', () => {
@@ -126,6 +129,30 @@ describe('parseAssessmentPayload', () => {
     it('still accepts frames without any metadata (historical payloads)', () => {
       const r = parseAssessmentPayload(validBody(), { testModeEnabled: false })
       expect(r.ok).toBe(true)
+    })
+
+    it('accepts the exact bounds: captureRollDeg ±45, aspectRatio 0.1 and 10, roll 0', () => {
+      const body = validBody()
+      for (const patch of [
+        { captureRollDeg: 45 }, { captureRollDeg: -45 }, { captureRollDeg: 0 },
+        { aspectRatio: 0.1 }, { aspectRatio: 10 },
+      ]) {
+        const frames = [{ ...body.frames[0], ...patch }]
+        const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+        expect(r.ok, JSON.stringify(patch)).toBe(true)
+      }
+    })
+
+    it('rejects values just past the bounds', () => {
+      const body = validBody()
+      for (const patch of [
+        { captureRollDeg: 45.001 }, { captureRollDeg: -45.001 },
+        { aspectRatio: 0.099 }, { aspectRatio: 10.001 },
+      ]) {
+        const frames = [{ ...body.frames[0], ...patch }]
+        const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+        expect(r.ok, JSON.stringify(patch)).toBe(false)
+      }
     })
   })
 })
