@@ -24,6 +24,60 @@ function groupOk(frame: PoseFrame, names: string[]): boolean {
   return maxVis(frame, names) >= RELIABILITY_FLOOR
 }
 
+// ---- Geometric framing checks (spec §4.2) ----
+// Span thresholds are calibrated on the measurable eye/ear-to-ankle span
+// (MediaPipe has no head-top landmark): 0.65 ≈ the spec's 70% head-to-ankle
+// minimum; 0.95 still leaves visible margin, and truly cut-off bodies are
+// caught by the out-of-frame check below.
+const HEAD_LANDMARKS = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear']
+const ANKLE_LANDMARKS = ['left_ankle', 'right_ankle']
+const BOUNDS_LANDMARKS = [
+  'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip',
+  'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
+]
+const FRAME_SPAN_MIN = 0.65
+const FRAME_SPAN_MAX = 0.95
+const CENTER_TOLERANCE = 0.15
+
+function visiblePoints(frame: PoseFrame, names: string[]) {
+  return names
+    .map(n => frame.landmarks[n])
+    .filter((p): p is NonNullable<typeof p> => !!p && (p.visibility ?? 0) >= RELIABILITY_FLOOR)
+}
+
+function framingWarnings(frame: PoseFrame): string[] {
+  const warnings: string[] = []
+
+  const headYs = visiblePoints(frame, HEAD_LANDMARKS).map(p => p.y)
+  const ankleYs = visiblePoints(frame, ANKLE_LANDMARKS).map(p => p.y)
+  if (headYs.length > 0 && ankleYs.length > 0) {
+    const span = Math.max(...ankleYs) - Math.min(...headYs)
+    if (span < FRAME_SPAN_MIN) {
+      warnings.push('Subject is small in the frame — move the camera closer so the body fills most of the height.')
+    } else if (span > FRAME_SPAN_MAX) {
+      warnings.push('Subject nearly fills the frame — step back to leave space above the head and below the feet.')
+    }
+  }
+
+  const hips = visiblePoints(frame, ['left_hip', 'right_hip'])
+  if (hips.length === 2) {
+    const hipMidX = (hips[0].x + hips[1].x) / 2
+    if (Math.abs(hipMidX - 0.5) > CENTER_TOLERANCE) {
+      warnings.push('Subject is off-center — line up with the middle of the frame.')
+    }
+  }
+
+  // Schema allows −0.5…1.5, so confidently-detected joints outside [0,1]
+  // mean part of the body is outside the photo.
+  const outOfFrame = visiblePoints(frame, BOUNDS_LANDMARKS)
+    .some(p => p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1)
+  if (outOfFrame) {
+    warnings.push('Part of the body is outside the frame — adjust the camera so all joints are visible.')
+  }
+
+  return warnings
+}
+
 /**
  * Per-photo preflight quality check.
  *
@@ -92,6 +146,9 @@ export function assessFrameQuality(frame: PoseFrame, view: ViewKey): FrameQualit
       warnings.push('Legs not fully visible — step back so feet are in frame.')
     }
   }
+
+  // Geometric framing (all views) — soft warnings, never blocking.
+  warnings.push(...framingWarnings(frame))
 
   if (warnings.length > 0) {
     return { status: 'warnings', warnings }
