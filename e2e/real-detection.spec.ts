@@ -9,6 +9,15 @@ test.describe('real pose detection through the wizard', () => {
   test('upload front+side photos, detect landmarks, score assessment', async ({ page }) => {
     test.setTimeout(300_000)
 
+    // Track requests to known CDN hosts — none should be made for MediaPipe assets
+    const cdnRequests: string[] = []
+    page.on('request', (req) => {
+      const url = req.url()
+      if (url.includes('cdn.jsdelivr.net') || url.includes('storage.googleapis.com')) {
+        cdnRequests.push(url)
+      }
+    })
+
     const stamp = Date.now().toString().slice(-7)
     await createClient(page, 'E2E', `Detect${stamp}`)
 
@@ -30,5 +39,8 @@ test.describe('real pose detection through the wizard', () => {
 
     const findings = page.locator('[data-testid^="finding-card-"]')
     await expect(findings).toHaveCount(10, { timeout: 15_000 })
+
+    // Assert that no MediaPipe assets were fetched from a CDN — they must be self-hosted
+    expect(cdnRequests, `CDN requests found: ${cdnRequests.join(', ')}`).toHaveLength(0)
   })
 })
