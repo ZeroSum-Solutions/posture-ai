@@ -92,4 +92,40 @@ describe('parseAssessmentPayload', () => {
     expect(MAX_PAYLOAD_BYTES).toBeGreaterThanOrEqual(64 * 1024)
     expect(MAX_PAYLOAD_BYTES).toBeLessThanOrEqual(1024 * 1024)
   })
+
+  describe('capture metadata fields', () => {
+    it('accepts captureRollDeg, aspectRatio and source on a frame', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+    })
+
+    it('rejects captureRollDeg beyond ±45', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], captureRollDeg: 60 }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.status).toBe(422)
+    })
+
+    it('rejects aspectRatio outside 0.1–10', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], aspectRatio: 0.05 }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+
+    it('rejects unknown source values', () => {
+      const body = validBody()
+      const frames = [{ ...body.frames[0], source: 'fixture' }]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+
+    it('still accepts frames without any metadata (historical payloads)', () => {
+      const r = parseAssessmentPayload(validBody(), { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+    })
+  })
 })

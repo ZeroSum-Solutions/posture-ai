@@ -45,6 +45,10 @@ const frameSchema = z.object({
         }
       }
     }),
+  // Capture metadata (all optional — historical payloads predate these).
+  captureRollDeg: z.number().finite().min(-45).max(45).optional(),
+  aspectRatio: z.number().finite().min(0.1).max(10).optional(),
+  source: z.enum(['camera', 'upload']).optional(),
 })
 
 const payloadSchema = z.object({
