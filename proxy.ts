@@ -1,13 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Routes that do not require auth
+// Routes that do not require auth. Dev-only routes are never public in
+// production builds.
 const PUBLIC_PATHS = [
   '/auth/sign-in',
   '/auth/sign-up',
   '/auth/callback',
   '/api/health',
-  '/api/dev/',
+  ...(process.env.NODE_ENV !== 'production' ? ['/api/dev/'] : []),
 ]
 
 // Routes that require auth but not disclaimer acknowledgement

@@ -2,18 +2,51 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
+import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
+
+const ROUTE = 'POST /api/assessments'
+const TEST_MODE_ENABLED = process.env.POSTURE_TEST_MODE_ENABLED === '1'
 
 export async function POST(req: NextRequest) {
+  const started = Date.now()
   try {
     const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userHash = hashUser(user.id)
 
-    const body = await req.json()
-    const { client_id, test_mode, frames: bodyFrames } = body
-    if (!client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
+    const contentLength = Number(req.headers.get('content-length') ?? 0)
+    if (contentLength > MAX_PAYLOAD_BYTES) {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: 413, userHash })
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
+    }
+
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: 400, userHash })
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    const parsed = parseAssessmentPayload(body, { testModeEnabled: TEST_MODE_ENABLED })
+    if (!parsed.ok) {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: parsed.status, userHash, detail: parsed.error })
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    }
+    const { client_id, useFixture } = parsed.data
 
     const service = createSupabaseServiceClient()
+
+    const allowed = await enforceRateLimit(service, {
+      route: 'assessments', userId: user.id, limit: 20, windowSeconds: 60,
+    })
+    if (!allowed) {
+      logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+      return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+    }
 
     // Verify client belongs to this practitioner
     const { data: client } = await service
@@ -36,25 +69,23 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
     if (insertErr || !assessment) {
-      console.error('[api/assessments] insert error:', insertErr)
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: insertErr?.message })
       return NextResponse.json({ error: 'Failed to create assessment' }, { status: 500 })
     }
 
     const assessmentId = assessment.id
-    console.log('[api/assessments] Created assessment:', assessmentId, '(test_mode:', test_mode, ')')
 
-    // Run scoring engine — use the real MediaPipe frames sent by the client when
-    // present; otherwise fall back to the bundled fixture (test mode / no detection).
+    // Run scoring engine on validated client frames (or the bundled fixture
+    // when the server-side test flag explicitly allows it).
     try {
-      const usingReal = !test_mode && Array.isArray(bodyFrames) && bodyFrames.length > 0
-      const frames = (usingReal ? bodyFrames : testLandmarksFrames) as PoseFrame[]
+      const frames = (useFixture ? testLandmarksFrames : parsed.data.frames) as PoseFrame[]
 
       // Persist the captured pose frames (reproducible / re-scorable)
       const capturesToInsert = frames.map((f) => ({
         assessment_id: assessmentId,
         practitioner_id: user.id,
         view: f.view,
-        source: usingReal ? 'upload' : 'fixture',
+        source: useFixture ? 'fixture' : 'upload',
         pose_frame: f as unknown as object,
       }))
       await service.from('captures').insert(capturesToInsert)
@@ -94,15 +125,15 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', assessmentId)
 
-      console.log('[api/assessments] Scoring complete. Grade:', result.overallGrade, 'Score:', result.overallScore)
+      logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash, assessmentId, durationMs: Date.now() - started })
       return NextResponse.json({ id: assessmentId, status: 'complete' })
     } catch (scoreErr) {
-      console.error('[api/assessments] Scoring error:', scoreErr)
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 200, userHash, assessmentId, detail: String(scoreErr) })
       await service.from('assessments').update({ status: 'failed' }).eq('id', assessmentId)
       return NextResponse.json({ id: assessmentId, status: 'failed', error: 'Scoring failed' })
     }
   } catch (err) {
-    console.error('[api/assessments] Unexpected error:', err)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detail: String(err) })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
