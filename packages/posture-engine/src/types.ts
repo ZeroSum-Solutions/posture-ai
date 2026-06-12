@@ -53,6 +53,6 @@ export interface AssessmentResult {
   missingViews: ViewLabel[]
   /** True when at least one frame carried a non-zero measured camera roll that was removed. */
   tiltCorrected: boolean
-  /** True when every submitted frame came from sensor-verified capture (captureRollDeg present). */
+  /** True when every submitted frame came from sensor-verified capture (captureRollDeg present and not an upload). */
   levelVerified: boolean
 }

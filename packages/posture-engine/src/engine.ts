@@ -18,7 +18,9 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
   // de-rotated landmarks (spec §4.4). Frames without metadata pass through.
   const frames = rawFrames.map(normalizeFrame)
   const tiltCorrected = rawFrames.some(f => (f.captureRollDeg ?? 0) !== 0)
-  const levelVerified = rawFrames.length > 0 && rawFrames.every(f => f.captureRollDeg !== undefined)
+  // Uploads can never be sensor-verified, even if a client supplies a roll.
+  const levelVerified = rawFrames.length > 0 &&
+    rawFrames.every(f => f.captureRollDeg !== undefined && f.source !== 'upload')
 
   const front = frames.find(f => f.view === 'front')
   const side = frames.find(f => f.view === 'side')

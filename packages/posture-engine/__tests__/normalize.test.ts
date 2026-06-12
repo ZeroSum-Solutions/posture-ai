@@ -165,6 +165,14 @@ describe('assessPosture tilt correction (engine equivalence)', () => {
     expect(r.levelVerified).toBe(false)
     expect(r.tiltCorrected).toBe(false)
   })
+
+  it('flags: an uploaded frame is never level-verified, even if it claims a roll', () => {
+    const frames = testLandmarksFrames.map(f => ({
+      ...f, captureRollDeg: 0, aspectRatio: 0.75, source: 'upload' as const,
+    }))
+    const r = assessPosture(frames)
+    expect(r.levelVerified).toBe(false)
+  })
 })
 
 describe('aspect-ratio golden values (intentional score shift, spec §6)', () => {
@@ -176,6 +184,8 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
 
   it('locks the aspect-corrected canonical result', () => {
     const r = assessPosture(frames)
+    // 25 matches the uncorrected score only by rounding coincidence —
+    // the per-finding severities below are the real lock.
     expect(r.overallScore).toBe(25)
     expect(r.overallGrade).toBe('B')
     expect(r.overallPercentile).toBe(75)
@@ -210,6 +220,7 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
     }
     const r = assessPosture([fhp])
     const f = r.findings.find(x => x.key === 'forward_head_posture')!
+    // dy = shoulder.y − ear.y = +0.10 in y-down coords (shoulder below ear)
     expect(Math.abs(f.deviation - 27.70)).toBeLessThan(0.05) // raw math gave 34.99
   })
 })
