@@ -29,3 +29,5 @@ tsconfig.tsbuildinfo
 # mediapipe wasm assets (copied from pinned package at build/dev time)
 public/mediapipe/wasm/
 .claude/worktrees/
+# codegraph local code-intelligence index (SQLite DB, machine-local)
+.codegraph/
