@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "/Users/zero-suminc./.local/bin/codegraph",
+      "args": [
+        "serve",
+        "--mcp",
+        "-p",
+        "/Users/zero-suminc./projects/posture-ai"
+      ],
+      "env": {
+        "DO_NOT_TRACK": "1",
+        "CODEGRAPH_MCP_TOOLS": "explore,node,search,callers,callees,impact,files,status"
+      }
+    }
+  }
+}
