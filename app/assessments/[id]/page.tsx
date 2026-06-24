@@ -2,6 +2,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PriorityProgram from './PriorityProgram'
+import { buildProgramFrom } from '@/lib/program/buildProgram'
+import type { Capability } from '@/lib/program/selectPriorities'
+import type { Finding as EngineFinding } from '@/packages/posture-engine/src/types'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -60,6 +64,25 @@ function deriveExerciseRecommendations(exercises: Exercise[], findings: Finding[
       return finding && zoneAtOrAbove(finding.zone, ex.min_zone)
     })
   )
+}
+
+// Map a stored (snake_case) finding onto the engine Finding the program builder expects.
+function toEngineFinding(f: Finding): EngineFinding {
+  return {
+    key: f.imbalance_key,
+    label: f.label,
+    region: f.region as EngineFinding['region'],
+    deviation: f.deviation,
+    standard: 0,
+    unit: 'deg',
+    direction: f.direction,
+    severityPct: f.severity_pct,
+    zone: f.zone,
+    viewUsed: f.view_used as EngineFinding['viewUsed'],
+    confidence: f.confidence,
+    reliable: f.zone !== 'unreliable',
+    landmarksUsed: [],
+  }
 }
 
 interface Assessment {
@@ -824,7 +847,7 @@ function ExercisesSection({ exercises }: { exercises: Exercise[] }) {
         fontSize: '0.875rem', fontWeight: 600, color: '#A1A1AA',
         marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
       }}>
-        Recommended Corrective Exercises
+        All Matched Exercises (library reference)
       </h2>
       {exercises.map(ex => (
         <ExerciseAccordionItem key={ex.id} exercise={ex} />
@@ -848,6 +871,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
+  const [capability, setCapability] = useState<Capability>('standard')
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -894,6 +918,15 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const exercises = useMemo(
     () => (allExercises.length > 0 && findings.length > 0 ? deriveExerciseRecommendations(allExercises, findings) : []),
     [allExercises, findings]
+  )
+
+  const program = useMemo(
+    () => buildProgramFrom(findings.map(toEngineFinding), assessment?.overall_grade ?? 'C', capability),
+    [findings, assessment?.overall_grade, capability]
+  )
+  const unreliableFindings = useMemo(
+    () => findings.filter(f => f.zone === 'unreliable').map(f => ({ label: f.label })),
+    [findings]
   )
 
   async function handleGeneratePdf() {
@@ -1007,6 +1040,15 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </div>
         <BandTable currentGrade={grade} />
       </div>
+
+      {findings.length > 0 && (
+        <PriorityProgram
+          report={program}
+          unreliable={unreliableFindings}
+          capability={capability}
+          onCapabilityChange={setCapability}
+        />
+      )}
 
       <SkeletalDiagramSection
         findings={findings}

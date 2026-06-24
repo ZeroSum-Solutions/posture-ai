@@ -143,7 +143,19 @@ function buildSteps(priority: SelectedPriority, capability: Capability): Program
 
 /** Build the full client corrective program from an assessment result. */
 export function buildProgram(result: AssessmentResult, capability: Capability = 'standard'): ProgramReport {
-  const ranked = selectPriorities(result.findings)
+  return buildProgramFrom(result.findings, result.overallGrade, capability)
+}
+
+/**
+ * Same program, built from the raw findings + grade — so the coach page can
+ * pass its mapped findings without reconstructing a full AssessmentResult.
+ */
+export function buildProgramFrom(
+  findings: Finding[],
+  overallGrade: string,
+  capability: Capability = 'standard',
+): ProgramReport {
+  const ranked = selectPriorities(findings)
   const top = ranked.slice(0, 3)
 
   const priorities: ProgramPriority[] = top.map((p, i) => {
@@ -170,7 +182,7 @@ export function buildProgram(result: AssessmentResult, capability: Capability = 
     leg: 'knees & legs',
   }
   const byRegion = new Map<Finding['region'], Finding[]>()
-  for (const f of result.findings) {
+  for (const f of findings) {
     if (!f.reliable) continue
     const g = byRegion.get(f.region)
     if (g) g.push(f)
@@ -187,7 +199,7 @@ export function buildProgram(result: AssessmentResult, capability: Capability = 
     hasPlan: priorities.length > 0,
     priorities,
     positives,
-    gradeHuman: gradeHuman(result.overallGrade),
+    gradeHuman: gradeHuman(overallGrade),
     oneMoreToWatch: ranked.length > 3 ? (IMBALANCE_COPY[ranked[3].primaryKey as keyof typeof IMBALANCE_COPY]?.plainLabel ?? null) : null,
     capability,
   }
