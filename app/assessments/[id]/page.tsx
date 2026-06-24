@@ -50,6 +50,10 @@ interface Exercise {
   instructions: string
   sets: number
   hold_seconds: number
+  reps_min?: number | null
+  reps_max?: number | null
+  dosage_type?: string | null
+  is_integrative?: boolean | null
 }
 
 const ZONE_ORDER: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
@@ -825,10 +829,16 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
                 <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
-            {exercise.hold_seconds > 0 && (
+            {exercise.dosage_type !== 'dynamic' && exercise.hold_seconds > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.hold_seconds}s</div>
                 <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Hold</div>
+              </div>
+            )}
+            {exercise.reps_min != null && exercise.reps_max != null && (
+              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.reps_min}–{exercise.reps_max}</div>
+                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
           </div>

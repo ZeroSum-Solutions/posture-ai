@@ -189,6 +189,33 @@ INSERT INTO exercises (slug, name, category, primary_deviation_keys, min_zone, i
 ON CONFLICT (slug) DO NOTHING;
 `
 
+// 20260623000000 — report/program dosage fields + priority/capability persistence.
+const REPORT_FIELDS_SQL = `
+ALTER TABLE exercises
+  ADD COLUMN IF NOT EXISTS reps_min INT,
+  ADD COLUMN IF NOT EXISTS reps_max INT,
+  ADD COLUMN IF NOT EXISTS dosage_type TEXT,
+  ADD COLUMN IF NOT EXISTS is_integrative BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE assessments
+  ADD COLUMN IF NOT EXISTS priority_keys TEXT[],
+  ADD COLUMN IF NOT EXISTS capability TEXT NOT NULL DEFAULT 'standard';
+UPDATE exercises e SET
+  dosage_type = v.dosage_type, reps_min = v.reps_min, reps_max = v.reps_max, is_integrative = v.is_integrative
+FROM (VALUES
+  ('chin-tucks','dynamic',10,15,false),
+  ('neck-lateral-stretch','hold',NULL,NULL,false),
+  ('thoracic-extension','dynamic',8,10,false),
+  ('wall-angels','dynamic',10,15,true),
+  ('doorway-pec-stretch','hold',NULL,NULL,false),
+  ('kneeling-hip-flexor-stretch','hold',NULL,NULL,false),
+  ('glute-bridge','dynamic',10,15,false),
+  ('clamshell','dynamic',10,15,false),
+  ('single-leg-balance','dynamic',10,15,false),
+  ('standing-hamstring-curl','dynamic',10,15,false)
+) AS v(slug, dosage_type, reps_min, reps_max, is_integrative)
+WHERE e.slug = v.slug;
+`
+
 export async function applyMigrations(): Promise<void> {
   const dbUrl = process.env.SUPABASE_DB_URL
   if (!dbUrl) {
@@ -214,6 +241,9 @@ export async function applyMigrations(): Promise<void> {
 
     await client.query(SEED_DATA_SQL)
     console.log('[migrations] ✅ Seed data applied (20260101000001)')
+
+    await client.query(REPORT_FIELDS_SQL)
+    console.log('[migrations] ✅ Report dosage fields applied (20260623000000)')
 
   } catch (err) {
     console.error('[migrations] Failed:', err instanceof Error ? err.message : err)
