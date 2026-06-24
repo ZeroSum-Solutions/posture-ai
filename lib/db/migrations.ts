@@ -198,7 +198,8 @@ ALTER TABLE exercises
   ADD COLUMN IF NOT EXISTS is_integrative BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE assessments
   ADD COLUMN IF NOT EXISTS priority_keys TEXT[],
-  ADD COLUMN IF NOT EXISTS capability TEXT NOT NULL DEFAULT 'standard';
+  ADD COLUMN IF NOT EXISTS capability TEXT NOT NULL DEFAULT 'standard',
+  ADD COLUMN IF NOT EXISTS exercise_swaps JSONB NOT NULL DEFAULT '{}'::jsonb;
 UPDATE exercises e SET
   dosage_type = v.dosage_type, reps_min = v.reps_min, reps_max = v.reps_max, is_integrative = v.is_integrative
 FROM (VALUES

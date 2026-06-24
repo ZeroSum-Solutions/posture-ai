@@ -1,10 +1,12 @@
 'use client'
 /**
  * Coach-facing corrective program: the ordered Top-3 Priority Focuses and the
- * exact 3-week ramp the client receives, plus the capability dial. Purely
- * presentational — the parent computes the ProgramReport via buildProgramFrom.
+ * exact 3-week ramp the client receives, plus the override surface (capability
+ * dial, per-exercise swap, demote-to-monitor). Presentational — the parent
+ * computes the ProgramReport via buildProgramFrom and persists overrides.
  */
 import type { ProgramReport, ProgramPriority, ProgramStep } from '../../../lib/program/buildProgram'
+import { swapAlternatives } from '../../../lib/program/buildProgram'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
 
@@ -22,6 +24,12 @@ const CAP_OPTIONS: { value: Capability; label: string }[] = [
   { value: 'standard', label: 'Standard' },
   { value: 'progression', label: 'Progression (fit / advanced)' },
 ]
+
+interface OverrideHandlers {
+  onDemote: (primaryKey: string) => void
+  onPromote: (primaryKey: string) => void
+  onSwap: (primaryKey: string, baseSlug: string, toSlug: string | null) => void
+}
 
 function Pill({ text, color }: { text: string; color: string }) {
   return (
@@ -43,7 +51,50 @@ function Pill({ text, color }: { text: string; color: string }) {
   )
 }
 
-function RampTable({ steps }: { steps: ProgramStep[] }) {
+function SwapControl({
+  priority,
+  step,
+  onSwap,
+}: {
+  priority: ProgramPriority
+  step: ProgramStep
+  onSwap: OverrideHandlers['onSwap']
+}) {
+  const otherSlugs = priority.steps.filter((s) => s.baseSlug !== step.baseSlug).map((s) => s.slug)
+  const alts = swapAlternatives(priority.keys, priority.zone, step.category, otherSlugs)
+  if (alts.length <= 1) return null // nothing to swap to
+
+  const swapped = step.slug !== step.baseSlug
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+      <span style={{ fontSize: '0.64rem', color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</span>
+      <select
+        data-testid={`swap-${priority.primaryKey}-${step.baseSlug}`}
+        value={step.slug}
+        onChange={(e) => onSwap(priority.primaryKey, step.baseSlug, e.target.value === step.baseSlug ? null : e.target.value)}
+        style={{
+          padding: '3px 6px',
+          borderRadius: 6,
+          background: '#0A0A0B',
+          border: `1px solid ${swapped ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.12)'}`,
+          color: swapped ? '#C4B5FD' : '#A1A1AA',
+          fontSize: '0.7rem',
+          cursor: 'pointer',
+          maxWidth: 200,
+        }}
+      >
+        {alts.map((a) => (
+          <option key={a.slug} value={a.slug}>
+            {a.name}
+            {a.slug === step.baseSlug ? ' (default)' : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function RampTable({ priority, onSwap }: { priority: ProgramPriority; onSwap: OverrideHandlers['onSwap'] }) {
   const th: React.CSSProperties = {
     textAlign: 'left',
     padding: '8px 10px',
@@ -79,10 +130,10 @@ function RampTable({ steps }: { steps: ProgramStep[] }) {
           </tr>
         </thead>
         <tbody>
-          {steps.map((s) => {
+          {priority.steps.map((s) => {
             const stepColor = STEP_COLOR[s.stepLabel] ?? '#6366F1'
             return (
-              <tr key={s.slug}>
+              <tr key={s.baseSlug}>
                 <td style={td}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <Pill text={s.stepLabel} color={stepColor} />
@@ -93,6 +144,7 @@ function RampTable({ steps }: { steps: ProgramStep[] }) {
                     {s.repRange ? ` · target ${s.repRange.min}–${s.repRange.max} reps` : ''}
                     {s.isIntegrative ? ' · new in week 3' : ''}
                   </div>
+                  <SwapControl priority={priority} step={s} onSwap={onSwap} />
                 </td>
                 {s.weeks.map((dose, i) => (
                   <td key={i} style={{ ...wkTd, color: dose ? '#E4E4E7' : '#3F3F46' }}>
@@ -108,11 +160,9 @@ function RampTable({ steps }: { steps: ProgramStep[] }) {
   )
 }
 
-function PriorityCard({ priority }: { priority: ProgramPriority }) {
+function PriorityCard({ priority, onDemote, onSwap }: { priority: ProgramPriority } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
   const zoneColor = ZONE_COLOR[priority.zone]
-  const principle = priority.hasConnect
-    ? 'Loosen → Strengthen → Connect'
-    : 'Loosen → Strengthen'
+  const principle = priority.hasConnect ? 'Loosen → Strengthen → Connect' : 'Loosen → Strengthen'
 
   return (
     <div
@@ -145,11 +195,26 @@ function PriorityCard({ priority }: { priority: ProgramPriority }) {
         </span>
         <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#F5F5F5', flex: 1 }}>{priority.label}</span>
         <Pill text={`${priority.severityWord} · ${priority.zone}`} color={zoneColor} />
+        <button
+          data-testid={`demote-${priority.primaryKey}`}
+          onClick={() => onDemote(priority.primaryKey)}
+          title="Demote to monitor only — removes the program for this focus"
+          style={{
+            padding: '4px 10px',
+            borderRadius: 8,
+            background: 'none',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: '#8A8A93',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Monitor only
+        </button>
       </div>
 
-      <p style={{ fontSize: '0.85rem', color: '#A1A1AA', lineHeight: 1.5, margin: '0 0 14px' }}>
-        {priority.copy.whatItMeans}
-      </p>
+      <p style={{ fontSize: '0.85rem', color: '#A1A1AA', lineHeight: 1.5, margin: '0 0 14px' }}>{priority.copy.whatItMeans}</p>
 
       <div
         style={{
@@ -164,7 +229,7 @@ function PriorityCard({ priority }: { priority: ProgramPriority }) {
         {principle} <span style={{ color: '#52525B', fontWeight: 600 }}>— the order is what makes it stick</span>
       </div>
 
-      <RampTable steps={priority.steps} />
+      <RampTable priority={priority} onSwap={onSwap} />
     </div>
   )
 }
@@ -174,12 +239,15 @@ export default function PriorityProgram({
   unreliable,
   capability,
   onCapabilityChange,
+  onDemote,
+  onPromote,
+  onSwap,
 }: {
   report: ProgramReport
   unreliable: { label: string }[]
   capability: Capability
   onCapabilityChange: (c: Capability) => void
-}) {
+} & OverrideHandlers) {
   return (
     <div data-testid="corrective-program" style={{ marginBottom: 24 }}>
       <div
@@ -262,7 +330,7 @@ export default function PriorityProgram({
       {report.hasPlan ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {report.priorities.map((p) => (
-            <PriorityCard key={p.primaryKey} priority={p} />
+            <PriorityCard key={p.primaryKey} priority={p} onDemote={onDemote} onSwap={onSwap} />
           ))}
         </div>
       ) : (
@@ -277,15 +345,60 @@ export default function PriorityProgram({
             lineHeight: 1.5,
           }}
         >
-          No corrective priorities — every reliable finding is in the maintain zone. Share a maintenance plan: keep moving,
-          and re-screen in ~6 weeks.
+          No active corrective priorities. Either every reliable finding is in the maintain zone, or all focuses are set to
+          monitor only — share a maintenance plan and re-screen in ~6 weeks.
         </div>
       )}
 
-      {report.oneMoreToWatch && (
-        <p style={{ fontSize: '0.78rem', color: '#71717A', margin: '12px 2px 0' }}>
-          One more to watch: <span style={{ color: '#A1A1AA' }}>{report.oneMoreToWatch}</span>
-        </p>
+      {report.monitored.length > 0 && (
+        <div
+          style={{
+            marginTop: 14,
+            background: '#131315',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 10,
+            padding: '12px 14px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              color: '#8A8A93',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              marginBottom: 8,
+            }}
+          >
+            Monitor only — no program ({report.monitored.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {report.monitored.map((m) => (
+              <div key={m.primaryKey} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <Pill text={`${m.severityWord} · ${m.zone}`} color={ZONE_COLOR[m.zone]} />
+                <span style={{ fontSize: '0.82rem', color: '#D4D4D8', flex: 1 }}>{m.label}</span>
+                {report.priorities.length < 3 && (
+                  <button
+                    data-testid={`promote-${m.primaryKey}`}
+                    onClick={() => onPromote(m.primaryKey)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(99,102,241,0.12)',
+                      border: '1px solid rgba(99,102,241,0.3)',
+                      color: '#818CF8',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Add to program
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {unreliable.length > 0 && (

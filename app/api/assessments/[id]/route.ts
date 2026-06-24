@@ -16,6 +16,7 @@ export async function GET(
     .select(`
       id, status, overall_score, overall_grade, overall_percentile,
       front_rank, side_rank, scoring_engine_version, tilt_corrected, level_verified, assessed_at, notes,
+      priority_keys, capability, exercise_swaps,
       clients!inner(id, first_name, last_name)
     `)
     .eq('id', id)
@@ -99,4 +100,67 @@ export async function GET(
   }
 
   return NextResponse.json({ assessment, findings: enrichedFindings, captures })
+}
+
+const CAPABILITIES = new Set(['regression', 'standard', 'progression'])
+
+function isSwapMap(v: unknown): v is Record<string, Record<string, string>> {
+  if (typeof v !== 'object' || v === null) return false
+  return Object.values(v).every(
+    (inner) =>
+      typeof inner === 'object' &&
+      inner !== null &&
+      Object.values(inner).every((s) => typeof s === 'string'),
+  )
+}
+
+// Persist the coach's program overrides (capability, active priority order, swaps).
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const b = body as { capability?: unknown; priority_keys?: unknown; exercise_swaps?: unknown }
+
+  const update: Record<string, unknown> = {}
+  if (b.capability !== undefined) {
+    if (typeof b.capability !== 'string' || !CAPABILITIES.has(b.capability)) {
+      return NextResponse.json({ error: 'Invalid capability' }, { status: 400 })
+    }
+    update.capability = b.capability
+  }
+  if (b.priority_keys !== undefined) {
+    if (!Array.isArray(b.priority_keys) || !b.priority_keys.every((k) => typeof k === 'string')) {
+      return NextResponse.json({ error: 'Invalid priority_keys' }, { status: 400 })
+    }
+    update.priority_keys = b.priority_keys
+  }
+  if (b.exercise_swaps !== undefined) {
+    if (!isSwapMap(b.exercise_swaps)) {
+      return NextResponse.json({ error: 'Invalid exercise_swaps' }, { status: 400 })
+    }
+    update.exercise_swaps = b.exercise_swaps
+  }
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+  }
+
+  const { error } = await supabase
+    .from('assessments')
+    .update(update)
+    .eq('id', id)
+    .eq('practitioner_id', user.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

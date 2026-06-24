@@ -7,7 +7,7 @@ import { createElement } from 'react'
 import { renderToString } from 'react-dom/server'
 import { chromium } from 'playwright'
 import PriorityProgram from '../app/assessments/[id]/PriorityProgram'
-import { buildProgram } from '../lib/program/buildProgram'
+import { buildProgramFrom, swapAlternatives } from '../lib/program/buildProgram'
 import type { AssessmentResult, Finding } from '../packages/posture-engine/src/types'
 
 const f = (over: Partial<Finding> & Pick<Finding, 'key' | 'label' | 'region' | 'deviation' | 'direction' | 'severityPct' | 'zone'>): Finding => ({
@@ -44,11 +44,30 @@ const result: AssessmentResult = {
   levelVerified: true,
 }
 
-const report = buildProgram(result, 'standard')
+// Demonstrate the override surface: one applied swap + one demoted priority.
+const base = buildProgramFrom(findings, result.overallGrade, { capability: 'standard' })
+const fhp = base.priorities.find((p) => p.primaryKey === 'forward_head_posture')!
+const stretchStep = fhp.steps.find((s) => s.category === 'stretch')!
+const alts = swapAlternatives(fhp.keys, fhp.zone, 'stretch', fhp.steps.map((s) => s.slug))
+const swaps: Record<string, Record<string, string>> = alts.length
+  ? { forward_head_posture: { [stretchStep.baseSlug]: alts[0].slug } }
+  : {}
+const activeKeys = ['forward_head_posture', 'anterior_pelvic_shift'] // anterior shoulders demoted to monitor
+
+const report = buildProgramFrom(findings, result.overallGrade, { capability: 'standard', activeKeys, swaps })
 const unreliable = findings.filter((x) => x.zone === 'unreliable').map((x) => ({ label: x.label }))
 
+const noop = () => {}
 const body = renderToString(
-  createElement(PriorityProgram, { report, unreliable, capability: 'standard', onCapabilityChange: () => {} }),
+  createElement(PriorityProgram, {
+    report,
+    unreliable,
+    capability: 'standard',
+    onCapabilityChange: noop,
+    onDemote: noop,
+    onPromote: noop,
+    onSwap: noop,
+  }),
 )
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>

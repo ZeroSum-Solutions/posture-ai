@@ -9,7 +9,8 @@ ALTER TABLE exercises
 
 ALTER TABLE assessments
   ADD COLUMN IF NOT EXISTS priority_keys TEXT[],
-  ADD COLUMN IF NOT EXISTS capability TEXT NOT NULL DEFAULT 'standard';
+  ADD COLUMN IF NOT EXISTS capability TEXT NOT NULL DEFAULT 'standard',
+  ADD COLUMN IF NOT EXISTS exercise_swaps JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- Backfill the original ten seed exercises to match the authored content files.
 UPDATE exercises e SET

@@ -100,6 +100,9 @@ interface Assessment {
   tilt_corrected: boolean | null
   level_verified: boolean | null
   assessed_at: string
+  priority_keys?: string[] | null
+  capability?: string | null
+  exercise_swaps?: Record<string, Record<string, string>> | null
   clients: { id: string; first_name: string; last_name: string }
 }
 
@@ -882,6 +885,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [compareToId, setCompareToId] = useState<string>('')
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
   const [capability, setCapability] = useState<Capability>('standard')
+  const [activeKeys, setActiveKeys] = useState<string[] | null>(null)
+  const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -902,6 +907,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         setAssessment(data.assessment)
         setFindings(data.findings || [])
         setCaptures(data.captures || [])
+        // Hydrate persisted coach overrides.
+        const cap = data.assessment?.capability
+        if (cap === 'regression' || cap === 'standard' || cap === 'progression') setCapability(cap)
+        setActiveKeys(Array.isArray(data.assessment?.priority_keys) ? data.assessment.priority_keys : null)
+        setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
           const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId)
@@ -931,13 +941,55 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   )
 
   const program = useMemo(
-    () => buildProgramFrom(findings.map(toEngineFinding), assessment?.overall_grade ?? 'C', capability),
-    [findings, assessment?.overall_grade, capability]
+    () => buildProgramFrom(findings.map(toEngineFinding), assessment?.overall_grade ?? 'C', { capability, activeKeys, swaps }),
+    [findings, assessment?.overall_grade, capability, activeKeys, swaps]
   )
   const unreliableFindings = useMemo(
     () => findings.filter(f => f.zone === 'unreliable').map(f => ({ label: f.label })),
     [findings]
   )
+
+  // Persist coach overrides so the client PDF regenerates identically.
+  async function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
+    if (!assessmentId) return
+    try {
+      await fetch('/api/assessments/' + assessmentId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+    } catch {
+      // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
+    }
+  }
+
+  function handleCapabilityChange(c: Capability) {
+    setCapability(c)
+    persistOverrides({ capability: c })
+  }
+  function handleDemote(primaryKey: string) {
+    const next = program.priorities.map(p => p.primaryKey).filter(k => k !== primaryKey)
+    setActiveKeys(next)
+    persistOverrides({ priority_keys: next })
+  }
+  function handlePromote(primaryKey: string) {
+    const order = program.eligibleOrder
+    const next = [...program.priorities.map(p => p.primaryKey), primaryKey]
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+      .slice(0, 3)
+    setActiveKeys(next)
+    persistOverrides({ priority_keys: next })
+  }
+  function handleSwap(primaryKey: string, baseSlug: string, toSlug: string | null) {
+    const nextForPriority = { ...(swaps[primaryKey] ?? {}) }
+    if (toSlug === null) delete nextForPriority[baseSlug]
+    else nextForPriority[baseSlug] = toSlug
+    const next = { ...swaps }
+    if (Object.keys(nextForPriority).length === 0) delete next[primaryKey]
+    else next[primaryKey] = nextForPriority
+    setSwaps(next)
+    persistOverrides({ exercise_swaps: next })
+  }
 
   async function handleGeneratePdf() {
     if (!assessmentId) return
@@ -1056,7 +1108,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           report={program}
           unreliable={unreliableFindings}
           capability={capability}
-          onCapabilityChange={setCapability}
+          onCapabilityChange={handleCapabilityChange}
+          onDemote={handleDemote}
+          onPromote={handlePromote}
+          onSwap={handleSwap}
         />
       )}
 

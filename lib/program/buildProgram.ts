@@ -20,6 +20,8 @@ const CATEGORY_CAP: Record<string, number> = { mobility: 1, stretch: 3, activati
 export interface ProgramStep {
   stepLabel: string // Loosen | Lengthen | Wake up | Strengthen | Connect
   slug: string
+  /** The auto-selected slug this step occupies — the key a coach swap is stored against. */
+  baseSlug: string
   name: string
   category: ExerciseContent['category']
   freq: string
@@ -32,6 +34,8 @@ export interface ProgramStep {
 export interface ProgramPriority {
   rank: number
   primaryKey: string
+  /** All imbalance keys this priority covers (incl. both sides for bilateral) — drives swap candidates. */
+  keys: string[]
   label: string
   zone: 'warning' | 'danger'
   severityWord: SelectedPriority['severityWord']
@@ -40,9 +44,29 @@ export interface ProgramPriority {
   hasConnect: boolean
 }
 
+/** A priority the coach demoted to "monitor only" — shown, no program. */
+export interface MonitoredPriority {
+  primaryKey: string
+  label: string
+  zone: 'warning' | 'danger'
+  severityWord: SelectedPriority['severityWord']
+}
+
+/** Coach overrides, persisted per assessment so the plan regenerates deterministically. */
+export interface ProgramOverrides {
+  capability?: Capability
+  /** Ordered active priority keys after demotions/reorder; null/undefined = natural top-3. */
+  activeKeys?: string[] | null
+  /** primaryKey → { fromSlug: toSlug } exercise swaps within a priority. */
+  swaps?: Record<string, Record<string, string>>
+}
+
 export interface ProgramReport {
   hasPlan: boolean
   priorities: ProgramPriority[]
+  monitored: MonitoredPriority[]
+  /** All eligible priority keys in natural rank order — lets the coach re-promote. */
+  eligibleOrder: string[]
   positives: string[]
   gradeHuman: string
   oneMoreToWatch: string | null
@@ -100,7 +124,27 @@ function applyCapability(list: ExerciseContent[], capability: Capability): Exerc
   return chosen
 }
 
-function buildSteps(priority: SelectedPriority, capability: Capability): ProgramStep[] {
+const bySlug = new Map(ALL_EXERCISES.map((ex) => [ex.slug, ex]))
+
+/**
+ * Apply a coach swap: replace `from` with `to` only when `to` is a valid
+ * candidate for this priority (same category, serves the keys, passes the zone
+ * gate). Invalid swaps are ignored so the plan can never go off-protocol.
+ */
+function applySwap(ex: ExerciseContent, priority: SelectedPriority, swaps?: Record<string, string>): ExerciseContent {
+  const toSlug = swaps?.[ex.slug]
+  if (!toSlug) return ex
+  const replacement = bySlug.get(toSlug)
+  if (!replacement || replacement.category !== ex.category) return ex
+  const valid = candidatesFor(priority.keys, priority.zone).some((c) => c.slug === toSlug)
+  return valid ? replacement : ex
+}
+
+function buildSteps(
+  priority: SelectedPriority,
+  capability: Capability,
+  swaps?: Record<string, string>,
+): ProgramStep[] {
   const all = applyCapability(candidatesFor(priority.keys, priority.zone), capability)
   const integrative = all.filter((ex) => ex.isIntegrative)
   const core = all.filter((ex) => !ex.isIntegrative)
@@ -118,52 +162,94 @@ function buildSteps(priority: SelectedPriority, capability: Capability): Program
     const used = perCat[ex.category] ?? 0
     if (used >= (CATEGORY_CAP[ex.category] ?? 2)) continue
     perCat[ex.category] = used + 1
-    picked.push(ex)
+    picked.push(ex) // original (pre-swap) — swap is applied per-step below
   }
 
-  const toStep = (ex: ExerciseContent, isIntegrative: boolean): ProgramStep => ({
-    stepLabel: isIntegrative ? 'Connect' : STEP_LABEL[ex.category] ?? 'Move',
-    slug: ex.slug,
-    name: ex.name,
-    category: ex.category,
-    freq: freqLabel(ex.category),
-    isIntegrative,
-    repRange: ex.reps,
-    weeks: [
-      computeDose(ex, 1, isIntegrative),
-      computeDose(ex, 2, isIntegrative),
-      computeDose(ex, 3, isIntegrative),
-    ],
-  })
+  // `base` is the auto-selected exercise; `ex` is the effective one after any swap.
+  const toStep = (base: ExerciseContent, isIntegrative: boolean): ProgramStep => {
+    const ex = applySwap(base, priority, swaps)
+    return {
+      stepLabel: isIntegrative ? 'Connect' : STEP_LABEL[ex.category] ?? 'Move',
+      slug: ex.slug,
+      baseSlug: base.slug,
+      name: ex.name,
+      category: ex.category,
+      freq: freqLabel(ex.category),
+      isIntegrative,
+      repRange: ex.reps,
+      weeks: [
+        computeDose(ex, 1, isIntegrative),
+        computeDose(ex, 2, isIntegrative),
+        computeDose(ex, 3, isIntegrative),
+      ],
+    }
+  }
 
   const steps = picked.map((ex) => toStep(ex, false))
   if (integrative.length > 0) steps.push(toStep(integrative[0], true)) // one Connect, Week-3 only
   return steps
 }
 
+/**
+ * Valid swap alternatives for one step: other candidates in the same category
+ * for this priority that aren't already in the plan. Drives the coach swap menu.
+ */
+export function swapAlternatives(
+  keys: string[],
+  zone: string,
+  category: string,
+  excludeSlugs: string[],
+): { slug: string; name: string }[] {
+  const exclude = new Set(excludeSlugs)
+  return candidatesFor(keys, zone)
+    .filter((ex) => ex.category === category && !exclude.has(ex.slug))
+    .map((ex) => ({ slug: ex.slug, name: ex.name }))
+}
+
+function labelFor(p: SelectedPriority): string {
+  const copy = p.isBilateral ? BILATERAL_KNEE_COPY : IMBALANCE_COPY[p.primaryKey as keyof typeof IMBALANCE_COPY]
+  return copy?.plainLabel ?? p.primaryKey
+}
+
 /** Build the full client corrective program from an assessment result. */
 export function buildProgram(result: AssessmentResult, capability: Capability = 'standard'): ProgramReport {
-  return buildProgramFrom(result.findings, result.overallGrade, capability)
+  return buildProgramFrom(result.findings, result.overallGrade, { capability })
 }
 
 /**
- * Same program, built from the raw findings + grade — so the coach page can
- * pass its mapped findings without reconstructing a full AssessmentResult.
+ * Same program, built from the raw findings + grade (so the coach page can pass
+ * its mapped findings) with optional coach overrides applied deterministically.
  */
 export function buildProgramFrom(
   findings: Finding[],
   overallGrade: string,
-  capability: Capability = 'standard',
+  overrides: ProgramOverrides = {},
 ): ProgramReport {
+  const capability = overrides.capability ?? 'standard'
   const ranked = selectPriorities(findings)
-  const top = ranked.slice(0, 3)
 
-  const priorities: ProgramPriority[] = top.map((p, i) => {
+  // Active priorities: coach's ordered list if set, else the natural top 3.
+  let active: SelectedPriority[]
+  if (overrides.activeKeys) {
+    active = overrides.activeKeys
+      .map((k) => ranked.find((p) => p.primaryKey === k))
+      .filter((p): p is SelectedPriority => Boolean(p))
+      .slice(0, 3)
+  } else {
+    active = ranked.slice(0, 3)
+  }
+  const activeSet = new Set(active.map((p) => p.primaryKey))
+  const monitored: MonitoredPriority[] = ranked
+    .filter((p) => !activeSet.has(p.primaryKey))
+    .map((p) => ({ primaryKey: p.primaryKey, label: labelFor(p), zone: p.zone, severityWord: p.severityWord }))
+
+  const priorities: ProgramPriority[] = active.map((p, i) => {
     const copy = p.isBilateral ? BILATERAL_KNEE_COPY : IMBALANCE_COPY[p.primaryKey as keyof typeof IMBALANCE_COPY]
-    const steps = buildSteps(p, capability)
+    const steps = buildSteps(p, capability, overrides.swaps?.[p.primaryKey])
     return {
       rank: i + 1,
       primaryKey: p.primaryKey,
+      keys: p.keys,
       label: copy?.plainLabel ?? p.primaryKey,
       zone: p.zone,
       severityWord: p.severityWord,
@@ -198,9 +284,11 @@ export function buildProgramFrom(
   return {
     hasPlan: priorities.length > 0,
     priorities,
+    monitored,
+    eligibleOrder: ranked.map((p) => p.primaryKey),
     positives,
     gradeHuman: gradeHuman(overallGrade),
-    oneMoreToWatch: ranked.length > 3 ? (IMBALANCE_COPY[ranked[3].primaryKey as keyof typeof IMBALANCE_COPY]?.plainLabel ?? null) : null,
+    oneMoreToWatch: monitored[0]?.label ?? null,
     capability,
   }
 }
