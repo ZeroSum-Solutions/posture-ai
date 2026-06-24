@@ -2,6 +2,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PriorityProgram from './PriorityProgram'
+import { buildProgramFrom } from '@/lib/program/buildProgram'
+import type { Capability } from '@/lib/program/selectPriorities'
+import type { Finding as EngineFinding } from '@/packages/posture-engine/src/types'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -46,6 +50,10 @@ interface Exercise {
   instructions: string
   sets: number
   hold_seconds: number
+  reps_min?: number | null
+  reps_max?: number | null
+  dosage_type?: string | null
+  is_integrative?: boolean | null
 }
 
 const ZONE_ORDER: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
@@ -62,6 +70,25 @@ function deriveExerciseRecommendations(exercises: Exercise[], findings: Finding[
   )
 }
 
+// Map a stored (snake_case) finding onto the engine Finding the program builder expects.
+function toEngineFinding(f: Finding): EngineFinding {
+  return {
+    key: f.imbalance_key,
+    label: f.label,
+    region: f.region as EngineFinding['region'],
+    deviation: f.deviation,
+    standard: 0,
+    unit: 'deg',
+    direction: f.direction,
+    severityPct: f.severity_pct,
+    zone: f.zone,
+    viewUsed: f.view_used as EngineFinding['viewUsed'],
+    confidence: f.confidence,
+    reliable: f.zone !== 'unreliable',
+    landmarksUsed: [],
+  }
+}
+
 interface Assessment {
   id: string
   status: string
@@ -73,6 +100,9 @@ interface Assessment {
   tilt_corrected: boolean | null
   level_verified: boolean | null
   assessed_at: string
+  priority_keys?: string[] | null
+  capability?: string | null
+  exercise_swaps?: Record<string, Record<string, string>> | null
   clients: { id: string; first_name: string; last_name: string }
 }
 
@@ -802,10 +832,16 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
                 <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
-            {exercise.hold_seconds > 0 && (
+            {exercise.dosage_type !== 'dynamic' && exercise.hold_seconds > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.hold_seconds}s</div>
                 <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Hold</div>
+              </div>
+            )}
+            {exercise.reps_min != null && exercise.reps_max != null && (
+              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.reps_min}–{exercise.reps_max}</div>
+                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
           </div>
@@ -824,7 +860,7 @@ function ExercisesSection({ exercises }: { exercises: Exercise[] }) {
         fontSize: '0.875rem', fontWeight: 600, color: '#A1A1AA',
         marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
       }}>
-        Recommended Corrective Exercises
+        All Matched Exercises (library reference)
       </h2>
       {exercises.map(ex => (
         <ExerciseAccordionItem key={ex.id} exercise={ex} />
@@ -848,6 +884,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
+  const [capability, setCapability] = useState<Capability>('standard')
+  const [activeKeys, setActiveKeys] = useState<string[] | null>(null)
+  const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -868,6 +907,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         setAssessment(data.assessment)
         setFindings(data.findings || [])
         setCaptures(data.captures || [])
+        // Hydrate persisted coach overrides.
+        const cap = data.assessment?.capability
+        if (cap === 'regression' || cap === 'standard' || cap === 'progression') setCapability(cap)
+        setActiveKeys(Array.isArray(data.assessment?.priority_keys) ? data.assessment.priority_keys : null)
+        setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
           const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId)
@@ -895,6 +939,57 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     () => (allExercises.length > 0 && findings.length > 0 ? deriveExerciseRecommendations(allExercises, findings) : []),
     [allExercises, findings]
   )
+
+  const program = useMemo(
+    () => buildProgramFrom(findings.map(toEngineFinding), assessment?.overall_grade ?? 'C', { capability, activeKeys, swaps }),
+    [findings, assessment?.overall_grade, capability, activeKeys, swaps]
+  )
+  const unreliableFindings = useMemo(
+    () => findings.filter(f => f.zone === 'unreliable').map(f => ({ label: f.label })),
+    [findings]
+  )
+
+  // Persist coach overrides so the client PDF regenerates identically.
+  async function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
+    if (!assessmentId) return
+    try {
+      await fetch('/api/assessments/' + assessmentId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+    } catch {
+      // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
+    }
+  }
+
+  function handleCapabilityChange(c: Capability) {
+    setCapability(c)
+    persistOverrides({ capability: c })
+  }
+  function handleDemote(primaryKey: string) {
+    const next = program.priorities.map(p => p.primaryKey).filter(k => k !== primaryKey)
+    setActiveKeys(next)
+    persistOverrides({ priority_keys: next })
+  }
+  function handlePromote(primaryKey: string) {
+    const order = program.eligibleOrder
+    const next = [...program.priorities.map(p => p.primaryKey), primaryKey]
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+      .slice(0, 3)
+    setActiveKeys(next)
+    persistOverrides({ priority_keys: next })
+  }
+  function handleSwap(primaryKey: string, baseSlug: string, toSlug: string | null) {
+    const nextForPriority = { ...(swaps[primaryKey] ?? {}) }
+    if (toSlug === null) delete nextForPriority[baseSlug]
+    else nextForPriority[baseSlug] = toSlug
+    const next = { ...swaps }
+    if (Object.keys(nextForPriority).length === 0) delete next[primaryKey]
+    else next[primaryKey] = nextForPriority
+    setSwaps(next)
+    persistOverrides({ exercise_swaps: next })
+  }
 
   async function handleGeneratePdf() {
     if (!assessmentId) return
@@ -1007,6 +1102,18 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </div>
         <BandTable currentGrade={grade} />
       </div>
+
+      {findings.length > 0 && (
+        <PriorityProgram
+          report={program}
+          unreliable={unreliableFindings}
+          capability={capability}
+          onCapabilityChange={handleCapabilityChange}
+          onDemote={handleDemote}
+          onPromote={handlePromote}
+          onSwap={handleSwap}
+        />
+      )}
 
       <SkeletalDiagramSection
         findings={findings}

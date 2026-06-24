@@ -7,6 +7,8 @@ export const supineCrossoverStretch: ExerciseContent = {
   category: 'stretch',
   primaryDeviationKeys: ['pelvic_obliquity', 'pelvic_axial_rotation'],
   minZone: 'maintain',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Lie on your back with both legs extended and arms out to the sides. Lift one leg and guide it across your body toward the opposite side, letting the knee bend as the leg lowers toward the floor. Use the opposite hand on the outside of the knee to add a gentle pull until you feel a stretch along the outside of the hip and into the lower back. Keep both shoulders on the floor. Hold 30 seconds, return with control, and repeat on the other side.',
   sets: 3,

@@ -7,6 +7,9 @@ export const singleLegRdl: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_pelvic_shift', 'knee_extension_back_knee', 'pelvic_obliquity'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
+  isIntegrative: true,
   instructions:
     'Stand on one leg with a soft bend in that knee, the other foot lightly touching the floor behind you. Hinge forward from the hips, letting the back leg extend behind as your torso lowers toward parallel, keeping the spine long and hips level. Reach toward the floor with the opposite hand, pause 3 seconds, then drive through the standing heel and squeeze the glute to return upright. Do 6-8 slow repetitions per leg; hold a light weight to progress.',
   sets: 3,

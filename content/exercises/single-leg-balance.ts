@@ -7,6 +7,8 @@ export const singleLegBalance: ExerciseContent = {
   category: 'activation',
   primaryDeviationKeys: ['pelvic_obliquity', 'genu_varum_valgum_left', 'genu_varum_valgum_right'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Stand on one foot with a slight bend in the knee. Maintain your balance for 30 seconds. Keep your hips level. Progress to eyes closed for added challenge. Repeat on both sides.',
   sets: 3,

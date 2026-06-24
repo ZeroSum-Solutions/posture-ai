@@ -7,6 +7,8 @@ export const seatedBandRow: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_imbalanced_shoulders'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Sit on the floor with legs extended and loop a resistance band around your feet, holding one end in each hand. Sit tall, then pull the band toward your lower ribs, driving the elbows back and squeezing the shoulder blades together. Pause 2 seconds, then let the arms return slowly without letting the shoulders roll forward. Keep the torso upright the whole time. Perform 10-12 repetitions per set.',
   sets: 3,

@@ -7,6 +7,8 @@ export const bandPullApart: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_imbalanced_shoulders'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Stand tall holding a light resistance band at shoulder height, hands about shoulder-width apart, arms straight. Pull the band apart by drawing your hands outward until it touches your chest, squeezing the shoulder blades together. Pause 2 seconds at full squeeze, then return with control. Keep the ribs down and avoid shrugging toward the ears. Perform 10-15 controlled repetitions per set.',
   sets: 3,

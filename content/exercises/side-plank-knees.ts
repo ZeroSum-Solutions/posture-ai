@@ -7,6 +7,8 @@ export const sidePlankKnees: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['pelvic_axial_rotation', 'pelvic_obliquity'],
   minZone: 'warning',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Lie on your side with knees bent to about 90 degrees and your forearm on the floor, elbow under the shoulder. Keeping knees on the ground, lift your hips until the body forms a straight line from head to knees. Stack the shoulders and hips vertically — avoid rolling forward or letting the hips sag. Hold 15-20 seconds while breathing steadily, lower with control, and repeat on the other side.',
   sets: 3,

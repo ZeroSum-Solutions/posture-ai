@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data: exercises, error } = await supabase
     .from('exercises')
-    .select('id, slug, name, category, primary_deviation_keys, min_zone, instructions, sets, hold_seconds')
+    .select('id, slug, name, category, primary_deviation_keys, min_zone, instructions, sets, hold_seconds, reps_min, reps_max, dosage_type, is_integrative')
     .order('category')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

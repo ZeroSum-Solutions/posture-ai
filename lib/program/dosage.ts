@@ -10,23 +10,6 @@ export interface Dose {
   type: DosageType
 }
 
-// Isometric-hold strengthening drills: dosed by hold time, not reps.
-const HOLD_STRENGTHEN = new Set(['front-plank', 'side-plank', 'side-plank-knees', 'wall-sit'])
-// Dynamic movements that a holdSeconds value would otherwise mislabel as a "hold".
-const FORCE_DYNAMIC = new Set(['pallof-press'])
-
-/**
- * Movement type for dosage rendering. Authored explicitly per the spec's
- * `dosageType` field once content is backfilled; until then resolved here so a
- * holdSeconds value never wrongly renders a dynamic press as "Hold 10s".
- */
-export function resolveDosageType(ex: ExerciseContent): DosageType {
-  if (FORCE_DYNAMIC.has(ex.slug)) return 'dynamic'
-  if (ex.category === 'stretch') return 'hold'
-  if (ex.category === 'strengthen' && HOLD_STRENGTHEN.has(ex.slug)) return 'hold'
-  return 'dynamic' // mobility, activation, dynamic strengthen
-}
-
 const clampHold = (target: number, authored: number) => Math.min(target, Math.min(authored, 60))
 
 /**
@@ -38,7 +21,6 @@ export function computeDose(ex: ExerciseContent, week: Week, isIntegrative = fal
   if (isIntegrative) {
     return week === 3 ? { sets: 2, reps: 10, seconds: null, type: 'dynamic' } : null
   }
-  const type = resolveDosageType(ex)
   switch (ex.category) {
     case 'stretch':
       // honor the authored hold; ramp sets, never seconds past W2.
@@ -48,7 +30,8 @@ export function computeDose(ex: ExerciseContent, week: Week, isIntegrative = fal
     case 'activation':
       return { sets: 2, reps: week === 1 ? 10 : week === 2 ? 12 : 15, seconds: null, type: 'dynamic' }
     case 'strengthen':
-      if (type === 'hold') {
+      // Authored dosageType decides hold-vs-dynamic — never inferred from holdSeconds.
+      if (ex.dosageType === 'hold') {
         const target = [20, 30, 40][week - 1]
         return { sets: 2, reps: null, seconds: clampHold(target, ex.holdSeconds), type: 'hold' }
       }

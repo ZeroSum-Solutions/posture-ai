@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeDose, resolveDosageType, renderDose } from './dosage'
+import { computeDose, renderDose } from './dosage'
 import type { ExerciseContent } from '../../content/muscles/types'
 
 const ex = (over: Partial<ExerciseContent> & Pick<ExerciseContent, 'slug' | 'category'>): ExerciseContent => ({
@@ -9,19 +9,20 @@ const ex = (over: Partial<ExerciseContent> & Pick<ExerciseContent, 'slug' | 'cat
   instructions: 'x'.repeat(80),
   sets: 3,
   holdSeconds: 20,
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   muscles: [{ muscleSlug: 'deep-cervical-flexors', role: 'strengthen', progressionLevel: 2 }],
   ...over,
 })
 
-describe('resolveDosageType', () => {
-  it('treats stretches as holds', () => {
-    expect(resolveDosageType(ex({ slug: 'doorway-pec-stretch', category: 'stretch' }))).toBe('hold')
+describe('computeDose honors the authored dosageType', () => {
+  it('an isometric strengthen drill (dosageType hold) is dosed by time, not reps', () => {
+    const s = ex({ slug: 'front-plank', category: 'strengthen', dosageType: 'hold', reps: null, holdSeconds: 30 })
+    expect(computeDose(s, 1)).toMatchObject({ seconds: 20, reps: null, type: 'hold' })
   })
-  it('treats isometric strengthen drills as holds', () => {
-    expect(resolveDosageType(ex({ slug: 'front-plank', category: 'strengthen' }))).toBe('hold')
-  })
-  it('does NOT mislabel a dynamic press as a hold despite holdSeconds', () => {
-    expect(resolveDosageType(ex({ slug: 'pallof-press', category: 'strengthen', holdSeconds: 10 }))).toBe('dynamic')
+  it('a dynamic press (dosageType dynamic) is dosed by reps despite a holdSeconds value', () => {
+    const s = ex({ slug: 'pallof-press', category: 'strengthen', dosageType: 'dynamic', holdSeconds: 10 })
+    expect(computeDose(s, 1)).toMatchObject({ reps: 10, seconds: null, type: 'dynamic' })
   })
 })
 
@@ -47,7 +48,7 @@ describe('computeDose', () => {
   })
 
   it('isometric strengthen ramps hold seconds, capped at the authored value', () => {
-    const s = ex({ slug: 'front-plank', category: 'strengthen', holdSeconds: 30 })
+    const s = ex({ slug: 'front-plank', category: 'strengthen', dosageType: 'hold', reps: null, holdSeconds: 30 })
     expect(computeDose(s, 1)?.seconds).toBe(20)
     expect(computeDose(s, 2)?.seconds).toBe(30)
     expect(computeDose(s, 3)?.seconds).toBe(30) // capped at min(40, authored 30)

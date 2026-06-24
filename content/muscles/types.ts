@@ -77,16 +77,50 @@ export const exerciseMuscleSchema = z.object({
   progressionLevel: z.union([z.literal(1), z.literal(2), z.literal(3)]),
 })
 
-export const exerciseContentSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-  name: z.string().min(3).max(80),
-  category: z.enum(['stretch', 'strengthen', 'mobility', 'activation', 'informational']),
-  /** Imbalances this exercise is recommended for (drives existing recommendation logic). */
-  primaryDeviationKeys: z.array(z.enum(IMBALANCE_KEYS)).min(1),
-  minZone: z.enum(['maintain', 'warning', 'danger']),
-  instructions: screeningText(80, 800),
-  sets: z.number().int().min(1).max(6),
-  holdSeconds: z.number().int().min(1).max(120),
-  muscles: z.array(exerciseMuscleSchema).min(1),
-})
+/** Rep band shown to the client (e.g. "10–15 reps"). Null for holds/stretches. */
+export const repRangeSchema = z
+  .object({
+    min: z.number().int().min(1).max(30),
+    max: z.number().int().min(1).max(30),
+  })
+  .refine((r) => r.max >= r.min, { message: 'reps.max must be >= reps.min' })
+
+export const exerciseContentSchema = z
+  .object({
+    slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+    name: z.string().min(3).max(80),
+    category: z.enum(['stretch', 'strengthen', 'mobility', 'activation', 'informational']),
+    /** Imbalances this exercise is recommended for (drives existing recommendation logic). */
+    primaryDeviationKeys: z.array(z.enum(IMBALANCE_KEYS)).min(1),
+    minZone: z.enum(['maintain', 'warning', 'danger']),
+    instructions: screeningText(80, 800),
+    sets: z.number().int().min(1).max(6),
+    holdSeconds: z.number().int().min(1).max(120),
+    /** Authored hold-vs-dynamic flag — never inferred from holdSeconds. */
+    dosageType: z.enum(['hold', 'dynamic']),
+    /** Rep band for dynamic work; null for hold/stretch/informational items. */
+    reps: repRangeSchema.nullable(),
+    /** Compound items pinned last as the Week-3 "Connect" step. */
+    isIntegrative: z.boolean().optional(),
+    muscles: z.array(exerciseMuscleSchema).min(1),
+  })
+  .superRefine((ex, ctx) => {
+    // reps is null exactly when the item is dosed by time or is a stretch/informational.
+    const repsMustBeNull =
+      ex.dosageType === 'hold' || ex.category === 'stretch' || ex.category === 'informational'
+    if (repsMustBeNull && ex.reps !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reps'],
+        message: `reps must be null for a ${ex.dosageType}/${ex.category} item`,
+      })
+    }
+    if (!repsMustBeNull && ex.reps === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reps'],
+        message: `reps band is required for a dynamic ${ex.category} item`,
+      })
+    }
+  })
 export type ExerciseContent = z.infer<typeof exerciseContentSchema>

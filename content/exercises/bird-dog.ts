@@ -7,6 +7,8 @@ export const birdDog: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_axial_rotation', 't1_tilt_backward'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Start on hands and knees, wrists under shoulders and knees under hips, spine in a comfortable mid position. Brace the abdominals lightly, then reach one arm forward and the opposite leg back until both are level with the trunk. Keep the hips square to the floor — imagine balancing a cup of water on the lower back. Hold 5 seconds, return slowly, and switch sides. Do 6-8 repetitions per side, moving with control rather than speed.',
   sets: 3,

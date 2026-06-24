@@ -7,6 +7,9 @@ export const singleLegGluteBridge: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_axial_rotation', 'knee_extension_back_knee'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
+  isIntegrative: true,
   instructions:
     'Lie on your back with knees bent and feet flat. Extend one leg straight or hold that knee to your chest. Squeeze the glute of the grounded leg and drive the hips up until the body forms a straight line from knee to shoulder, keeping the pelvis level — do not let one side drop or rotate. Hold 3 seconds at the top, then lower with control. Do 8-10 repetitions on one side before switching. Keep the ribs down and avoid arching the lower back.',
   sets: 3,
