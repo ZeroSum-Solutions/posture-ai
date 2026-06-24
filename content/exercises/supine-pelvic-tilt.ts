@@ -7,6 +7,8 @@ export const supinePelvicTilt: ExerciseContent = {
   category: 'activation',
   primaryDeviationKeys: ['anterior_pelvic_shift'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Lie on your back with knees bent and feet flat, arms relaxed at your sides. Gently draw your lower abdomen in and tilt the pelvis so the lower back presses lightly into the floor — imagine pulling the front hip bones toward the ribs. Hold 5 seconds while breathing steadily (do not hold your breath), then relax back to the starting position. Keep the glutes mostly relaxed so the abdominals do the work. Repeat 10 times per set.',
   sets: 3,

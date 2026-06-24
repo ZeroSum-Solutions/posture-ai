@@ -7,6 +7,8 @@ export const handsBehindBackChestOpener: ExerciseContent = {
   category: 'stretch',
   primaryDeviationKeys: ['anterior_imbalanced_shoulders'],
   minZone: 'maintain',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Stand tall and interlace your fingers behind your lower back, palms facing in. Straighten the elbows, roll the shoulders back and down, and gently lift the hands away from your body until you feel a stretch across the front of the shoulders and chest. Keep the chin level and ribs stacked over the pelvis — avoid arching the lower back to cheat the lift. Hold 20-30 seconds, breathing slowly, then release.',
   sets: 3,

@@ -7,6 +7,9 @@ export const wallAngels: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_imbalanced_shoulders', 'posterior_imbalanced_shoulders'],
   minZone: 'maintain',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
+  isIntegrative: true,
   instructions:
     'Stand with your back flat against a wall, arms bent at 90 degrees in contact with the wall. Slowly slide your arms up and down like making a snow angel, keeping full contact with the wall. Pause 2-3 seconds at the top of each slide. Perform 8-10 slow slides per set.',
   sets: 3,

@@ -7,6 +7,8 @@ export const childsPoseReach: ExerciseContent = {
   category: 'stretch',
   primaryDeviationKeys: ['t1_tilt_backward', 'anterior_pelvic_shift'],
   minZone: 'maintain',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Kneel on a mat, sit your hips back toward your heels, and walk your hands forward until your chest sinks toward the floor. Keep the arms long and reach the fingertips as far forward as comfortable to lengthen the sides of the back. Let the spine round gently and breathe into the back ribs. For more side emphasis, walk both hands toward one side and hold. Stay 30 seconds per hold, then slowly rise.',
   sets: 3,

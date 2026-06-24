@@ -7,6 +7,8 @@ export const neckLateralStretch: ExerciseContent = {
   category: 'stretch',
   primaryDeviationKeys: ['forward_head_posture'],
   minZone: 'maintain',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Tilt your head to one side, ear toward shoulder. Gently apply light pressure with your hand. Hold 20-30 seconds. Repeat on the other side.',
   sets: 3,

@@ -7,6 +7,8 @@ export const frontPlank: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_pelvic_shift', 't1_tilt_backward'],
   minZone: 'warning',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Lie face down, then prop yourself on your forearms and toes with elbows under the shoulders. Tuck the tailbone slightly and brace the abdominals so the body forms one straight line from head to heels — no sagging hips, no pike. Breathe steadily throughout the hold; if the lower back starts to dip, rest and restart from the knees. Hold 20-30 seconds per set, building duration gradually as control improves.',
   sets: 3,

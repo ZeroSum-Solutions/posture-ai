@@ -7,6 +7,8 @@ export const proneTRaise: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['anterior_imbalanced_shoulders', 'posterior_imbalanced_shoulders'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Lie face down with your forehead on a folded towel and arms out to the sides in a T shape, thumbs pointing up. Squeeze your shoulder blades together and down, then lift both arms a few centimeters off the floor without lifting your chest or shrugging. Hold 3 seconds at the top, then lower slowly. Keep the neck long and gaze at the floor. Perform 8-12 repetitions per set; add light weights to progress further.',
   sets: 3,

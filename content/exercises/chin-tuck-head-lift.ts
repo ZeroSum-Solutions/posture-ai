@@ -7,6 +7,8 @@ export const chinTuckHeadLift: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['forward_head_posture'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Lie on your back with knees bent. First perform a gentle chin nod, drawing the chin toward the throat. Keeping that nod, lift your head just one to two centimeters off the floor — barely clearing it. Hold 5 seconds without letting the chin poke forward, then lower with control. If the front of your neck shakes early, build up with shorter holds first. Rest briefly between repetitions.',
   sets: 3,

@@ -7,6 +7,8 @@ export const figureFourStretch: ExerciseContent = {
   category: 'stretch',
   primaryDeviationKeys: ['pelvic_axial_rotation'],
   minZone: 'maintain',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Lie on your back with knees bent and feet flat. Cross one ankle over the opposite thigh, just above the knee, letting the crossed knee fall open. Reach through and clasp behind the supporting thigh, then gently pull it toward your chest until you feel a stretch deep in the buttock of the crossed leg. Keep your head and shoulders on the floor and the tailbone heavy. Hold 30 seconds, release slowly, and switch sides.',
   sets: 3,

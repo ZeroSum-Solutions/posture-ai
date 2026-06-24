@@ -7,6 +7,8 @@ export const thoracicExtension: ExerciseContent = {
   category: 'mobility',
   primaryDeviationKeys: ['forward_head_posture'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 8, max: 10 },
   instructions:
     'Place a foam roller perpendicular to your spine at mid-back. Support your head with your hands. Extend back over the roller gently. Move slowly up and down the thoracic spine. Pause 3 seconds at each position. Perform 8-10 slow extensions per set.',
   sets: 2,

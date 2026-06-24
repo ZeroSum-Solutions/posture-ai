@@ -7,6 +7,8 @@ export const kneesToChestStretch: ExerciseContent = {
   category: 'stretch',
   primaryDeviationKeys: ['anterior_pelvic_shift'],
   minZone: 'maintain',
+  dosageType: 'hold',
+  reps: null,
   instructions:
     'Lie on your back on a mat. Draw both knees up and hug them toward your chest with your hands behind the thighs or over the shins. Let your lower back relax and gently round into the floor, and keep your head and shoulders resting down. You should feel an easy stretch across the lower back and hips. Hold 30 seconds while breathing slowly, then lower one leg at a time. Rock gently side to side during the hold if that feels comfortable.',
   sets: 3,

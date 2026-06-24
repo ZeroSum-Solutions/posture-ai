@@ -6,7 +6,6 @@ import { computeDose, freqLabel, type Dose } from './dosage'
 import { IMBALANCE_COPY, BILATERAL_KNEE_COPY, type ImbalanceCopy } from '../../content/report/imbalance-copy'
 
 const ZONE_RANK: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
-const INTEGRATIVE = new Set(['split-squat', 'single-leg-rdl', 'single-leg-glute-bridge', 'wall-angels'])
 const CATEGORY_ORDER: Record<string, number> = { mobility: 0, stretch: 1, activation: 2, strengthen: 3 }
 const STEP_LABEL: Record<string, string> = {
   mobility: 'Loosen',
@@ -25,6 +24,8 @@ export interface ProgramStep {
   category: ExerciseContent['category']
   freq: string
   isIntegrative: boolean
+  /** Authored rep band (e.g. 10–15); null for hold/stretch items. Surfaced coach-side. */
+  repRange: ExerciseContent['reps']
   weeks: [Dose | null, Dose | null, Dose | null]
 }
 
@@ -101,8 +102,8 @@ function applyCapability(list: ExerciseContent[], capability: Capability): Exerc
 
 function buildSteps(priority: SelectedPriority, capability: Capability): ProgramStep[] {
   const all = applyCapability(candidatesFor(priority.keys, priority.zone), capability)
-  const integrative = all.filter((ex) => INTEGRATIVE.has(ex.slug))
-  const core = all.filter((ex) => !INTEGRATIVE.has(ex.slug))
+  const integrative = all.filter((ex) => ex.isIntegrative)
+  const core = all.filter((ex) => !ex.isIntegrative)
 
   // Session order: Loosen → Lengthen → Wake up → Strengthen, capped per category.
   core.sort((a, b) => {
@@ -127,6 +128,7 @@ function buildSteps(priority: SelectedPriority, capability: Capability): Program
     category: ex.category,
     freq: freqLabel(ex.category),
     isIntegrative,
+    repRange: ex.reps,
     weeks: [
       computeDose(ex, 1, isIntegrative),
       computeDose(ex, 2, isIntegrative),

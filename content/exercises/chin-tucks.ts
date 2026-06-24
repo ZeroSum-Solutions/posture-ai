@@ -8,6 +8,8 @@ export const chinTucks: ExerciseContent = {
   category: 'strengthen',
   primaryDeviationKeys: ['forward_head_posture'],
   minZone: 'warning',
+  dosageType: 'dynamic',
+  reps: { min: 10, max: 15 },
   instructions:
     'Stand or sit tall. Gently retract your chin straight back, making a double chin. Hold 5 seconds, then release. Perform 10-12 repetitions per set.',
   sets: 3,
