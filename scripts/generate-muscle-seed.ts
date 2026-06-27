@@ -19,10 +19,13 @@ for (const m of ALL_MUSCLES) {
 }
 lines.push('')
 
-// links: full refresh (content is the source of truth)
+// links: full refresh (content is the source of truth). Display-only links
+// (scored === false) are documented in content but kept OUT of the scored seed —
+// this mirrors the content.test demotion invariant and the demotion migration.
 lines.push('DELETE FROM muscle_imbalance_links;')
 for (const m of ALL_MUSCLES) {
   for (const l of m.links) {
+    if (l.scored === false) continue
     lines.push(
       `INSERT INTO muscle_imbalance_links (muscle_slug, imbalance_key, role, rationale_text) VALUES (` +
         [q(m.slug), q(l.imbalanceKey), q(l.role), q(l.rationale)].join(', ') +

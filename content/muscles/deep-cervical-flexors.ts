@@ -14,6 +14,7 @@ export const deepCervicalFlexors: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'weak',
+      confidence: 'high',
       rationale:
         'The deep cervical flexors are the muscles that should hold the head balanced over the spine and keep the chin gently tucked. When they lose endurance and strength, the head drifts forward and larger surface muscles take over head support, letting the chin poke out. Because little is holding the cervical curve from the inside, the forward-head position settles in. Rebuilding their endurance helps the client hold a centered head position.',
     },

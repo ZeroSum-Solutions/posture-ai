@@ -20,6 +20,7 @@ export const deepAbdominals: MuscleContent = {
     {
       imbalanceKey: 'anterior_pelvic_shift',
       role: 'weak',
+      confidence: 'medium',
       rationale:
         'In an anterior pelvic shift the hips slide forward and the trunk leans back, a position the deep abdominals would normally check by tilting the pelvis and drawing the ribcage down. When these muscles are weak and slow to engage, the low-back extensors and hip flexors go unopposed, letting the pelvis drift forward and the lumbar curve deepen. Strengthening the deep abdominals so they brace and level the pelvis may benefit the way the hips track back underneath the ribcage.',
     },

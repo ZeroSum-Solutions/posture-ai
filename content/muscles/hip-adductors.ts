@@ -20,12 +20,14 @@ export const hipAdductors: MuscleContent = {
     {
       imbalanceKey: 'genu_varum_valgum_left',
       role: 'tight',
+      confidence: 'medium',
       rationale:
         'Adductor involvement on the left applies specifically in the knock-knee (knee-drifting-inward) presentation. When the left knee collapses toward the midline, the inner-thigh adductors sit shortened and overactive, reinforcing the inward pull of the thigh. In the bow-knee (knee-bowing-outward) presentation it is the lateral structures, not the adductors, that tighten. Lengthening the left adductors helps the thigh track back out over the foot.',
     },
     {
       imbalanceKey: 'genu_varum_valgum_right',
       role: 'tight',
+      confidence: 'medium',
       rationale:
         'Adductor involvement on the right applies specifically in the knock-knee (knee-drifting-inward) presentation. When the right knee falls toward the midline, the inner-thigh adductors are held short and overactive, reinforcing the inward pull on the thigh. In the bow-knee (knee-bowing-outward) presentation the lateral structures tighten instead, not the adductors. Releasing and lengthening the right adductors helps the thigh track back out over the foot.',
     },

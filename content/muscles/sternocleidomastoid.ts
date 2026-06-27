@@ -14,6 +14,7 @@ export const sternocleidomastoid: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'tight',
+      confidence: 'high',
       rationale:
         'In a forward-head position the lower neck bends forward while the head tips back slightly to keep the eyes level, and the sternocleidomastoid is well placed to drive and hold this combination. Relying on the SCM rather than the deeper neck flexors keeps it short and overactive, and it can become visibly prominent at rest. Easing its tone while rebuilding deep-flexor support helps the head re-center over the spine.',
     },

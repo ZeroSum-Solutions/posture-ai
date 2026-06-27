@@ -14,6 +14,7 @@ export const gluteusMaximus: MuscleContent = {
     {
       imbalanceKey: 'anterior_pelvic_shift',
       role: 'weak',
+      confidence: 'medium',
       rationale:
         'Considered as part of the gluteal complex as a whole, weak hip extensors let the pelvis drift forward of the feet in an anterior pelvic shift. The gluteus maximus ordinarily anchors the back of the pelvis down and drives the hips back under the trunk; when it is under-active, the short hip flexors win and the pelvis stays shifted and tilted. Waking it up may help restore the back-of-hip pull that draws the pelvis back toward the base of support. The gluteus medius contributes here too and is covered under its own links.',
     },

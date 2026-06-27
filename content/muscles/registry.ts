@@ -147,6 +147,12 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     links: [{ imbalanceKey: 'anterior_pelvic_shift', role: 'tight' }],
   },
   {
+    slug: 'rectus-femoris',
+    name: 'Rectus Femoris',
+    region: 'hip_pelvis',
+    links: [{ imbalanceKey: 'anterior_pelvic_shift', role: 'tight' }],
+  },
+  {
     slug: 'gluteus-maximus',
     name: 'Gluteus Maximus',
     region: 'hip_pelvis',

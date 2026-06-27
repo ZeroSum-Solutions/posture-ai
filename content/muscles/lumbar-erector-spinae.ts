@@ -14,6 +14,7 @@ export const lumbarErectorSpinae: MuscleContent = {
     {
       imbalanceKey: 'anterior_pelvic_shift',
       role: 'tight',
+      confidence: 'medium',
       rationale:
         'When the pelvis drifts forward of the ankles in an anterior pelvic shift, the upper trunk counter-leans backward to stay balanced, and the lumbar erector spinae shorten to hold that arched low-back position. Their overactivity deepens the lumbar curve and keeps the trunk tipped back, working opposite the deep abdominals that would otherwise level the pelvis. Restoring their length, while rebuilding abdominal support, may benefit the way the hips return under the ribcage and shoulders.',
     },

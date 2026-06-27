@@ -15,6 +15,7 @@ export const kneelingHipFlexorStretch: ExerciseContent = {
   holdSeconds: 30,
   muscles: [
     { muscleSlug: 'iliopsoas', role: 'stretch', progressionLevel: 2 },
+    { muscleSlug: 'rectus-femoris', role: 'stretch', progressionLevel: 2 },
     { muscleSlug: 'quadriceps', role: 'stretch', progressionLevel: 1 },
   ],
 }

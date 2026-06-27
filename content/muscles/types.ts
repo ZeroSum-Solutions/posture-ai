@@ -57,6 +57,20 @@ export const muscleLinkSchema = z.object({
    * is a deliberate follow-up).
    */
   confidence: z.enum(['high', 'medium', 'low']).optional(),
+  /**
+   * Whether this link drives the *scored* muscle map. Absent = true (scored).
+   * `false` = display-only: the evidence is too weak to present the inference as
+   * a confident assessment finding, so it is excluded from the scored seed. Two
+   * consumers honor this: the KB seed generator (scripts/generate-muscle-seed.ts)
+   * skips these links, and the demotion migration drops their muscle_imbalance_links
+   * rows + imbalance_definitions array entries (the two sources the results muscle
+   * map reads). The relationship still lives in the muscle's own anatomy/screening
+   * prose; a labelled low-confidence visual tier on the map is deferred (Stage-2
+   * §4 extended tier). Used to demote inferences the research reconciliation could
+   * not support — e.g. the knee-hyperextension calf/quadriceps/popliteus links,
+   * where only hamstrings→weak cleared the asymptomatic-population evidence bar.
+   */
+  scored: z.boolean().optional(),
   /** 2-3 sentences tying this muscle to the specific distortion (side/condition nuance lives here). */
   rationale: screeningText(80, 600),
 })

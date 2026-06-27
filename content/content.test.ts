@@ -67,11 +67,68 @@ describe('muscle content', () => {
     expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('medium')
     // iliopsoas in APT: r=0.40 (weak), Burile 2024 tightness non-significant (p=0.13)
     expect(linkConf('iliopsoas', 'anterior_pelvic_shift', 'tight')).toBe('low')
-    // knee hyperextension inferences: Grade D, no asymptomatic primary EMG
+    // knee hyperextension: all four still graded low-confidence, but the 2026-06-27
+    // scan found hamstrings→weak DOES have asymptomatic-population support (Bascevan
+    // 2024, Ahn 2020) so it stays scored; the calf/popliteus/quadriceps inferences
+    // (Grade C–D) are demoted to display-only (see the display-only test below).
     expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('low')
     expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('low')
     expect(linkConf('popliteus', 'knee_extension_back_knee', 'weak')).toBe('low')
     expect(linkConf('quadriceps', 'knee_extension_back_knee', 'tight')).toBe('low')
+  })
+
+  // Knee hyperextension: of the four classic inferences, only hamstrings→weak
+  // cleared the asymptomatic-population evidence bar (Bascevan 2024 H/Q ratio;
+  // Ahn 2020 extensor:flexor ratio predicts recurvatum). The calf (C, stroke-
+  // only + direction-ambiguous), popliteus (C+, no causal recurvatum data) and
+  // quadriceps (D) inferences are display-only — kept on their KB pages but
+  // excluded from the scored muscle map. See
+  // _intake/knee-hyperextension-muscle-evidence.md.
+  it('knee-hyperextension inferences are display-only except the evidence-backed hamstring link', () => {
+    const kneeLinks = ALL_MUSCLES.flatMap(m =>
+      m.links
+        .filter(l => l.imbalanceKey === 'knee_extension_back_knee')
+        .map(l => ({ slug: m.slug, role: l.role, scored: l.scored !== false }))
+    )
+    const scored = kneeLinks.filter(k => k.scored)
+    expect(scored).toEqual([{ slug: 'hamstrings', role: 'weak', scored: true }])
+    const displayOnly = kneeLinks.filter(k => !k.scored).map(k => k.slug).sort()
+    expect(displayOnly).toEqual(['gastrocnemius-soleus', 'popliteus', 'quadriceps'])
+  })
+
+  // Rectus femoris is the one promotion candidate that survived adversarial
+  // verification (Reed & Pipe 2021 −1.2° APT after hip-flexor stretch;
+  // Nascimento 2020 review) — a medium-confidence hip-flexor link to anterior
+  // pelvic tilt, paired with iliopsoas. The other three candidates (tibialis
+  // posterior, VMO, vastus lateralis) failed on construct mismatch. See
+  // _intake/muscle-promotion-candidates-evidence.md.
+  it('rectus femoris is wired to anterior pelvic tilt at medium confidence with a stretch', () => {
+    const rf = ALL_MUSCLES.find(m => m.slug === 'rectus-femoris')
+    expect(rf, 'rectus-femoris content must exist').toBeDefined()
+    const apt = rf!.links.find(
+      l => l.imbalanceKey === 'anterior_pelvic_shift' && l.role === 'tight'
+    )
+    expect(apt?.confidence).toBe('medium')
+    const stretches = ALL_EXERCISES.filter(e =>
+      e.muscles.some(m => m.muscleSlug === 'rectus-femoris' && m.role === 'stretch')
+    )
+    expect(stretches.length, 'rectus-femoris needs >=1 stretch').toBeGreaterThanOrEqual(1)
+  })
+
+  // The strongest links — direct primary EMG or a validated clinical sign in the
+  // relevant population — carry the 'high' grade (Stage-2 muscle roster).
+  it('the strongest-evidenced muscle links carry the high confidence grade', () => {
+    const conf = (slug: string, key: string, role: string) =>
+      ALL_MUSCLES.find(m => m.slug === slug)
+        ?.links.find(l => l.imbalanceKey === key && l.role === role)?.confidence
+    expect(conf('sternocleidomastoid', 'forward_head_posture', 'tight')).toBe('high')
+    expect(conf('deep-cervical-flexors', 'forward_head_posture', 'weak')).toBe('high')
+    expect(conf('pectoralis-major', 'anterior_imbalanced_shoulders', 'tight')).toBe('high')
+    expect(conf('upper-trapezius', 'anterior_imbalanced_shoulders', 'tight')).toBe('high')
+    expect(conf('middle-trapezius', 'anterior_imbalanced_shoulders', 'weak')).toBe('high')
+    expect(conf('lower-trapezius', 'anterior_imbalanced_shoulders', 'weak')).toBe('high')
+    expect(conf('serratus-anterior', 'anterior_imbalanced_shoulders', 'weak')).toBe('high')
+    expect(conf('gluteus-medius', 'pelvic_obliquity', 'weak')).toBe('high')
   })
 
   it('content links cover the registry links exactly (no missing, no extras)', () => {

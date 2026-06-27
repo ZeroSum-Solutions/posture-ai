@@ -21,6 +21,7 @@ export const upperTrapezius: MuscleContent = {
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'tight',
+      confidence: 'high',
       rationale:
         'When the shoulders round and drift forward, the upper trapezius often over-works to stabilize and elevate the shoulder blade in place of the weaker mid- and lower-trapezius fibers. This over-reliance keeps the upper fibers short and tense, and when one side is loaded or leaned on more than the other it can hold that shoulder higher and further forward. Releasing it lets the lower scapular muscles re-engage.',
     },

@@ -20,6 +20,7 @@ export const lowerTrapezius: MuscleContent = {
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'weak',
+      confidence: 'high',
       rationale:
         'When the shoulders round forward, the lower trapezius is held long and switched off, so it cannot draw the shoulder blades down and back. The upper trapezius and chest muscles then dominate, pulling the shoulders up and forward, and uneven activity side to side can leave one shoulder more forward than the other. Strengthening the lower trapezius helps set the shoulder blades down and back and level the shoulders.',
     },
