@@ -4,6 +4,32 @@
 
 Companion docs: `2026-06-11-product-goal.md` (vision), `2026-06-11-competitive-refresh.md` (market), `2026-05-30-competitive-landscape.md` (full landscape), `app_spec.txt` (clinical reference).
 
+---
+
+## Status — reconciled 2026-06-26
+
+This roadmap is largely executed; the plan body below is preserved as the original plan of record. Snapshot of what has shipped (verified against the codebase):
+
+| Phase | Status | Evidence |
+|---|---|---|
+| **P0** Deploy + device spike | ✅ Done | Live on Vercel; findings in `2026-06-12-p0-device-spike-findings.md` |
+| **P1** CI + e2e + engine dedup | ✅ Done | `.github/workflows/ci.yml`; `playwright.config.ts` + `e2e/` (5 specs); `lib/posture-engine` removed — single engine in `packages/posture-engine` |
+| **P2** Capture hardening | ✅ Done | Self-hosted MediaPipe in `public/mediapipe/`; per-photo preflight in `lib/pose/quality.ts`; capture-level/tilt-framing flags migration |
+| **P3** Server hardening | ✅ Done | `lib/validation/frames.ts` (zod), `lib/rate-limit.ts`, `lib/log.ts`; `test_mode` gated; security headers |
+| **P4** Muscle knowledge base | ✅ Done | 28 muscles + 55 exercises in `content/`; `muscles` / `muscle_imbalance_links` / `exercise_muscles` tables; `/muscles` + `/muscles/[slug]`; vocabulary-lint test |
+| **P5** Polish | 🟡 Mostly | Practitioner + client PDFs shipped (#13); vocabulary lint in CI; a11y/axe budget and full progress-page polish still open |
+| **P6** Release verification | 🟡 Partial | CI green on PRs; full real-device matrix re-run + ops runbook still pending |
+
+### Post-roadmap: research-evidence reconciliation (2026-06-26)
+
+A signed-off literature review (in the *Moti Competitive Analysis* folder) was folded into the engine/content via 5 PRs:
+
+- **#14** static-stretch 30s hold floor (×10); **#15** pec-minor length-only coding; **#16** `pelvic_axial_rotation` demoted to measure-but-not-score + muscle inferences detached; **#17** optional evidence-confidence grade on muscle links; **#18** prone hip extension + ADIM exercise.
+
+**Deferred — need the validation study / clinician sign-off:** doorway-pec elbow-angle specificity (contested vs Umehara/Borstad); short-foot + toes-in heel-raise exercises (need a foot/pronation imbalance key + new muscle slugs); true CVA / FSA / kyphosis angle metrics (current ones are lean-from-vertical proxies, flagged non-validated); full binary→STATE muscle-coding remodel.
+
+---
+
 ## Key facts established by code exploration
 
 1. **Camera capture already exists in the web wizard.** `app/assessments/new/page.tsx` has a full `CameraCapture` component: `getUserMedia({ facingMode: 'environment' })`, 3-2-1 countdown, canvas frame grab, preview/retake, permission-denied error state, plumb-line SVG overlay. The mobile-web workstream is *hardening + verification*, not greenfield.
