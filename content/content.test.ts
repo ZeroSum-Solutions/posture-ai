@@ -57,6 +57,23 @@ describe('muscle content', () => {
     }
   })
 
+  // The research reconciliation graded several inference links by evidence
+  // strength. These are the downgrades the confidence field exists to express.
+  it('evidence-graded muscle links carry the research confidence grade', () => {
+    const linkConf = (slug: string, imbalanceKey: string, role: string) =>
+      ALL_MUSCLES.find(m => m.slug === slug)
+        ?.links.find(l => l.imbalanceKey === imbalanceKey && l.role === role)?.confidence
+    // upper trapezius in FHP: direct EMG support but inconsistent across studies
+    expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('medium')
+    // iliopsoas in APT: r=0.40 (weak), Burile 2024 tightness non-significant (p=0.13)
+    expect(linkConf('iliopsoas', 'anterior_pelvic_shift', 'tight')).toBe('low')
+    // knee hyperextension inferences: Grade D, no asymptomatic primary EMG
+    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('low')
+    expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('low')
+    expect(linkConf('popliteus', 'knee_extension_back_knee', 'weak')).toBe('low')
+    expect(linkConf('quadriceps', 'knee_extension_back_knee', 'tight')).toBe('low')
+  })
+
   it('content links cover the registry links exactly (no missing, no extras)', () => {
     const contentLinks = new Set(
       ALL_MUSCLES.flatMap(m => m.links.map(l => linkKey(m.slug, l.imbalanceKey, l.role)))

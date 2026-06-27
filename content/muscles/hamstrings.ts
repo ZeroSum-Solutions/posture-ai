@@ -20,6 +20,7 @@ export const hamstrings: MuscleContent = {
     {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'weak',
+      confidence: 'low',
       rationale:
         'The hamstrings bend the knee and resist it snapping into full extension, so in a back-knee (hyperextended) pattern they often test weak and let the joint settle into its locked end-range. With the quadriceps holding the knee backward and the hamstrings underactive, the joint loses its dynamic brake against hyperextension. Strengthening the hamstrings helps the knee hold a soft, neutral position under load.',
     },

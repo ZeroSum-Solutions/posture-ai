@@ -14,6 +14,7 @@ export const upperTrapezius: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'tight',
+      confidence: 'medium',
       rationale:
         'As the head drifts forward of the shoulders, the upper trapezius works harder to hold the heavier load of the head against gravity and to keep the eyes level. Sustained low-level activity in this position shortens the upper fibers and raises their resting tone, which adds to the pull on the neck and reinforces the forward-head pattern. Easing this tension supports re-centering the head over the spine.',
     },
