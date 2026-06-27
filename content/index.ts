@@ -52,6 +52,7 @@ import { neckLateralStretch } from './exercises/neck-lateral-stretch'
 import { openBookStretch } from './exercises/open-book-stretch'
 import { pallofPress } from './exercises/pallof-press'
 import { proneHamstringCurl } from './exercises/prone-hamstring-curl'
+import { proneHipExtension } from './exercises/prone-hip-extension'
 import { proneTRaise } from './exercises/prone-t-raise'
 import { proneYRaise } from './exercises/prone-y-raise'
 import { pushUpPlus } from './exercises/push-up-plus'
@@ -141,6 +142,7 @@ export const ALL_EXERCISES: ExerciseContent[] = [
   openBookStretch,
   pallofPress,
   proneHamstringCurl,
+  proneHipExtension,
   proneTRaise,
   proneYRaise,
   pushUpPlus,
