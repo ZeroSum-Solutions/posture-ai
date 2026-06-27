@@ -14,6 +14,7 @@ export const quadriceps: MuscleContent = {
     {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'tight',
+      confidence: 'low',
       rationale:
         'In a back-knee (hyperextended) standing pattern, the quadriceps hold the knee jammed into full extension rather than letting it rest in a soft, neutral position. High heels, joint laxity, and a center of mass carried backward all push the knee into this locked posture, and the quadriceps shorten to keep it there. Releasing front-thigh tension helps the knee settle out of its locked end-range.',
     },

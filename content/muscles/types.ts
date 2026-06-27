@@ -48,6 +48,15 @@ const screeningText = (min: number, max: number) =>
 export const muscleLinkSchema = z.object({
   imbalanceKey: z.enum(IMBALANCE_KEYS),
   role: z.enum(['tight', 'weak']),
+  /**
+   * Optional evidence-confidence grade for this specific link, from the research
+   * reconciliation (e.g. iliopsoas→APT is r=0.40/non-significant → 'low';
+   * upper-trapezius→FHP has direct but inconsistent EMG support → 'medium').
+   * Absent = not yet graded. This is the staged foundation for de-weighting
+   * low-confidence inferences — nothing consumes it yet (program/UI de-weighting
+   * is a deliberate follow-up).
+   */
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
   /** 2-3 sentences tying this muscle to the specific distortion (side/condition nuance lives here). */
   rationale: screeningText(80, 600),
 })

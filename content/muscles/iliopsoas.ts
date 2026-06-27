@@ -14,8 +14,9 @@ export const iliopsoas: MuscleContent = {
     {
       imbalanceKey: 'anterior_pelvic_shift',
       role: 'tight',
+      confidence: 'low',
       rationale:
-        'In an anterior pelvic shift the hips drift forward of the midline and the pelvis often tips into the bargain. A short, overactive iliopsoas is a prime driver: pulling from its spine and pelvis attachments, it holds the hip flexed and tugs the pelvis into that forward, tilted position. As long as it stays tight it resists the hip extension needed to bring the pelvis back over the feet, so lengthening it is usually a first step before the glutes and deep abdominals can re-balance the position.',
+        'In an anterior pelvic shift the hips drift forward of the midline and the pelvis often tips into the bargain. A short, overactive iliopsoas is one contributor: pulling from its spine and pelvis attachments, it holds the hip flexed and tugs the pelvis into that forward, tilted position. As long as it stays tight it resists the hip extension needed to bring the pelvis back over the feet, so lengthening it is usually a first step before the glutes and deep abdominals can re-balance the position.',
     },
   ],
   reviewedBy: null,
