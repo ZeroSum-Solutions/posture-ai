@@ -241,6 +241,54 @@ DO $$ BEGIN
 END $$;
 `
 
+// Muscle-map evidence reconciliation (20260627000000). A PubMed + Consensus scan
+// re-graded the weakest inferences. Knee hyperextension keeps only the evidence-
+// backed hamstrings→weak link in the scored map; the calf, quadriceps and
+// popliteus inferences are demoted to display-only (their muscle pages keep the
+// prose, but they leave the scored arrays + join rows). Rectus femoris is
+// promoted to anterior pelvic tilt (medium). Idempotent — safe on every startup.
+const MUSCLE_EVIDENCE_RECONCILIATION_SQL = `
+UPDATE imbalance_definitions
+  SET tight_muscles = '[]'::jsonb, weak_muscles = '["hamstrings"]'::jsonb
+  WHERE key = 'knee_extension_back_knee';
+DO $$ BEGIN
+  IF to_regclass('public.muscle_imbalance_links') IS NOT NULL THEN
+    DELETE FROM muscle_imbalance_links
+      WHERE imbalance_key = 'knee_extension_back_knee'
+        AND muscle_slug IN ('gastrocnemius-soleus', 'popliteus', 'quadriceps');
+  END IF;
+  IF to_regclass('public.muscles') IS NOT NULL THEN
+    INSERT INTO muscles (slug, name, region, anatomy_summary, function_text, screening_notes, reviewed_by, reviewed_at)
+    VALUES ('rectus-femoris', 'Rectus Femoris', 'hip_pelvis',
+      'The rectus femoris is the only one of the four quadriceps muscles that crosses both the hip and the knee. It runs straight down the middle of the front thigh, beginning on the front of the pelvis at the bony point just below and in front of the hip (the anterior inferior iliac spine) and joining the shared quadriceps tendon that wraps the kneecap and attaches to the top of the shinbone. Because it spans two joints, it both lifts the thigh at the hip and straightens the knee, and its length is shared between those movements — bending the knee while the hip is extended puts it on full stretch. This two-joint arrangement makes the rectus femoris a direct mechanical link between the tilt of the pelvis and the front of the thigh.',
+      'The rectus femoris flexes the hip, drawing the thigh up toward the trunk, and extends the knee, contributing to kicking, stair climbing, and the forward swing of the leg in walking. Because it anchors onto the front of the pelvis, a short rectus femoris can add to a forward pelvic tilt as one of several hip flexors, deepening the low-back arch. It shares hip-flexion duty with the iliopsoas and knee-extension duty with the three deeper quadriceps heads, sitting at the crossover of the two.',
+      'The rectus femoris commonly reads as short and overactive in clients who sit for long stretches or who stand with the pelvis tipped forward, since its hip attachment keeps it loaded in those positions. When shortened it can add to a forward pelvic tilt as part of the hip-flexor group, working alongside the iliopsoas rather than on its own. It may benefit from professional evaluation when the front of the hip feels persistently tight or the lower back stays arched; a kneeling or standing thigh stretch that combines hip extension with knee bending lengthens it directly.',
+      NULL, NULL)
+    ON CONFLICT (slug) DO UPDATE SET
+      name = EXCLUDED.name, region = EXCLUDED.region, anatomy_summary = EXCLUDED.anatomy_summary,
+      function_text = EXCLUDED.function_text, screening_notes = EXCLUDED.screening_notes, updated_at = now();
+  END IF;
+  IF to_regclass('public.muscle_imbalance_links') IS NOT NULL THEN
+    INSERT INTO muscle_imbalance_links (muscle_slug, imbalance_key, role, rationale_text)
+      SELECT 'rectus-femoris', 'anterior_pelvic_shift', 'tight',
+        'As a two-joint muscle anchored to the front of the pelvis, a short rectus femoris can contribute, as one of the hip flexors, to a forward pelvic tilt and to the hips carrying ahead of the ankles in an anterior pelvic shift. The evidence frames it as part of the hip-flexor group rather than in isolation — easing hip-flexor tightness measurably reduces the forward tilt, but the effect is modest and cannot be pinned to the rectus femoris alone. It is therefore graded medium-confidence and addressed together with the iliopsoas.'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM muscle_imbalance_links
+        WHERE muscle_slug = 'rectus-femoris' AND imbalance_key = 'anterior_pelvic_shift' AND role = 'tight'
+      );
+  END IF;
+  IF to_regclass('public.exercise_muscles') IS NOT NULL THEN
+    INSERT INTO exercise_muscles (exercise_id, muscle_slug, role, progression_level)
+      SELECT e.id, 'rectus-femoris', 'stretch', 2 FROM exercises e
+      WHERE e.slug = 'kneeling-hip-flexor-stretch'
+        AND NOT EXISTS (
+          SELECT 1 FROM exercise_muscles em
+          WHERE em.exercise_id = e.id AND em.muscle_slug = 'rectus-femoris' AND em.role = 'stretch'
+        );
+  END IF;
+END $$;
+`
+
 export async function applyMigrations(): Promise<void> {
   const dbUrl = process.env.SUPABASE_DB_URL
   if (!dbUrl) {
@@ -272,6 +320,9 @@ export async function applyMigrations(): Promise<void> {
 
     await client.query(DEMOTE_PELVIC_ROTATION_SQL)
     console.log('[migrations] ✅ Pelvic axial rotation demoted (20260626000000)')
+
+    await client.query(MUSCLE_EVIDENCE_RECONCILIATION_SQL)
+    console.log('[migrations] ✅ Muscle-map evidence reconciliation applied (20260627000000)')
 
   } catch (err) {
     console.error('[migrations] Failed:', err instanceof Error ? err.message : err)

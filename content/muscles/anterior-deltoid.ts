@@ -14,6 +14,7 @@ export const anteriorDeltoid: MuscleContent = {
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'tight',
+      confidence: 'medium',
       rationale:
         'Press-dominant training tends to overbuild the anterior deltoid relative to the muscles that pull the shoulder back, so it sits short and overactive in anterior imbalanced shoulders. Because it crosses the front of the joint, a tight anterior deltoid helps hold the upper arm flexed and rolled inward, reinforcing the forward shoulder position. Easing its tone and rebalancing it against the back-of-shoulder muscles helps the joint re-center.',
     },

@@ -21,6 +21,7 @@ export const gastrocnemiusSoleus: MuscleContent = {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'tight',
       confidence: 'low',
+      scored: false,
       rationale:
         'In a back-knee (hyperextended) pattern the calf — especially the gastrocnemius, which crosses the knee — pulls on the back of the joint and helps hold it locked into full extension. High heels and a backward-shifted center of mass reinforce this backward pull. Lengthening the calf reduces the tension behind the knee and lets the joint rest in a softer, neutral position.',
     },

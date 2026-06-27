@@ -15,6 +15,7 @@ export const popliteus: MuscleContent = {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'weak',
       confidence: 'low',
+      scored: false,
       rationale:
         'The popliteus is responsible for unlocking the knee out of full extension, so in a back-knee (hyperextended) pattern it is frequently underactive — the joint stays locked and the muscle is never recruited to free it. Joint laxity and a backward-shifted center of mass reinforce the locked position and let the popliteus go quiet. Activating it helps the knee break out of its end-range and settle into a softer, neutral alignment.',
     },

@@ -20,6 +20,7 @@ import { pectoralisMinor } from './muscles/pectoralis-minor'
 import { popliteus } from './muscles/popliteus'
 import { quadratusLumborum } from './muscles/quadratus-lumborum'
 import { quadriceps } from './muscles/quadriceps'
+import { rectusFemoris } from './muscles/rectus-femoris'
 import { rhomboids } from './muscles/rhomboids'
 import { serratusAnterior } from './muscles/serratus-anterior'
 import { sternocleidomastoid } from './muscles/sternocleidomastoid'
@@ -107,6 +108,7 @@ export const ALL_MUSCLES: MuscleContent[] = [
   popliteus,
   quadratusLumborum,
   quadriceps,
+  rectusFemoris,
   rhomboids,
   serratusAnterior,
   sternocleidomastoid,
