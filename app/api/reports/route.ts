@@ -4,6 +4,10 @@ import React from 'react'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
+import { ClientReport } from '@/lib/pdf/clientReport'
+import { buildProgramFrom } from '@/lib/program/buildProgram'
+import type { Capability } from '@/lib/program/selectPriorities'
+import { dbFindingsToEngineFindings, type DbFindingRow } from '@/lib/reports/clientProgram'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
@@ -22,13 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
   }
 
-  let body: { assessment_id?: string; compared_to_assessment_id?: string }
+  let body: { assessment_id?: string; compared_to_assessment_id?: string; variant?: string }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
   const { assessment_id, compared_to_assessment_id } = body
+  const variant: 'practitioner' | 'client' = body.variant === 'client' ? 'client' : 'practitioner'
 
   if (!assessment_id || typeof assessment_id !== 'string') {
     return NextResponse.json({ error: 'assessment_id required' }, { status: 400 })
@@ -40,6 +45,7 @@ export async function POST(req: NextRequest) {
     .select(`
       id, status, overall_score, overall_grade, overall_percentile,
       front_rank, side_rank, assessed_at,
+      priority_keys, capability, exercise_swaps,
       clients!inner(id, first_name, last_name)
     `)
     .eq('id', assessment_id)
@@ -160,14 +166,43 @@ export async function POST(req: NextRequest) {
     clients: { first_name: clientFirst || 'Client', last_name: clientLast || '' },
   }
 
-  // Generate PDF buffer
-  const docElement = React.createElement(PostureReportPdf, {
-    assessment: pdfAssessment,
-    findings,
-    exercises,
-    practitioner: practitioner || undefined,
-    hasDelta,
-  }) as unknown as ReactElement<DocumentProps>
+  // Generate PDF buffer — practitioner report, or the plain-language client
+  // report rebuilt from the persisted findings + the coach's saved overrides
+  // (so the PDF matches exactly what the practitioner sees on the results page).
+  let docElement: ReactElement<DocumentProps>
+  if (variant === 'client') {
+    const overrides = assessment as unknown as {
+      priority_keys: string[] | null
+      capability: string | null
+      exercise_swaps: Record<string, Record<string, string>> | null
+    }
+    const program = buildProgramFrom(
+      dbFindingsToEngineFindings((findingsRaw || []) as unknown as DbFindingRow[]),
+      assessment.overall_grade,
+      {
+        capability: (overrides.capability as Capability) || 'standard',
+        activeKeys: Array.isArray(overrides.priority_keys) ? overrides.priority_keys : undefined,
+        swaps: overrides.exercise_swaps || undefined,
+      },
+    )
+    const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    })
+    docElement = React.createElement(ClientReport, {
+      clientName: `${clientFirst || 'Client'} ${clientLast || ''}`.trim(),
+      practitioner: practitioner?.practice_name || practitioner?.display_name || 'Your practitioner',
+      dateStr,
+      report: program,
+    }) as unknown as ReactElement<DocumentProps>
+  } else {
+    docElement = React.createElement(PostureReportPdf, {
+      assessment: pdfAssessment,
+      findings,
+      exercises,
+      practitioner: practitioner || undefined,
+      hasDelta,
+    }) as unknown as ReactElement<DocumentProps>
+  }
 
   const pdfBuffer = await renderToBuffer(docElement)
 
@@ -179,7 +214,7 @@ export async function POST(req: NextRequest) {
 
   // Upload to Supabase Storage via service role
   const serviceSupabase = createSupabaseServiceClient()
-  const storagePath = `${user.id}/${assessment_id}/report.pdf`
+  const storagePath = `${user.id}/${assessment_id}/${variant === 'client' ? 'report-client.pdf' : 'report.pdf'}`
 
   // Ensure bucket exists
   const { error: bucketErr } = await serviceSupabase.storage.createBucket('posture-reports', {

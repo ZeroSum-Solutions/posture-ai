@@ -878,8 +878,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [assessmentId, setAssessmentId] = useState<string>('')
-  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState<'practitioner' | 'client' | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfKind, setPdfKind] = useState<'practitioner' | 'client'>('practitioner')
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
@@ -991,15 +992,16 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     persistOverrides({ exercise_swaps: next })
   }
 
-  async function handleGeneratePdf() {
+  async function handleGeneratePdf(variant: 'practitioner' | 'client' = 'practitioner') {
     if (!assessmentId) return
-    setPdfLoading(true)
+    setPdfLoading(variant)
     setPdfError(null)
+    setPdfUrl(null)
     try {
       const r = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assessment_id: assessmentId, compared_to_assessment_id: compareToId || undefined }),
+        body: JSON.stringify({ assessment_id: assessmentId, compared_to_assessment_id: compareToId || undefined, variant }),
       })
       if (!r.ok) {
         const err = await r.json()
@@ -1007,11 +1009,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         return
       }
       const data = await r.json()
+      setPdfKind(variant)
       setPdfUrl(data.signed_url)
     } catch {
       setPdfError('Failed to generate PDF.')
     } finally {
-      setPdfLoading(false)
+      setPdfLoading(null)
     }
   }
 
@@ -1135,10 +1138,14 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
       {pdfUrl && (
         <div style={{ background: '#161618', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <p style={{ color: '#22C55E', fontSize: '0.875rem', marginBottom: 8 }}>PDF report generated successfully.</p>
+          <p style={{ color: '#22C55E', fontSize: '0.875rem', marginBottom: 8 }}>
+            {pdfKind === 'client' ? 'Client report' : 'Practitioner report'} generated successfully.
+          </p>
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
             padding: '10px 20px', borderRadius: 8, background: '#4F46E5',
-            color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>Download PDF</a>
+            color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>
+            Download {pdfKind === 'client' ? 'Client Report' : 'Practitioner PDF'}
+          </a>
         </div>
       )}
       {pdfError && <div style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
@@ -1166,13 +1173,21 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
           color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Back to Client</Link>
-        <button onClick={handleGeneratePdf} disabled={pdfLoading}
+        <button onClick={() => handleGeneratePdf('practitioner')} disabled={pdfLoading !== null}
           style={{ padding: '12px 24px', borderRadius: 10,
-            background: pdfLoading ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.15)',
-            color: pdfLoading ? '#6366F1aa' : '#6366F1',
+            background: pdfLoading !== null ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.15)',
+            color: pdfLoading !== null ? '#6366F1aa' : '#6366F1',
             border: '1px solid rgba(99,102,241,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading ? 'wait' : 'pointer', minHeight: 44 }}>
-          {pdfLoading ? 'Generating PDF...' : 'Generate PDF'}
+            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'wait' : 'pointer', minHeight: 44 }}>
+          {pdfLoading === 'practitioner' ? 'Generating PDF...' : 'Practitioner PDF'}
+        </button>
+        <button onClick={() => handleGeneratePdf('client')} disabled={pdfLoading !== null}
+          style={{ padding: '12px 24px', borderRadius: 10,
+            background: pdfLoading !== null ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
+            color: pdfLoading !== null ? '#22C55Eaa' : '#22C55E',
+            border: '1px solid rgba(34,197,94,0.3)',
+            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'wait' : 'pointer', minHeight: 44 }}>
+          {pdfLoading === 'client' ? 'Generating…' : 'Client Report'}
         </button>
         <Link href="/assessments/new" style={{
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
