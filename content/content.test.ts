@@ -30,6 +30,22 @@ describe('muscle content', () => {
     }
   })
 
+  // No direct EMG evidence supports pectoralis-minor *overactivity* in
+  // rounded-shoulder/FHP — only mechanical (length-based) shortening. None of
+  // its prose (summary, function, screening, link rationales) may propagate the
+  // unsupported activity claim.
+  it('pectoralis-minor is coded length-only (no unsupported "overactive" claim)', () => {
+    const pecMinor = ALL_MUSCLES.find(m => m.slug === 'pectoralis-minor')
+    expect(pecMinor, 'pectoralis-minor content must exist').toBeDefined()
+    const prose = [
+      pecMinor!.anatomySummary,
+      pecMinor!.functionText,
+      pecMinor!.screeningNotes,
+      ...pecMinor!.links.map(l => l.rationale),
+    ].join(' ').toLowerCase()
+    expect(prose).not.toContain('overactive')
+  })
+
   it('content links cover the registry links exactly (no missing, no extras)', () => {
     const contentLinks = new Set(
       ALL_MUSCLES.flatMap(m => m.links.map(l => linkKey(m.slug, l.imbalanceKey, l.role)))
