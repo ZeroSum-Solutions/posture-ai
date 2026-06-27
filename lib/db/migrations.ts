@@ -217,6 +217,30 @@ FROM (VALUES
 WHERE e.slug = v.slug;
 `
 
+// 20260626000000 — demote pelvic_axial_rotation: detach muscle inferences.
+// Transverse-plane rotation is not reliably recoverable from 2-view markerless
+// capture (r=0.00–0.19 vs Vicon; no validated threshold), so the engine now
+// returns it as unreliable. Clear its muscle arrays (and join rows, if the
+// muscle KB is present) so the results UI stops surfacing muscle analysis for
+// it. Idempotent — safe to run on every startup.
+const DEMOTE_PELVIC_ROTATION_SQL = `
+UPDATE imbalance_definitions
+  SET tight_muscles = '[]'::jsonb, weak_muscles = '[]'::jsonb
+  WHERE key = 'pelvic_axial_rotation';
+-- Retroactively demote any findings stored before this change so they can't
+-- map back to reliable=true (mappers infer reliability from stored zone) and
+-- drive a regenerated program. Historical overall_score/ranks are left as the
+-- point-in-time record of what was shown at assessment time.
+UPDATE assessment_findings
+  SET zone = 'unreliable', severity_pct = 0
+  WHERE imbalance_key = 'pelvic_axial_rotation' AND zone IS DISTINCT FROM 'unreliable';
+DO $$ BEGIN
+  IF to_regclass('public.muscle_imbalance_links') IS NOT NULL THEN
+    DELETE FROM muscle_imbalance_links WHERE imbalance_key = 'pelvic_axial_rotation';
+  END IF;
+END $$;
+`
+
 export async function applyMigrations(): Promise<void> {
   const dbUrl = process.env.SUPABASE_DB_URL
   if (!dbUrl) {
@@ -245,6 +269,9 @@ export async function applyMigrations(): Promise<void> {
 
     await client.query(REPORT_FIELDS_SQL)
     console.log('[migrations] ✅ Report dosage fields applied (20260623000000)')
+
+    await client.query(DEMOTE_PELVIC_ROTATION_SQL)
+    console.log('[migrations] ✅ Pelvic axial rotation demoted (20260626000000)')
 
   } catch (err) {
     console.error('[migrations] Failed:', err instanceof Error ? err.message : err)

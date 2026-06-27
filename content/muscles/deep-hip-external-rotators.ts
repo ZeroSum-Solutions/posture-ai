@@ -10,14 +10,10 @@ export const deepHipExternalRotators: MuscleContent = {
     'The deep hip external rotators turn the thigh outward (external rotation) and, with the hip bent, help draw it out to the side. Their main value is control rather than power: they center the ball of the hip in its socket and steady the joint through standing and walking. Acting from the leg, they also influence how the pelvis rotates over the planted foot.',
   screeningNotes:
     'Commonly short and overactive on one side, especially with cross-legged sitting or one-sided loading, where they can hold the thigh turned out and contribute to a pelvis that is rotated to one side. In screening, asymmetric hip rotation range or a pelvis that sits turned toward one side points to shortened rotators that may benefit from release.',
-  links: [
-    {
-      imbalanceKey: 'pelvic_axial_rotation',
-      role: 'tight',
-      rationale:
-        'On the side toward which the pelvis has rotated, the deep hip external rotators are held tight. These short rotators keep the thigh turned out and tug the pelvis around into a turned position, anchoring the axial rotation through the day. Because they sit on the side of rotation as the overactive partner, they typically benefit from release and length work, which lets the pelvis square back toward the front.',
-    },
-  ],
+  // The only link was to pelvic_axial_rotation, an unscoreable transverse-plane
+  // metric (r=0.00–0.19 vs Vicon; no validated threshold), so it is detached.
+  // This muscle remains as an exercise-referenced education page.
+  links: [],
   reviewedBy: null,
   reviewedAt: null,
 }

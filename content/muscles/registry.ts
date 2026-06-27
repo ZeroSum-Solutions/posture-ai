@@ -130,10 +130,8 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'obliques',
     name: 'Internal & External Obliques',
     region: 'trunk',
-    links: [
-      { imbalanceKey: 'pelvic_axial_rotation', role: 'tight' },
-      { imbalanceKey: 'pelvic_axial_rotation', role: 'weak' },
-    ],
+    // pelvic_axial_rotation links detached — unscoreable transverse-plane metric.
+    links: [],
   },
   {
     slug: 'quadratus-lumborum',
@@ -152,9 +150,9 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'gluteus-maximus',
     name: 'Gluteus Maximus',
     region: 'hip_pelvis',
+    // pelvic_axial_rotation link detached — unscoreable transverse-plane metric.
     links: [
       { imbalanceKey: 'anterior_pelvic_shift', role: 'weak' },
-      { imbalanceKey: 'pelvic_axial_rotation', role: 'weak' },
     ],
   },
   {
@@ -182,7 +180,8 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'deep-hip-external-rotators',
     name: 'Deep Hip External Rotators (Piriformis Group)',
     region: 'hip_pelvis',
-    links: [{ imbalanceKey: 'pelvic_axial_rotation', role: 'tight' }],
+    // pelvic_axial_rotation link detached — unscoreable transverse-plane metric.
+    links: [],
   },
   {
     slug: 'tfl-it-band',
