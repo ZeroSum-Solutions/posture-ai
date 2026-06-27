@@ -9,7 +9,7 @@ export const pectoralisMinor: MuscleContent = {
   functionText:
     'The pectoralis minor draws the shoulder blade forward and down around the ribcage and tips its top edge forward (anterior tilt). It also helps pull the shoulder blade down when the arm is fixed, such as when pushing up out of a chair. In short, it anchors and positions the shoulder blade rather than moving the arm directly.',
   screeningNotes:
-    'Commonly short and overactive with long hours of seated, hunched work and heavy pushing exercise. When it shortens, it tips the shoulder blade forward and rounds the shoulder toward the chest, which can crowd the space at the front of the shoulder. It is seldom seen as weak in screening; the usual concern is that it stays clamped down and short. A client whose shoulder blade sits noticeably tilted forward may benefit from professional evaluation.',
+    'Commonly shortened by long hours of seated, hunched work and heavy pushing exercise. When it shortens, it tips the shoulder blade forward and rounds the shoulder toward the chest, which can crowd the space at the front of the shoulder. It is seldom seen as weak in screening; the usual concern is that it stays clamped down and short. A client whose shoulder blade sits noticeably tilted forward may benefit from professional evaluation.',
   links: [
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
