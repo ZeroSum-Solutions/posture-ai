@@ -10,9 +10,9 @@ export const neckLateralStretch: ExerciseContent = {
   dosageType: 'hold',
   reps: null,
   instructions:
-    'Tilt your head to one side, ear toward shoulder. Gently apply light pressure with your hand. Hold 20-30 seconds. Repeat on the other side.',
+    'Tilt your head to one side, ear toward shoulder. Gently apply light pressure with your hand. Hold 30 seconds. Repeat on the other side.',
   sets: 3,
-  holdSeconds: 20,
+  holdSeconds: 30,
   muscles: [
     { muscleSlug: 'upper-trapezius', role: 'stretch', progressionLevel: 2 },
     { muscleSlug: 'levator-scapulae', role: 'stretch', progressionLevel: 1 },

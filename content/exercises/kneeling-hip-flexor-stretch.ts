@@ -10,9 +10,9 @@ export const kneelingHipFlexorStretch: ExerciseContent = {
   dosageType: 'hold',
   reps: null,
   instructions:
-    'Kneel with one knee on the ground and the other foot forward (lunge position). Shift your hips forward until you feel a stretch in the front of the hip. Keep your back straight. Hold 20-30 seconds. Repeat on the other side.',
+    'Kneel with one knee on the ground and the other foot forward (lunge position). Shift your hips forward until you feel a stretch in the front of the hip. Keep your back straight. Hold 30 seconds. Repeat on the other side.',
   sets: 3,
-  holdSeconds: 20,
+  holdSeconds: 30,
   muscles: [
     { muscleSlug: 'iliopsoas', role: 'stretch', progressionLevel: 2 },
     { muscleSlug: 'quadriceps', role: 'stretch', progressionLevel: 1 },

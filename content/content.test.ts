@@ -118,4 +118,18 @@ describe('exercise content', () => {
     expect(ALL_EXERCISES.length).toBeGreaterThanOrEqual(45)
     expect(ALL_EXERCISES.length).toBeLessThanOrEqual(60)
   })
+
+  // Static stretches must hold >=30s to produce chronic ROM change (Bandy &
+  // Irion 1994 meta-analysis; 2025 Delphi; Grade A). Sub-threshold holds are
+  // an under-dose. Isometric strength/stability holds are a different category
+  // and are intentionally excluded.
+  it('every static stretch holds >= 30 seconds (Bandy & Irion 1994 floor)', () => {
+    const stretches = ALL_EXERCISES.filter(e => e.category === 'stretch')
+    // Guard against a vacuous pass: the predicate must actually run on real data.
+    expect(stretches.length, 'expected static stretches in the library').toBeGreaterThan(0)
+    const subThreshold = stretches
+      .filter(e => e.holdSeconds < 30)
+      .map(e => `${e.slug} (${e.holdSeconds}s)`)
+    expect(subThreshold, 'static stretches below the 30s evidence floor').toEqual([])
+  })
 })
