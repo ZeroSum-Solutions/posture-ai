@@ -139,25 +139,37 @@ export function anteriorPelvicShift(side: PoseFrame): Finding {
     useRight ? ['right_shoulder','right_hip'] : ['left_shoulder','left_hip'])
 }
 
-/** 7. Pelvic axial rotation — transverse/front view (estimated from z or front asymmetry) */
+/**
+ * 7. Pelvic axial rotation — transverse plane, estimated from hip-z asymmetry.
+ *
+ * MEASURED BUT NEVER SCORED. Transverse-plane rotation is not reliably
+ * recoverable from 2-view markerless capture (r=0.00–0.19 vs Vicon; RMSE >7°;
+ * no validated pathology threshold — expert opinion only). Per research G4
+ * sign-off we still estimate a deviation for display/traceability, but the
+ * finding is held below RELIABILITY_FLOOR so it stays zone='unreliable',
+ * severityPct=0, and is excluded from the overall score, ranks, and program
+ * priorities. Its muscle inferences are likewise detached (content + DB seed).
+ */
+const AXIAL_ROTATION_CONFIDENCE = 0.3 // intentionally < RELIABILITY_FLOOR
+
 export function pelvicAxialRotation(front: PoseFrame): Finding {
   const key = 'pelvic_axial_rotation'
   const lh = getLm(front, 'left_hip')
   const rh = getLm(front, 'right_hip')
   if (!lh || !rh) return makeFinding(key, 'Pelvic Rotation', 'pelvis', 0, 'Neutral', 'front', 0, [])
 
-  // Use z-coordinate difference if available (MediaPipe provides world z)
+  // Estimate a deviation when z is available (MediaPipe world z), purely for
+  // display — confidence is capped below the floor regardless of landmark
+  // visibility, so this is never scored.
+  let deviation = 0
+  let direction = 'Neutral'
   if ((lh.z !== undefined) && (rh.z !== undefined)) {
-    const conf = minVis(lh, rh)
     const zDiff = Math.abs(lh.z - rh.z)
     // Rough estimate: 10cm z-diff ~ 10 degrees rotation on ~50cm hip width
-    const deviation = Math.atan2(zDiff, 0.5) * (180 / Math.PI)
-    const direction = lh.z < rh.z ? 'Left Forward' : 'Right Forward'
-    return makeFinding(key, 'Pelvic Rotation', 'pelvis', deviation, direction, 'front', conf, ['left_hip','right_hip'])
+    deviation = Math.atan2(zDiff, 0.5) * (180 / Math.PI)
+    direction = lh.z < rh.z ? 'Left Forward' : 'Right Forward'
   }
-
-  // Without z, mark unreliable
-  return makeFinding(key, 'Pelvic Rotation', 'pelvis', 0, 'Neutral', 'front', 0.3, ['left_hip','right_hip'])
+  return makeFinding(key, 'Pelvic Rotation', 'pelvis', deviation, direction, 'front', AXIAL_ROTATION_CONFIDENCE, ['left_hip','right_hip'])
 }
 
 /** 8. Genu varum/valgum left — front view */

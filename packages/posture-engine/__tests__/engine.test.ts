@@ -259,6 +259,19 @@ describe('Metric 7: Pelvic Axial Rotation', () => {
     // zDiff=0.100, hip_width≈0.500 → atan2(0.100,0.500)*180/PI = 11.310°
     expect(withinEpsilon(f.deviation, 11.31)).toBe(true)
   })
+
+  // Transverse-plane rotation is not reliably recoverable from 2-view markerless
+  // capture (r=0.00–0.19 vs Vicon; RMSE >7°; no validated pathology threshold).
+  // It is measured for traceability but must never be scored — research G4
+  // sign-off: "measure but do not score, do not assign muscle inferences".
+  it('is never scored even with full z-data present', () => {
+    const f = pelvicAxialRotation(PAR_FRAME)
+    expect(f.reliable).toBe(false)
+    expect(f.zone).toBe('unreliable')
+    expect(f.severityPct).toBe(0)
+    // the measured deviation is still surfaced for traceability
+    expect(withinEpsilon(f.deviation, 11.31)).toBe(true)
+  })
 })
 
 // ============================================================

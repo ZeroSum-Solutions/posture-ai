@@ -25,7 +25,7 @@ const findings: Finding[] = [
   f({ key: 'pelvic_obliquity', label: 'Pelvic Obliquity', region: 'pelvis', deviation: 1, direction: 'Level', severityPct: 12, zone: 'maintain' }),
   f({ key: 't1_tilt_backward', label: 'T1 Tilt', region: 'spine', deviation: 2, direction: 'Neutral', severityPct: 14, zone: 'maintain', viewUsed: 'side' }),
   f({ key: 'posterior_imbalanced_shoulders', label: 'Posterior Shoulders', region: 'head_shoulders', deviation: 1, direction: 'Level', severityPct: 9, zone: 'maintain' }),
-  f({ key: 'pelvic_axial_rotation', label: 'Pelvic Rotation', region: 'pelvis', deviation: 2, direction: 'Neutral', severityPct: 11, zone: 'maintain' }),
+  f({ key: 'pelvic_axial_rotation', label: 'Pelvic Rotation', region: 'pelvis', deviation: 2, direction: 'Neutral', severityPct: 0, zone: 'unreliable', reliable: false, confidence: 0.3 }),
   f({ key: 'genu_varum_valgum_left', label: 'Left Knee', region: 'leg', deviation: 2, direction: 'Neutral', severityPct: 8, zone: 'maintain' }),
   f({ key: 'genu_varum_valgum_right', label: 'Right Knee', region: 'leg', deviation: 2, direction: 'Neutral', severityPct: 7, zone: 'maintain' }),
   f({ key: 'knee_extension_back_knee', label: 'Knee Extension', region: 'leg', deviation: 3, direction: 'Neutral', severityPct: 13, zone: 'maintain', viewUsed: 'side' }),

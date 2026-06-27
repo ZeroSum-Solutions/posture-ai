@@ -46,6 +46,17 @@ describe('muscle content', () => {
     expect(prose).not.toContain('overactive')
   })
 
+  // muscleLinkSchema allows [] links, but only for muscles that lost their
+  // single link when an unscoreable metric was detached. Any OTHER link-less
+  // muscle is a content mistake (a muscle with no imbalance relationship).
+  it('only the known unscoreable-metric muscles may have zero imbalance links', () => {
+    const ALLOWED_LINKLESS = new Set(['obliques', 'deep-hip-external-rotators'])
+    const linkless = ALL_MUSCLES.filter(m => m.links.length === 0).map(m => m.slug)
+    for (const slug of linkless) {
+      expect(ALLOWED_LINKLESS.has(slug), `${slug} unexpectedly has zero imbalance links`).toBe(true)
+    }
+  })
+
   it('content links cover the registry links exactly (no missing, no extras)', () => {
     const contentLinks = new Set(
       ALL_MUSCLES.flatMap(m => m.links.map(l => linkKey(m.slug, l.imbalanceKey, l.role)))

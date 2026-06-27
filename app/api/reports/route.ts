@@ -64,6 +64,12 @@ export async function POST(req: NextRequest) {
 
   // Enrich with causes_text, tight/weak muscles from imbalance_definitions
   const keys = (findingsRaw || []).map((f: { imbalance_key: string }) => f.imbalance_key)
+  // Exercises are only recommended for reliable findings — an unreliable finding
+  // (the unscoreable pelvic_axial_rotation, or any low-confidence capture) must
+  // not pull corrective exercises into the practitioner report.
+  const reliableKeys = (findingsRaw || [])
+    .filter((f: { zone?: string }) => f.zone !== 'unreliable')
+    .map((f: { imbalance_key: string }) => f.imbalance_key)
   const defsMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
   if (keys.length > 0) {
     const { data: defs } = await supabase
@@ -121,14 +127,14 @@ export async function POST(req: NextRequest) {
 
   // Fetch exercises relevant to the findings
   const exercises: PdfExercise[] = []
-  if (keys.length > 0) {
+  if (reliableKeys.length > 0) {
     const { data: exRows } = await supabase
       .from('exercises')
       .select('name, category, instructions, sets, hold_seconds, primary_deviation_keys')
     if (exRows) {
       for (const ex of exRows) {
         const devKeys: string[] = Array.isArray(ex.primary_deviation_keys) ? ex.primary_deviation_keys : []
-        if (devKeys.some((k: string) => keys.includes(k))) {
+        if (devKeys.some((k: string) => reliableKeys.includes(k))) {
           exercises.push({
             name: ex.name,
             category: ex.category,

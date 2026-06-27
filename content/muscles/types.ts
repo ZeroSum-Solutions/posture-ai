@@ -63,7 +63,12 @@ export const muscleContentSchema = z.object({
   functionText: screeningText(120, 800),
   /** When commonly tight / commonly weak, screening-only framing. */
   screeningNotes: screeningText(120, 800),
-  links: z.array(muscleLinkSchema).min(1),
+  // Most muscles assert >=1 imbalance link, but a few (obliques,
+  // deep-hip-external-rotators) are retained purely as exercise-referenced
+  // education pages after their only link — pelvic axial rotation — was
+  // detached as an unscoreable metric. The registry<->content match test
+  // (content.test.ts) is the real guard on which links must exist.
+  links: z.array(muscleLinkSchema),
   /** Clinical review gate: unreviewed entries are hidden in the UI. */
   reviewedBy: z.string().nullable(),
   reviewedAt: z.string().datetime({ offset: true }).nullable(),
