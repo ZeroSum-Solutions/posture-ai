@@ -158,6 +158,18 @@ describe('exercise content', () => {
     for (const slug of seedSlugs) expect(slugs.has(slug), slug).toBe(true)
   })
 
+  // Prone hip extension + ADIM brace: glute-max activation that inhibits the
+  // lumbar erectors (Oh 2007 ~52% MVIC — from this drill, not the glute bridge).
+  it('prone hip extension is wired to APT with glute-max + deep-abdominal activation', () => {
+    const ex = ALL_EXERCISES.find(e => e.slug === 'prone-hip-extension')
+    expect(ex, 'prone-hip-extension must exist').toBeDefined()
+    expect(ex!.category).toBe('strengthen')
+    expect(ex!.primaryDeviationKeys).toContain('anterior_pelvic_shift')
+    const slugs = ex!.muscles.map(m => m.muscleSlug)
+    expect(slugs).toContain('gluteus-maximus')
+    expect(slugs).toContain('deep-abdominals')
+  })
+
   it('total exercise count lands in the planned 45-60 range', () => {
     expect(ALL_EXERCISES.length).toBeGreaterThanOrEqual(45)
     expect(ALL_EXERCISES.length).toBeLessThanOrEqual(60)
