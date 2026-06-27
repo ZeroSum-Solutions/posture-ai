@@ -2,6 +2,7 @@ import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { ProgramReport, ProgramStep } from '../program/buildProgram'
 import { renderDose } from '../program/dosage'
+import { clientSummaryMode } from '../reports/clientProgram'
 
 const DISCLAIMER =
   'SCREENING ONLY — Not a medical assessment. For educational and screening purposes only. This does not replace evaluation by a qualified professional.'
@@ -157,10 +158,17 @@ export interface ClientReportProps {
 
 export function ClientReport({ clientName, practitioner, dateStr, report }: ClientReportProps) {
   const first = clientName.split(' ')[0]
+  const mode = clientSummaryMode(report)
   const positivesLine =
     report.positives.length > 0
       ? `You're already maintaining good form in ${report.positives.slice(0, 3).join(', ')}.`
       : ''
+  const heroPlanLine =
+    mode === 'plan'
+      ? "These next 3 weeks are about learning a few simple movements and making them feel natural. Visible change is a longer, 6–12 week journey — this is a strong start, and it's a screening, not a medical assessment."
+      : mode === 'monitor'
+        ? "Your practitioner is keeping an eye on a few areas for now rather than starting a program — see below. This is a screening, not a medical assessment."
+        : "Nothing needs active work right now — keep doing what you're doing. This is a screening, not a medical assessment."
 
   return (
     <Document>
@@ -170,14 +178,12 @@ export function ClientReport({ clientName, practitioner, dateStr, report }: Clie
 
         <View style={s.hero}>
           <Text style={s.heroText}>
-            Hi {first} — here's your personal posture plan. {report.gradeHuman} {positivesLine} These next 3 weeks
-            are about learning a few simple movements and making them feel natural. Visible change is a longer,
-            6–12 week journey — this is a strong start, and it's a screening, not a medical assessment.
+            Hi {first} — here&apos;s your posture screening summary. {report.gradeHuman} {positivesLine} {heroPlanLine}
           </Text>
           {report.positives.length > 0 ? <Text style={s.positives}>✓ {positivesLine}</Text> : null}
         </View>
 
-        {report.hasPlan ? (
+        {mode === 'plan' ? (
           <>
             <Text style={s.sectionTitle}>Your Top {report.priorities.length} Priority {report.priorities.length === 1 ? 'Focus' : 'Focuses'}</Text>
             {report.priorities.map((p) => (
@@ -198,6 +204,15 @@ export function ClientReport({ clientName, practitioner, dateStr, report }: Clie
               <Text style={s.muted}>One more to keep an eye on: {report.oneMoreToWatch}.</Text>
             ) : null}
           </>
+        ) : mode === 'monitor' ? (
+          <View style={s.card}>
+            <Text style={s.sectionTitle}>Being Monitored</Text>
+            <Text style={s.body}>
+              Your practitioner has chosen to watch these areas for now rather than start a program:
+              {' '}{report.monitored.map((m) => m.label).join(', ')}. Keep moving daily and re-check at your next
+              session so any change gets caught early.
+            </Text>
+          </View>
         ) : (
           <View style={s.card}>
             <Text style={s.body}>
@@ -220,7 +235,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report }: Clie
 
           <Text style={s.principle}>
             The order matters: <Text style={s.principleBold}>Loosen → Strengthen → Connect</Text>. Loosen and
-            lengthen what's tight, then wake up and strengthen what's weak, then tie it together — the order is
+            lengthen what&apos;s tight, then wake up and strengthen what&apos;s weak, then tie it together — the order is
             what makes it stick.
           </Text>
 
