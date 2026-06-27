@@ -1,4 +1,6 @@
 import type { Finding } from '@/packages/posture-engine/src/types'
+import type { Capability } from '@/lib/program/selectPriorities'
+import type { ProgramReport } from '@/lib/program/buildProgram'
 
 /**
  * Raw `assessment_findings` row shape (as selected from Supabase) needed to
@@ -16,6 +18,22 @@ export interface DbFindingRow {
   zone: string
   view_used: string
   confidence: number | string
+}
+
+/** Narrow an untrusted persisted `capability` value to the validated enum. */
+export function isCapability(v: unknown): v is Capability {
+  return v === 'regression' || v === 'standard' || v === 'progression'
+}
+
+/**
+ * What the client report should actually say up top. `monitored` only ever
+ * holds warning/danger findings, so an empty plan with a non-empty `monitored`
+ * list means the coach demoted real issues — NOT that nothing was found. Those
+ * two cases must read differently to the client.
+ */
+export function clientSummaryMode(report: ProgramReport): 'plan' | 'monitor' | 'clear' {
+  if (report.hasPlan) return 'plan'
+  return report.monitored.length > 0 ? 'monitor' : 'clear'
 }
 
 /** Map persisted assessment-finding rows back into engine `Finding`s. */

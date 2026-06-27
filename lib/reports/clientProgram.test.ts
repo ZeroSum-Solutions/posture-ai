@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { dbFindingsToEngineFindings, type DbFindingRow } from './clientProgram'
+import { dbFindingsToEngineFindings, isCapability, clientSummaryMode, type DbFindingRow } from './clientProgram'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 
 const row = (over: Partial<DbFindingRow> & Pick<DbFindingRow, 'imbalance_key' | 'region' | 'zone'>): DbFindingRow => ({
@@ -53,5 +53,44 @@ describe('dbFindingsToEngineFindings', () => {
     ])
     const report = buildProgramFrom(findings, 'B', { capability: 'standard', activeKeys: ['anterior_pelvic_shift'] })
     expect(report.priorities[0].primaryKey).toBe('anterior_pelvic_shift')
+  })
+})
+
+describe('isCapability', () => {
+  it('accepts the three valid levels and rejects anything else', () => {
+    expect(isCapability('regression')).toBe(true)
+    expect(isCapability('standard')).toBe(true)
+    expect(isCapability('progression')).toBe(true)
+    expect(isCapability('')).toBe(false)
+    expect(isCapability(null)).toBe(false)
+    expect(isCapability('STANDARD')).toBe(false)
+    expect(isCapability(undefined)).toBe(false)
+  })
+})
+
+describe('clientSummaryMode', () => {
+  const findings = dbFindingsToEngineFindings([
+    row({ imbalance_key: 'forward_head_posture', region: 'head_shoulders', zone: 'danger', severity_pct: 78 }),
+    row({ imbalance_key: 'anterior_pelvic_shift', region: 'pelvis', zone: 'warning', severity_pct: 60 }),
+  ])
+
+  it('returns "plan" when there are active priorities', () => {
+    expect(clientSummaryMode(buildProgramFrom(findings, 'B', { capability: 'standard' }))).toBe('plan')
+  })
+
+  it('returns "monitor" (NOT all-clear) when the coach demoted every real finding', () => {
+    // priority_keys=[] is an explicit "demote everything" override; the danger
+    // findings must still be surfaced as monitored, never as "nothing stood out".
+    const report = buildProgramFrom(findings, 'B', { capability: 'standard', activeKeys: [] })
+    expect(report.hasPlan).toBe(false)
+    expect(report.monitored.length).toBeGreaterThan(0)
+    expect(clientSummaryMode(report)).toBe('monitor')
+  })
+
+  it('returns "clear" only when there are genuinely no warning/danger findings', () => {
+    const allMaintain = dbFindingsToEngineFindings([
+      row({ imbalance_key: 't1_tilt_backward', region: 'spine', zone: 'maintain', severity_pct: 8 }),
+    ])
+    expect(clientSummaryMode(buildProgramFrom(allMaintain, 'A', { capability: 'standard' }))).toBe('clear')
   })
 })

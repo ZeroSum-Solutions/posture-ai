@@ -6,8 +6,7 @@ import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
-import type { Capability } from '@/lib/program/selectPriorities'
-import { dbFindingsToEngineFindings, type DbFindingRow } from '@/lib/reports/clientProgram'
+import { dbFindingsToEngineFindings, isCapability, type DbFindingRow } from '@/lib/reports/clientProgram'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
@@ -180,7 +179,7 @@ export async function POST(req: NextRequest) {
       dbFindingsToEngineFindings((findingsRaw || []) as unknown as DbFindingRow[]),
       assessment.overall_grade,
       {
-        capability: (overrides.capability as Capability) || 'standard',
+        capability: isCapability(overrides.capability) ? overrides.capability : 'standard',
         activeKeys: Array.isArray(overrides.priority_keys) ? overrides.priority_keys : undefined,
         swaps: overrides.exercise_swaps || undefined,
       },
@@ -253,7 +252,8 @@ export async function POST(req: NextRequest) {
       assessment_id,
       practitioner_id: user.id,
       storage_path: storagePath,
-      compared_to_assessment_id: compared_to_assessment_id || null,
+      // The client report never renders comparison data, so don't record one.
+      compared_to_assessment_id: variant === 'client' ? null : (compared_to_assessment_id || null),
     })
     .select('id')
     .single()
