@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { isNoRows } from '@/lib/api/query-error'
 
 export async function GET(
   _req: NextRequest,
@@ -19,6 +20,10 @@ export async function GET(
     .single()
 
   if (error || !assessment) {
+    if (error && !isNoRows(error)) {
+      console.error('[api/assessments/status] load failed:', id, error.message)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
     console.log('[api/assessments/status] not found:', id)
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   }
