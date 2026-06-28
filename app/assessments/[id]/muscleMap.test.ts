@@ -96,3 +96,86 @@ describe('muscleMap — hasAnyMuscle (accordion gate via FindingCard.hasMuscles)
     expect(hasAnyMuscle({ tightMuscles: [], weakMuscles: [], tightLinks: [], weakLinks: [] })).toBe(false)
   })
 })
+
+// Post-reconciliation legacy arrays from the seed migrations
+// (20260101000001_seed_data.sql + 20260627000000_muscle_evidence_reconciliation.sql),
+// with the per-role/view marker split computed INDEPENDENTLY by hand from the
+// coordinate views (not by running the resolver). Locks the legacy render path
+// against `main` for every one of the 10 seeded imbalance keys — the
+// zero-visible-change guarantee for production data.
+const LEGACY_SEED_PARITY: Record<
+  string,
+  {
+    tight: string[]
+    weak: string[]
+    expected: { frontTight: number; backTight: number; frontWeak: number; backWeak: number }
+  }
+> = {
+  forward_head_posture: {
+    tight: ['suboccipitals', 'upper trapezius', 'levator scapulae', 'sternocleidomastoid'],
+    weak: ['deep cervical flexors', 'lower trapezius'],
+    expected: { frontTight: 1, backTight: 3, frontWeak: 1, backWeak: 1 },
+  },
+  anterior_imbalanced_shoulders: {
+    tight: ['pectoralis major', 'pectoralis minor', 'anterior deltoid', 'upper trapezius'],
+    weak: ['rhomboids', 'middle trapezius', 'lower trapezius', 'serratus anterior'],
+    expected: { frontTight: 3, backTight: 1, frontWeak: 1, backWeak: 3 },
+  },
+  posterior_imbalanced_shoulders: {
+    tight: ['upper trapezius', 'levator scapulae'],
+    weak: ['lower trapezius'],
+    expected: { frontTight: 0, backTight: 2, frontWeak: 0, backWeak: 1 },
+  },
+  t1_tilt_backward: {
+    tight: ['thoracic erector spinae', 'latissimus dorsi'],
+    weak: ['deep thoracic flexors', 'abdominals'],
+    expected: { frontTight: 0, backTight: 2, frontWeak: 2, backWeak: 0 },
+  },
+  pelvic_obliquity: {
+    tight: ['quadratus lumborum', 'adductors (elevated side)', 'opposite gluteus medius'],
+    weak: ['gluteus medius (elevated side)'],
+    expected: { frontTight: 1, backTight: 2, frontWeak: 0, backWeak: 1 },
+  },
+  anterior_pelvic_shift: {
+    tight: ['hip flexors', 'lumbar erector spinae', 'gastrocnemius'],
+    weak: ['gluteals', 'hamstrings', 'abdominals'],
+    expected: { frontTight: 1, backTight: 2, frontWeak: 1, backWeak: 2 },
+  },
+  pelvic_axial_rotation: {
+    tight: ['one-side hip rotators', 'obliques'],
+    weak: ['opposite obliques', 'gluteals'],
+    expected: { frontTight: 1, backTight: 1, frontWeak: 1, backWeak: 1 },
+  },
+  genu_varum_valgum_left: {
+    tight: ['tensor fasciae latae', 'IT band', 'lateral structures (varum) or adductors (valgum)'],
+    weak: ['gluteus medius', 'vastus medialis (VMO)'],
+    expected: { frontTight: 3, backTight: 0, frontWeak: 1, backWeak: 1 },
+  },
+  genu_varum_valgum_right: {
+    tight: ['tensor fasciae latae', 'IT band', 'lateral structures (varum) or adductors (valgum)'],
+    weak: ['gluteus medius', 'vastus medialis (VMO)'],
+    expected: { frontTight: 3, backTight: 0, frontWeak: 1, backWeak: 1 },
+  },
+  knee_extension_back_knee: {
+    tight: [],
+    weak: ['hamstrings'],
+    expected: { frontTight: 0, backTight: 0, frontWeak: 0, backWeak: 1 },
+  },
+}
+
+describe('muscleMap — legacy seed parity (zero visible change vs main, all 10 keys)', () => {
+  for (const [key, { tight, weak, expected }] of Object.entries(LEGACY_SEED_PARITY)) {
+    it(`reproduces the marker split for ${key}`, () => {
+      const r = resolveMarkerRegions({ tightMuscles: tight, weakMuscles: weak, tightLinks: [], weakLinks: [] })
+      expect(
+        {
+          frontTight: r.frontTight.length,
+          backTight: r.backTight.length,
+          frontWeak: r.frontWeak.length,
+          backWeak: r.backWeak.length,
+        },
+        key,
+      ).toEqual(expected)
+    })
+  }
+})

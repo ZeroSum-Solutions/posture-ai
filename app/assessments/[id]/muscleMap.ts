@@ -91,10 +91,16 @@ export function getMuscleRegion(name: string): MuscleRegion | null {
   return null
 }
 
-// Legacy display name (normalized) → canonical muscle slug.
-// Authority: docs/plans/2026-06-12-p4a-muscle-slug-mapping.md (reviewed contract).
-// Keys are normalizeMuscle() outputs (lowercased, parentheticals stripped).
-export const LEGACY_NAME_TO_SLUG: Record<string, string> = {
+// Each MUSCLE_REGIONS coordinate name → its canonical slug. Used ONLY to build
+// MUSCLE_REGIONS_BY_SLUG below — it is NOT the full P4a seed-string contract.
+// Keys are the normalizeMuscle() forms of the 31 coordinate names above; the
+// slug each maps to follows docs/plans/2026-06-12-p4a-muscle-slug-mapping.md.
+// Seed-string variants that never appear as coordinate keys (e.g.
+// "opposite gluteus medius", "lateral structures (varum) or adductors (valgum)")
+// are NOT listed here: on the legacy render path they resolve via
+// getMuscleRegion's substring fallback, and on the link path the DB already
+// carries the slug directly. So this map only needs the coordinate-name keyset.
+export const COORDINATE_NAME_TO_SLUG: Record<string, string> = {
   'suboccipitals': 'suboccipitals',
   'upper trapezius': 'upper-trapezius',
   'levator scapulae': 'levator-scapulae',
@@ -141,7 +147,7 @@ export const MUSCLE_REGIONS_BY_SLUG: Record<string, MuscleRegion> = (() => {
   const bySlug: Record<string, MuscleRegion> = {}
   for (const [legacyName, region] of Object.entries(MUSCLE_REGIONS)) {
     const norm = normalizeMuscle(legacyName)
-    const slug = LEGACY_NAME_TO_SLUG[norm]
+    const slug = COORDINATE_NAME_TO_SLUG[norm]
     if (!slug) continue
     const source = SLUG_COORDINATE_SOURCE[slug]
     // For a colliding slug, only its designated source name writes the coord.

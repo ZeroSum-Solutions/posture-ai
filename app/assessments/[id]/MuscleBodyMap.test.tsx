@@ -44,4 +44,18 @@ describe('MuscleBodyMap', () => {
     expect(container.querySelector('[data-testid="muscle-chip-tfl-it-band"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="muscle-chip-gluteus-medius"]')).not.toBeNull()
   })
+
+  it('renders a chip with no marker for a link slug that has no coordinate (rectus-femoris)', () => {
+    const { container } = render(
+      <MuscleBodyMap
+        tightMuscles={[]}
+        weakMuscles={[]}
+        tightLinks={[{ slug: 'rectus-femoris', name: 'Rectus Femoris' }]}
+        weakLinks={[]}
+      />,
+    )
+    // no coordinate → no marker, but it is NOT an empty accordion: the chip shows
+    expect(container.querySelectorAll('ellipse')).toHaveLength(0)
+    expect(container.querySelector('[data-testid="muscle-chip-rectus-femoris"]')).not.toBeNull()
+  })
 })

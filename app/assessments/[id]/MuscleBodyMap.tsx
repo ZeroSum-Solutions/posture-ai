@@ -86,7 +86,15 @@ export default function MuscleBodyMap({
     weakLinks,
   })
 
-  if (!hasAny) return null
+  const hasTightChips = tightMuscles.length > 0 || tightLinks.length > 0
+  const hasWeakChips = weakMuscles.length > 0 || weakLinks.length > 0
+
+  // Render whenever there is anything to show — a marker OR a chip. A link with
+  // no coordinate (e.g. rectus-femoris) shows as a chip with no marker rather
+  // than an empty accordion, keeping this body consistent with hasAnyMuscle()
+  // (the accordion gate). In production every legacy name has a coordinate, so
+  // markers and chips always co-render exactly as before.
+  if (!hasAny && !hasTightChips && !hasWeakChips) return null
 
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
