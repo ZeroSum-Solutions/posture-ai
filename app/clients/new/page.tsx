@@ -3,13 +3,16 @@ import { useState, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { inchesToCm, cmToInches, poundsToKg, kgToPounds, round1 } from '@/lib/units'
+
+type UnitSystem = 'us' | 'metric'
 
 type FieldErrors = {
   first_name?: string
   last_name?: string
   date_of_birth?: string
-  height_cm?: string
-  weight_kg?: string
+  height?: string
+  weight?: string
   consent?: string
 }
 
@@ -19,11 +22,17 @@ export default function NewClientPage() {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [consentChecked, setConsentChecked] = useState(false)
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>('us')
   const [form, setForm] = useState({
     first_name: '', last_name: '', date_of_birth: '',
-    sex_at_birth: '', height_cm: '', weight_kg: '', notes: '',
+    sex_at_birth: '', height: '', weight: '', notes: '',
   })
   const dobRef = useRef<HTMLInputElement>(null)
+
+  const heightUnit = unitSystem === 'us' ? 'in' : 'cm'
+  const weightUnit = unitSystem === 'us' ? 'lb' : 'kg'
+  const heightPlaceholder = unitSystem === 'us' ? 'e.g. 69' : 'e.g. 175'
+  const weightPlaceholder = unitSystem === 'us' ? 'e.g. 154' : 'e.g. 70'
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value } = e.target
@@ -31,6 +40,26 @@ export default function NewClientPage() {
     if (name in fieldErrors) {
       setFieldErrors(prev => { const next = { ...prev }; delete next[name as keyof FieldErrors]; return next })
     }
+  }
+
+  // Switch units, converting any entered height/weight so the physical
+  // measurement is preserved (the canonical stored value is always metric).
+  function handleUnitChange(next: UnitSystem) {
+    if (next === unitSystem) return
+    const toUs = next === 'us'
+    const conv = (val: string, toUsFn: (n: number) => number, toMetricFn: (n: number) => number) => {
+      const s = val.trim()
+      if (s === '') return val
+      const n = parseFloat(s)
+      if (!Number.isFinite(n)) return val
+      return String(round1(toUs ? toUsFn(n) : toMetricFn(n)))
+    }
+    setForm(prev => ({
+      ...prev,
+      height: conv(prev.height, cmToInches, inchesToCm),
+      weight: conv(prev.weight, kgToPounds, poundsToKg),
+    }))
+    setUnitSystem(next)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -48,11 +77,11 @@ export default function NewClientPage() {
     if (dobRef.current && dobRef.current.value !== '' && !dobRef.current.validity.valid) {
       errors.date_of_birth = 'Please enter a valid date of birth (e.g. 1990-05-15).'
     }
-    if (form.height_cm !== '' && parseFloat(form.height_cm) < 0) {
-      errors.height_cm = 'Height must be a positive number (cm).'
+    if (form.height !== '' && parseFloat(form.height) < 0) {
+      errors.height = `Height must be a positive number (${heightUnit}).`
     }
-    if (form.weight_kg !== '' && parseFloat(form.weight_kg) < 0) {
-      errors.weight_kg = 'Weight must be a positive number (kg).'
+    if (form.weight !== '' && parseFloat(form.weight) < 0) {
+      errors.weight = `Weight must be a positive number (${weightUnit}).`
     }
     if (!consentChecked) {
       errors.consent = 'Client consent is required before creating a record.'
@@ -77,8 +106,14 @@ export default function NewClientPage() {
     }
     if (form.date_of_birth) body.date_of_birth = form.date_of_birth
     if (form.sex_at_birth) body.sex_at_birth = form.sex_at_birth
-    if (form.height_cm) body.height_cm = parseFloat(form.height_cm)
-    if (form.weight_kg) body.weight_kg = parseFloat(form.weight_kg)
+    if (form.height) {
+      const h = parseFloat(form.height)
+      body.height_cm = round1(unitSystem === 'us' ? inchesToCm(h) : h)
+    }
+    if (form.weight) {
+      const w = parseFloat(form.weight)
+      body.weight_kg = round1(unitSystem === 'us' ? poundsToKg(w) : w)
+    }
     if (form.notes.trim()) body.notes = form.notes.trim()
 
     const res = await fetch('/api/clients', {
@@ -205,31 +240,53 @@ export default function NewClientPage() {
             </select>
           </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginTop: '16px', marginBottom: '8px' }}>
+            <span style={{ ...labelStyle, marginBottom: 0 }}>Measurements</span>
+            <div role="group" aria-label="Measurement units" style={{ display: 'inline-flex', background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '2px' }}>
+              {([['us', 'US (in / lb)'], ['metric', 'Metric (cm / kg)']] as const).map(([val, lbl]) => {
+                const active = unitSystem === val
+                return (
+                  <button
+                    key={val} type="button" onClick={() => handleUnitChange(val)} aria-pressed={active}
+                    style={{
+                      padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                      fontSize: '0.8rem', fontWeight: 600, minHeight: 'unset',
+                      background: active ? '#6366F1' : 'transparent',
+                      color: active ? '#fff' : '#A1A1AA',
+                    }}
+                  >
+                    {lbl}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px', marginBottom: '4px' }}>
             <div>
-              <label htmlFor="height_cm" style={labelStyle}>Height (cm)</label>
+              <label htmlFor="height" style={labelStyle}>Height ({heightUnit})</label>
               <input
-                id="height_cm"
-                type="number" name="height_cm" value={form.height_cm}
-                onChange={handleChange} placeholder="e.g. 175" step="0.1"
-                aria-describedby={fieldErrors.height_cm ? 'error-height-cm' : undefined}
-                style={{ ...inputStyle, borderColor: fieldErrors.height_cm ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
+                id="height"
+                type="number" name="height" value={form.height}
+                onChange={handleChange} placeholder={heightPlaceholder} step="0.1"
+                aria-describedby={fieldErrors.height ? 'error-height' : undefined}
+                style={{ ...inputStyle, borderColor: fieldErrors.height ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
               />
-              {fieldErrors.height_cm && (
-                <p id="error-height-cm" data-testid="error-height-cm" style={errorStyle} role="alert">{fieldErrors.height_cm}</p>
+              {fieldErrors.height && (
+                <p id="error-height" data-testid="error-height" style={errorStyle} role="alert">{fieldErrors.height}</p>
               )}
             </div>
             <div>
-              <label htmlFor="weight_kg" style={labelStyle}>Weight (kg)</label>
+              <label htmlFor="weight" style={labelStyle}>Weight ({weightUnit})</label>
               <input
-                id="weight_kg"
-                type="number" name="weight_kg" value={form.weight_kg}
-                onChange={handleChange} placeholder="e.g. 70" step="0.1"
-                aria-describedby={fieldErrors.weight_kg ? 'error-weight-kg' : undefined}
-                style={{ ...inputStyle, borderColor: fieldErrors.weight_kg ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
+                id="weight"
+                type="number" name="weight" value={form.weight}
+                onChange={handleChange} placeholder={weightPlaceholder} step="0.1"
+                aria-describedby={fieldErrors.weight ? 'error-weight' : undefined}
+                style={{ ...inputStyle, borderColor: fieldErrors.weight ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
               />
-              {fieldErrors.weight_kg && (
-                <p id="error-weight-kg" data-testid="error-weight-kg" style={errorStyle} role="alert">{fieldErrors.weight_kg}</p>
+              {fieldErrors.weight && (
+                <p id="error-weight" data-testid="error-weight" style={errorStyle} role="alert">{fieldErrors.weight}</p>
               )}
             </div>
           </div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceArea, Legend,
@@ -569,13 +570,19 @@ export default function ClientDetailPage() {
             {client.height_cm && (
               <div>
                 <div style={{ fontSize: '0.8rem', color: '#A1A1AA', marginBottom: '4px' }}>Height</div>
-                <div style={{ color: '#F5F5F5' }}>{client.height_cm} cm</div>
+                <div style={{ color: '#F5F5F5' }}>
+                  {round1(cmToInches(client.height_cm))} in{' '}
+                  <span style={{ color: '#A1A1AA' }}>({client.height_cm} cm)</span>
+                </div>
               </div>
             )}
             {client.weight_kg && (
               <div>
                 <div style={{ fontSize: '0.8rem', color: '#A1A1AA', marginBottom: '4px' }}>Weight</div>
-                <div style={{ color: '#F5F5F5' }}>{client.weight_kg} kg</div>
+                <div style={{ color: '#F5F5F5' }}>
+                  {round1(kgToPounds(client.weight_kg))} lb{' '}
+                  <span style={{ color: '#A1A1AA' }}>({client.weight_kg} kg)</span>
+                </div>
               </div>
             )}
             <div>
