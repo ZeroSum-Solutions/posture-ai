@@ -7,7 +7,9 @@ import {
 } from './metrics'
 import { toGrade, toPercentile } from './thresholds'
 
-export const ENGINE_VERSION = '1.1.0'
+// 1.2.0: recurvatum metric fixed (STANDARD 175→180, facing-aware direction) +
+// boundary-level threshold provenance; knee_extension danger 15→10 (cited).
+export const ENGINE_VERSION = '1.2.0'
 
 export const DISCLAIMER =
   'SCREENING ONLY — Not a medical diagnosis. These findings are for educational and screening purposes only. ' +

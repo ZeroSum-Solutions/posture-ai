@@ -157,9 +157,9 @@ const GENU_R_FRAME = frontFrame({
   right_ankle:    { x: 0.620, y: 0.920, visibility: 0.90 },
 })
 
-// Metric 10: knee_extension_back_knee
+// Metric 10: knee_extension_back_knee — a straight leg is neutral (0°)
 // hip=(0.500,0.520), knee=(0.500,0.720), ankle=(0.500,0.920)
-// angle=180°, deviation=|175-180|=5.00°
+// angle2D=180°, STANDARD=180°, deviation=|180-180|=0.00°
 const KNEE_EXT_FRAME = sideFrame({
   left_ear:       { x: 0.500, y: 0.050, visibility: 0.90 },
   right_ear:      { x: 0.505, y: 0.050, visibility: 0.10 },
@@ -171,6 +171,33 @@ const KNEE_EXT_FRAME = sideFrame({
   right_knee:     { x: 0.505, y: 0.720, visibility: 0.10 },
   left_ankle:     { x: 0.500, y: 0.920, visibility: 0.90 },
   right_ankle:    { x: 0.505, y: 0.920, visibility: 0.10 },
+})
+
+// Metric 10 direction fixtures — facing-aware hyperextension vs flexion.
+// faceSign = sign(foot_index.x − heel.x); a knee posterior to the hip→ankle
+// line (relative to facing) is Hyperextended. Each leg bends 6.87° off straight.
+const KNEE_HYPEREXT_FACING_RIGHT = sideFrame({
+  left_hip:        { x: 0.500, y: 0.500, visibility: 0.95 },
+  left_knee:       { x: 0.488, y: 0.700, visibility: 0.95 },
+  left_ankle:      { x: 0.500, y: 0.900, visibility: 0.95 },
+  left_heel:       { x: 0.480, y: 0.920, visibility: 0.90 },
+  left_foot_index: { x: 0.560, y: 0.960, visibility: 0.88 },
+})
+const KNEE_FLEXED_FACING_RIGHT = sideFrame({
+  left_hip:        { x: 0.500, y: 0.500, visibility: 0.95 },
+  left_knee:       { x: 0.512, y: 0.700, visibility: 0.95 },
+  left_ankle:      { x: 0.500, y: 0.900, visibility: 0.95 },
+  left_heel:       { x: 0.480, y: 0.920, visibility: 0.90 },
+  left_foot_index: { x: 0.560, y: 0.960, visibility: 0.88 },
+})
+// Mirror of the hyperextension case: same posterior-knee geometry, subject
+// faces the other way (toe left of heel), so the same image side reads as back-knee.
+const KNEE_HYPEREXT_FACING_LEFT = sideFrame({
+  left_hip:        { x: 0.500, y: 0.500, visibility: 0.95 },
+  left_knee:       { x: 0.512, y: 0.700, visibility: 0.95 },
+  left_ankle:      { x: 0.500, y: 0.900, visibility: 0.95 },
+  left_heel:       { x: 0.520, y: 0.920, visibility: 0.90 },
+  left_foot_index: { x: 0.440, y: 0.960, visibility: 0.88 },
 })
 
 // ============================================================
@@ -302,12 +329,57 @@ describe('Metric 9: Genu Varum/Valgum Right', () => {
 // ============================================================
 // Metric 10: Knee Extension / Back Knee
 // ============================================================
-describe('Metric 10: Knee Extension', () => {
-  it('computes knee extension deviation = 5.00° (hand-computed from fixture)', () => {
+describe('Metric 10: Knee Extension / Back Knee', () => {
+  it('treats a straight leg as neutral (0° deviation, STANDARD=180)', () => {
     const f = kneeExtensionBackKnee(KNEE_EXT_FRAME)
-    // hip=(0.500,0.520), knee=(0.500,0.720), ankle=(0.500,0.920)
-    // angle2D=180°, STANDARD=175°, deviation=|175-180|=5.00°
-    expect(withinEpsilon(f.deviation, 5.00)).toBe(true)
+    // hip/knee/ankle collinear → angle2D=180°, deviation=|180-180|=0
+    expect(withinEpsilon(f.deviation, 0)).toBe(true)
+    expect(f.direction).toBe('Neutral')
+  })
+
+  it('a straight leg does NOT land in the warning zone (regression)', () => {
+    // STANDARD used to be 175°, so a straight knee scored 5° → warning,
+    // severity 33, silently penalising every healthy knee in the aggregate.
+    const f = kneeExtensionBackKnee(KNEE_EXT_FRAME)
+    expect(f.zone).toBe('maintain')
+    expect(f.severityPct).toBe(0)
+  })
+
+  it('flags a confirmed back-knee as Hyperextended, facing right', () => {
+    const f = kneeExtensionBackKnee(KNEE_HYPEREXT_FACING_RIGHT)
+    expect(withinEpsilon(f.deviation, 6.87)).toBe(true)
+    expect(f.direction).toBe('Hyperextended')
+    expect(f.zone).toBe('warning')
+  })
+
+  it('does NOT score a flexed knee as recurvatum (facing right)', () => {
+    // Same magnitude as the back-knee case, but the knee is anterior → flexion,
+    // not recurvatum. The recurvatum-specific thresholds/copy must not apply.
+    const f = kneeExtensionBackKnee(KNEE_FLEXED_FACING_RIGHT)
+    expect(f.deviation).toBe(0)
+    expect(f.direction).toBe('Neutral')
+    expect(f.zone).toBe('maintain')
+  })
+
+  it('reads recurvatum from foot orientation, not raw image side (facing left)', () => {
+    // Identical knee geometry to the flexed-facing-right case, but the subject
+    // faces the other way, so the same image side IS a back-knee.
+    const f = kneeExtensionBackKnee(KNEE_HYPEREXT_FACING_LEFT)
+    expect(withinEpsilon(f.deviation, 6.87)).toBe(true)
+    expect(f.direction).toBe('Hyperextended')
+  })
+
+  it('does NOT flag a back-knee when facing cannot be verified (conservative)', () => {
+    // No feet and no nose/ear pair → facing unknown. We cannot confirm the knee
+    // is posterior, so it is not scored as recurvatum (avoids a false citation).
+    const noFacing = sideFrame({
+      left_hip:   { x: 0.500, y: 0.500, visibility: 0.95 },
+      left_knee:  { x: 0.488, y: 0.700, visibility: 0.95 },
+      left_ankle: { x: 0.500, y: 0.900, visibility: 0.95 },
+    })
+    const f = kneeExtensionBackKnee(noFacing)
+    expect(f.deviation).toBe(0)
+    expect(f.direction).toBe('Neutral')
   })
 })
 
