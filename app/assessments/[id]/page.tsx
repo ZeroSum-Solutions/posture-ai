@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
 import MuscleBodyMap from './MuscleBodyMap'
+import { hasAnyMuscle, type MuscleLink } from './muscleMap'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
 import type { Finding as EngineFinding } from '@/packages/posture-engine/src/types'
@@ -27,11 +28,6 @@ interface Finding {
   weak_muscles?: string[]
   tight_muscle_links?: MuscleLink[]
   weak_muscle_links?: MuscleLink[]
-}
-
-interface MuscleLink {
-  slug: string
-  name: string
 }
 
 interface Capture {
@@ -413,7 +409,12 @@ function FindingCard({ f }: { f: Finding }) {
   const isUnreliable = f.zone === 'unreliable'
   const zoneColor = ZONE_COLORS[f.zone]
   const [expanded, setExpanded] = useState(false)
-  const hasMuscles = (f.tight_muscles && f.tight_muscles.length > 0) || (f.weak_muscles && f.weak_muscles.length > 0)
+  const hasMuscles = hasAnyMuscle({
+    tightMuscles: f.tight_muscles ?? [],
+    weakMuscles: f.weak_muscles ?? [],
+    tightLinks: f.tight_muscle_links ?? [],
+    weakLinks: f.weak_muscle_links ?? [],
+  })
 
   return (
     <div
