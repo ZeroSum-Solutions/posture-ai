@@ -7,6 +7,11 @@ const PUBLIC_PATHS = [
   '/auth/sign-in',
   '/auth/sign-up',
   '/auth/callback',
+  // Password reset must be reachable while signed out. /auth/update-password
+  // self-guards on the recovery session (and renders its own expired-link
+  // state), so it is public rather than gated behind auth + onboarding.
+  '/auth/forgot-password',
+  '/auth/update-password',
   '/api/health',
   ...(process.env.NODE_ENV !== 'production' ? ['/api/dev/'] : []),
 ]
