@@ -46,9 +46,14 @@ connector is OAuth-scoped to a different org — use the Management API
 
 ## Migrations
 
+`supabase/migrations/*.sql` is the **single source of truth** for schema. The app
+does NOT self-apply schema at runtime (the old startup runner was removed) — so
+**step 3 is mandatory**, or production runs new code against an old schema (which
+is exactly how the assessment-detail / report routes silently broke once).
+
 1. Add `supabase/migrations/<YYYYMMDDHHMMSS>_<name>.sql`.
 2. Local: `npx supabase db reset` (rebuilds from the full chain; CI does the same).
-3. Cloud:
+3. Cloud (**required on every migration — do not skip**):
    ```bash
    jq -Rs '{query: ., name: "<name>"}' < supabase/migrations/<file>.sql | \
    curl -X POST "https://api.supabase.com/v1/projects/dhrkezfypzutiwtmcmof/database/migrations" \
@@ -56,6 +61,11 @@ connector is OAuth-scoped to a different org — use the Management API
    ```
 4. Note: the cloud ledger stamps its own version numbers; keep names matching
    the local files so the chains stay reconcilable.
+5. Verify: `GET /api/health` returns `"schema":"ready"`. It probes representative
+   later-migration **tables and columns**, so a skipped *schema* migration (a new
+   table or column) shows `"pending_migration"`. Data-only migrations (row
+   inserts/updates) aren't fully covered by the probe — CI's `supabase db reset`
+   (the full chain) and the startup seed-count log are the backstop for those.
 
 Muscle KB content: edit files under `content/`, then
 `node scripts/generate-content-index.mjs` and regenerate the seed migration via

@@ -9,17 +9,26 @@ export async function GET() {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Check connection and verify key tables exist
-    const { error: connError } = await supabase.from('practitioners').select('count').limit(0)
+    // Probe a representative slice of the schema: a base table, a later-migration
+    // table (muscle KB), and a later-migration column (report dosage). The app no
+    // longer self-applies migrations — supabase/migrations is the sole source of
+    // truth — so a skipped migration must surface as 'pending_migration' here
+    // rather than a misleading 'ready'.
+    const probes = await Promise.all([
+      supabase.from('practitioners').select('id').limit(0),
+      supabase.from('muscles').select('slug').limit(0),
+      supabase.from('assessments').select('priority_keys').limit(1),
+    ])
 
-    // connError.code '42P01' = table not found (schema not applied yet)
-    // connError.code 'PGRST116' = no rows (ok)
-    // null error = table exists and is accessible
-    if (connError && connError.code !== 'PGRST116' && connError.code !== '42P01') {
-      throw new Error(`Database error: ${connError.message}`)
+    // 42P01 = missing table, 42703 = missing column -> schema not fully applied.
+    // PGRST116 = no rows (fine). Anything else is a real connection/DB failure.
+    const SCHEMA_MISSING = new Set(['42P01', '42703'])
+    let schemaApplied = true
+    for (const { error: probeError } of probes) {
+      if (!probeError || probeError.code === 'PGRST116') continue
+      if (SCHEMA_MISSING.has(probeError.code ?? '')) { schemaApplied = false; continue }
+      throw new Error(`Database error: ${probeError.message}`)
     }
-
-    const schemaApplied = !connError || connError.code === 'PGRST116'
 
     // Log confirmation for server log watchers (satisfies feature test step)
     console.log('[health] Supabase connection confirmed - database: connected')
