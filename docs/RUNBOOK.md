@@ -106,3 +106,20 @@ gate regressions in CI.
 - **Real-device matrix**: docs/plans/2026-06-12-p0-device-spike-findings.md
   carries the iPhone/Android checklist; the captured photos become canonical
   e2e fixtures (same filenames in `e2e/fixtures/photos/`).
+- **Threshold provenance / deferred clinical metrics**: engine thresholds carry
+  boundary-level provenance (`packages/posture-engine/src/thresholds.ts`). Only
+  `knee_extension_back_knee` is literature-cited (recurvatum: Loudon 1998 >5°,
+  Kawahara 2012 >10°); everything else is an engineering default. True CVA / FSA /
+  thoracic-kyphosis / APT metrics and any 2D varus-valgus cut-point remain deferred
+  to the Layer-1 validation study (no honest 2D/goniometric citation exists yet).
+- **"All Matched Exercises" maintain matches** (app follow-up): `deriveExerciseRecommendations`
+  (`app/assessments/[id]/page.tsx`) surfaces `min_zone:'maintain'` exercises for any
+  reliable finding at maintain zone (deviation 0), so a neutral metric still lists
+  preventive exercises. Product decision whether to suppress maintain-zone matches;
+  not a scoring bug.
+- **Side-view direction arrows** (app follow-up): `DirectionArrow` references `arrow-*`
+  marker ids while side markers are defined `arrow-side-*` — side arrowheads may not
+  render. Pre-existing, unrelated to scoring.
+- **Stale `threshold_config`**: `imbalance_definitions.threshold_config` (DB seed) is
+  unused for scoring and already drifted (knee `danger_start:12` vs engine `10`). The
+  engine's TS `THRESHOLDS` is the sole scoring authority; treat the column as dead.

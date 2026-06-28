@@ -202,7 +202,38 @@ export function genuVarumValgumRight(front: PoseFrame): Finding {
   return makeFinding(key, 'Knee Alignment Right', 'leg', Math.abs(deviation), direction, 'front', conf, ['right_hip','right_knee','right_ankle'])
 }
 
-/** 10. Knee extension / back knee — side view */
+// Below this magnitude the sagittal knee deviation is treated as neutral and no
+// hyperextension/flexion direction is asserted.
+const KNEE_NEUTRAL_EPS = 1
+
+/**
+ * Sagittal (side-view) facing direction: +1 = subject faces image-right,
+ * −1 = faces image-left, 0 = indeterminate. The toe (foot_index) is anterior to
+ * the heel; falls back to nose-anterior-to-ear when the foot is occluded. Needed
+ * because angle2D is unsigned [0,180] and cannot, by itself, tell a back-knee
+ * (hyperextension) from a flexed knee.
+ */
+function sagittalFacing(frame: PoseFrame, useRight: boolean): number {
+  const FACE_EPS = 0.005
+  const footPairs: [string, string][] = useRight
+    ? [['right_foot_index', 'right_heel'], ['left_foot_index', 'left_heel']]
+    : [['left_foot_index', 'left_heel'], ['right_foot_index', 'right_heel']]
+  for (const [toeName, heelName] of footPairs) {
+    const toe = getLm(frame, toeName)
+    const heel = getLm(frame, heelName)
+    if (toe && heel && minVis(toe, heel) >= RELIABILITY_FLOOR && Math.abs(toe.x - heel.x) > FACE_EPS) {
+      return Math.sign(toe.x - heel.x)
+    }
+  }
+  const nose = getLm(frame, 'nose')
+  const ear = getLm(frame, useRight ? 'right_ear' : 'left_ear') ?? getLm(frame, useRight ? 'left_ear' : 'right_ear')
+  if (nose && ear && minVis(nose, ear) >= RELIABILITY_FLOOR && Math.abs(nose.x - ear.x) > FACE_EPS) {
+    return Math.sign(nose.x - ear.x)
+  }
+  return 0
+}
+
+/** 10. Knee extension / back knee — sagittal recurvatum, side view */
 export function kneeExtensionBackKnee(side: PoseFrame): Finding {
   const key = 'knee_extension_back_knee'
   const lh = getLm(side, 'left_hip')
@@ -220,10 +251,25 @@ export function kneeExtensionBackKnee(side: PoseFrame): Finding {
   if (!hip || !knee || !ankle) return makeFinding(key, 'Knee Extension', 'leg', 0, 'Neutral', 'side', 0, [])
 
   const conf = minVis(hip, knee, ankle)
-  const angleAtKnee = angle2D(hip, knee, ankle)
-  const STANDARD = 175
-  const deviation = Math.abs(STANDARD - angleAtKnee)
-  const direction = angleAtKnee < STANDARD ? 'Hyperextended' : 'Flexed'
+  // This finding represents recurvatum (back-knee) specifically. angle2D is
+  // unsigned [0,180], so a raw |180−angle| can't tell hyperextension from
+  // flexion — facing plus the knee's side of the hip→ankle chord resolve it.
+  // ONLY a confirmed posterior (hyperextended) knee is scored: the cited
+  // thresholds and the downstream copy/exercises are hyperextension-specific, so
+  // flexion and unverifiable-facing knees report Neutral (0°) rather than being
+  // mislabeled as a back-knee or inheriting the recurvatum citation.
+  const magnitude = Math.abs(180 - angle2D(hip, knee, ankle))
+  let deviation = 0
+  let direction = 'Neutral'
+  if (magnitude >= KNEE_NEUTRAL_EPS) {
+    const cross = (ankle.x - hip.x) * (knee.y - hip.y) - (ankle.y - hip.y) * (knee.x - hip.x)
+    const face = sagittalFacing(side, useRight)
+    if (face !== 0 && cross * face > 0) {
+      deviation = magnitude
+      direction = 'Hyperextended'
+    }
+  }
+
   return makeFinding(key, 'Knee Extension', 'leg', deviation, direction, 'side', conf,
     useRight ? ['right_hip','right_knee','right_ankle'] : ['left_hip','left_knee','left_ankle'])
 }
