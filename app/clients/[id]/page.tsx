@@ -354,7 +354,7 @@ export default function ClientDetailPage() {
                       <div>
                         <div style={{ fontSize: '0.9rem', color: '#F5F5F5', fontWeight: 500 }}>Assessment — {date}</div>
                         {a.overall_score !== null && (
-                          <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>Score: {a.overall_score}/100</div>
+                          <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>Deviation: {a.overall_score}/100 · lower is better</div>
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
