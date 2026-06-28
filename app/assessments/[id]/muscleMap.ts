@@ -142,7 +142,7 @@ const SLUG_COORDINATE_SOURCE: Record<string, string> = {
   'quadriceps': 'quadriceps', // not 'vastus medialis (vmo)'
 }
 
-// Slug-keyed coordinates, built from MUSCLE_REGIONS via LEGACY_NAME_TO_SLUG.
+// Slug-keyed coordinates, built from MUSCLE_REGIONS via COORDINATE_NAME_TO_SLUG.
 export const MUSCLE_REGIONS_BY_SLUG: Record<string, MuscleRegion> = (() => {
   const bySlug: Record<string, MuscleRegion> = {}
   for (const [legacyName, region] of Object.entries(MUSCLE_REGIONS)) {

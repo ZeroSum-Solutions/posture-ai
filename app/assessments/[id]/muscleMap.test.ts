@@ -141,10 +141,12 @@ const LEGACY_SEED_PARITY: Record<
     weak: ['gluteals', 'hamstrings', 'abdominals'],
     expected: { frontTight: 1, backTight: 2, frontWeak: 1, backWeak: 2 },
   },
+  // Demoted by 20260626000000_demote_pelvic_axial_rotation.sql: arrays cleared,
+  // links deleted, findings forced unreliable — so it renders no markers at all.
   pelvic_axial_rotation: {
-    tight: ['one-side hip rotators', 'obliques'],
-    weak: ['opposite obliques', 'gluteals'],
-    expected: { frontTight: 1, backTight: 1, frontWeak: 1, backWeak: 1 },
+    tight: [],
+    weak: [],
+    expected: { frontTight: 0, backTight: 0, frontWeak: 0, backWeak: 0 },
   },
   genu_varum_valgum_left: {
     tight: ['tensor fasciae latae', 'IT band', 'lateral structures (varum) or adductors (valgum)'],
