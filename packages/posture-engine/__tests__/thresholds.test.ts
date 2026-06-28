@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { THRESHOLDS, toZoneAndPct } from '../src/thresholds'
+import { THRESHOLDS, toZoneAndPct, metricValidity } from '../src/thresholds'
 
 // Proxy metrics: the engine measures a lean-from-vertical / line-tilt quantity,
 // NOT the named clinical construct (CVA, FSA, kyphosis, APT). Their thresholds
@@ -60,5 +60,28 @@ describe('threshold provenance', () => {
     expect(toZoneAndPct(0, 'knee_extension_back_knee').zone).toBe('maintain')
     expect(toZoneAndPct(7, 'knee_extension_back_knee').zone).toBe('warning')
     expect(toZoneAndPct(12, 'knee_extension_back_knee').zone).toBe('danger')
+  })
+})
+
+describe('metricValidity (projection over threshold provenance)', () => {
+  it('knee_extension_back_knee is LITERATURE_CITED (both boundaries peer-reviewed)', () => {
+    expect(metricValidity('knee_extension_back_knee')).toBe('LITERATURE_CITED')
+  })
+
+  it('every proxy + genu metric is SCREENING_ONLY (engineering boundaries)', () => {
+    for (const key of [...PROXY_KEYS, 'genu_varum_valgum_left', 'genu_varum_valgum_right']) {
+      expect(metricValidity(key), key).toBe('SCREENING_ONLY')
+    }
+  })
+
+  it('an absent / unscored key is SCREENING_ONLY (most conservative default)', () => {
+    expect(metricValidity('pelvic_axial_rotation')).toBe('SCREENING_ONLY')
+    expect(metricValidity('nonexistent_metric')).toBe('SCREENING_ONLY')
+  })
+
+  it('no metric is VALIDATED yet (reserved for the Layer-1 validation study)', () => {
+    for (const key of Object.keys(THRESHOLDS)) {
+      expect(metricValidity(key), key).not.toBe('VALIDATED')
+    }
   })
 })

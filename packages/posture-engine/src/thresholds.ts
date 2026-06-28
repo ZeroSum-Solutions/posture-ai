@@ -110,3 +110,24 @@ export function toGrade(score: number): 'S' | 'A' | 'B' | 'C' | 'D' | 'E' {
 export function toPercentile(score: number): number {
   return Math.max(1, Math.round(100 - score))
 }
+
+/**
+ * Dominant honesty frame for a scored metric, derived purely from boundary
+ * provenance (no scoring change — this is a read-only projection over THRESHOLDS):
+ *   LITERATURE_CITED — both zone boundaries are peer-reviewed cut-points
+ *                      (only knee_extension_back_knee today).
+ *   SCREENING_ONLY   — any engineering boundary, or an absent/unscored key.
+ *   VALIDATED        — reserved for metrics that clear the Layer-1 validation
+ *                      study; nothing qualifies yet.
+ * Stored per finding by the POST route (see lib/findings/buildFindingRow.ts).
+ */
+export type MetricValidity = 'VALIDATED' | 'LITERATURE_CITED' | 'SCREENING_ONLY'
+
+export function metricValidity(key: string): MetricValidity {
+  const t = THRESHOLDS[key]
+  if (!t) return 'SCREENING_ONLY'
+  if (t.warn.source === 'literature' && t.danger.source === 'literature') {
+    return 'LITERATURE_CITED'
+  }
+  return 'SCREENING_ONLY'
+}
