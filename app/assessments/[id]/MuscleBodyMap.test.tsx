@@ -5,7 +5,11 @@ import { render, cleanup } from '@testing-library/react'
 import MuscleBodyMap from './MuscleBodyMap'
 
 vi.mock('next/link', () => ({
-  default: ({ children }: { children: ReactNode }) => children,
+  default: ({ children, href, ...rest }: { children: ReactNode; href: string; [k: string]: unknown }) => (
+    <a href={typeof href === 'string' ? href : '#'} {...rest}>
+      {children}
+    </a>
+  ),
 }))
 
 afterEach(() => cleanup())
@@ -23,5 +27,21 @@ describe('MuscleBodyMap', () => {
     const { container } = render(<MuscleBodyMap tightMuscles={[]} weakMuscles={[]} />)
     expect(container.querySelector('svg')).toBeNull()
     expect(container.querySelectorAll('ellipse')).toHaveLength(0)
+  })
+
+  it('renders markers from links when legacy arrays are empty', () => {
+    const { container } = render(
+      <MuscleBodyMap
+        tightMuscles={[]}
+        weakMuscles={[]}
+        tightLinks={[{ slug: 'tfl-it-band', name: 'TFL & IT Band' }]}
+        weakLinks={[{ slug: 'gluteus-medius', name: 'Gluteus Medius' }]}
+      />,
+    )
+    // tfl-it-band (front) + gluteus-medius (back) = 2 markers
+    expect(container.querySelectorAll('ellipse')).toHaveLength(2)
+    // chip labels also render from links (link path is coherent end to end)
+    expect(container.querySelector('[data-testid="muscle-chip-tfl-it-band"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="muscle-chip-gluteus-medius"]')).not.toBeNull()
   })
 })

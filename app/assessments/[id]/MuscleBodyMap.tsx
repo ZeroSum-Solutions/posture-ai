@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { getMuscleRegion, type MuscleLink } from './muscleMap'
+import { resolveMarkerRegions, type MuscleLink } from './muscleMap'
 
 // Schematic body silhouette paths (front and back, viewBox 0 0 80 180)
 function BodySilhouette({ view }: { view: 'front' | 'back' }) {
@@ -76,17 +76,15 @@ export default function MuscleBodyMap({
   tightLinks?: MuscleLink[]
   weakLinks?: MuscleLink[]
 }) {
-  // Collect highlighted regions
-  const tightRegions = tightMuscles.map(m => ({ muscle: m, region: getMuscleRegion(m) })).filter(x => x.region)
-  const weakRegions = weakMuscles.map(m => ({ muscle: m, region: getMuscleRegion(m) })).filter(x => x.region)
-
-  // Split by view
-  const frontTight = tightRegions.filter(r => r.region?.view === 'front')
-  const frontWeak = weakRegions.filter(r => r.region?.view === 'front')
-  const backTight = tightRegions.filter(r => r.region?.view === 'back')
-  const backWeak = weakRegions.filter(r => r.region?.view === 'back')
-
-  const hasAny = frontTight.length > 0 || frontWeak.length > 0 || backTight.length > 0 || backWeak.length > 0
+  // Legacy-first per role; falls back to normalized links when a role's legacy
+  // array is empty (see muscleMap.ts). In production legacy arrays are always
+  // present, so this is identical to the prior behavior.
+  const { frontTight, frontWeak, backTight, backWeak, hasAny } = resolveMarkerRegions({
+    tightMuscles,
+    weakMuscles,
+    tightLinks,
+    weakLinks,
+  })
 
   if (!hasAny) return null
 
@@ -101,16 +99,16 @@ export default function MuscleBodyMap({
             {frontTight.map((item, i) => (
               <ellipse
                 key={'ft-' + i}
-                cx={item.region!.cx} cy={item.region!.cy}
-                rx={item.region!.rx} ry={item.region!.ry}
+                cx={item.region.cx} cy={item.region.cy}
+                rx={item.region.rx} ry={item.region.ry}
                 fill="#EF444440" stroke="#EF4444" strokeWidth="1.2"
               />
             ))}
             {frontWeak.map((item, i) => (
               <ellipse
                 key={'fw-' + i}
-                cx={item.region!.cx} cy={item.region!.cy}
-                rx={item.region!.rx} ry={item.region!.ry}
+                cx={item.region.cx} cy={item.region.cy}
+                rx={item.region.rx} ry={item.region.ry}
                 fill="#6366F140" stroke="#6366F1" strokeWidth="1.2"
               />
             ))}
@@ -127,16 +125,16 @@ export default function MuscleBodyMap({
             {backTight.map((item, i) => (
               <ellipse
                 key={'bt-' + i}
-                cx={item.region!.cx} cy={item.region!.cy}
-                rx={item.region!.rx} ry={item.region!.ry}
+                cx={item.region.cx} cy={item.region.cy}
+                rx={item.region.rx} ry={item.region.ry}
                 fill="#EF444440" stroke="#EF4444" strokeWidth="1.2"
               />
             ))}
             {backWeak.map((item, i) => (
               <ellipse
                 key={'bw-' + i}
-                cx={item.region!.cx} cy={item.region!.cy}
-                rx={item.region!.rx} ry={item.region!.ry}
+                cx={item.region.cx} cy={item.region.cy}
+                rx={item.region.rx} ry={item.region.ry}
                 fill="#6366F140" stroke="#6366F1" strokeWidth="1.2"
               />
             ))}
@@ -146,7 +144,7 @@ export default function MuscleBodyMap({
 
       {/* Named muscle lists */}
       <div style={{ flex: 1, minWidth: 100 }}>
-        {tightMuscles.length > 0 && (
+        {(tightMuscles.length > 0 || tightLinks.length > 0) && (
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}/>
@@ -166,7 +164,7 @@ export default function MuscleBodyMap({
             ))}
           </div>
         )}
-        {weakMuscles.length > 0 && (
+        {(weakMuscles.length > 0 || weakLinks.length > 0) && (
           <div>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4F46E5', display: 'inline-block' }}/>
