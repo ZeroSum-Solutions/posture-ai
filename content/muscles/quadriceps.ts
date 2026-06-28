@@ -16,6 +16,8 @@ export const quadriceps: MuscleContent = {
       role: 'tight',
       confidence: 'low',
       scored: false,
+      exclusionReason:
+        'Display-only: the quadriceps to recurvatum inference is the weakest of the four (Grade D) and could not be supported in the 2026-06-27 evidence scan, so it is kept educational and excluded from the scored map.',
       rationale:
         'In a back-knee (hyperextended) standing pattern, the quadriceps hold the knee jammed into full extension rather than letting it rest in a soft, neutral position. High heels, joint laxity, and a center of mass carried backward all push the knee into this locked posture, and the quadriceps shorten to keep it there. Releasing front-thigh tension helps the knee settle out of its locked end-range.',
     },
