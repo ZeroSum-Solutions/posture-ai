@@ -437,7 +437,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
                 <Text style={[styles.statValue, { color: gradeCol }]}>Top {assessment.overall_percentile}%</Text>
               </View>
               <View style={{ marginTop: 8 }}>
-                <Text style={styles.statLabel}>Composite Score</Text>
+                <Text style={styles.statLabel}>Deviation (lower is better)</Text>
                 <Text style={[styles.statValue, { color: '#F5F5F5' }]}>{assessment.overall_score}/100</Text>
               </View>
             </View>

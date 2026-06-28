@@ -618,7 +618,7 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#8A8A93' }}>
         <span style={{ color: '#22C55E' }}>S (Best)</span>
-        <span>Score: {score}</span>
+        <span>Deviation: {score}</span>
         <span style={{ color: '#EF4444' }}>E (Worst)</span>
       </div>
     </div>
@@ -1098,7 +1098,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           <div style={{ flex: 1, minWidth: 160 }}>
             <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>Top {percentile}%</div>
             <div style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: 16 }}>
-              Score: {score}/100 — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
+              Deviation: {score}/100 (lower is better) — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
             </div>
             <ScoreBar score={score} grade={grade} />
           </div>
