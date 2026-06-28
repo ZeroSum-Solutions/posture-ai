@@ -1,16 +1,15 @@
 /**
- * Next.js Instrumentation: runs once on server startup
- * Auto-applies Supabase database migrations and verifies DB health
+ * Next.js Instrumentation: runs once on server startup.
+ *
+ * Smoke-checks Supabase connectivity and that the migrated schema is present.
+ * It does NOT apply migrations — `supabase/migrations` is the sole source of
+ * truth (local: `supabase db reset`; cloud: Supabase Management API). This is
+ * observational logging only; readiness is reported by /api/health.
  */
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     try {
-      // Use relative path instead of @ alias - Turbopack doesn't resolve @ in dynamic imports
-      const { applyMigrations } = await import('./lib/db/migrations')
-      await applyMigrations()
-
-      // Verify the tables after migration by querying a few
       const { createClient } = await import('@supabase/supabase-js')
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,20 +17,21 @@ export async function register() {
         { auth: { autoRefreshToken: false, persistSession: false } }
       )
 
-      const checks = await Promise.all([
-        supabase.from('practitioners').select('count').limit(0),
-        supabase.from('clients').select('count').limit(0),
-        supabase.from('assessments').select('count').limit(0),
-        supabase.from('assessment_findings').select('count').limit(0),
-        supabase.from('captures').select('count').limit(0),
-        supabase.from('reports').select('count').limit(0),
-        supabase.from('imbalance_definitions').select('count').limit(0),
-        supabase.from('exercises').select('count').limit(0),
-        supabase.from('exercise_recommendations').select('count').limit(0),
-      ])
+      // Representative tables across the whole migration chain — including the
+      // muscle KB and rate-limit tables added by later migrations — so a skipped
+      // migration shows up in the logs instead of silently degrading the app.
+      const tableNames = [
+        'practitioners', 'clients', 'assessments', 'assessment_findings',
+        'captures', 'reports', 'imbalance_definitions', 'exercises',
+        'exercise_recommendations', 'muscles', 'muscle_imbalance_links',
+        'exercise_muscles', 'api_rate_limits',
+      ]
+      // head-only is the lightest table-existence probe — no rows or count scan,
+      // works for any table regardless of its columns (42P01 if the table is missing).
+      const checks = await Promise.all(
+        tableNames.map((t) => supabase.from(t).select('*', { head: true }))
+      )
 
-      const tableNames = ['practitioners','clients','assessments','assessment_findings',
-        'captures','reports','imbalance_definitions','exercises','exercise_recommendations']
       let allOk = true
       for (let i = 0; i < checks.length; i++) {
         const { error } = checks[i]
@@ -42,7 +42,7 @@ export async function register() {
       }
 
       if (allOk) {
-        console.log('[instrumentation] ✅ All 9 tables verified in Supabase')
+        console.log(`[instrumentation] ✅ All ${tableNames.length} tables verified in Supabase`)
         console.log('[instrumentation] Supabase connection confirmed - database: connected')
       }
 
