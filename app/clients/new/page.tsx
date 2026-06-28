@@ -108,11 +108,11 @@ export default function NewClientPage() {
     if (form.sex_at_birth) body.sex_at_birth = form.sex_at_birth
     if (form.height) {
       const h = parseFloat(form.height)
-      body.height_cm = round1(unitSystem === 'us' ? inchesToCm(h) : h)
+      body.height_cm = unitSystem === 'us' ? round1(inchesToCm(h)) : h
     }
     if (form.weight) {
       const w = parseFloat(form.weight)
-      body.weight_kg = round1(unitSystem === 'us' ? poundsToKg(w) : w)
+      body.weight_kg = unitSystem === 'us' ? round1(poundsToKg(w)) : w
     }
     if (form.notes.trim()) body.notes = form.notes.trim()
 
