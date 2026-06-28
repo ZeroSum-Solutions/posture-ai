@@ -161,12 +161,17 @@ export default function SignInPage() {
             />
           </div>
           <div style={{ marginBottom: '24px' }}>
-            <label
-              htmlFor="password"
-              style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: '6px' }}
-            >
-              Password
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+              <label
+                htmlFor="password"
+                style={{ fontSize: '0.85rem', color: '#A1A1AA' }}
+              >
+                Password
+              </label>
+              <Link href="/auth/forgot-password" style={{ fontSize: '0.8rem', color: '#818CF8', textDecoration: 'none' }}>
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"
