@@ -96,6 +96,22 @@ describe('muscle content', () => {
     expect(displayOnly).toEqual(['gastrocnemius-soleus', 'popliteus', 'quadriceps'])
   })
 
+  // Each display-only knee link must carry a screening-safe exclusion_reason
+  // explaining why it is kept educational but out of the scored map (surfaced in PR2b).
+  it('display-only knee links carry an exclusion_reason', () => {
+    const displayOnly = ALL_MUSCLES.flatMap(m =>
+      m.links
+        .filter(l => l.imbalanceKey === 'knee_extension_back_knee' && l.scored === false)
+        .map(l => ({ slug: m.slug, reason: l.exclusionReason }))
+    )
+    expect(displayOnly.map(d => d.slug).sort()).toEqual(
+      ['gastrocnemius-soleus', 'popliteus', 'quadriceps']
+    )
+    for (const d of displayOnly) {
+      expect(typeof d.reason === 'string' && d.reason.length > 0, d.slug).toBe(true)
+    }
+  })
+
   // Rectus femoris is the one promotion candidate that survived adversarial
   // verification (Reed & Pipe 2021 −1.2° APT after hip-flexor stretch;
   // Nascimento 2020 review) — a medium-confidence hip-flexor link to anterior

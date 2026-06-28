@@ -22,6 +22,8 @@ export const gastrocnemiusSoleus: MuscleContent = {
       role: 'tight',
       confidence: 'low',
       scored: false,
+      exclusionReason:
+        'Display-only: the calf to recurvatum link rests on stroke-population and direction-ambiguous evidence (Grade C), below the asymptomatic-population bar the hamstring link cleared, so it is kept educational rather than scored.',
       rationale:
         'In a back-knee (hyperextended) pattern the calf — especially the gastrocnemius, which crosses the knee — pulls on the back of the joint and helps hold it locked into full extension. High heels and a backward-shifted center of mass reinforce this backward pull. Lengthening the calf reduces the tension behind the knee and lets the joint rest in a softer, neutral position.',
     },

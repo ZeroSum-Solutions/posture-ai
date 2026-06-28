@@ -71,6 +71,12 @@ export const muscleLinkSchema = z.object({
    * where only hamstrings→weak cleared the asymptomatic-population evidence bar.
    */
   scored: z.boolean().optional(),
+  /**
+   * Screening-safe note explaining why a display-only (scored:false) link is kept
+   * out of the scored muscle map. Authored for the demoted knee links; surfaced in
+   * the PR2b results/PDF gate. Absent for scored links.
+   */
+  exclusionReason: screeningText(20, 300).optional(),
   /** 2-3 sentences tying this muscle to the specific distortion (side/condition nuance lives here). */
   rationale: screeningText(80, 600),
 })
