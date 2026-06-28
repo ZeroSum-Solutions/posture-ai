@@ -6,6 +6,7 @@ import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
+import { isNoRows } from '@/lib/api/query-error'
 import { dbFindingsToEngineFindings, isCapability, type DbFindingRow } from '@/lib/reports/clientProgram'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (aErr || !assessment) {
+    if (aErr && !isNoRows(aErr)) {
+      console.error('[api/reports] assessment load failed:', assessment_id, aErr.message)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   }
 
