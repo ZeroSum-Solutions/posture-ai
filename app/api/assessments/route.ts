@@ -5,6 +5,7 @@ import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
+import { buildFindingRow } from '@/lib/findings/buildFindingRow'
 
 const ROUTE = 'POST /api/assessments'
 const TEST_MODE_ENABLED = process.env.POSTURE_TEST_MODE_ENABLED === '1'
@@ -92,22 +93,10 @@ export async function POST(req: NextRequest) {
 
       const result = assessPosture(frames)
 
-      // Save findings
-      const findingsToInsert = result.findings.map(f => ({
-        assessment_id: assessmentId,
-        practitioner_id: user.id,
-        imbalance_key: f.key,
-        region: f.region,
-        label: f.label,
-        deviation: f.deviation,
-        standard: f.standard,
-        unit: f.unit,
-        direction: f.direction,
-        severity_pct: f.severityPct,
-        zone: f.zone,
-        view_used: f.viewUsed === 'back' ? 'back' : f.viewUsed,
-        confidence: f.confidence,
-      }))
+      // Save findings (metric_validity stamped from threshold provenance)
+      const findingsToInsert = result.findings.map((f) =>
+        buildFindingRow(f, assessmentId, user.id),
+      )
 
       await service.from('assessment_findings').insert(findingsToInsert)
 
