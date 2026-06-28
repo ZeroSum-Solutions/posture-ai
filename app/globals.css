@@ -57,6 +57,18 @@ select:focus-visible {
   border-color: #6366F1 !important;
 }
 
+/* iOS Safari sizes input[type=date] to its native control's intrinsic width
+   and ignores width:100%, so the field overflows its card. Reset the native
+   appearance on touch devices so it respects the box (the native date picker
+   still opens on tap). Desktop keeps its calendar-picker button. */
+@media (pointer: coarse) {
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+}
+
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid #6366F1;
