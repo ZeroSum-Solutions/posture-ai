@@ -31,3 +31,6 @@ public/mediapipe/wasm/
 .claude/worktrees/
 # codegraph local code-intelligence index (SQLite DB, machine-local)
 .codegraph/
+
+# Local Claude Code / CodeGraph config (per-machine, not shared)
+.claude/
