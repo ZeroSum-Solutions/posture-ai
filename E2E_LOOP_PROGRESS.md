@@ -57,15 +57,17 @@ e2e/muscle-kb.spec.ts:38
 
 - **[2026-06-28] Iteration 8 — Phase 2 spec: abandon mid-wizard.** Added to `e2e/wizard-nav.spec.ts` — reach step 2 (test mode), leave via "← Back to Clients", assert via `/api/clients/[id]/assessments` that none was created. (First attempt asserted via the detail-page UI and flaked on webkit — a client-side `getUser` race on chained navigations; switched to an API assertion for determinism.) Verified full suite **31/0/2 green** (33 tests), lint + typecheck. (commit `df1911b`)
 
-## Current suite state (2026-06-28, post-iteration-8)
-- `npm run test:e2e` (`retries:0`): **31 passed · 0 failed · 2 intentional skips** → **fully green** (33 tests).
+- **[2026-06-28] Iteration 9 — Phase 2 spec: client empty-state.** Added to `e2e/clients.spec.ts` — fresh client → `/clients/[id]` shows "No assessments yet" + "+ New Assessment" CTA; Progress/Compare tabs absent (<2 assessments), Assessments/Info present. Verified full suite **33/0/2 green** (35 tests), lint + typecheck. (commit `a933f6e`)
+
+## Current suite state (2026-06-28, post-iteration-9)
+- `npm run test:e2e` (`retries:0`): **33 passed · 0 failed · 2 intentional skips** → **fully green** (35 tests).
 - The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 8 complete)
+- (none — iteration 9 complete)
 
 ## Next up
-- **Iteration 9:** empty-state (client with no assessments). Fresh client → `/clients/[id]` shows "No assessments yet" + the "+ New Assessment" CTA, and (since <2 assessments) no Progress/Compare tabs. Use a single clean `goto` (avoid the chained-nav webkit getUser race). Then the last Required: unreviewed-content badge (dev/preview).
+- **Iteration 10:** unreviewed-content badge (**last Required**). Find where the app gates the unreviewed/"reviewed" badge via `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` (muscles/exercises). Confirm the e2e env's flag value (run-e2e.mjs / config), then assert the badge's presence/absence accordingly on a muscle or exercise page. After that: **Phase 3** docs (`e2e/README.md`) + **Phase 4** end-gates (3× CI-mimic, full `checks` chain: lint+typecheck+vitest+engine+build).
 
 ## Backlog / deferred (priority order)
 
@@ -81,7 +83,7 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [x] client list/search — `e2e/clients.spec.ts` (iter 5)
 - [x] wizard back-navigation — `e2e/wizard-nav.spec.ts` (iter 7)
 - [x] abandon mid-wizard — `e2e/wizard-nav.spec.ts` (iter 8)
-- [ ] empty-state when a client has no assessments
+- [x] empty-state when a client has no assessments — `e2e/clients.spec.ts` (iter 9)
 - [x] `/api/health` happy path — `e2e/health.spec.ts` (iter 3)
 - [ ] unreviewed-content badge behavior (dev/preview)
 
@@ -114,4 +116,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **6 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 2 remaining** (empty-state, unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **7 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 1 remaining** (unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
