@@ -3,8 +3,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 
 // Professional-review gate: a practitioner must review and approve an assessment
-// before its report can be exported. Exercises are suggestions, not an
-// auto-generated prescription — this records the human-in-the-loop sign-off.
+// before its report can be exported. Exercises are suggestions for a practitioner
+// to apply, not auto-generated orders — this records the human-in-the-loop sign-off.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()

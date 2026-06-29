@@ -28,9 +28,9 @@ export default function PrivacyPage() {
 
       <h2 style={h2}>How we use it</h2>
       <p>
-        Measurements are used to produce a posture screening summary and movement suggestions that a
-        qualified practitioner reviews before sharing. Posture AI is a screening tool and does not
-        diagnose, treat, or provide medical advice.
+        Measurements produce a posture screening summary and movement suggestions that a qualified
+        practitioner reviews before sharing. Results are not a medical diagnosis and must be
+        interpreted by a qualified professional.
       </p>
 
       <h2 style={h2}>Consumer health & biometric data</h2>

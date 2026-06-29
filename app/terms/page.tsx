@@ -16,12 +16,12 @@ export default function TermsPage() {
       <h1 style={{ color: '#F5F5F5', fontSize: '1.6rem', marginBottom: 8 }}>Terms of Use</h1>
       <p style={{ color: '#A1A1AA', fontSize: '0.85rem' }}>Screening tool only — not a medical diagnosis.</p>
 
-      <h2 style={h2}>Screening, not diagnosis</h2>
+      <h2 style={h2}>A screening tool, not a diagnosis</h2>
       <p>
         Posture AI is an educational posture <strong>screening</strong> tool for qualified movement
-        professionals. It does not diagnose, treat, or cure any condition, and its output is not
-        medical advice. Results identify areas that may benefit from further professional evaluation
-        and must be interpreted by a qualified professional.
+        professionals. It is not a medical diagnosis, and its output is not medical advice. Results
+        identify areas that may benefit from further professional evaluation and must be interpreted
+        by a qualified professional.
       </p>
 
       <h2 style={h2}>Professional use & consent</h2>
@@ -29,12 +29,13 @@ export default function TermsPage() {
         Posture AI is intended for use by qualified practitioners (physical therapists, athletic
         trainers, chiropractors, movement/fitness coaches). Practitioners are responsible for
         obtaining each subject&rsquo;s informed consent before screening, and for reviewing and
-        approving any report before it is shared. Exercise suggestions are not a prescription.
+        approving any report before it is shared. Exercise suggestions are not medical orders.
       </p>
 
-      <h2 style={h2}>Not for consumer self-diagnosis</h2>
+      <h2 style={h2}>Not for consumer self-assessment</h2>
       <p>
-        Posture AI is not offered as a direct-to-consumer diagnostic or treatment application.
+        Posture AI is not offered as a direct-to-consumer self-assessment application, and it is not
+        a substitute for professional care.
       </p>
 
       <h2 style={h2}>No warranty</h2>

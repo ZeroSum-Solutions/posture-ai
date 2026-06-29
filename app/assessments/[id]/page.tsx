@@ -965,7 +965,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             <span style={{ fontSize: '0.85rem', color: '#D4D4D8' }}>
               {isApproved
                 ? '✓ Reviewed & approved by practitioner — report export enabled.'
-                : 'Review these findings, then approve to enable report export. Exercises are suggestions, not a prescription.'}
+                : 'Review these findings, then approve to enable report export. Exercises are suggestions for the practitioner to apply, not medical orders.'}
             </span>
             {!isApproved && (
               <button onClick={handleApprove} disabled={approving} style={{
