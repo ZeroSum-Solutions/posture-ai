@@ -35,7 +35,8 @@ test.describe('muscle knowledge base', () => {
     await expect(page.getByRole('heading', { name: 'Muscle Guide' })).toBeVisible()
     const cards = page.locator('[data-testid^="muscle-card-"]')
     await expect(cards.first()).toBeVisible({ timeout: 10_000 })
-    expect(await cards.count()).toBe(28)
+    // Equals the number of muscles in the KB seed (currently 29). Bump only when the seed legitimately changes.
+    expect(await cards.count()).toBe(29)
 
     await page.getByRole('searchbox', { name: 'Search muscles' }).fill('trapezius')
     await expect(page.locator('[data-testid^="muscle-card-"]')).toHaveCount(3)
