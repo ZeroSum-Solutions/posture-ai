@@ -1,37 +1,9 @@
 import { createHash } from 'node:crypto'
+import { CONSENT_TEXT } from './text'
 
-/**
- * Versioned subject-consent policy. The TEXT is what the subject (or their
- * guardian) sees and affirms before any posture capture. Bump CONSENT_VERSION
- * whenever the wording changes so each `consent_records` row pins the exact
- * version + a hash that binds the signer, relationship, and time of signing.
- *
- * NOTE: this wording is engineering-side scaffolding pending counsel review of
- * the BIPA/MHMD retention & destruction language. See docs/plans.
- */
-export const CONSENT_VERSION = '2026-06-28.1'
-
-export const CONSENT_TEXT = `Consent to Posture Screening
-
-I authorize this practitioner and Posture AI to capture posture views of me and
-to compute body-position measurements from them, for the purpose of posture
-screening and movement guidance.
-
-What is collected: body-position landmark coordinates only. Photos are processed
-on this device and are never uploaded or stored — only the position measurements
-are saved. No facial-recognition or face-geometry template is created.
-
-How it is used: to produce a screening summary and movement suggestions reviewed
-by the practitioner. Posture AI is a screening tool, not a medical diagnosis.
-
-Sharing & sale: your data is not sold and is not shared with advertisers or
-third-party trackers. It is stored by the practitioner using Posture AI.
-
-Your rights: you may withdraw this consent and request deletion of your data at
-any time by asking the practitioner.
-
-By signing, I confirm I have read and agree to the above. If the person being
-screened is under 18, a parent or legal guardian must sign on their behalf.`
+// Re-export the client-safe constants so server code can import everything from
+// one place; client code should import from './text' to avoid the node:crypto dep.
+export { CONSENT_VERSION, CONSENT_TEXT } from './text'
 
 /**
  * Deterministic hash binding a consent grant to its exact wording version,

@@ -4,6 +4,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
+import RemoteConsentButton from '@/components/RemoteConsentButton'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceArea, Legend,
@@ -260,11 +261,11 @@ export default function ClientDetailPage() {
                 DOB: <span style={{ color: '#D4D4D8' }}>{dob}</span>
               </span>
             )}
-            {consentDate && (
-              <span style={{ fontSize: '0.875rem', color: '#A1A1AA' }}>
-                Consent: <span style={{ color: '#10B981' }}>✓ {consentDate}</span>
-              </span>
-            )}
+            <span style={{ fontSize: '0.875rem', color: '#A1A1AA' }}>
+              Consent: {consentDate
+                ? <span style={{ color: '#10B981' }}>✓ {consentDate}</span>
+                : <span style={{ color: '#F59E0B' }}>pending</span>}
+            </span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -303,6 +304,12 @@ export default function ClientDetailPage() {
           </Link>
         </div>
       </div>
+
+      {!client.consent_recorded_at && (
+        <div style={{ marginBottom: '16px' }}>
+          <RemoteConsentButton clientId={client.id} />
+        </div>
+      )}
 
       {/* Archive Confirmation Dialog */}
       {showArchiveConfirm && (

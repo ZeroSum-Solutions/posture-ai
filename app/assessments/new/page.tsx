@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
+import { ageBand } from '@/lib/clients/age'
 
 interface Client {
   id: string
@@ -515,6 +516,7 @@ function NewAssessmentWizard() {
   const [clients, setClients] = useState<Client[]>([])
   const [clientSearch, setClientSearch] = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [loadingClients, setLoadingClients] = useState(true)
   const [captures, setCaptures] = useState<Captures>({
     front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
@@ -859,8 +861,21 @@ function NewAssessmentWizard() {
               </div>
             )}
           </div>
+          {ageGateError && (
+            <div role="alert" style={{ marginTop: '16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px', color: '#EF4444', fontSize: '0.875rem' }}>
+              {ageGateError}
+            </div>
+          )}
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => selectedClient && setStep(2)}
+            <button onClick={() => {
+                if (!selectedClient) return
+                // Client-side age block (server re-checks age + consent authoritatively).
+                const band = ageBand(selectedClient.date_of_birth)
+                if (band === 'under_13') { setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
+                if (band === 'unknown') { setAgeGateError('Add a date of birth for this client before screening.'); return }
+                setAgeGateError(null)
+                setStep(2)
+              }}
               disabled={!selectedClient}
               style={{
                 padding: '12px 28px', borderRadius: '10px',

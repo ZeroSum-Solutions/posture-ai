@@ -106,6 +106,8 @@ test.describe('client create form', () => {
 
     await fillField(page, 'First Name', 'E2E')
     await fillField(page, 'Last Name', `Form-${token}`)
+    // Subject e-signature (typed name) is part of the consent — required to submit.
+    await fillField(page, 'Type full name to sign', `E2E Form-${token}`)
 
     // Consent is required: submitting unchecked shows the error and does not navigate.
     await page.getByRole('button', { name: 'Create Client' }).click()

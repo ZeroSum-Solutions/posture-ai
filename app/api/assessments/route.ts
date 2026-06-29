@@ -5,6 +5,7 @@ import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
 import { stripFaceLandmarks } from '@/lib/pose/face-min'
+import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildFindingRow } from '@/lib/findings/buildFindingRow'
@@ -56,11 +57,21 @@ export async function POST(req: NextRequest) {
     // Verify client belongs to this practitioner
     const { data: client } = await service
       .from('clients')
-      .select('id')
+      .select('id, date_of_birth')
       .eq('id', client_id)
       .eq('practitioner_id', user.id)
       .single()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+    // Compliance gate (authoritative): a valid subject consent + the age policy
+    // must be satisfied before any capture is persisted/scored. (BIPA pre-capture
+    // consent; COPPA/minor: under-13 blocked, 13–17 needs guardian consent.)
+    const consent = await getConsentStatus(service, client_id)
+    const eligibility = captureEligibility(client.date_of_birth, consent)
+    if (!eligibility.ok) {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: eligibility.reason ?? 'capture blocked' })
+      return NextResponse.json({ error: eligibility.reason }, { status: 403 })
+    }
 
     // Create assessment with status=processing
     const { data: assessment, error: insertErr } = await service

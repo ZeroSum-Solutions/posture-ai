@@ -16,6 +16,9 @@ export type ClientPayload = {
   height_cm: number | null
   weight_kg: number | null
   notes: string | null
+  // Subject consent (create mode only) — the typed-name e-signature + relationship.
+  signer_name?: string
+  signer_relationship?: string
 }
 
 export type ClientFormInitial = {
@@ -35,6 +38,7 @@ type FieldErrors = {
   height?: string
   weight?: string
   consent?: string
+  signer_name?: string
 }
 
 export default function ClientForm({
@@ -64,6 +68,8 @@ export default function ClientForm({
     height: initial?.height_cm != null ? String(round1(cmToInches(initial.height_cm))) : '',
     weight: initial?.weight_kg != null ? String(round1(kgToPounds(initial.weight_kg))) : '',
     notes: initial?.notes ?? '',
+    signer_name: '',
+    signer_relationship: 'self',
   })
   const dobRef = useRef<HTMLInputElement>(null)
 
@@ -121,8 +127,13 @@ export default function ClientForm({
     if (form.weight !== '' && parseFloat(form.weight) < 0) {
       errors.weight = `Weight must be a positive number (${weightUnit}).`
     }
-    if (mode === 'create' && !consentChecked) {
-      errors.consent = 'Client consent is required before creating a record.'
+    if (mode === 'create') {
+      if (!form.signer_name.trim()) {
+        errors.signer_name = 'Type the signer’s full name to sign.'
+      }
+      if (!consentChecked) {
+        errors.consent = 'Subject consent is required before creating a record.'
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -143,6 +154,9 @@ export default function ClientForm({
         ? (unitSystem === 'us' ? round1(poundsToKg(parseFloat(form.weight))) : parseFloat(form.weight))
         : null,
       notes: form.notes.trim() ? form.notes.trim() : null,
+      ...(mode === 'create'
+        ? { signer_name: form.signer_name.trim(), signer_relationship: form.signer_relationship }
+        : {}),
     }
 
     setLoading(true)
@@ -318,7 +332,9 @@ export default function ClientForm({
           />
         </div>
 
-        {/* Consent checkbox — required at creation; immutable afterward, so hidden when editing */}
+        {/* Subject consent — required at creation (the subject or their guardian
+            signs via typed name). Immutable afterward, so hidden when editing.
+            Remote consent (subject not present) is available from the client page. */}
         {mode === 'create' && (
           <>
             <div style={{
@@ -326,6 +342,38 @@ export default function ClientForm({
               border: '1px solid ' + (fieldErrors.consent ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.25)'),
               borderRadius: '10px', padding: '16px', marginBottom: '8px',
             }}>
+              <p style={{ fontSize: '0.8rem', color: '#A1A1AA', marginTop: 0, marginBottom: '12px', lineHeight: 1.5 }}>
+                Posture AI is a screening tool, not a medical diagnosis. Photos are processed on this
+                device and never stored — only body-position measurements are saved, and no face-geometry
+                template is created. The subject (or their parent/legal guardian) consents below.
+              </p>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label htmlFor="signer_relationship" style={labelStyle}>Who is giving consent?</label>
+                <select id="signer_relationship" name="signer_relationship" value={form.signer_relationship} onChange={handleChange} style={inputStyle}>
+                  <option value="self">The client (self)</option>
+                  <option value="parent">Parent of the client</option>
+                  <option value="legal_guardian">Legal guardian of the client</option>
+                  <option value="other">Other authorized representative</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label htmlFor="signer_name" style={labelStyle}>
+                  Type full name to sign <span style={{ color: '#EF4444' }} aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="signer_name" type="text" name="signer_name" value={form.signer_name}
+                  onChange={handleChange} placeholder="Signer’s full name"
+                  aria-required="true"
+                  aria-describedby={fieldErrors.signer_name ? 'error-signer-name' : undefined}
+                  style={{ ...inputStyle, borderColor: fieldErrors.signer_name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
+                />
+                {fieldErrors.signer_name && (
+                  <p id="error-signer-name" data-testid="error-signer-name" style={errorStyle} role="alert">{fieldErrors.signer_name}</p>
+                )}
+              </div>
+
               <label htmlFor="consent_checkbox" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
                 <input
                   id="consent_checkbox"
@@ -340,9 +388,8 @@ export default function ClientForm({
                   style={{ marginTop: '2px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0, minHeight: 'unset' }}
                 />
                 <span style={{ fontSize: '0.875rem', color: '#D4D4D8', lineHeight: 1.5 }}>
-                  <strong style={{ color: '#F5F5F5' }}>Client has consented to posture imaging.</strong>{' '}
-                  The client understands that Posture AI is a screening tool, not a clinical assessment,
-                  and has given informed consent for posture data collection and analysis.
+                  By typing the name above and checking this box, I confirm I have read and agree to the
+                  posture-screening consent on behalf of the client.
                 </span>
               </label>
             </div>

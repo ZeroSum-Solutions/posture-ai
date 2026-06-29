@@ -1,15 +1,29 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
-/** Creates a client via the authenticated API session and returns it. */
-export async function createClient(page: Page, firstName: string, lastName: string) {
-  const res = await page.request.post('/api/clients', {
-    data: {
-      first_name: firstName,
-      last_name: lastName,
-      consent_recorded_at: new Date().toISOString(),
-    },
-  })
+/**
+ * Creates a client via the authenticated API session and returns it. Defaults to
+ * an adult subject with an in-person self-consent so it passes the capture gate;
+ * pass opts to create minors / guardian-signed / remote-pending clients.
+ */
+export async function createClient(
+  page: Page,
+  firstName: string,
+  lastName: string,
+  opts?: { dateOfBirth?: string; signerRelationship?: string; remote?: boolean },
+) {
+  const data: Record<string, unknown> = {
+    first_name: firstName,
+    last_name: lastName,
+    date_of_birth: opts?.dateOfBirth ?? '1990-01-01',
+  }
+  if (opts?.remote) {
+    data.consent_mode = 'remote'
+  } else {
+    data.signer_name = `${firstName} ${lastName}`
+    data.signer_relationship = opts?.signerRelationship ?? 'self'
+  }
+  const res = await page.request.post('/api/clients', { data })
   expect(res.ok(), `client creation failed: ${res.status()}`).toBeTruthy()
   const body = await res.json()
   return (body.client ?? body) as { id: string; first_name: string; last_name: string }
