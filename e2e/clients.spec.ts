@@ -34,3 +34,27 @@ test.describe('client list and search', () => {
     await expect(rowB).toBeVisible()
   })
 })
+
+// Client archive is the only client-mutation flow the app exposes (there is no
+// edit UI, and PATCH /api/clients/[id] accepts only archived_at). Archiving the
+// throwaway "victim" client must drop it from the active list (which filters
+// archived_at IS NULL); a separately-created "keeper" confirms the list rendered.
+test.describe('client archive', () => {
+  test('archiving a client removes it from the active list', async ({ page }) => {
+    const keepToken = randomUUID().slice(0, 8)
+    const archiveToken = randomUUID().slice(0, 8)
+    await createClient(page, 'E2E', `Keep-${keepToken}`)
+    const victim = await createClient(page, 'E2E', `Archive-${archiveToken}`)
+
+    await page.goto(`/clients/${victim.id}`)
+    await expect(page.getByRole('heading', { name: new RegExp(`Archive-${archiveToken}`) })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Archive Client' }).click()
+    await expect(page.getByRole('heading', { name: 'Archive Client?' })).toBeVisible()
+    await page.getByRole('button', { name: 'Yes, Archive' }).click()
+
+    await page.waitForURL(/\/clients$/, { timeout: 15_000 })
+    await expect(page.getByRole('link', { name: new RegExp(`Keep-${keepToken}`) })).toBeVisible()
+    await expect(page.getByRole('link', { name: new RegExp(`Archive-${archiveToken}`) })).toHaveCount(0)
+  })
+})
