@@ -22,6 +22,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run lint:vocab
       - run: npx vitest run
       - run: npm test -w @posture-ai/engine
       - run: npm run build

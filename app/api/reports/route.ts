@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     .from('assessments')
     .select(`
       id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, assessed_at,
+      front_rank, side_rank, assessed_at, practitioner_approved,
       priority_keys, capability, exercise_swaps,
       clients!inner(id, first_name, last_name)
     `)
@@ -61,6 +61,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  }
+
+  // Professional-review gate: no export until a practitioner approves.
+  if (!assessment.practitioner_approved) {
+    return NextResponse.json(
+      { error: 'This report must be reviewed and approved by the practitioner before it can be exported.' },
+      { status: 403 },
+    )
   }
 
   // Fetch findings

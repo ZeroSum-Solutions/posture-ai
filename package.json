@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "lint:vocab": "vitest run content",
     "test": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
     "typecheck": "tsc --noEmit"
