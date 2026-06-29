@@ -61,15 +61,19 @@ e2e/muscle-kb.spec.ts:38
 
 - **[2026-06-28] Iteration 10 — Phase 2 spec: unreviewed-content badge (Phase 2 COMPLETE).** Added `e2e/unreviewed-content.spec.ts` — unreviewed muscle page (`/muscles/upper-trapezius`; all 29 seeded muscles have `reviewed_at` NULL) shows the "Pending review" badge in dev/preview (gate: `flag==='1' || NODE_ENV!=='production'`). Verified full suite **35/0/2 green** (37 tests), lint + typecheck. (commit `defe7f3`) **All 8 Required Phase-2 specs implemented** + client edit N/A.
 - **[2026-06-28] Iteration 11 — Phase 3 (docs) COMPLETE.** Added `e2e/README.md` (prereqs, run + CI-mimic, project matrix + intentional skips, spec inventory, test-mode, how-to-add, flake policy). Documented the `no-person.png` negative fixture in `fixtures/photos/README.md`. Verified `docs/RUNBOOK.md` testing section accurate (run procedure unchanged) and that all 11 specs + `auth.setup` carry top-of-file comments. Docs-only → suite unchanged; lint + typecheck green. (commit `d3bf1f8`)
+- **[2026-06-28] Iteration 12 — Phase 4: CI `checks` chain green + `ci.yml` confirmed.** Ran the full chain locally: lint ✓, typecheck ✓, `vitest run` **219 passed** (23 files), `npm test -w @posture-ai/engine` **60 passed** (4 files), `npm run build` ✓ (compiled + 24 static pages). Confirmed `.github/workflows/ci.yml` runs that exact `checks` chain plus an `e2e` job (`supabase start -x …`, `playwright install --with-deps chromium webkit`, `npm run test:e2e`, failure-artifact upload); new specs are auto-discovered via `testDir`, so no ci.yml change is needed. Verification only — no code change.
 
-## Current suite state (2026-06-28, post-iteration-11)
-- `npm run test:e2e` (`retries:0`): **35 passed · 0 failed · 2 intentional skips** → **fully green** (37 tests). (Unchanged in iter 11 — docs only.)
+## Current suite state (2026-06-28, post-iteration-12)
+- `npm run test:e2e` (`retries:0`): **35 passed · 0 failed · 2 intentional skips** (37 tests).
+- Full CI `checks` chain (iter 12): lint ✓ · typecheck ✓ · vitest 219/219 ✓ · engine 60/60 ✓ · build ✓. `ci.yml` confirmed.
 
 ## In progress
-- (none — iteration 11 complete; **Phase 2 + Phase 3 done**)
+- (none — iteration 12 complete)
 
 ## Next up
-- **Iteration 12 (Phase 4 — verification gates):** run the full CI `checks` chain locally and record results (vitest/engine/build not yet measured this loop): `npm run lint && npm run typecheck && npx vitest run && npm test -w @posture-ai/engine && npm run build`. Confirm `.github/workflows/ci.yml` still covers the added specs. (Durability gates — 3× plain + 3× CI-mimic — come after the checks chain is green.)
+- **Iteration 13 — durability gate A:** 3× consecutive green `npm run test:e2e` (both projects), no changes between runs.
+- **Iteration 14 — durability gate B:** 3× consecutive `npx supabase db reset` + `CI=1 npm run test:e2e`.
+- When both gates pass, every loop-verifiable DoD box is green → write the final summary + pending-human items (GitHub CI; client-edit decision) and emit `E2E_LOOP_COMPLETE`.
 
 ## Backlog / deferred (priority order)
 
@@ -99,9 +103,10 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [x] per-spec top-of-file comments — all 11 specs + `auth.setup` carry them (verified)
 
 ### Phase 4 — CI hardening
-- [ ] Confirm `.github/workflows/ci.yml` (supabase `start` excludes, `playwright install --with-deps chromium webkit`, on-failure artifact upload) still holds as specs are added.
+- [x] Confirm `.github/workflows/ci.yml` (supabase `start` excludes, `playwright install --with-deps chromium webkit`, on-failure artifact upload) still holds — verified iter 12; new specs auto-discovered via `testDir`, no change needed.
+- [x] Full `checks` chain green locally (iter 12): lint ✓ · typecheck ✓ · vitest 219 ✓ · engine 60 ✓ · build ✓.
+- [ ] Plain durability: 3× consecutive green `npm run test:e2e`, both projects.
 - [ ] Local CI mimic durability: `npx supabase db reset` + `CI=1 npm run test:e2e`, both projects, **3× green**.
-- [ ] Full `checks` chain green locally: `npm run lint && npm run typecheck && npx vitest run && npm test -w @posture-ai/engine && npm run build`.
 - [ ] GitHub CI = **pending human confirmation** (loop must not push `main` / open PR). ⚠️ GitHub Actions minutes were exhausted as of 2026-06-12 — a human must confirm billing + the real `checks` + `e2e` runs.
 
 ---
@@ -118,4 +123,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: **Phase 2 + Phase 3 COMPLETE** (8 Required specs + 1 N/A; `e2e/README.md` + fixtures + RUNBOOK accurate). Still pending: **Phase 4** — full `checks` chain (lint+typecheck+vitest+engine+build; vitest/engine/build not yet measured this loop) + 3× plain + 3× CI-mimic green end-gates. Then human-confirmation items (GitHub CI; client-edit decision). Completion token must NOT be emitted.
+- **Not done** — DoD not met. Done: Phase 2 (8 specs + 1 N/A), Phase 3 (docs), Phase 4 checks-chain green + `ci.yml` confirmed. **Remaining loop-verifiable:** 3× plain + 3× CI-mimic green durability gates. Once those pass, the human-confirmation items (GitHub CI; client-edit decision) get their final write-up and the token is emitted. Until the gates pass, completion token must NOT be emitted.
