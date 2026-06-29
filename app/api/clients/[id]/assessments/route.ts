@@ -15,6 +15,9 @@ export async function GET(
   const { id: clientId } = await params
   const excludeId = req.nextUrl.searchParams.get('exclude')
   const includeFindings = req.nextUrl.searchParams.get('include_findings') === 'true'
+  // Opt-in: the PDF comparison picker only offers approved priors (an unapproved
+  // one would 403 on export). The progress chart leaves this off to show all.
+  const approvedOnly = req.nextUrl.searchParams.get('approved_only') === 'true'
 
   // Verify client belongs to this practitioner
   const { data: client } = await supabase
@@ -42,6 +45,9 @@ export async function GET(
 
   if (excludeId) {
     query = query.neq('id', excludeId)
+  }
+  if (approvedOnly) {
+    query = query.eq('practitioner_approved', true)
   }
 
   const { data: assessments } = await query

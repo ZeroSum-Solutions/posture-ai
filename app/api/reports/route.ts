@@ -9,6 +9,7 @@ import { ClientReport } from '@/lib/pdf/clientReport'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import { isNoRows } from '@/lib/api/query-error'
 import { dbFindingsToEngineFindings, isCapability, type DbFindingRow } from '@/lib/reports/clientProgram'
+import { buildClientComparison, type ClientComparison } from '@/lib/reports/clientComparison'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
@@ -74,10 +75,12 @@ export async function POST(req: NextRequest) {
   // A comparison assessment's findings also get exported (deltas), so it must
   // belong to this practitioner AND be approved too — otherwise its data could be
   // exported without review, or leak from another practitioner's records (IDOR).
+  // Captured here (after the gate passes) for the client-report progress section.
+  let priorMeta: { grade: string; score: number; dateStr: string } | null = null
   if (compared_to_assessment_id) {
     const { data: prior, error: pErr } = await supabase
       .from('assessments')
-      .select('id, client_id, practitioner_approved')
+      .select('id, client_id, practitioner_approved, overall_grade, overall_score, assessed_at')
       .eq('id', compared_to_assessment_id)
       .eq('practitioner_id', user.id)
       .maybeSingle()
@@ -102,6 +105,13 @@ export async function POST(req: NextRequest) {
         { error: 'The comparison assessment must also be reviewed and approved before it can be exported.' },
         { status: 403 },
       )
+    }
+    priorMeta = {
+      grade: prior.overall_grade as string,
+      score: Number(prior.overall_score),
+      dateStr: new Date(prior.assessed_at).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      }),
     }
   }
 
@@ -139,19 +149,39 @@ export async function POST(req: NextRequest) {
 
   // Build delta map if comparing
   const deltaMap: Record<string, number> = {}
+  let priorComparisonFindings: Array<{ key: string; severityPct: number }> = []
   if (compared_to_assessment_id) {
     const { data: priorFindings } = await supabase
       .from('assessment_findings')
-      .select('imbalance_key, deviation')
+      .select('imbalance_key, deviation, severity_pct')
       .eq('assessment_id', compared_to_assessment_id)
     if (priorFindings) {
       for (const pf of priorFindings) {
         deltaMap[pf.imbalance_key] = pf.deviation
       }
+      priorComparisonFindings = priorFindings.map((pf) => ({
+        key: pf.imbalance_key, severityPct: Number(pf.severity_pct),
+      }))
     }
   }
 
   const hasDelta = compared_to_assessment_id ? Object.keys(deltaMap).length > 0 : false
+
+  // Plain-language "since last time" progress for the CLIENT report only, and
+  // only when a valid, approved, same-client prior was selected (all enforced
+  // by the gate above). The practitioner PDF keeps its own numeric deltas.
+  const clientComparison: ClientComparison | null =
+    variant === 'client' && priorMeta
+      ? buildClientComparison({
+          priorDateStr: priorMeta.dateStr,
+          current: { grade: assessment.overall_grade, score: Number(assessment.overall_score) },
+          prior: { grade: priorMeta.grade, score: priorMeta.score },
+          currentFindings: (findingsRaw || []).map((f: Record<string, unknown>) => ({
+            key: f.imbalance_key as string, severityPct: Number(f.severity_pct),
+          })),
+          priorFindings: priorComparisonFindings,
+        })
+      : null
 
   const findings: PdfFinding[] = (findingsRaw || []).map((f: Record<string, unknown>) => {
     const def = defsMap[f.imbalance_key as string]
@@ -248,6 +278,7 @@ export async function POST(req: NextRequest) {
       practitioner: practitioner?.practice_name || practitioner?.display_name || 'Your practitioner',
       dateStr,
       report: program,
+      comparison: clientComparison,
     }) as unknown as ReactElement<DocumentProps>
   } else {
     docElement = React.createElement(PostureReportPdf, {
@@ -309,8 +340,12 @@ export async function POST(req: NextRequest) {
       assessment_id,
       practitioner_id: user.id,
       storage_path: storagePath,
-      // The client report never renders comparison data, so don't record one.
-      compared_to_assessment_id: variant === 'client' ? null : (compared_to_assessment_id || null),
+      // Record the comparison only when the report actually rendered one: the
+      // practitioner PDF whenever a prior was passed, the client PDF only when a
+      // valid same-client progress comparison was built above.
+      compared_to_assessment_id: variant === 'client'
+        ? (clientComparison ? compared_to_assessment_id : null)
+        : (compared_to_assessment_id || null),
     })
     .select('id')
     .single()

@@ -682,7 +682,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
-          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId)
+          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true')
           if (priorRes.ok) {
             const priorData = await priorRes.json()
             setPriorAssessments(priorData.assessments || [])
