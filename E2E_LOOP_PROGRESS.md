@@ -46,16 +46,17 @@ e2e/muscle-kb.spec.ts:38
 ## Done
 - **[2026-06-28] Iteration 1 — baseline established.** Reset local DB to CI-faithful state, cleared stale `:3100` server, ran full suite, gathered DB ground truth, recorded lint/typecheck, created this file. (commit `16ce612`)
 - **[2026-06-28] Iteration 2 — Phase 1 green.** Fixed `muscle-kb.spec.ts:38` count 28→29 — proven legitimate seed growth (seed `20260612020000` inserts 28; migration `20260627000000_muscle_evidence_reconciliation.sql` adds 1; DB = 29 distinct, no dupes; trapezius = 3 so line-41 kept). Verified muscle-kb green both projects, then full suite green, then lint + typecheck. (commit `4f0ea9a`)
+- **[2026-06-28] Iteration 3 — Phase 2 specs (2/9).** Added `e2e/health.spec.ts` (`GET /api/health` → 200 ok/connected/schema ready) and `e2e/auth-access.spec.ts` (`/dashboard` server-redirect + `/clients` client-redirect → `/auth/sign-in` when signed out; storageState emptied). Verified new specs green both projects, then full suite **21/0/2 green**, lint + typecheck. (commit `f86a524`)
 
-## Current suite state (2026-06-28, post-iteration-2)
-- `npm run test:e2e` (clean db-reset run, `retries:0`): **15 passed · 0 failed · 2 intentional skips** → **fully green**.
-- 1 clean green run recorded. The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, because adding the Required specs changes the suite.
+## Current suite state (2026-06-28, post-iteration-3)
+- `npm run test:e2e` (`retries:0`): **21 passed · 0 failed · 2 intentional skips** → **fully green** (23 tests; +6 from the new health/auth-access specs across both projects).
+- The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 2 complete)
+- (none — iteration 3 complete)
 
 ## Next up
-- **Iteration 3:** begin Phase 2 Required specs. Suggested order (simplest / least shared-state first): `/api/health` happy path → unauthenticated redirect to sign-in → logout → client list/search → client edit → wizard back-navigation → abandon mid-wizard → empty-state (no assessments) → unreviewed-content badge. One spec (or one tight group) per iteration, each verified + committed.
+- **Iteration 4:** continue Phase 2 Required specs. Remaining order: logout → client list/search → client edit → wizard back-navigation → abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge. One spec (or tight group) per iteration, each verified + committed. (Logout: sign-out is `POST /api/auth/sign-out`; find the UI control in dashboard/settings and assert it lands signed-out at `/auth/sign-in`.)
 
 ## Backlog / deferred (priority order)
 
@@ -65,14 +66,14 @@ e2e/muscle-kb.spec.ts:38
 
 ### Phase 2 — coverage gaps — **Required (not deferrable)**
 Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't duplicate); unique client names via `crypto.randomUUID().slice(0,8)` (NOT the `Date.now().slice(-7)` truncation, which can collide).
-- [ ] unauthenticated redirect to sign-in
+- [x] unauthenticated redirect to sign-in — `e2e/auth-access.spec.ts` (iter 3)
 - [ ] logout
 - [ ] client edit
 - [ ] client list/search
 - [ ] wizard back-navigation
 - [ ] abandon mid-wizard
 - [ ] empty-state when a client has no assessments
-- [ ] `/api/health` happy path
+- [x] `/api/health` happy path — `e2e/health.spec.ts` (iter 3)
 - [ ] unreviewed-content badge behavior (dev/preview)
 
 ### Phase 2 — deferrable (log a concrete blocker when deferring)
@@ -100,4 +101,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite is green, but 0 of 9 Required Phase-2 specs exist, no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green, but **2 of 9** Required Phase-2 specs done (7 remain), no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
