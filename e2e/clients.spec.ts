@@ -81,3 +81,60 @@ test.describe('client detail empty state', () => {
     await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0)
   })
 })
+
+// Client create via the form UI. createClient() (helpers) hits the API directly,
+// so the create FORM itself was previously uncovered. This guards the shared
+// ClientForm (create mode) + the create-only consent gate after the refactor.
+test.describe('client create form', () => {
+  test('creates a client via the form and enforces the consent gate', async ({ page }) => {
+    const token = randomUUID().slice(0, 8)
+    await page.goto('/clients/new')
+
+    await page.getByLabel('First Name').fill('E2E')
+    await page.getByLabel('Last Name').fill(`Form-${token}`)
+
+    // Consent is required: submitting unchecked shows the error and does not navigate.
+    await page.getByRole('button', { name: 'Create Client' }).click()
+    await expect(page.getByTestId('error-consent')).toBeVisible()
+    await expect(page).toHaveURL(/\/clients\/new$/)
+
+    // With consent checked, it creates and lands on the new client's detail page.
+    await page.getByRole('checkbox').check()
+    await page.getByRole('button', { name: 'Create Client' }).click()
+    await page.waitForURL(/\/clients\/[0-9a-f-]{36}$/)
+    await expect(page.getByRole('heading', { name: new RegExp(`Form-${token}`) })).toBeVisible()
+  })
+})
+
+// Client edit reuses the shared ClientForm in edit mode (consent is create-only,
+// so it is absent here). Asserts the change renders on the detail page AND
+// persists across a reload — a real PATCH round-trip, not just client state.
+test.describe('client edit', () => {
+  test('editing a client updates its profile and persists', async ({ page }) => {
+    const token = randomUUID().slice(0, 8)
+    const client = await createClient(page, 'E2E', `Edit-${token}`)
+
+    await page.goto(`/clients/${client.id}`)
+    await page.getByRole('link', { name: 'Edit Client' }).click()
+    await page.waitForURL(new RegExp(`/clients/${client.id}/edit$`))
+
+    const newToken = randomUUID().slice(0, 8)
+    await page.getByLabel('Last Name').fill(`Edited-${newToken}`)
+    await page.getByLabel(/Height/).fill('70')
+    await page.getByLabel('Notes').fill(`Edited note ${newToken}`)
+    await page.getByRole('button', { name: 'Save Changes' }).click()
+
+    // Back on the detail page, header reflects the new name.
+    await page.waitForURL(new RegExp(`/clients/${client.id}$`))
+    await expect(page.getByRole('heading', { name: new RegExp(`Edited-${newToken}`) })).toBeVisible()
+
+    // Info tab reflects the edited height + notes.
+    await page.getByRole('button', { name: 'Info' }).click()
+    await expect(page.getByText(`Edited note ${newToken}`)).toBeVisible()
+    await expect(page.getByText(/70 in/)).toBeVisible()
+
+    // Persisted: a reload re-fetches from the DB and still shows the edits.
+    await page.reload()
+    await expect(page.getByRole('heading', { name: new RegExp(`Edited-${newToken}`) })).toBeVisible()
+  })
+})

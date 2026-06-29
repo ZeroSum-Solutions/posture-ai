@@ -56,7 +56,7 @@ mobile-webkit subset, not an identical run.
 | `auth.setup.ts` | sign-in → saved session | setup |
 | `assessment-flow.spec.ts` | golden path (test mode) → 10 findings + PDF; client-required guard | both |
 | `auth-access.spec.ts` | unauthenticated `/dashboard` + `/clients` → sign-in | both |
-| `clients.spec.ts` | client list/search; archive; detail empty-state | both |
+| `clients.spec.ts` | client list/search; archive; detail empty-state; create form (consent gate); edit | both |
 | `health.spec.ts` | `GET /api/health` → ok / connected / schema ready | both |
 | `logout.spec.ts` | NavBar logout → cleared session (restores shared session in `afterEach`) | both |
 | `muscle-kb.spec.ts` | finding → muscle page → exercises; muscle library + search | both |

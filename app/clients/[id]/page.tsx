@@ -268,6 +268,18 @@ export default function ClientDetailPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link
+            href={`/clients/${client.id}/edit`}
+            style={{
+              padding: '9px 16px', borderRadius: '8px',
+              background: 'rgba(255,255,255,0.06)', color: '#D4D4D8',
+              border: '1px solid rgba(255,255,255,0.12)',
+              textDecoration: 'none', fontWeight: 600, fontSize: '0.85rem',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Edit Client
+          </Link>
           <button
             onClick={() => setShowArchiveConfirm(true)}
             style={{

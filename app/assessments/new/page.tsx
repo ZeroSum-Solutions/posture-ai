@@ -253,7 +253,7 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 960 } }
+          video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 960 }, aspectRatio: { ideal: 3 / 4 } }
         })
         if (!active) { stream.getTracks().forEach(t => t.stop()); return }
         streamRef.current = stream
@@ -368,8 +368,8 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
     : 'rgba(99,102,241,0.7)'
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
-      <div style={{ background: '#0F0F11', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '480px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 'max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))' }}>
+      <div style={{ background: '#0F0F11', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '16px', width: '100%', maxWidth: '440px', maxHeight: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ color: '#F5F5F5', fontWeight: 700, fontSize: '1.1rem', margin: 0 }}>{label} View - Live Camera</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#A1A1AA', fontSize: '1.3rem', cursor: 'pointer', padding: '4px 8px', lineHeight: 1 }}>×</button>
@@ -385,8 +385,8 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
 
         {(phase === 'live' || phase === 'countdown') && (
           <div>
-            <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', background: '#000', lineHeight: 0 }}>
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', display: 'block', maxHeight: '360px', objectFit: 'cover' }} />
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '3 / 4', maxHeight: '72vh', margin: '0 auto', borderRadius: '12px', overflow: 'hidden', background: '#000' }}>
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
               <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
                 <line x1="50" y1="0" x2="50" y2="100" stroke={plumbColor} strokeWidth="0.4" strokeDasharray="3,3" />
                 <line x1="10" y1="18" x2="90" y2="18" stroke="rgba(255,255,255,0.25)" strokeWidth="0.25" strokeDasharray="2,4" />
@@ -466,9 +466,9 @@ function CameraCapture({ view, onCapture, onClose }: CameraCaptureProps) {
 
         {phase === 'preview' && capturedUrl && (
           <div>
-            <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', lineHeight: 0 }}>
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '3 / 4', maxHeight: '72vh', margin: '0 auto', borderRadius: '12px', overflow: 'hidden', background: '#000' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={capturedUrl} alt="Captured frame" style={{ width: '100%', display: 'block', maxHeight: '360px', objectFit: 'cover' }} />
+              <img src={capturedUrl} alt="Captured frame" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(16,185,129,0.9)', borderRadius: '6px', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>Captured</div>
               {rollAtCapture !== null && (
                 <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.75)', borderRadius: '6px', padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600, color: Math.abs(rollAtCapture) <= 2 ? '#34D399' : '#F59E0B' }}>
