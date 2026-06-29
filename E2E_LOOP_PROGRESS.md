@@ -44,19 +44,24 @@ e2e/muscle-kb.spec.ts:38
 ---
 
 ## Done
-- **[2026-06-28] Iteration 1 — baseline established.** Reset local DB to CI-faithful state, cleared stale `:3100` server, ran full suite, gathered DB ground truth, recorded lint/typecheck, created this file. (commit: see git log on `e2e-hardening`)
+- **[2026-06-28] Iteration 1 — baseline established.** Reset local DB to CI-faithful state, cleared stale `:3100` server, ran full suite, gathered DB ground truth, recorded lint/typecheck, created this file. (commit `16ce612`)
+- **[2026-06-28] Iteration 2 — Phase 1 green.** Fixed `muscle-kb.spec.ts:38` count 28→29 — proven legitimate seed growth (seed `20260612020000` inserts 28; migration `20260627000000_muscle_evidence_reconciliation.sql` adds 1; DB = 29 distinct, no dupes; trapezius = 3 so line-41 kept). Verified muscle-kb green both projects, then full suite green, then lint + typecheck. (commit `4f0ea9a`)
+
+## Current suite state (2026-06-28, post-iteration-2)
+- `npm run test:e2e` (clean db-reset run, `retries:0`): **15 passed · 0 failed · 2 intentional skips** → **fully green**.
+- 1 clean green run recorded. The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, because adding the Required specs changes the suite.
 
 ## In progress
-- (none — iteration 1 is baseline-only per spec)
+- (none — iteration 2 complete)
+
+## Next up
+- **Iteration 3:** begin Phase 2 Required specs. Suggested order (simplest / least shared-state first): `/api/health` happy path → unauthenticated redirect to sign-in → logout → client list/search → client edit → wizard back-navigation → abandon mid-wizard → empty-state (no assessments) → unreviewed-content badge. One spec (or one tight group) per iteration, each verified + committed.
 
 ## Backlog / deferred (priority order)
 
-### Phase 1 — get fully green
-1. **[NEXT] `e2e/muscle-kb.spec.ts:38` count drift 28 → 29.** Classified per rule 4 as **legitimate seed growth, not a regression** — evidence captured this iteration:
-   - Freshly-reset local DB: `select count(*) from muscles` = **29**, `count(distinct slug)` = **29** (no duplicates).
-   - 29-muscle slug list is coherent anatomy; kickoff doc states "the 29-muscle list was delivered."
-   - DB `trapezius` matches = **3** → line-41 `toHaveCount(3)` is still correct; **keep it**.
-   - **Action (iteration 2):** change `toBe(28)` → `toBe(29)` at line 38; put the justification in the commit message. Sanity-check that the muscle-library page renders the full table (no filter that should reduce the count — rendered 29 == seeded 29, so the contract is "show all seeded muscles"). Then re-run `muscle-kb` both projects + full suite to confirm green. Begin the 3×-green Phase-1 stretch only after this is fixed.
+### Phase 1 — get fully green ✅ (all baseline failures fixed; suite green)
+1. ✅ **DONE (iteration 2, commit `4f0ea9a`)** — `e2e/muscle-kb.spec.ts:38` count 28 → 29. Proven legitimate seed growth (seed=28 + `20260627000000_muscle_evidence_reconciliation.sql`=1 → 29 distinct in DB; trapezius=3, line-41 kept). Suite now 15/0/2 green.
+   - Remaining Phase-1 gate (run as an END verification, after Phase 2/3): 3× consecutive green `npm run test:e2e`, both projects.
 
 ### Phase 2 — coverage gaps — **Required (not deferrable)**
 Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't duplicate); unique client names via `crypto.randomUUID().slice(0,8)` (NOT the `Date.now().slice(-7)` truncation, which can collide).
@@ -95,4 +100,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done is far from met (2 failing tests, 0 Required Phase-2 specs, no `e2e/README.md`, no 3× CI-mimic). Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite is green, but 0 of 9 Required Phase-2 specs exist, no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
