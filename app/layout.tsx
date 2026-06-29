@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 
 export const metadata: Metadata = {
@@ -22,7 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           fontSize: '12px',
           textAlign: 'center'
         }}>
-          Screening only — not a medical diagnosis. Consult a qualified healthcare professional before making any clinical decisions.
+          <div>Screening only — not a medical diagnosis. Consult a qualified healthcare professional before making any clinical decisions.</div>
+          <div style={{ marginTop: 6 }}>
+            <Link href="/privacy" style={{ color: '#818CF8', textDecoration: 'none' }}>Privacy Policy</Link>
+            {' · '}
+            <Link href="/terms" style={{ color: '#818CF8', textDecoration: 'none' }}>Terms of Use</Link>
+          </div>
         </footer>
       </body>
     </html>

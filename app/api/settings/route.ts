@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { practitionerGate } from '@/lib/auth/requirePractitioner'
 
 export async function PATCH(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -7,6 +8,8 @@ export async function PATCH(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   const body = await req.json()
   const { display_name, practice_name } = body
@@ -36,6 +39,8 @@ export async function POST(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   const formData = await req.formData()
   const file = formData.get('logo') as File | null

@@ -100,6 +100,7 @@ interface Assessment {
   priority_keys?: string[] | null
   capability?: string | null
   exercise_swaps?: Record<string, Record<string, string>> | null
+  practitioner_approved?: boolean | null
   clients: { id: string; first_name: string; last_name: string }
 }
 
@@ -646,6 +647,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfKind, setPdfKind] = useState<'practitioner' | 'client'>('practitioner')
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const [approved, setApproved] = useState(false)
+  const [approving, setApproving] = useState(false)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
@@ -779,6 +782,24 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       setPdfError('Failed to generate PDF.')
     } finally {
       setPdfLoading(null)
+    }
+  }
+
+  async function handleApprove() {
+    if (!assessmentId) return
+    setApproving(true)
+    try {
+      const r = await fetch(`/api/assessments/${assessmentId}/approve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: true }),
+      })
+      if (r.ok) { setApproved(true); setPdfError(null) }
+      else { const e = await r.json().catch(() => ({})); setPdfError(e.error || 'Failed to approve.') }
+    } catch {
+      setPdfError('Failed to approve.')
+    } finally {
+      setApproving(false)
     }
   }
 
@@ -931,6 +952,30 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           </select>
         </div>
       )}
+
+      {(() => {
+        const isApproved = approved || !!assessment.practitioner_approved
+        return (
+          <div style={{
+            background: isApproved ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
+            border: '1px solid ' + (isApproved ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'),
+            borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex',
+            alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: '0.85rem', color: '#D4D4D8' }}>
+              {isApproved
+                ? '✓ Reviewed & approved by practitioner — report export enabled.'
+                : 'Review these findings, then approve to enable report export. Exercises are suggestions for the practitioner to apply, not medical orders.'}
+            </span>
+            {!isApproved && (
+              <button onClick={handleApprove} disabled={approving} style={{
+                padding: '9px 16px', borderRadius: 8, background: '#F59E0B', color: '#1A1205',
+                border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving ? 'wait' : 'pointer',
+              }}>{approving ? 'Approving…' : 'Approve report'}</button>
+            )}
+          </div>
+        )
+      })()}
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link href={'/clients/' + assessment.clients.id} style={{

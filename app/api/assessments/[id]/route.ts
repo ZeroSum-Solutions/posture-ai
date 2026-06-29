@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { isNoRows } from '@/lib/api/query-error'
 
 export async function GET(
@@ -9,6 +10,8 @@ export async function GET(
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   const { id } = await params
 
@@ -17,7 +20,7 @@ export async function GET(
     .select(`
       id, status, overall_score, overall_grade, overall_percentile,
       front_rank, side_rank, scoring_engine_version, tilt_corrected, level_verified, assessed_at, notes,
-      priority_keys, capability, exercise_swaps,
+      priority_keys, capability, exercise_swaps, practitioner_approved, practitioner_approved_at,
       clients!inner(id, first_name, last_name)
     `)
     .eq('id', id)
@@ -127,6 +130,8 @@ export async function PATCH(
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   const { id } = await params
   let body: unknown

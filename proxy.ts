@@ -13,6 +13,13 @@ const PUBLIC_PATHS = [
   '/auth/forgot-password',
   '/auth/update-password',
   '/api/health',
+  // Public legal pages + the remote subject-consent flow (the subject is not an
+  // authenticated user). The remote consent API self-authenticates via a signed,
+  // single-use token, so its public endpoint is allow-listed here too.
+  '/privacy',
+  '/terms',
+  '/consent',
+  '/api/consent/respond',
   ...(process.env.NODE_ENV !== 'production' ? ['/api/dev/'] : []),
 ]
 

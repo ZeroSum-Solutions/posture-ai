@@ -10,9 +10,9 @@ export default function NewClientPage() {
     const res = await fetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // The server derives practitioner_id from the session and ignores null
-      // optionals; consent is recorded at creation time.
-      body: JSON.stringify({ ...payload, consent_recorded_at: new Date().toISOString() }),
+      // The server derives practitioner_id from the session, records the subject
+      // consent from the signer fields, and stamps consent_recorded_at itself.
+      body: JSON.stringify(payload),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error || 'Failed to create client.')

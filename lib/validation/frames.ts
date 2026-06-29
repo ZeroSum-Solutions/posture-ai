@@ -27,12 +27,15 @@ const landmarkNameSet = new Set<string>(LANDMARK_NAMES)
 // overshoot for off-frame joints, so allow a bounded margin.
 const coord = z.number().finite().min(-0.5).max(1.5)
 
+// `.strict()` everywhere below is a defense-in-depth guarantee: the API rejects
+// any unexpected field — including a smuggled image / dataURL / base64 / blob —
+// rather than silently stripping it. Only landmark coordinates may be persisted.
 const landmarkSchema = z.object({
   x: coord,
   y: coord,
   z: z.number().finite().optional(),
   visibility: z.number().min(0).max(1).optional(),
-})
+}).strict()
 
 const frameSchema = z.object({
   view: z.enum(['front', 'side', 'back']),
@@ -49,13 +52,13 @@ const frameSchema = z.object({
   captureRollDeg: z.number().finite().min(-45).max(45).optional(),
   aspectRatio: z.number().finite().min(0.1).max(10).optional(),
   source: z.enum(['camera', 'upload']).optional(),
-})
+}).strict()
 
 const payloadSchema = z.object({
   client_id: z.string().uuid(),
   test_mode: z.boolean().optional(),
   frames: z.array(frameSchema).min(1).max(3).optional(),
-})
+}).strict()
 
 export interface ParsedAssessmentPayload {
   client_id: string

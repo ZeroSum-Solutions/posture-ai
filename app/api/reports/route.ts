@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   const allowed = await enforceRateLimit(createSupabaseServiceClient(), {
     route: 'reports', userId: user.id, limit: 10, windowSeconds: 60,
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
     .from('assessments')
     .select(`
       id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, assessed_at,
+      front_rank, side_rank, assessed_at, practitioner_approved,
       priority_keys, capability, exercise_swaps,
       clients!inner(id, first_name, last_name)
     `)
@@ -58,6 +61,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  }
+
+  // Professional-review gate: no export until a practitioner approves.
+  if (!assessment.practitioner_approved) {
+    return NextResponse.json(
+      { error: 'This report must be reviewed and approved by the practitioner before it can be exported.' },
+      { status: 403 },
+    )
   }
 
   // Fetch findings
