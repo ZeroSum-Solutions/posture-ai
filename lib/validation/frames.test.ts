@@ -168,4 +168,32 @@ describe('parseAssessmentPayload', () => {
       expect(result.levelVerified).toBe(true)
     })
   })
+
+  describe('strict no-image-bytes guarantee', () => {
+    const validFrame = { view: 'front', landmarks: { nose: { x: 0.5, y: 0.5 } } }
+
+    it('rejects a frame carrying a smuggled image field', () => {
+      const r = parseAssessmentPayload(
+        { client_id: CLIENT_ID, frames: [{ ...validFrame, image: 'data:image/jpeg;base64,AAAA' }] },
+        { testModeEnabled: false },
+      )
+      expect(r.ok).toBe(false)
+    })
+
+    it('rejects an image field at the top level of the payload', () => {
+      const r = parseAssessmentPayload(
+        { client_id: CLIENT_ID, frames: [validFrame], image: 'data:image/jpeg;base64,AAAA' },
+        { testModeEnabled: false },
+      )
+      expect(r.ok).toBe(false)
+    })
+
+    it('rejects extra (binary-ish) keys inside a landmark', () => {
+      const r = parseAssessmentPayload(
+        { client_id: CLIENT_ID, frames: [{ view: 'front', landmarks: { nose: { x: 0.5, y: 0.5, blob: 'x' } } }] },
+        { testModeEnabled: false },
+      )
+      expect(r.ok).toBe(false)
+    })
+  })
 })

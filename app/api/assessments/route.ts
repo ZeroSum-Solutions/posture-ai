@@ -3,6 +3,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
+import { stripFaceLandmarks } from '@/lib/pose/face-min'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildFindingRow } from '@/lib/findings/buildFindingRow'
@@ -81,13 +82,16 @@ export async function POST(req: NextRequest) {
     try {
       const frames = (useFixture ? testLandmarksFrames : parsed.data.frames) as PoseFrame[]
 
-      // Persist the captured pose frames (reproducible / re-scorable)
+      // Persist the captured pose frames (reproducible / re-scorable), with the
+      // unused face-region keypoints stripped first (data minimization, BIPA).
+      // Scoring above/below runs on the full in-memory frame; only what is saved
+      // is minimized. storage_path is never set — no raw image bytes at rest.
       const capturesToInsert = frames.map((f) => ({
         assessment_id: assessmentId,
         practitioner_id: user.id,
         view: f.view,
         source: useFixture ? 'fixture' : (f.source ?? 'upload'),
-        pose_frame: f as unknown as object,
+        pose_frame: stripFaceLandmarks(f) as unknown as object,
       }))
       await service.from('captures').insert(capturesToInsert)
 

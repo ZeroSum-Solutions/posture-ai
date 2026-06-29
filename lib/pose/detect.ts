@@ -29,26 +29,46 @@ const MODEL_URL = modelVariant === 'full'
   ? '/mediapipe/models/pose_landmarker_full.task'
   : '/mediapipe/models/pose_landmarker_lite.task'
 
+// No-face-geometry guarantee (BIPA): this app must ONLY ever load the pose
+// (skeletal) model — never a face-mesh / face-landmark model. The bundled
+// MediaPipe WASM is generic and could technically run a face task, so we assert
+// the loaded asset is an allow-listed pose model and FAIL CLOSED otherwise.
+// This is a checked, logged code path — not a policy promise.
+const ALLOWED_POSE_MODELS = new Set([
+  '/mediapipe/models/pose_landmarker_lite.task',
+  '/mediapipe/models/pose_landmarker_full.task',
+])
+function assertPoseOnlyModel(url: string): void {
+  if (/face/i.test(url) || !ALLOWED_POSE_MODELS.has(url)) {
+    throw new Error(`[pose] refusing non-pose model asset "${url}" — face geometry is never computed`)
+  }
+}
+
 let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
 async function getLandmarker(): Promise<PoseLandmarker> {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
+      assertPoseOnlyModel(MODEL_URL)
       const vision = await FilesetResolver.forVisionTasks(WASM_URL)
+      let lm: PoseLandmarker
       try {
-        return await PoseLandmarker.createFromOptions(vision, {
+        lm = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
           runningMode: 'IMAGE',
           numPoses: 1,
         })
       } catch {
         // Fall back to CPU when the WebGL/GPU delegate is unavailable.
-        return PoseLandmarker.createFromOptions(vision, {
+        lm = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
           runningMode: 'IMAGE',
           numPoses: 1,
         })
       }
+      // Auditable affirmation: pose-only model loaded, no face geometry path.
+      console.info(`[pose] pose-only model loaded — no face geometry computed (variant: ${modelVariant})`)
+      return lm
     })().catch((err) => {
       landmarkerPromise = null // allow retry on next attempt
       throw err
