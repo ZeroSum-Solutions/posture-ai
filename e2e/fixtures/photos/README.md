@@ -13,6 +13,11 @@ views the wizard captures (front / side profile / back).
 License: Pexels License (free to use, no attribution required, modification allowed).
 Source URLs retained above for provenance.
 
+`no-person.png` is a **negative fixture** — a synthetic 100×100 grayscale PNG with no
+human subject (generated, not a photo; no license needed). It drives the
+no-person-detection path in `capture-errors.spec.ts` (upload → "No person detected" →
+submit blocked).
+
 **These are interim fixtures.** The canonical clinical fixture set is the three-view
 series captured on a real phone during the P0 device verification run
 (see `docs/plans/2026-06-12-p0-device-spike-findings.md`). When that set lands,
