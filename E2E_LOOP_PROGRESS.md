@@ -49,15 +49,17 @@ e2e/muscle-kb.spec.ts:38
 - **[2026-06-28] Iteration 3 — Phase 2 specs (2/9).** Added `e2e/health.spec.ts` (`GET /api/health` → 200 ok/connected/schema ready) and `e2e/auth-access.spec.ts` (`/dashboard` server-redirect + `/clients` client-redirect → `/auth/sign-in` when signed out; storageState emptied). Verified new specs green both projects, then full suite **21/0/2 green**, lint + typecheck. (commit `f86a524`)
 - **[2026-06-28] Iteration 4 — Phase 2 spec (3/9): logout.** Added `e2e/logout.spec.ts` — NavBar logout (desktop button + mobile hamburger) → `/auth/sign-in` + cleared session (protected page bounces back). Discovered the app's `signOut()` is GLOBAL scope (GoTrue revokes the shared session immediately, not at JWT expiry), which poisoned specs running after logout; fixed by re-signing-in + re-saving `e2e/.auth/user.json` in `afterEach` (runs on failure too → no cascade). Verified full suite **23/0/2 green** (muscle-kb/real-detection run after logout and stay green). (commit `384b352`)
 
-## Current suite state (2026-06-28, post-iteration-4)
-- `npm run test:e2e` (clean db-reset run, `retries:0`): **23 passed · 0 failed · 2 intentional skips** → **fully green** (25 tests).
+- **[2026-06-28] Iteration 5 — Phase 2 spec (4/9): client list/search.** Added `e2e/clients.spec.ts` — creates two uniquely-tokened clients, asserts both list on `/clients`, a token search narrows to one, clearing restores both. Verified full suite **25/0/2 green** (27 tests), lint + typecheck. (commit `2585f73`)
+
+## Current suite state (2026-06-28, post-iteration-5)
+- `npm run test:e2e` (`retries:0`): **25 passed · 0 failed · 2 intentional skips** → **fully green** (27 tests).
 - The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 4 complete)
+- (none — iteration 5 complete)
 
 ## Next up
-- **Iteration 5:** continue Phase 2 Required specs. Remaining order: client list/search → client edit → wizard back-navigation → abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge. One spec (or tight group) per iteration, verified + committed. (Clients list/search: `/clients` is a client component reading `/api/clients`; create 2 uniquely-named clients via the `createClient` helper, assert both appear, then type in the search box and assert it narrows. Use `crypto.randomUUID().slice(0,8)` names to stay collision-safe.)
+- **Iteration 6:** client edit. `/clients/[id]` (app/clients/[id]/page.tsx) — confirm the edit affordance (inline form vs. dedicated edit view), change a field, save, and assert the change persists (reload or re-fetch). Then remaining Required: wizard back-navigation → abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge.
 
 ## Backlog / deferred (priority order)
 
@@ -70,7 +72,7 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [x] unauthenticated redirect to sign-in — `e2e/auth-access.spec.ts` (iter 3)
 - [x] logout — `e2e/logout.spec.ts` (iter 4)
 - [ ] client edit
-- [ ] client list/search
+- [x] client list/search — `e2e/clients.spec.ts` (iter 5)
 - [ ] wizard back-navigation
 - [ ] abandon mid-wizard
 - [ ] empty-state when a client has no assessments
@@ -102,4 +104,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green, but **3 of 9** Required Phase-2 specs done (6 remain), no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green, but **4 of 9** Required Phase-2 specs done (5 remain), no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
