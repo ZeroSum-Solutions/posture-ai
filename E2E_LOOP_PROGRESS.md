@@ -53,15 +53,17 @@ e2e/muscle-kb.spec.ts:38
 
 - **[2026-06-28] Iteration 6 — client mutation: archive (+ edit-feature finding).** Confirmed the app has **no client-edit feature** (no edit UI on `app/clients/[id]/page.tsx`, no edit subroute, `PATCH /api/clients/[id]` accepts only `archived_at`). Implemented the real client-mutation flow instead — `e2e/clients.spec.ts` now archives a throwaway client (confirm dialog → dropped from the active list; a keeper proves the list rendered). Verified full suite **27/0/2 green** (29 tests), lint + typecheck. (commit `baac946`) See **Escalations** re: "client edit".
 
-## Current suite state (2026-06-28, post-iteration-6)
-- `npm run test:e2e` (`retries:0`): **27 passed · 0 failed · 2 intentional skips** → **fully green** (29 tests).
+- **[2026-06-28] Iteration 7 — Phase 2 spec: wizard back-navigation.** Added `e2e/wizard-nav.spec.ts` — test-mode wizard: select client (step 1) → Next → step 2 → Back, asserts step 1 still shows the client selected (Next enabled + "✓ Selected"). Verified full suite **29/0/2 green** (31 tests), lint + typecheck. (commit `00d9863`)
+
+## Current suite state (2026-06-28, post-iteration-7)
+- `npm run test:e2e` (`retries:0`): **29 passed · 0 failed · 2 intentional skips** → **fully green** (31 tests).
 - The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 6 complete)
+- (none — iteration 7 complete)
 
 ## Next up
-- **Iteration 7:** wizard back-navigation. `/assessments/new` (app/assessments/new/page.tsx) — start the wizard, advance a step, use the Back control, assert the prior step's state is intact. Then remaining Required: abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge.
+- **Iteration 8:** abandon mid-wizard. Start the wizard (test mode), select a client / reach step 2, then navigate away (← Back to Clients, or a NavBar link) and assert a clean exit — no assessment was created for that client (its detail page shows "No assessments yet"). Then remaining Required: empty-state (client with no assessments) → unreviewed-content badge.
 
 ## Backlog / deferred (priority order)
 
@@ -75,7 +77,7 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [x] logout — `e2e/logout.spec.ts` (iter 4)
 - [~] client edit — **N/A: no edit feature exists** (no edit UI; `PATCH /api/clients/[id]` accepts only `archived_at`). Pending human confirmation; client **archive** covered instead — `e2e/clients.spec.ts` (iter 6). See Escalations.
 - [x] client list/search — `e2e/clients.spec.ts` (iter 5)
-- [ ] wizard back-navigation
+- [x] wizard back-navigation — `e2e/wizard-nav.spec.ts` (iter 7)
 - [ ] abandon mid-wizard
 - [ ] empty-state when a client has no assessments
 - [x] `/api/health` happy path — `e2e/health.spec.ts` (iter 3)
@@ -109,4 +111,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **4 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 4 remaining** (wizard back-nav, abandon mid-wizard, empty-state, unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **5 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 3 remaining** (abandon mid-wizard, empty-state, unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
