@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const { data: assessment, error: aErr } = await supabase
     .from('assessments')
     .select(`
-      id, status, overall_score, overall_grade, overall_percentile,
+      id, client_id, status, overall_score, overall_grade, overall_percentile,
       front_rank, side_rank, assessed_at, practitioner_approved,
       priority_keys, capability, exercise_swaps,
       clients!inner(id, first_name, last_name)
@@ -69,6 +69,40 @@ export async function POST(req: NextRequest) {
       { error: 'This report must be reviewed and approved by the practitioner before it can be exported.' },
       { status: 403 },
     )
+  }
+
+  // A comparison assessment's findings also get exported (deltas), so it must
+  // belong to this practitioner AND be approved too — otherwise its data could be
+  // exported without review, or leak from another practitioner's records (IDOR).
+  if (compared_to_assessment_id) {
+    const { data: prior, error: pErr } = await supabase
+      .from('assessments')
+      .select('id, client_id, practitioner_approved')
+      .eq('id', compared_to_assessment_id)
+      .eq('practitioner_id', user.id)
+      .maybeSingle()
+    if (pErr && !isNoRows(pErr)) {
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+    if (!prior) {
+      return NextResponse.json({ error: 'Comparison assessment not found.' }, { status: 404 })
+    }
+    // A comparison report is "this client now vs this client before" — the
+    // compared assessment must be the SAME client. This blocks nonsensical
+    // cross-client comparisons (and with them the cross-client erasure-residual
+    // and report-trigger lock-order edge cases).
+    if (prior.client_id !== assessment.client_id) {
+      return NextResponse.json(
+        { error: 'The comparison assessment must belong to the same client.' },
+        { status: 400 },
+      )
+    }
+    if (!prior.practitioner_approved) {
+      return NextResponse.json(
+        { error: 'The comparison assessment must also be reviewed and approved before it can be exported.' },
+        { status: 403 },
+      )
+    }
   }
 
   // Fetch findings
@@ -267,8 +301,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create signed URL' }, { status: 500 })
   }
 
-  // Insert reports row
-  const { data: report } = await supabase
+  // Insert reports row (service-role: authenticated DB writes on regulated tables
+  // are revoked; practitioner_id is set explicitly below).
+  const { data: report, error: reportErr } = await serviceSupabase
     .from('reports')
     .insert({
       assessment_id,
@@ -280,8 +315,17 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single()
 
+  if (reportErr || !report) {
+    // The reports row didn't persist — e.g. the client was erased mid-export and
+    // the reports_reject_deleted_client trigger rejected it. Remove the PDF we
+    // just uploaded so no regulated file is orphaned in storage after an erasure.
+    console.error('[api/reports] reports insert failed; removing uploaded PDF:', reportErr?.message)
+    await serviceSupabase.storage.from('posture-reports').remove([storagePath])
+    return NextResponse.json({ error: 'Failed to record report. Please retry.' }, { status: 500 })
+  }
+
   return NextResponse.json({
-    report_id: report?.id,
+    report_id: report.id,
     signed_url: signedData.signedUrl,
     storage_path: storagePath,
   })

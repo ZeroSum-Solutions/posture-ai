@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 /**
  * Practitioner access gate for API routes. Reuses the caller's already-authed
@@ -32,7 +33,11 @@ export async function practitionerGate(
   }
 
   if (prac.organization_id) {
-    const { data: org } = await supabase
+    // Read the org with service-role: the BAA gate must not depend on the
+    // (now own-org-scoped) organizations RLS policy, and this is the caller's own
+    // org id (no IDOR). A silently-failed read here would wrongly disable the gate.
+    const service = createSupabaseServiceClient()
+    const { data: org } = await service
       .from('organizations')
       .select('is_covered_entity, baa_status')
       .eq('id', prac.organization_id)

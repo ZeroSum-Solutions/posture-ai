@@ -11,15 +11,21 @@ export type ConsentStatus = {
  * RLS-scoped client (practitioner reads own) or the service client (server gate).
  */
 export async function getConsentStatus(db: SupabaseClient, clientId: string): Promise<ConsentStatus> {
+  // Evaluate the LATEST consent EVENT overall (not "latest non-revoked"): if the
+  // most recent event is a revocation — or an enrollment that was later revoked —
+  // consent is withdrawn. Picking the latest non-revoked row would let a stale
+  // earlier enrollment outlive a later revocation event.
   const { data } = await db
     .from('consent_records')
-    .select('signer_relationship, recorded_at')
+    .select('signer_relationship, recorded_at, revoked_at, kind')
     .eq('client_id', clientId)
-    .is('revoked_at', null)
     .order('recorded_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (!data) return { hasConsent: false, signerRelationship: null }
+  if (data.kind === 'revocation' || data.revoked_at) {
+    return { hasConsent: false, signerRelationship: null }
+  }
   return { hasConsent: true, signerRelationship: data.signer_relationship as string }
 }
 

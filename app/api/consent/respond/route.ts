@@ -20,49 +20,43 @@ export async function POST(req: NextRequest) {
   const service = createSupabaseServiceClient()
   const signedAt = new Date().toISOString()
 
-  // Atomically claim the single-use token: the UPDATE only matches an unconsumed,
-  // unexpired token, so two concurrent requests can't both succeed (prevents a
-  // TOCTOU duplicate-consent race — single-use is enforced by the DB write).
-  const { data: claimed } = await service
+  // The consent hash binds to the wording version stored on the token (immutable
+  // once minted), so read it first to hash in the app layer. The single-use claim
+  // + consent-record insert + client stamp then run atomically in ONE DB
+  // transaction (record_remote_consent): it cannot consume the token without also
+  // writing the consent record, closing the prior best-effort-rollback gap and the
+  // TOCTOU duplicate-consent race in one shot.
+  const { data: tok } = await service
     .from('consent_tokens')
-    .update({ consumed_at: signedAt })
+    .select('consent_version')
     .eq('token', token)
-    .is('consumed_at', null)
-    .gt('expires_at', signedAt)
-    .select('client_id, practitioner_id, consent_version')
     .maybeSingle()
-
-  if (!claimed) {
-    const { data: tok } = await service.from('consent_tokens').select('consumed_at').eq('token', token).maybeSingle()
-    if (!tok) return NextResponse.json({ error: 'Invalid consent link.' }, { status: 404 })
-    if (tok.consumed_at) return NextResponse.json({ error: 'This consent link has already been used.' }, { status: 410 })
-    return NextResponse.json({ error: 'This consent link has expired.' }, { status: 410 })
-  }
+  if (!tok) return NextResponse.json({ error: 'Invalid consent link.' }, { status: 404 })
 
   const consentHash = hashConsent({
-    consentVersion: claimed.consent_version,
+    consentVersion: tok.consent_version,
     signerName: signer_name,
     signerRelationship: signer_relationship,
     signedAt,
   })
 
-  const { error: insErr } = await service.from('consent_records').insert({
-    client_id: claimed.client_id,
-    practitioner_id: claimed.practitioner_id,
-    kind: 'enrollment',
-    consent_version: claimed.consent_version,
-    consent_hash: consentHash,
-    signer_name: signer_name.trim(),
-    signer_relationship,
-    method: 'remote_link',
-    signed_at: signedAt,
+  const { data: result, error } = await service.rpc('record_remote_consent', {
+    p_token: token,
+    p_signer_name: signer_name.trim(),
+    p_signer_relationship: signer_relationship,
+    p_consent_hash: consentHash,
+    p_signed_at: signedAt,
   })
-  if (insErr) {
-    // Roll back the claim so the subject can retry.
-    await service.from('consent_tokens').update({ consumed_at: null }).eq('token', token)
+  if (error) {
+    console.error('[api/consent/respond] rpc error:', error.message)
     return NextResponse.json({ error: 'Failed to record consent.' }, { status: 500 })
   }
 
-  await service.from('clients').update({ consent_recorded_at: signedAt }).eq('id', claimed.client_id)
-  return NextResponse.json({ ok: true })
+  switch (result) {
+    case 'ok': return NextResponse.json({ ok: true })
+    case 'not_found': return NextResponse.json({ error: 'Invalid consent link.' }, { status: 404 })
+    case 'consumed': return NextResponse.json({ error: 'This consent link has already been used.' }, { status: 410 })
+    case 'expired': return NextResponse.json({ error: 'This consent link has expired.' }, { status: 410 })
+    default: return NextResponse.json({ error: 'Failed to record consent.' }, { status: 500 })
+  }
 }

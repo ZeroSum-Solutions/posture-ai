@@ -13,11 +13,23 @@ export type AgeBand = 'unknown' | 'under_13' | 'minor_13_17' | 'adult'
 /** Whole years between `dob` and now, or null if `dob` is missing/unparseable. */
 export function ageFromDob(dob: string | null | undefined, now: Date = new Date()): number | null {
   if (!dob) return null
-  const birth = new Date(dob)
-  if (Number.isNaN(birth.getTime())) return null
-  let age = now.getFullYear() - birth.getFullYear()
-  const m = now.getMonth() - birth.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
+  // Parse a date-only string (YYYY-MM-DD) as a LOCAL calendar date. `new Date('YYYY-MM-DD')`
+  // parses as UTC midnight, which then mis-compares against the local getMonth()/getDate()
+  // below — in negative-UTC-offset zones that shifts the computed age by a day at the
+  // birthday boundary (a child reads as 13/18 one day early). A birthday is a calendar
+  // date, not an instant, so compare calendar components directly.
+  // Take the YYYY-MM-DD date prefix (a DOB is a calendar date, not an instant;
+  // `new Date('YYYY-MM-DD')` parses as UTC and would mis-compare against the local
+  // getMonth()/getDate() below). Reject anything without a valid date prefix and
+  // any impossible calendar date (e.g. 2013-99-99, 2013-02-29) by round-tripping.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dob.trim())
+  if (!m) return null
+  const by = Number(m[1]), bm = Number(m[2]) - 1, bd = Number(m[3])
+  const probe = new Date(by, bm, bd)
+  if (probe.getFullYear() !== by || probe.getMonth() !== bm || probe.getDate() !== bd) return null
+  let age = now.getFullYear() - by
+  const monthDiff = now.getMonth() - bm
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < bd)) age--
   return age
 }
 
