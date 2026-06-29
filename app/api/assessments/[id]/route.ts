@@ -165,7 +165,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const { error } = await supabase
+  // Service-role write (authenticated DB writes on regulated tables are revoked);
+  // scoped by practitioner_id since service-role bypasses RLS.
+  const service = createSupabaseServiceClient()
+  const { error } = await service
     .from('assessments')
     .update(update)
     .eq('id', id)

@@ -65,12 +65,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
+  // Service-role write (authenticated DB writes on regulated tables are revoked).
+  // Re-confirm ownership and refuse edits to a tombstoned (erased) client so a
+  // PATCH can't repopulate PII after a right-to-erasure deletion.
+  const service = createSupabaseServiceClient()
+  const { data: existing } = await service
+    .from('clients').select('deleted_at').eq('id', id).eq('practitioner_id', user.id).maybeSingle()
+  if (!existing) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+  if (existing.deleted_at) {
+    return NextResponse.json({ error: 'This client has been deleted and can no longer be edited.' }, { status: 409 })
+  }
+
   console.log('[api/clients/[id]] PATCH: updating client', id, updates)
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('clients')
     .update(updates)
     .eq('id', id)
     .eq('practitioner_id', user.id)
+    .is('deleted_at', null)
     .select()
     .single()
 
@@ -106,31 +118,25 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
 
   const service = createSupabaseServiceClient()
 
-  const { data: assessments } = await service.from('assessments').select('id').eq('client_id', id)
-  const assessmentIds = (assessments ?? []).map((a) => a.id)
-
-  let capturesPurged = 0
-  if (assessmentIds.length > 0) {
-    const { count } = await service.from('captures').select('id', { count: 'exact', head: true }).in('assessment_id', assessmentIds)
-    capturesPurged = count ?? 0
-
-    const { data: reports } = await service.from('reports').select('storage_path').in('assessment_id', assessmentIds)
-    const paths = (reports ?? []).map((r) => r.storage_path).filter((p): p is string => !!p)
-    if (paths.length > 0) await service.storage.from('posture-reports').remove(paths)
-
-    // Cascades: captures, assessment_findings, exercise_recommendations, reports.
-    await service.from('assessments').delete().in('id', assessmentIds)
+  // Right-to-erasure must be FAIL-CLOSED: if any purge/redaction step errors we
+  // return 500 and do NOT claim success, so the practitioner retries instead of
+  // believing data was erased while remnants remain. Order matters — remove report
+  // files BEFORE the cascade delete (their paths live on the rows we're deleting) —
+  // and every write is scoped by practitioner_id since service-role bypasses RLS.
+  const fail = (where: string, e?: { message?: string } | null) => {
+    console.error(`[api/clients/[id]] DELETE failed ${where}:`, e?.message)
+    return NextResponse.json(
+      { error: `Erasure incomplete (${where}); nothing further was changed — please retry.` },
+      { status: 500 },
+    )
   }
 
-  // Keep the immutable consent event for audit; redact the signer's name (PII).
-  await service.from('consent_records').update({ signer_name: 'REDACTED' }).eq('client_id', id)
-
-  // Remove any outstanding remote-consent links so none can record consent on the
-  // redacted client later (soft-delete doesn't trigger the FK cascade).
-  await service.from('consent_tokens').delete().eq('client_id', id)
-
-  // Redact the client row in place → tombstone.
-  await service.from('clients').update({
+  // Tombstone the client FIRST: redact PII + set deleted_at. Once this commits,
+  // the assessments_reject_deleted_client trigger blocks any NEW assessment for
+  // this client and the consent RPCs refuse it, so the data enumerated below
+  // can't grow under us, and any consent inserted in the lock race is still caught
+  // by the redaction here.
+  const { error: clErr } = await service.from('clients').update({
     first_name: 'REDACTED',
     last_name: 'REDACTED',
     date_of_birth: null,
@@ -140,15 +146,51 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
     notes: null,
     deleted_at: new Date().toISOString(),
     deletion_reason: reason,
-  }).eq('id', id)
+  }).eq('id', id).eq('practitioner_id', user.id)
+  if (clErr) return fail('redacting client', clErr)
 
-  await service.from('client_deletion_log').insert({
+  // Remove consent links, then redact the immutable consent events (signer PII).
+  const { error: tErr } = await service.from('consent_tokens').delete().eq('client_id', id).eq('practitioner_id', user.id)
+  if (tErr) return fail('removing consent links', tErr)
+  const { error: cErr } = await service.from('consent_records').update({ signer_name: 'REDACTED' }).eq('client_id', id).eq('practitioner_id', user.id)
+  if (cErr) return fail('redacting consent records', cErr)
+
+  // Enumerate the now-frozen assessment set to purge report files, then delete by
+  // client_id (cascades captures, findings, recommendations, reports) so nothing
+  // created up to this point is missed.
+  const { data: assessments, error: aErr } = await service
+    .from('assessments').select('id').eq('client_id', id).eq('practitioner_id', user.id)
+  if (aErr) return fail('enumerating assessments', aErr)
+  const assessmentIds = (assessments ?? []).map((a) => a.id)
+
+  let capturesPurged = 0
+  if (assessmentIds.length > 0) {
+    const { count, error: capErr } = await service
+      .from('captures').select('id', { count: 'exact', head: true }).in('assessment_id', assessmentIds)
+    if (capErr) return fail('counting captures', capErr)
+    capturesPurged = count ?? 0
+
+    const { data: reports, error: rErr } = await service
+      .from('reports').select('storage_path').in('assessment_id', assessmentIds)
+    if (rErr) return fail('listing report files', rErr)
+    const reportPaths = (reports ?? []).map((r) => r.storage_path).filter((p): p is string => !!p)
+    if (reportPaths.length > 0) {
+      const { error: remErr } = await service.storage.from('posture-reports').remove(reportPaths)
+      if (remErr) return fail('purging report files', remErr)
+    }
+
+    const { error: delErr } = await service.from('assessments').delete().eq('client_id', id).eq('practitioner_id', user.id)
+    if (delErr) return fail('deleting assessments', delErr)
+  }
+
+  const { error: logErr } = await service.from('client_deletion_log').insert({
     original_client_id: id,
     practitioner_id: user.id,
     reason,
     assessments_purged: assessmentIds.length,
     captures_purged: capturesPurged,
   })
+  if (logErr) return fail('writing deletion log', logErr)
 
   return NextResponse.json({ ok: true, assessments_purged: assessmentIds.length, captures_purged: capturesPurged })
 }

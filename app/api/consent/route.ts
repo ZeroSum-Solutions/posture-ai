@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { CONSENT_VERSION, hashConsent } from '@/lib/consent/policy'
 
@@ -22,14 +22,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing or invalid consent fields' }, { status: 400 })
   }
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('id', client_id)
-    .eq('practitioner_id', user.id)
-    .maybeSingle()
-  if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-
   const signedAt = new Date().toISOString()
   const consentHash = hashConsent({
     consentVersion: CONSENT_VERSION,
@@ -38,19 +30,21 @@ export async function POST(req: NextRequest) {
     signedAt,
   })
 
-  const { error } = await supabase.from('consent_records').insert({
-    client_id,
-    practitioner_id: user.id,
-    kind: 'enrollment',
-    consent_version: CONSENT_VERSION,
-    consent_hash: consentHash,
-    signer_name: signer_name.trim(),
-    signer_relationship,
-    method: 'e_signature',
-    signed_at: signedAt,
+  // Record atomically via a service-role RPC (authenticated DB writes on regulated
+  // tables are revoked). The RPC locks the owned client row and refuses a
+  // tombstoned (erased) one, so consent can't be recorded on a client mid/after a
+  // right-to-erasure deletion — the same guarantee the remote path gets.
+  const service = createSupabaseServiceClient()
+  const { data: result, error } = await service.rpc('record_inperson_consent', {
+    p_client_id: client_id,
+    p_practitioner_id: user.id,
+    p_consent_version: CONSENT_VERSION,
+    p_signer_name: signer_name,
+    p_signer_relationship: signer_relationship,
+    p_consent_hash: consentHash,
+    p_signed_at: signedAt,
   })
   if (error) return NextResponse.json({ error: 'Failed to record consent' }, { status: 500 })
-
-  await supabase.from('clients').update({ consent_recorded_at: signedAt }).eq('id', client_id).eq('practitioner_id', user.id)
+  if (result === 'not_found') return NextResponse.json({ error: 'Client not found' }, { status: 404 })
   return NextResponse.json({ ok: true }, { status: 201 })
 }

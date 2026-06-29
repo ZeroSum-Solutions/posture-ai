@@ -25,8 +25,11 @@ export async function POST(req: NextRequest) {
     .select('id')
     .eq('id', clientId)
     .eq('practitioner_id', user.id)
+    .is('deleted_at', null)
     .maybeSingle()
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+  // The consent_tokens_reject_deleted_client trigger is the race-safe hard guard;
+  // this check just gives a clean 404 in the common (already-deleted) case.
 
   const token = randomUUID()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 
 // Professional-review gate: a practitioner must review and approve an assessment
@@ -17,7 +17,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try { body = await req.json() } catch { /* default approve */ }
   const approved = body.approved !== false
 
-  const { error } = await supabase
+  // Service-role write (authenticated DB writes on regulated tables are revoked);
+  // scoped by practitioner_id since service-role bypasses RLS.
+  const service = createSupabaseServiceClient()
+  const { error } = await service
     .from('assessments')
     .update({
       practitioner_approved: approved,

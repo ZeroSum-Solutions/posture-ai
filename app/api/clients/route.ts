@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { CONSENT_VERSION, hashConsent } from '@/lib/consent/policy'
 import { NextRequest, NextResponse } from 'next/server'
@@ -62,7 +62,12 @@ export async function POST(req: NextRequest) {
   if (weight_kg != null) row.weight_kg = weight_kg
   if (notes) row.notes = notes
 
-  const { data, error } = await supabase.from('clients').insert(row).select().single()
+  // Writes go through the service-role client: direct DB-write grants on regulated
+  // tables are revoked from `authenticated` (regulatory_hardening_v2), so the API
+  // is the sole writer and the gates above are the real enforcement. Ownership is
+  // set/scoped on every write since service-role bypasses RLS.
+  const service = createSupabaseServiceClient()
+  const { data, error } = await service.from('clients').insert(row).select().single()
   if (error) {
     console.error('[api/clients] POST error:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -76,22 +81,22 @@ export async function POST(req: NextRequest) {
       signerRelationship: signer_relationship as string,
       signedAt,
     })
-    const { error: cErr } = await supabase.from('consent_records').insert({
-      client_id: data.id,
-      practitioner_id: user.id,
-      kind: 'enrollment',
-      consent_version: CONSENT_VERSION,
-      consent_hash: consentHash,
-      signer_name: (signer_name as string).trim(),
-      signer_relationship,
-      method: 'e_signature',
-      signed_at: signedAt,
+    // Atomic via the same locked RPC as /api/consent: consent insert + client
+    // stamp in one transaction, with the client row locked + deleted-checked. This
+    // also closes the window between the client insert above and the consent write.
+    const { data: cResult, error: cErr } = await service.rpc('record_inperson_consent', {
+      p_client_id: data.id,
+      p_practitioner_id: user.id,
+      p_consent_version: CONSENT_VERSION,
+      p_signer_name: signer_name as string,
+      p_signer_relationship: signer_relationship,
+      p_consent_hash: consentHash,
+      p_signed_at: signedAt,
     })
-    if (cErr) {
-      console.error('[api/clients] POST consent error:', cErr.message)
+    if (cErr || cResult !== 'ok') {
+      console.error('[api/clients] POST consent error:', cErr?.message ?? cResult)
       return NextResponse.json({ error: 'Client created but consent could not be recorded. Record consent before screening.', client: data }, { status: 201 })
     }
-    await supabase.from('clients').update({ consent_recorded_at: signedAt }).eq('id', data.id).eq('practitioner_id', user.id)
     ;(data as Record<string, unknown>).consent_recorded_at = signedAt
   }
 

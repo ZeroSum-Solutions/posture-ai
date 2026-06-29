@@ -65,7 +65,10 @@ export async function GET() {
     return NextResponse.json({ organization: null })
   }
 
-  const { data: org } = await supabase
+  // Read with service-role: organizations RLS is now own-org-scoped; this is the
+  // caller's own org id, derived from their practitioner row (no IDOR).
+  const service = createSupabaseServiceClient()
+  const { data: org } = await service
     .from('organizations')
     .select(ORG_FIELDS)
     .eq('id', prac.organization_id)
