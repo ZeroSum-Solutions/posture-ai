@@ -51,15 +51,17 @@ e2e/muscle-kb.spec.ts:38
 
 - **[2026-06-28] Iteration 5 — Phase 2 spec (4/9): client list/search.** Added `e2e/clients.spec.ts` — creates two uniquely-tokened clients, asserts both list on `/clients`, a token search narrows to one, clearing restores both. Verified full suite **25/0/2 green** (27 tests), lint + typecheck. (commit `2585f73`)
 
-## Current suite state (2026-06-28, post-iteration-5)
-- `npm run test:e2e` (`retries:0`): **25 passed · 0 failed · 2 intentional skips** → **fully green** (27 tests).
+- **[2026-06-28] Iteration 6 — client mutation: archive (+ edit-feature finding).** Confirmed the app has **no client-edit feature** (no edit UI on `app/clients/[id]/page.tsx`, no edit subroute, `PATCH /api/clients/[id]` accepts only `archived_at`). Implemented the real client-mutation flow instead — `e2e/clients.spec.ts` now archives a throwaway client (confirm dialog → dropped from the active list; a keeper proves the list rendered). Verified full suite **27/0/2 green** (29 tests), lint + typecheck. (commit `baac946`) See **Escalations** re: "client edit".
+
+## Current suite state (2026-06-28, post-iteration-6)
+- `npm run test:e2e` (`retries:0`): **27 passed · 0 failed · 2 intentional skips** → **fully green** (29 tests).
 - The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 5 complete)
+- (none — iteration 6 complete)
 
 ## Next up
-- **Iteration 6:** client edit. `/clients/[id]` (app/clients/[id]/page.tsx) — confirm the edit affordance (inline form vs. dedicated edit view), change a field, save, and assert the change persists (reload or re-fetch). Then remaining Required: wizard back-navigation → abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge.
+- **Iteration 7:** wizard back-navigation. `/assessments/new` (app/assessments/new/page.tsx) — start the wizard, advance a step, use the Back control, assert the prior step's state is intact. Then remaining Required: abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge.
 
 ## Backlog / deferred (priority order)
 
@@ -71,7 +73,7 @@ e2e/muscle-kb.spec.ts:38
 Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't duplicate); unique client names via `crypto.randomUUID().slice(0,8)` (NOT the `Date.now().slice(-7)` truncation, which can collide).
 - [x] unauthenticated redirect to sign-in — `e2e/auth-access.spec.ts` (iter 3)
 - [x] logout — `e2e/logout.spec.ts` (iter 4)
-- [ ] client edit
+- [~] client edit — **N/A: no edit feature exists** (no edit UI; `PATCH /api/clients/[id]` accepts only `archived_at`). Pending human confirmation; client **archive** covered instead — `e2e/clients.spec.ts` (iter 6). See Escalations.
 - [x] client list/search — `e2e/clients.spec.ts` (iter 5)
 - [ ] wizard back-navigation
 - [ ] abandon mid-wizard
@@ -96,6 +98,9 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 
 ---
 
+## Escalations (human decisions needed)
+- **"Client edit" Required spec has no corresponding feature.** `app/clients/[id]/page.tsx` exposes only Archive + a read-only Info tab; no edit subroute; `PATCH /api/clients/[id]` whitelists only `archived_at`. A UI edit test is impossible without building the feature, which is out of this loop's scope (tests only; not a product bug). Covered client **archive** instead (the real mutation). **Decision needed:** accept archive coverage in lieu of edit, or schedule a client-edit feature outside the loop. Logged here, not silently skipped.
+
 ## Known flakes / risks
 - No flake observed in the baseline run — the 2 failures are deterministic count-drift, not flake.
 - **Stale local seed / stray `:3100` server** can taint runs → always `npx supabase db reset` + clear `:3100` before a clean run (done this iteration).
@@ -104,4 +109,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green, but **4 of 9** Required Phase-2 specs done (5 remain), no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **4 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 4 remaining** (wizard back-nav, abandon mid-wizard, empty-state, unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
