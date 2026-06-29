@@ -59,15 +59,17 @@ e2e/muscle-kb.spec.ts:38
 
 - **[2026-06-28] Iteration 9 — Phase 2 spec: client empty-state.** Added to `e2e/clients.spec.ts` — fresh client → `/clients/[id]` shows "No assessments yet" + "+ New Assessment" CTA; Progress/Compare tabs absent (<2 assessments), Assessments/Info present. Verified full suite **33/0/2 green** (35 tests), lint + typecheck. (commit `a933f6e`)
 
-## Current suite state (2026-06-28, post-iteration-9)
-- `npm run test:e2e` (`retries:0`): **33 passed · 0 failed · 2 intentional skips** → **fully green** (35 tests).
-- The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
+- **[2026-06-28] Iteration 10 — Phase 2 spec: unreviewed-content badge (Phase 2 COMPLETE).** Added `e2e/unreviewed-content.spec.ts` — unreviewed muscle page (`/muscles/upper-trapezius`; all 29 seeded muscles have `reviewed_at` NULL) shows the "Pending review" badge in dev/preview (gate: `flag==='1' || NODE_ENV!=='production'`). Verified full suite **35/0/2 green** (37 tests), lint + typecheck. (commit `defe7f3`) **All 8 Required Phase-2 specs implemented** + client edit N/A.
+
+## Current suite state (2026-06-28, post-iteration-10)
+- `npm run test:e2e` (`retries:0`): **35 passed · 0 failed · 2 intentional skips** → **fully green** (37 tests).
+- The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — run after Phase 3 (docs), since the suite stops changing then.
 
 ## In progress
-- (none — iteration 9 complete)
+- (none — iteration 10 complete; **Phase 2 done**)
 
 ## Next up
-- **Iteration 10:** unreviewed-content badge (**last Required**). Find where the app gates the unreviewed/"reviewed" badge via `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` (muscles/exercises). Confirm the e2e env's flag value (run-e2e.mjs / config), then assert the badge's presence/absence accordingly on a muscle or exercise page. After that: **Phase 3** docs (`e2e/README.md`) + **Phase 4** end-gates (3× CI-mimic, full `checks` chain: lint+typecheck+vitest+engine+build).
+- **Iteration 11 (Phase 3 — docs):** write `e2e/README.md` (how to run, prereqs, project matrix, test-mode, how to add a spec, flake policy incl. the webkit getUser-race + shared-session/global-signOut notes), check `e2e/fixtures/photos/README.md` accuracy, confirm `docs/RUNBOOK.md` testing section still matches. Then **Phase 4**: full `checks` chain (lint+typecheck+vitest+engine+build) + 3× plain + 3× CI-mimic end-gates.
 
 ## Backlog / deferred (priority order)
 
@@ -85,7 +87,7 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [x] abandon mid-wizard — `e2e/wizard-nav.spec.ts` (iter 8)
 - [x] empty-state when a client has no assessments — `e2e/clients.spec.ts` (iter 9)
 - [x] `/api/health` happy path — `e2e/health.spec.ts` (iter 3)
-- [ ] unreviewed-content badge behavior (dev/preview)
+- [x] unreviewed-content badge behavior (dev/preview) — `e2e/unreviewed-content.spec.ts` (iter 10)
 
 ### Phase 2 — deferrable (log a concrete blocker when deferring)
 - session expiry (timing-dependent), real PDF render/download (`@react-pdf` heavy), multi-assessment progress chart (needs multi-assessment seeding), `mobile-webkit` camera capture (WebKit camera constraints).
@@ -116,4 +118,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **7 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 1 remaining** (unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **8 implemented + 1 N/A (client edit — no feature → pending human confirmation), 0 remaining → Phase 2 COMPLETE**. Plus client archive as a bonus. Still pending: **Phase 3** (`e2e/README.md`, fixtures/RUNBOOK accuracy) and **Phase 4** (full `checks` chain: lint+typecheck+vitest+engine+build; 3× plain + 3× CI-mimic end-gates). Completion token must NOT be emitted.
