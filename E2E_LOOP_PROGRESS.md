@@ -55,15 +55,17 @@ e2e/muscle-kb.spec.ts:38
 
 - **[2026-06-28] Iteration 7 — Phase 2 spec: wizard back-navigation.** Added `e2e/wizard-nav.spec.ts` — test-mode wizard: select client (step 1) → Next → step 2 → Back, asserts step 1 still shows the client selected (Next enabled + "✓ Selected"). Verified full suite **29/0/2 green** (31 tests), lint + typecheck. (commit `00d9863`)
 
-## Current suite state (2026-06-28, post-iteration-7)
-- `npm run test:e2e` (`retries:0`): **29 passed · 0 failed · 2 intentional skips** → **fully green** (31 tests).
+- **[2026-06-28] Iteration 8 — Phase 2 spec: abandon mid-wizard.** Added to `e2e/wizard-nav.spec.ts` — reach step 2 (test mode), leave via "← Back to Clients", assert via `/api/clients/[id]/assessments` that none was created. (First attempt asserted via the detail-page UI and flaked on webkit — a client-side `getUser` race on chained navigations; switched to an API assertion for determinism.) Verified full suite **31/0/2 green** (33 tests), lint + typecheck. (commit `df1911b`)
+
+## Current suite state (2026-06-28, post-iteration-8)
+- `npm run test:e2e` (`retries:0`): **31 passed · 0 failed · 2 intentional skips** → **fully green** (33 tests).
 - The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 7 complete)
+- (none — iteration 8 complete)
 
 ## Next up
-- **Iteration 8:** abandon mid-wizard. Start the wizard (test mode), select a client / reach step 2, then navigate away (← Back to Clients, or a NavBar link) and assert a clean exit — no assessment was created for that client (its detail page shows "No assessments yet"). Then remaining Required: empty-state (client with no assessments) → unreviewed-content badge.
+- **Iteration 9:** empty-state (client with no assessments). Fresh client → `/clients/[id]` shows "No assessments yet" + the "+ New Assessment" CTA, and (since <2 assessments) no Progress/Compare tabs. Use a single clean `goto` (avoid the chained-nav webkit getUser race). Then the last Required: unreviewed-content badge (dev/preview).
 
 ## Backlog / deferred (priority order)
 
@@ -78,7 +80,7 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [~] client edit — **N/A: no edit feature exists** (no edit UI; `PATCH /api/clients/[id]` accepts only `archived_at`). Pending human confirmation; client **archive** covered instead — `e2e/clients.spec.ts` (iter 6). See Escalations.
 - [x] client list/search — `e2e/clients.spec.ts` (iter 5)
 - [x] wizard back-navigation — `e2e/wizard-nav.spec.ts` (iter 7)
-- [ ] abandon mid-wizard
+- [x] abandon mid-wizard — `e2e/wizard-nav.spec.ts` (iter 8)
 - [ ] empty-state when a client has no assessments
 - [x] `/api/health` happy path — `e2e/health.spec.ts` (iter 3)
 - [ ] unreviewed-content badge behavior (dev/preview)
@@ -107,8 +109,9 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - No flake observed in the baseline run — the 2 failures are deterministic count-drift, not flake.
 - **Stale local seed / stray `:3100` server** can taint runs → always `npx supabase db reset` + clear `:3100` before a clean run (done this iteration).
 - **Shared practitioner account + serial run** → new specs must use fully-unique client names and rely on `db reset` between full runs to avoid name-selector aliasing.
+- **Webkit client-side `getUser` race:** chaining `/clients` → `/clients/[id]` navigations quickly can abort the detail page's `getUser` fetch ("Load failed") → false redirect to sign-in. Prefer asserting client data via `page.request` API calls (or a single clean `goto`) over rapid UI navigation chains (see the iter-8 abandon test).
 
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **5 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 3 remaining** (abandon mid-wizard, empty-state, unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **6 implemented + 1 N/A (client edit — no feature → pending human confirmation) + 2 remaining** (empty-state, unreviewed badge). Plus client archive covered as a bonus. Also: no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
