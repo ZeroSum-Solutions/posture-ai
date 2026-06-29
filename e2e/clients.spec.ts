@@ -1,6 +1,20 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
+
+// On a cold `next dev` server (as on CI) a route compiles on-demand and a
+// controlled input can discard a value typed before React hydrates the freshly
+// loaded page. Re-fill until the value sticks so a fresh-goto form fill is
+// deterministic regardless of hydration timing (this does not loosen any
+// assertion — it still requires the exact value to be present).
+async function fillField(page: Page, label: string | RegExp, value: string) {
+  const field = page.getByLabel(label)
+  await expect(field).toBeVisible()
+  await expect(async () => {
+    await field.fill(value)
+    expect(await field.inputValue()).toBe(value)
+  }).toPass({ timeout: 15_000 })
+}
 
 // Client list + search (Required Phase-2 coverage). /clients (app/clients/page.tsx)
 // is a client component that fetches the practitioner's non-archived clients and
@@ -90,8 +104,8 @@ test.describe('client create form', () => {
     const token = randomUUID().slice(0, 8)
     await page.goto('/clients/new')
 
-    await page.getByLabel('First Name').fill('E2E')
-    await page.getByLabel('Last Name').fill(`Form-${token}`)
+    await fillField(page, 'First Name', 'E2E')
+    await fillField(page, 'Last Name', `Form-${token}`)
 
     // Consent is required: submitting unchecked shows the error and does not navigate.
     await page.getByRole('button', { name: 'Create Client' }).click()
