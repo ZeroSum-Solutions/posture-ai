@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface Params { id: string }
@@ -8,6 +9,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   let body: Record<string, unknown> = {}
   try { body = await req.json() } catch { /* empty body ok */ }

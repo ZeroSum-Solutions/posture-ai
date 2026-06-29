@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const gate = await practitionerGate(supabase, user.id)
+    if (gate) return gate
     const userHash = hashUser(user.id)
 
     const contentLength = Number(req.headers.get('content-length') ?? 0)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
 
   const allowed = await enforceRateLimit(createSupabaseServiceClient(), {
     route: 'reports', userId: user.id, limit: 10, windowSeconds: 60,
