@@ -47,16 +47,17 @@ e2e/muscle-kb.spec.ts:38
 - **[2026-06-28] Iteration 1 — baseline established.** Reset local DB to CI-faithful state, cleared stale `:3100` server, ran full suite, gathered DB ground truth, recorded lint/typecheck, created this file. (commit `16ce612`)
 - **[2026-06-28] Iteration 2 — Phase 1 green.** Fixed `muscle-kb.spec.ts:38` count 28→29 — proven legitimate seed growth (seed `20260612020000` inserts 28; migration `20260627000000_muscle_evidence_reconciliation.sql` adds 1; DB = 29 distinct, no dupes; trapezius = 3 so line-41 kept). Verified muscle-kb green both projects, then full suite green, then lint + typecheck. (commit `4f0ea9a`)
 - **[2026-06-28] Iteration 3 — Phase 2 specs (2/9).** Added `e2e/health.spec.ts` (`GET /api/health` → 200 ok/connected/schema ready) and `e2e/auth-access.spec.ts` (`/dashboard` server-redirect + `/clients` client-redirect → `/auth/sign-in` when signed out; storageState emptied). Verified new specs green both projects, then full suite **21/0/2 green**, lint + typecheck. (commit `f86a524`)
+- **[2026-06-28] Iteration 4 — Phase 2 spec (3/9): logout.** Added `e2e/logout.spec.ts` — NavBar logout (desktop button + mobile hamburger) → `/auth/sign-in` + cleared session (protected page bounces back). Discovered the app's `signOut()` is GLOBAL scope (GoTrue revokes the shared session immediately, not at JWT expiry), which poisoned specs running after logout; fixed by re-signing-in + re-saving `e2e/.auth/user.json` in `afterEach` (runs on failure too → no cascade). Verified full suite **23/0/2 green** (muscle-kb/real-detection run after logout and stay green). (commit `384b352`)
 
-## Current suite state (2026-06-28, post-iteration-3)
-- `npm run test:e2e` (`retries:0`): **21 passed · 0 failed · 2 intentional skips** → **fully green** (23 tests; +6 from the new health/auth-access specs across both projects).
+## Current suite state (2026-06-28, post-iteration-4)
+- `npm run test:e2e` (clean db-reset run, `retries:0`): **23 passed · 0 failed · 2 intentional skips** → **fully green** (25 tests).
 - The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — are END verifications to run after Phase 2/3, since adding Required specs keeps changing the suite.
 
 ## In progress
-- (none — iteration 3 complete)
+- (none — iteration 4 complete)
 
 ## Next up
-- **Iteration 4:** continue Phase 2 Required specs. Remaining order: logout → client list/search → client edit → wizard back-navigation → abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge. One spec (or tight group) per iteration, each verified + committed. (Logout: sign-out is `POST /api/auth/sign-out`; find the UI control in dashboard/settings and assert it lands signed-out at `/auth/sign-in`.)
+- **Iteration 5:** continue Phase 2 Required specs. Remaining order: client list/search → client edit → wizard back-navigation → abandon mid-wizard → empty-state (client with no assessments) → unreviewed-content badge. One spec (or tight group) per iteration, verified + committed. (Clients list/search: `/clients` is a client component reading `/api/clients`; create 2 uniquely-named clients via the `createClient` helper, assert both appear, then type in the search box and assert it narrows. Use `crypto.randomUUID().slice(0,8)` names to stay collision-safe.)
 
 ## Backlog / deferred (priority order)
 
@@ -67,7 +68,7 @@ e2e/muscle-kb.spec.ts:38
 ### Phase 2 — coverage gaps — **Required (not deferrable)**
 Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't duplicate); unique client names via `crypto.randomUUID().slice(0,8)` (NOT the `Date.now().slice(-7)` truncation, which can collide).
 - [x] unauthenticated redirect to sign-in — `e2e/auth-access.spec.ts` (iter 3)
-- [ ] logout
+- [x] logout — `e2e/logout.spec.ts` (iter 4)
 - [ ] client edit
 - [ ] client list/search
 - [ ] wizard back-navigation
@@ -101,4 +102,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green, but **2 of 9** Required Phase-2 specs done (7 remain), no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: suite green, but **3 of 9** Required Phase-2 specs done (6 remain), no `e2e/README.md`, `vitest`/engine/`build` not yet measured this loop, and the 3×-streak + 3× CI-mimic end-gates are unrun. Completion token must NOT be emitted.
