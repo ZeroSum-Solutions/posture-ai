@@ -23,6 +23,11 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const [orgName, setOrgName] = useState('')
+  const [isCoveredEntity, setIsCoveredEntity] = useState(false)
+  const [baaStatus, setBaaStatus] = useState<'not_required' | 'pending' | 'signed'>('not_required')
+  const [baaSignedAt, setBaaSignedAt] = useState('')
+  const [orgSaving, setOrgSaving] = useState(false)
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
@@ -51,6 +56,20 @@ export default function SettingsPage() {
     })
   }, [router])
 
+  useEffect(() => {
+    fetch('/api/settings/organization')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        const org = j?.organization
+        if (!org) return
+        setOrgName(org.name || '')
+        setIsCoveredEntity(!!org.is_covered_entity)
+        setBaaStatus(org.baa_status || 'not_required')
+        setBaaSignedAt(org.baa_signed_at ? String(org.baa_signed_at).slice(0, 10) : '')
+      })
+      .catch(() => {})
+  }, [])
+
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message })
     setTimeout(() => setToast(null), 4000)
@@ -76,6 +95,41 @@ export default function SettingsPage() {
       showToast('error', 'Network error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSaveOrg(e: React.FormEvent) {
+    e.preventDefault()
+    setOrgSaving(true)
+    try {
+      const payload = {
+        name: orgName.trim() || undefined,
+        is_covered_entity: isCoveredEntity,
+        baa_status: baaStatus,
+        baa_signed_at: baaStatus === 'signed' ? (baaSignedAt || undefined) : null,
+      }
+      const res = await fetch('/api/settings/organization', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        showToast('error', json.error || 'Failed to save organization')
+      } else {
+        const org = json.organization
+        if (org) {
+          setOrgName(org.name || '')
+          setIsCoveredEntity(!!org.is_covered_entity)
+          setBaaStatus(org.baa_status || 'not_required')
+          setBaaSignedAt(org.baa_signed_at ? String(org.baa_signed_at).slice(0, 10) : '')
+        }
+        showToast('success', 'Organization settings saved')
+      }
+    } catch {
+      showToast('error', 'Network error')
+    } finally {
+      setOrgSaving(false)
     }
   }
 
@@ -228,6 +282,107 @@ export default function SettingsPage() {
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
+        </form>
+      </div>
+
+      {/* Organization & Compliance section */}
+      <div style={cardStyle}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>Organization &amp; Compliance</h2>
+        <form onSubmit={handleSaveOrg}>
+          <div style={{ marginBottom: '16px' }}>
+            <label htmlFor="org_name" style={labelStyle}>Organization Name</label>
+            <input
+              id="org_name"
+              type="text"
+              value={orgName}
+              onChange={e => setOrgName(e.target.value)}
+              placeholder="Your organization name"
+              aria-label="Organization name"
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <input
+              id="covered_entity"
+              type="checkbox"
+              checked={isCoveredEntity}
+              onChange={e => setIsCoveredEntity(e.target.checked)}
+              style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#6366F1', cursor: 'pointer' }}
+            />
+            <label htmlFor="covered_entity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
+              This organization is a HIPAA covered entity
+              <span style={{ display: 'block', color: '#8A8A93', fontSize: '0.8rem', marginTop: '4px' }}>
+                Turning this on requires a signed Business Associate Agreement before practitioner mode can be used.
+              </span>
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label htmlFor="baa_status" style={labelStyle}>Business Associate Agreement (BAA) status</label>
+            <select
+              id="baa_status"
+              value={baaStatus}
+              onChange={e => setBaaStatus(e.target.value as 'not_required' | 'pending' | 'signed')}
+              aria-label="BAA status"
+              style={inputStyle}
+            >
+              <option value="not_required">Not required</option>
+              <option value="pending">Pending</option>
+              <option value="signed">Signed</option>
+            </select>
+          </div>
+
+          {baaStatus === 'signed' && (
+            <div style={{ marginBottom: '16px' }}>
+              <label htmlFor="baa_signed_at" style={labelStyle}>BAA signed date</label>
+              <input
+                id="baa_signed_at"
+                type="date"
+                value={baaSignedAt}
+                onChange={e => setBaaSignedAt(e.target.value)}
+                aria-label="BAA signed date"
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          {isCoveredEntity && baaStatus !== 'signed' && (
+            <p
+              role="status"
+              style={{
+                fontSize: '0.82rem',
+                color: '#FBBF24',
+                background: 'rgba(251,191,36,0.1)',
+                border: '1px solid rgba(251,191,36,0.3)',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                marginBottom: '16px',
+              }}
+            >
+              Practitioner mode is currently blocked for this organization until a signed BAA is recorded.
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={orgSaving}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              background: orgSaving ? 'rgba(99,102,241,0.4)' : '#6366F1',
+              color: orgSaving ? '#9CA3AF' : '#fff',
+              border: 'none',
+              cursor: orgSaving ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+            }}
+          >
+            {orgSaving ? 'Saving...' : 'Save Organization'}
+          </button>
+          <p style={{ fontSize: '0.8rem', color: '#8A8A93', marginTop: '10px' }}>
+            These compliance details are self-attested by you and control whether the BAA gate applies.
+          </p>
         </form>
       </div>
 
