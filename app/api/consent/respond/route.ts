@@ -18,36 +18,51 @@ export async function POST(req: NextRequest) {
   }
 
   const service = createSupabaseServiceClient()
-  const { data: tok } = await service.from('consent_tokens').select('*').eq('token', token).maybeSingle()
-  if (!tok) return NextResponse.json({ error: 'Invalid consent link.' }, { status: 404 })
-  if (tok.consumed_at) return NextResponse.json({ error: 'This consent link has already been used.' }, { status: 410 })
-  if (new Date(tok.expires_at).getTime() < Date.now()) {
+  const signedAt = new Date().toISOString()
+
+  // Atomically claim the single-use token: the UPDATE only matches an unconsumed,
+  // unexpired token, so two concurrent requests can't both succeed (prevents a
+  // TOCTOU duplicate-consent race — single-use is enforced by the DB write).
+  const { data: claimed } = await service
+    .from('consent_tokens')
+    .update({ consumed_at: signedAt })
+    .eq('token', token)
+    .is('consumed_at', null)
+    .gt('expires_at', signedAt)
+    .select('client_id, practitioner_id, consent_version')
+    .maybeSingle()
+
+  if (!claimed) {
+    const { data: tok } = await service.from('consent_tokens').select('consumed_at').eq('token', token).maybeSingle()
+    if (!tok) return NextResponse.json({ error: 'Invalid consent link.' }, { status: 404 })
+    if (tok.consumed_at) return NextResponse.json({ error: 'This consent link has already been used.' }, { status: 410 })
     return NextResponse.json({ error: 'This consent link has expired.' }, { status: 410 })
   }
 
-  const signedAt = new Date().toISOString()
   const consentHash = hashConsent({
-    consentVersion: tok.consent_version,
+    consentVersion: claimed.consent_version,
     signerName: signer_name,
     signerRelationship: signer_relationship,
     signedAt,
   })
 
   const { error: insErr } = await service.from('consent_records').insert({
-    client_id: tok.client_id,
-    practitioner_id: tok.practitioner_id,
+    client_id: claimed.client_id,
+    practitioner_id: claimed.practitioner_id,
     kind: 'enrollment',
-    consent_version: tok.consent_version,
+    consent_version: claimed.consent_version,
     consent_hash: consentHash,
     signer_name: signer_name.trim(),
     signer_relationship,
     method: 'remote_link',
     signed_at: signedAt,
   })
-  if (insErr) return NextResponse.json({ error: 'Failed to record consent.' }, { status: 500 })
+  if (insErr) {
+    // Roll back the claim so the subject can retry.
+    await service.from('consent_tokens').update({ consumed_at: null }).eq('token', token)
+    return NextResponse.json({ error: 'Failed to record consent.' }, { status: 500 })
+  }
 
-  await service.from('consent_tokens').update({ consumed_at: signedAt }).eq('token', token)
-  await service.from('clients').update({ consent_recorded_at: signedAt }).eq('id', tok.client_id)
-
+  await service.from('clients').update({ consent_recorded_at: signedAt }).eq('id', claimed.client_id)
   return NextResponse.json({ ok: true })
 }

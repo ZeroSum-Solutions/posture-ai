@@ -48,4 +48,31 @@ test.describe('capture consent + age gate', () => {
     expect(res.status()).toBe(403)
     expect((await res.json()).error).toMatch(/consent/i)
   })
+
+  test('remote consent link records consent (single-use) and unlocks capture', async ({ page }) => {
+    const c = await createClient(page, 'E2E', `Remote-${tag()}`, { dateOfBirth: dob(30), remote: true })
+
+    // Remote-pending → blocked until consent arrives.
+    expect((await assess(page, c.id)).status()).toBe(403)
+
+    // Practitioner mints the remote link.
+    const link = await page.request.post('/api/consent/link', { data: { client_id: c.id } })
+    expect(link.ok(), `link failed: ${link.status()}`).toBeTruthy()
+    const token = String((await link.json()).url).split('/consent/')[1]
+
+    // Subject completes it (public endpoint).
+    const respond = await page.request.post('/api/consent/respond', {
+      data: { token, signer_name: 'Adult Subject', signer_relationship: 'self' },
+    })
+    expect(respond.ok(), `respond failed: ${respond.status()}`).toBeTruthy()
+
+    // Single-use: a second submission with the same token is rejected.
+    const again = await page.request.post('/api/consent/respond', {
+      data: { token, signer_name: 'Adult Subject', signer_relationship: 'self' },
+    })
+    expect(again.status()).toBe(410)
+
+    // Capture is now allowed.
+    expect((await assess(page, c.id)).ok()).toBeTruthy()
+  })
 })

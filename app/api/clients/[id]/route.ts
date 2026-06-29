@@ -125,6 +125,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
   // Keep the immutable consent event for audit; redact the signer's name (PII).
   await service.from('consent_records').update({ signer_name: 'REDACTED' }).eq('client_id', id)
 
+  // Remove any outstanding remote-consent links so none can record consent on the
+  // redacted client later (soft-delete doesn't trigger the FK cascade).
+  await service.from('consent_tokens').delete().eq('client_id', id)
+
   // Redact the client row in place → tombstone.
   await service.from('clients').update({
     first_name: 'REDACTED',
