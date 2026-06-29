@@ -63,17 +63,31 @@ e2e/muscle-kb.spec.ts:38
 - **[2026-06-28] Iteration 11 — Phase 3 (docs) COMPLETE.** Added `e2e/README.md` (prereqs, run + CI-mimic, project matrix + intentional skips, spec inventory, test-mode, how-to-add, flake policy). Documented the `no-person.png` negative fixture in `fixtures/photos/README.md`. Verified `docs/RUNBOOK.md` testing section accurate (run procedure unchanged) and that all 11 specs + `auth.setup` carry top-of-file comments. Docs-only → suite unchanged; lint + typecheck green. (commit `d3bf1f8`)
 - **[2026-06-28] Iteration 12 — Phase 4: CI `checks` chain green + `ci.yml` confirmed.** Ran the full chain locally: lint ✓, typecheck ✓, `vitest run` **219 passed** (23 files), `npm test -w @posture-ai/engine` **60 passed** (4 files), `npm run build` ✓ (compiled + 24 static pages). Confirmed `.github/workflows/ci.yml` runs that exact `checks` chain plus an `e2e` job (`supabase start -x …`, `playwright install --with-deps chromium webkit`, `npm run test:e2e`, failure-artifact upload); new specs are auto-discovered via `testDir`, so no ci.yml change is needed. Verification only — no code change.
 - **[2026-06-28] Iteration 13 — Phase 4 durability gate A: 3× plain green.** Ran `npm run test:e2e` three times consecutively (clearing `:3100` between runs): **35 passed · 0 failed · 2 skipped** each (49.7s / 50.0s / 50.2s), exit 0 all three. Plain-run durability confirmed — no flake.
+- **[2026-06-28] Iteration 14 — Phase 4 durability gate B: 3× CI-mimic green.** Ran `npx supabase db reset` + `CI=1 npm run test:e2e` three times consecutively: reset exit 0 + run exit 0 each, **35 passed · 0 failed · 2 skipped** (49.6s / 49.9s / 50.1s), **0 flaky** all three. CI-mimic durability confirmed. **All loop-verifiable DoD boxes are now green** → `E2E_LOOP_COMPLETE` emitted.
 
-## Current suite state (2026-06-28, post-iteration-13)
+## Current suite state (2026-06-28, post-iteration-14) — ✅ LOOP COMPLETE
 - `npm run test:e2e` (`retries:0`): **35 passed · 0 failed · 2 intentional skips** (37 tests).
 - Full CI `checks` chain (iter 12): lint ✓ · typecheck ✓ · vitest 219/219 ✓ · engine 60/60 ✓ · build ✓. `ci.yml` confirmed.
-- **Plain durability gate A (iter 13): 3× consecutive green** (49.7s / 50.0s / 50.2s, all 35/0/2). ✅
+- **Durability gate A (iter 13): 3× plain green** (all 35/0/2). ✅
+- **Durability gate B (iter 14): 3× CI-mimic green** (`db reset` + `CI=1 test:e2e`, all 35/0/2, 0 flaky). ✅
 
-## In progress
-- (none — iteration 13 complete)
+## Definition of Done — final status
+- [x] `npm run test:e2e` 100% green on both projects, **3× in a row** (gate A), **zero dodge-skips** — the 2 skips are pre-existing intentional (a11y on mobile-webkit).
+- [x] Every Required Phase-2 spec implemented + green (8) — **except `client edit`, which has no feature in the app** (see Escalations / Pending human confirmation). Client **archive** covered as the real mutation. Deferrable candidates deferred with technical reasons.
+- [x] `e2e/README.md` exists + accurate; fixtures + RUNBOOK match reality.
+- [x] Local CI-mimic green **3×** on both projects (gate B). Real GitHub `checks`+`e2e` = pending human confirmation.
+- [x] Full CI `checks` chain green locally (lint + typecheck + vitest 219 + engine 60 + build).
+- [x] This progress file is current with no open critical items.
 
-## Next up
-- **Iteration 14 — durability gate B (last loop-verifiable item):** 3× consecutive `npx supabase db reset` + `CI=1 npm run test:e2e` (CI's clean stack, `retries:1`, HTML reporter, fresh server), both projects. If 3× green, every loop-verifiable DoD box is green → write the final summary + pending-human items (GitHub CI; client-edit decision) and emit `E2E_LOOP_COMPLETE`.
+## Pending human confirmation (loop cannot self-verify)
+1. **GitHub CI green** — the loop must not push `main` or open a PR, so it cannot trigger the real `checks`+`e2e` runs. ⚠️ GitHub Actions minutes were exhausted as of 2026-06-12 — a human must confirm billing, open a PR from `e2e-hardening`, and confirm both jobs pass.
+2. **`client edit` coverage decision** — no edit feature exists (no UI; `PATCH /api/clients/[id]` accepts only `archived_at`). Accept client **archive** coverage in lieu of edit, or build a client-edit feature outside this loop (then add its spec).
+3. **Deferred Phase-2 candidates** — session expiry, real PDF render/download, multi-assessment progress chart, mobile-webkit camera capture (each has a logged technical reason). Sign off, or schedule.
+
+## Handoff
+- All work is on `e2e-hardening` (base `main` @ `f3c9c8a`). **No** `main` push / PR / merge / `zs-land` / deploy was performed. `packages/posture-engine` + `supabase/migrations/` untouched.
+- `E2E_LOOP_PROMPT.md` remains untracked (the loop reads it from disk).
+- Next human steps: review the branch → decide #2 → sort GitHub Actions billing (#1) → open a PR → confirm real CI.
 
 ## Backlog / deferred (priority order)
 
@@ -106,7 +120,7 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 - [x] Confirm `.github/workflows/ci.yml` (supabase `start` excludes, `playwright install --with-deps chromium webkit`, on-failure artifact upload) still holds — verified iter 12; new specs auto-discovered via `testDir`, no change needed.
 - [x] Full `checks` chain green locally (iter 12): lint ✓ · typecheck ✓ · vitest 219 ✓ · engine 60 ✓ · build ✓.
 - [x] Plain durability: 3× consecutive green `npm run test:e2e`, both projects (iter 13: 35/0/2 ×3).
-- [ ] Local CI mimic durability: `npx supabase db reset` + `CI=1 npm run test:e2e`, both projects, **3× green**.
+- [x] Local CI mimic durability: `npx supabase db reset` + `CI=1 npm run test:e2e`, both projects, **3× green** (iter 14: 35/0/2 ×3, 0 flaky).
 - [ ] GitHub CI = **pending human confirmation** (loop must not push `main` / open PR). ⚠️ GitHub Actions minutes were exhausted as of 2026-06-12 — a human must confirm billing + the real `checks` + `e2e` runs.
 
 ---
@@ -123,4 +137,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — DoD not met. Done: Phase 2 (8 specs + 1 N/A), Phase 3 (docs), Phase 4 checks-chain + `ci.yml` + **3× plain durability** (iter 13). **Remaining loop-verifiable:** the 3× CI-mimic gate (`db reset` + `CI=1 test:e2e`). Once it passes, write the human-confirmation items (GitHub CI; client-edit decision) and emit the token. Until then, completion token must NOT be emitted.
+- **✅ LOOP COMPLETE (2026-06-28, iter 14).** Every loop-verifiable DoD box is green and durable (3× plain + 3× CI-mimic, both projects; full `checks` chain green; docs accurate; progress file current). The items the loop cannot verify itself are written up under **Pending human confirmation** above (GitHub CI; `client edit` coverage decision; deferred-candidate sign-off). `E2E_LOOP_COMPLETE` emitted — the token means the loop has done everything it can; it does **not** claim GitHub CI is green.
