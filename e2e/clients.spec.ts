@@ -58,3 +58,26 @@ test.describe('client archive', () => {
     await expect(page.getByRole('link', { name: new RegExp(`Archive-${archiveToken}`) })).toHaveCount(0)
   })
 })
+
+// Empty state: a freshly-created client (zero assessments) shows the empty
+// Assessment History state + the "+ New Assessment" CTA, and — because the
+// Progress/Compare trend tabs require >= 2 assessments — those tabs are absent.
+// Single clean goto to the detail page (avoids the webkit chained-nav getUser race).
+test.describe('client detail empty state', () => {
+  test('a client with no assessments shows the empty state and no trend tabs', async ({ page }) => {
+    const token = randomUUID().slice(0, 8)
+    const client = await createClient(page, 'E2E', `Empty-${token}`)
+
+    await page.goto(`/clients/${client.id}`)
+    await expect(page.getByRole('heading', { name: new RegExp(`Empty-${token}`) })).toBeVisible()
+
+    await expect(page.getByText(/No assessments yet/)).toBeVisible()
+    await expect(page.getByRole('link', { name: /New Assessment/ })).toBeVisible()
+
+    // Progress/Compare need >= 2 assessments → absent; Assessments/Info always present.
+    await expect(page.getByRole('button', { name: 'Assessments' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Info' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Progress' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0)
+  })
+})
