@@ -3,6 +3,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { ProgramReport, ProgramStep } from '../program/buildProgram'
 import { renderDose } from '../program/dosage'
 import { clientSummaryMode } from '../reports/clientProgram'
+import type { ClientComparison, OverallDirection, AreaDirection } from '../reports/clientComparison'
 
 const DISCLAIMER =
   'SCREENING ONLY — Not a medical assessment. For educational and screening purposes only. This does not replace evaluation by a qualified professional.'
@@ -36,6 +37,19 @@ const STEP_COLOR: Record<string, string> = {
   Connect: '#A78BFA',
 }
 
+// Encouraging, non-diagnostic phrasing for the "since last time" progress card.
+// Colours stay green/amber (never red) — a slip is framed as motivating, not alarming.
+const OVERALL_COPY: Record<OverallDirection, { word: string; color: string }> = {
+  improved: { word: 'trending in the right direction', color: C.green },
+  steady: { word: 'holding steady', color: C.sub },
+  slipped: { word: 'some ground to make back — keep at it', color: C.amber },
+}
+const AREA_COPY: Record<AreaDirection, { word: string; color: string }> = {
+  improving: { word: 'improving', color: C.green },
+  steady: { word: 'about the same', color: C.sub },
+  attention: { word: 'worth extra focus', color: C.amber },
+}
+
 const s = StyleSheet.create({
   page: { backgroundColor: C.bg, color: C.text, fontFamily: 'Helvetica', padding: 36, paddingBottom: 56, fontSize: 10, lineHeight: 1.45 },
   // header
@@ -51,6 +65,11 @@ const s = StyleSheet.create({
   hero: { backgroundColor: C.surface, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: C.brand, padding: 14, marginBottom: 18 },
   heroText: { fontSize: 10.5, color: C.text, lineHeight: 1.55 },
   positives: { fontSize: 9.5, color: C.green, marginTop: 8 },
+  // "since last time" progress (client report, page 1)
+  progress: { backgroundColor: C.surface, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: C.green, padding: 14, marginBottom: 18 },
+  progressTitle: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.sub, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6 },
+  progressOverall: { fontSize: 10.5, color: C.text, lineHeight: 1.5 },
+  progressArea: { fontSize: 9.5, color: C.text, marginTop: 3 },
   // priority summary card
   pcard: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 10, flexDirection: 'row' },
   numCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
@@ -154,9 +173,11 @@ export interface ClientReportProps {
   practitioner: string
   dateStr: string
   report: ProgramReport
+  /** Optional "since last time" progress vs an approved, same-client prior screening. */
+  comparison?: ClientComparison | null
 }
 
-export function ClientReport({ clientName, practitioner, dateStr, report }: ClientReportProps) {
+export function ClientReport({ clientName, practitioner, dateStr, report, comparison }: ClientReportProps) {
   const first = clientName.split(' ')[0]
   const mode = clientSummaryMode(report)
   const positivesLine =
@@ -182,6 +203,29 @@ export function ClientReport({ clientName, practitioner, dateStr, report }: Clie
           </Text>
           {report.positives.length > 0 ? <Text style={s.positives}>✓ {positivesLine}</Text> : null}
         </View>
+
+        {comparison ? (
+          <View style={[s.progress, { borderLeftColor: OVERALL_COPY[comparison.overall].color }]}>
+            <Text style={s.progressTitle}>Since your last screening</Text>
+            <Text style={s.progressOverall}>
+              <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
+              Grade {comparison.priorGrade} → {comparison.currentGrade} ·{' '}
+              <Text style={{ color: OVERALL_COPY[comparison.overall].color, fontFamily: 'Helvetica-Bold' }}>
+                {OVERALL_COPY[comparison.overall].word}
+              </Text>.
+            </Text>
+            {report.priorities.map((p) => {
+              const dir = comparison.byKey[p.primaryKey]
+              if (!dir) return null
+              const a = AREA_COPY[dir]
+              return (
+                <Text style={s.progressArea} key={p.primaryKey}>
+                  • {p.label}: <Text style={{ color: a.color, fontFamily: 'Helvetica-Bold' }}>{a.word}</Text>
+                </Text>
+              )
+            })}
+          </View>
+        ) : null}
 
         {mode === 'plan' ? (
           <>
