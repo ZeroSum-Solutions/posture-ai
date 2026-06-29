@@ -60,16 +60,16 @@ e2e/muscle-kb.spec.ts:38
 - **[2026-06-28] Iteration 9 — Phase 2 spec: client empty-state.** Added to `e2e/clients.spec.ts` — fresh client → `/clients/[id]` shows "No assessments yet" + "+ New Assessment" CTA; Progress/Compare tabs absent (<2 assessments), Assessments/Info present. Verified full suite **33/0/2 green** (35 tests), lint + typecheck. (commit `a933f6e`)
 
 - **[2026-06-28] Iteration 10 — Phase 2 spec: unreviewed-content badge (Phase 2 COMPLETE).** Added `e2e/unreviewed-content.spec.ts` — unreviewed muscle page (`/muscles/upper-trapezius`; all 29 seeded muscles have `reviewed_at` NULL) shows the "Pending review" badge in dev/preview (gate: `flag==='1' || NODE_ENV!=='production'`). Verified full suite **35/0/2 green** (37 tests), lint + typecheck. (commit `defe7f3`) **All 8 Required Phase-2 specs implemented** + client edit N/A.
+- **[2026-06-28] Iteration 11 — Phase 3 (docs) COMPLETE.** Added `e2e/README.md` (prereqs, run + CI-mimic, project matrix + intentional skips, spec inventory, test-mode, how-to-add, flake policy). Documented the `no-person.png` negative fixture in `fixtures/photos/README.md`. Verified `docs/RUNBOOK.md` testing section accurate (run procedure unchanged) and that all 11 specs + `auth.setup` carry top-of-file comments. Docs-only → suite unchanged; lint + typecheck green. (commit `d3bf1f8`)
 
-## Current suite state (2026-06-28, post-iteration-10)
-- `npm run test:e2e` (`retries:0`): **35 passed · 0 failed · 2 intentional skips** → **fully green** (37 tests).
-- The DoD gates — 3× consecutive green `test:e2e` **and** 3× CI-mimic (`db reset` + `CI=1 test:e2e`) — run after Phase 3 (docs), since the suite stops changing then.
+## Current suite state (2026-06-28, post-iteration-11)
+- `npm run test:e2e` (`retries:0`): **35 passed · 0 failed · 2 intentional skips** → **fully green** (37 tests). (Unchanged in iter 11 — docs only.)
 
 ## In progress
-- (none — iteration 10 complete; **Phase 2 done**)
+- (none — iteration 11 complete; **Phase 2 + Phase 3 done**)
 
 ## Next up
-- **Iteration 11 (Phase 3 — docs):** write `e2e/README.md` (how to run, prereqs, project matrix, test-mode, how to add a spec, flake policy incl. the webkit getUser-race + shared-session/global-signOut notes), check `e2e/fixtures/photos/README.md` accuracy, confirm `docs/RUNBOOK.md` testing section still matches. Then **Phase 4**: full `checks` chain (lint+typecheck+vitest+engine+build) + 3× plain + 3× CI-mimic end-gates.
+- **Iteration 12 (Phase 4 — verification gates):** run the full CI `checks` chain locally and record results (vitest/engine/build not yet measured this loop): `npm run lint && npm run typecheck && npx vitest run && npm test -w @posture-ai/engine && npm run build`. Confirm `.github/workflows/ci.yml` still covers the added specs. (Durability gates — 3× plain + 3× CI-mimic — come after the checks chain is green.)
 
 ## Backlog / deferred (priority order)
 
@@ -92,11 +92,11 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ### Phase 2 — deferrable (log a concrete blocker when deferring)
 - session expiry (timing-dependent), real PDF render/download (`@react-pdf` heavy), multi-assessment progress chart (needs multi-assessment seeding), `mobile-webkit` camera capture (WebKit camera constraints).
 
-### Phase 3 — docs
-- [ ] `e2e/README.md` (run, prereqs, project matrix, test-mode, how to add a spec, flake policy)
-- [ ] `e2e/fixtures/photos/README.md` accuracy
-- [ ] `docs/RUNBOOK.md` testing section (if run procedure changes)
-- [ ] per-spec top-of-file comments where missing
+### Phase 3 — docs ✅ (iter 11)
+- [x] `e2e/README.md` — created (run, prereqs, matrix, test-mode, how-to-add, flake policy)
+- [x] `e2e/fixtures/photos/README.md` — added the `no-person.png` negative fixture
+- [x] `docs/RUNBOOK.md` testing section — verified accurate; run procedure unchanged
+- [x] per-spec top-of-file comments — all 11 specs + `auth.setup` carry them (verified)
 
 ### Phase 4 — CI hardening
 - [ ] Confirm `.github/workflows/ci.yml` (supabase `start` excludes, `playwright install --with-deps chromium webkit`, on-failure artifact upload) still holds as specs are added.
@@ -118,4 +118,4 @@ Confirm each against `app/` before writing; extend `e2e/helpers.ts` (don't dupli
 ## Notes
 - `E2E_LOOP_PROMPT.md` is present at repo root but **untracked** (loop reads it from disk; left as-is unless asked to commit).
 - Guardrails honored every iteration: on `e2e-hardening`; no `main` push / PR / land / deploy; `packages/posture-engine` + `supabase/migrations/` untouched.
-- **Not done** — Definition of Done not met: suite green; Required Phase-2 = **8 implemented + 1 N/A (client edit — no feature → pending human confirmation), 0 remaining → Phase 2 COMPLETE**. Plus client archive as a bonus. Still pending: **Phase 3** (`e2e/README.md`, fixtures/RUNBOOK accuracy) and **Phase 4** (full `checks` chain: lint+typecheck+vitest+engine+build; 3× plain + 3× CI-mimic end-gates). Completion token must NOT be emitted.
+- **Not done** — Definition of Done not met: **Phase 2 + Phase 3 COMPLETE** (8 Required specs + 1 N/A; `e2e/README.md` + fixtures + RUNBOOK accurate). Still pending: **Phase 4** — full `checks` chain (lint+typecheck+vitest+engine+build; vitest/engine/build not yet measured this loop) + 3× plain + 3× CI-mimic green end-gates. Then human-confirmation items (GitHub CI; client-edit decision). Completion token must NOT be emitted.
