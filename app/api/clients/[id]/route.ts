@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -82,4 +82,69 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
 
   console.log('[api/clients/[id]] PATCH: success, archived_at=', data.archived_at)
   return NextResponse.json({ client: data })
+}
+
+// Right-to-erasure: permanently purge a client's screening data (landmarks,
+// findings, exercise recommendations, and generated report PDFs), redact the
+// client + consent-signer PII in place, and leave a PII-free deletion-log
+// tombstone for audit. The immutable consent EVENT (version/hash/timestamp/
+// relationship) is retained as proof, with the signer name redacted.
+export async function DELETE(req: NextRequest, { params }: { params: Promise<Params> }) {
+  const { id } = await params
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
+
+  const { data: owned } = await supabase
+    .from('clients').select('id').eq('id', id).eq('practitioner_id', user.id).maybeSingle()
+  if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+  let reason: string | null = null
+  try { const b = await req.json(); reason = typeof b?.reason === 'string' ? b.reason : null } catch { /* no body */ }
+
+  const service = createSupabaseServiceClient()
+
+  const { data: assessments } = await service.from('assessments').select('id').eq('client_id', id)
+  const assessmentIds = (assessments ?? []).map((a) => a.id)
+
+  let capturesPurged = 0
+  if (assessmentIds.length > 0) {
+    const { count } = await service.from('captures').select('id', { count: 'exact', head: true }).in('assessment_id', assessmentIds)
+    capturesPurged = count ?? 0
+
+    const { data: reports } = await service.from('reports').select('storage_path').in('assessment_id', assessmentIds)
+    const paths = (reports ?? []).map((r) => r.storage_path).filter((p): p is string => !!p)
+    if (paths.length > 0) await service.storage.from('posture-reports').remove(paths)
+
+    // Cascades: captures, assessment_findings, exercise_recommendations, reports.
+    await service.from('assessments').delete().in('id', assessmentIds)
+  }
+
+  // Keep the immutable consent event for audit; redact the signer's name (PII).
+  await service.from('consent_records').update({ signer_name: 'REDACTED' }).eq('client_id', id)
+
+  // Redact the client row in place → tombstone.
+  await service.from('clients').update({
+    first_name: 'REDACTED',
+    last_name: 'REDACTED',
+    date_of_birth: null,
+    sex_at_birth: null,
+    height_cm: null,
+    weight_kg: null,
+    notes: null,
+    deleted_at: new Date().toISOString(),
+    deletion_reason: reason,
+  }).eq('id', id)
+
+  await service.from('client_deletion_log').insert({
+    original_client_id: id,
+    practitioner_id: user.id,
+    reason,
+    assessments_purged: assessmentIds.length,
+    captures_purged: capturesPurged,
+  })
+
+  return NextResponse.json({ ok: true, assessments_purged: assessmentIds.length, captures_purged: capturesPurged })
 }

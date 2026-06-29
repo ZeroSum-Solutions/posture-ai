@@ -17,6 +17,7 @@ export async function GET() {
     .from('clients')
     .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, created_at')
     .is('archived_at', null)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) {
     console.error('[api/clients] GET error:', error.message)
