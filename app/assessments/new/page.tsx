@@ -518,6 +518,7 @@ function NewAssessmentWizard() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [loadingClients, setLoadingClients] = useState(true)
+  const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>({
     front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
     side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
@@ -540,19 +541,25 @@ function NewAssessmentWizard() {
       const supabase = createSupabaseBrowserClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/sign-in'); return }
-      const { data } = await supabase
-        .from('clients')
-        .select('id, first_name, last_name, date_of_birth')
-        .eq('practitioner_id', user.id)
-        .is('archived_at', null)
-        .order('first_name')
-      const list = data || []
-      setClients(list)
-      if (preselectedClientId) {
-        const pre = list.find(c => c.id === preselectedClientId)
-        if (pre) setSelectedClient(pre)
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('id, first_name, last_name, date_of_birth')
+          .eq('practitioner_id', user.id)
+          .is('archived_at', null)
+          .order('first_name')
+        if (error) throw error
+        const list = data || []
+        setClients(list)
+        if (preselectedClientId) {
+          const pre = list.find(c => c.id === preselectedClientId)
+          if (pre) setSelectedClient(pre)
+        }
+      } catch {
+        setClientsError('Could not load your clients. Refresh to try again.')
+      } finally {
+        setLoadingClients(false)
       }
-      setLoadingClients(false)
     }
     loadClients()
   }, [preselectedClientId, router])
@@ -831,6 +838,8 @@ function NewAssessmentWizard() {
             />
             {loadingClients ? (
               <p style={{ color: '#A1A1AA', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
+            ) : clientsError ? (
+              <p role="alert" style={{ color: '#F87171', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
             ) : filteredClients.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#A1A1AA' }}>
                 {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: '#818CF8' }}>Create a client</Link></span>}

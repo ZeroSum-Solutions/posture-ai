@@ -92,7 +92,7 @@ export default function ExercisesPage() {
       </div>
 
       {loading && <p style={{ color: '#A1A1AA' }}>Loading exercises...</p>}
-      {error && <p style={{ color: '#EF4444' }}>Error loading exercises: {error}</p>}
+      {error && <p role="alert" style={{ color: '#EF4444' }}>Error loading exercises: {error}</p>}
       {!loading && !error && filtered.length === 0 && (
         <p style={{ color: '#A1A1AA' }}>No exercises found{activeFilter !== 'all' ? ` for category "${activeFilter}"` : ''}.</p>
       )}

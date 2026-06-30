@@ -63,8 +63,8 @@ export default function PrivacyPage() {
         parent or legal guardian to consent.
       </p>
 
-      <p style={{ marginTop: 32, fontSize: '0.85rem', color: '#71717A' }}>
-        See also our <Link href="/terms" style={{ color: '#818CF8' }}>Terms of Use</Link>.
+      <p style={{ marginTop: 32, fontSize: '0.85rem', color: '#A1A1AA' }}>
+        See also our <Link href="/terms" style={{ color: '#818CF8', textDecoration: 'underline' }}>Terms of Use</Link>.
       </p>
     </main>
   )

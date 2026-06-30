@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { validatePasswordReset } from '@/lib/auth/password'
+import { validatePasswordReset, MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -106,7 +106,7 @@ export default function UpdatePasswordPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  placeholder="New password (min 6 characters)"
+                  placeholder={`New password (min ${MIN_PASSWORD_LENGTH} characters)`}
                   aria-label="New password"
                   autoComplete="new-password"
                   style={inputStyle}
@@ -137,7 +137,7 @@ export default function UpdatePasswordPage() {
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: loading ? 'rgba(99,102,241,0.5)' : '#6366F1',
+                  background: loading ? 'rgba(99,102,241,0.5)' : '#4F46E5',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',

@@ -105,7 +105,7 @@ export default function ForgotPasswordPage() {
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: loading ? 'rgba(99,102,241,0.5)' : '#6366F1',
+                  background: loading ? 'rgba(99,102,241,0.5)' : '#4F46E5',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
 
 type Practitioner = {
   display_name: string | null
@@ -58,7 +59,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetch('/api/settings/organization')
-      .then(r => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`organization fetch failed (${r.status})`)
+        return r.json()
+      })
       .then(j => {
         const org = j?.organization
         if (!org) return
@@ -67,7 +71,7 @@ export default function SettingsPage() {
         setBaaStatus(org.baa_status || 'not_required')
         setBaaSignedAt(org.baa_signed_at ? String(org.baa_signed_at).slice(0, 10) : '')
       })
-      .catch(() => {})
+      .catch(() => setToast({ type: 'error', message: 'Could not load organization settings. Refresh to try again.' }))
   }, [])
 
   function showToast(type: 'success' | 'error', message: string) {
@@ -157,10 +161,32 @@ export default function SettingsPage() {
 
   async function handlePasswordChange(e: React.FormEvent) {
     e.preventDefault()
-    if (!newPassword.trim()) return
+    if (!currentPassword.trim()) {
+      showToast('error', 'Enter your current password to confirm the change.')
+      return
+    }
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      showToast('error', `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
+      return
+    }
     setPasswordSaving(true)
     try {
       const supabase = createSupabaseBrowserClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) {
+        showToast('error', 'Your session has expired. Please sign in again.')
+        return
+      }
+      // Re-verify the current password before changing it — updateUser alone
+      // would let any active session set a new password without proving identity.
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      })
+      if (verifyError) {
+        showToast('error', 'Current password is incorrect.')
+        return
+      }
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) {
         showToast('error', error.message)
@@ -272,7 +298,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: saving ? 'rgba(99,102,241,0.4)' : '#6366F1',
+              background: saving ? 'rgba(99,102,241,0.4)' : '#4F46E5',
               color: saving ? '#9CA3AF' : '#fff',
               border: 'none',
               cursor: saving ? 'not-allowed' : 'pointer',
@@ -308,11 +334,11 @@ export default function SettingsPage() {
               type="checkbox"
               checked={isCoveredEntity}
               onChange={e => setIsCoveredEntity(e.target.checked)}
-              style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#6366F1', cursor: 'pointer' }}
+              style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#4F46E5', cursor: 'pointer' }}
             />
             <label htmlFor="covered_entity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
               This organization is a HIPAA covered entity
-              <span style={{ display: 'block', color: '#8A8A93', fontSize: '0.8rem', marginTop: '4px' }}>
+              <span style={{ display: 'block', color: '#A1A1AA', fontSize: '0.8rem', marginTop: '4px' }}>
                 Turning this on requires a signed Business Associate Agreement before practitioner mode can be used.
               </span>
             </label>
@@ -370,7 +396,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: orgSaving ? 'rgba(99,102,241,0.4)' : '#6366F1',
+              background: orgSaving ? 'rgba(99,102,241,0.4)' : '#4F46E5',
               color: orgSaving ? '#9CA3AF' : '#fff',
               border: 'none',
               cursor: orgSaving ? 'not-allowed' : 'pointer',
@@ -380,7 +406,7 @@ export default function SettingsPage() {
           >
             {orgSaving ? 'Saving...' : 'Save Organization'}
           </button>
-          <p style={{ fontSize: '0.8rem', color: '#8A8A93', marginTop: '10px' }}>
+          <p style={{ fontSize: '0.8rem', color: '#A1A1AA', marginTop: '10px' }}>
             These compliance details are self-attested by you and control whether the BAA gate applies.
           </p>
         </form>
@@ -423,7 +449,7 @@ export default function SettingsPage() {
         >
           {logoUploading ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
         </button>
-        <p style={{ fontSize: '0.8rem', color: '#8A8A93', marginTop: '8px' }}>
+        <p style={{ fontSize: '0.8rem', color: '#A1A1AA', marginTop: '8px' }}>
           JPEG, PNG, or WebP. Shown on PDF reports.
         </p>
       </div>
@@ -451,7 +477,7 @@ export default function SettingsPage() {
               type="password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              placeholder="New password (min 6 characters)"
+              placeholder={`New password (min ${MIN_PASSWORD_LENGTH} characters)`}
               aria-label="New password"
               style={inputStyle}
             />
@@ -462,7 +488,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: (passwordSaving || !newPassword.trim()) ? 'rgba(99,102,241,0.3)' : '#6366F1',
+              background: (passwordSaving || !newPassword.trim()) ? 'rgba(99,102,241,0.3)' : '#4F46E5',
               color: (passwordSaving || !newPassword.trim()) ? '#6B7280' : '#fff',
               border: 'none',
               cursor: (passwordSaving || !newPassword.trim()) ? 'not-allowed' : 'pointer',
