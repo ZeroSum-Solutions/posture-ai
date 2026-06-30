@@ -36,8 +36,10 @@ email-enumeration protection).
 
 ## Decisions (flagged for awareness)
 
-- **Password policy raised 6→8** (never weaken a credential floor in a health app); Supabase's
-  backend default remains 6 — raise the auth config to 8 to match if desired.
+- **Password policy raised 6→8** (never weaken a credential floor in a health app). Aligned across
+  all layers on 2026-06-29 (PR #41): client `MIN_PASSWORD_LENGTH`, production auth config
+  `password_min_length` (6→8 via the Management API), and local `supabase/config.toml`
+  `minimum_password_length` (6→8). No complexity requirement added — client checks length + match.
 - **Password change now requires the current password** (a security-behavior change matching the
   UI's existing field).
 - **Contrast re-toned app-wide per request** — hue-preserving lighter shades only; no new brand
