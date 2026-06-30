@@ -133,7 +133,7 @@ export default function SignUpPage() {
               style={{
                 width: '100%',
                 padding: '11px',
-                background: loading ? 'rgba(99,102,241,0.5)' : '#6366F1',
+                background: loading ? 'rgba(79,70,229,0.6)' : '#4F46E5',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '8px',
@@ -147,7 +147,7 @@ export default function SignUpPage() {
             </button>
             <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#A1A1AA' }}>
               Already have an account?{' '}
-              <Link href="/auth/sign-in" style={{ color: '#818CF8', textDecoration: 'none' }}>
+              <Link href="/auth/sign-in" style={{ color: '#818CF8', textDecoration: 'underline' }}>
                 Sign in
               </Link>
             </p>
