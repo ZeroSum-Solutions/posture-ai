@@ -13,10 +13,10 @@ import { renderDose } from '../../../lib/program/dosage'
 const ZONE_COLOR: Record<'warning' | 'danger', string> = { warning: '#F59E0B', danger: '#EF4444' }
 const STEP_COLOR: Record<string, string> = {
   Loosen: '#F59E0B',
-  Lengthen: '#6366F1',
-  'Wake up': '#EC4899',
+  Lengthen: '#818CF8',
+  'Wake up': '#F472B6',
   Strengthen: '#22C55E',
-  Connect: '#8B5CF6',
+  Connect: '#A78BFA',
 }
 const WEEK_THEME = ['Learn & Own', 'Reinforce', 'Consolidate']
 const CAP_OPTIONS: { value: Capability; label: string }[] = [
@@ -67,7 +67,7 @@ function SwapControl({
   const swapped = step.slug !== step.baseSlug
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-      <span style={{ fontSize: '0.64rem', color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</span>
+      <span style={{ fontSize: '0.64rem', color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</span>
       <select
         data-testid={`swap-${priority.primaryKey}-${step.baseSlug}`}
         value={step.slug}
@@ -124,7 +124,7 @@ function RampTable({ priority, onSwap }: { priority: ProgramPriority; onSwap: Ov
             {WEEK_THEME.map((theme, i) => (
               <th key={i} style={wkTh}>
                 <div style={{ color: '#A1A1AA' }}>Week {i + 1}</div>
-                <div style={{ fontSize: '0.6rem', fontWeight: 600, color: '#52525B', letterSpacing: 0 }}>{theme}</div>
+                <div style={{ fontSize: '0.6rem', fontWeight: 600, color: '#A1A1AA', letterSpacing: 0 }}>{theme}</div>
               </th>
             ))}
           </tr>
@@ -139,7 +139,7 @@ function RampTable({ priority, onSwap }: { priority: ProgramPriority; onSwap: Ov
                     <Pill text={s.stepLabel} color={stepColor} />
                     <span style={{ fontWeight: 600, color: '#F5F5F5' }}>{s.name}</span>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#71717A', paddingLeft: 2 }}>
+                  <div style={{ fontSize: '0.7rem', color: '#A1A1AA', paddingLeft: 2 }}>
                     {s.freq}
                     {s.repRange ? ` · target ${s.repRange.min}–${s.repRange.max} reps` : ''}
                     {s.isIntegrative ? ' · new in week 3' : ''}
@@ -226,7 +226,7 @@ function PriorityCard({ priority, onDemote, onSwap }: { priority: ProgramPriorit
           marginBottom: 8,
         }}
       >
-        {principle} <span style={{ color: '#52525B', fontWeight: 600 }}>— the order is what makes it stick</span>
+        {principle} <span style={{ color: '#A1A1AA', fontWeight: 600 }}>— the order is what makes it stick</span>
       </div>
 
       <RampTable priority={priority} onSwap={onSwap} />
@@ -273,10 +273,10 @@ export default function PriorityProgram({
           >
             Corrective Program
           </h2>
-          <p style={{ fontSize: '0.82rem', color: '#71717A', margin: '4px 0 0' }}>{report.gradeHuman}</p>
+          <p style={{ fontSize: '0.82rem', color: '#A1A1AA', margin: '4px 0 0' }}>{report.gradeHuman}</p>
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: '0.66rem', color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.66rem', color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Client capability
           </span>
           <select
@@ -415,7 +415,7 @@ export default function PriorityProgram({
             style={{
               fontSize: '0.68rem',
               fontWeight: 700,
-              color: '#71717A',
+              color: '#A1A1AA',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: 4,
@@ -423,7 +423,7 @@ export default function PriorityProgram({
           >
             Couldn&apos;t be read reliably ({unreliable.length})
           </div>
-          <p style={{ fontSize: '0.78rem', color: '#52525B', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: '0.78rem', color: '#A1A1AA', margin: 0, lineHeight: 1.5 }}>
             {unreliable.map((u) => u.label).join(', ')} — not shown to the client. Re-capture front/side photos for a fuller
             picture.
           </p>

@@ -5,17 +5,29 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 export default function OnboardingPage() {
   const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleAccept() {
     if (!accepted || loading) return
     setLoading(true)
+    setError(null)
     const supabase = createSupabaseBrowserClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase
-        .from('practitioners')
-        .update({ non_diagnostic_ack_at: new Date().toISOString() })
-        .eq('id', user.id)
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      setError('Your session has expired. Please sign in again to continue.')
+      setLoading(false)
+      return
+    }
+    // The disclaimer ack is a compliance gate — only proceed if the write
+    // is confirmed, otherwise the server gate loops the user back here.
+    const { error: updateError } = await supabase
+      .from('practitioners')
+      .update({ non_diagnostic_ack_at: new Date().toISOString() })
+      .eq('id', user.id)
+    if (updateError) {
+      setError('Could not save your acknowledgement. Please check your connection and try again.')
+      setLoading(false)
+      return
     }
     // Hard navigation: forces the server-side gate to re-read the fresh
     // ack and avoids a stale Next.js router-cache redirect back to /onboarding.
@@ -81,13 +93,29 @@ export default function OnboardingPage() {
             I understand and acknowledge that Posture AI is a screening tool, not a medical diagnostic device. I am a qualified movement professional and will use this tool appropriately.
           </span>
         </label>
+        {error && (
+          <div
+            role="alert"
+            style={{
+              background: 'rgba(239,68,68,0.12)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              color: '#F87171',
+              fontSize: '0.85rem',
+              marginBottom: '16px',
+            }}
+          >
+            {error}
+          </div>
+        )}
         <button
           onClick={handleAccept}
           disabled={!accepted || loading}
           style={{
             width: '100%',
             padding: '12px',
-            background: !accepted || loading ? 'rgba(99,102,241,0.3)' : '#6366F1',
+            background: !accepted || loading ? 'rgba(99,102,241,0.3)' : '#4F46E5',
             color: !accepted || loading ? '#A1A1AA' : '#fff',
             border: 'none',
             borderRadius: '8px',

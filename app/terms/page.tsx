@@ -45,8 +45,8 @@ export default function TermsPage() {
         decisions.
       </p>
 
-      <p style={{ marginTop: 32, fontSize: '0.85rem', color: '#71717A' }}>
-        See also our <Link href="/privacy" style={{ color: '#818CF8' }}>Privacy Policy</Link>.
+      <p style={{ marginTop: 32, fontSize: '0.85rem', color: '#A1A1AA' }}>
+        See also our <Link href="/privacy" style={{ color: '#818CF8', textDecoration: 'underline' }}>Privacy Policy</Link>.
       </p>
     </main>
   )

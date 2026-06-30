@@ -8,7 +8,8 @@ describe('validatePasswordReset', () => {
   })
 
   it('rejects when the confirmation does not match', () => {
-    expect(validatePasswordReset('abcdef', 'abcdeX')).toMatch(/do not match/i)
+    const base = 'a'.repeat(MIN_PASSWORD_LENGTH)
+    expect(validatePasswordReset(`${base}x`, `${base}y`)).toMatch(/do not match/i)
   })
 
   it('accepts a matching password at the minimum length', () => {

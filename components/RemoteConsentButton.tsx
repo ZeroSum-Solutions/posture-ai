@@ -26,6 +26,18 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
     }
   }
 
+  async function copyLink(url: string) {
+    try {
+      if (!navigator.clipboard) throw new Error('clipboard unavailable')
+      await navigator.clipboard.writeText(url)
+      setError(null)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError('Could not copy the link automatically. Select it and copy it manually.')
+    }
+  }
+
   const panel: React.CSSProperties = {
     background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
     borderRadius: 10, padding: 16,
@@ -43,12 +55,13 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
             style={{ flex: 1, minWidth: 200, padding: '8px 10px', background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#F5F5F5', fontSize: '0.8rem' }}
           />
           <button
-            onClick={() => { navigator.clipboard?.writeText(link.url); setCopied(true) }}
+            onClick={() => copyLink(link.url)}
             style={{ padding: '8px 14px', borderRadius: 8, background: '#6366F1', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
           >
             {copied ? 'Copied' : 'Copy link'}
           </button>
         </div>
+        {error && <p role="alert" style={{ margin: '0 0 12px', color: '#F87171', fontSize: '0.8rem' }}>{error}</p>}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={link.qr} alt="Remote consent QR code" width={160} height={160} style={{ borderRadius: 8, background: '#fff', padding: 4 }} />
       </div>
@@ -66,7 +79,7 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
       >
         {state === 'loading' ? 'Generating…' : 'Send remote consent link'}
       </button>
-      {error && <span style={{ marginLeft: 10, color: '#EF4444', fontSize: '0.8rem' }}>{error}</span>}
+      {error && <span role="alert" style={{ marginLeft: 10, color: '#EF4444', fontSize: '0.8rem' }}>{error}</span>}
     </div>
   )
 }

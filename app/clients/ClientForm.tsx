@@ -282,7 +282,7 @@ export default function ClientForm({
                   style={{
                     padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                     fontSize: '0.8rem', fontWeight: 600, minHeight: 'unset',
-                    background: active ? '#6366F1' : 'transparent',
+                    background: active ? '#4F46E5' : 'transparent',
                     color: active ? '#fff' : '#A1A1AA',
                   }}
                 >
@@ -411,7 +411,7 @@ export default function ClientForm({
           </Link>
           <button type="submit" disabled={loading} style={{
             flex: 2, padding: '11px',
-            background: loading ? 'rgba(99,102,241,0.3)' : '#6366F1',
+            background: loading ? 'rgba(99,102,241,0.3)' : '#4F46E5',
             color: loading ? '#6B7280' : '#fff',
             border: 'none', borderRadius: '8px', fontWeight: 600,
             fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer',

@@ -332,7 +332,7 @@ function SkeletalDiagramSection({
           </div>
         ))}
       </div>
-      <p style={{ marginTop: 14, fontSize: '0.68rem', color: '#52525B', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5 }}>
+      <p style={{ marginTop: 14, fontSize: '0.68rem', color: '#A1A1AA', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5 }}>
         Diagrams are schematic representations only and do not depict literal measurements or anatomical accuracy.
         Markers indicate regions of interest detected during screening.
       </p>
@@ -396,8 +396,8 @@ function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
             border: '1px solid ' + (b.grade === currentGrade ? b.color : 'rgba(255,255,255,0.08)'),
             textAlign: 'center', minWidth: 56 }}>
             <div style={{ fontSize: '1rem', fontWeight: 900, color: b.color }}>{b.grade}</div>
-            <div style={{ fontSize: '0.68rem', color: '#8A8A93', marginTop: 1 }}>{b.range}</div>
-            <div style={{ fontSize: '0.65rem', color: '#52525B' }}>{b.desc}</div>
+            <div style={{ fontSize: '0.68rem', color: '#A1A1AA', marginTop: 1 }}>{b.range}</div>
+            <div style={{ fontSize: '0.65rem', color: '#A1A1AA' }}>{b.desc}</div>
           </div>
         ))}
       </div>
@@ -430,7 +430,7 @@ function FindingCard({ f }: { f: Finding }) {
     >
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontWeight: 600, color: isUnreliable ? '#71717A' : '#F5F5F5', fontSize: '0.9rem' }}>
+        <span style={{ fontWeight: 600, color: isUnreliable ? '#A1A1AA' : '#F5F5F5', fontSize: '0.9rem' }}>
           {f.label}
           <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#8A8A93' }}>({f.view_used} view)</span>
         </span>
@@ -441,12 +441,12 @@ function FindingCard({ f }: { f: Finding }) {
               textTransform: 'uppercase' }}>Unreliable</span>
           )}
           <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-            background: zoneColor + '22', color: zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
+            background: zoneColor + '22', color: isUnreliable ? '#A1A1AA' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
         </div>
       </div>
 
       {/* Deviation */}
-      <div style={{ fontSize: '0.875rem', color: isUnreliable ? '#52525B' : '#D4D4D8', marginBottom: 10 }}>
+      <div style={{ fontSize: '0.875rem', color: isUnreliable ? '#A1A1AA' : '#D4D4D8', marginBottom: 10 }}>
         <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation from 0&deg; standard
         {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' && (
           <span style={{ color: '#A1A1AA' }}> — {f.direction}</span>
@@ -487,7 +487,7 @@ function FindingCard({ f }: { f: Finding }) {
             }}
           >
             <span style={{ color: '#818CF8' }}>Muscle Analysis</span>
-            <span style={{ marginLeft: 'auto', color: '#52525B', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+            <span style={{ marginLeft: 'auto', color: '#A1A1AA', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
           </button>
           {expanded && (
             <div style={{ marginTop: 12, padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: 10 }}>
@@ -543,11 +543,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   informational: 'Info',
 }
 const CATEGORY_COLORS: Record<string, string> = {
-  stretch: '#6366F1',
+  stretch: '#818CF8',
   strengthen: '#22C55E',
   mobility: '#F59E0B',
-  activation: '#EC4899',
-  informational: '#71717A',
+  activation: '#F472B6',
+  informational: '#A1A1AA',
 }
 
 function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
@@ -581,7 +581,7 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
           {exercise.name}
         </span>
         <span style={{
-          color: '#52525B', fontSize: '0.8rem', transition: 'transform 0.2s',
+          color: '#A1A1AA', fontSize: '0.8rem', transition: 'transform 0.2s',
           display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
         }}>▾</span>
       </button>
@@ -594,19 +594,19 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
             {exercise.sets > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.sets}</div>
-                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Sets</div>
+                <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
             {exercise.dosage_type !== 'dynamic' && exercise.hold_seconds > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.hold_seconds}s</div>
-                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Hold</div>
+                <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Hold</div>
               </div>
             )}
             {exercise.reps_min != null && exercise.reps_max != null && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.reps_min}–{exercise.reps_max}</div>
-                <div style={{ fontSize: '0.7rem', color: '#8A8A93', textTransform: 'uppercase' }}>Reps</div>
+                <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
           </div>
@@ -652,6 +652,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
+  const [auxError, setAuxError] = useState<string | null>(null)
   const [capability, setCapability] = useState<Capability>('standard')
   const [activeKeys, setActiveKeys] = useState<string[] | null>(null)
   const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
@@ -686,6 +687,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           if (priorRes.ok) {
             const priorData = await priorRes.json()
             setPriorAssessments(priorData.assessments || [])
+          } else {
+            setAuxError('Some report options could not load (prior assessments or exercises). Refresh to try again.')
           }
         }
         // Fetch exercises
@@ -693,6 +696,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         if (exRes.ok) {
           const exData = await exRes.json()
           setAllExercises(exData.exercises || [])
+        } else {
+          setAuxError('Some report options could not load (prior assessments or exercises). Refresh to try again.')
         }
       } catch {
         setError('Failed to load assessment.')
@@ -933,14 +938,15 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           </a>
         </div>
       )}
-      {pdfError && <div style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
+      {pdfError && <div role="alert" style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
+      {auxError && <div role="alert" style={{ color: '#F87171', fontSize: '0.85rem', marginBottom: 16 }}>{auxError}</div>}
 
       {priorAssessments.length > 0 && (
         <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <label style={{ fontSize: '0.8rem', color: '#A1A1AA', display: 'block', marginBottom: 8 }}>
+          <label htmlFor="compare-prior" style={{ fontSize: '0.8rem', color: '#A1A1AA', display: 'block', marginBottom: 8 }}>
             Compare PDF to prior assessment (optional):
           </label>
-          <select value={compareToId} onChange={e => setCompareToId(e.target.value)}
+          <select id="compare-prior" aria-label="Compare PDF to prior assessment" value={compareToId} onChange={e => setCompareToId(e.target.value)}
             style={{ padding: '8px 12px', borderRadius: 8, background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.15)',
               color: '#F5F5F5', fontSize: '0.875rem', width: '100%', cursor: 'pointer' }}>
             <option value="">No comparison (single assessment)</option>
@@ -970,7 +976,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             {!isApproved && (
               <button onClick={handleApprove} disabled={approving} style={{
                 padding: '9px 16px', borderRadius: 8, background: '#F59E0B', color: '#1A1205',
-                border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving ? 'wait' : 'pointer',
+                border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving ? 'not-allowed' : 'pointer',
               }}>{approving ? 'Approving…' : 'Approve report'}</button>
             )}
           </div>
@@ -987,7 +993,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             background: pdfLoading !== null ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.15)',
             color: pdfLoading !== null ? '#6366F1aa' : '#6366F1',
             border: '1px solid rgba(99,102,241,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'wait' : 'pointer', minHeight: 44 }}>
+            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'practitioner' ? 'Generating PDF...' : 'Practitioner PDF'}
         </button>
         <button onClick={() => handleGeneratePdf('client')} disabled={pdfLoading !== null}
@@ -995,7 +1001,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             background: pdfLoading !== null ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
             color: pdfLoading !== null ? '#22C55Eaa' : '#22C55E',
             border: '1px solid rgba(34,197,94,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'wait' : 'pointer', minHeight: 44 }}>
+            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'client' ? 'Generating…' : 'Client Report'}
         </button>
         <Link href="/assessments/new" style={{

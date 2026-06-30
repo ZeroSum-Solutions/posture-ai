@@ -1,5 +1,7 @@
-// Supabase's default minimum password length.
-export const MIN_PASSWORD_LENGTH = 6
+// Minimum password length enforced consistently across sign-up, password reset,
+// and the in-app password change. Kept >= Supabase's backend default (6) so every
+// client flow agrees on a single value.
+export const MIN_PASSWORD_LENGTH = 8
 
 /**
  * Validates a new password chosen during the reset flow. Returns a

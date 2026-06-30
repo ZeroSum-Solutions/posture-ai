@@ -71,6 +71,8 @@ export default function ClientDetailPage() {
   // Compare selectors: older = "before", newer = "after"
   const [compareBaseId, setCompareBaseId] = useState<string>('')
   const [compareTargetId, setCompareTargetId] = useState<string>('')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -86,8 +88,9 @@ export default function ClientDetailPage() {
       if (error || !data) { router.push('/clients'); return }
       setClient(data)
 
-      const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`)
-      if (res.ok) {
+      try {
+        const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`)
+        if (!res.ok) throw new Error(`Failed to load assessments (${res.status})`)
         const json = await res.json()
         const list: Assessment[] = json.assessments || []
         setAssessments(list)
@@ -96,8 +99,11 @@ export default function ClientDetailPage() {
           setCompareBaseId(list[0].id)
           setCompareTargetId(list[list.length - 1].id)
         }
+      } catch {
+        setLoadError('Could not load the assessment history for this client. Refresh to try again.')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     load()
   }, [id, router])
@@ -105,13 +111,19 @@ export default function ClientDetailPage() {
   async function handleArchive() {
     if (!client) return
     setArchiving(true)
-    const res = await fetch(`/api/clients/${client.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ archived_at: new Date().toISOString() }),
-    })
-    setArchiving(false)
-    if (res.ok) router.push('/clients')
+    setArchiveError(null)
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived_at: new Date().toISOString() }),
+      })
+      if (!res.ok) throw new Error(`Archive failed (${res.status})`)
+      router.push('/clients')
+    } catch {
+      setArchiveError('Could not archive this client. Please try again.')
+      setArchiving(false)
+    }
   }
 
   if (loading) {
@@ -134,7 +146,7 @@ export default function ClientDetailPage() {
 
   const tabStyle = (tab: Tab): React.CSSProperties => ({
     padding: '10px 20px',
-    background: activeTab === tab ? '#6366F1' : 'transparent',
+    background: activeTab === tab ? '#4F46E5' : 'transparent',
     color: activeTab === tab ? '#fff' : '#A1A1AA',
     border: 'none',
     borderRadius: '8px',
@@ -285,7 +297,7 @@ export default function ClientDetailPage() {
             onClick={() => setShowArchiveConfirm(true)}
             style={{
               padding: '9px 16px', borderRadius: '8px',
-              background: 'rgba(239,68,68,0.1)', color: '#EF4444',
+              background: 'rgba(239,68,68,0.1)', color: '#F87171',
               border: '1px solid rgba(239,68,68,0.25)',
               fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
             }}
@@ -328,6 +340,9 @@ export default function ClientDetailPage() {
               Archiving <strong style={{ color: '#F5F5F5' }}>{client.first_name} {client.last_name}</strong> will
               remove them from your active client list. Their data will be preserved and can be recovered.
             </p>
+            {archiveError && (
+              <p role="alert" style={{ color: '#F87171', fontSize: '0.85rem', marginBottom: '16px' }}>{archiveError}</p>
+            )}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => setShowArchiveConfirm(false)} disabled={archiving}
                 style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
@@ -362,7 +377,9 @@ export default function ClientDetailPage() {
       {activeTab === 'assessments' && (
         <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>Assessment History</h2>
-          {assessments.length === 0 ? (
+          {loadError ? (
+            <p role="alert" style={{ color: '#F87171', fontSize: '0.9rem' }}>{loadError}</p>
+          ) : assessments.length === 0 ? (
             <p style={{ color: '#A1A1AA', fontSize: '0.9rem' }}>No assessments yet. Click &quot;+ New Assessment&quot; to start.</p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>

@@ -81,11 +81,11 @@ export default function ConsentResponder({ token }: { token: string }) {
         <input
           id="signer_name" type="text" value={name} onChange={e => setName(e.target.value)}
           placeholder="Full legal name" style={{ ...input, marginBottom: 20 }}
-          aria-required="true"
+          required aria-required="true"
         />
 
         <button type="submit" disabled={status === 'submitting'} style={{
-          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(99,102,241,0.4)' : '#6366F1',
+          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(99,102,241,0.4)' : '#4F46E5',
           color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: '0.95rem',
           cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
         }}>

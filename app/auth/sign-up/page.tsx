@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('')
@@ -70,7 +71,10 @@ export default function SignUpPage() {
         ) : (
           <form onSubmit={handleSubmit}>
             {error && (
-              <div style={{
+              <div
+                role="alert"
+                aria-live="assertive"
+                style={{
                 background: 'rgba(239,68,68,0.12)',
                 border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: '8px',
@@ -113,8 +117,8 @@ export default function SignUpPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                minLength={8}
-                placeholder="At least 8 characters"
+                minLength={MIN_PASSWORD_LENGTH}
+                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
