@@ -103,14 +103,18 @@ function NewAssessmentWizard() {
   useEffect(() => {
     if (step !== 3 || !assessmentId) return
     let cancelled = false
+    // Track the latest scheduled poll (initial + every reschedule) so cleanup
+    // can clear a queued timer instead of relying solely on the cancelled guard.
+    let timer: ReturnType<typeof setTimeout> | undefined
 
     async function pollStatus() {
       if (cancelled) return
       try {
         console.log('[wizard] Polling status for assessment:', assessmentId)
         const r = await fetch('/api/assessments/' + assessmentId + '/status')
+        if (cancelled) return
         if (!r.ok) {
-          if (!cancelled) setProcessingError('Failed to check assessment status.')
+          setProcessingError('Failed to check assessment status.')
           return
         }
         const data = await r.json()
@@ -123,17 +127,16 @@ function NewAssessmentWizard() {
           setProcessingError('Scoring failed. Please try again.')
         } else {
           // Still processing — poll again in 2s
-          setTimeout(pollStatus, 2000)
+          timer = setTimeout(pollStatus, 2000)
         }
       } catch {
-        if (!cancelled) {
-          setTimeout(pollStatus, 2000)
-        }
+        if (cancelled) return
+        timer = setTimeout(pollStatus, 2000)
       }
     }
 
     // Start polling after a brief delay (allow server to finish)
-    const timer = setTimeout(pollStatus, 800)
+    timer = setTimeout(pollStatus, 800)
     return () => {
       cancelled = true
       clearTimeout(timer)
