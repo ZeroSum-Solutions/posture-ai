@@ -128,8 +128,11 @@ export default function FullScreenCapture({
   const acquireWakeLock = useCallback(async () => {
     if (typeof navigator === 'undefined' || !('wakeLock' in navigator) || wakeLockRef.current) return
     try {
-      wakeLockRef.current = await (navigator as Navigator & { wakeLock: { request(type: string): Promise<WakeLockSentinel> } }).wakeLock.request('screen')
-      wakeLockRef.current.addEventListener?.('release', () => { wakeLockRef.current = null })
+      const sentinel = await (navigator as Navigator & { wakeLock: { request(type: string): Promise<WakeLockSentinel> } }).wakeLock.request('screen')
+      // Unmounted while the request was pending — release instead of leaking it.
+      if (!mountedRef.current) { sentinel.release().catch(() => {}); return }
+      wakeLockRef.current = sentinel
+      sentinel.addEventListener?.('release', () => { wakeLockRef.current = null })
     } catch {
       // Wake lock is best-effort — silently ignore failures
     }
@@ -311,13 +314,15 @@ export default function FullScreenCapture({
   }, [phase, reviewUrl, activeView])
 
   // Deferred auto-proceed: fires onProceed once the terminal (Back) commit has
-  // landed in `captures`, so validateAndProceed includes the just-captured frame.
-  // Mutates a ref (not state) → no setState-in-effect.
+  // landed in `captures` AND the required views' preflight has settled — so the
+  // Back frame is included and a still-`checking` no-person Front/Side can't slip
+  // past validateAndProceed's block. Mutates a ref (not state) → no setState-in-effect.
   useEffect(() => {
-    if (proceedAfterCommitRef.current) {
-      proceedAfterCommitRef.current = false
-      onProceed()
-    }
+    if (!proceedAfterCommitRef.current) return
+    const stillChecking = (['front', 'side'] as ViewKey[]).some(v => !!captures[v].preview && captures[v].slotStatus === 'checking')
+    if (stillChecking) return
+    proceedAfterCommitRef.current = false
+    onProceed()
   }, [captures, onProceed])
 
   function nextUncapturedAfter(committed: ViewKey): ViewKey | null {
@@ -367,8 +372,20 @@ export default function FullScreenCapture({
     fileInputRefs.current[activeView]?.click()
   }
 
+  // Uploading a view commits it and advances to the next uncaptured one — the
+  // camera path auto-advances on capture, and the upload fallback must match or
+  // the user gets stuck (pending views aren't selectable in the status strip).
+  function handleUpload(view: ViewKey, file: File) {
+    onFileUpload(view, file)
+    const next = nextUncapturedAfter(view)
+    if (next) setActiveView(next)
+  }
+
   // ---- derived UI state ----
   const frontSideReady = !!captures.front.preview && !!captures.side.preview
+  // A required view whose quality preflight is still running — proceeding now
+  // would bypass the no-person block, so gate the Analyze action until it settles.
+  const requiredChecking = (['front', 'side'] as ViewKey[]).some(v => !!captures[v].preview && captures[v].slotStatus === 'checking')
   const noPersonViews = VIEW_ORDER.filter(v => captures[v].preview && captures[v].slotStatus === 'no_person')
   const direction = DIRECTION[activeView]
 
@@ -400,7 +417,7 @@ export default function FullScreenCapture({
           aria-label={`Upload ${VIEW_LABEL[view]} photo`}
           onChange={e => {
             const file = e.target.files?.[0]
-            if (file) onFileUpload(view, file)
+            if (file) handleUpload(view, file)
             e.target.value = ''
           }}
         />
@@ -676,10 +693,10 @@ export default function FullScreenCapture({
             {frontSideReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
-                disabled={submitting}
-                style={{ padding: '14px', borderRadius: '12px', background: submitting ? 'rgba(99,102,241,0.4)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}
+                disabled={submitting || requiredChecking}
+                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(99,102,241,0.4)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
-                {submitting ? 'Submitting…' : captures.back.preview ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
+                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : captures.back.preview ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
               </button>
             )}
           </div>
