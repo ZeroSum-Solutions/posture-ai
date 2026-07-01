@@ -35,3 +35,14 @@ export async function selectClientInWizard(page: Page, fullName: string) {
   await page.getByText(fullName).first().click()
   await page.getByRole('button', { name: /Next: (Confirm|Upload Views)/ }).click()
 }
+
+/**
+ * The non-test-mode Step 2 full-screen capture opens on a one-time "Screening
+ * Tool Only" disclaimer overlay. Dismissing it (the required user gesture) starts
+ * the live camera and reveals the capture controls / upload fallback.
+ */
+export async function dismissCaptureDisclaimer(page: Page) {
+  const dismiss = page.getByTestId('capture-disclaimer-dismiss')
+  await expect(dismiss).toBeVisible({ timeout: 10_000 })
+  await dismiss.click()
+}
