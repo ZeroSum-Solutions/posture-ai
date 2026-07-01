@@ -8,13 +8,10 @@ import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './
 // ignores this file (testIgnore pattern).
 
 test.describe('camera error handling and quality preflight', () => {
-  test('camera permission denied shows specific copy and upload fallback', async ({ browser }) => {
-    // Create a context without camera permissions
-    const context = await browser.newContext()
-    const page = await context.newPage()
-
-    // Override getUserMedia to immediately reject with NotAllowedError
-    // so this test runs without OS permission dialogs
+  test('camera permission denied shows copy, upload fallback, and advances on upload', async ({ page }) => {
+    // Override getUserMedia to immediately reject with NotAllowedError so this
+    // runs without OS permission dialogs. Uses the authenticated page fixture so
+    // createClient's API call carries the practitioner session.
     await page.addInitScript(() => {
       Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
         value: async function () {
@@ -39,11 +36,15 @@ test.describe('camera error handling and quality preflight', () => {
     await expect(errorMsg).toBeVisible({ timeout: 10_000 })
     await expect(errorMsg).toContainText('Camera access denied')
 
-    // The upload fallback stays available (button + the hidden per-view inputs).
-    await expect(page.getByRole('button', { name: 'Use File Upload Instead' })).toBeVisible()
+    // The upload fallback is available for the Front view…
+    await expect(page.getByRole('button', { name: /Use File Upload Instead — Front View/ })).toBeVisible()
     await expect(page.locator('input[type="file"]').first()).toBeAttached()
 
-    await context.close()
+    // …and uploading Front advances the fallback to Side, so the upload-only path
+    // is not a dead-end (pending views aren't selectable in the strip).
+    await page.locator('input[type="file"]').nth(0)
+      .setInputFiles(path.join(__dirname, 'fixtures', 'photos', 'front_standing.jpg'))
+    await expect(page.getByRole('button', { name: /Use File Upload Instead — Side View/ })).toBeVisible({ timeout: 10_000 })
   })
 
   test('camera works without orientation sensors: no gate, no indicator', async ({ page }) => {
