@@ -39,7 +39,7 @@ export default defineConfig({
       name: 'mobile-webkit',
       use: { ...devices['iPhone 14'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
-      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts/, // model/camera tests run on chromium only
+      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts/, // model/camera tests run on chromium only
     },
   ],
   webServer: {
