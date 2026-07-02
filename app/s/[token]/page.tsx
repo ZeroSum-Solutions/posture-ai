@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { WorkoutPlayer, type RatingPayload, type RunPatch } from '../../workouts/_player/WorkoutPlayer'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
@@ -68,14 +68,15 @@ export default function ShareTokenPage() {
       return null
     }
   }
-  const saveRun = (patch: RunPatch) => {
+  // Stable identity — saveRun sits in the player's persistence-effect deps.
+  const saveRun = useCallback((patch: RunPatch) => {
     try {
       localStorage.setItem(resumeKey, JSON.stringify({ index: patch.current_item_index ?? 0, items: patch.items ?? [] }))
     } catch {
       /* private mode / quota — resume is best-effort */
     }
-  }
-  const submitRating = async (payload: RatingPayload): Promise<{ ok: boolean; error?: string }> => {
+  }, [resumeKey])
+  const submitRating = useCallback(async (payload: RatingPayload): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await fetch(`/api/workouts/token/${token}/rate`, {
         method: 'POST',
@@ -90,7 +91,7 @@ export default function ShareTokenPage() {
     } catch {
       return { ok: false, error: 'Network error — please try again.' }
     }
-  }
+  }, [token])
 
   if (loading) return <CenteredMessage>Loading your session…</CenteredMessage>
   if (error || !data) return <CenteredMessage>{error ?? 'This session link is not available.'}</CenteredMessage>

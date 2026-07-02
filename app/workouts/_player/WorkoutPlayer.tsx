@@ -133,6 +133,8 @@ export function WorkoutPlayer({
     } catch {
       // Speech is best-effort — the caption always mirrors it on screen.
     }
+    // state.items is intentionally omitted: the reducer sets it once at init and
+    // never replaces it, so it is a permanently stable reference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, state.index, state.set, voiceMuted])
 
@@ -178,9 +180,15 @@ export function WorkoutPlayer({
     if (!canHide) return
     // Auto-hide the transport after entering a play phase / new item. setState
     // runs inside the deferred timer (never synchronously in the effect body).
-    const timer = setTimeout(() => setChromeShown(false), 3200)
-    hideTimer.current = timer
-    return () => clearTimeout(timer)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setChromeShown(false), 3200)
+    return () => {
+      // hideTimer.current is the single live timer — a later pokeChrome may
+      // have replaced ours, so clear whichever is pending (not a captured id)
+      // or a phantom timer would hide the chrome right after a tap.
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+      hideTimer.current = null
+    }
   }, [canHide, state.index])
 
   const begin = () => {
@@ -516,7 +524,7 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
 }
 
 function Transport({ paused, onBack, onPauseToggle, onSkip, atStart }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean }) {
-  const btn = (label: string, onClick: () => void, opts: { primary?: boolean; disabled?: boolean } = {}) => (
+  const btn = (label: string, onClick: () => void, opts: { primary?: boolean; disabled?: boolean; icon?: string } = {}) => (
     <button
       onClick={onClick}
       aria-label={label}
@@ -538,13 +546,14 @@ function Transport({ paused, onBack, onPauseToggle, onSkip, atStart }: { paused:
         cursor: opts.disabled ? 'not-allowed' : 'pointer',
       }}
     >
+      {opts.icon && <span aria-hidden="true">{opts.icon}</span>}
       {label}
     </button>
   )
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
       {btn('Back', onBack, { disabled: atStart })}
-      {btn(paused ? '▶ Resume' : '❚❚ Pause', onPauseToggle, { primary: true })}
+      {btn(paused ? 'Resume' : 'Pause', onPauseToggle, { primary: true, icon: paused ? '▶' : '❚❚' })}
       {btn('Skip', onSkip)}
     </div>
   )

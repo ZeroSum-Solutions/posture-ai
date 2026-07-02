@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { RatingPace, RatingDifficulty } from '@/lib/workout/rating'
 import type { RatingPayload } from './WorkoutPlayer'
 
@@ -69,7 +69,7 @@ export function RateForm({
   if (thanks) {
     return (
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: 8 }}>✓</div>
+        <div aria-hidden="true" style={{ fontSize: '3rem', marginBottom: 8 }}>✓</div>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 6px' }}>Thanks for the feedback</h2>
         <p style={{ color: '#A1A1AA', margin: '0 0 22px' }}>It helps tune your next session.</p>
         {onExit && <button onClick={onExit} style={primaryBtn}>Done</button>}
@@ -78,7 +78,7 @@ export function RateForm({
   }
 
   return (
-    <div style={{ width: '100%', textAlign: 'center' }}>
+    <form onSubmit={(e) => { e.preventDefault(); void onSubmit() }} style={{ width: '100%', textAlign: 'center' }}>
       <h2 style={{ fontSize: 'clamp(1.6rem,6vw,2.2rem)', fontWeight: 800, margin: '0 0 14px', letterSpacing: '-0.02em' }}>Nice work</h2>
       <div style={{ display: 'inline-flex', gap: 18, marginBottom: 22, color: '#D4D4D8', fontSize: '0.9rem' }}>
         <span><strong style={{ color: '#22C55E' }}>{done}</strong> / {total} done</span>
@@ -92,6 +92,7 @@ export function RateForm({
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}
+                type="button"
                 aria-label={`${n} star${n > 1 ? 's' : ''}`}
                 aria-pressed={clarity !== undefined && n <= clarity}
                 onClick={() => setClarity(n)}
@@ -114,7 +115,7 @@ export function RateForm({
         <Row label="Anything stand out? (optional)">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
             {TAGS.map((t) => (
-              <button key={t.value} aria-pressed={tags.includes(t.value)} onClick={() => toggleTag(t.value)} style={{ ...chip, ...(tags.includes(t.value) ? chipOn : {}) }}>
+              <button key={t.value} type="button" aria-pressed={tags.includes(t.value)} onClick={() => toggleTag(t.value)} style={{ ...chip, ...(tags.includes(t.value) ? chipOn : {}) }}>
                 {t.label}
               </button>
             ))}
@@ -128,6 +129,7 @@ export function RateForm({
               onChange={(e) => setNotes(e.target.value.slice(0, 500))}
               maxLength={500}
               rows={3}
+              aria-label="Notes for the practitioner (optional)"
               placeholder="What worked, what felt awkward…"
               style={{ width: '100%', resize: 'vertical', padding: 10, borderRadius: 10, background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.15)', color: '#F5F5F5', fontFamily: 'inherit', fontSize: '0.9rem' }}
             />
@@ -140,23 +142,24 @@ export function RateForm({
       {error && <div role="alert" style={{ color: '#F87171', fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button onClick={onSubmit} disabled={!canSubmit || submitting} style={{ ...primaryBtn, opacity: canSubmit && !submitting ? 1 : 0.5, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
+        <button type="submit" disabled={!canSubmit || submitting} style={{ ...primaryBtn, opacity: canSubmit && !submitting ? 1 : 0.5, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
           {submitting ? 'Saving…' : 'Submit feedback'}
         </button>
         {onExit && (
-          <button onClick={onExit} style={ghostBtn}>
+          <button type="button" onClick={onExit} style={ghostBtn}>
             Skip
           </button>
         )}
       </div>
-    </div>
+    </form>
   )
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  const labelId = useId()
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginBottom: 8, fontWeight: 600 }}>{label}</div>
+    <div role="group" aria-labelledby={labelId} style={{ marginBottom: 16 }}>
+      <div id={labelId} style={{ fontSize: '0.78rem', color: '#A1A1AA', marginBottom: 8, fontWeight: 600 }}>{label}</div>
       {children}
     </div>
   )
@@ -166,7 +169,7 @@ function Chips<T extends string>({ options, selected, onSelect }: { options: { v
   return (
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
       {options.map((o) => (
-        <button key={o.value} aria-pressed={selected === o.value} onClick={() => onSelect(o.value)} style={{ ...chip, ...(selected === o.value ? chipOn : {}) }}>
+        <button key={o.value} type="button" aria-pressed={selected === o.value} onClick={() => onSelect(o.value)} style={{ ...chip, ...(selected === o.value ? chipOn : {}) }}>
           {o.label}
         </button>
       ))}

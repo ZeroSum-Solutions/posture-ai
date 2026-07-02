@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashUser, hashIp } from '@/lib/log'
 import { buildSessionFromAssessment } from '@/lib/workout/buildSessionFromAssessment'
 import type { StoredFinding } from '@/lib/findings/storedFindingToEngine'
 import { generateShareToken } from '@/lib/workout/token'
@@ -17,11 +16,6 @@ const bodySchema = z.object({
   week: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   share: z.boolean().optional(),
 }).strict()
-
-const hashIp = (req: NextRequest): string | null => {
-  const fwd = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return fwd ? createHash('sha256').update(fwd).digest('hex') : null
-}
 
 /**
  * Mint a guided workout session from an APPROVED assessment. The frozen
@@ -121,13 +115,16 @@ export async function POST(req: NextRequest) {
 
   let shareLink: string | undefined
   if (shareToken) {
-    shareLink = `${new URL(req.url).origin}/s/${shareToken.token}`
+    // Prefer a configured canonical origin — the request Host header is
+    // caller-influenced, and a share link must never point off-site.
+    const origin = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin).replace(/\/+$/, '')
+    shareLink = `${origin}/s/${shareToken.token}`
     await service.from('workout_share_events').insert({
       workout_session_id: session.id,
       practitioner_id: user.id,
       event: 'minted',
       actor: 'practitioner',
-      ip_hash: hashIp(req),
+      ip_hash: hashIp(req.headers.get('x-forwarded-for')),
     })
   }
 

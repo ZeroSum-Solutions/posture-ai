@@ -818,6 +818,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         setLaunching(false)
         return
       }
+      if (!data.session_id) {
+        setLaunchError('Could not start the session.')
+        setLaunching(false)
+        return
+      }
       router.push(`/workouts/${data.session_id}`)
     } catch {
       setLaunchError('Could not start the session.')
@@ -944,7 +949,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
               boxShadow: isApproved && !launching ? '0 10px 28px rgba(99,102,241,0.4)' : 'none', whiteSpace: 'nowrap',
             }}
           >
-            {launching ? 'Starting…' : '▶ Launch session'}
+            {launching ? 'Starting…' : <><span aria-hidden="true">▶ </span>Launch session</>}
           </button>
         </div>
       ) : (

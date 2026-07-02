@@ -25,6 +25,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
   }
 
+  // Cheapest check first — a blank/short token can't match a 256-bit hash, so
+  // reject before spending work on body parsing/validation.
+  if (!token || token.length < 20) {
+    return NextResponse.json({ error: 'This session link is not available.' }, { status: 404 })
+  }
+
   let raw: unknown
   try { raw = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
@@ -32,10 +38,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const rating = validateRating(raw, { allowNotes: false })
   if (!rating.ok) {
     return NextResponse.json({ error: rating.error }, { status: 422 })
-  }
-
-  if (!token || token.length < 20) {
-    return NextResponse.json({ error: 'This session link is not available.' }, { status: 404 })
   }
 
   const { data, error } = await service.rpc('resolve_workout_token', { p_token_hash: hashShareToken(token) })

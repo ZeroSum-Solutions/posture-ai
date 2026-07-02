@@ -1,4 +1,5 @@
 'use client'
+import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { WorkoutPlayer, type RunPatch, type RatingPayload } from '../_player/WorkoutPlayer'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
@@ -23,16 +24,18 @@ export default function AuthedPlayer({
 }) {
   const router = useRouter()
 
-  const saveRun = (patch: RunPatch) => {
+  // Stable identities: saveRun sits in the player's persistence-effect deps, so
+  // a fresh function per render would re-run that effect for nothing.
+  const saveRun = useCallback((patch: RunPatch) => {
     fetch(`/api/workouts/${sessionId}/run`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(patch),
       keepalive: true,
     }).catch(() => {})
-  }
+  }, [sessionId])
 
-  const submitRating = async (payload: RatingPayload): Promise<{ ok: boolean; error?: string }> => {
+  const submitRating = useCallback(async (payload: RatingPayload): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await fetch(`/api/workouts/${sessionId}/rate`, {
         method: 'POST',
@@ -47,7 +50,9 @@ export default function AuthedPlayer({
     } catch {
       return { ok: false, error: 'Network error — please try again.' }
     }
-  }
+  }, [sessionId])
+
+  const onExit = useCallback(() => router.push(backHref), [router, backHref])
 
   return (
     <WorkoutPlayer
@@ -57,7 +62,7 @@ export default function AuthedPlayer({
       resume={resume}
       saveRun={saveRun}
       submitRating={submitRating}
-      onExit={() => router.push(backHref)}
+      onExit={onExit}
     />
   )
 }

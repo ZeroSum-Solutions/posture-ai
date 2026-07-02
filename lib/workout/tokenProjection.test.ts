@@ -34,4 +34,22 @@ describe('redactSessionForPublic', () => {
       expect(k in pub).toBe(false)
     }
   })
+
+  test('drops unknown snapshot fields — jsonb drift cannot silently widen the public surface', () => {
+    // program_snapshot is a jsonb blob written at mint time. If the snapshot
+    // shape ever grows a field (refactor, migration, spread), it must NOT reach
+    // the public path unless someone adds it to the projection on purpose.
+    const drifted = {
+      ...snapshot,
+      assessmentId: 'assess-secret',
+      internalNotes: 'client has a history of…',
+    } as SessionSnapshot
+    const pub = redactSessionForPublic({ ...resolved, program_snapshot: drifted })
+    const serialized = JSON.stringify(pub)
+    expect(serialized).not.toContain('assess-secret')
+    expect(serialized).not.toContain('internalNotes')
+    expect(Object.keys(pub.snapshot).sort()).toEqual(
+      ['capability', 'disclaimer', 'estimatedDurationSec', 'items', 'priorities', 'version', 'week'].sort(),
+    )
+  })
 })

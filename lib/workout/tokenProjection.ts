@@ -26,8 +26,12 @@ export interface PublicSession {
 }
 
 export function redactSessionForPublic(r: ResolvedSession): PublicSession {
+  // Explicit field pick, not a pass-through: program_snapshot is a jsonb blob,
+  // so a new snapshot field (refactor, migration, spread) must never widen the
+  // public surface without being added here on purpose.
+  const { version, week, capability, priorities, items, estimatedDurationSec, disclaimer } = r.program_snapshot
   return {
-    snapshot: r.program_snapshot,
+    snapshot: { version, week, capability, priorities, items, estimatedDurationSec, disclaimer },
     estimatedDurationSec: r.estimated_duration_sec,
     clientFirstName: r.client_first_name,
     expiresAt: r.expires_at,
