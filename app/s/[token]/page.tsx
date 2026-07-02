@@ -31,7 +31,9 @@ export default function ShareTokenPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`/api/workouts/token/${token}`)
+        // no-store: a PHI-adjacent bearer-token response must never be served
+        // from a shared cache after the link is revoked or expired.
+        const res = await fetch(`/api/workouts/token/${token}`, { cache: 'no-store' })
         if (!res.ok) {
           if (!cancelled) {
             setError('This session link is not available or has expired.')
@@ -57,7 +59,7 @@ export default function ShareTokenPage() {
   }, [token])
 
   const resumeKey = `postureai:resume:${token}`
-  const readResume = (): { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[] } | null => {
+  const readResume = (): { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[]; revision?: number } | null => {
     if (typeof window === 'undefined') return null
     try {
       const raw = localStorage.getItem(resumeKey)
@@ -71,7 +73,10 @@ export default function ShareTokenPage() {
   // Stable identity — saveRun sits in the player's persistence-effect deps.
   const saveRun = useCallback((patch: RunPatch) => {
     try {
-      localStorage.setItem(resumeKey, JSON.stringify({ index: patch.current_item_index ?? 0, items: patch.items ?? [] }))
+      localStorage.setItem(
+        resumeKey,
+        JSON.stringify({ index: patch.current_item_index ?? 0, items: patch.items ?? [], revision: patch.revision ?? 0 }),
+      )
     } catch {
       /* private mode / quota — resume is best-effort */
     }

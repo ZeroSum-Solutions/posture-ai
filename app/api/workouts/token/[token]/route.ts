@@ -7,6 +7,10 @@ import { redactSessionForPublic, type ResolvedSession } from '@/lib/workout/toke
 
 const ROUTE = 'GET /api/workouts/token/[token]'
 
+// This is a public bearer-token endpoint returning PHI-adjacent content: no
+// shared or browser cache may retain a response past revocation/expiry.
+const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' }
+
 /**
  * Public share-link hydration for the follow-along player. No auth cookie — the
  * hashed token is the credential, and resolve_workout_token() (the single reader)
@@ -18,28 +22,30 @@ const ROUTE = 'GET /api/workouts/token/[token]'
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   const service = createSupabaseServiceClient()
-  const ipHash = hashIp(req.headers.get('x-forwarded-for'))
+  // x-real-ip is platform-managed (non-spoofable on Vercel); rightmost XFF hop
+  // is the fallback — see hashIp.
+  const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
 
   const allowed = await enforceRateLimit(service, { route: 'workouts_token', userId: ipHash ?? 'anon', limit: 30, windowSeconds: 60 })
   if (!allowed) {
     logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429 })
-    return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+    return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429, headers: NO_STORE })
   }
 
   // A blank/short token can't match a 256-bit hash — reject before the DB round-trip.
   if (!token || token.length < 20) {
-    return NextResponse.json({ error: 'This session link is not available.' }, { status: 404 })
+    return NextResponse.json({ error: 'This session link is not available.' }, { status: 404, headers: NO_STORE })
   }
 
   const { data, error } = await service.rpc('resolve_workout_token', { p_token_hash: hashShareToken(token) })
   if (error) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detail: error.message })
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })
   }
   const resolved = (Array.isArray(data) ? data[0] : data) as ResolvedSession | undefined
   if (!resolved) {
     logEvent({ route: ROUTE, outcome: 'client_error', status: 404 })
-    return NextResponse.json({ error: 'This session link is not available.' }, { status: 404 })
+    return NextResponse.json({ error: 'This session link is not available.' }, { status: 404, headers: NO_STORE })
   }
 
   // Best-effort audit — never block the client on the write.
@@ -52,5 +58,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   })
 
   logEvent({ route: ROUTE, outcome: 'ok', status: 200 })
-  return NextResponse.json(redactSessionForPublic(resolved))
+  return NextResponse.json(redactSessionForPublic(resolved), { headers: NO_STORE })
 }

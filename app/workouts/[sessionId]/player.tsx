@@ -19,7 +19,7 @@ export default function AuthedPlayer({
   sessionId: string
   snapshot: SessionSnapshot
   clientFirstName?: string | null
-  resume?: { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[] } | null
+  resume?: { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[]; revision?: number } | null
   backHref: string
 }) {
   const router = useRouter()

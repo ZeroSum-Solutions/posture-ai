@@ -23,6 +23,8 @@ export interface RunPatch {
   current_item_index?: number
   items?: RunItem[]
   total_duration_ms?: number
+  /** Monotonic write counter — the server drops stale/out-of-order patches. */
+  revision?: number
 }
 export interface RatingPayload {
   clarity?: number
@@ -36,7 +38,7 @@ export interface WorkoutPlayerProps {
   clientFirstName?: string | null
   /** Practitioner path allows a lint-checked note; the public client path does not. */
   allowNotes: boolean
-  resume?: { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[] } | null
+  resume?: { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[]; revision?: number } | null
   /** Fire-and-forget playback persistence (PATCH /run, or localStorage on the token path). */
   saveRun?: (patch: RunPatch) => void
   submitRating: (payload: RatingPayload) => Promise<{ ok: boolean; error?: string }>
@@ -103,7 +105,10 @@ export function WorkoutPlayer({
     let last = Date.now()
     const id = setInterval(() => {
       const now = Date.now()
-      const delta = now - last
+      // Clamp the delta: after tab-backgrounding the browser delivers one huge
+      // tick. A guided session waits for the user rather than fast-forwarding
+      // through segments — and elapsedMs must not count time spent away.
+      const delta = Math.min(now - last, 1_000)
       last = now
       dispatch({ type: 'TICK', ms: delta })
     }, 200)
@@ -143,6 +148,7 @@ export function WorkoutPlayer({
 
   // ---- persist playback state (deduped) for resume + analytics ----------
   const lastSavedRef = useRef('')
+  const revisionRef = useRef(resume?.revision ?? 0)
   useEffect(() => {
     if (!saveRun || state.phase === 'idle') return
     const status: RunStatus =
@@ -161,7 +167,8 @@ export function WorkoutPlayer({
     const key = JSON.stringify([status, patch.current_item_index, items])
     if (key === lastSavedRef.current) return
     lastSavedRef.current = key
-    saveRun(patch)
+    revisionRef.current += 1
+    saveRun({ ...patch, revision: revisionRef.current })
     // elapsedMs is read but intentionally not a dep: it changes every tick, and
     // the key-dedup above already gates writes to meaningful transitions.
     // eslint-disable-next-line react-hooks/exhaustive-deps

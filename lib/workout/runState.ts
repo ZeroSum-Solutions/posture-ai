@@ -4,8 +4,12 @@
  * unit-tests deterministically.
  *
  * Guarantees the route relies on:
- *  - completion never regresses: item completed/skipped are OR-merged by slug and
- *    a resume that re-sends an earlier item as incomplete cannot un-complete it;
+ *  - revisioned writes (patch.revision) are ordered: a stale/duplicate revision
+ *    is dropped (null), and a newer revision REPLACES items verbatim — the
+ *    client's full state is authoritative, so Back/replay can un-complete an
+ *    item without the server resurrecting the old flag;
+ *  - legacy writes (no revision) fall back to the OR-merge: completion never
+ *    regresses on that path;
  *  - 'completed' is terminal: a late/duplicate downgrade is ignored and the
  *    original completed_at is preserved;
  *  - total_duration_ms is monotonic;
@@ -27,6 +31,7 @@ export interface RunRow {
   total_duration_ms: number | null
   last_paused_at: string | null
   completed_at: string | null
+  revision: number | null
 }
 
 export interface RunPatch {
@@ -34,6 +39,7 @@ export interface RunPatch {
   current_item_index?: number
   items?: RunItem[]
   total_duration_ms?: number
+  revision?: number
 }
 
 export interface RunUpdate {
@@ -43,6 +49,7 @@ export interface RunUpdate {
   total_duration_ms: number
   last_paused_at: string | null
   completed_at: string | null
+  revision: number
   updated_at: string
 }
 
@@ -67,18 +74,31 @@ export function mergeRunItems(existing: RunItem[], incoming: RunItem[]): RunItem
   return [...bySlug.values()]
 }
 
-export function buildRunUpdate(existing: RunRow, patch: RunPatch, nowIso: string): RunUpdate {
+/** Returns null when a revisioned patch is stale (≤ stored revision) — drop it. */
+export function buildRunUpdate(existing: RunRow, patch: RunPatch, nowIso: string): RunUpdate | null {
+  const revisioned = patch.revision != null
+  if (revisioned && patch.revision! <= (existing.revision ?? 0)) return null
+
   const terminal = existing.status === 'completed'
   const status: RunStatus = terminal ? 'completed' : patch.status ?? existing.status
   const becameCompleted = status === 'completed' && existing.status !== 'completed'
 
+  // Revisioned writes carry the client's full authoritative item state (Back can
+  // legitimately un-complete an item); only the legacy path needs the OR-merge.
+  const items = patch.items
+    ? revisioned
+      ? patch.items
+      : mergeRunItems(existing.items ?? [], patch.items)
+    : existing.items ?? []
+
   return {
     status,
     current_item_index: patch.current_item_index ?? existing.current_item_index,
-    items: patch.items ? mergeRunItems(existing.items ?? [], patch.items) : existing.items ?? [],
+    items,
     total_duration_ms: Math.max(existing.total_duration_ms ?? 0, patch.total_duration_ms ?? 0),
     last_paused_at: status === 'paused' ? nowIso : existing.last_paused_at,
     completed_at: becameCompleted ? nowIso : existing.completed_at,
+    revision: patch.revision ?? existing.revision ?? 0,
     updated_at: nowIso,
   }
 }

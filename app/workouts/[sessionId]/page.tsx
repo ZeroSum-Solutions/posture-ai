@@ -29,7 +29,7 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
     supabase.from('clients').select('first_name').eq('id', session.client_id).maybeSingle(),
     supabase
       .from('session_runs')
-      .select('current_item_index, items, status')
+      .select('current_item_index, items, status, revision')
       .eq('workout_session_id', sessionId)
       .order('created_at', { ascending: true })
       .limit(1)
@@ -38,7 +38,11 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
 
   const resume =
     run && run.status !== 'completed'
-      ? { index: (run.current_item_index as number) ?? 0, items: (run.items as RunItem[]) ?? [] }
+      ? {
+          index: (run.current_item_index as number) ?? 0,
+          items: (run.items as RunItem[]) ?? [],
+          revision: (run.revision as number) ?? 0,
+        }
       : null
 
   return (

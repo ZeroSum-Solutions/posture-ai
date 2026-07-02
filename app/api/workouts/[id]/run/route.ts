@@ -19,6 +19,7 @@ const bodySchema = z.object({
   current_item_index: z.number().int().min(0).optional(),
   items: z.array(runItemSchema).optional(),
   total_duration_ms: z.number().int().min(0).optional(),
+  revision: z.number().int().min(0).optional(),
 }).strict()
 
 /**
@@ -56,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // RLS, so the practitioner_id filter is the authorization boundary).
   const { data: existing } = await service
     .from('session_runs')
-    .select('id, status, current_item_index, items, total_duration_ms, last_paused_at, completed_at')
+    .select('id, status, current_item_index, items, total_duration_ms, last_paused_at, completed_at, revision')
     .eq('workout_session_id', id)
     .eq('practitioner_id', user.id)
     .order('created_at', { ascending: true })
@@ -67,6 +68,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const update = buildRunUpdate(existing as RunRow, parsed.data, new Date().toISOString())
+  if (!update) {
+    // Stale/duplicate revision — already superseded by a newer write. Not an error.
+    return NextResponse.json({ ok: true, stale: true })
+  }
 
   const { error } = await service.from('session_runs').update(update).eq('id', existing.id)
   if (error) {

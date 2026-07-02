@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       practitioner_id: user.id,
       event: 'minted',
       actor: 'practitioner',
-      ip_hash: hashIp(req.headers.get('x-forwarded-for')),
+      ip_hash: hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')),
     })
   }
 
