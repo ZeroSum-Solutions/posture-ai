@@ -15,6 +15,13 @@ export interface CaptureSlot {
   slotStatus: SlotStatus
   /** Sensor-measured camera roll for camera captures; null for uploads/no-sensor. */
   captureRollDeg: number | null
+  /**
+   * Camera capture burst — the stills grabbed at the shutter (engine 1.3.0
+   * within-capture stability). `preview` is the representative one; every frame
+   * is pose-detected at submit so the engine can median them + score stability.
+   * null for uploads (a single image can't estimate within-capture jitter).
+   */
+  burstPreviews: string[] | null
 }
 
 export type Captures = Record<ViewKey, CaptureSlot>

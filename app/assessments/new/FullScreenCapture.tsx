@@ -5,9 +5,16 @@ import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import type { Captures, ViewKey } from './types'
 import { VIEW_ORDER, VIEW_LABEL } from './types'
 
+// Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
+// A ~5-frame burst of a held pose is enough to estimate landmark jitter without
+// a perceptible capture delay.
+const BURST_SIZE = 5
+const BURST_INTERVAL_MS = 70
+
 interface FullScreenCaptureProps {
   captures: Captures
-  onCameraCapture: (view: ViewKey, dataUrl: string, captureRollDeg: number | null) => void
+  /** dataUrls is the shutter burst; [0] is the representative still for preview. */
+  onCameraCapture: (view: ViewKey, dataUrls: string[], captureRollDeg: number | null) => void
   onFileUpload: (view: ViewKey, file: File) => void
   onProceed: () => void
   onExit: () => void
@@ -96,6 +103,8 @@ export default function FullScreenCapture({
   // Guards async work in openStream from touching a torn-down component (e.g. the
   // user leaves while the camera-permission prompt is open).
   const mountedRef = useRef(true)
+  // The shutter burst (dataUrls) awaiting commit; the middle one is the review still.
+  const burstRef = useRef<string[]>([])
 
   const [phase, setPhase] = useState<Phase>('disclaimer')
   const [started, setStarted] = useState(false)
@@ -250,7 +259,10 @@ export default function FullScreenCapture({
   }
 
   // ---- capture ----
-  const capture = useCallback(() => {
+  // Grab a short burst of distinct live frames (not one still): a held pose over
+  // ~300ms yields the landmark jitter the engine turns into within-capture
+  // stability. All frames are stashed; the middle one is shown for review.
+  const capture = useCallback(async () => {
     const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
@@ -258,11 +270,18 @@ export default function FullScreenCapture({
     canvas.height = video.videoHeight || 960
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    ctx.drawImage(video, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-    setRollAtCapture(level.rollRef.current)
+    const rollAt = level.rollRef.current // roll at the shutter instant
+    const urls: string[] = []
+    for (let i = 0; i < BURST_SIZE; i++) {
+      ctx.drawImage(video, 0, 0)
+      urls.push(canvas.toDataURL('image/jpeg', 0.9))
+      if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
+    }
+    if (!mountedRef.current) return
+    burstRef.current = urls
+    setRollAtCapture(rollAt)
     setPreviewQuality(null)
-    setReviewUrl(dataUrl)
+    setReviewUrl(urls[Math.floor(urls.length / 2)]) // representative still
     setPhase('review')
     // Stream keeps running so the next view is instant — the frozen still is
     // shown as an overlay during review.
@@ -277,7 +296,7 @@ export default function FullScreenCapture({
   function onShutter() {
     if (tiltBlocked || !ready) return
     if (timerOn) startCountdown()
-    else capture()
+    else void capture()
   }
 
   // Countdown driver — re-checks the tilt gate at the shutter instant.
@@ -288,7 +307,7 @@ export default function FullScreenCapture({
         const abort = setTimeout(() => { setPhase('live'); setCountdown(3) }, 0)
         return () => clearTimeout(abort)
       }
-      capture()
+      void capture()
       return
     }
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
@@ -337,7 +356,9 @@ export default function FullScreenCapture({
   function useThisPhoto() {
     if (!reviewUrl) return
     const committed = activeView
-    onCameraCapture(committed, reviewUrl, rollAtCapture)
+    const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
+    onCameraCapture(committed, burst, rollAtCapture)
+    burstRef.current = []
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
@@ -354,6 +375,7 @@ export default function FullScreenCapture({
   }
 
   function retakeStill() {
+    burstRef.current = []
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
