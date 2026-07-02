@@ -134,6 +134,8 @@ export async function POST(req: NextRequest) {
           scoring_engine_version: result.engineVersion,
           tilt_corrected: result.tiltCorrected,
           level_verified: result.levelVerified,
+          // null for single-frame captures (legacy path) — never fabricated.
+          capture_stability: result.captureStability ?? null,
         })
         .eq('id', assessmentId)
 

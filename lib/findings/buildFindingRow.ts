@@ -17,6 +17,9 @@ export interface FindingRow {
   view_used: string
   confidence: number
   metric_validity: string
+  /** Within-capture stability (engine 1.3.0 bursts); null for single-frame captures — never fabricated. */
+  stability_score: number | null
+  uncertainty_deg: number | null
 }
 
 /**
@@ -44,5 +47,7 @@ export function buildFindingRow(
     view_used: f.viewUsed === 'back' ? 'back' : f.viewUsed,
     confidence: f.confidence,
     metric_validity: metricValidity(f.key),
+    stability_score: f.stabilityScore ?? null,
+    uncertainty_deg: f.uncertaintyDeg ?? null,
   }
 }

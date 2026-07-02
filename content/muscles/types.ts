@@ -45,6 +45,23 @@ const screeningText = (min: number, max: number) =>
       }
     })
 
+/**
+ * Runtime screening-vocabulary gate for GENERATED strings (voice cues, player
+ * captions, rating copy) — anything user-facing that is assembled in code
+ * rather than authored in a schema-validated content file. Returns the text
+ * unchanged when clean; throws naming the banned term otherwise, so a
+ * non-screening word can never ship silently.
+ */
+export function assertScreeningText(text: string): string {
+  for (const pattern of BANNED_TERM_PATTERNS) {
+    const match = text.match(pattern)
+    if (match) {
+      throw new Error(`Banned non-screening term "${match[0]}" (pattern ${pattern})`)
+    }
+  }
+  return text
+}
+
 export const muscleLinkSchema = z.object({
   imbalanceKey: z.enum(IMBALANCE_KEYS),
   role: z.enum(['tight', 'weak']),
@@ -137,6 +154,27 @@ export const exerciseContentSchema = z
     /** Compound items pinned last as the Week-3 "Connect" step. */
     isIntegrative: z.boolean().optional(),
     muscles: z.array(exerciseMuscleSchema).min(1),
+    /**
+     * Workout-player demonstration media (optional, additive — the 55 files
+     * adopt clips incrementally; the player falls back to poster/text).
+     */
+    media: z
+      .object({
+        loopUrl: z.string().min(1),
+        posterUrl: z.string().min(1),
+        fallbackGifUrl: z.string().min(1).optional(),
+      })
+      .optional(),
+    /** Short structured coaching cues for the player's voice/captions — never the long instructions. */
+    form: z
+      .object({
+        alignmentCue: screeningText(20, 160),
+        avoidCue: screeningText(20, 160),
+        tempo: z.string().optional(),
+      })
+      .optional(),
+    /** Player rest between sets; absent → the player's per-category default. */
+    restSecondsBetweenSets: z.number().int().min(0).max(120).optional(),
   })
   .superRefine((ex, ctx) => {
     // reps is null exactly when the item is dosed by time or is a stretch/informational.

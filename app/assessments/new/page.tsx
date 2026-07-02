@@ -35,9 +35,9 @@ function NewAssessmentWizard() {
   const [loadingClients, setLoadingClients] = useState(true)
   const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>({
-    front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
-    side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
-    back: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
+    front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
+    side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
+    back: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
   })
   const [uploadError, setUploadError] = useState<string | null>(null)
 
@@ -190,20 +190,24 @@ function NewAssessmentWizard() {
     const preview = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
     setCaptures(prev => ({
       ...prev,
-      [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null },
+      [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
     }))
     if (oldPreview && oldPreview.startsWith('blob:')) URL.revokeObjectURL(oldPreview)
     setUploadError(null)
     if (!testMode) runPreflight(view, preview, 'upload', null)
   }
 
-  function handleCameraCapture(view: ViewKey, dataUrl: string, captureRollDeg: number | null) {
+  function handleCameraCapture(view: ViewKey, dataUrls: string[], captureRollDeg: number | null) {
+    // dataUrls is the shutter burst; the representative (index 0) drives the
+    // preview thumbnail + the fast quality preflight. Every frame is pose-detected
+    // at submit so the engine can median them + report within-capture stability.
+    const preview = dataUrls[0]
     setCaptures(prev => ({
       ...prev,
-      [view]: { file: null, preview: dataUrl, source: 'camera', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg },
+      [view]: { file: null, preview, source: 'camera', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg, burstPreviews: dataUrls },
     }))
     setUploadError(null)
-    if (!testMode) runPreflight(view, dataUrl, 'camera', captureRollDeg)
+    if (!testMode) runPreflight(view, preview, 'camera', captureRollDeg)
   }
 
   // Check if submit should be blocked: a required slot has 'no_person' status
@@ -231,21 +235,35 @@ function NewAssessmentWizard() {
     try {
       const clientId = selectedClient?.id
 
-      // Reuse cached PoseFrames if available; fall back to detection if needed.
+      // Build the frame payload. A camera capture sends its whole shutter burst
+      // (engine 1.3.0 medians them + scores within-capture stability); uploads
+      // send a single frame. Landmarks only — no image bytes leave the device.
       let frames: unknown[] | undefined = undefined
       if (!testMode) {
         frames = []
+        const { detectPose } = await import('@/lib/pose/detect')
+        const withRoll = (f: PoseFrame, roll: number | null): PoseFrame =>
+          roll !== null ? { ...f, captureRollDeg: roll } : f
         for (const v of ['front', 'side', 'back'] as ViewKey[]) {
           const cap = captures[v]
           if (!cap.preview) continue
-          if (cap.poseFrame) {
-            // Reuse the frame from preflight — no re-detection needed
+          const burst = cap.source === 'camera' && cap.burstPreviews && cap.burstPreviews.length > 1
+            ? cap.burstPreviews
+            : null
+          if (burst) {
+            // Detect every frame of the burst (the representative was already
+            // detected in preflight; re-detecting it here keeps the set uniform).
+            for (const url of burst) {
+              const detected = await detectPose(url, v, 'camera')
+              frames.push(withRoll(detected, cap.captureRollDeg))
+            }
+          } else if (cap.poseFrame) {
+            // Single frame from preflight — no re-detection needed.
             frames.push(cap.poseFrame)
           } else {
-            // Preflight was skipped or failed — detect now
-            const { detectPose } = await import('@/lib/pose/detect')
+            // Preflight was skipped or failed — detect now.
             const detected = await detectPose(cap.preview, v, cap.source ?? 'upload')
-            frames.push(cap.captureRollDeg !== null ? { ...detected, captureRollDeg: cap.captureRollDeg } : detected)
+            frames.push(withRoll(detected, cap.captureRollDeg))
           }
         }
       }

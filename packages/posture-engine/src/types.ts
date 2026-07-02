@@ -39,6 +39,16 @@ export interface Finding {
   confidence: number
   reliable: boolean
   landmarksUsed: string[]
+  /**
+   * Within-capture stability of THIS finding's deviation across the capture
+   * burst, 0..1 (1 = rock-steady). Present only for multi-frame captures; a
+   * single frame carries no spread, so it is left undefined (never fabricated).
+   * This is detector/landmark stability within one capture — NOT test-retest
+   * repeatability, which would require re-positioning between captures.
+   */
+  stabilityScore?: number
+  /** Robust 1σ (degrees) of this finding's deviation across the burst; undefined for a single frame. */
+  uncertaintyDeg?: number
 }
 
 export interface AssessmentResult {
@@ -55,4 +65,10 @@ export interface AssessmentResult {
   tiltCorrected: boolean
   /** True when every submitted frame came from sensor-verified capture (captureRollDeg present and not an upload). */
   levelVerified: boolean
+  /**
+   * Mean within-capture stability (0..1) of the reliable findings that had a
+   * multi-frame burst; null when the capture was single-frame per view (every
+   * legacy assessment) so it is never fabricated from one sample.
+   */
+  captureStability?: number | null
 }
