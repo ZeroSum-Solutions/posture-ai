@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -162,8 +162,17 @@ function NewAssessmentWizard() {
       })
     : clients
 
+  // Monotonic preflight token per view: a re-capture/re-upload bumps the token so
+  // a still-running preflight for the previous image discards its (now stale)
+  // result instead of overwriting the newer slot.
+  const preflightSeq = useRef<Record<string, number>>({})
+
   // Run detectPose + assessFrameQuality after each capture/upload
   async function runPreflight(view: ViewKey, preview: string, source: 'camera' | 'upload', captureRollDeg: number | null) {
+    const token = (preflightSeq.current[view] ?? 0) + 1
+    preflightSeq.current[view] = token
+    const isStale = () => preflightSeq.current[view] !== token
+
     setCaptures(prev => ({
       ...prev,
       [view]: { ...prev[view], slotStatus: 'checking' },
@@ -174,6 +183,7 @@ function NewAssessmentWizard() {
       const { assessFrameQuality } = await import('@/lib/pose/quality')
 
       const detected = await detectPose(preview, view, source)
+      if (isStale()) return
       const poseFrame: PoseFrame = captureRollDeg !== null ? { ...detected, captureRollDeg } : detected
       const quality = assessFrameQuality(poseFrame, view)
 
@@ -187,6 +197,7 @@ function NewAssessmentWizard() {
       }))
     } catch (err) {
       console.error('[wizard] preflight error:', err)
+      if (isStale()) return
       // On model-load failure, don't block submission — mark idle
       setCaptures(prev => ({
         ...prev,

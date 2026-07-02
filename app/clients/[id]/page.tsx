@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
 import {
@@ -325,36 +326,18 @@ export default function ClientDetailPage() {
 
       {/* Archive Confirmation Dialog */}
       {showArchiveConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-        }}>
-          <div style={{
-            background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '16px', padding: '32px', maxWidth: '420px', width: '90%',
-          }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '12px' }}>
-              Archive Client?
-            </h2>
-            <p style={{ color: '#A1A1AA', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>
-              Archiving <strong style={{ color: '#F5F5F5' }}>{client.first_name} {client.last_name}</strong> will
-              remove them from your active client list. Their data will be preserved and can be recovered.
-            </p>
-            {archiveError && (
-              <p role="alert" style={{ color: '#F87171', fontSize: '0.85rem', marginBottom: '16px' }}>{archiveError}</p>
-            )}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setShowArchiveConfirm(false)} disabled={archiving}
-                style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={handleArchive} disabled={archiving}
-                style={{ flex: 1, padding: '10px', background: archiving ? 'rgba(239,68,68,0.3)' : '#EF4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: archiving ? 'not-allowed' : 'pointer' }}>
-                {archiving ? 'Archiving...' : 'Yes, Archive'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Archive Client?"
+          confirmLabel={archiving ? 'Archiving...' : 'Yes, Archive'}
+          onConfirm={handleArchive}
+          onCancel={() => setShowArchiveConfirm(false)}
+          busy={archiving}
+          danger
+          error={archiveError}
+        >
+          Archiving <strong style={{ color: '#F5F5F5' }}>{client.first_name} {client.last_name}</strong> will
+          remove them from your active client list. Their data will be preserved and can be recovered.
+        </ConfirmDialog>
       )}
 
       {/* Tabs */}

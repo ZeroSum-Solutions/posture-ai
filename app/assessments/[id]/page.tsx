@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
@@ -710,18 +710,25 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   // launched session exactly. null = empty-session floor (nothing reliable to play).
   const sessionPreview = useMemo(() => generateWorkoutSession(program, { week: 1 }), [program])
 
+  // Serialize override PATCHes: rapid edits (reorder, then swap) must reach the
+  // server in call order, or a slower earlier write could land last and overwrite
+  // the newer state. Each call chains onto the previous one's completion.
+  const overrideQueue = useRef<Promise<void>>(Promise.resolve())
+
   // Persist coach overrides so the client PDF regenerates identically.
-  async function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
+  function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
     if (!assessmentId) return
-    try {
-      await fetch('/api/assessments/' + assessmentId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      })
-    } catch {
-      // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
-    }
+    overrideQueue.current = overrideQueue.current.then(async () => {
+      try {
+        await fetch('/api/assessments/' + assessmentId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+      } catch {
+        // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
+      }
+    })
   }
 
   function handleCapabilityChange(c: Capability) {
