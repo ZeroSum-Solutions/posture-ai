@@ -90,9 +90,19 @@ export async function GET(
     .select('id, view, storage_path, source, pose_frame')
     .eq('assessment_id', id)
 
+  // One capture per view: a burst capture (engine 1.3.0) stores every frame for
+  // re-scorability, but the results page shows a single photo slot per view —
+  // frames within a burst share source/roll, so the first row stands in.
+  const seenViews = new Set<string>()
+  const perViewCaptures = (rawCaptures || []).filter((cap) => {
+    if (seenViews.has(cap.view)) return false
+    seenViews.add(cap.view)
+    return true
+  })
+
   // Generate signed URLs for captures that have storage paths
   const captures: Array<{ id: string; view: string; signed_url: string | null; source: string; capture_roll_deg: number | null }> = []
-  for (const cap of (rawCaptures || [])) {
+  for (const cap of perViewCaptures) {
     let signed_url: string | null = null
     if (cap.storage_path) {
       const { data: urlData } = await service.storage

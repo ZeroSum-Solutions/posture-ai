@@ -59,11 +59,42 @@ describe('parseAssessmentPayload', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('rejects more than 3 frames', () => {
-    const body = validBody()
-    const frames = [...testLandmarksFrames, ...testLandmarksFrames]
-    const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
-    if (frames.length > 3) expect(r.ok).toBe(false)
+  describe('capture bursts (multi-frame per view, engine 1.3.0)', () => {
+    const front = () => testLandmarksFrames.find(f => f.view === 'front')!
+
+    it('accepts repeated views as a burst (formerly capped at 3 total)', () => {
+      const body = validBody()
+      const frames = [...testLandmarksFrames, ...testLandmarksFrames]
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.data.frames?.length).toBe(frames.length)
+    })
+
+    it('accepts a full 5-frame burst per view', () => {
+      const body = validBody()
+      const frames = testLandmarksFrames.flatMap(f => Array.from({ length: 5 }, () => ({ ...f })))
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+    })
+
+    it('rejects more than 5 frames of the same view', () => {
+      const body = validBody()
+      const frames = Array.from({ length: 6 }, () => ({ ...front() }))
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.error).toMatch(/burst|per view/i)
+    })
+
+    it('burst frames round-trip into the engine and produce stability fields', () => {
+      const body = validBody()
+      const frames = testLandmarksFrames.flatMap(f => [{ ...f }, { ...f }, { ...f }])
+      const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+      if (!r.ok || !r.data.frames) throw new Error('expected parsed frames')
+      const result = assessPosture(r.data.frames)
+      expect(result.captureStability).not.toBeNull()
+      expect(result.findings.some(f => f.stabilityScore !== undefined)).toBe(true)
+    })
   })
 
   it('requires frames when test mode is not enabled on the server', () => {

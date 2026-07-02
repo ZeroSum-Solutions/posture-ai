@@ -54,10 +54,32 @@ const frameSchema = z.object({
   source: z.enum(['camera', 'upload']).optional(),
 }).strict()
 
+// A capture burst is 1–5 frames of the SAME view (engine 1.3.0 takes the
+// per-landmark median and reports within-capture stability). 3 views × 5 caps
+// the array; the per-view bound is enforced below so a client can't send 15
+// fronts.
+const MAX_BURST_PER_VIEW = 5
+
 const payloadSchema = z.object({
   client_id: z.string().uuid(),
   test_mode: z.boolean().optional(),
-  frames: z.array(frameSchema).min(1).max(3).optional(),
+  frames: z
+    .array(frameSchema)
+    .min(1)
+    .max(3 * MAX_BURST_PER_VIEW)
+    .superRefine((frames, ctx) => {
+      const perView: Record<string, number> = {}
+      for (const f of frames) perView[f.view] = (perView[f.view] ?? 0) + 1
+      for (const [view, n] of Object.entries(perView)) {
+        if (n > MAX_BURST_PER_VIEW) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Too many ${view} frames — a capture burst is at most ${MAX_BURST_PER_VIEW} per view`,
+          })
+        }
+      }
+    })
+    .optional(),
 }).strict()
 
 export interface ParsedAssessmentPayload {

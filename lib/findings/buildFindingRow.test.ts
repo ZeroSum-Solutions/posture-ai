@@ -39,4 +39,17 @@ describe('buildFindingRow', () => {
     const fhp: Finding = { ...baseFinding, key: 'forward_head_posture' }
     expect(buildFindingRow(fhp, 'a', 'p').metric_validity).toBe('SCREENING_ONLY')
   })
+
+  it('persists within-capture stability when the engine emitted it (burst capture)', () => {
+    const burst: Finding = { ...baseFinding, stabilityScore: 0.92, uncertaintyDeg: 0.4 }
+    const row = buildFindingRow(burst, 'a', 'p')
+    expect(row.stability_score).toBe(0.92)
+    expect(row.uncertainty_deg).toBe(0.4)
+  })
+
+  it('stores null stability for a legacy single-frame finding (never fabricated)', () => {
+    const row = buildFindingRow(baseFinding, 'a', 'p')
+    expect(row.stability_score).toBeNull()
+    expect(row.uncertainty_deg).toBeNull()
+  })
 })
