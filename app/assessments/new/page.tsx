@@ -406,6 +406,14 @@ function NewAssessmentWizard() {
           {ageGateError && (
             <div role="alert" style={{ marginTop: '16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px', color: '#EF4444', fontSize: '0.875rem' }}>
               {ageGateError}
+              {selectedClient && ageGateError.includes('date of birth') && (
+                <>
+                  {' '}
+                  <Link href={`/clients/${selectedClient.id}/edit`} style={{ color: '#FCA5A5', fontWeight: 600, textDecoration: 'underline' }}>
+                    Add it on their profile →
+                  </Link>
+                </>
+              )}
             </div>
           )}
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>

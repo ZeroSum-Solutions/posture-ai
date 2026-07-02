@@ -276,22 +276,18 @@ function SideSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUr
 }
 
 function SkeletalDiagramSection({
-  findings, frontCapture, sideCapture, frontRank, sideRank,
+  findings, frontCapture, sideCapture,
 }: {
   findings: Finding[]
   frontCapture: Capture | null
   sideCapture: Capture | null
-  frontRank: number | null
-  sideRank: number | null
 }) {
-  function ordinal(n: number): string {
-    const v = n % 100
-    if (v >= 11 && v <= 13) return `${n}th`
-    return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
-  }
-  function rankLabel(rank: number | null): string {
-    if (rank === null || rank === undefined) return 'Rank N/A — insufficient data'
-    return `Rank ${ordinal(rank)} out of 100`
+  // Per the percentile-suppression decision: the engine's per-view "ranks" are a
+  // modeled transform of severity, not a real population statistic — never show
+  // them as a rank. An honest per-view findings count replaces them.
+  function viewFindingsLabel(view: 'front' | 'side'): string {
+    const n = findings.filter((f) => f.view_used === view).length
+    return n === 0 ? 'No findings marked on this view' : n === 1 ? '1 finding marked' : `${n} findings marked`
   }
 
   return (
@@ -303,12 +299,12 @@ function SkeletalDiagramSection({
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
           <FrontSkeleton findings={findings} captureUrl={frontCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{rankLabel(frontRank)}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{viewFindingsLabel('front')}</div>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
           <SideSkeleton findings={findings} captureUrl={sideCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{rankLabel(sideRank)}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{viewFindingsLabel('side')}</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
@@ -979,8 +975,6 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         findings={findings}
         frontCapture={frontCapture}
         sideCapture={sideCapture}
-        frontRank={assessment.front_rank}
-        sideRank={assessment.side_rank}
       />
 
       {findings.length > 0 && <MuscleModel3D findings={findings} />}

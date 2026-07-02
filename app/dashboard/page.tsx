@@ -25,10 +25,13 @@ export default async function DashboardPage() {
   // Server component: per-request clock read is intentional here.
   // eslint-disable-next-line react-hooks/purity
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  // Count completed assessments only, matching the Recent Activity feed — a
+  // failed/abandoned capture must not show as "1 this week" above an empty feed.
   const { count: weekAssessments } = await supabase
     .from('assessments')
     .select('id', { count: 'exact', head: true })
     .eq('practitioner_id', user.id)
+    .eq('status', 'complete')
     .gte('created_at', oneWeekAgo)
 
   const { data: recentAssessmentsRaw } = await supabase
