@@ -76,7 +76,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
     return NextResponse.json({ error: 'This client has been deleted and can no longer be edited.' }, { status: 409 })
   }
 
-  console.log('[api/clients/[id]] PATCH: updating client', id, updates)
+  // Log field NAMES only — the values are client PII and must not be at rest in logs.
+  console.log('[api/clients/[id]] PATCH: updating client', id, Object.keys(updates))
   const { data, error } = await service
     .from('clients')
     .update(updates)
@@ -88,7 +89,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
 
   if (error) {
     console.error('[api/clients/[id]] PATCH error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update client.' }, { status: 500 })
   }
   if (!data) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
