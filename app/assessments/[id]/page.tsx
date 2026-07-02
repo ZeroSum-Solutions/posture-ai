@@ -648,9 +648,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     if (!assessmentId) return
+    // Abort a stale in-flight load when the id changes / the page unmounts, so a
+    // slower earlier response can't paint the wrong assessment's data.
+    const ac = new AbortController()
     async function load() {
       try {
-        const r = await fetch('/api/assessments/' + assessmentId)
+        const r = await fetch('/api/assessments/' + assessmentId, { signal: ac.signal })
         if (!r.ok) {
           if (r.status === 401) { router.push('/auth/sign-in'); return }
           setError('Assessment not found.')
@@ -668,7 +671,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
-          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true')
+          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true', { signal: ac.signal })
           if (priorRes.ok) {
             const priorData = await priorRes.json()
             setPriorAssessments(priorData.assessments || [])
@@ -677,20 +680,22 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           }
         }
         // Fetch exercises
-        const exRes = await fetch('/api/exercises')
+        const exRes = await fetch('/api/exercises', { signal: ac.signal })
         if (exRes.ok) {
           const exData = await exRes.json()
           setAllExercises(exData.exercises || [])
         } else {
           setAuxError('Some report options could not load (prior assessments or exercises). Refresh to try again.')
         }
-      } catch {
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return
         setError('Failed to load assessment.')
       } finally {
-        setLoading(false)
+        if (!ac.signal.aborted) setLoading(false)
       }
     }
     load()
+    return () => ac.abort()
   }, [assessmentId, router])
 
   const exercises = useMemo(

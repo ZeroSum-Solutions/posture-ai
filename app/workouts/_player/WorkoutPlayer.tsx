@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { SessionItem, SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import {
@@ -362,7 +362,11 @@ function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean
 }
 
 // ---- full-bleed demo placeholder ----------------------------------------
-function DemoCanvas({ item, accent, active, reduceMotion }: { item?: SessionItem; accent: string; active: boolean; reduceMotion: boolean }) {
+// Memoized: the parent re-renders on every 200ms TICK, but these props only
+// change on item/phase transitions — skip the reconciliation on ticks. (results
+// keeps a stable array identity across ticks; the reducer only replaces it on a
+// real transition.)
+const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion }: { item?: SessionItem; accent: string; active: boolean; reduceMotion: boolean }) {
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'hidden' }}>
       <div
@@ -413,10 +417,10 @@ function DemoCanvas({ item, accent, active, reduceMotion }: { item?: SessionItem
       )}
     </div>
   )
-}
+})
 
 // ---- segmented progress -------------------------------------------------
-function SegmentedProgress({ total, index, results, accent }: { total: number; index: number; results: { completed: boolean; skipped: boolean }[]; accent: string }) {
+const SegmentedProgress = memo(function SegmentedProgress({ total, index, results, accent }: { total: number; index: number; results: { completed: boolean; skipped: boolean }[]; accent: string }) {
   return (
     <div style={{ display: 'flex', gap: 4 }}>
       {Array.from({ length: total }).map((_, i) => {
@@ -427,7 +431,7 @@ function SegmentedProgress({ total, index, results, accent }: { total: number; i
       })}
     </div>
   )
-}
+})
 
 // ---- start card ---------------------------------------------------------
 function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: SessionSnapshot; clientFirstName?: string | null; onBegin: () => void; accent: string }) {

@@ -76,9 +76,13 @@ export default function ClientDetailPage() {
   const [archiveError, setArchiveError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Abort a stale load when the client id changes / the page unmounts, so a
+    // slower earlier response can't show one client's data under another's page.
+    const ac = new AbortController()
     async function load() {
       const supabase = createSupabaseBrowserClient()
       const { data: { user } } = await supabase.auth.getUser()
+      if (ac.signal.aborted) return
       if (!user) { router.push('/auth/sign-in'); return }
       const { data, error } = await supabase
         .from('clients')
@@ -86,11 +90,12 @@ export default function ClientDetailPage() {
         .eq('id', id)
         .eq('practitioner_id', user.id)
         .single()
+      if (ac.signal.aborted) return
       if (error || !data) { router.push('/clients'); return }
       setClient(data)
 
       try {
-        const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`)
+        const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`, { signal: ac.signal })
         if (!res.ok) throw new Error(`Failed to load assessments (${res.status})`)
         const json = await res.json()
         const list: Assessment[] = json.assessments || []
@@ -100,13 +105,15 @@ export default function ClientDetailPage() {
           setCompareBaseId(list[0].id)
           setCompareTargetId(list[list.length - 1].id)
         }
-      } catch {
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return
         setLoadError('Could not load the assessment history for this client. Refresh to try again.')
       } finally {
-        setLoading(false)
+        if (!ac.signal.aborted) setLoading(false)
       }
     }
     load()
+    return () => ac.abort()
   }, [id, router])
 
   async function handleArchive() {
