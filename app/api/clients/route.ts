@@ -1,5 +1,6 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import { CONSENT_VERSION, hashConsent } from '@/lib/consent/policy'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -34,6 +35,10 @@ export async function POST(req: NextRequest) {
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
 
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'clients_create', userId: user.id, limit: 30, windowSeconds: 60 })
+  if (!allowed) return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+
   let body: Record<string, unknown>
   try {
     body = await req.json()
@@ -62,11 +67,11 @@ export async function POST(req: NextRequest) {
   if (weight_kg != null) row.weight_kg = weight_kg
   if (notes) row.notes = notes
 
-  // Writes go through the service-role client: direct DB-write grants on regulated
-  // tables are revoked from `authenticated` (regulatory_hardening_v2), so the API
-  // is the sole writer and the gates above are the real enforcement. Ownership is
-  // set/scoped on every write since service-role bypasses RLS.
-  const service = createSupabaseServiceClient()
+  // Writes go through the service-role client (created above): direct DB-write
+  // grants on regulated tables are revoked from `authenticated`
+  // (regulatory_hardening_v2), so the API is the sole writer and the gates above
+  // are the real enforcement. Ownership is set/scoped on every write since
+  // service-role bypasses RLS.
   const { data, error } = await service.from('clients').insert(row).select().single()
   if (error) {
     console.error('[api/clients] POST error:', error.message)

@@ -1,5 +1,6 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface Params { id: string }
@@ -118,6 +119,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
   try { const b = await req.json(); reason = typeof b?.reason === 'string' ? b.reason : null } catch { /* no body */ }
 
   const service = createSupabaseServiceClient()
+
+  // Erasure is a heavy multi-table purge — rate-limit it so an accidental or
+  // malicious burst can't hammer the storage/DB layer.
+  const allowed = await enforceRateLimit(service, { route: 'clients_delete', userId: user.id, limit: 10, windowSeconds: 60 })
+  if (!allowed) return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
 
   // Right-to-erasure must be FAIL-CLOSED: if any purge/redaction step errors we
   // return 500 and do NOT claim success, so the practitioner retries instead of

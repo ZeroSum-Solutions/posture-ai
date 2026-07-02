@@ -25,7 +25,7 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
     .maybeSingle()
   if (!session) notFound()
 
-  const [{ data: client }, { data: run }] = await Promise.all([
+  const [{ data: client }, { data: run, error: runErr }] = await Promise.all([
     supabase.from('clients').select('first_name').eq('id', session.client_id).maybeSingle(),
     supabase
       .from('session_runs')
@@ -35,6 +35,9 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
       .limit(1)
       .maybeSingle(),
   ])
+  // A failed run read silently drops resume state (player restarts from item 0);
+  // surface it in logs rather than pretending there was no prior progress.
+  if (runErr) console.error(`[workouts/${sessionId}] resume read failed:`, runErr.message)
 
   const resume =
     run && run.status !== 'completed'
