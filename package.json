@@ -10,6 +10,7 @@
     "dev": "next dev --turbopack",
     "prebuild": "node scripts/copy-mediapipe-wasm.mjs",
     "build": "next build",
+    "sync:muscle-viewer": "pnpm -C ../muscle-viewer build && rm -rf public/muscle-viewer && cp -R ../muscle-viewer/dist public/muscle-viewer && cp ../muscle-viewer/dist/muscle-ids.json 'app/assessments/[id]/muscleIds.generated.json'",
     "start": "next start",
     "lint": "eslint .",
     "lint:vocab": "vitest run content",

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
 import MuscleBodyMap from './MuscleBodyMap'
+import MuscleModel3D from './MuscleModel3D'
 import { hasAnyMuscle, type MuscleLink } from './muscleMap'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
@@ -915,6 +916,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         frontRank={assessment.front_rank}
         sideRank={assessment.side_rank}
       />
+
+      {findings.length > 0 && <MuscleModel3D findings={findings} />}
 
       {findings.length > 0 && <FindingsSection findings={findings} />}
 
