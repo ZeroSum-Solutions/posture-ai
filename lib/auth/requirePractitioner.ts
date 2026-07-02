@@ -35,14 +35,25 @@ export async function practitionerGate(
   if (prac.organization_id) {
     // Read the org with service-role: the BAA gate must not depend on the
     // (now own-org-scoped) organizations RLS policy, and this is the caller's own
-    // org id (no IDOR). A silently-failed read here would wrongly disable the gate.
+    // org id (no IDOR).
     const service = createSupabaseServiceClient()
-    const { data: org } = await service
+    const { data: org, error } = await service
       .from('organizations')
       .select('is_covered_entity, baa_status')
       .eq('id', prac.organization_id)
       .maybeSingle()
-    if (org && org.is_covered_entity === true && org.baa_status !== 'signed') {
+
+    // FAIL CLOSED: an org-linked practitioner whose org cannot be read (query
+    // error, or a dangling organization_id) is denied. A HIPAA BAA gate must
+    // never be skipped just because the compliance check itself failed.
+    if (error || !org) {
+      return NextResponse.json(
+        { error: 'Could not verify your organization’s compliance status. Please try again.' },
+        { status: 403 },
+      )
+    }
+
+    if (org.is_covered_entity === true && org.baa_status !== 'signed') {
       return NextResponse.json(
         { error: 'A signed Business Associate Agreement is required before practitioner mode can be used for this organization.' },
         { status: 403 },

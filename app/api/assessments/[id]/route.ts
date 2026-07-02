@@ -48,35 +48,35 @@ export async function GET(
 
   // Enrich findings with causes_text + tight/weak muscles from imbalance_definitions
   const keys = (findings || []).map((f: { imbalance_key: string }) => f.imbalance_key)
+  const service = createSupabaseServiceClient()
+
+  // These three reads are independent (defs + links key off `keys`, captures off
+  // `id`) — run them together instead of three serial round trips.
+  const [defsRes, linkRes, capturesRes] = await Promise.all([
+    keys.length > 0
+      ? supabase.from('imbalance_definitions').select('key, causes_text, tight_muscles, weak_muscles').in('key', keys)
+      : Promise.resolve({ data: [] as { key: string; causes_text: string; tight_muscles: unknown; weak_muscles: unknown }[] }),
+    keys.length > 0
+      ? supabase.from('muscle_imbalance_links').select('imbalance_key, role, muscle_slug, muscles(name)').in('imbalance_key', keys)
+      : Promise.resolve({ data: [] as unknown[] }),
+    service.from('captures').select('id, view, storage_path, source, pose_frame').eq('assessment_id', id),
+  ])
+
   const defMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
-  if (keys.length > 0) {
-    const { data: defs } = await supabase
-      .from('imbalance_definitions')
-      .select('key, causes_text, tight_muscles, weak_muscles')
-      .in('key', keys)
-    if (defs) {
-      for (const d of defs) {
-        let tight: string[] = []
-        let weak: string[] = []
-        try { tight = typeof d.tight_muscles === 'string' ? JSON.parse(d.tight_muscles) : (d.tight_muscles || []) } catch { tight = [] }
-        try { weak = typeof d.weak_muscles === 'string' ? JSON.parse(d.weak_muscles) : (d.weak_muscles || []) } catch { weak = [] }
-        defMap[d.key] = { causes_text: d.causes_text || '', tight_muscles: tight, weak_muscles: weak }
-      }
-    }
+  for (const d of defsRes.data ?? []) {
+    let tight: string[] = []
+    let weak: string[] = []
+    try { tight = typeof d.tight_muscles === 'string' ? JSON.parse(d.tight_muscles) : (d.tight_muscles || []) } catch { tight = [] }
+    try { weak = typeof d.weak_muscles === 'string' ? JSON.parse(d.weak_muscles) : (d.weak_muscles || []) } catch { weak = [] }
+    defMap[d.key] = { causes_text: d.causes_text || '', tight_muscles: tight, weak_muscles: weak }
   }
 
   // Normalized muscle links (knowledge base). Empty until the muscle KB is
   // seeded; the UI falls back to the legacy JSONB strings in that case.
   const linkMap: Record<string, { tight: { slug: string; name: string }[]; weak: { slug: string; name: string }[] }> = {}
-  if (keys.length > 0) {
-    const { data: linkRows } = await supabase
-      .from('muscle_imbalance_links')
-      .select('imbalance_key, role, muscle_slug, muscles(name)')
-      .in('imbalance_key', keys)
-    for (const row of (linkRows ?? []) as unknown as { imbalance_key: string; role: 'tight' | 'weak'; muscle_slug: string; muscles: { name: string } | null }[]) {
-      const entry = (linkMap[row.imbalance_key] ??= { tight: [], weak: [] })
-      entry[row.role].push({ slug: row.muscle_slug, name: row.muscles?.name ?? row.muscle_slug })
-    }
+  for (const row of (linkRes.data ?? []) as unknown as { imbalance_key: string; role: 'tight' | 'weak'; muscle_slug: string; muscles: { name: string } | null }[]) {
+    const entry = (linkMap[row.imbalance_key] ??= { tight: [], weak: [] })
+    entry[row.role].push({ slug: row.muscle_slug, name: row.muscles?.name ?? row.muscle_slug })
   }
 
   const enrichedFindings = (findings || []).map((f: Record<string, unknown>) => ({
@@ -88,12 +88,7 @@ export async function GET(
     weak_muscle_links: linkMap[f.imbalance_key as string]?.weak || [],
   }))
 
-  // Fetch captures (photos) for this assessment
-  const service = createSupabaseServiceClient()
-  const { data: rawCaptures } = await service
-    .from('captures')
-    .select('id, view, storage_path, source, pose_frame')
-    .eq('assessment_id', id)
+  const rawCaptures = capturesRes.data
 
   // One capture per view: a burst capture (engine 1.3.0) stores every frame for
   // re-scorability, but the results page shows a single photo slot per view —
@@ -105,22 +100,23 @@ export async function GET(
     return true
   })
 
-  // Generate signed URLs for captures that have storage paths
-  const captures: Array<{ id: string; view: string; signed_url: string | null; source: string; capture_roll_deg: number | null }> = []
-  for (const cap of perViewCaptures) {
-    let signed_url: string | null = null
-    if (cap.storage_path) {
-      const { data: urlData } = await service.storage
-        .from('posture-captures')
-        .createSignedUrl(cap.storage_path, 3600)
-      signed_url = urlData?.signedUrl ?? null
-    }
-    const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
-    captures.push({
-      id: cap.id, view: cap.view, signed_url, source: cap.source,
-      capture_roll_deg: typeof roll === 'number' ? roll : null,
-    })
-  }
+  // Generate signed URLs in parallel — one round trip per view was serial.
+  const captures = await Promise.all(
+    perViewCaptures.map(async (cap) => {
+      let signed_url: string | null = null
+      if (cap.storage_path) {
+        const { data: urlData } = await service.storage
+          .from('posture-captures')
+          .createSignedUrl(cap.storage_path, 3600)
+        signed_url = urlData?.signedUrl ?? null
+      }
+      const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
+      return {
+        id: cap.id, view: cap.view, signed_url, source: cap.source,
+        capture_roll_deg: typeof roll === 'number' ? roll : null,
+      }
+    }),
+  )
 
   return NextResponse.json({ assessment, findings: enrichedFindings, captures })
 }
