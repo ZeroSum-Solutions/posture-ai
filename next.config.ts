@@ -24,6 +24,21 @@ const nextConfig: NextConfig = {
       "base-uri 'self'",
       "form-action 'self'",
     ].join('; ')
+    // Self-contained CSP for the embedded muscle-viewer (public/muscle-viewer/**). It must
+    // NOT inherit the global CSP, whose `frame-ancestors 'none'` would blank the same-origin
+    // iframe on the results page. Vite emits external module scripts only (no inline, no eval).
+    const viewerCsp = [
+      "default-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "worker-src 'self' blob:",
+      "connect-src 'self'",
+      "frame-ancestors 'self'", // allow the same-origin results page to frame it
+      "base-uri 'self'",
+      "object-src 'none'",
+    ].join('; ')
     return [
       {
         source: '/mediapipe/:path*',
@@ -34,8 +49,35 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Security headers for the viewer sub-app (CSP/HSTS/nosniff only — cache lives in the
+      // three specific blocks below so no header key is ever written by two matching rules).
       {
-        source: '/:path*',
+        source: '/muscle-viewer/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: viewerCsp },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      // Cache: hashed assets are safe to pin forever; the unversioned entry + model must revalidate.
+      {
+        source: '/muscle-viewer/assets/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/muscle-viewer/index.html',
+        headers: [{ key: 'Cache-Control', value: 'no-cache' }],
+      },
+      {
+        source: '/muscle-viewer/model.glb',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }],
+      },
+      {
+        // Everything EXCEPT the viewer sub-app. Non-overlapping with the block above so the
+        // viewer's `frame-ancestors 'self'` can never be overwritten by a header-merge reorder.
+        // Segment-anchored ((?:/|$)) so a phantom path like /muscle-viewerX is NOT excluded and
+        // still receives the global security headers.
+        source: '/((?!muscle-viewer(?:/|$)).*)',
         headers: [
           { key: 'Content-Security-Policy', value: csp },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },

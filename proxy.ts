@@ -82,5 +82,13 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // `muscle-viewer` is the embedded 3D anatomy widget (public/muscle-viewer/**): generic,
+  // non-sensitive static assets (CC-BY-SA anatomy + JS) that carry no patient data — the
+  // assessment drives colors in at runtime via postMessage. Excluded from auth like _next/static
+  // so its assets (incl. the ~9 MB GLB) serve statically without a Supabase round-trip each.
+  matcher: [
+    // `muscle-viewer(?:$|/)` is segment-anchored so only /muscle-viewer and /muscle-viewer/…
+    // skip the middleware; a phantom path like /muscle-viewerX stays auth-gated.
+    '/((?!_next/static|_next/image|muscle-viewer(?:$|/)|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
