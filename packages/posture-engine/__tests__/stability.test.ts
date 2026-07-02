@@ -14,10 +14,12 @@ import { assessPosture } from '../src'
 import type { PoseFrame } from '../src'
 
 // FHP side fixture: ear=(0.570,0.150), shoulder=(0.500,0.250) → deviation ≈ 34.99°
+// nose right of the ear → subject faces image-right (facing-confirmed anterior).
 function fhpSide(earX: number): PoseFrame {
   return {
     view: 'side',
     landmarks: {
+      nose:           { x: 0.640, y: 0.055, visibility: 0.90 },
       left_ear:       { x: earX,  y: 0.150, visibility: 0.90 },
       right_ear:      { x: 0.560, y: 0.150, visibility: 0.10 },
       left_shoulder:  { x: 0.500, y: 0.250, visibility: 0.90 },

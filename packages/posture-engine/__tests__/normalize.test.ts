@@ -215,6 +215,9 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
       view: 'side',
       aspectRatio: 0.75,
       landmarks: {
+        // nose right of the ear → facing-confirmed anterior ear (aspect scaling
+        // is monotonic in x, so the facing sign survives normalization).
+        nose:          { x: 0.640, y: 0.055, visibility: 0.90 },
         left_ear:      { x: 0.570, y: 0.150, visibility: 0.90 },
         left_shoulder: { x: 0.500, y: 0.250, visibility: 0.90 },
       },
