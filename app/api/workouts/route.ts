@@ -65,10 +65,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Approve the assessment before launching a session.' }, { status: 403 })
   }
 
-  const { data: findings } = await service
+  const { data: findings, error: findingsErr } = await service
     .from('assessment_findings')
     .select('imbalance_key, label, region, deviation, direction, severity_pct, zone, view_used, confidence')
     .eq('assessment_id', assessment_id)
+  if (findingsErr) {
+    // A failed read must not masquerade as "no reliable findings" (422) below.
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: findingsErr.message })
+    return NextResponse.json({ error: 'Failed to load findings.' }, { status: 500 })
+  }
 
   const snapshot = buildSessionFromAssessment(assessment, (findings ?? []) as StoredFinding[], week)
   if (!snapshot) {
@@ -106,12 +111,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Start a run so playback state has a row to update immediately.
-  await service.from('session_runs').insert({
+  // Start a run so playback state has a row to update immediately. If the seed
+  // fails, roll the session back — a session without its run row would 404 every
+  // PATCH /run and silently lose resume/progress.
+  const { error: runErr } = await service.from('session_runs').insert({
     workout_session_id: session.id,
     practitioner_id: user.id,
     status: 'started',
   })
+  if (runErr) {
+    await service.from('workout_sessions').delete().eq('id', session.id)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: `run seed failed: ${runErr.message}` })
+    return NextResponse.json({ error: 'Failed to create session.' }, { status: 500 })
+  }
 
   let shareLink: string | undefined
   if (shareToken) {

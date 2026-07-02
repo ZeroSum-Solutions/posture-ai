@@ -35,11 +35,16 @@ export async function GET(
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   }
 
-  const { data: findings } = await supabase
+  const { data: findings, error: findingsErr } = await supabase
     .from('assessment_findings')
     .select('*')
     .eq('assessment_id', id)
     .order('region')
+  if (findingsErr) {
+    // A failed read must not render as a complete assessment with no findings.
+    console.error(`[api/assessments/${id}] findings load failed:`, findingsErr.message)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   // Enrich findings with causes_text + tight/weak muscles from imbalance_definitions
   const keys = (findings || []).map((f: { imbalance_key: string }) => f.imbalance_key)

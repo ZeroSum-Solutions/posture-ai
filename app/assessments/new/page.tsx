@@ -106,6 +106,18 @@ function NewAssessmentWizard() {
     // Track the latest scheduled poll (initial + every reschedule) so cleanup
     // can clear a queued timer instead of relying solely on the cancelled guard.
     let timer: ReturnType<typeof setTimeout> | undefined
+    // Hard cap: scoring finishes in seconds; if a server-side write silently
+    // stuck the row on 'processing', do not spin forever.
+    let attempts = 0
+    const MAX_ATTEMPTS = 45 // × 2s = 90s
+
+    function reschedule() {
+      if (++attempts >= MAX_ATTEMPTS) {
+        setProcessingError('This is taking longer than expected. Please try the capture again.')
+        return
+      }
+      timer = setTimeout(pollStatus, 2000)
+    }
 
     async function pollStatus() {
       if (cancelled) return
@@ -126,12 +138,12 @@ function NewAssessmentWizard() {
         } else if (data.status === 'failed') {
           setProcessingError('Scoring failed. Please try again.')
         } else {
-          // Still processing — poll again in 2s
-          timer = setTimeout(pollStatus, 2000)
+          // Still processing — poll again in 2s (bounded)
+          reschedule()
         }
       } catch {
         if (cancelled) return
-        timer = setTimeout(pollStatus, 2000)
+        reschedule()
       }
     }
 
