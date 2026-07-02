@@ -21,7 +21,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
   if (error) {
     console.error('[api/clients] GET error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500 })
   }
   console.log('[api/clients] GET: returned ' + data.length + ' rows from clients table')
   return NextResponse.json({ clients: data, count: data.length })
