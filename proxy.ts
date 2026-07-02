@@ -20,6 +20,12 @@ const PUBLIC_PATHS = [
   '/terms',
   '/consent',
   '/api/consent/respond',
+  // Public workout follow-along: the client is NOT an authenticated user. Both the
+  // landing page and its hydrate/rate API self-authenticate via the hashed share
+  // token through resolve_workout_token() (all gates + redaction enforced there),
+  // so they are allow-listed like the remote-consent flow above.
+  '/s/',
+  '/api/workouts/token/',
   ...(process.env.NODE_ENV !== 'production' ? ['/api/dev/'] : []),
 ]
 

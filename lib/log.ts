@@ -7,6 +7,13 @@ export function hashUser(userId: string): string {
   return createHash('sha256').update(userId).digest('hex').slice(0, 12)
 }
 
+// Hash the client IP (first x-forwarded-for hop) for PII-minimized audit/rate-limit
+// keys — no raw IPs at rest. Returns null when the header is absent (e.g. local dev).
+export function hashIp(forwardedFor: string | null): string | null {
+  const ip = forwardedFor?.split(',')[0]?.trim()
+  return ip ? createHash('sha256').update(ip).digest('hex') : null
+}
+
 interface LogEvent {
   route: string
   outcome: 'ok' | 'client_error' | 'server_error' | 'rate_limited'
