@@ -8,7 +8,7 @@ import MuscleModel3D from './MuscleModel3D'
 import { hasAnyMuscle, type MuscleLink } from './muscleMap'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
-import type { Finding as EngineFinding } from '@/packages/posture-engine/src/types'
+import { toEngineFinding } from '@/lib/findings/storedFindingToEngine'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -66,25 +66,6 @@ function deriveExerciseRecommendations(exercises: Exercise[], findings: Finding[
       return finding && zoneAtOrAbove(finding.zone, ex.min_zone)
     })
   )
-}
-
-// Map a stored (snake_case) finding onto the engine Finding the program builder expects.
-function toEngineFinding(f: Finding): EngineFinding {
-  return {
-    key: f.imbalance_key,
-    label: f.label,
-    region: f.region as EngineFinding['region'],
-    deviation: f.deviation,
-    standard: 0,
-    unit: 'deg',
-    direction: f.direction,
-    severityPct: f.severity_pct,
-    zone: f.zone,
-    viewUsed: f.view_used as EngineFinding['viewUsed'],
-    confidence: f.confidence,
-    reliable: f.zone !== 'unreliable',
-    landmarksUsed: [],
-  }
 }
 
 interface Assessment {
