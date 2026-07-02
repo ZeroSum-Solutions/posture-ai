@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { hashIp } from '@/lib/log'
 import { hashConsent } from '@/lib/consent/policy'
 
 // PUBLIC endpoint (allow-listed in proxy.ts): the remote subject completes their
@@ -16,8 +18,19 @@ export async function POST(req: NextRequest) {
   if (!token || !signer_name?.trim() || !signer_relationship || !RELATIONSHIPS.has(signer_relationship)) {
     return NextResponse.json({ error: 'Missing or invalid consent fields' }, { status: 400 })
   }
+  if (signer_name.trim().length > 200) {
+    return NextResponse.json({ error: 'Signer name is too long.' }, { status: 400 })
+  }
 
   const service = createSupabaseServiceClient()
+
+  // Public endpoint — same IP rate limit as the other token-credential routes.
+  const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
+  const allowed = await enforceRateLimit(service, { route: 'consent_respond', userId: ipHash ?? 'anon', limit: 10, windowSeconds: 60 })
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+  }
+
   const signedAt = new Date().toISOString()
 
   // The consent hash binds to the wording version stored on the token (immutable

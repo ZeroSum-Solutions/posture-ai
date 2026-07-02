@@ -51,7 +51,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: 'This session link is not available.' }, { status: 404 })
   }
 
-  const { error: insErr } = await service.from('workout_ratings').insert({
+  // One rating per run (unique index): a retry or re-submit updates in place
+  // instead of accumulating duplicate rows.
+  const { error: insErr } = await service.from('workout_ratings').upsert({
     session_run_id: resolved.session_run_id,
     workout_session_id: resolved.workout_session_id,
     client_id: resolved.client_id,
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     difficulty: rating.value.difficulty ?? null,
     feedback_tags: rating.value.feedback_tags,
     notes: null,
-  })
+  }, { onConflict: 'session_run_id' })
   if (insErr) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detail: insErr.message })
     return NextResponse.json({ error: 'Failed to save rating.' }, { status: 500 })

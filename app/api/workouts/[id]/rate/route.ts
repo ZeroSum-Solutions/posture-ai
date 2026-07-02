@@ -54,7 +54,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle()
   if (!run) return NextResponse.json({ error: 'Session run not found' }, { status: 404 })
 
-  const { error } = await service.from('workout_ratings').insert({
+  // One rating per run (unique index): a retry or re-submit updates in place
+  // instead of accumulating duplicate rows.
+  const { error } = await service.from('workout_ratings').upsert({
     session_run_id: run.id,
     workout_session_id: id,
     client_id: session.client_id,
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     difficulty: rating.value.difficulty ?? null,
     feedback_tags: rating.value.feedback_tags,
     notes: rating.value.notes ?? null,
-  })
+  }, { onConflict: 'session_run_id' })
   if (error) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: error.message })
     return NextResponse.json({ error: 'Failed to save rating.' }, { status: 500 })
