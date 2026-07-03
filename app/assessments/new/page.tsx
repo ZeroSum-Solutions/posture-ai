@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -106,6 +106,18 @@ function NewAssessmentWizard() {
     // Track the latest scheduled poll (initial + every reschedule) so cleanup
     // can clear a queued timer instead of relying solely on the cancelled guard.
     let timer: ReturnType<typeof setTimeout> | undefined
+    // Hard cap: scoring finishes in seconds; if a server-side write silently
+    // stuck the row on 'processing', do not spin forever.
+    let attempts = 0
+    const MAX_ATTEMPTS = 45 // × 2s = 90s
+
+    function reschedule() {
+      if (++attempts >= MAX_ATTEMPTS) {
+        setProcessingError('This is taking longer than expected. Please try the capture again.')
+        return
+      }
+      timer = setTimeout(pollStatus, 2000)
+    }
 
     async function pollStatus() {
       if (cancelled) return
@@ -126,12 +138,12 @@ function NewAssessmentWizard() {
         } else if (data.status === 'failed') {
           setProcessingError('Scoring failed. Please try again.')
         } else {
-          // Still processing — poll again in 2s
-          timer = setTimeout(pollStatus, 2000)
+          // Still processing — poll again in 2s (bounded)
+          reschedule()
         }
       } catch {
         if (cancelled) return
-        timer = setTimeout(pollStatus, 2000)
+        reschedule()
       }
     }
 
@@ -150,8 +162,17 @@ function NewAssessmentWizard() {
       })
     : clients
 
+  // Monotonic preflight token per view: a re-capture/re-upload bumps the token so
+  // a still-running preflight for the previous image discards its (now stale)
+  // result instead of overwriting the newer slot.
+  const preflightSeq = useRef<Record<string, number>>({})
+
   // Run detectPose + assessFrameQuality after each capture/upload
   async function runPreflight(view: ViewKey, preview: string, source: 'camera' | 'upload', captureRollDeg: number | null) {
+    const token = (preflightSeq.current[view] ?? 0) + 1
+    preflightSeq.current[view] = token
+    const isStale = () => preflightSeq.current[view] !== token
+
     setCaptures(prev => ({
       ...prev,
       [view]: { ...prev[view], slotStatus: 'checking' },
@@ -162,6 +183,7 @@ function NewAssessmentWizard() {
       const { assessFrameQuality } = await import('@/lib/pose/quality')
 
       const detected = await detectPose(preview, view, source)
+      if (isStale()) return
       const poseFrame: PoseFrame = captureRollDeg !== null ? { ...detected, captureRollDeg } : detected
       const quality = assessFrameQuality(poseFrame, view)
 
@@ -175,6 +197,7 @@ function NewAssessmentWizard() {
       }))
     } catch (err) {
       console.error('[wizard] preflight error:', err)
+      if (isStale()) return
       // On model-load failure, don't block submission — mark idle
       setCaptures(prev => ({
         ...prev,
@@ -406,6 +429,14 @@ function NewAssessmentWizard() {
           {ageGateError && (
             <div role="alert" style={{ marginTop: '16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px', color: '#EF4444', fontSize: '0.875rem' }}>
               {ageGateError}
+              {selectedClient && ageGateError.includes('date of birth') && (
+                <>
+                  {' '}
+                  <Link href={`/clients/${selectedClient.id}/edit`} style={{ color: '#FCA5A5', fontWeight: 600, textDecoration: 'underline' }}>
+                    Add it on their profile →
+                  </Link>
+                </>
+              )}
             </div>
           )}
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>

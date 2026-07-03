@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
@@ -9,6 +9,7 @@ import { hasAnyMuscle, type MuscleLink } from './muscleMap'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
 import { toEngineFinding } from '@/lib/findings/storedFindingToEngine'
+import { generateWorkoutSession } from '@/lib/workout/generateWorkoutSession'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -24,6 +25,9 @@ interface Finding {
   zone: Zone
   view_used: string
   confidence: number
+  stability_score?: number | null
+  uncertainty_deg?: number | null
+  explanation?: string | null
   causes_text?: string
   tight_muscles?: string[]
   weak_muscles?: string[]
@@ -78,6 +82,7 @@ interface Assessment {
   side_rank: number | null
   tilt_corrected: boolean | null
   level_verified: boolean | null
+  capture_stability?: number | null
   assessed_at: string
   priority_keys?: string[] | null
   capability?: string | null
@@ -271,22 +276,18 @@ function SideSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUr
 }
 
 function SkeletalDiagramSection({
-  findings, frontCapture, sideCapture, frontRank, sideRank,
+  findings, frontCapture, sideCapture,
 }: {
   findings: Finding[]
   frontCapture: Capture | null
   sideCapture: Capture | null
-  frontRank: number | null
-  sideRank: number | null
 }) {
-  function ordinal(n: number): string {
-    const v = n % 100
-    if (v >= 11 && v <= 13) return `${n}th`
-    return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
-  }
-  function rankLabel(rank: number | null): string {
-    if (rank === null || rank === undefined) return 'Rank N/A — insufficient data'
-    return `Rank ${ordinal(rank)} out of 100`
+  // Per the percentile-suppression decision: the engine's per-view "ranks" are a
+  // modeled transform of severity, not a real population statistic — never show
+  // them as a rank. An honest per-view findings count replaces them.
+  function viewFindingsLabel(view: 'front' | 'side'): string {
+    const n = findings.filter((f) => f.view_used === view).length
+    return n === 0 ? 'No findings marked on this view' : n === 1 ? '1 finding marked' : `${n} findings marked`
   }
 
   return (
@@ -298,12 +299,12 @@ function SkeletalDiagramSection({
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
           <FrontSkeleton findings={findings} captureUrl={frontCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{rankLabel(frontRank)}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{viewFindingsLabel('front')}</div>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
           <SideSkeleton findings={findings} captureUrl={sideCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{rankLabel(sideRank)}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{viewFindingsLabel('side')}</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
@@ -638,6 +639,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [capability, setCapability] = useState<Capability>('standard')
   const [activeKeys, setActiveKeys] = useState<string[] | null>(null)
   const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
+  const [launching, setLaunching] = useState(false)
+  const [launchError, setLaunchError] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareLink, setShareLink] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -645,9 +652,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     if (!assessmentId) return
+    // Abort a stale in-flight load when the id changes / the page unmounts, so a
+    // slower earlier response can't paint the wrong assessment's data.
+    const ac = new AbortController()
     async function load() {
       try {
-        const r = await fetch('/api/assessments/' + assessmentId)
+        const r = await fetch('/api/assessments/' + assessmentId, { signal: ac.signal })
         if (!r.ok) {
           if (r.status === 401) { router.push('/auth/sign-in'); return }
           setError('Assessment not found.')
@@ -665,7 +675,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
-          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true')
+          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true', { signal: ac.signal })
           if (priorRes.ok) {
             const priorData = await priorRes.json()
             setPriorAssessments(priorData.assessments || [])
@@ -674,20 +684,22 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           }
         }
         // Fetch exercises
-        const exRes = await fetch('/api/exercises')
+        const exRes = await fetch('/api/exercises', { signal: ac.signal })
         if (exRes.ok) {
           const exData = await exRes.json()
           setAllExercises(exData.exercises || [])
         } else {
           setAuxError('Some report options could not load (prior assessments or exercises). Refresh to try again.')
         }
-      } catch {
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return
         setError('Failed to load assessment.')
       } finally {
-        setLoading(false)
+        if (!ac.signal.aborted) setLoading(false)
       }
     }
     load()
+    return () => ac.abort()
   }, [assessmentId, router])
 
   const exercises = useMemo(
@@ -703,19 +715,29 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     () => findings.filter(f => f.zone === 'unreliable').map(f => ({ label: f.label })),
     [findings]
   )
+  // Same pure flattener the mint route uses, so the CTA's duration/count match the
+  // launched session exactly. null = empty-session floor (nothing reliable to play).
+  const sessionPreview = useMemo(() => generateWorkoutSession(program, { week: 1 }), [program])
+
+  // Serialize override PATCHes: rapid edits (reorder, then swap) must reach the
+  // server in call order, or a slower earlier write could land last and overwrite
+  // the newer state. Each call chains onto the previous one's completion.
+  const overrideQueue = useRef<Promise<void>>(Promise.resolve())
 
   // Persist coach overrides so the client PDF regenerates identically.
-  async function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
+  function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
     if (!assessmentId) return
-    try {
-      await fetch('/api/assessments/' + assessmentId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      })
-    } catch {
-      // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
-    }
+    overrideQueue.current = overrideQueue.current.then(async () => {
+      try {
+        await fetch('/api/assessments/' + assessmentId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+      } catch {
+        // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
+      }
+    })
   }
 
   function handleCapabilityChange(c: Capability) {
@@ -790,6 +812,74 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     }
   }
 
+  // Mint a guided session from this approved assessment and open the player
+  // (in-clinic, same device). The frozen snapshot is generated server-side.
+  async function handleLaunch() {
+    if (!assessmentId || launching) return
+    setLaunching(true)
+    setLaunchError(null)
+    try {
+      const r = await fetch('/api/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessment_id: assessmentId }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        setLaunchError(data.error || 'Could not start the session.')
+        setLaunching(false)
+        return
+      }
+      if (!data.session_id) {
+        setLaunchError('Could not start the session.')
+        setLaunching(false)
+        return
+      }
+      router.push(`/workouts/${data.session_id}`)
+    } catch {
+      setLaunchError('Could not start the session.')
+      setLaunching(false)
+    }
+  }
+
+  // Mint an expiring, hashed public share link so the client can follow the same
+  // guided session from their own device (O5). The raw token lives only in the
+  // returned URL — never stored — so this is the one moment it exists to copy.
+  async function handleShare() {
+    if (!assessmentId || sharing) return
+    setSharing(true)
+    setShareError(null)
+    setCopied(false)
+    try {
+      const r = await fetch('/api/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessment_id: assessmentId, share: true }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok || !data.share_link) {
+        setShareError(data.error || 'Could not create a share link.')
+        setSharing(false)
+        return
+      }
+      setShareLink(data.share_link)
+      setSharing(false)
+    } catch {
+      setShareError('Could not create a share link.')
+      setSharing(false)
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareLink) return
+    try {
+      await navigator.clipboard.writeText(shareLink)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center' }}>
@@ -811,8 +901,12 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   const grade = assessment.overall_grade
   const score = assessment.overall_score
-  const percentile = assessment.overall_percentile
+  // Percentile intentionally suppressed (O2): `overall_percentile` is a self-labeled
+  // rough linear transform, not a population rank, so we show the grade band instead
+  // of a dishonest "Top X%" until a real normative cohort exists.
+  const gradeDesc = GRADE_BANDS.find(b => b.grade === grade)?.desc ?? 'Screening'
   const color = gradeColor(grade)
+  const isApproved = approved || !!assessment.practitioner_approved
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const frontCapture = captures.find(c => c.view === 'front') ?? null
   const sideCapture = captures.find(c => c.view === 'side') ?? null
@@ -868,7 +962,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 24 }}>
           <GradeRing grade={grade} score={score} />
           <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>Top {percentile}%</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>{gradeDesc} posture</div>
             <div style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: 16 }}>
               Deviation: {score}/100 (lower is better) — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
             </div>
@@ -877,6 +971,93 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         </div>
         <BandTable currentGrade={grade} />
       </div>
+
+      {/* Launch guided session (in-clinic) — the headline corrective action */}
+      {sessionPreview ? (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.16), rgba(34,197,94,0.07))',
+          border: '1px solid rgba(99,102,241,0.32)', borderRadius: 16, padding: 20, marginBottom: 24,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#F5F5F5', marginBottom: 4 }}>Guided corrective session</div>
+            <div style={{ color: '#A1A1AA', fontSize: '0.85rem' }}>
+              {sessionPreview.items.length} movements · ≈ {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
+            </div>
+            {!isApproved && <div style={{ color: '#F59E0B', fontSize: '0.78rem', marginTop: 6 }}>Approve the assessment below to launch.</div>}
+            {launchError && <div role="alert" style={{ color: '#F87171', fontSize: '0.8rem', marginTop: 6 }}>{launchError}</div>}
+          </div>
+          <button
+            onClick={handleLaunch}
+            disabled={!isApproved || launching}
+            data-testid="launch-session"
+            style={{
+              padding: '0 30px', minHeight: 56, borderRadius: 999, border: 'none',
+              background: isApproved && !launching ? '#6366F1' : 'rgba(99,102,241,0.25)',
+              color: '#fff', fontWeight: 800, fontSize: '1rem',
+              cursor: isApproved && !launching ? 'pointer' : 'not-allowed',
+              boxShadow: isApproved && !launching ? '0 10px 28px rgba(99,102,241,0.4)' : 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            {launching ? 'Starting…' : <><span aria-hidden="true">▶ </span>Launch session</>}
+          </button>
+          <div style={{ flexBasis: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginTop: 2 }}>
+            {shareLink ? (
+              <div>
+                <div style={{ color: '#A1A1AA', fontSize: '0.78rem', marginBottom: 6 }}>
+                  Client link — expires in 14 days. Send it only to this client.
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    readOnly
+                    value={shareLink}
+                    data-testid="share-link"
+                    onFocus={(e) => e.currentTarget.select()}
+                    style={{
+                      flex: 1, minWidth: 200, minHeight: 40, padding: '0 12px', borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.14)', background: '#0E0E10',
+                      color: '#E4E4E7', fontSize: '0.8rem', fontFamily: 'monospace',
+                    }}
+                  />
+                  <button
+                    onClick={copyShareLink}
+                    style={{
+                      minHeight: 40, padding: '0 16px', borderRadius: 8, border: '1px solid rgba(129,140,248,0.5)',
+                      background: 'transparent', color: '#818CF8', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleShare}
+                disabled={!isApproved || sharing}
+                data-testid="share-session"
+                style={{
+                  minHeight: 44, padding: '0 18px', borderRadius: 999,
+                  border: '1px solid rgba(129,140,248,0.5)', background: 'transparent',
+                  color: isApproved ? '#818CF8' : '#52525B', fontWeight: 700, fontSize: '0.9rem',
+                  cursor: isApproved && !sharing ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {sharing ? 'Creating link…' : '🔗 Share with client'}
+              </button>
+            )}
+            {shareError && <div role="alert" style={{ color: '#F87171', fontSize: '0.8rem', marginTop: 6 }}>{shareError}</div>}
+          </div>
+        </div>
+      ) : (
+        <div style={{ background: '#161618', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 16, padding: 20, marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>No guided session yet</div>
+          <div style={{ color: '#A1A1AA', fontSize: '0.85rem', lineHeight: 1.5 }}>
+            There aren&apos;t enough reliably-measured findings to build a corrective session. Re-capture clear front &amp; side photos and try again.
+          </div>
+        </div>
+      )}
+
+      <AccuracyCard assessment={assessment} findings={findings} />
 
       {findings.length > 0 && (
         <PriorityProgram
@@ -894,8 +1075,6 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         findings={findings}
         frontCapture={frontCapture}
         sideCapture={sideCapture}
-        frontRank={assessment.front_rank}
-        sideRank={assessment.side_rank}
       />
 
       {findings.length > 0 && <MuscleModel3D findings={findings} />}
@@ -993,6 +1172,51 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.08)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>New Assessment</Link>
       </div>
+    </div>
+  )
+}
+
+// The visible payoff of the engine-credibility layer: per-finding within-capture
+// stability + angle uncertainty, capture/level status, and an honest statement of
+// the 2D monocular limits. No population percentile (O2) — nothing here overclaims.
+function AccuracyCard({ assessment, findings }: { assessment: Assessment; findings: Finding[] }) {
+  const withStability = findings.filter(
+    f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
+  )
+  const pill = (ok: boolean, label: string) => (
+    <span style={{
+      padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700,
+      background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+      color: ok ? '#34D399' : '#F59E0B',
+      border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+    }}>{label}</span>
+  )
+  return (
+    <div data-testid="accuracy-card" style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#A1A1AA', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h2>
+      <p style={{ color: '#8A8A93', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
+        A single-photo <strong style={{ color: '#D4D4D8' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
+        {pill(assessment.level_verified === true, assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
+        {assessment.tilt_corrected ? pill(true, 'Tilt-corrected') : null}
+        {typeof assessment.capture_stability === 'number' ? pill(assessment.capture_stability >= 0.7, `Capture stability ${Math.round(assessment.capture_stability * 100)}%`) : null}
+      </div>
+      {withStability.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {withStability.map(f => {
+            const s = f.stability_score
+            const stColor = s == null ? '#A1A1AA' : s >= 0.8 ? '#22C55E' : s >= 0.6 ? '#F59E0B' : '#EF4444'
+            return (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
+                <span style={{ color: '#D4D4D8', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>
+                {f.uncertainty_deg != null && <span style={{ color: '#A1A1AA', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>±{f.uncertainty_deg.toFixed(1)}°</span>}
+                {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{Math.round(s * 100)}% stable</span>}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -110,7 +110,8 @@ export async function POST(req: NextRequest) {
         source: useFixture ? 'fixture' : (f.source ?? 'upload'),
         pose_frame: stripFaceLandmarks(f) as unknown as object,
       }))
-      await service.from('captures').insert(capturesToInsert)
+      const { error: capErr } = await service.from('captures').insert(capturesToInsert)
+      if (capErr) throw new Error(`captures insert failed: ${capErr.message}`)
 
       const result = assessPosture(frames)
 
@@ -119,10 +120,14 @@ export async function POST(req: NextRequest) {
         buildFindingRow(f, assessmentId, user.id),
       )
 
-      await service.from('assessment_findings').insert(findingsToInsert)
+      // Every write is checked: an assessment must never read 'complete' while
+      // its findings/captures silently failed to persist — a thrown error lands
+      // in the catch below, which marks the assessment failed for the poller.
+      const { error: findErr } = await service.from('assessment_findings').insert(findingsToInsert)
+      if (findErr) throw new Error(`findings insert failed: ${findErr.message}`)
 
       // Update assessment to complete
-      await service
+      const { error: updErr } = await service
         .from('assessments')
         .update({
           status: 'complete',
@@ -138,12 +143,18 @@ export async function POST(req: NextRequest) {
           capture_stability: result.captureStability ?? null,
         })
         .eq('id', assessmentId)
+      if (updErr) throw new Error(`status update failed: ${updErr.message}`)
 
       logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash, assessmentId, durationMs: Date.now() - started })
       return NextResponse.json({ id: assessmentId, status: 'complete' })
     } catch (scoreErr) {
       logEvent({ route: ROUTE, outcome: 'server_error', status: 200, userHash, assessmentId, detail: String(scoreErr) })
-      await service.from('assessments').update({ status: 'failed' }).eq('id', assessmentId)
+      const { error: failErr } = await service.from('assessments').update({ status: 'failed' }).eq('id', assessmentId)
+      if (failErr) {
+        // Even the failed-mark failed — the poller would spin on 'processing'
+        // without this log + the client-side poll cap.
+        logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, assessmentId, detail: `failed-mark failed: ${failErr.message}` })
+      }
       return NextResponse.json({ id: assessmentId, status: 'failed', error: 'Scoring failed' })
     }
   } catch (err) {

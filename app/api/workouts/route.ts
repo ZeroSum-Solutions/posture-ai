@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashUser, hashIp } from '@/lib/log'
 import { buildSessionFromAssessment } from '@/lib/workout/buildSessionFromAssessment'
 import type { StoredFinding } from '@/lib/findings/storedFindingToEngine'
 import { generateShareToken } from '@/lib/workout/token'
@@ -17,11 +16,6 @@ const bodySchema = z.object({
   week: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   share: z.boolean().optional(),
 }).strict()
-
-const hashIp = (req: NextRequest): string | null => {
-  const fwd = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return fwd ? createHash('sha256').update(fwd).digest('hex') : null
-}
 
 /**
  * Mint a guided workout session from an APPROVED assessment. The frozen
@@ -71,10 +65,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Approve the assessment before launching a session.' }, { status: 403 })
   }
 
-  const { data: findings } = await service
+  const { data: findings, error: findingsErr } = await service
     .from('assessment_findings')
     .select('imbalance_key, label, region, deviation, direction, severity_pct, zone, view_used, confidence')
     .eq('assessment_id', assessment_id)
+  if (findingsErr) {
+    // A failed read must not masquerade as "no reliable findings" (422) below.
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: findingsErr.message })
+    return NextResponse.json({ error: 'Failed to load findings.' }, { status: 500 })
+  }
 
   const snapshot = buildSessionFromAssessment(assessment, (findings ?? []) as StoredFinding[], week)
   if (!snapshot) {
@@ -112,22 +111,32 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Start a run so playback state has a row to update immediately.
-  await service.from('session_runs').insert({
+  // Start a run so playback state has a row to update immediately. If the seed
+  // fails, roll the session back — a session without its run row would 404 every
+  // PATCH /run and silently lose resume/progress.
+  const { error: runErr } = await service.from('session_runs').insert({
     workout_session_id: session.id,
     practitioner_id: user.id,
     status: 'started',
   })
+  if (runErr) {
+    await service.from('workout_sessions').delete().eq('id', session.id)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: `run seed failed: ${runErr.message}` })
+    return NextResponse.json({ error: 'Failed to create session.' }, { status: 500 })
+  }
 
   let shareLink: string | undefined
   if (shareToken) {
-    shareLink = `${new URL(req.url).origin}/s/${shareToken.token}`
+    // Prefer a configured canonical origin — the request Host header is
+    // caller-influenced, and a share link must never point off-site.
+    const origin = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin).replace(/\/+$/, '')
+    shareLink = `${origin}/s/${shareToken.token}`
     await service.from('workout_share_events').insert({
       workout_session_id: session.id,
       practitioner_id: user.id,
       event: 'minted',
       actor: 'practitioner',
-      ip_hash: hashIp(req),
+      ip_hash: hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')),
     })
   }
 

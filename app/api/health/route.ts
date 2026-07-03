@@ -40,11 +40,12 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
+    // Detail goes to the server log only — this is a public endpoint, so the
+    // response body must not echo raw DB error text (schema/connection internals).
     console.error('[health] Database connection error:', err)
     return NextResponse.json({
       status: 'error',
       database: 'disconnected',
-      error: err instanceof Error ? err.message : String(err),
     }, { status: 500 })
   }
 }

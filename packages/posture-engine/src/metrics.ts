@@ -41,8 +41,19 @@ export function forwardHeadPosture(side: PoseFrame): Finding {
   // angle of (shoulder -> ear) from vertical
   const dx = ear.x - shoulder.x
   const dy = shoulder.y - ear.y  // positive = up in image
-  const deviation = Math.abs(angleFromVertical(dx, dy))
-  const direction = deviation < 1 ? 'Neutral' : 'Forward'
+  const magnitude = Math.abs(angleFromVertical(dx, dy))
+  // Forward-specific metric (thresholds and downstream content cite anterior
+  // head carriage). Same rule as the recurvatum metric: only a facing-confirmed
+  // ANTERIOR ear is scored; posterior carriage or unverifiable facing reports
+  // Neutral rather than inheriting the forward-head citation.
+  const face = sagittalFacing(side, useRight)
+  const earAnterior = Math.sign(dx) * face
+  let deviation = 0
+  let direction = 'Neutral'
+  if (magnitude >= 1 && earAnterior > 0) {
+    deviation = magnitude
+    direction = 'Forward'
+  }
   return makeFinding(key, 'Forward Head Posture', 'head_shoulders', deviation, direction, 'side', conf,
     useRight ? ['right_ear','right_shoulder'] : ['left_ear','left_shoulder'])
 }
@@ -93,11 +104,15 @@ export function t1TiltBackward(side: PoseFrame): Finding {
   if (!shoulder || !hip) return makeFinding(key, 'T1 Tilt (Backward)', 'spine', 0, 'Neutral', 'side', 0, [])
 
   const conf = minVis(shoulder, hip)
-  // Positive = shoulder behind hip (backward tilt)
-  const dx = hip.x - shoulder.x  // + means shoulder in front of hip
+  const dx = hip.x - shoulder.x
   const dy = hip.y - shoulder.y  // should be positive (hip is lower)
   const deviation = Math.abs(angleFromVertical(dx, dy))
-  const direction = deviation < 1 ? 'Neutral' : dx > 0 ? 'Backward' : 'Forward'
+  // Facing-aware label: raw image-x signs flip for a left-facing subject, so
+  // the direction is resolved against sagittalFacing. Unverifiable facing keeps
+  // the (direction-free) magnitude but asserts no Forward/Backward label.
+  const face = sagittalFacing(side, useRight)
+  const shoulderAnterior = Math.sign(shoulder.x - hip.x) * face
+  const direction = deviation < 1 || face === 0 ? 'Neutral' : shoulderAnterior > 0 ? 'Forward' : 'Backward'
   return makeFinding(key, 'T1 Tilt', 'spine', deviation, direction, 'side', conf,
     useRight ? ['right_shoulder','right_hip'] : ['left_shoulder','left_hip'])
 }
@@ -130,12 +145,16 @@ export function anteriorPelvicShift(side: PoseFrame): Finding {
   if (!shoulder || !hip) return makeFinding(key, 'Anterior Pelvic Shift', 'pelvis', 0, 'Neutral', 'side', 0, [])
 
   const conf = minVis(shoulder, hip)
-  // angle of (shoulder -> hip) from vertical: + = hip in front of shoulder (anterior)
+  // angle of (shoulder -> hip) from vertical
   const dx = hip.x - shoulder.x
   const dy = hip.y - shoulder.y
-  const deviation = angleFromVertical(dx, dy)
-  const direction = Math.abs(deviation) < 1 ? 'Neutral' : deviation > 0 ? 'Anterior' : 'Posterior'
-  return makeFinding(key, 'Anterior Pelvic Shift', 'pelvis', Math.abs(deviation), direction, 'side', conf,
+  const deviation = Math.abs(angleFromVertical(dx, dy))
+  // Facing-aware label (see t1TiltBackward): anterior means toward where the
+  // subject faces, not toward image-right.
+  const face = sagittalFacing(side, useRight)
+  const hipAnterior = Math.sign(hip.x - shoulder.x) * face
+  const direction = deviation < 1 || face === 0 ? 'Neutral' : hipAnterior > 0 ? 'Anterior' : 'Posterior'
+  return makeFinding(key, 'Anterior Pelvic Shift', 'pelvis', deviation, direction, 'side', conf,
     useRight ? ['right_shoulder','right_hip'] : ['left_shoulder','left_hip'])
 }
 
@@ -172,34 +191,58 @@ export function pelvicAxialRotation(front: PoseFrame): Finding {
   return makeFinding(key, 'Pelvic Rotation', 'pelvis', deviation, direction, 'front', AXIAL_ROTATION_CONFIDENCE, ['left_hip','right_hip'])
 }
 
-/** 8. Genu varum/valgum left — front view */
-export function genuVarumValgumLeft(front: PoseFrame): Finding {
-  const key = 'genu_varum_valgum_left'
-  const hip = getLm(front, 'left_hip')
-  const knee = getLm(front, 'left_knee')
-  const ankle = getLm(front, 'left_ankle')
-  if (!hip || !knee || !ankle) return makeFinding(key, 'Knee Alignment Left', 'leg', 0, 'Neutral', 'front', 0, [])
-
-  const conf = minVis(hip, knee, ankle)
-  const angleAtKnee = angle2D(hip, knee, ankle)
-  const deviation = 180 - angleAtKnee  // +ve = valgum (knock knee); -ve = varum (bow leg)
-  const direction = Math.abs(deviation) < 1 ? 'Neutral' : deviation > 0 ? 'Valgum (Knock-Knee)' : 'Varum (Bow-Leg)'
-  return makeFinding(key, 'Knee Alignment Left', 'leg', Math.abs(deviation), direction, 'front', conf, ['left_hip','left_knee','left_ankle'])
+/**
+ * Body-midline direction from the best-visible bilateral pair (hips, then
+ * shoulders): sign of (midline − fromX). Landmark NAMES are body-side-correct
+ * regardless of image mirroring, so this is mirror-proof. 0 = indeterminate.
+ */
+function midlineSign(frame: PoseFrame, fromX: number): number {
+  for (const [l, r] of [['left_hip', 'right_hip'], ['left_shoulder', 'right_shoulder']] as const) {
+    const a = getLm(frame, l)
+    const b = getLm(frame, r)
+    if (a && b && minVis(a, b) >= RELIABILITY_FLOOR && Math.abs(a.x - b.x) > 0.02) {
+      return Math.sign((a.x + b.x) / 2 - fromX)
+    }
+  }
+  return 0
 }
 
-/** 9. Genu varum/valgum right — front view */
-export function genuVarumValgumRight(front: PoseFrame): Finding {
-  const key = 'genu_varum_valgum_right'
-  const hip = getLm(front, 'right_hip')
-  const knee = getLm(front, 'right_knee')
-  const ankle = getLm(front, 'right_ankle')
-  if (!hip || !knee || !ankle) return makeFinding(key, 'Knee Alignment Right', 'leg', 0, 'Neutral', 'front', 0, [])
+/**
+ * 8/9. Genu varum/valgum — front view. angle2D is unsigned [0,180], so the
+ * magnitude alone cannot tell a knee that collapses inward (valgum) from one
+ * that bows outward (varum): the knee's side of the hip→ankle chord is compared
+ * against the body midline. An indeterminate midline keeps the magnitude but
+ * asserts no direction.
+ */
+function genuVarumValgum(key: string, label: string, front: PoseFrame, hipName: string, kneeName: string, ankleName: string): Finding {
+  const hip = getLm(front, hipName)
+  const knee = getLm(front, kneeName)
+  const ankle = getLm(front, ankleName)
+  if (!hip || !knee || !ankle) return makeFinding(key, label, 'leg', 0, 'Neutral', 'front', 0, [])
 
   const conf = minVis(hip, knee, ankle)
-  const angleAtKnee = angle2D(hip, knee, ankle)
-  const deviation = 180 - angleAtKnee
-  const direction = Math.abs(deviation) < 1 ? 'Neutral' : deviation > 0 ? 'Valgum (Knock-Knee)' : 'Varum (Bow-Leg)'
-  return makeFinding(key, 'Knee Alignment Right', 'leg', Math.abs(deviation), direction, 'front', conf, ['right_hip','right_knee','right_ankle'])
+  const deviation = 180 - angle2D(hip, knee, ankle) // unsigned magnitude, ≥ 0
+  let direction = 'Neutral'
+  if (deviation >= 1) {
+    // x-position of the hip→ankle chord at the knee's height → which side the
+    // knee sits on; medial (toward midline) = valgum, lateral = varum.
+    const t = (knee.y - hip.y) / ((ankle.y - hip.y) || 1e-9)
+    const chordX = hip.x + (ankle.x - hip.x) * t
+    const offset = Math.sign(knee.x - chordX)
+    const medial = midlineSign(front, hip.x)
+    if (offset !== 0 && medial !== 0) {
+      direction = offset === medial ? 'Valgum (Knock-Knee)' : 'Varum (Bow-Leg)'
+    }
+  }
+  return makeFinding(key, label, 'leg', deviation, direction, 'front', conf, [hipName, kneeName, ankleName])
+}
+
+export function genuVarumValgumLeft(front: PoseFrame): Finding {
+  return genuVarumValgum('genu_varum_valgum_left', 'Knee Alignment Left', front, 'left_hip', 'left_knee', 'left_ankle')
+}
+
+export function genuVarumValgumRight(front: PoseFrame): Finding {
+  return genuVarumValgum('genu_varum_valgum_right', 'Knee Alignment Right', front, 'right_hip', 'right_knee', 'right_ankle')
 }
 
 // Below this magnitude the sagittal knee deviation is treated as neutral and no

@@ -1,27 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-
-// Routes that do not require auth. Dev-only routes are never public in
-// production builds.
-const PUBLIC_PATHS = [
-  '/auth/sign-in',
-  '/auth/sign-up',
-  '/auth/callback',
-  // Password reset must be reachable while signed out. /auth/update-password
-  // self-guards on the recovery session (and renders its own expired-link
-  // state), so it is public rather than gated behind auth + onboarding.
-  '/auth/forgot-password',
-  '/auth/update-password',
-  '/api/health',
-  // Public legal pages + the remote subject-consent flow (the subject is not an
-  // authenticated user). The remote consent API self-authenticates via a signed,
-  // single-use token, so its public endpoint is allow-listed here too.
-  '/privacy',
-  '/terms',
-  '/consent',
-  '/api/consent/respond',
-  ...(process.env.NODE_ENV !== 'production' ? ['/api/dev/'] : []),
-]
+// The allowlist + matcher live in lib/auth/public-paths.ts so the auth boundary
+// is unit-tested (public-paths.test.ts) — edit the list THERE.
+import { isPublicPath } from '@/lib/auth/public-paths'
 
 // Routes that require auth but not disclaimer acknowledgement
 const ONBOARDING_PATHS = ['/onboarding']
@@ -51,8 +32,7 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Allow public paths
-  const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
-  if (isPublic) return supabaseResponse
+  if (isPublicPath(pathname)) return supabaseResponse
 
   // Redirect unauthenticated users to sign-in
   if (!user) {

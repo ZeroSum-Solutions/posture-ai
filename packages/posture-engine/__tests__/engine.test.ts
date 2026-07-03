@@ -41,7 +41,9 @@ function frontFrame(lm: Record<string, { x: number; y: number; z?: number; visib
 // Metric 1: forward_head_posture
 // ear=(0.570, 0.150), shoulder=(0.500, 0.250)
 // dx=0.07, dy=0.10 → atan2(0.07,0.10)*180/PI ≈ 34.99°
+// nose right of the ear → subject faces image-right (facing-confirmed anterior).
 const FHP_FRAME = sideFrame({
+  nose:           { x: 0.640, y: 0.055, visibility: 0.90 },
   left_ear:       { x: 0.570, y: 0.150, visibility: 0.90 },
   right_ear:      { x: 0.560, y: 0.150, visibility: 0.10 },
   left_shoulder:  { x: 0.500, y: 0.250, visibility: 0.90 },
@@ -52,6 +54,31 @@ const FHP_FRAME = sideFrame({
   right_knee:     { x: 0.505, y: 0.750, visibility: 0.10 },
   left_ankle:     { x: 0.500, y: 0.930, visibility: 0.90 },
   right_ankle:    { x: 0.505, y: 0.930, visibility: 0.10 },
+})
+
+// Same physical posture photographed facing the other way (x → 1−x): the label
+// must not flip with the image direction.
+const FHP_FRAME_MIRROR = sideFrame({
+  nose:           { x: 0.360, y: 0.055, visibility: 0.90 },
+  left_ear:       { x: 0.430, y: 0.150, visibility: 0.90 },
+  right_ear:      { x: 0.440, y: 0.150, visibility: 0.10 },
+  left_shoulder:  { x: 0.500, y: 0.250, visibility: 0.90 },
+  right_shoulder: { x: 0.490, y: 0.250, visibility: 0.10 },
+  left_hip:       { x: 0.500, y: 0.550, visibility: 0.90 },
+  right_hip:      { x: 0.495, y: 0.550, visibility: 0.10 },
+  left_knee:      { x: 0.500, y: 0.750, visibility: 0.90 },
+  right_knee:     { x: 0.495, y: 0.750, visibility: 0.10 },
+  left_ankle:     { x: 0.500, y: 0.930, visibility: 0.90 },
+  right_ankle:    { x: 0.495, y: 0.930, visibility: 0.10 },
+})
+
+// Head carried BEHIND the shoulder (facing-confirmed posterior): the metric is
+// forward-specific, so this must not be scored as forward head posture.
+const FHP_POSTERIOR_FRAME = sideFrame({
+  nose:           { x: 0.500, y: 0.055, visibility: 0.90 },
+  left_ear:       { x: 0.430, y: 0.150, visibility: 0.90 },
+  left_shoulder:  { x: 0.500, y: 0.250, visibility: 0.90 },
+  left_hip:       { x: 0.500, y: 0.550, visibility: 0.90 },
 })
 
 // Metric 2/3: shoulder imbalance
@@ -71,7 +98,9 @@ const SHOULDER_FRAME = frontFrame({
 // Metric 4: t1_tilt_backward
 // shoulder=(0.500,0.220), hip=(0.520,0.520)
 // dx=0.020, dy=0.300 → atan2(0.020,0.300)*180/PI ≈ 3.81°
+// nose right of the ear → faces image-right; hip anterior of shoulder = Backward.
 const T1_FRAME = sideFrame({
+  nose:           { x: 0.560, y: 0.055, visibility: 0.90 },
   left_shoulder:  { x: 0.500, y: 0.220, visibility: 0.90 },
   right_shoulder: { x: 0.510, y: 0.220, visibility: 0.10 },
   left_hip:       { x: 0.520, y: 0.520, visibility: 0.90 },
@@ -82,6 +111,21 @@ const T1_FRAME = sideFrame({
   right_knee:     { x: 0.525, y: 0.720, visibility: 0.10 },
   left_ankle:     { x: 0.520, y: 0.920, visibility: 0.90 },
   right_ankle:    { x: 0.525, y: 0.920, visibility: 0.10 },
+})
+
+// T1_FRAME mirrored (x → 1−x): same backward tilt, subject faces image-left.
+const T1_FRAME_MIRROR = sideFrame({
+  nose:           { x: 0.440, y: 0.055, visibility: 0.90 },
+  left_shoulder:  { x: 0.500, y: 0.220, visibility: 0.90 },
+  right_shoulder: { x: 0.490, y: 0.220, visibility: 0.10 },
+  left_hip:       { x: 0.480, y: 0.520, visibility: 0.90 },
+  right_hip:      { x: 0.470, y: 0.520, visibility: 0.10 },
+  left_ear:       { x: 0.500, y: 0.060, visibility: 0.90 },
+  right_ear:      { x: 0.495, y: 0.060, visibility: 0.10 },
+  left_knee:      { x: 0.480, y: 0.720, visibility: 0.90 },
+  right_knee:     { x: 0.475, y: 0.720, visibility: 0.10 },
+  left_ankle:     { x: 0.480, y: 0.920, visibility: 0.90 },
+  right_ankle:    { x: 0.475, y: 0.920, visibility: 0.10 },
 })
 
 // Metric 5: pelvic_obliquity
@@ -101,7 +145,9 @@ const PELVIS_FRONT_FRAME = frontFrame({
 // Metric 6: anterior_pelvic_shift
 // shoulder=(0.500,0.220), hip=(0.540,0.520)
 // dx=0.040, dy=0.300 → atan2(0.040,0.300)*180/PI ≈ 7.60°
+// nose right of the ear → faces image-right; hip anterior of shoulder = Anterior.
 const APS_FRAME = sideFrame({
+  nose:           { x: 0.560, y: 0.055, visibility: 0.90 },
   left_shoulder:  { x: 0.500, y: 0.220, visibility: 0.90 },
   right_shoulder: { x: 0.510, y: 0.220, visibility: 0.10 },
   left_hip:       { x: 0.540, y: 0.520, visibility: 0.90 },
@@ -112,6 +158,21 @@ const APS_FRAME = sideFrame({
   right_knee:     { x: 0.545, y: 0.720, visibility: 0.10 },
   left_ankle:     { x: 0.540, y: 0.920, visibility: 0.90 },
   right_ankle:    { x: 0.545, y: 0.920, visibility: 0.10 },
+})
+
+// APS_FRAME mirrored (x → 1−x): the same anterior shift, subject faces image-left.
+const APS_FRAME_MIRROR = sideFrame({
+  nose:           { x: 0.440, y: 0.055, visibility: 0.90 },
+  left_shoulder:  { x: 0.500, y: 0.220, visibility: 0.90 },
+  right_shoulder: { x: 0.490, y: 0.220, visibility: 0.10 },
+  left_hip:       { x: 0.460, y: 0.520, visibility: 0.90 },
+  right_hip:      { x: 0.450, y: 0.520, visibility: 0.10 },
+  left_ear:       { x: 0.500, y: 0.060, visibility: 0.90 },
+  right_ear:      { x: 0.495, y: 0.060, visibility: 0.10 },
+  left_knee:      { x: 0.460, y: 0.720, visibility: 0.90 },
+  right_knee:     { x: 0.455, y: 0.720, visibility: 0.10 },
+  left_ankle:     { x: 0.460, y: 0.920, visibility: 0.90 },
+  right_ankle:    { x: 0.455, y: 0.920, visibility: 0.10 },
 })
 
 // Metric 7: pelvic_axial_rotation (needs z coords)
@@ -219,6 +280,24 @@ describe('Metric 1: Forward Head Posture', () => {
     const f = forwardHeadPosture(FHP_FRAME)
     expect(f.severityPct).toBeGreaterThanOrEqual(66)
   })
+
+  it('labels a facing-confirmed anterior ear Forward', () => {
+    expect(forwardHeadPosture(FHP_FRAME).direction).toBe('Forward')
+  })
+
+  it('is mirror-invariant: the same posture facing image-left still reads Forward at ≈34.99°', () => {
+    const f = forwardHeadPosture(FHP_FRAME_MIRROR)
+    expect(withinEpsilon(f.deviation, 34.99)).toBe(true)
+    expect(f.direction).toBe('Forward')
+  })
+
+  it('does not score a posterior head carriage as forward head posture', () => {
+    // The thresholds and downstream content are anterior-specific (same rule as
+    // the recurvatum metric): a backward-carried head reports Neutral / 0°.
+    const f = forwardHeadPosture(FHP_POSTERIOR_FRAME)
+    expect(f.direction).toBe('Neutral')
+    expect(withinEpsilon(f.deviation, 0)).toBe(true)
+  })
 })
 
 // ============================================================
@@ -252,6 +331,16 @@ describe('Metric 4: T1 Tilt Backward', () => {
     // dx=0.020, dy=0.300 → atan2(0.020,0.300)*180/PI = 3.814°
     expect(withinEpsilon(f.deviation, 3.81)).toBe(true)
   })
+
+  it('labels the facing-confirmed posterior shoulder Backward', () => {
+    expect(t1TiltBackward(T1_FRAME).direction).toBe('Backward')
+  })
+
+  it('is mirror-invariant: the same tilt facing image-left still reads Backward', () => {
+    const f = t1TiltBackward(T1_FRAME_MIRROR)
+    expect(withinEpsilon(f.deviation, 3.81)).toBe(true)
+    expect(f.direction).toBe('Backward')
+  })
 })
 
 // ============================================================
@@ -274,6 +363,16 @@ describe('Metric 6: Anterior Pelvic Shift', () => {
     // shoulder=(0.500,0.220), hip=(0.540,0.520)
     // dx=0.040, dy=0.300 → atan2(0.040,0.300)*180/PI = 7.595°
     expect(withinEpsilon(f.deviation, 7.60)).toBe(true)
+  })
+
+  it('labels the facing-confirmed anterior hip Anterior', () => {
+    expect(anteriorPelvicShift(APS_FRAME).direction).toBe('Anterior')
+  })
+
+  it('is mirror-invariant: the same shift facing image-left still reads Anterior', () => {
+    const f = anteriorPelvicShift(APS_FRAME_MIRROR)
+    expect(withinEpsilon(f.deviation, 7.60)).toBe(true)
+    expect(f.direction).toBe('Anterior')
   })
 })
 
@@ -312,6 +411,26 @@ describe('Metric 8: Genu Varum/Valgum Left', () => {
     // deviation=|180-168.58|≈11.42°
     expect(withinEpsilon(f.deviation, 11.42)).toBe(true)
   })
+
+  it('labels a knee displaced AWAY from the midline Varum (Bow-Leg)', () => {
+    // GENU_L_FRAME: left knee (x=0.360) sits lateral to the hip→ankle chord
+    // (x=0.380) relative to the body midline (x≈0.5) — that is a bow-leg.
+    expect(genuVarumValgumLeft(GENU_L_FRAME).direction).toBe('Varum (Bow-Leg)')
+  })
+
+  it('labels a knee collapsed TOWARD the midline Valgum (Knock-Knee) at the same magnitude', () => {
+    const GENU_L_VALGUS = frontFrame({
+      left_shoulder:  { x: 0.350, y: 0.220, visibility: 0.90 },
+      right_shoulder: { x: 0.650, y: 0.220, visibility: 0.90 },
+      left_hip:       { x: 0.380, y: 0.520, visibility: 0.90 },
+      right_hip:      { x: 0.620, y: 0.520, visibility: 0.10 },
+      left_knee:      { x: 0.400, y: 0.720, visibility: 0.90 },
+      left_ankle:     { x: 0.380, y: 0.920, visibility: 0.90 },
+    })
+    const f = genuVarumValgumLeft(GENU_L_VALGUS)
+    expect(withinEpsilon(f.deviation, 11.42)).toBe(true)
+    expect(f.direction).toBe('Valgum (Knock-Knee)')
+  })
 })
 
 // ============================================================
@@ -323,6 +442,11 @@ describe('Metric 9: Genu Varum/Valgum Right', () => {
     // right: hip=(0.620,0.520), knee=(0.640,0.720), ankle=(0.620,0.920)
     // same geometry as left → deviation≈11.42°
     expect(withinEpsilon(f.deviation, 11.42)).toBe(true)
+  })
+
+  it('labels a right knee displaced AWAY from the midline Varum (Bow-Leg)', () => {
+    // knee x=0.640 is lateral to the chord (x=0.620) — midline is at x≈0.5.
+    expect(genuVarumValgumRight(GENU_R_FRAME).direction).toBe('Varum (Bow-Leg)')
   })
 })
 

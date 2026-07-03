@@ -16,28 +16,33 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/sign-in')
 
-  const { count: clientCount } = await supabase
-    .from('clients')
-    .select('id', { count: 'exact', head: true })
-    .eq('practitioner_id', user.id)
-    .is('archived_at', null)
-
   // Server component: per-request clock read is intentional here.
   // eslint-disable-next-line react-hooks/purity
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const { count: weekAssessments } = await supabase
-    .from('assessments')
-    .select('id', { count: 'exact', head: true })
-    .eq('practitioner_id', user.id)
-    .gte('created_at', oneWeekAgo)
 
-  const { data: recentAssessmentsRaw } = await supabase
-    .from('assessments')
-    .select('id, overall_grade, overall_score, created_at, client_id, clients(first_name, last_name)')
-    .eq('practitioner_id', user.id)
-    .eq('status', 'complete')
-    .order('created_at', { ascending: false })
-    .limit(5)
+  // Three independent reads — run them together instead of three serial round trips.
+  const [{ count: clientCount }, { count: weekAssessments }, { data: recentAssessmentsRaw }] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('id', { count: 'exact', head: true })
+      .eq('practitioner_id', user.id)
+      .is('archived_at', null),
+    // Count completed assessments only, matching the Recent Activity feed — a
+    // failed/abandoned capture must not show as "1 this week" above an empty feed.
+    supabase
+      .from('assessments')
+      .select('id', { count: 'exact', head: true })
+      .eq('practitioner_id', user.id)
+      .eq('status', 'complete')
+      .gte('created_at', oneWeekAgo),
+    supabase
+      .from('assessments')
+      .select('id, overall_grade, overall_score, created_at, client_id, clients(first_name, last_name)')
+      .eq('practitioner_id', user.id)
+      .eq('status', 'complete')
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ])
 
   const recentAssessments = (recentAssessmentsRaw ?? []) as unknown as Assessment[]
 

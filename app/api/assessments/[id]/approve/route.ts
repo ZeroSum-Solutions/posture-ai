@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Service-role write (authenticated DB writes on regulated tables are revoked);
   // scoped by practitioner_id since service-role bypasses RLS.
   const service = createSupabaseServiceClient()
-  const { error } = await service
+  const { data: updated, error } = await service
     .from('assessments')
     .update({
       practitioner_approved: approved,
@@ -28,7 +28,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     })
     .eq('id', id)
     .eq('practitioner_id', user.id)
+    .select('id')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error(`[api/assessments/${id}/approve] update failed:`, error.message)
+    return NextResponse.json({ error: 'Failed to update approval.' }, { status: 500 })
+  }
+  // 0 rows = wrong id or not this practitioner's assessment — don't report success.
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  }
   return NextResponse.json({ ok: true, practitioner_approved: approved })
 }

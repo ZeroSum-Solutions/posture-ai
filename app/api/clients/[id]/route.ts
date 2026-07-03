@@ -1,5 +1,6 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface Params { id: string }
@@ -76,7 +77,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
     return NextResponse.json({ error: 'This client has been deleted and can no longer be edited.' }, { status: 409 })
   }
 
-  console.log('[api/clients/[id]] PATCH: updating client', id, updates)
+  // Log field NAMES only — the values are client PII and must not be at rest in logs.
+  console.log('[api/clients/[id]] PATCH: updating client', id, Object.keys(updates))
   const { data, error } = await service
     .from('clients')
     .update(updates)
@@ -88,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
 
   if (error) {
     console.error('[api/clients/[id]] PATCH error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update client.' }, { status: 500 })
   }
   if (!data) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
@@ -117,6 +119,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
   try { const b = await req.json(); reason = typeof b?.reason === 'string' ? b.reason : null } catch { /* no body */ }
 
   const service = createSupabaseServiceClient()
+
+  // Erasure is a heavy multi-table purge — rate-limit it so an accidental or
+  // malicious burst can't hammer the storage/DB layer.
+  const allowed = await enforceRateLimit(service, { route: 'clients_delete', userId: user.id, limit: 10, windowSeconds: 60 })
+  if (!allowed) return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
 
   // Right-to-erasure must be FAIL-CLOSED: if any purge/redaction step errors we
   // return 500 and do NOT claim success, so the practitioner retries instead of
