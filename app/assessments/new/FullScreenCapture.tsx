@@ -273,19 +273,33 @@ export default function FullScreenCapture({
     const rollAt = level.rollRef.current // roll at the shutter instant
     const urls: string[] = []
     for (let i = 0; i < BURST_SIZE; i++) {
+      // Abort if the phone tilts into the red zone (>5°) partway through the
+      // burst — unless the user overrode the tilt gate. Without this a burst
+      // straddling a tilt would feed the engine frames the shutter itself would
+      // have blocked. Partial frames are discarded (burstRef untouched).
+      if (!overrideTilt && Math.abs(level.rollRef.current ?? 0) > 5) {
+        if (mountedRef.current) setPhase('live')
+        return
+      }
       ctx.drawImage(video, 0, 0)
       urls.push(canvas.toDataURL('image/jpeg', 0.9))
       if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
     }
     if (!mountedRef.current) return
-    burstRef.current = urls
+    // Put the reviewed (middle) frame first so the preview thumbnail AND the
+    // quality preflight — both of which the parent runs on burst[0] — judge
+    // exactly the frame the user reviews and approves. The engine medians every
+    // frame at submit, so array order is irrelevant to within-capture stability.
+    const mid = Math.floor(urls.length / 2)
+    const representative = urls[mid]
+    burstRef.current = [representative, ...urls.slice(0, mid), ...urls.slice(mid + 1)]
     setRollAtCapture(rollAt)
     setPreviewQuality(null)
-    setReviewUrl(urls[Math.floor(urls.length / 2)]) // representative still
+    setReviewUrl(representative) // representative still (now burst[0])
     setPhase('review')
     // Stream keeps running so the next view is instant — the frozen still is
     // shown as an overlay during review.
-  }, [level.rollRef])
+  }, [level.rollRef, overrideTilt])
 
   function startCountdown() {
     void acquireWakeLock()
