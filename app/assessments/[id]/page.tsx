@@ -641,6 +641,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
   const [launching, setLaunching] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareLink, setShareLink] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -838,6 +842,44 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     }
   }
 
+  // Mint an expiring, hashed public share link so the client can follow the same
+  // guided session from their own device (O5). The raw token lives only in the
+  // returned URL — never stored — so this is the one moment it exists to copy.
+  async function handleShare() {
+    if (!assessmentId || sharing) return
+    setSharing(true)
+    setShareError(null)
+    setCopied(false)
+    try {
+      const r = await fetch('/api/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessment_id: assessmentId, share: true }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok || !data.share_link) {
+        setShareError(data.error || 'Could not create a share link.')
+        setSharing(false)
+        return
+      }
+      setShareLink(data.share_link)
+      setSharing(false)
+    } catch {
+      setShareError('Could not create a share link.')
+      setSharing(false)
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareLink) return
+    try {
+      await navigator.clipboard.writeText(shareLink)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center' }}>
@@ -959,6 +1001,52 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           >
             {launching ? 'Starting…' : <><span aria-hidden="true">▶ </span>Launch session</>}
           </button>
+          <div style={{ flexBasis: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginTop: 2 }}>
+            {shareLink ? (
+              <div>
+                <div style={{ color: '#A1A1AA', fontSize: '0.78rem', marginBottom: 6 }}>
+                  Client link — expires in 14 days. Send it only to this client.
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    readOnly
+                    value={shareLink}
+                    data-testid="share-link"
+                    onFocus={(e) => e.currentTarget.select()}
+                    style={{
+                      flex: 1, minWidth: 200, minHeight: 40, padding: '0 12px', borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.14)', background: '#0E0E10',
+                      color: '#E4E4E7', fontSize: '0.8rem', fontFamily: 'monospace',
+                    }}
+                  />
+                  <button
+                    onClick={copyShareLink}
+                    style={{
+                      minHeight: 40, padding: '0 16px', borderRadius: 8, border: '1px solid rgba(129,140,248,0.5)',
+                      background: 'transparent', color: '#818CF8', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleShare}
+                disabled={!isApproved || sharing}
+                data-testid="share-session"
+                style={{
+                  minHeight: 44, padding: '0 18px', borderRadius: 999,
+                  border: '1px solid rgba(129,140,248,0.5)', background: 'transparent',
+                  color: isApproved ? '#818CF8' : '#52525B', fontWeight: 700, fontSize: '0.9rem',
+                  cursor: isApproved && !sharing ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {sharing ? 'Creating link…' : '🔗 Share with client'}
+              </button>
+            )}
+            {shareError && <div role="alert" style={{ color: '#F87171', fontSize: '0.8rem', marginTop: 6 }}>{shareError}</div>}
+          </div>
         </div>
       ) : (
         <div style={{ background: '#161618', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 16, padding: 20, marginBottom: 24 }}>
