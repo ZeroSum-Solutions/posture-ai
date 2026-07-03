@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import { ageBand } from '@/lib/clients/age'
+import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import FullScreenCapture from './FullScreenCapture'
 import type { ViewKey, SlotStatus, Captures } from './types'
 
@@ -32,6 +33,7 @@ function NewAssessmentWizard() {
   const [clientSearch, setClientSearch] = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
+  const [checkingConsent, setCheckingConsent] = useState(false)
   const [loadingClients, setLoadingClients] = useState(true)
   const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>({
@@ -321,6 +323,35 @@ function NewAssessmentWizard() {
     setStep(2)
   }
 
+  // Gate the camera on BIPA/subject consent, not just age. Biometric capture must
+  // not begin before a valid consent is on record, so we verify it (via the same
+  // authoritative getConsentStatus + captureEligibility the server enforces at
+  // submit) BEFORE advancing to Step 2 and opening the camera. The server remains
+  // the final gate; this stops biometric data from ever being captured for an
+  // unconsented subject.
+  async function proceedToCapture() {
+    if (!selectedClient || checkingConsent) return
+    const band = ageBand(selectedClient.date_of_birth)
+    if (band === 'under_13') { setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
+    if (band === 'unknown') { setAgeGateError('Add a date of birth for this client before screening.'); return }
+    setAgeGateError(null)
+    setCheckingConsent(true)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const consent = await getConsentStatus(supabase, selectedClient.id)
+      const eligibility = captureEligibility(selectedClient.date_of_birth, consent)
+      if (!eligibility.ok) {
+        setAgeGateError(eligibility.reason ?? 'This client is not eligible for screening yet.')
+        return
+      }
+      setStep(2)
+    } catch {
+      setAgeGateError('Could not verify consent. Refresh and try again.')
+    } finally {
+      setCheckingConsent(false)
+    }
+  }
+
   const clientName = selectedClient
     ? selectedClient.first_name + ' ' + selectedClient.last_name
     : 'Client'
@@ -437,26 +468,26 @@ function NewAssessmentWizard() {
                   </Link>
                 </>
               )}
+              {selectedClient && ageGateError.toLowerCase().includes('consent') && (
+                <>
+                  {' '}
+                  <Link href={`/clients/${selectedClient.id}`} style={{ color: '#FCA5A5', fontWeight: 600, textDecoration: 'underline' }}>
+                    Record consent for this client →
+                  </Link>
+                </>
+              )}
             </div>
           )}
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => {
-                if (!selectedClient) return
-                // Client-side age block (server re-checks age + consent authoritatively).
-                const band = ageBand(selectedClient.date_of_birth)
-                if (band === 'under_13') { setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
-                if (band === 'unknown') { setAgeGateError('Add a date of birth for this client before screening.'); return }
-                setAgeGateError(null)
-                setStep(2)
-              }}
-              disabled={!selectedClient}
+            <button onClick={() => { if (testMode) { setStep(2) } else { proceedToCapture() } }}
+              disabled={!selectedClient || checkingConsent}
               style={{
                 padding: '12px 28px', borderRadius: '10px',
-                background: selectedClient ? '#4F46E5' : 'rgba(99,102,241,0.25)',
+                background: selectedClient && !checkingConsent ? '#4F46E5' : 'rgba(99,102,241,0.25)',
                 color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
-                cursor: selectedClient ? 'pointer' : 'not-allowed', minHeight: '44px',
+                cursor: selectedClient && !checkingConsent ? 'pointer' : 'not-allowed', minHeight: '44px',
               }}>
-              {testMode ? 'Next: Confirm' : 'Next: Upload Views'}
+              {checkingConsent ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
             </button>
           </div>
         </div>
