@@ -131,8 +131,14 @@ export function WorkoutPlayer({
     v.preload = 'auto'
     v.muted = true
     v.src = next.media.loopUrl
-    // Fire-and-forget: both elements are detached and garbage-collectable;
-    // the browser keeps the bytes in HTTP cache for the real <video>.
+    // The browser keeps the fetched bytes in HTTP cache for the real <video>.
+    // On a fast skip/exit before the next item plays, abort the in-flight
+    // warm-up loads so they don't compete with the clip actually on screen.
+    return () => {
+      img.src = ''
+      v.removeAttribute('src')
+      v.load()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.index])
 
@@ -382,11 +388,19 @@ function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean
 // keeps a stable array identity across ticks; the reducer only replaces it on a
 // real transition.)
 const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion }: { item?: SessionItem; accent: string; active: boolean; reduceMotion: boolean }) {
-  // A clip that 404s/decode-fails must never leave a black hole — flip to the
-  // gradient fallback for this slug only, and re-arm on the next item.
-  const [mediaFailed, setMediaFailed] = useState(false)
-  useEffect(() => setMediaFailed(false), [item?.slug])
-  const media = mediaFailed ? undefined : item?.media
+  // True three-tier fallback: clip loop → its poster (video 404s/decode-fails)
+  // → today's gradient (poster also fails, or there is no media). Each tier
+  // steps down independently and both flags re-arm on the next item.
+  const [videoFailed, setVideoFailed] = useState(false)
+  const [posterFailed, setPosterFailed] = useState(false)
+  useEffect(() => {
+    setVideoFailed(false)
+    setPosterFailed(false)
+  }, [item?.slug])
+  const media = item?.media
+  const showVideo = !!media && !videoFailed
+  const showPoster = !!media && videoFailed && !posterFailed
+  const showGradient = !media || (videoFailed && posterFailed)
 
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'hidden' }}>
@@ -399,7 +413,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
           transition: 'background 0.8s ease',
         }}
       />
-      {!media && (
+      {showGradient && (
         <motion.div
           animate={reduceMotion ? undefined : { scale: active ? [1, 1.08, 1] : 1, opacity: active ? [0.5, 0.75, 0.5] : 0.35 }}
           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
@@ -417,39 +431,58 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
           }}
         />
       )}
-      {media && (
-        <>
-          <video
-            key={item!.slug}
-            src={media.loopUrl}
-            poster={media.posterUrl}
-            muted
-            loop
-            playsInline
-            preload="auto"
-            autoPlay={!reduceMotion}
-            onError={() => setMediaFailed(true)}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              opacity: active ? 0.92 : 0.55,
-              transition: 'opacity 0.6s ease',
-            }}
-          />
-          {/* scrim keeps the white HUD/caption legible over bright clip frames */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(180deg, rgba(8,8,10,0.55) 0%, rgba(8,8,10,0.18) 38%, rgba(8,8,10,0.72) 100%)',
-            }}
-          />
-        </>
+      {showVideo && (
+        <video
+          key={item!.slug}
+          src={media!.loopUrl}
+          poster={media!.posterUrl}
+          muted
+          loop
+          playsInline
+          preload="auto"
+          autoPlay={!reduceMotion}
+          onError={() => setVideoFailed(true)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: active ? 0.92 : 0.55,
+            transition: 'opacity 0.6s ease',
+          }}
+        />
       )}
-      {!media && item && (
+      {showPoster && (
+        // Video broke but a valid poster exists — show the static frame rather
+        // than dropping straight to the gradient. Its own onError steps down.
+        <img
+          key={`${item!.slug}-poster`}
+          src={media!.posterUrl}
+          alt=""
+          onError={() => setPosterFailed(true)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: active ? 0.92 : 0.55,
+            transition: 'opacity 0.6s ease',
+          }}
+        />
+      )}
+      {(showVideo || showPoster) && (
+        // scrim keeps the white HUD/caption legible over bright clip/poster frames
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(8,8,10,0.55) 0%, rgba(8,8,10,0.18) 38%, rgba(8,8,10,0.72) 100%)',
+          }}
+        />
+      )}
+      {showGradient && item && (
         <div
           style={{
             position: 'absolute',
