@@ -173,6 +173,12 @@ export const exerciseContentSchema = z
         tempo: z.string().optional(),
       })
       .optional(),
+    /**
+     * Discrete coaching steps for the player's Up-Next step list and detail
+     * surfaces — always our own wording (third-party dataset text is
+     * reference only, never copied).
+     */
+    steps: z.array(screeningText(20, 160)).min(2).max(8).optional(),
     /** Player rest between sets; absent → the player's per-category default. */
     restSecondsBetweenSets: z.number().int().min(0).max(120).optional(),
   })
