@@ -121,6 +121,21 @@ export function WorkoutPlayer({
     else release()
   }, [active, acquire, release])
 
+  // ---- warm the next item's clip + poster while the current one plays -----
+  useEffect(() => {
+    const next = state.items[state.index + 1] as SessionItem | undefined
+    if (!next?.media) return
+    const img = new Image()
+    img.src = next.media.posterUrl
+    const v = document.createElement('video')
+    v.preload = 'auto'
+    v.muted = true
+    v.src = next.media.loopUrl
+    // Fire-and-forget: both elements are detached and garbage-collectable;
+    // the browser keeps the bytes in HTTP cache for the real <video>.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.index])
+
   // ---- on-device voice cue at each phase boundary (Web Speech; on-device) --
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -226,7 +241,7 @@ export function WorkoutPlayer({
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      {/* full-bleed demo canvas (placeholder until MoveKit clips are wired) */}
+      {/* full-bleed demo canvas: clip loop → poster → gradient fallback */}
       <DemoCanvas item={item} accent={accent} active={state.phase === 'playing'} reduceMotion={!!reduceMotion} />
 
       {/* top: segmented progress + exit */}
@@ -367,8 +382,15 @@ function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean
 // keeps a stable array identity across ticks; the reducer only replaces it on a
 // real transition.)
 const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion }: { item?: SessionItem; accent: string; active: boolean; reduceMotion: boolean }) {
+  // A clip that 404s/decode-fails must never leave a black hole — flip to the
+  // gradient fallback for this slug only, and re-arm on the next item.
+  const [mediaFailed, setMediaFailed] = useState(false)
+  useEffect(() => setMediaFailed(false), [item?.slug])
+  const media = mediaFailed ? undefined : item?.media
+
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'hidden' }}>
+      {/* gradient underlay always renders — the video sits above it, so a slow clip fades in over brand, not black */}
       <div
         style={{
           position: 'absolute',
@@ -377,23 +399,57 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
           transition: 'background 0.8s ease',
         }}
       />
-      <motion.div
-        animate={reduceMotion ? undefined : { scale: active ? [1, 1.08, 1] : 1, opacity: active ? [0.5, 0.75, 0.5] : 0.35 }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          position: 'absolute',
-          top: '34%',
-          left: '50%',
-          width: 460,
-          height: 460,
-          marginLeft: -230,
-          marginTop: -230,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${accent}55 0%, ${accent}00 68%)`,
-          filter: 'blur(20px)',
-        }}
-      />
-      {item && (
+      {!media && (
+        <motion.div
+          animate={reduceMotion ? undefined : { scale: active ? [1, 1.08, 1] : 1, opacity: active ? [0.5, 0.75, 0.5] : 0.35 }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          style={{
+            position: 'absolute',
+            top: '34%',
+            left: '50%',
+            width: 460,
+            height: 460,
+            marginLeft: -230,
+            marginTop: -230,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${accent}55 0%, ${accent}00 68%)`,
+            filter: 'blur(20px)',
+          }}
+        />
+      )}
+      {media && (
+        <>
+          <video
+            key={item!.slug}
+            src={media.loopUrl}
+            poster={media.posterUrl}
+            muted
+            loop
+            playsInline
+            preload="auto"
+            autoPlay={!reduceMotion}
+            onError={() => setMediaFailed(true)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: active ? 0.92 : 0.55,
+              transition: 'opacity 0.6s ease',
+            }}
+          />
+          {/* scrim keeps the white HUD/caption legible over bright clip frames */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(180deg, rgba(8,8,10,0.55) 0%, rgba(8,8,10,0.18) 38%, rgba(8,8,10,0.72) 100%)',
+            }}
+          />
+        </>
+      )}
+      {!media && item && (
         <div
           style={{
             position: 'absolute',
@@ -401,7 +457,6 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            paddingTop: '20%',
             fontSize: 'clamp(2.4rem, 9vw, 4.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
@@ -477,7 +532,27 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
       </div>
       <h2 style={{ fontSize: 'clamp(1.6rem, 6vw, 2.3rem)', fontWeight: 800, margin: '0 0 8px', letterSpacing: '-0.02em' }}>{item.name}</h2>
       <p style={{ color: '#A1A1AA', fontSize: '0.9rem', margin: '0 0 6px' }}>{timingLabel(item)}</p>
-      <p style={{ color: '#8A8A93', fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 22px' }}>{item.priorityLabel}</p>
+      <p style={{ color: '#8A8A93', fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
+      {item.steps && item.steps.length > 0 && (
+        <ol
+          style={{
+            textAlign: 'left',
+            maxWidth: 380,
+            margin: '0 auto 22px',
+            padding: '0 0 0 20px',
+            color: '#A1A1AA',
+            fontSize: '0.85rem',
+            lineHeight: 1.55,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}
+        >
+          {item.steps.slice(0, 5).map((s, i) => (
+            <li key={i}>{s}</li>
+          ))}
+        </ol>
+      )}
       <button
         onClick={onStart}
         style={{ padding: '13px 34px', minHeight: 52, borderRadius: 999, border: `1px solid ${accent}`, background: 'transparent', color: accent, fontWeight: 700, fontSize: '0.98rem', cursor: 'pointer' }}
