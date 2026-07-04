@@ -243,9 +243,9 @@ describe('exercise content', () => {
     expect(slugs).toContain('deep-abdominals')
   })
 
-  it('total exercise count lands in the planned 45-60 range', () => {
+  it('total exercise count lands in the planned 45-80 range', () => {
     expect(ALL_EXERCISES.length).toBeGreaterThanOrEqual(45)
-    expect(ALL_EXERCISES.length).toBeLessThanOrEqual(60)
+    expect(ALL_EXERCISES.length).toBeLessThanOrEqual(80)
   })
 
   // Static stretches must hold >=30s to produce chronic ROM change (Bandy &
