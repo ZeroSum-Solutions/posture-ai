@@ -10,6 +10,7 @@ type Exercise = {
   instructions: string | null
   sets: number | null
   hold_seconds: number | null
+  poster_url: string | null
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -45,7 +46,7 @@ export default function ExercisesPage() {
       if (!user) { router.push('/auth/sign-in'); return }
       supabase
         .from('exercises')
-        .select('id, name, category, instructions, sets, hold_seconds')
+        .select('id, name, category, instructions, sets, hold_seconds, poster_url')
         .order('name')
         .then(({ data, error: err }) => {
           setLoading(false)
@@ -110,6 +111,14 @@ export default function ExercisesPage() {
                 padding: '16px',
               }}
             >
+              {ex.poster_url && (
+                <img
+                  src={ex.poster_url}
+                  alt=""
+                  loading="lazy"
+                  style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 8, marginBottom: 10, background: '#0A0A0B' }}
+                />
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                 <span style={{ fontWeight: 600, color: '#F5F5F5', fontSize: '0.95rem', lineHeight: 1.3 }}>{ex.name}</span>
                 <span style={{

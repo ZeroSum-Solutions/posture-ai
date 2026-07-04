@@ -15,8 +15,8 @@ const nextConfig: NextConfig = {
       // unsafe-inline/unsafe-eval: Next.js hydration + dev runtime; wasm-unsafe-eval: MediaPipe
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "media-src 'self' blob:",
+      `img-src 'self' data: blob: ${supabaseOrigin}`.trim(),
+      `media-src 'self' blob: ${supabaseOrigin}`.trim(),
       "worker-src 'self' blob:",
       "font-src 'self' data:",
       `connect-src 'self' ${supabaseOrigin} ${supabaseWs}`.trim(),
