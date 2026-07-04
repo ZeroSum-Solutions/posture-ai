@@ -9,7 +9,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "cat-cow",
       "category": "mobility",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Move the spine one vertebra at a time so the wave travels smoothly from hips to head.",
+        "avoidCue": "Avoid rushing the flow or bending the elbows; keep the arms straight and the pace slow.",
+      },
       "index": 0,
       "instructions": "Start on hands and knees with wrists under shoulders and knees under hips. Exhale and round your spine toward the ceiling, tucking the tailbone and letting the head drop (cat). Inhale and reverse, letting the belly sink while the chest and tailbone lift (cow). Move slowly segment by segment, pausing 3 seconds at each end position. Keep the arms straight and the movement smooth. Flow through 8-10 full cycles per set.",
       "isIntegrative": false,
@@ -19,7 +22,12 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "cat-cow",
       "stepLabel": "Loosen",
-      "steps": undefined,
+      "steps": [
+        "Set up on hands and knees, wrists stacked under shoulders and knees under hips.",
+        "Exhale and round the spine upward, tucking the tailbone and dropping the head toward the floor.",
+        "Inhale and reverse, letting the belly lower while the chest and tailbone lift toward the ceiling.",
+        "Move segment by segment, pausing about three seconds at each end before flowing back through.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 8,
@@ -30,7 +38,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "levator-scapulae-stretch",
       "category": "stretch",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Keep the anchored shoulder pinned down and let the nose point toward the opposite armpit.",
+        "avoidCue": "Avoid yanking the head forward with the hand or letting the anchored shoulder rise.",
+      },
       "index": 1,
       "instructions": "Sit tall and grasp the edge of your chair with one hand to anchor the shoulder down. Turn your head about 45 degrees away from that side, then look down toward your opposite armpit. Place your free hand lightly on the back of your head and add gentle pressure until you feel a stretch along the back-side of the neck into the shoulder blade. Hold 30 seconds, release slowly, and repeat on the other side.",
       "isIntegrative": false,
@@ -40,7 +51,13 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "levator-scapulae-stretch",
       "stepLabel": "Lengthen",
-      "steps": undefined,
+      "steps": [
+        "Sit tall and grasp the edge of your chair with one hand to anchor that shoulder down.",
+        "Turn your head about forty-five degrees away from the anchored side.",
+        "Look down toward your opposite armpit to angle the stretch behind the neck.",
+        "Rest your free hand lightly on the back of the head and add gentle pressure.",
+        "Hold for about thirty seconds, release slowly, then repeat on the other side.",
+      ],
       "timing": {
         "kind": "hold",
         "restSeconds": 10,
@@ -51,7 +68,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "neck-lateral-stretch",
       "category": "stretch",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Keep both shoulders relaxed and down so the stretch lengthens the side of the neck evenly.",
+        "avoidCue": "Avoid pulling hard with the hand or lifting the opposite shoulder toward the ear.",
+      },
       "index": 2,
       "instructions": "Tilt your head to one side, ear toward shoulder. Gently apply light pressure with your hand. Hold 30 seconds. Repeat on the other side.",
       "isIntegrative": false,
@@ -61,7 +81,13 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "neck-lateral-stretch",
       "stepLabel": "Lengthen",
-      "steps": undefined,
+      "steps": [
+        "Sit or stand tall with your shoulders relaxed and down.",
+        "Tilt your head to one side, bringing your ear toward that shoulder.",
+        "Rest your hand lightly on the head and add gentle pressure for a mild stretch.",
+        "Hold for about thirty seconds while breathing steadily, then release slowly.",
+        "Return to center, then repeat on the other side.",
+      ],
       "timing": {
         "kind": "hold",
         "restSeconds": 10,
@@ -72,7 +98,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "sternocleidomastoid-stretch",
       "category": "stretch",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Keep the anchoring hand steady and the jaw soft so only a light stretch reaches the front of the neck.",
+        "avoidCue": "Avoid forcing the head back or clenching the jaw; this area needs only gentle tension.",
+      },
       "index": 3,
       "instructions": "Sit or stand tall and place one hand flat on your collarbone to gently anchor it down. Rotate your head toward the same side as the hand, then tilt it slightly back and away until you feel a light stretch along the front-side of your neck. Keep the movement small and the jaw relaxed — this area needs only gentle tension. Hold 30 seconds, return slowly, and repeat on the other side.",
       "isIntegrative": false,
@@ -82,7 +111,13 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "sternocleidomastoid-stretch",
       "stepLabel": "Lengthen",
-      "steps": undefined,
+      "steps": [
+        "Sit or stand tall and rest one hand flat on your collarbone to anchor it down.",
+        "Rotate your head toward the same side as the anchoring hand.",
+        "Tilt the head slightly back and away until you feel a light stretch along the front of the neck.",
+        "Keep the jaw relaxed and the tension gentle as you hold for about thirty seconds.",
+        "Return to center slowly, then repeat on the other side.",
+      ],
       "timing": {
         "kind": "hold",
         "restSeconds": 10,
@@ -93,7 +128,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "bent-knee-calf-stretch",
       "category": "stretch",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Keep the back heel planted and weight even across the foot as the knee sinks forward.",
+        "avoidCue": "Avoid letting the heel lift or the trunk lean far over the front foot.",
+      },
       "index": 4,
       "instructions": "Stand facing a wall with hands on it for support. Step one foot back a half stride, keeping the heel down and toes forward. This time bend the back knee, sinking it toward the wall while the heel stays planted, until you feel the stretch move lower and deeper in the calf, toward the heel cord. Keep the trunk upright and weight even across the back foot. Hold 30 seconds, then change sides.",
       "isIntegrative": false,
@@ -103,7 +141,12 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Hip Position",
       "slug": "bent-knee-calf-stretch",
       "stepLabel": "Lengthen",
-      "steps": undefined,
+      "steps": [
+        "Stand facing a wall with both hands on it for support.",
+        "Step one foot back a half stride, heel down and toes pointing forward.",
+        "Bend the back knee toward the wall while the heel stays planted, feeling a lower, deeper stretch.",
+        "Hold 30 seconds with the trunk upright, then repeat on the other side.",
+      ],
       "timing": {
         "kind": "hold",
         "restSeconds": 10,
@@ -114,7 +157,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "childs-pose-reach",
       "category": "stretch",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Let the spine round gently and lengthen the sides of the back as you reach forward.",
+        "avoidCue": "Avoid forcing the hips all the way to the heels if the knees or ankles feel strained.",
+      },
       "index": 5,
       "instructions": "Kneel on a mat, sit your hips back toward your heels, and walk your hands forward until your chest sinks toward the floor. Keep the arms long and reach the fingertips as far forward as comfortable to lengthen the sides of the back. Let the spine round gently and breathe into the back ribs. For more side emphasis, walk both hands toward one side and hold. Stay 30 seconds per hold, then slowly rise.",
       "isIntegrative": false,
@@ -124,7 +170,12 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Hip Position",
       "slug": "childs-pose-reach",
       "stepLabel": "Lengthen",
-      "steps": undefined,
+      "steps": [
+        "Kneel on a mat and sit your hips back toward your heels.",
+        "Walk both hands forward until your chest sinks toward the floor and the arms stay long.",
+        "Reach the fingertips as far ahead as is comfortable, breathing into the back of the ribs.",
+        "Hold about thirty seconds, then walk the hands back and rise slowly to finish.",
+      ],
       "timing": {
         "kind": "hold",
         "restSeconds": 10,
@@ -135,7 +186,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "kneeling-hip-flexor-stretch",
       "category": "stretch",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Tuck the pelvis slightly and glide the hips forward while your torso stays upright.",
+        "avoidCue": "Avoid leaning your upper body forward rather than moving from the hips.",
+      },
       "index": 6,
       "instructions": "Kneel with one knee on the ground and the other foot forward (lunge position). Shift your hips forward until you feel a stretch in the front of the hip. Keep your back straight. Hold 30 seconds. Repeat on the other side.",
       "isIntegrative": false,
@@ -145,7 +199,13 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Hip Position",
       "slug": "kneeling-hip-flexor-stretch",
       "stepLabel": "Lengthen",
-      "steps": undefined,
+      "steps": [
+        "Kneel on one knee with the other foot planted forward in a lunge stance.",
+        "Keep your back tall and your trunk upright over your hips.",
+        "Ease your hips forward until you feel a gentle stretch at the front of the rear hip.",
+        "Hold steadily for about 30 seconds while breathing evenly.",
+        "Repeat on the other side.",
+      ],
       "timing": {
         "kind": "hold",
         "restSeconds": 10,
@@ -156,7 +216,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "supine-chin-nod",
       "category": "activation",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Let the head stay heavy on the floor and make the nod small and deep at the front of the neck.",
+        "avoidCue": "Avoid lifting the head or tensing the large surface muscles; keep the movement subtle.",
+      },
       "index": 7,
       "instructions": "Lie on your back with knees bent and head resting on the floor (use a thin towel if needed). Without lifting your head, gently nod your chin toward your throat as if saying a subtle "yes". You should feel the small muscles deep in the front of the neck working, not the big surface muscles. Hold the nod 10 seconds while breathing steadily, then relax. Repeat for the full set.",
       "isIntegrative": false,
@@ -166,7 +229,13 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "supine-chin-nod",
       "stepLabel": "Wake up",
-      "steps": undefined,
+      "steps": [
+        "Lie on your back with knees bent and your head resting flat, using a thin towel if needed.",
+        "Without lifting the head, nod your chin gently toward your throat as if saying a subtle yes.",
+        "Feel the deep muscles at the front of the neck engage rather than the large surface ones.",
+        "Hold the nod for about ten seconds while breathing steadily, then relax.",
+        "Return to the neutral start and repeat for the full set.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 10,
@@ -177,7 +246,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "supine-pelvic-tilt",
       "category": "activation",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Let your abdominals flatten the low back into the floor while you keep breathing.",
+        "avoidCue": "Avoid holding your breath or squeezing your glutes to make the tilt happen.",
+      },
       "index": 8,
       "instructions": "Lie on your back with knees bent and feet flat, arms relaxed at your sides. Gently draw your lower abdomen in and tilt the pelvis so the lower back presses lightly into the floor — imagine pulling the front hip bones toward the ribs. Hold 5 seconds while breathing steadily (do not hold your breath), then relax back to the starting position. Keep the glutes mostly relaxed so the abdominals do the work. Repeat 10 times per set.",
       "isIntegrative": false,
@@ -187,7 +259,13 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Hip Position",
       "slug": "supine-pelvic-tilt",
       "stepLabel": "Wake up",
-      "steps": undefined,
+      "steps": [
+        "Lie on your back with knees bent, feet flat, and arms relaxed at your sides.",
+        "Gently draw your lower abdomen in and tilt your pelvis so the low back presses into the floor.",
+        "Imagine drawing your front hip bones toward your ribs as you settle in.",
+        "Hold for five seconds while breathing steadily and keeping your glutes soft.",
+        "Release smoothly back to the resting position.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 10,
@@ -198,7 +276,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "chin-tucks",
       "category": "strengthen",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Slide the head straight back over the shoulders while keeping your eyes level and the jaw soft.",
+        "avoidCue": "Avoid tipping the head up or down; the motion is a level glide backward, not a nod.",
+      },
       "index": 9,
       "instructions": "Stand or sit tall. Gently retract your chin straight back, making a double chin. Hold 5 seconds, then release. Perform 10-12 repetitions per set.",
       "isIntegrative": false,
@@ -208,7 +289,12 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "chin-tucks",
       "stepLabel": "Strengthen",
-      "steps": undefined,
+      "steps": [
+        "Sit or stand tall with your shoulders relaxed and eyes looking straight ahead.",
+        "Glide your chin straight backward, creating a gentle double-chin without tilting the head.",
+        "Hold the retracted position for about five seconds while breathing normally.",
+        "Release slowly to the start and repeat for the full set of repetitions.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 10,
@@ -219,7 +305,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "prone-y-raise",
       "category": "strengthen",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Feel the work settle low between your shoulder blades rather than up in your neck.",
+        "avoidCue": "Avoid shrugging the shoulders up toward your ears as the arms rise.",
+      },
       "index": 10,
       "instructions": "Lie face down with your forehead on a folded towel and arms extended overhead at roughly 45 degrees, forming a Y, thumbs pointing up. Draw the shoulder blades down toward your back pockets, then lift both arms a few centimeters off the floor. Hold 3 seconds, feeling the work low between the shoulder blades rather than in the upper neck, then lower with control. Perform 8-12 repetitions per set.",
       "isIntegrative": false,
@@ -229,7 +318,11 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Head Posture",
       "slug": "prone-y-raise",
       "stepLabel": "Strengthen",
-      "steps": undefined,
+      "steps": [
+        "Lie face down with your forehead on a folded towel and arms overhead in a Y shape, thumbs up.",
+        "Draw the shoulder blades down toward your back pockets, then float both arms off the floor.",
+        "Hold briefly, feeling the effort low between the blades, then lower with control.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 10,
@@ -240,7 +333,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "dead-bug",
       "category": "strengthen",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Keep the lower back lightly pinned to the mat so the trunk stays completely still.",
+        "avoidCue": "Avoid reaching so far that the lower back arches up off the floor; shorten the range instead.",
+      },
       "index": 11,
       "instructions": "Lie on your back with arms reaching toward the ceiling and hips and knees bent to 90 degrees, shins parallel to the floor. Press your lower back gently into the mat. Slowly lower one arm overhead and the opposite leg toward the floor, stopping before the lower back lifts. Pause 3 seconds, return, and switch sides. Move only as far as you can keep the trunk completely still. Do 6-8 slow repetitions per side, per set.",
       "isIntegrative": false,
@@ -250,7 +346,12 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Hip Position",
       "slug": "dead-bug",
       "stepLabel": "Strengthen",
-      "steps": undefined,
+      "steps": [
+        "Lie on your back with arms reaching up and knees and hips bent so the shins are level.",
+        "Press the lower back gently into the mat to set a stable, braced trunk.",
+        "Lower one arm overhead and the opposite leg toward the floor, stopping before the back lifts.",
+        "Pause about three seconds, return to the start with control, then switch to the other side.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 10,
@@ -261,7 +362,10 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
     {
       "baseSlug": "glute-bridge",
       "category": "strengthen",
-      "form": undefined,
+      "form": {
+        "alignmentCue": "Drive through your heels and squeeze your glutes at the top of each rep.",
+        "avoidCue": "Avoid arching your lower back to lift higher than your hips can go.",
+      },
       "index": 12,
       "instructions": "Lie on your back with knees bent and feet flat on the floor. Squeeze your glutes and drive your hips up until your body forms a straight line from knees to shoulders. Hold 2 seconds at the top. Lower slowly. Perform 10-12 repetitions per set.",
       "isIntegrative": false,
@@ -271,7 +375,12 @@ exports[`generateWorkoutSession > golden snapshot — week 1 session from the ca
       "priorityLabel": "Forward Hip Position",
       "slug": "glute-bridge",
       "stepLabel": "Strengthen",
-      "steps": undefined,
+      "steps": [
+        "Lie on your back with knees bent and feet flat, hip-width apart.",
+        "Press through your heels and lift your hips until they line up with your knees and shoulders.",
+        "Squeeze your glutes at the top for a brief pause.",
+        "Lower back down with control, one segment at a time.",
+      ],
       "timing": {
         "kind": "reps",
         "repsPerSet": 10,

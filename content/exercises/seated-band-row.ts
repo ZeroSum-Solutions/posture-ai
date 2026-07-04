@@ -13,6 +13,15 @@ export const seatedBandRow: ExerciseContent = {
     'Sit on the floor with legs extended and loop a resistance band around your feet, holding one end in each hand. Sit tall, then pull the band toward your lower ribs, driving the elbows back and squeezing the shoulder blades together. Pause 2 seconds, then let the arms return slowly without letting the shoulders roll forward. Keep the torso upright the whole time. Perform 10-12 repetitions per set.',
   sets: 3,
   holdSeconds: 2,
+  steps: [
+    'Sit with legs extended and loop a band around your feet, holding one end in each hand.',
+    'Sit tall and draw the band toward your lower ribs, pulling the elbows back behind you.',
+    'Squeeze the shoulder blades together, then let the arms straighten out slowly.',
+  ],
+  form: {
+    alignmentCue: 'Keep your torso upright and stacked while your elbows glide close past your sides.',
+    avoidCue: 'Avoid letting the shoulders roll forward as the band returns to the start.',
+  },
   muscles: [
     { muscleSlug: 'rhomboids', role: 'strengthen', progressionLevel: 2 },
     { muscleSlug: 'middle-trapezius', role: 'strengthen', progressionLevel: 2 },
