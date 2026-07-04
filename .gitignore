@@ -33,6 +33,8 @@ public/mediapipe/wasm/
 .codegraph/
 
 # Local Claude Code / CodeGraph config (per-machine, not shared)
-.claude/
+.claude/*
+!.claude/skills/
 
 data/exercises-dataset/
+docs/qa/evidence/
