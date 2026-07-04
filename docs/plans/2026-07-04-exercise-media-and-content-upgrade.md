@@ -1,5 +1,10 @@
 # Exercise Media & Content Upgrade Implementation Plan
 
+> **STATUS: COMPLETE (2026-07-04).** Phases 1–3 and 5 landed (PRs #52–#57,
+> main @ `e49dfdc`; 480 unit tests + 68 e2e green). Phase 4 closed as
+> **declined** at the O4 gate — see the Phase 4 header for the coverage
+> evidence. Media pipeline is dormant-ready for any future clip source.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the guided workout player demo-quality — real demonstration media, short coached voice cues, step-by-step instructions — plus media thumbnails on the browse/results surfaces and a modestly expanded exercise bank.
@@ -940,6 +945,18 @@ git commit -m "feat: exercise detail sheet with demo media on results program"
 
 ## Phase 4: MoveKit coverage gate → clips (branch `feat/movekit-clips`)
 
+> **CLOSED — DECLINED (O4, Devin, 2026-07-04).** Task 18's coverage check ran:
+> **8/73 matched (11%)**, and several matches are fuzzy false positives
+> (`prone-t-raise → dumbbell front raise`, `wall-push-up-plus → push up`) —
+> true coverage ~5/73. MoveKit is a gym-lift mannequin library; our bank is
+> posture-corrective stretches/mobility/band work, so it fails the ≥60% bar
+> decisively. **No purchase. Tasks 19–20 will not run.** The media pipeline
+> (schema `media` block → SessionItem → three-tier player fallback → seed
+> columns) is fully landed and dormant-ready: wiring clips from any future
+> source is Tasks 19–20 with a different `data/*-map.json`, zero code changes.
+> Task 18's artifacts (`scripts/movekit-coverage.mjs`, `data/movekit-catalog.txt`)
+> are committed (PR #55) for re-use against any other catalog.
+
 ### Task 18: Coverage check — STOP GATE before purchase
 
 **Files:**
@@ -1147,6 +1164,6 @@ git commit -m "feat: expand exercise bank with curated posture-relevant movement
 
 | Gate | Where | Who decides |
 |---|---|---|
-| O4 — MoveKit $99 purchase | End of Task 18 (coverage report) | Devin |
+| O4 — MoveKit $99 purchase | End of Task 18 (coverage report) | Devin — **DECLINED 2026-07-04** (8/73 coverage, ~5 true matches; Phase 4 closed) |
 | Shortlist approval | Task 21 Step 2 | Devin |
 | Escalation | Any task failing after 2 honest attempts (most likely: Task 18 scrape, Task 17 foreign-table select) | Stop, report, escalate model |
