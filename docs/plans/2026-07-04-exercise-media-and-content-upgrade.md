@@ -829,20 +829,19 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
     let cancelled = false
+    // One call: exercises row + its exercise_muscles rows via embedded
+    // foreign-table select (FK exercise_muscles.exercise_id → exercises.id).
     supabase
       .from('exercises')
-      .select('name, category, instructions, sets, hold_seconds, video_url, poster_url')
+      .select('name, category, instructions, sets, hold_seconds, video_url, poster_url, exercise_muscles(muscle_slug, role)')
       .eq('slug', slug)
       .single()
-      .then(async ({ data, error: err }) => {
+      .then(({ data, error: err }) => {
         if (cancelled) return
         if (err || !data) { setError('Could not load exercise details.'); return }
-        setDetail(data)
-        const { data: em } = await supabase
-          .from('exercise_muscles')
-          .select('muscle_slug, role')
-          .eq('exercise_id', (await supabase.from('exercises').select('id').eq('slug', slug).single()).data?.id ?? '')
-        if (!cancelled && em) setMuscles(em as MuscleRole[])
+        const { exercise_muscles, ...detailRow } = data as Detail & { exercise_muscles: MuscleRole[] }
+        setDetail(detailRow)
+        setMuscles(exercise_muscles ?? [])
       })
     return () => { cancelled = true }
   }, [slug])
@@ -908,7 +907,7 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
 }
 ```
 
-(If the double-query for `exercise_id` proves awkward, an equivalent single call `supabase.from('exercises').select('id, name, …, exercise_muscles(muscle_slug, role)')` with a foreign-table select is fine — keep whichever works against the live schema.)
+(If PostgREST cannot resolve the `exercise_muscles` embed — schema-cache miss on the FK — fall back to two sequential queries: fetch `id` alongside the detail columns, then `.from('exercise_muscles').select('muscle_slug, role').eq('exercise_id', id)` **only when `id` is truthy**. Never pass an empty string to a UUID filter.)
 
 - [ ] **Step 2: Wire into PriorityProgram**
 
