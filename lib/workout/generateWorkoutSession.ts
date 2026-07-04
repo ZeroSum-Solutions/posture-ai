@@ -34,6 +34,12 @@ export interface SessionItem {
   isIntegrative: boolean
   /** Authored screening-safe instructions — the on-screen caption/detail text. */
   instructions: string
+  /** Optional demonstration media copied from content — player falls back to poster/gradient when absent. */
+  media?: ExerciseContent['media']
+  /** Optional short coaching cues copied from content. */
+  form?: ExerciseContent['form']
+  /** Optional discrete coaching steps copied from content. */
+  steps?: string[]
   timing: SessionTiming
 }
 
@@ -63,7 +69,7 @@ const DEFAULT_REST = 15
 const SECONDS_PER_REP = 4
 const ITEM_TRANSITION_SEC = 8
 
-const instructionsBySlug = new Map(ALL_EXERCISES.map((ex) => [ex.slug, ex.instructions]))
+const exerciseBySlug = new Map(ALL_EXERCISES.map((ex) => [ex.slug, ex]))
 
 function toTiming(dose: Dose, category: string, isIntegrative: boolean): SessionTiming {
   const restSeconds = isIntegrative
@@ -96,6 +102,7 @@ export function generateWorkoutSession(
       if (!dose) continue // e.g. Connect exists only in week 3
       if (seen.has(step.slug)) continue // same exercise serving two priorities plays once
       seen.add(step.slug)
+      const ex = exerciseBySlug.get(step.slug)
       flat.push({
         slug: step.slug,
         baseSlug: step.baseSlug,
@@ -105,7 +112,10 @@ export function generateWorkoutSession(
         priorityKey: priority.primaryKey,
         priorityLabel: priority.label,
         isIntegrative: step.isIntegrative,
-        instructions: instructionsBySlug.get(step.slug) ?? '',
+        instructions: ex?.instructions ?? '',
+        media: ex?.media,
+        form: ex?.form,
+        steps: ex?.steps,
         timing: toTiming(dose, step.category, step.isIntegrative),
         priorityRank: priority.rank,
       })

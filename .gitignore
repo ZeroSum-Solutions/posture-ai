@@ -34,3 +34,5 @@ public/mediapipe/wasm/
 
 # Local Claude Code / CodeGraph config (per-machine, not shared)
 .claude/
+
+data/exercises-dataset/
