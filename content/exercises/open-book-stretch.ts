@@ -13,6 +13,17 @@ export const openBookStretch: ExerciseContent = {
     'Lie on your side with knees bent to 90 degrees and stacked, arms extended together in front of your chest. Keeping the knees glued together on the floor, lift the top arm and rotate it across your body toward the opposite side, letting the chest and trunk open like a book. Follow the moving hand with your eyes. Pause 3-5 seconds at your comfortable end range, feeling the stretch through the waist and trunk, then return. Do 8-10 rotations, then switch sides.',
   sets: 2,
   holdSeconds: 5,
+  steps: [
+    'Lie on your side with knees bent to ninety degrees and stacked, arms reaching out together.',
+    'Keeping the knees glued to the floor, lift the top arm and rotate it across your body.',
+    'Let the chest and trunk open like a book, following the moving hand with your eyes.',
+    'Pause three to five seconds at a comfortable end range, feeling the stretch through the waist.',
+    'Return the arm slowly to the start, complete your reps, then switch sides.',
+  ],
+  form: {
+    alignmentCue: 'Anchor the stacked knees to the floor so the rotation comes from the trunk and chest.',
+    avoidCue: 'Avoid letting the knees lift apart or forcing the arm past a comfortable range.',
+  },
   muscles: [
     { muscleSlug: 'obliques', role: 'stretch', progressionLevel: 2 },
   ],
