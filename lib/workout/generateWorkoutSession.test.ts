@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, test } from 'vitest'
 import type { Finding } from '../../packages/posture-engine/src/types'
 import { buildProgramFrom } from '../program/buildProgram'
 import { generateWorkoutSession, type SessionSnapshot } from './generateWorkoutSession'
+import { ALL_EXERCISES } from '../../content'
 
 // Synthetic reliable findings that produce two real priorities through the
 // actual selectPriorities → buildProgramFrom pipeline (no mocked report).
@@ -118,5 +119,32 @@ describe('generateWorkoutSession', () => {
   it('golden snapshot — week 1 session from the canonical two-priority report', () => {
     const snap = generateWorkoutSession(report(), { week: 1 }) as SessionSnapshot
     expect(snap).toMatchSnapshot()
+  })
+})
+
+describe('content field passthrough', () => {
+  test('every session item mirrors its content exercise media/form/steps', () => {
+    const snap = generateWorkoutSession(report(), { week: 1 }) // `report` = the file's existing fixture
+    expect(snap).not.toBeNull()
+    for (const item of snap!.items) {
+      const ex = ALL_EXERCISES.find((e) => e.slug === item.slug)!
+      expect(item.media).toEqual(ex.media)
+      expect(item.form).toEqual(ex.form)
+      expect(item.steps).toEqual(ex.steps)
+    }
+  })
+
+  test('session built over anterior_imbalanced_shoulders includes doorway-pec-stretch with steps', () => {
+    const aisReport = buildProgramFrom(
+      [finding({ key: 'anterior_imbalanced_shoulders', region: 'head_shoulders', zone: 'danger', severityPct: 80 })],
+      'C',
+    )
+    const snap = generateWorkoutSession(aisReport, { week: 1 })
+    expect(snap).not.toBeNull()
+    const dps = snap!.items.find((i) => i.slug === 'doorway-pec-stretch')
+    expect(dps).toBeDefined()
+    expect(dps!.steps).toBeDefined()
+    expect(dps!.steps!.length).toBeGreaterThanOrEqual(2)
+    expect(dps!.form?.alignmentCue).toBeTruthy()
   })
 })
