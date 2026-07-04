@@ -13,6 +13,17 @@ export const standingQlStretch: ExerciseContent = {
     'Stand with feet hip-width apart. Cross one leg behind the other, then reach the arm on that same side overhead and lean your trunk toward the opposite side, keeping both hips level and facing forward. You should feel a stretch along the side of the lower back and waist, from the hip up toward the ribs. Avoid leaning forward or backward. Hold 30 seconds, return upright slowly, and repeat on the other side.',
   sets: 3,
   holdSeconds: 30,
+  steps: [
+    'Stand with your feet hip-width apart and cross one leg behind the other.',
+    'Reach the arm on that same side overhead.',
+    'Lean your trunk toward the opposite side until you feel a stretch along your waist and lower back.',
+    'Return upright slowly.',
+    'Repeat on the other side.',
+  ],
+  form: {
+    alignmentCue: 'Keep both hips level and facing forward as you lengthen your trunk to the side.',
+    avoidCue: 'Avoid leaning forward or backward rather than bending purely to the side.',
+  },
   muscles: [
     { muscleSlug: 'quadratus-lumborum', role: 'stretch', progressionLevel: 2 },
     { muscleSlug: 'obliques', role: 'stretch', progressionLevel: 1 },
