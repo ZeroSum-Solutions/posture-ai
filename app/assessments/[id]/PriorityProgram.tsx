@@ -5,10 +5,12 @@
  * dial, per-exercise swap, demote-to-monitor). Presentational — the parent
  * computes the ProgramReport via buildProgramFrom and persists overrides.
  */
+import { useState } from 'react'
 import type { ProgramReport, ProgramPriority, ProgramStep } from '../../../lib/program/buildProgram'
 import { swapAlternatives } from '../../../lib/program/buildProgram'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
+import ExerciseDetailSheet from './ExerciseDetailSheet'
 
 const ZONE_COLOR: Record<'warning' | 'danger', string> = { warning: '#F59E0B', danger: '#EF4444' }
 const STEP_COLOR: Record<string, string> = {
@@ -94,7 +96,7 @@ function SwapControl({
   )
 }
 
-function RampTable({ priority, onSwap }: { priority: ProgramPriority; onSwap: OverrideHandlers['onSwap'] }) {
+function RampTable({ priority, onSwap, onOpenDetail }: { priority: ProgramPriority; onSwap: OverrideHandlers['onSwap']; onOpenDetail: (slug: string, name: string) => void }) {
   const th: React.CSSProperties = {
     textAlign: 'left',
     padding: '8px 10px',
@@ -137,7 +139,13 @@ function RampTable({ priority, onSwap }: { priority: ProgramPriority; onSwap: Ov
                 <td style={td}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <Pill text={s.stepLabel} color={stepColor} />
-                    <span style={{ fontWeight: 600, color: '#F5F5F5' }}>{s.name}</span>
+                    <button
+                      data-testid={`exercise-detail-${s.slug}`}
+                      onClick={() => onOpenDetail(s.slug, s.name)}
+                      style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: '#F5F5F5', fontSize: 'inherit', cursor: 'pointer', textDecoration: 'underline dotted rgba(255,255,255,0.3)', textUnderlineOffset: 3 }}
+                    >
+                      {s.name}
+                    </button>
                   </div>
                   <div style={{ fontSize: '0.7rem', color: '#A1A1AA', paddingLeft: 2 }}>
                     {s.freq}
@@ -160,7 +168,7 @@ function RampTable({ priority, onSwap }: { priority: ProgramPriority; onSwap: Ov
   )
 }
 
-function PriorityCard({ priority, onDemote, onSwap }: { priority: ProgramPriority } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
+function PriorityCard({ priority, onDemote, onSwap, onOpenDetail }: { priority: ProgramPriority; onOpenDetail: (slug: string, name: string) => void } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
   const zoneColor = ZONE_COLOR[priority.zone]
   const principle = priority.hasConnect ? 'Loosen → Strengthen → Connect' : 'Loosen → Strengthen'
 
@@ -229,7 +237,7 @@ function PriorityCard({ priority, onDemote, onSwap }: { priority: ProgramPriorit
         {principle} <span style={{ color: '#A1A1AA', fontWeight: 600 }}>— the order is what makes it stick</span>
       </div>
 
-      <RampTable priority={priority} onSwap={onSwap} />
+      <RampTable priority={priority} onSwap={onSwap} onOpenDetail={onOpenDetail} />
     </div>
   )
 }
@@ -248,6 +256,7 @@ export default function PriorityProgram({
   capability: Capability
   onCapabilityChange: (c: Capability) => void
 } & OverrideHandlers) {
+  const [detail, setDetail] = useState<{ slug: string; name: string } | null>(null)
   return (
     <div data-testid="corrective-program" style={{ marginBottom: 24 }}>
       <div
@@ -330,7 +339,7 @@ export default function PriorityProgram({
       {report.hasPlan ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {report.priorities.map((p) => (
-            <PriorityCard key={p.primaryKey} priority={p} onDemote={onDemote} onSwap={onSwap} />
+            <PriorityCard key={p.primaryKey} priority={p} onDemote={onDemote} onSwap={onSwap} onOpenDetail={(slug, name) => setDetail({ slug, name })} />
           ))}
         </div>
       ) : (
@@ -429,6 +438,8 @@ export default function PriorityProgram({
           </p>
         </div>
       )}
+
+      {detail && <ExerciseDetailSheet slug={detail.slug} name={detail.name} onClose={() => setDetail(null)} />}
     </div>
   )
 }

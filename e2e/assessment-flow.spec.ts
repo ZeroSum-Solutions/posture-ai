@@ -43,4 +43,26 @@ test.describe('assessment golden path (test mode)', () => {
     const next = page.getByRole('button', { name: /Next: Confirm/ })
     await expect(next).toBeDisabled()
   })
+
+  test('exercise detail sheet opens from the corrective program and closes on Escape', async ({ page }) => {
+    const stamp = Date.now().toString().slice(-7)
+    await createClient(page, 'E2E', `Detail${stamp}`)
+
+    await page.goto('/assessments/new?testMode=1')
+    await selectClientInWizard(page, `E2E Detail${stamp}`)
+    await page.getByRole('button', { name: 'Run Test Analysis' }).click()
+    await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
+    await expect(page.locator('[data-testid="corrective-program"]')).toBeVisible({ timeout: 15_000 })
+
+    const detailButton = page.locator('[data-testid^="exercise-detail-"]').first()
+    await detailButton.click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    // The sheet's aria-label carries the exercise name the button opened.
+    await expect(dialog).toHaveAttribute('aria-label', /details$/)
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+  })
 })
