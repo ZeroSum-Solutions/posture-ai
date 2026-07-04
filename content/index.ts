@@ -28,7 +28,11 @@ import { suboccipitals } from './muscles/suboccipitals'
 import { tflItBand } from './muscles/tfl-it-band'
 import { thoracicErectorSpinae } from './muscles/thoracic-erector-spinae'
 import { upperTrapezius } from './muscles/upper-trapezius'
+import { bandHipHingePullThrough } from './exercises/band-hip-hinge-pull-through'
+import { bandLyingHipInternalRotation } from './exercises/band-lying-hip-internal-rotation'
 import { bandPullApart } from './exercises/band-pull-apart'
+import { bandRearDeltRow } from './exercises/band-rear-delt-row'
+import { bandReverseFly } from './exercises/band-reverse-fly'
 import { bentKneeCalfStretch } from './exercises/bent-knee-calf-stretch'
 import { birdDog } from './exercises/bird-dog'
 import { butterflyStretch } from './exercises/butterfly-stretch'
@@ -42,8 +46,11 @@ import { doorwayPecStretch } from './exercises/doorway-pec-stretch'
 import { figureFourStretch } from './exercises/figure-four-stretch'
 import { foamRollLateralThigh } from './exercises/foam-roll-lateral-thigh'
 import { frontPlank } from './exercises/front-plank'
+import { gluteBridgeMarch } from './exercises/glute-bridge-march'
 import { gluteBridge } from './exercises/glute-bridge'
+import { halfKneelingBandChop } from './exercises/half-kneeling-band-chop'
 import { handsBehindBackChestOpener } from './exercises/hands-behind-back-chest-opener'
+import { highBandPullApart } from './exercises/high-band-pull-apart'
 import { kneelingHipFlexorStretch } from './exercises/kneeling-hip-flexor-stretch'
 import { kneelingLatStretch } from './exercises/kneeling-lat-stretch'
 import { kneesToChestStretch } from './exercises/knees-to-chest-stretch'
@@ -52,12 +59,18 @@ import { levatorScapulaeStretch } from './exercises/levator-scapulae-stretch'
 import { neckLateralStretch } from './exercises/neck-lateral-stretch'
 import { openBookStretch } from './exercises/open-book-stretch'
 import { pallofPress } from './exercises/pallof-press'
+import { proneCobraHold } from './exercises/prone-cobra-hold'
 import { proneHamstringCurl } from './exercises/prone-hamstring-curl'
 import { proneHipExtension } from './exercises/prone-hip-extension'
+import { proneIRaise } from './exercises/prone-i-raise'
 import { proneTRaise } from './exercises/prone-t-raise'
+import { proneWRaise } from './exercises/prone-w-raise'
 import { proneYRaise } from './exercises/prone-y-raise'
 import { pushUpPlus } from './exercises/push-up-plus'
+import { quadrupedThoracicRotation } from './exercises/quadruped-thoracic-rotation'
+import { rearDeltoidStretch } from './exercises/rear-deltoid-stretch'
 import { seatedBandRow } from './exercises/seated-band-row'
+import { seatedHamstringStretch } from './exercises/seated-hamstring-stretch'
 import { seatedTibialRotation } from './exercises/seated-tibial-rotation'
 import { shoulderBladeSqueeze } from './exercises/shoulder-blade-squeeze'
 import { sideLungeAdductorStretch } from './exercises/side-lunge-adductor-stretch'
@@ -68,18 +81,23 @@ import { singleLegBalance } from './exercises/single-leg-balance'
 import { singleLegGluteBridge } from './exercises/single-leg-glute-bridge'
 import { singleLegRdl } from './exercises/single-leg-rdl'
 import { splitSquat } from './exercises/split-squat'
+import { standingBandTrunkRotation } from './exercises/standing-band-trunk-rotation'
+import { standingCalfRaise } from './exercises/standing-calf-raise'
 import { standingHamstringCurl } from './exercises/standing-hamstring-curl'
 import { standingQlStretch } from './exercises/standing-ql-stretch'
 import { standingQuadStretch } from './exercises/standing-quad-stretch'
 import { standingTflStretch } from './exercises/standing-tfl-stretch'
+import { standingWallSerratusSlide } from './exercises/standing-wall-serratus-slide'
 import { sternocleidomastoidStretch } from './exercises/sternocleidomastoid-stretch'
 import { suboccipitalRelease } from './exercises/suboccipital-release'
 import { supineChinNod } from './exercises/supine-chin-nod'
 import { supineCrossoverStretch } from './exercises/supine-crossover-stretch'
 import { supinePelvicTilt } from './exercises/supine-pelvic-tilt'
+import { tallKneelingAntiRotationHold } from './exercises/tall-kneeling-anti-rotation-hold'
 import { terminalKneeExtension } from './exercises/terminal-knee-extension'
 import { thoracicExtension } from './exercises/thoracic-extension'
 import { wallAngels } from './exercises/wall-angels'
+import { wallAnkleDorsiflexionRock } from './exercises/wall-ankle-dorsiflexion-rock'
 import { wallCalfStretch } from './exercises/wall-calf-stretch'
 import { wallPushUpPlus } from './exercises/wall-push-up-plus'
 import { wallSit } from './exercises/wall-sit'
@@ -119,7 +137,11 @@ export const ALL_MUSCLES: MuscleContent[] = [
 ]
 
 export const ALL_EXERCISES: ExerciseContent[] = [
+  bandHipHingePullThrough,
+  bandLyingHipInternalRotation,
   bandPullApart,
+  bandRearDeltRow,
+  bandReverseFly,
   bentKneeCalfStretch,
   birdDog,
   butterflyStretch,
@@ -133,8 +155,11 @@ export const ALL_EXERCISES: ExerciseContent[] = [
   figureFourStretch,
   foamRollLateralThigh,
   frontPlank,
+  gluteBridgeMarch,
   gluteBridge,
+  halfKneelingBandChop,
   handsBehindBackChestOpener,
+  highBandPullApart,
   kneelingHipFlexorStretch,
   kneelingLatStretch,
   kneesToChestStretch,
@@ -143,12 +168,18 @@ export const ALL_EXERCISES: ExerciseContent[] = [
   neckLateralStretch,
   openBookStretch,
   pallofPress,
+  proneCobraHold,
   proneHamstringCurl,
   proneHipExtension,
+  proneIRaise,
   proneTRaise,
+  proneWRaise,
   proneYRaise,
   pushUpPlus,
+  quadrupedThoracicRotation,
+  rearDeltoidStretch,
   seatedBandRow,
+  seatedHamstringStretch,
   seatedTibialRotation,
   shoulderBladeSqueeze,
   sideLungeAdductorStretch,
@@ -159,18 +190,23 @@ export const ALL_EXERCISES: ExerciseContent[] = [
   singleLegGluteBridge,
   singleLegRdl,
   splitSquat,
+  standingBandTrunkRotation,
+  standingCalfRaise,
   standingHamstringCurl,
   standingQlStretch,
   standingQuadStretch,
   standingTflStretch,
+  standingWallSerratusSlide,
   sternocleidomastoidStretch,
   suboccipitalRelease,
   supineChinNod,
   supineCrossoverStretch,
   supinePelvicTilt,
+  tallKneelingAntiRotationHold,
   terminalKneeExtension,
   thoracicExtension,
   wallAngels,
+  wallAnkleDorsiflexionRock,
   wallCalfStretch,
   wallPushUpPlus,
   wallSit,
