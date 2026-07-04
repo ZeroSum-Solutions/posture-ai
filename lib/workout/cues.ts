@@ -25,15 +25,24 @@ export function voiceCue(phase: PlayerPhase, item: SessionItem | undefined, set:
       return { speech: 'Get ready.', caption: 'Get ready…' }
     case 'playing': {
       if (!item) return null
+      // Set 1 coaches alignment; later sets warn against the common fault.
+      // Cues are authored as complete sentences, so plain concatenation is safe.
+      const coach =
+        set > 1 && item.form?.avoidCue
+          ? ` ${item.form.avoidCue}`
+          : item.form?.alignmentCue
+            ? ` ${item.form.alignmentCue}`
+            : ''
+      const capText = item.form?.alignmentCue ?? item.instructions
       if (item.timing.kind === 'hold') {
         return {
-          speech: `${setPrefix}${item.name}. Hold for ${item.timing.secondsPerSet} seconds.`,
-          caption: item.instructions,
+          speech: `${setPrefix}${item.name}. Hold for ${item.timing.secondsPerSet} seconds.${coach}`,
+          caption: capText,
         }
       }
       return {
-        speech: `${setPrefix}${item.name}. ${item.timing.repsPerSet} reps.`,
-        caption: item.instructions,
+        speech: `${setPrefix}${item.name}. ${item.timing.repsPerSet} reps.${coach}`,
+        caption: capText,
       }
     }
     case 'resting':
@@ -52,7 +61,7 @@ export function caption(phase: PlayerPhase, item: SessionItem | undefined): stri
     case 'preroll':
       return 'Get ready…'
     case 'playing':
-      return item?.instructions ?? ''
+      return item?.form?.alignmentCue ?? item?.instructions ?? ''
     case 'resting':
       return 'Rest — next set coming up.'
     default:

@@ -73,3 +73,35 @@ describe('cues.caption', () => {
     expect(caption('upNext', holdItem)).toContain('Chin Tucks')
   })
 })
+
+const formItem = makeItem(
+  { kind: 'hold', sets: 2, secondsPerSet: 30, restSeconds: 10 },
+  {
+    form: {
+      alignmentCue: 'Keep the back of your neck long and your gaze level.',
+      avoidCue: 'Avoid jutting the chin forward as you release.',
+    },
+  },
+)
+
+describe('cues.form', () => {
+  test('set 1 speech ends with the alignment cue', () => {
+    expect(voiceCue('playing', formItem, 1)!.speech).toContain('Keep the back of your neck long')
+  })
+  test('set 2 speech uses the avoid cue instead', () => {
+    const s = voiceCue('playing', formItem, 2)!.speech
+    expect(s).toContain('Avoid jutting the chin forward')
+    expect(s).not.toContain('Keep the back of your neck long')
+  })
+  test('playing caption is the alignment cue when form exists, instructions otherwise', () => {
+    expect(caption('playing', formItem)).toBe(formItem.form!.alignmentCue)
+    expect(caption('playing', holdItem)).toBe(holdItem.instructions)
+  })
+  test('form cues pass the screening gate end-to-end', () => {
+    for (const set of [1, 2]) {
+      const c = voiceCue('playing', formItem, set)!
+      expect(() => assertScreeningText(c.speech)).not.toThrow()
+      expect(() => assertScreeningText(c.caption)).not.toThrow()
+    }
+  })
+})
