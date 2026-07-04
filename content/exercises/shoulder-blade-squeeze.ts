@@ -13,6 +13,15 @@ export const shoulderBladeSqueeze: ExerciseContent = {
     'Sit or stand tall with arms relaxed at your sides. Draw both shoulder blades back and slightly down, as if pinching a pencil between them — without shrugging or arching the lower back. Hold the squeeze for 5 seconds while breathing steadily, then release slowly. Aim for a firm but comfortable effort, about 70 percent of maximum. Repeat 10 times per set; this can be done several times through the day.',
   sets: 3,
   holdSeconds: 5,
+  steps: [
+    'Sit or stand tall with your arms relaxed and resting at your sides.',
+    'Draw both shoulder blades back and gently down, as if pinching a pencil between them.',
+    'Hold the gentle squeeze while breathing steadily, then release slowly.',
+  ],
+  form: {
+    alignmentCue: 'Aim for a firm but comfortable pinch while your neck and lower back stay easy.',
+    avoidCue: 'Avoid shrugging upward or arching your lower back to force the squeeze.',
+  },
   muscles: [
     { muscleSlug: 'rhomboids', role: 'strengthen', progressionLevel: 1 },
     { muscleSlug: 'middle-trapezius', role: 'strengthen', progressionLevel: 1 },
