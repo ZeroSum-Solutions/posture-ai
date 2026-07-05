@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { logEvent, hashUser } from '@/lib/log'
-import { buildRunUpdate, type RunRow } from '@/lib/workout/runState'
+import { buildRunUpdate, redFlagBlocksCompletion, type RunRow } from '@/lib/workout/runState'
 
 const ROUTE = 'PATCH /api/workouts/[id]/run'
 
@@ -66,6 +66,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle()
   if (!existing) {
     return NextResponse.json({ error: 'Session run not found' }, { status: 404 })
+  }
+
+  // Safety control: completion is refused, not silently absorbed, when the
+  // pre-session red-flag screen was never acknowledged (see runState).
+  if (redFlagBlocksCompletion(existing as RunRow, parsed.data)) {
+    logEvent({ route: ROUTE, outcome: 'red_flag_block', status: 422, userHash })
+    return NextResponse.json(
+      { error: 'Session completion requires the pre-session check.' },
+      { status: 422 },
+    )
   }
 
   const update = buildRunUpdate(existing as RunRow, parsed.data, new Date().toISOString())
