@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { hashIp } from '@/lib/log'
 import { hashConsent } from '@/lib/consent/policy'
+import { hashConsentToken } from '@/lib/consent/token'
 
 // PUBLIC endpoint (allow-listed in proxy.ts): the remote subject completes their
 // consent here. The single-use token is the credential, so this runs with the
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const signedAt = new Date().toISOString()
+  const tokenHash = hashConsentToken(token)
 
   // The consent hash binds to the wording version stored on the token (immutable
   // once minted), so read it first to hash in the app layer. The single-use claim
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
   const { data: tok } = await service
     .from('consent_tokens')
     .select('consent_version')
-    .eq('token', token)
+    .eq('token_hash', tokenHash)
     .maybeSingle()
   if (!tok) return NextResponse.json({ error: 'Invalid consent link.' }, { status: 404 })
 
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
   })
 
   const { data: result, error } = await service.rpc('record_remote_consent', {
-    p_token: token,
+    p_token_hash: tokenHash,
     p_signer_name: signer_name.trim(),
     p_signer_relationship: signer_relationship,
     p_consent_hash: consentHash,
