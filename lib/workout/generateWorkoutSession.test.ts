@@ -23,7 +23,7 @@ function finding(partial: Partial<Finding> & Pick<Finding, 'key' | 'region' | 'z
 
 const FINDINGS: Finding[] = [
   finding({ key: 'forward_head_posture', region: 'head_shoulders', zone: 'danger', severityPct: 80 }),
-  finding({ key: 'anterior_pelvic_shift', region: 'pelvis', zone: 'warning', severityPct: 50 }),
+  finding({ key: 'trunk_lean', region: 'pelvis', zone: 'warning', severityPct: 50 }),
 ]
 
 const report = () => buildProgramFrom(FINDINGS, 'C')

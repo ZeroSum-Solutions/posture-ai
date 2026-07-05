@@ -12,17 +12,11 @@ export const deepAbdominals: MuscleContent = {
     'Commonly under-supporting in clients whose ribcage flares upward, whose low back stays arched, or whose belly is carried forward. When the deep abdominals are lengthened and slow to engage, the back extensors dominate and the trunk drifts into extension. In screening, difficulty drawing the ribs down and bracing the deep abdominal wall points to under-activity here rather than tightness.',
   links: [
     {
-      imbalanceKey: 't1_tilt_backward',
-      role: 'weak',
-      rationale:
-        'The abdominal wall, whose forward-flexion pull draws the ribcage down toward the pelvis, is the main counterweight to the back extensors. When these muscles are lengthened and underactive, they cannot pull the upper trunk forward to balance the extensors, so the thoracic spine drifts into a backward T1 tilt with the chest left flared upward. Rebuilding the ability to draw the ribs down and brace the front of the trunk may benefit the way the upper trunk re-centers over the pelvis.',
-    },
-    {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'weak',
       confidence: 'medium',
       rationale:
-        'In an anterior pelvic shift the hips slide forward and the trunk leans back, a position the deep abdominals would normally check by tilting the pelvis and drawing the ribcage down. When these muscles are weak and slow to engage, the low-back extensors and hip flexors go unopposed, letting the pelvis drift forward and the lumbar curve deepen. Strengthening the deep abdominals so they brace and level the pelvis may benefit the way the hips track back underneath the ribcage.',
+        'The abdominal wall is the main counterweight to the back extensors: when the deep abdominals are lengthened and slow to engage, the back extensors dominate and the trunk drifts — the upper thoracic spine tips backward with the chest flared while the hips slide forward and the lumbar curve deepens. The common thread is an abdominal wall that cannot draw the ribcage down, tilt the pelvis, and stack the trunk back over the hips. Rebuilding the ability to brace the front of the trunk may benefit how the whole column re-centers over the pelvis.',
     },
   ],
   reviewedBy: null,

@@ -5,7 +5,7 @@ export const proneCobraHold: ExerciseContent = {
   slug: 'prone-cobra-hold',
   name: 'Prone Cobra Hold',
   category: 'strengthen',
-  primaryDeviationKeys: ['t1_tilt_backward', 'posterior_imbalanced_shoulders'],
+  primaryDeviationKeys: ['trunk_lean', 'posterior_imbalanced_shoulders'],
   minZone: 'warning',
   dosageType: 'hold',
   reps: null,

@@ -6,19 +6,19 @@
 import { describe, it, expect } from 'vitest'
 import { assessPosture } from '../src'
 import type { PoseFrame } from '../src'
-import { toGrade, toPercentile } from '../src/thresholds'
+import { toGrade } from '../src/thresholds'
 import {
   forwardHeadPosture,
   anteriorImbalancedShoulders,
   posteriorImbalancedShoulders,
-  t1TiltBackward,
+  trunkLean,
   pelvicObliquity,
-  anteriorPelvicShift,
   pelvicAxialRotation,
   genuVarumValgumLeft,
   genuVarumValgumRight,
   kneeExtensionBackKnee,
 } from '../src/metrics'
+import { generatePose } from '../golden/synthetic'
 
 const EPSILON = 0.1 // degrees tolerance for hand-computed expected values
 
@@ -322,22 +322,22 @@ describe('Metric 3: Posterior Imbalanced Shoulders', () => {
 })
 
 // ============================================================
-// Metric 4: T1 Tilt Backward
+// Metric 4: Trunk Lean (replaces t1_tilt_backward + anterior_pelvic_shift)
 // ============================================================
-describe('Metric 4: T1 Tilt Backward', () => {
-  it('computes T1 deviation ≈ 3.81° (hand-computed from fixture)', () => {
-    const f = t1TiltBackward(T1_FRAME)
+describe('Metric 4: Trunk Lean', () => {
+  it('computes trunk lean deviation ≈ 3.81° (hand-computed from fixture)', () => {
+    const f = trunkLean(T1_FRAME)
     // shoulder=(0.500,0.220), hip=(0.520,0.520)
     // dx=0.020, dy=0.300 → atan2(0.020,0.300)*180/PI = 3.814°
     expect(withinEpsilon(f.deviation, 3.81)).toBe(true)
   })
 
   it('labels the facing-confirmed posterior shoulder Backward', () => {
-    expect(t1TiltBackward(T1_FRAME).direction).toBe('Backward')
+    expect(trunkLean(T1_FRAME).direction).toBe('Backward')
   })
 
   it('is mirror-invariant: the same tilt facing image-left still reads Backward', () => {
-    const f = t1TiltBackward(T1_FRAME_MIRROR)
+    const f = trunkLean(T1_FRAME_MIRROR)
     expect(withinEpsilon(f.deviation, 3.81)).toBe(true)
     expect(f.direction).toBe('Backward')
   })
@@ -355,24 +355,25 @@ describe('Metric 5: Pelvic Obliquity', () => {
 })
 
 // ============================================================
-// Metric 6: Anterior Pelvic Shift
+// Metric 6: Trunk Lean (larger deviation fixture — retargeted from anterior_pelvic_shift)
 // ============================================================
-describe('Metric 6: Anterior Pelvic Shift', () => {
-  it('computes anterior pelvic shift ≈ 7.60° (hand-computed from fixture)', () => {
-    const f = anteriorPelvicShift(APS_FRAME)
+describe('Metric 6: Trunk Lean (larger deviation fixture)', () => {
+  it('computes trunk lean deviation ≈ 7.60° (hand-computed from APS fixture)', () => {
+    const f = trunkLean(APS_FRAME)
     // shoulder=(0.500,0.220), hip=(0.540,0.520)
     // dx=0.040, dy=0.300 → atan2(0.040,0.300)*180/PI = 7.595°
     expect(withinEpsilon(f.deviation, 7.60)).toBe(true)
   })
 
-  it('labels the facing-confirmed anterior hip Anterior', () => {
-    expect(anteriorPelvicShift(APS_FRAME).direction).toBe('Anterior')
+  it('labels the facing-confirmed posterior shoulder Backward', () => {
+    // shoulder.x=0.500 < hip.x=0.540 → shoulderAnterior = -1 → Backward
+    expect(trunkLean(APS_FRAME).direction).toBe('Backward')
   })
 
-  it('is mirror-invariant: the same shift facing image-left still reads Anterior', () => {
-    const f = anteriorPelvicShift(APS_FRAME_MIRROR)
+  it('is mirror-invariant: the same lean facing image-left still reads Backward', () => {
+    const f = trunkLean(APS_FRAME_MIRROR)
     expect(withinEpsilon(f.deviation, 7.60)).toBe(true)
-    expect(f.direction).toBe('Anterior')
+    expect(f.direction).toBe('Backward')
   })
 })
 
@@ -508,11 +509,28 @@ describe('Metric 10: Knee Extension / Back Knee', () => {
 })
 
 // ============================================================
+// Trunk Lean merge (engine 2.0.0): single finding, no legacy keys
+// ============================================================
+describe('trunk_lean merge: emits one finding, no legacy t1/shift keys', () => {
+  it('emits exactly one trunk_lean finding and no legacy t1/shift keys', () => {
+    const result = assessPosture([generatePose('front', {}), generatePose('side', { trunkLeanDeg: 6 })])
+    const keys = result.findings.map(f => f.key)
+    expect(keys).toContain('trunk_lean')
+    expect(keys).not.toContain('t1_tilt_backward')
+    expect(keys).not.toContain('anterior_pelvic_shift')
+    const tl = result.findings.find(f => f.key === 'trunk_lean')!
+    expect(Math.abs(tl.deviation - 6)).toBeLessThan(0.15)
+    expect(tl.direction).toBe('Forward')
+  })
+})
+
+// ============================================================
 // Zone and Grade Tests
 // ============================================================
+// Grade bands (recalibrated 2026-07): S≤3, A≤7, B≤20, C≤55, D≤87, E≤100
 describe('Grade boundary tests (unit tests on toGrade)', () => {
-  it('overallScore=50 maps to grade B', () => {
-    expect(toGrade(50)).toBe('B')
+  it('overallScore=50 maps to grade C', () => {
+    expect(toGrade(50)).toBe('C')
   })
 
   it('overallScore=86 maps to grade D', () => {
@@ -523,8 +541,8 @@ describe('Grade boundary tests (unit tests on toGrade)', () => {
     expect(toGrade(0)).toBe('S')
   })
 
-  it('overallScore=14 maps to grade A', () => {
-    expect(toGrade(14)).toBe('A')
+  it('overallScore=14 maps to grade B', () => {
+    expect(toGrade(14)).toBe('B')
   })
 
   it('overallScore=51 maps to grade C', () => {
@@ -602,7 +620,6 @@ describe('Determinism', () => {
 
     expect(r1.overallScore).toBe(r2.overallScore)
     expect(r1.overallGrade).toBe(r2.overallGrade)
-    expect(r1.overallPercentile).toBe(r2.overallPercentile)
     expect(r1.findings.length).toBe(r2.findings.length)
     r1.findings.forEach((f, i) => {
       expect(f.key).toBe(r2.findings[i].key)
@@ -610,6 +627,30 @@ describe('Determinism', () => {
       expect(f.zone).toBe(r2.findings[i].zone)
       expect(f.severityPct).toBe(r2.findings[i].severityPct)
     })
+  })
+})
+
+// ============================================================
+// Task 6: validity-weighted overall score + no overallPercentile
+// ============================================================
+describe('Task 6: validity-weighted overall score', () => {
+  it('weights the overall score by metric validity × landmark confidence', () => {
+    // One literature-cited metric (knee_extension) at danger and one proxy
+    // (trunk_lean) at maintain must NOT average to the midpoint: the cited
+    // metric carries double the proxy weight.
+    const frames = [generatePose('front', {}), generatePose('side', { kneeHyperextensionDeg: 12, trunkLeanDeg: 1 })]
+    const r = assessPosture(frames)
+    const knee = r.findings.find(f => f.key === 'knee_extension_back_knee')!
+    const trunk = r.findings.find(f => f.key === 'trunk_lean')!
+    const reliable = r.findings.filter(f => f.reliable)
+    const unweighted = Math.round(reliable.reduce((a, f) => a + f.severityPct, 0) / reliable.length)
+    expect(r.overallScore).not.toBe(unweighted)
+    expect(knee.severityPct).toBeGreaterThan(trunk.severityPct) // sanity of the setup
+  })
+
+  it('no longer emits overallPercentile', () => {
+    const r = assessPosture([generatePose('front', {}), generatePose('side', {})])
+    expect('overallPercentile' in r).toBe(false)
   })
 })
 

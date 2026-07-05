@@ -5,7 +5,7 @@ export const kneesToChestStretch: ExerciseContent = {
   slug: 'knees-to-chest-stretch',
   name: 'Knees-to-Chest Stretch',
   category: 'stretch',
-  primaryDeviationKeys: ['anterior_pelvic_shift'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,

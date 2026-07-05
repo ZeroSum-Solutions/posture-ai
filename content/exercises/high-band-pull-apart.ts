@@ -5,7 +5,7 @@ export const highBandPullApart: ExerciseContent = {
   slug: 'high-band-pull-apart',
   name: 'High Band Pull-Apart',
   category: 'strengthen',
-  primaryDeviationKeys: ['t1_tilt_backward', 'posterior_imbalanced_shoulders'],
+  primaryDeviationKeys: ['trunk_lean', 'posterior_imbalanced_shoulders'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

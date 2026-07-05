@@ -5,7 +5,7 @@ export const deadBug: ExerciseContent = {
   slug: 'dead-bug',
   name: 'Dead Bug',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 't1_tilt_backward'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

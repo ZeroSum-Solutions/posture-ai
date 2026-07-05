@@ -5,7 +5,7 @@ export const childsPoseReach: ExerciseContent = {
   slug: 'childs-pose-reach',
   name: "Child's Pose with Overhead Reach",
   category: 'stretch',
-  primaryDeviationKeys: ['t1_tilt_backward', 'anterior_pelvic_shift'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,

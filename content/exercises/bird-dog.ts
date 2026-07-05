@@ -5,7 +5,7 @@ export const birdDog: ExerciseContent = {
   slug: 'bird-dog',
   name: 'Bird Dog',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_axial_rotation', 't1_tilt_backward'],
+  primaryDeviationKeys: ['trunk_lean', 'pelvic_axial_rotation'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

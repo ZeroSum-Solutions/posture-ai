@@ -66,7 +66,7 @@ describe('muscle content', () => {
     // upper trapezius in FHP: direct EMG support but inconsistent across studies
     expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('medium')
     // iliopsoas in APT: r=0.40 (weak), Burile 2024 tightness non-significant (p=0.13)
-    expect(linkConf('iliopsoas', 'anterior_pelvic_shift', 'tight')).toBe('low')
+    expect(linkConf('iliopsoas', 'trunk_lean', 'tight')).toBe('low')
     // knee hyperextension: all four still graded low-confidence, but the 2026-06-27
     // scan found hamstrings→weak DOES have asymptomatic-population support (Bascevan
     // 2024, Ahn 2020) so it stays scored; the calf/popliteus/quadriceps inferences
@@ -122,7 +122,7 @@ describe('muscle content', () => {
     const rf = ALL_MUSCLES.find(m => m.slug === 'rectus-femoris')
     expect(rf, 'rectus-femoris content must exist').toBeDefined()
     const apt = rf!.links.find(
-      l => l.imbalanceKey === 'anterior_pelvic_shift' && l.role === 'tight'
+      l => l.imbalanceKey === 'trunk_lean' && l.role === 'tight'
     )
     expect(apt?.confidence).toBe('medium')
     const stretches = ALL_EXERCISES.filter(e =>
@@ -237,7 +237,7 @@ describe('exercise content', () => {
     const ex = ALL_EXERCISES.find(e => e.slug === 'prone-hip-extension')
     expect(ex, 'prone-hip-extension must exist').toBeDefined()
     expect(ex!.category).toBe('strengthen')
-    expect(ex!.primaryDeviationKeys).toContain('anterior_pelvic_shift')
+    expect(ex!.primaryDeviationKeys).toContain('trunk_lean')
     const slugs = ex!.muscles.map(m => m.muscleSlug)
     expect(slugs).toContain('gluteus-maximus')
     expect(slugs).toContain('deep-abdominals')

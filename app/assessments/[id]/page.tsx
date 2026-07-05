@@ -77,7 +77,7 @@ interface Assessment {
   status: string
   overall_score: number
   overall_grade: OverallGrade
-  overall_percentile: number
+  overall_percentile: number | null
   front_rank: number | null
   side_rank: number | null
   tilt_corrected: boolean | null
@@ -137,6 +137,7 @@ const FRONT_ANNOTATION_POSITIONS: Record<string, { x: number; y: number; label: 
 const SIDE_ANNOTATION_POSITIONS: Record<string, { x: number; y: number; label: string }> = {
   forward_head_posture: { x: 82, y: 28, label: 'Head' },
   t1_tilt_backward: { x: 68, y: 115, label: 'T1' },
+  trunk_lean: { x: 68, y: 115, label: 'T1' },
   anterior_pelvic_shift: { x: 75, y: 220, label: 'Pelvis' },
   knee_extension_back_knee: { x: 75, y: 305, label: 'Knee' },
 }

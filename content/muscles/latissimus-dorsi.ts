@@ -12,7 +12,7 @@ export const latissimusDorsi: MuscleContent = {
     'Commonly short in clients who do heavy pulling work or sit with rounded, reaching postures, where the lat shortens between the arm and the spine. Tightness here can limit overhead reach and tug the ribcage into extension. In screening, restricted overhead arm raising with the low back arching to compensate is a typical sign that lat length, rather than weakness, is the concern.',
   links: [
     {
-      imbalanceKey: 't1_tilt_backward',
+      imbalanceKey: 'trunk_lean',
       role: 'tight',
       rationale:
         'Because the latissimus dorsi anchors to the lower spine and pelvis and pulls on the upper arm and ribcage, a short lat tilts the ribcage upward and feeds extension into the spine, adding to a backward T1 tilt of the upper trunk. When clients reach overhead, a tight lat arches the mid-back rather than letting the arms rise freely, exaggerating the backward lean. Lengthening the lat reduces this extension pull and may benefit the way the ribcage settles down over the pelvis.',

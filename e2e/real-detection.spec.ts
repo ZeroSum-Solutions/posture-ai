@@ -43,7 +43,7 @@ test.describe('real pose detection through the wizard', () => {
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
 
     const findings = page.locator('[data-testid^="finding-card-"]')
-    await expect(findings).toHaveCount(10, { timeout: 15_000 })
+    await expect(findings).toHaveCount(9, { timeout: 15_000 })
 
     // Assert that no MediaPipe assets were fetched from a CDN — they must be self-hosted
     expect(cdnRequests, `CDN requests found: ${cdnRequests.join(', ')}`).toHaveLength(0)

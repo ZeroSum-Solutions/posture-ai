@@ -54,7 +54,7 @@ mobile-webkit subset, not an identical run.
 | Spec | Covers | Projects |
 |---|---|---|
 | `auth.setup.ts` | sign-in → saved session | setup |
-| `assessment-flow.spec.ts` | golden path (test mode) → 10 findings + PDF; client-required guard | both |
+| `assessment-flow.spec.ts` | golden path (test mode) → 9 findings + PDF; client-required guard | both |
 | `auth-access.spec.ts` | unauthenticated `/dashboard` + `/clients` → sign-in | both |
 | `clients.spec.ts` | client list/search; archive; detail empty-state; create form (consent gate); edit | both |
 | `health.spec.ts` | `GET /api/health` → ok / connected / schema ready | both |

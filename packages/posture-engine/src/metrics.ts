@@ -89,9 +89,12 @@ export function posteriorImbalancedShoulders(front: PoseFrame, back?: PoseFrame)
   return makeFinding(key, 'Shoulder Imbalance (Back)', 'head_shoulders', Math.abs(deviation), direction, viewUsed, conf, ['left_shoulder','right_shoulder'])
 }
 
-/** 4. T1 tilt backward — side view */
-export function t1TiltBackward(side: PoseFrame): Finding {
-  const key = 't1_tilt_backward'
+/** 4. Trunk lean — side view. ONE finding for the shoulder→hip lean from
+ * vertical. Replaces the former t1_tilt_backward + anterior_pelvic_shift,
+ * which computed this identical vector twice and double-counted it in the
+ * overall score (engine 2.0.0 merge; see docs/plans/2026-07-05-pipeline-accuracy-v2-design.md §3.1). */
+export function trunkLean(side: PoseFrame): Finding {
+  const key = 'trunk_lean'
   const ls = getLm(side, 'left_shoulder')
   const rs = getLm(side, 'right_shoulder')
   const lh = getLm(side, 'left_hip')
@@ -101,20 +104,19 @@ export function t1TiltBackward(side: PoseFrame): Finding {
   const shoulder = useRight ? rs : ls
   const hip = useRight ? rh : lh
 
-  if (!shoulder || !hip) return makeFinding(key, 'T1 Tilt (Backward)', 'spine', 0, 'Neutral', 'side', 0, [])
+  if (!shoulder || !hip) return makeFinding(key, 'Trunk Lean', 'spine', 0, 'Neutral', 'side', 0, [])
 
   const conf = minVis(shoulder, hip)
   const dx = hip.x - shoulder.x
-  const dy = hip.y - shoulder.y  // should be positive (hip is lower)
+  const dy = hip.y - shoulder.y
   const deviation = Math.abs(angleFromVertical(dx, dy))
-  // Facing-aware label: raw image-x signs flip for a left-facing subject, so
-  // the direction is resolved against sagittalFacing. Unverifiable facing keeps
-  // the (direction-free) magnitude but asserts no Forward/Backward label.
+  // Facing-aware label: Forward = shoulders anterior of hips (toward where the
+  // subject faces); unverifiable facing keeps the magnitude, asserts no label.
   const face = sagittalFacing(side, useRight)
   const shoulderAnterior = Math.sign(shoulder.x - hip.x) * face
   const direction = deviation < 1 || face === 0 ? 'Neutral' : shoulderAnterior > 0 ? 'Forward' : 'Backward'
-  return makeFinding(key, 'T1 Tilt', 'spine', deviation, direction, 'side', conf,
-    useRight ? ['right_shoulder','right_hip'] : ['left_shoulder','left_hip'])
+  return makeFinding(key, 'Trunk Lean', 'spine', deviation, direction, 'side', conf,
+    useRight ? ['right_shoulder', 'right_hip'] : ['left_shoulder', 'left_hip'])
 }
 
 /** 5. Pelvic obliquity — front view */
@@ -128,34 +130,6 @@ export function pelvicObliquity(front: PoseFrame): Finding {
   const deviation = Math.atan2(lh.y - rh.y, Math.abs(rh.x - lh.x)) * (180 / Math.PI)
   const direction = Math.abs(deviation) < 0.5 ? 'Level' : deviation > 0 ? 'Left Low' : 'Right Low'
   return makeFinding(key, 'Pelvic Obliquity', 'pelvis', Math.abs(deviation), direction, 'front', conf, ['left_hip','right_hip'])
-}
-
-/** 6. Anterior pelvic shift — side view */
-export function anteriorPelvicShift(side: PoseFrame): Finding {
-  const key = 'anterior_pelvic_shift'
-  const ls = getLm(side, 'left_shoulder')
-  const rs = getLm(side, 'right_shoulder')
-  const lh = getLm(side, 'left_hip')
-  const rh = getLm(side, 'right_hip')
-
-  const useRight = (rs?.visibility ?? 0) > (ls?.visibility ?? 0)
-  const shoulder = useRight ? rs : ls
-  const hip = useRight ? rh : lh
-
-  if (!shoulder || !hip) return makeFinding(key, 'Anterior Pelvic Shift', 'pelvis', 0, 'Neutral', 'side', 0, [])
-
-  const conf = minVis(shoulder, hip)
-  // angle of (shoulder -> hip) from vertical
-  const dx = hip.x - shoulder.x
-  const dy = hip.y - shoulder.y
-  const deviation = Math.abs(angleFromVertical(dx, dy))
-  // Facing-aware label (see t1TiltBackward): anterior means toward where the
-  // subject faces, not toward image-right.
-  const face = sagittalFacing(side, useRight)
-  const hipAnterior = Math.sign(hip.x - shoulder.x) * face
-  const direction = deviation < 1 || face === 0 ? 'Neutral' : hipAnterior > 0 ? 'Anterior' : 'Posterior'
-  return makeFinding(key, 'Anterior Pelvic Shift', 'pelvis', deviation, direction, 'side', conf,
-    useRight ? ['right_shoulder','right_hip'] : ['left_shoulder','left_hip'])
 }
 
 /**

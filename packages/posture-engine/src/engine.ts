@@ -3,17 +3,18 @@ import { normalizeFrame } from './geometry'
 import { medianFrame, deviationSpread, stabilityFromSigma } from './stability'
 import {
   forwardHeadPosture, anteriorImbalancedShoulders, posteriorImbalancedShoulders,
-  t1TiltBackward, pelvicObliquity, anteriorPelvicShift, pelvicAxialRotation,
+  trunkLean, pelvicObliquity, pelvicAxialRotation,
   genuVarumValgumLeft, genuVarumValgumRight, kneeExtensionBackKnee
 } from './metrics'
-import { toGrade, toPercentile } from './thresholds'
+import { toGrade, metricValidity, VALIDITY_WEIGHT } from './thresholds'
 
+// 2.0.0: trunk_lean merge — t1_tilt_backward + anterior_pelvic_shift were the identical shoulder→hip vector scored twice; now one finding.
 // 1.3.0: multi-frame capture bursts — robust per-landmark median point estimate
 // + per-finding within-capture stability (uncertaintyDeg / stabilityScore) and
 // AssessmentResult.captureStability. Single-frame-per-view input is unchanged.
 // 1.2.0: recurvatum metric fixed (STANDARD 175→180, facing-aware direction) +
 // boundary-level threshold provenance; knee_extension danger 15→10 (cited).
-export const ENGINE_VERSION = '1.3.0'
+export const ENGINE_VERSION = '2.0.0'
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
 
@@ -76,23 +77,25 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
     aggregate(side, forwardHeadPosture),
     aggregate(front, anteriorImbalancedShoulders),
     withStability(posteriorRep, postBurst, f => posteriorImbalancedShoulders(f, back.length ? f : undefined).deviation),
-    aggregate(side, t1TiltBackward),
+    aggregate(side, trunkLean),
     aggregate(front, pelvicObliquity),
-    aggregate(side, anteriorPelvicShift),
     aggregate(front, pelvicAxialRotation),
     aggregate(front, genuVarumValgumLeft),
     aggregate(front, genuVarumValgumRight),
     aggregate(side, kneeExtensionBackKnee),
   ].filter((f): f is Finding => f !== null)
 
-  // Overall score: average severityPct of reliable findings (0-100, higher = worse)
+  // Overall score (spec §3.2): validity- and confidence-weighted mean of
+  // severityPct over reliable findings. weight = VALIDITY_WEIGHT[validity] ×
+  // landmarkConfidence (the finding's 0–1 visibility-derived confidence).
   const reliable = findings.filter(f => f.reliable)
-  const overallScore = reliable.length > 0
-    ? Math.round(reliable.reduce((acc, f) => acc + f.severityPct, 0) / reliable.length)
+  const weightOf = (f: Finding) => VALIDITY_WEIGHT[metricValidity(f.key)] * f.confidence
+  const totalWeight = reliable.reduce((a, f) => a + weightOf(f), 0)
+  const overallScore = totalWeight > 0
+    ? Math.round(reliable.reduce((a, f) => a + f.severityPct * weightOf(f), 0) / totalWeight)
     : 0
 
   const overallGrade = toGrade(overallScore)
-  const overallPercentile = toPercentile(overallScore)
 
   // Modeled per-view ranks (1-100, lower = worse)
   const frontFindings = reliable.filter(f => f.viewUsed === 'front')
@@ -122,7 +125,6 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
     findings,
     overallScore,
     overallGrade,
-    overallPercentile,
     ranks: { front: frontRank, side: sideRank },
     generatedAt: new Date().toISOString(),
     engineVersion: ENGINE_VERSION,

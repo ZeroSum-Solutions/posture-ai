@@ -5,7 +5,7 @@ export const kneelingHipFlexorStretch: ExerciseContent = {
   slug: 'kneeling-hip-flexor-stretch',
   name: 'Kneeling Hip Flexor Stretch',
   category: 'stretch',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_obliquity'],
+  primaryDeviationKeys: ['trunk_lean', 'pelvic_obliquity'],
   minZone: 'warning',
   dosageType: 'hold',
   reps: null,

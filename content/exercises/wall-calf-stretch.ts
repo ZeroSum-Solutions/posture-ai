@@ -5,7 +5,7 @@ export const wallCalfStretch: ExerciseContent = {
   slug: 'wall-calf-stretch',
   name: 'Wall Calf Stretch (Straight Knee)',
   category: 'stretch',
-  primaryDeviationKeys: ['knee_extension_back_knee', 'anterior_pelvic_shift'],
+  primaryDeviationKeys: ['knee_extension_back_knee', 'trunk_lean'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,

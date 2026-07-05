@@ -5,7 +5,7 @@ export const gluteBridge: ExerciseContent = {
   slug: 'glute-bridge',
   name: 'Glute Bridge',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 'knee_extension_back_knee'],
+  primaryDeviationKeys: ['trunk_lean', 'knee_extension_back_knee'],
   minZone: 'maintain',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

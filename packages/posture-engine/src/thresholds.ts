@@ -58,9 +58,8 @@ export const THRESHOLDS: Record<string, MetricThreshold> = {
   forward_head_posture:           { warn: eng(5),  danger: eng(15), note: PROXY_NOTE },
   anterior_imbalanced_shoulders:  { warn: eng(2),  danger: eng(6),  note: PROXY_NOTE },
   posterior_imbalanced_shoulders: { warn: eng(2),  danger: eng(6),  note: PROXY_NOTE },
-  t1_tilt_backward:               { warn: eng(3),  danger: eng(8),  note: PROXY_NOTE },
+  trunk_lean:                     { warn: eng(3),  danger: eng(8),  note: PROXY_NOTE },
   pelvic_obliquity:               { warn: eng(2),  danger: eng(5),  note: PROXY_NOTE },
-  anterior_pelvic_shift:          { warn: eng(4),  danger: eng(12), note: PROXY_NOTE },
   genu_varum_valgum_left:         { warn: eng(5),  danger: eng(15), note: GENU_NOTE },
   genu_varum_valgum_right:        { warn: eng(5),  danger: eng(15), note: GENU_NOTE },
   knee_extension_back_knee: {
@@ -70,13 +69,14 @@ export const THRESHOLDS: Record<string, MetricThreshold> = {
   },
 }
 
-// Grade bands: overallScore 0-100 (higher = worse)
+// Grade bands: overallScore 0-100 (higher = worse).
+// Recalibrated 2026-07 against validity-weighted golden anchors (spec §3.2).
 export const GRADE_BANDS: Array<{ max: number; grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' }> = [
-  { max: 5,   grade: 'S' },
-  { max: 15,  grade: 'A' },
-  { max: 50,  grade: 'B' },
-  { max: 85,  grade: 'C' },
-  { max: 95,  grade: 'D' },
+  { max: 3,   grade: 'S' }, // recalibrated 2026-07: 5→3, anchor: trunk-lean-warn (score 7 must exceed S)
+  { max: 7,   grade: 'A' }, // recalibrated 2026-07: 15→7, anchor: trunk-lean-danger (score 13 must exceed A)
+  { max: 20,  grade: 'B' }, // recalibrated 2026-07: 50→20, anchor: combined-moderate (score 24 must exceed B)
+  { max: 55,  grade: 'C' }, // recalibrated 2026-07: 85→55, anchor: combined-moderate (score 24 lands here)
+  { max: 87,  grade: 'D' }, // recalibrated 2026-07: 95→87, preserves toGrade(86)→D
   { max: 100, grade: 'E' },
 ]
 
@@ -106,11 +106,6 @@ export function toGrade(score: number): 'S' | 'A' | 'B' | 'C' | 'D' | 'E' {
   return 'E'
 }
 
-/** Modeled percentile: "Top X%" = 100 - score (rough linear model) */
-export function toPercentile(score: number): number {
-  return Math.max(1, Math.round(100 - score))
-}
-
 /**
  * Dominant honesty frame for a scored metric, derived purely from boundary
  * provenance (no scoring change — this is a read-only projection over THRESHOLDS):
@@ -130,4 +125,13 @@ export function metricValidity(key: string): MetricValidity {
     return 'LITERATURE_CITED'
   }
   return 'SCREENING_ONLY'
+}
+
+/** Overall-score weights by honesty frame (spec §3.2): a literature-cited
+ * metric carries full weight; a screening proxy carries half. VALIDATED is
+ * reserved for post-study promotion. */
+export const VALIDITY_WEIGHT: Record<MetricValidity, number> = {
+  VALIDATED: 1,
+  LITERATURE_CITED: 1,
+  SCREENING_ONLY: 0.5,
 }

@@ -12,7 +12,7 @@ export const iliopsoas: MuscleContent = {
     'Commonly short and overactive in people who sit for long stretches, since the hip stays bent for hours and the muscle adapts to that shortened length. Tightness here tends to pull the pelvis into a forward tilt or shift and can leave the deep abdominals and glutes feeling under-used. In screening it usually shows up as a hip that resists full extension when standing tall or stepping the leg back.',
   links: [
     {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'tight',
       confidence: 'low',
       rationale:

@@ -5,7 +5,7 @@ export const proneIRaise: ExerciseContent = {
   slug: 'prone-i-raise',
   name: 'Prone I Raise',
   category: 'strengthen',
-  primaryDeviationKeys: ['posterior_imbalanced_shoulders', 't1_tilt_backward'],
+  primaryDeviationKeys: ['posterior_imbalanced_shoulders', 'trunk_lean'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 8, max: 12 },

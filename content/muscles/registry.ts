@@ -103,28 +103,25 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'thoracic-erector-spinae',
     name: 'Thoracic Erector Spinae',
     region: 'trunk',
-    links: [{ imbalanceKey: 't1_tilt_backward', role: 'tight' }],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'tight' }],
   },
   {
     slug: 'lumbar-erector-spinae',
     name: 'Lumbar Erector Spinae',
     region: 'trunk',
-    links: [{ imbalanceKey: 'anterior_pelvic_shift', role: 'tight' }],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'tight' }],
   },
   {
     slug: 'latissimus-dorsi',
     name: 'Latissimus Dorsi',
     region: 'trunk',
-    links: [{ imbalanceKey: 't1_tilt_backward', role: 'tight' }],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'tight' }],
   },
   {
     slug: 'deep-abdominals',
     name: 'Abdominal Wall (Rectus + Transversus)',
     region: 'trunk',
-    links: [
-      { imbalanceKey: 't1_tilt_backward', role: 'weak' },
-      { imbalanceKey: 'anterior_pelvic_shift', role: 'weak' },
-    ],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'weak' }],
   },
   {
     slug: 'obliques',
@@ -144,13 +141,13 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'iliopsoas',
     name: 'Iliopsoas (Hip Flexors)',
     region: 'hip_pelvis',
-    links: [{ imbalanceKey: 'anterior_pelvic_shift', role: 'tight' }],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'tight' }],
   },
   {
     slug: 'rectus-femoris',
     name: 'Rectus Femoris',
     region: 'hip_pelvis',
-    links: [{ imbalanceKey: 'anterior_pelvic_shift', role: 'tight' }],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'tight' }],
   },
   {
     slug: 'gluteus-maximus',
@@ -158,7 +155,7 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     region: 'hip_pelvis',
     // pelvic_axial_rotation link detached — unscoreable transverse-plane metric.
     links: [
-      { imbalanceKey: 'anterior_pelvic_shift', role: 'weak' },
+      { imbalanceKey: 'trunk_lean', role: 'weak' },
     ],
   },
   {
@@ -214,7 +211,7 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     name: 'Hamstrings',
     region: 'knee_leg',
     links: [
-      { imbalanceKey: 'anterior_pelvic_shift', role: 'weak' },
+      { imbalanceKey: 'trunk_lean', role: 'weak' },
       { imbalanceKey: 'knee_extension_back_knee', role: 'weak' },
     ],
   },
@@ -229,7 +226,7 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     name: 'Gastrocnemius & Soleus',
     region: 'knee_leg',
     links: [
-      { imbalanceKey: 'anterior_pelvic_shift', role: 'tight' },
+      { imbalanceKey: 'trunk_lean', role: 'tight' },
       { imbalanceKey: 'knee_extension_back_knee', role: 'tight' },
     ],
   },

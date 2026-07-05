@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generatePose, expectedDeviations } from '../golden/synthetic'
 import {
   forwardHeadPosture, anteriorImbalancedShoulders, pelvicObliquity,
-  t1TiltBackward, anteriorPelvicShift, genuVarumValgumLeft, kneeExtensionBackKnee,
+  trunkLean, genuVarumValgumLeft, kneeExtensionBackKnee,
 } from '../src/metrics'
 
 const TOL = 0.15 // degrees, orthographic
@@ -14,7 +14,7 @@ describe('synthetic generator recovers spec angles (orthographic)', () => {
     expect(Math.abs(forwardHeadPosture(side).deviation)).toBeLessThan(TOL)
     expect(Math.abs(anteriorImbalancedShoulders(front).deviation)).toBeLessThan(TOL)
     expect(Math.abs(pelvicObliquity(front).deviation)).toBeLessThan(TOL)
-    expect(Math.abs(t1TiltBackward(side).deviation)).toBeLessThan(TOL)
+    expect(Math.abs(trunkLean(side).deviation)).toBeLessThan(TOL)
     expect(Math.abs(genuVarumValgumLeft(front).deviation)).toBeLessThan(TOL)
     expect(Math.abs(kneeExtensionBackKnee(side).deviation)).toBeLessThan(TOL)
   })
@@ -30,8 +30,7 @@ describe('synthetic generator recovers spec angles (orthographic)', () => {
   })
 
   it.each([
-    [{ trunkLeanDeg: 8 }, 't1', (f: any) => t1TiltBackward(f).deviation, 8],
-    [{ trunkLeanDeg: 8 }, 'shift', (f: any) => anteriorPelvicShift(f).deviation, 8],
+    [{ trunkLeanDeg: 8 }, 'trunk_lean', (f: any) => trunkLean(f).deviation, 8],
     [{ forwardHeadDeg: 12 }, 'fhp', (f: any) => forwardHeadPosture(f).deviation, 12],
     [{ kneeHyperextensionDeg: 7 }, 'knee', (f: any) => kneeExtensionBackKnee(f).deviation, 7],
   ])('side-view spec %j recovers %s = %d°', (spec, _label, metric, want) => {
@@ -56,7 +55,7 @@ describe('synthetic generator recovers spec angles (orthographic)', () => {
 
   it('expectedDeviations mirrors the spec', () => {
     expect(expectedDeviations({ trunkLeanDeg: 8, forwardHeadDeg: 12 })).toMatchObject({
-      t1_tilt_backward: 8, anterior_pelvic_shift: 8, forward_head_posture: 12,
+      trunk_lean: 8, forward_head_posture: 12,
     })
   })
 })

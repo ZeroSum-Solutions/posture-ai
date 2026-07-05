@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { THRESHOLDS, toZoneAndPct, metricValidity } from '../src/thresholds'
+import { THRESHOLDS, toZoneAndPct, metricValidity, GRADE_BANDS, toGrade } from '../src/thresholds'
+import { GOLDEN_CASES } from '../golden/cases'
+import { generatePose } from '../golden/synthetic'
+import { assessPosture } from '../src/engine'
 
 // Proxy metrics: the engine measures a lean-from-vertical / line-tilt quantity,
 // NOT the named clinical construct (CVA, FSA, kyphosis, APT). Their thresholds
@@ -8,9 +11,8 @@ const PROXY_KEYS = [
   'forward_head_posture',
   'anterior_imbalanced_shoulders',
   'posterior_imbalanced_shoulders',
-  't1_tilt_backward',
+  'trunk_lean',
   'pelvic_obliquity',
-  'anterior_pelvic_shift',
 ]
 
 describe('threshold provenance', () => {
@@ -83,5 +85,21 @@ describe('metricValidity (projection over threshold provenance)', () => {
     for (const key of Object.keys(THRESHOLDS)) {
       expect(metricValidity(key), key).not.toBe('VALIDATED')
     }
+  })
+})
+
+// Grade-band anchor invariants (spec §3.2, recalibrated 2026-07 against the
+// golden distribution under the validity-weighted overall score).
+const gradeOf = (name: string) => {
+  const c = GOLDEN_CASES.find(x => x.name === name)!
+  return assessPosture([generatePose('front', c.spec, c.cam), generatePose('side', c.spec, c.cam)]).overallGrade
+}
+
+describe('grade bands discriminate the golden anchor cases', () => {
+  it('grade bands discriminate the golden anchor cases', () => {
+    expect(gradeOf('neutral')).toBe('S')
+    expect(['A', 'B']).toContain(gradeOf('trunk-lean-warn'))
+    expect(['B', 'C']).toContain(gradeOf('trunk-lean-danger'))
+    expect(['C', 'D', 'E']).toContain(gradeOf('combined-moderate'))
   })
 })

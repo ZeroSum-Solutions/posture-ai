@@ -55,7 +55,6 @@ export interface AssessmentResult {
   findings: Finding[]
   overallScore: number
   overallGrade: OverallGrade
-  overallPercentile: number
   ranks: { front: number | null; side: number | null }
   generatedAt: string
   engineVersion: string

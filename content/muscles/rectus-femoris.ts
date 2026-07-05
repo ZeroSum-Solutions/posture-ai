@@ -15,7 +15,7 @@ export const rectusFemoris: MuscleContent = {
     'The rectus femoris commonly reads as short and overactive in clients who sit for long stretches or who stand with the pelvis tipped forward, since its hip attachment keeps it loaded in those positions. When shortened it can add to a forward pelvic tilt as part of the hip-flexor group, working alongside the iliopsoas rather than on its own. It may benefit from professional evaluation when the front of the hip feels persistently tight or the lower back stays arched; a kneeling or standing thigh stretch that combines hip extension with knee bending lengthens it directly.',
   links: [
     {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'tight',
       confidence: 'medium',
       rationale:

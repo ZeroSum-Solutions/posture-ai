@@ -4,7 +4,7 @@ export const quadrupedThoracicRotation: ExerciseContent = {
   slug: 'quadruped-thoracic-rotation',
   name: 'Quadruped Thoracic Rotation',
   category: 'mobility',
-  primaryDeviationKeys: ['t1_tilt_backward'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'maintain',
   dosageType: 'dynamic',
   reps: { min: 8, max: 10 },
