@@ -68,20 +68,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Session run not found' }, { status: 404 })
   }
 
+  const update = buildRunUpdate(existing as RunRow, parsed.data, new Date().toISOString())
+  if (!update) {
+    // Stale/duplicate revision — already superseded by a newer write. Not an error.
+    return NextResponse.json({ ok: true, stale: true })
+  }
+
   // Safety control: completion is refused, not silently absorbed, when the
-  // pre-session red-flag screen was never acknowledged (see runState).
+  // pre-session red-flag screen was never acknowledged (see runState). Checked
+  // AFTER the stale-revision drop so a stale/duplicate retry keeps its silent
+  // stale-ok contract rather than getting a surprise 422.
   if (redFlagBlocksCompletion(existing as RunRow, parsed.data)) {
     logEvent({ route: ROUTE, outcome: 'red_flag_block', status: 422, userHash })
     return NextResponse.json(
       { error: 'Session completion requires the pre-session check.' },
       { status: 422 },
     )
-  }
-
-  const update = buildRunUpdate(existing as RunRow, parsed.data, new Date().toISOString())
-  if (!update) {
-    // Stale/duplicate revision — already superseded by a newer write. Not an error.
-    return NextResponse.json({ ok: true, stale: true })
   }
 
   const { error } = await service.from('session_runs').update(update).eq('id', existing.id)
