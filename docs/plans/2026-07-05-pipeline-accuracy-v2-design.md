@@ -317,3 +317,40 @@ at 15° the worst-metric error is already 1.796°, well into the zone where
 alerting the user is appropriate even without a hard gate.
 
 **No code changes.** The soft 15° warning stands unchanged.
+
+### 2026-07-04 — Task 13 model-compare script landed; Steps 2–4 BLOCKED on Tier B capture
+
+**Task:** SDD Task 13 — lite-vs-full model verdict + RELIABILITY_FLOOR verdict + repeatability numbers.
+
+**What landed:** `scripts/golden-model-compare.mjs` — reads
+`packages/posture-engine/golden/tierb/<subject>/`, pairs `*-lite.json` /
+`*-full.json` landmark files (produced by running the ingest page twice with
+`NEXT_PUBLIC_POSE_MODEL=lite` then `=full`), scores each through `assessPosture`
+via the same vite-node eval pattern as `golden-report.mjs`, reports per-metric
+`|deviation_lite − deviation_full|` and each model's error vs the JSON's
+`groundTruth`, then prints a final `VERDICT: full-default = true|false` line.
+
+**Command to run once Tier B photos exist:**
+
+```
+node scripts/golden-model-compare.mjs
+```
+
+**Decision rules (spec §2.1 and §2.3):**
+
+- **Model default (§2.1):** if any scored metric has median `|Δ| > 1°` across
+  all Tier B pairs → flip `NEXT_PUBLIC_POSE_MODEL` env to `full` in `.env.local`
+  and Vercel. Script prints the per-metric delta table and the `VERDICT` line.
+- **RELIABILITY_FLOOR move (§2.3):** only if the visibility-vs-error correlation
+  on Tier B data shows that `0.5` misclassifies (i.e. reliable findings with
+  high error, or unreliable findings with low error). Document the correlation
+  numbers either way; move `RELIABILITY_FLOOR` in
+  `packages/posture-engine/src/thresholds.ts:1` only if the rule fires.
+- **Repeatability (§ Step 3):** from the 3-repeat sets, compute per-metric
+  between-recapture spread; append as the honest "±X° when you re-shoot" figure
+  (feeds future Accuracy-card copy; no UI change in this plan).
+
+**Blocked:** Steps 2–4 are gated on `golden/tierb/` holding ≥1 subject ×
+neutral+staged poses captured per `golden/protocol.md`. This is Devin's
+physical capture task. Do NOT fake with fixture photos — the e2e fixtures have
+no measured ground truth.
