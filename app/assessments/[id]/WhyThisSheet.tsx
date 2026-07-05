@@ -61,7 +61,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
       {/* Block 2 — implicated muscles with evidence grade */}
       {muscles.length > 0 && (
         <div>
-          <div style={label}>Implicated muscles</div>
+          <div style={label}>Muscles involved in this finding</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {muscles.map((m) => (
               <div key={m.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -92,7 +92,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
         <div style={{ fontSize: '0.85rem', color: '#D4D4D8', lineHeight: 1.5 }}>
           <strong style={{ color: '#F5F5F5' }}>{exerciseName}</strong>{' '}
           {muscles.length > 0
-            ? `${movementAction} the muscles listed above, helping to address this finding.`
+            ? `${movementAction} the relevant muscles in this pattern, helping to address this finding.`
             : `${movementAction} the muscles involved in this finding.`}
         </div>
       </div>
