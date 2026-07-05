@@ -14,7 +14,8 @@ export const gluteusMedius: MuscleContent = {
     {
       imbalanceKey: 'pelvic_obliquity',
       role: 'tight',
-      confidence: 'medium',
+      confidence: 'low',
+      citation: 'Janda / Kendall 2005 (textbooks) — inference for ipsilateral glute-med overactivity on the elevated side; no EMG study found for this specific pattern.',
       rationale:
         'On the side opposite the elevated hip, the gluteus medius tends to become short and overactive, bearing more standing load and holding the opposite side of the pelvis up, reinforcing the obliquity. Because it is the overactive partner here, it usually benefits from release and length work rather than added strengthening — the elevated-side medius is the one that needs waking up.',
     },
@@ -22,20 +23,23 @@ export const gluteusMedius: MuscleContent = {
       imbalanceKey: 'pelvic_obliquity',
       role: 'weak',
       confidence: 'high',
+      citation: 'Semciw 2016 (J Electromyogr Kinesiol 30:98) — 13-study systematic review: reduced gluteus-medius EMG amplitude consistently associated with contralateral pelvic drop in running gait.',
       rationale:
         'On the elevated (higher) side of the pelvis, the gluteus medius sits in a lengthened, stretched position and loses the strength and timing needed to hold the pelvis level, so the obliquity is reinforced through the day. In screening it shows as a pelvis that cannot stay level in single-leg stance on this side, and it typically benefits from targeted strengthening and re-timing.',
     },
     {
       imbalanceKey: 'genu_varum_valgum_left',
       role: 'weak',
-      confidence: 'medium',
+      confidence: 'high',
+      citation: 'Rinaldi 2022 (J Exp Orthop, PMC9385941) — scoping review of 29 studies: gluteal strength deficits consistently linked to dynamic knee valgus across EMG and kinematics.',
       rationale:
         'On the left side, a weak gluteus medius lets the thigh bone drift inward and rotate in during weight-bearing, allowing the knee to fall toward the midline — the knee-drifting-inward (knock-knee) tendency — and weakening the frontal-plane control that should also keep a bow-knee in check. The medius is the main stabilizer sitting above the knee at the hip. Strengthening the left gluteus medius may help improve how the thigh tracks over the foot during standing and gait.',
     },
     {
       imbalanceKey: 'genu_varum_valgum_right',
       role: 'weak',
-      confidence: 'medium',
+      confidence: 'high',
+      citation: 'Rinaldi 2022 (J Exp Orthop, PMC9385941) — scoping review of 29 studies: gluteal strength deficits consistently linked to dynamic knee valgus across EMG and kinematics.',
       rationale:
         'On the right side, a weak gluteus medius lets the thigh bone drift inward and rotate in during weight-bearing, allowing the knee to fall toward the midline — the knee-drifting-inward (knock-knee) tendency — and weakening the frontal-plane control that should also keep a bow-knee in check. The medius is the main stabilizer sitting above the knee at the hip. Strengthening the right gluteus medius may help improve how the thigh tracks over the foot during standing and gait.',
     },

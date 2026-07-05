@@ -15,6 +15,7 @@ export const serratusAnterior: MuscleContent = {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'weak',
       confidence: 'high',
+      citation: 'Pirauá 2014 (EMG) + PMC11145323 (motor-unit study) — reduced serratus-anterior activation associated with scapular dyskinesis / winging.',
       rationale:
         'In anterior imbalanced shoulders a weak serratus anterior cannot keep the shoulder blade flat and properly rotated against the ribcage, so the blade loses its stable seat and the shoulder rounds forward. Poor serratus control also lets the inner edge of the blade lift away (winging), which worsens the forward shoulder position. Rebuilding its strength and timing may help give the shoulder blade a flatter, more stable base, so the shoulder can sit back more easily.',
     },

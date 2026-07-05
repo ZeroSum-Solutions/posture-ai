@@ -14,6 +14,8 @@ export const quadratusLumborum: MuscleContent = {
     {
       imbalanceKey: 'pelvic_obliquity',
       role: 'tight',
+      confidence: 'high',
+      citation: 'Oshikawa 2020 (Am J Phys Med Rehabil, PMID 32541348) — fine-wire intramuscular EMG, n=12 healthy men: anterior QL activity correlated with ipsilateral lateral pelvic elevation.',
       rationale:
         'In pelvic obliquity one hip sits higher than the other, and the quadratus lumborum on the elevated side is typically short and overactive, hiking that side of the pelvis up toward the lowest rib. Because it directly bridges the iliac crest and the rib, sustained side-bending or one-sided weight-bearing keeps this side shortened and tips the pelvis into the tilt. Easing its tone on the elevated side, while restoring support underneath the pelvis, may benefit the way the hips level out.',
     },

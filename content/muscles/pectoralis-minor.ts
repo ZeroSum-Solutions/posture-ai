@@ -14,7 +14,8 @@ export const pectoralisMinor: MuscleContent = {
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'tight',
-      confidence: 'medium',
+      confidence: 'high',
+      citation: 'Borstad & Ludewig 2005 (JOSPT) — shortened pectoralis minor associated with increased scapular anterior tilt and internal rotation in adults.',
       rationale:
         'A short pectoralis minor tips the shoulder blade forward and pulls it around the ribcage, which is a direct driver of anterior imbalanced shoulders. Because it attaches to the shoulder blade rather than the arm, its tightness keeps the whole shoulder rounded forward even when the chest is relaxed. Releasing it lets the shoulder blade settle flat and back, which is hard to achieve while this deep muscle stays locked short.',
     },

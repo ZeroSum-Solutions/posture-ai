@@ -15,6 +15,7 @@ export const quadriceps: MuscleContent = {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'tight',
       confidence: 'low',
+      citation: 'Kendall 2005 (Muscles: Testing and Function, 5th ed.) — textbook inference; anterior quadriceps dominance implicated in recurvatum; no EMG/kinematic confirmation in asymptomatic adults found.',
       scored: false,
       exclusionReason:
         'Display-only: the quadriceps to recurvatum inference is the weakest of the four (Grade D) and could not be supported in the 2026-06-27 evidence scan, so it is kept educational and excluded from the scored map.',
@@ -24,12 +25,16 @@ export const quadriceps: MuscleContent = {
     {
       imbalanceKey: 'genu_varum_valgum_left',
       role: 'weak',
+      confidence: 'medium',
+      citation: 'Park 2014 (J Phys Ther Sci, PMID 25435677) — genu varum showed higher VMO vs VL EMG, valgum higher VL/RF; altered patterns a partial contributor to frontal-plane mechanics.',
       rationale:
         'When the left knee drifts into a bowed or knock-kneed alignment, the quadriceps — particularly the vastus medialis oblique (VMO) on the inner knee — often test underactive and stop steering the kneecap. A weak VMO lets the patella slide off-track and the knee collapse toward the midline or bow outward. Strengthening the inner quad helps the left kneecap track centrally and supports a more vertical knee line.',
     },
     {
       imbalanceKey: 'genu_varum_valgum_right',
       role: 'weak',
+      confidence: 'medium',
+      citation: 'Park 2014 (J Phys Ther Sci, PMID 25435677) — genu varum showed higher VMO vs VL EMG, valgum higher VL/RF; altered patterns a partial contributor to frontal-plane mechanics.',
       rationale:
         'When the right knee drifts into a bowed or knock-kneed alignment, the quadriceps — particularly the vastus medialis oblique (VMO) on the inner knee — often test underactive and stop steering the kneecap. A weak VMO lets the patella slide off-track and the knee collapse toward the midline or bow outward. Strengthening the inner quad helps the right kneecap track centrally and supports a more vertical knee line.',
     },

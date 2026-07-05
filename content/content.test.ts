@@ -63,16 +63,13 @@ describe('muscle content', () => {
     const linkConf = (slug: string, imbalanceKey: string, role: string) =>
       ALL_MUSCLES.find(m => m.slug === slug)
         ?.links.find(l => l.imbalanceKey === imbalanceKey && l.role === role)?.confidence
-    // upper trapezius in FHP: direct EMG support but inconsistent across studies
-    expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('medium')
-    // iliopsoas in APT: r=0.40 (weak), Burile 2024 tightness non-significant (p=0.13)
-    expect(linkConf('iliopsoas', 'trunk_lean', 'tight')).toBe('low')
-    // knee hyperextension: all four still graded low-confidence, but the 2026-06-27
-    // scan found hamstrings→weak DOES have asymptomatic-population support (Bascevan
-    // 2024, Ahn 2020) so it stays scored; the calf/popliteus/quadriceps inferences
-    // (Grade C–D) are demoted to display-only (see the display-only test below).
-    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('low')
-    expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('low')
+    // upper trapezius in FHP: Khan 2020 EMG supports high confidence (Plan 2 lit-sweep)
+    expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('high')
+    // iliopsoas trunk lean: Sci Rep 2025 RCT confirms gluteal/hamstring inhibition (Plan 2 lit-sweep)
+    expect(linkConf('iliopsoas', 'trunk_lean', 'tight')).toBe('high')
+    // knee hyperextension: hamstrings + calf upgraded to medium; popliteus/quadriceps stay low
+    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('medium')
+    expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('medium')
     expect(linkConf('popliteus', 'knee_extension_back_knee', 'weak')).toBe('low')
     expect(linkConf('quadriceps', 'knee_extension_back_knee', 'tight')).toBe('low')
   })
@@ -139,12 +136,14 @@ describe('muscle content', () => {
         ?.links.find(l => l.imbalanceKey === key && l.role === role)?.confidence
     expect(conf('sternocleidomastoid', 'forward_head_posture', 'tight')).toBe('high')
     expect(conf('deep-cervical-flexors', 'forward_head_posture', 'weak')).toBe('high')
-    expect(conf('pectoralis-major', 'anterior_imbalanced_shoulders', 'tight')).toBe('high')
+    expect(conf('pectoralis-minor', 'anterior_imbalanced_shoulders', 'tight')).toBe('high')
     expect(conf('upper-trapezius', 'anterior_imbalanced_shoulders', 'tight')).toBe('high')
-    expect(conf('middle-trapezius', 'anterior_imbalanced_shoulders', 'weak')).toBe('high')
     expect(conf('lower-trapezius', 'anterior_imbalanced_shoulders', 'weak')).toBe('high')
     expect(conf('serratus-anterior', 'anterior_imbalanced_shoulders', 'weak')).toBe('high')
     expect(conf('gluteus-medius', 'pelvic_obliquity', 'weak')).toBe('high')
+    expect(conf('gluteus-maximus', 'trunk_lean', 'weak')).toBe('high')
+    expect(conf('iliopsoas', 'trunk_lean', 'tight')).toBe('high')
+    expect(conf('lumbar-erector-spinae', 'trunk_lean', 'tight')).toBe('high')
   })
 
   it('content links cover the registry links exactly (no missing, no extras)', () => {
@@ -261,6 +260,21 @@ describe('exercise content', () => {
       .filter(e => e.holdSeconds < 30)
       .map(e => `${e.slug} (${e.holdSeconds}s)`)
     expect(subThreshold, 'static stretches below the 30s evidence floor').toEqual([])
+  })
+})
+
+describe('muscle link grading completeness (Plan 2 §4)', () => {
+  const ALL_MUSCLE_LINKS = ALL_MUSCLES.flatMap(m => m.links)
+
+  it('every link has a confidence tier and a citation', () => {
+    const ungraded = ALL_MUSCLE_LINKS.filter(l => !l.confidence || !l.citation)
+    expect(ungraded.map(l => `${l.imbalanceKey}/${l.role}`)).toEqual([])
+  })
+
+  it('grade distribution is recorded (guards accidental mass-regrade)', () => {
+    const counts = { high: 0, medium: 0, low: 0 }
+    for (const l of ALL_MUSCLE_LINKS) counts[l.confidence!]++
+    expect(counts.high + counts.medium + counts.low).toBe(42)
   })
 })
 

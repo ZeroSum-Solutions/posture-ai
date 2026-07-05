@@ -14,13 +14,16 @@ export const gastrocnemiusSoleus: MuscleContent = {
     {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
+      confidence: 'medium',
+      citation: 'Watanabe 2019 (Gait Posture, PMID 30497039) — voluntary forward lean controlled by low-frequency neural input to medial gastrocnemius; tight-calf-to-lean remains mechanistic inference.',
       rationale:
         'When the pelvis and body sway forward over the feet, the calf (gastrocnemius and soleus) fires constantly to keep the body from toppling, and over time it shortens. Prolonged standing sway, high heels, and a forward center of mass all load the calf this way. Releasing and lengthening it helps the body re-balance back over the midfoot rather than hanging forward at the ankles.',
     },
     {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'tight',
-      confidence: 'low',
+      confidence: 'medium',
+      citation: 'Svehlik 2010 (J Pediatr Orthop B, PMID 20442674) — high soleus EMG in single stance linked kinematically to recurvatum timing; calf-lengthening reduced hyperextension (PMID 24029800).',
       scored: false,
       exclusionReason:
         'Display-only: the calf to recurvatum link rests on stroke-population and direction-ambiguous evidence (Grade C), below the asymptomatic-population bar the hamstring link cleared, so it is kept educational rather than scored.',

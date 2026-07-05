@@ -14,20 +14,24 @@ export const hipAdductors: MuscleContent = {
     {
       imbalanceKey: 'pelvic_obliquity',
       role: 'tight',
+      confidence: 'medium',
+      citation: 'Yen 2021 (Spine Deform 9:1259) — review: hip-adductor contracture drives infrapelvic obliquity; mechanistic evidence indirect, no healthy-adult kinematic study found.',
       rationale:
         'On the elevated (higher) side of the pelvis, the inner-thigh adductors sit shortened and tend to become overactive, helping draw that side of the pelvis upward and holding the obliquity in place alongside the same-side quadratus lumborum. Because they are short and overactive here, the elevated-side adductors generally benefit from release and length work rather than strengthening.',
     },
     {
       imbalanceKey: 'genu_varum_valgum_left',
       role: 'tight',
-      confidence: 'medium',
+      confidence: 'low',
+      citation: 'Hollman 2009 (J Sport Rehabil, PMID 19321910) — hip-adduction angle correlated with knee valgus in step-down; no study directly tested adductor tightness as a cause of frontal-plane deviation.',
       rationale:
         'Adductor involvement on the left applies specifically in the knock-knee (knee-drifting-inward) presentation. When the left knee collapses toward the midline, the inner-thigh adductors sit shortened and overactive, reinforcing the inward pull of the thigh. In the bow-knee (knee-bowing-outward) presentation it is the lateral structures, not the adductors, that tighten. Lengthening the left adductors helps the thigh track back out over the foot.',
     },
     {
       imbalanceKey: 'genu_varum_valgum_right',
       role: 'tight',
-      confidence: 'medium',
+      confidence: 'low',
+      citation: 'Hollman 2009 (J Sport Rehabil, PMID 19321910) — hip-adduction angle correlated with knee valgus in step-down; no study directly tested adductor tightness as a cause of frontal-plane deviation.',
       rationale:
         'Adductor involvement on the right applies specifically in the knock-knee (knee-drifting-inward) presentation. When the right knee falls toward the midline, the inner-thigh adductors are held short and overactive, reinforcing the inward pull on the thigh. In the bow-knee (knee-bowing-outward) presentation the lateral structures tighten instead, not the adductors. Releasing and lengthening the right adductors helps the thigh track back out over the foot.',
     },

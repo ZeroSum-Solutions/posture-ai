@@ -14,7 +14,8 @@ export const lumbarErectorSpinae: MuscleContent = {
     {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
-      confidence: 'medium',
+      confidence: 'high',
+      citation: 'Ghaffari 2026 (PLOS One, PMC12959714) — RCT: erector-spinae EMG elevated at baseline in lower-crossed women; overactivity confirmed alongside anterior pelvic tilt.',
       rationale:
         'When the pelvis drifts forward of the ankles in an anterior pelvic shift, the upper trunk counter-leans backward to stay balanced, and the lumbar erector spinae shorten to hold that arched low-back position. Their overactivity deepens the lumbar curve and keeps the trunk tipped back, working opposite the deep abdominals that would otherwise level the pelvis. Restoring their length, while rebuilding abdominal support, may benefit the way the hips return under the ribcage and shoulders.',
     },

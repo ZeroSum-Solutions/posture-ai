@@ -14,6 +14,8 @@ export const lowerTrapezius: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'weak',
+      confidence: 'medium',
+      citation: 'Kim 2015 (J Phys Ther Sci, PMID 26180310) — EMG in adults with FHP and rounded shoulders showed no significant lower-trapezius change across head positions; association is upper-crossed inference.',
       rationale:
         'The lower trapezius helps anchor the shoulder blades down and supports an upright upper back that lets the head stack over the shoulders. When it is under-active, the shoulder blades ride up, the upper back rounds, and the head is carried further forward. Because it counterbalances the overworked upper trapezius, restoring its strength supports a more upright posture and a centered head position.',
     },
@@ -21,12 +23,15 @@ export const lowerTrapezius: MuscleContent = {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'weak',
       confidence: 'high',
+      citation: 'Gu 2024 (EMG study) + Cools 2007 (Am J Sports Med) — reduced lower-trapezius activation consistently associated with scapular dyskinesis / rounded-shoulder posture.',
       rationale:
         'When the shoulders round forward, the lower trapezius is held long and switched off, so it cannot draw the shoulder blades down and back. The upper trapezius and chest muscles then dominate, pulling the shoulders up and forward, and uneven activity side to side can leave one shoulder more forward than the other. Strengthening the lower trapezius helps set the shoulder blades down and back and level the shoulders.',
     },
     {
       imbalanceKey: 'posterior_imbalanced_shoulders',
       role: 'weak',
+      confidence: 'high',
+      citation: 'Gu 2024 (EMG) + Cools 2007 (Am J Sports Med) — reduced lower-trapezius activation in scapular dyskinesis; carried to this pattern.',
       rationale:
         'Posterior imbalanced shoulders involve a shoulder that sits hiked and elevated. The lower trapezius is the main muscle that pulls the shoulder blade downward, so when it is weak the elevators (upper trapezius and levator scapulae) go unopposed and the shoulder rides high. Strengthening the lower fibers may help restore the downward pull that supports a more level resting shoulder height.',
     },

@@ -18,6 +18,7 @@ export const rectusFemoris: MuscleContent = {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
       confidence: 'medium',
+      citation: 'Takaki 2016 (Phys Ther Res, PMID 28289581) — rectus femoris among the most active muscles during anterior pelvic tilting; tight RF tilts the pelvis, contributing to compensatory trunk lean.',
       rationale:
         'As a two-joint muscle anchored to the front of the pelvis, a short rectus femoris can contribute, as one of the hip flexors, to a forward pelvic tilt and to the hips carrying ahead of the ankles in an anterior pelvic shift. The evidence frames it as part of the hip-flexor group rather than in isolation — easing hip-flexor tightness measurably reduces the forward tilt, but the effect is modest and cannot be pinned to the rectus femoris alone. It is therefore graded medium-confidence and addressed together with the iliopsoas.',
     },
