@@ -25,6 +25,7 @@ jobs:
       - run: npm run lint:vocab
       - run: npx vitest run
       - run: npm test -w @posture-ai/engine
+      - run: npm run golden
       - run: npm run build
 
   e2e:
