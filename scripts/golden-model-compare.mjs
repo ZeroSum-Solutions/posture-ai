@@ -4,7 +4,7 @@
 // Reports per-metric |deviation_lite − deviation_full| and each model's error
 // vs measured groundTruth. Decision rule (spec §2.1): any scored metric with
 // median |Δ| > 1° across Tier B ⇒ full becomes the default.
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
@@ -12,11 +12,11 @@ import { execSync } from 'node:child_process'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dir = join(root, 'packages/posture-engine/golden/tierb')
 
-const subjects = readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory())
-if (subjects.length === 0) {
+if (!existsSync(dir) || readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory()).length === 0) {
   console.error('No Tier B data yet — capture per golden/protocol.md first.')
   process.exit(2)
 }
+const subjects = readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory())
 
 // Collect paired lite/full JSONs across all subject directories
 const pairs = []
@@ -27,7 +27,10 @@ for (const subj of subjects) {
   for (const liteFile of liteFiles) {
     const baseName = liteFile.slice(0, -'-lite.json'.length)
     const fullFile = baseName + '-full.json'
-    if (!files.includes(fullFile)) continue
+    if (!files.includes(fullFile)) {
+      console.warn(`  [skip] ${subj.name}/${baseName}: no matching -full.json`)
+      continue
+    }
     const lite = JSON.parse(readFileSync(join(subjDir, liteFile), 'utf8'))
     const full = JSON.parse(readFileSync(join(subjDir, fullFile), 'utf8'))
     pairs.push({
