@@ -174,3 +174,90 @@ Ranked by value; each is one root-cause branch:
 5. **Test coverage (S2/S3):** e2e for `workouts/[id]/run` + `/rate`; API-route unit tests. (Area 9)
 6. **CSP + rate-limit resilience (S3):** nonce migration, drop `unsafe-eval` in prod, rate-limit circuit breaker, cover remaining mutating routes. (Area 3)
 7. **Ops hygiene (S3/S4):** pin Node; env startup validation; annotate dead `threshold_config`; document table retention; sync exercise registries. (Areas 1, 6, 7)
+
+---
+
+# Delta re-audit — 2026-07-05
+
+**Audited:** 2026-07-05 · **Commit:** `85293c4` (main) · **Scope:** delta over `c4aa299..85293c4` (26 commits: Plan 1 tail #61–#75 — golden harness, engine v2.0.0, threshold recalibration, validity/borderline; Plan 2 #76–#86 — muscle-KB regrade, coherence gate, evidence ranking, red-flag screen, why-this sheet) plus re-verification of every 2026-07-04 finding at HEAD. **Method:** five parallel readers; orchestrator re-verified the load-bearing new claims directly (`playerMachine.ts`, `runState.ts`, `buildProgram.ts`). Evidence-only; no code changed.
+
+## Plain-language overview
+
+The codebase remains structurally healthy: all 540 tests pass, typecheck and production build are clean, and Plan 2's new surface is largely sound — the six new migrations touch knowledge-base tables only (no historical client data mutated, all idempotent), literature citations never reach the database or any client-visible payload, all new user-facing copy passes the screening-vocabulary sweep, the QA seed script is hard-locked to localhost, and the coherence-debt ratchet provably fails in both directions (new debt AND silently-fixed debt).
+
+Four things matter most:
+
+1. **The red-flag safety screen is cosmetic beyond the first session.** The server accepts a completed workout run with the acknowledgement still null; resuming a session auto-starts playback after a countdown without ever re-asking about pain; the practitioner can't see the answer anywhere; and the share-link path drops it entirely. The screen works exactly once, on first play, client-side only.
+2. **Progress comparisons silently cross engine versions.** Grade bands were recalibrated in engine v2.0.0, but client comparisons never check `scoring_engine_version` — a client scored under v1 bands can show grade "improvement" or "slippage" that is purely a calibration artifact.
+3. **Every headline 2026-07-04 security finding is still open** — plaintext consent tokens, CSP `unsafe-inline`/`unsafe-eval`, fail-open rate limiter, now **9** uncovered mutating routes (3 added since, incl. run/rate/approve).
+4. **New-surface polish gaps:** why-this sheet has no focus trap or scroll lock; the 2D map color legend renders only when "possible" markers exist; WorkoutPlayer now exceeds the 800-line hard max (815).
+
+Confidence: high (direct reads, both new S2s re-verified by orchestrator). Still device-blocked: iOS speech/wake checks, CAM-REAL. Prod migration status unverified (requires authorization).
+
+## New findings (delta surface)
+
+| Area | Claim | Verdict | Sev | Evidence | Recommendation |
+|---|---|---|---|---|---|
+| 8/3 | Red-flag ack not server-enforced | PROVED | S2 | `runState.ts:81-113` — `buildRunUpdate` accepts `status:'completed'` with `red_flag_acknowledged` null; L99-100 only ratchets true. Zod allows optional (`run/route.ts:23`) | Gate completion (or log structured bypass event) server-side |
+| 8/2 | Resume bypasses red-flag gate and auto-plays | PROVED | S2 | `playerMachine.ts:84` `resumePlayer`→`enterItem`→`upNext` (L100, timed); gate renders only in idle/intro (`WorkoutPlayer.tsx:321`); TICK active for upNext → auto-advance to playing. No re-ask, no e2e | Backlog item C1 — force gate before first TICK on resume |
+| 8 | Progress persists in resumed session without gated begin() | PROVED | S2 | `WorkoutPlayer.tsx:176-199` save effect fires for any phase ≠ idle; resume lands in upNext. (First-ever progress still requires gated `begin()` — transitive claim holds only for session #1) | Same fix as above |
+| 2 | red_flag_acknowledged invisible to practitioner | PROVED | S3 | Stored via run PATCH; zero renders under `app/assessments/`, `app/clients/`; token path drops it (`WorkoutPlayer.tsx:234-235`) | Surface on run detail/client timeline |
+| 8 | Cross-engine-version grade comparison unguarded | PROVED | S3 | `clientComparison.ts:37-68` compares stored grade/score with no `scoring_engine_version` check; GRADE_BANDS recalibrated v2 (`thresholds.ts:92-99`: S 5→3, A 15→7, B 50→20, C 85→55, D 95→87). Version IS stored per assessment (`route.ts:139`) but not consulted | Add version-mismatch caveat to comparison output |
+| 8 | Role-blind evidence pooling inflates stretch rank | PROVED | S4 | `buildProgram.ts:91-100` `linksForKeys` drops link role; `exerciseEvidenceForKey` takes max across roles — stretch on gluteus-medius×pelvic_obliquity gets weak-link weight 1.0 instead of tight-link 0.4 | Filter evidence by role↔category alignment |
+| 2/5 | WhyThisSheet: no focus trap, no body scroll lock | PROVED | S2 | `WhyThisSheet.tsx:189-190` `role="dialog"` `aria-modal` set; Escape works (L166-173); tab escapes overlay; body scrolls behind | Add inert/focus-trap + overflow lock |
+| 5 | 2D map legend only renders when "possible" tier present | PROVED | S2 | `MuscleBodyMap.tsx:169-178` legend gated on `hasPossible`; tight/weak red/blue uninterpreted otherwise | Persistent legend row |
+| 5 | 2D vs 3D disagree on low-confidence display | PROVED | S3 | 2D: low → dashed-gray possible tier (`muscleMap.ts:192-193`); 3D: low stays colored at 0.4 intensity (`MuscleModel3D.tsx:11`, `findingsToMuscleStates.ts` no filter) | Align or document in 3D legend |
+| 5 | Red-flag card: no focus management | WEAK | S3 | `WorkoutPlayer.tsx:727-776` no autoFocus/role; visible labels + testids present. Needs SR pass to prove impact | autoFocus first button |
+| 5 | Validity/borderline labels lack accessible explanation | PROVED | S4 | `page.tsx:437-441` bare 11px text; borderline uses hover-only `title` (L432-435) | Accessible tooltip |
+| 9 | WorkoutPlayer.tsx exceeds 800-line hard max | PROVED | S3 | `wc -l` = 815 (rule: 800 hard max). RedFlagCard/StopCard/DemoCanvas extractable | Extract subcomponents |
+| 9 | Lint debt grew: 9 errors, 22 warnings | PROVED | S3 | 7× no-explicit-any `golden-synthetic.test.ts`, 1× prefer-const `golden/synthetic.ts:103`, 1× set-state-in-effect `WorkoutPlayer.tsx:424-428` (DemoCanvas reset) — backlog item 6 | Mechanical cleanup branch |
+| 9 | Missing e2e: resume flow, why-this sheet | PROVED | S2 | `e2e/workout-player.spec.ts` covers red-flag yes/no on fresh start only; no resume or why-this spec | Add both specs (pairs with C1 fix) |
+| A | New migrations safe (KB-only, idempotent) | NO-ISSUE | — | All six read in full; `trunk_lean_merge` keeps legacy rows (L4), `ON CONFLICT DO NOTHING`; borderline column nullable-add; regrade DELETE targets KB tables with no user-row FK | — |
+| A | session_runs.red_flag RLS sound | NO-ISSUE | — | `pg_policies`: read-own only; writes service-role scoped `.eq(practitioner_id, user.id)` (`run/route.ts:63`) | — |
+| A | Seed↔content round-trip intact | NO-ISSUE | — | Generator output count = seed INSERTs = content sum = 42 (pinned by `content.test.ts:277`); check constraint `high|medium|low` in DB; local DB count 42 | — |
+| A | Regen trap: fix-migrations vs generator | WEAK | S4 | `20260707000000` embeds pre-fix `role='tight'` for thoracic-ES; `..010000` flips to weak; content file already weak so regen today is safe — trap is procedural | Note in generator: port fix migrations back to content before regen |
+| C | Citations contained (never DB, never client) | NO-ISSUE | — | No `citation` column (information_schema 0 rows); generator omits it; token projection picks explicit fields (`tokenProjection.ts:32-38`); assessments join selects KB cols only; 0 banned stems in citations | — |
+| D | New copy passes vocab sweep | NO-ISSUE | — | `ui-vocabulary.test.ts:10` roots cover `app/`; red-flag + why-this + stop-card strings: 0 banned-stem hits | — |
+| E | QA seed localhost-locked | NO-ISSUE | — | `qa-seed.ts:24-34` hardcoded 127.0.0.1 + abort guard; key is the well-known local demo JWT | — |
+| 8 | Coherence ratchet bidirectional | NO-ISSUE | — | `coherence.test.ts:79-88` asserts `newlyBroken=[]` AND `newlyFixed=[]`; KNOWN_DEBT count 30 = docs 30 (5 pairs spot-matched) | — |
+| 8 | Thresholds v2 boundaries continuous | NO-ISSUE | — | pelvic_obliquity warn3/danger6 literature-sourced; severityPct equal on both sides of each edge (33 at warn, 66 at danger, hand-computed) | — |
+| 8 | Evidence weights monotonic, ties deterministic | NO-ISSUE | — | high1.0/med0.7/low0.4; `eb-ea` then `slug.localeCompare` (`buildProgram.ts:172-173`); ranking reorders only (caps drop, never evidence) | — |
+| 8 | Why-this overclaim + confidence-by-winning-role fixes present | NO-ISSUE | — | `WhyThisSheet.tsx:94-97` scoped copy (test C3 asserts); per-row `link_evidence` displayed, no cross-row max | — |
+| 5 | Legacy assessments render via name fallback | NO-ISSUE | — | `muscleMap.ts:185-187` links-empty → `regionsFromLegacy`; missing viewer IDs surface as "N not shown" note (`MuscleModel3D.tsx:241-244`) | — |
+| 9 | Baseline: tsc/tests/build | NO-ISSUE | — | tsc exit 0 (root + package); vitest 53 files / 540 tests pass; `next build` 47 routes OK; mediapipe payload unchanged (min first-capture ≈ 10.6 MB wasm + 5.8 MB lite model) | — |
+
+## Prior-finding status at 85293c4 (supersedes 2026-07-04 where noted)
+
+| 2026-07-04 finding | Status | Note |
+|---|---|---|
+| Consent tokens plaintext (S2) | **STILL OPEN** | `consent/link/route.ts:34` raw `randomUUID()` |
+| CSP unsafe-inline/unsafe-eval; no global object-src (S3) | **STILL OPEN** | `next.config.ts:16` unchanged |
+| Rate limiter fails open (S3) | **STILL OPEN** | `rate-limit.ts:17-19` |
+| Uncovered mutating routes (S3) | **WORSE: 9 routes** | +`approve`/`run`/`rate` (authed, uncovered); token-facing GET/rate ARE covered (partial win) |
+| Unbounded list queries ×4 (S2/S3) | **STILL OPEN** | clients, assessments/new, api/clients, clients/[id]/assessments |
+| assessments/[id] client monolith (S2) | **STILL OPEN** | now 1236 lines |
+| SessionSnapshot version guard (S3) | **STILL OPEN** | both read sites uncast-checked |
+| recharts static import (S3) | **STILL OPEN** | `clients/[id]/page.tsx:9-12` |
+| Dual exercise registries (S3) | **IMPROVED** | seed now AUTO-GENERATED from content/ (`20260705000000:1`); runtime still two sources |
+| threshold_config divergence (S4) | **ANNOTATED** | inert-columns note in `20260706000000:13`; still never read |
+| Workout run/rate zero tests (S2) | **IMPROVED** | `runState.test.ts` (148 lines) + red-flag e2e; route handlers still untested at HTTP layer |
+| set-state-in-effect (S2) | **MOVED** | now `WorkoutPlayer.tsx:424-428` (DemoCanvas) |
+| Silent bucket-create swallow; as-any join; captures 2-step; deleted-client 200; bucket write-deny; Node pin; env Zod; PlayingHud memo; WakeLock dup; dev route creds | **ALL STILL OPEN** | unchanged, see 2026-07-04 rows |
+| clients list deleted-client ghost (QA-001) | **FIXED** | `clients/page.tsx:34-35` `.is('deleted_at', null)` |
+
+## Blocked / unverifiable
+
+| Finding | Missing evidence |
+|---|---|
+| iOS speech-cue / WakeLock behavior | Real iOS device (unchanged from 2026-07-04) |
+| Prod migration status (6 pending per handoff) | Explicit prod authorization — not touched |
+| Red-flag card SR impact | Screen-reader pass on device |
+
+## Leverage plays (supersedes 2026-07-04 fix clusters)
+
+1. **Red-flag integrity cluster (S2×3+S3)** — re-gate on resume, enforce/log server-side, surface ack to practitioner, add resume e2e. One branch closes the delta's whole top tier and resolves backlog item C1. The safety feature Plan 2 shipped currently works once, client-side only.
+2. **Consent-token hashing + rate-limit coverage (S2, carried)** — unchanged top security play; SHA-256 pattern exists next door in `lib/workout/token.ts`.
+3. **Cross-version comparison guard (S3, new)** — small fix, protects trust in progress tracking after the v2 recalibration; version already stored, just unconsulted.
+4. **New-surface a11y/UX branch (S2/S3)** — focus trap + scroll lock, persistent map legend, red-flag autofocus, accessible tooltips, 2D/3D low-confidence alignment.
+5. **Scale guards (S2/S3, carried)** — `.limit()` on 4 unbounded queries, dynamic recharts import, SessionSnapshot version guard.
+6. **Hygiene batch (S3/S4)** — 9 lint errors (backlog item 6), WorkoutPlayer 815→<800 split, role-blind pooling fix, Node pin, env Zod validation, regen-trap note.
