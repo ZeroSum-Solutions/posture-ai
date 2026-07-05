@@ -435,6 +435,8 @@ function FindingCard({ f }: { f: Finding }) {
             </span>
           ) : null}
           <span style={{ fontSize: 11, opacity: 0.7 }}>
+            {/* VALIDATED needs its own label when the first metric is promoted
+                by the Layer-1 study — this ternary would mislabel it. */}
             {f.metric_validity === 'LITERATURE_CITED' ? 'Literature-referenced thresholds' : 'Screening estimate'}
           </span>
         </div>
