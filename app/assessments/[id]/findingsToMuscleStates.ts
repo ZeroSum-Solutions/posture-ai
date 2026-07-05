@@ -17,6 +17,7 @@ export interface MuscleStateInput {
   role: Role
   severity?: number
   side?: 'left' | 'right' | 'both'
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 /** Structural subset of the results-page `Finding` this adapter reads. */
@@ -81,11 +82,16 @@ const rank = (s: number | undefined): number => s ?? -1
 
 const ROLES: Role[] = ['tight', 'weak']
 
+const CONF_RANK = { high: 3, medium: 2, low: 1 } as const
+const higherConf = (a?: 'high' | 'medium' | 'low', b?: 'high' | 'medium' | 'low') =>
+  !a ? b : !b ? a : (CONF_RANK[a] >= CONF_RANK[b] ? a : b)
+
 interface Candidate {
   slug: string
   name: string
   role: Role
   severity?: number
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 export function findingsToMuscleStates(
@@ -102,7 +108,7 @@ export function findingsToMuscleStates(
       const names = role === 'tight' ? f.tight_muscles : f.weak_muscles
       if (links && links.length > 0) {
         for (const l of links) {
-          if (l?.slug) candidates.push({ slug: l.slug, name: l.name ?? l.slug, role, severity })
+          if (l?.slug) candidates.push({ slug: l.slug, name: l.name ?? l.slug, role, severity, confidence: l.confidence })
         }
       } else if (names && names.length > 0) {
         // Legacy JSONB names (populated until the muscle KB is seeded). Resolving them keeps
@@ -160,7 +166,8 @@ export function findingsToMuscleStates(
       winner = (bestTight ?? bestWeak)!
     }
 
-    states.push({ slug, role: winner.role, severity: winner.severity })
+    const maxConf = group.reduce<'high' | 'medium' | 'low' | undefined>((acc, c) => higherConf(acc, c.confidence), undefined)
+    states.push({ slug, role: winner.role, severity: winner.severity, confidence: maxConf })
     if (!slugToViewerId(slug)) notShown.push({ slug, name: winner.name })
   }
 

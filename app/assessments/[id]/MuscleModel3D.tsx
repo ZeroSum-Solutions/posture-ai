@@ -1,6 +1,17 @@
 'use client'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { findingsToMuscleStates, type AssessmentFinding } from './findingsToMuscleStates'
+import { findingsToMuscleStates, type AssessmentFinding, type MuscleStateInput } from './findingsToMuscleStates'
+
+// Evidence weight: ungraded defaults to 0.7 so muscles never disappear without a grade.
+const EVIDENCE_WEIGHT: Record<string, number> = { high: 1.0, medium: 0.7, low: 0.4 }
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
+
+function withIntensity(states: MuscleStateInput[]) {
+  return states.map((s) => ({
+    ...s,
+    intensity: clamp01((s.severity ?? 50) / 100) * (EVIDENCE_WEIGHT[s.confidence ?? ''] ?? 0.7),
+  }))
+}
 
 // Same-origin viewer build (public/muscle-viewer/**). embed=1 hides its demo chrome + own
 // legend/attribution (the host supplies both below); legend=0 hides its built-in legend.
@@ -73,7 +84,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
       }
     }
     const applyStates = () =>
-      post({ source: 'posture-ai', type: 'applyMuscleStates', states: statesRef.current })
+      post({ source: 'posture-ai', type: 'applyMuscleStates', states: withIntensity(statesRef.current) })
     const clearPing = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -123,7 +134,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
     if (!w) return
     try {
       w.postMessage(
-        { source: 'posture-ai', type: 'applyMuscleStates', states },
+        { source: 'posture-ai', type: 'applyMuscleStates', states: withIntensity(states) },
         window.location.origin,
       )
     } catch {

@@ -21,6 +21,7 @@ export interface MuscleRegion {
 export interface MuscleLink {
   slug: string
   name: string
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 export interface MarkerInput {

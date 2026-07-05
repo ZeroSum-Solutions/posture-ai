@@ -57,7 +57,7 @@ export async function GET(
       ? supabase.from('imbalance_definitions').select('key, causes_text, tight_muscles, weak_muscles').in('key', keys)
       : Promise.resolve({ data: [] as { key: string; causes_text: string; tight_muscles: unknown; weak_muscles: unknown }[] }),
     keys.length > 0
-      ? supabase.from('muscle_imbalance_links').select('imbalance_key, role, muscle_slug, muscles(name)').in('imbalance_key', keys)
+      ? supabase.from('muscle_imbalance_links').select('imbalance_key, role, muscle_slug, link_evidence, scored, muscles(name)').in('imbalance_key', keys)
       : Promise.resolve({ data: [] as unknown[] }),
     service.from('captures').select('id, view, storage_path, source, pose_frame').eq('assessment_id', id),
   ])
@@ -73,10 +73,14 @@ export async function GET(
 
   // Normalized muscle links (knowledge base). Empty until the muscle KB is
   // seeded; the UI falls back to the legacy JSONB strings in that case.
-  const linkMap: Record<string, { tight: { slug: string; name: string }[]; weak: { slug: string; name: string }[] }> = {}
-  for (const row of (linkRes.data ?? []) as unknown as { imbalance_key: string; role: 'tight' | 'weak'; muscle_slug: string; muscles: { name: string } | null }[]) {
+  const linkMap: Record<string, { tight: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }[]; weak: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }[] }> = {}
+  for (const row of (linkRes.data ?? []) as unknown as {
+    imbalance_key: string; role: 'tight' | 'weak'; muscle_slug: string
+    link_evidence: 'high' | 'medium' | 'low' | null; scored: boolean; muscles: { name: string } | null
+  }[]) {
+    if (row.scored === false) continue // display-only links stay off the colored map
     const entry = (linkMap[row.imbalance_key] ??= { tight: [], weak: [] })
-    entry[row.role].push({ slug: row.muscle_slug, name: row.muscles?.name ?? row.muscle_slug })
+    entry[row.role].push({ slug: row.muscle_slug, name: row.muscles?.name ?? row.muscle_slug, confidence: row.link_evidence ?? undefined })
   }
 
   const enrichedFindings = (findings || []).map((f: Record<string, unknown>) => ({
