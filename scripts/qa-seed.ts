@@ -210,7 +210,7 @@ async function createAssessment(
       assessment_type: 'static',
       overall_score: ENGINE_RESULT.overallScore,
       overall_grade: ENGINE_RESULT.overallGrade,
-      overall_percentile: ENGINE_RESULT.overallPercentile,
+      overall_percentile: null,
       front_rank: ENGINE_RESULT.ranks.front,
       side_rank: ENGINE_RESULT.ranks.side,
       scoring_engine_version: ENGINE_RESULT.engineVersion,

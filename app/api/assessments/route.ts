@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
           status: 'complete',
           overall_score: result.overallScore,
           overall_grade: result.overallGrade,
-          overall_percentile: result.overallPercentile,
+          overall_percentile: null,
           front_rank: result.ranks.front,
           side_rank: result.ranks.side,
           scoring_engine_version: result.engineVersion,

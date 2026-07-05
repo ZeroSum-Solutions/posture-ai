@@ -290,7 +290,7 @@ export interface PdfAssessment {
   id: string
   overall_score: number
   overall_grade: string
-  overall_percentile: number
+  overall_percentile: number | null
   front_rank: number | null
   side_rank: number | null
   assessed_at: string
@@ -432,10 +432,6 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
             </View>
 
             <View style={{ flex: 1 }}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Percentile</Text>
-                <Text style={[styles.statValue, { color: gradeCol }]}>Top {assessment.overall_percentile}%</Text>
-              </View>
               <View style={{ marginTop: 8 }}>
                 <Text style={styles.statLabel}>Deviation (lower is better)</Text>
                 <Text style={[styles.statValue, { color: '#F5F5F5' }]}>{assessment.overall_score}/100</Text>

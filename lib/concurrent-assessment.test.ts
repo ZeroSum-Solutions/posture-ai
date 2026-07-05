@@ -49,7 +49,7 @@ async function simulateAssessmentHandler(opts: {
     status: 'complete',
     overall_score: result.overallScore,
     overall_grade: result.overallGrade,
-    overall_percentile: result.overallPercentile,
+    overall_percentile: null,
   })
 
   return { id: assessmentId, status: 'complete', findingIds: insertedFindings.map(f => f.id) }

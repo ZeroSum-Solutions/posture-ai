@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import { assessPosture } from '../src'
 import type { PoseFrame } from '../src'
-import { toGrade, toPercentile } from '../src/thresholds'
+import { toGrade } from '../src/thresholds'
 import {
   forwardHeadPosture,
   anteriorImbalancedShoulders,
@@ -527,9 +527,10 @@ describe('trunk_lean merge: emits one finding, no legacy t1/shift keys', () => {
 // ============================================================
 // Zone and Grade Tests
 // ============================================================
+// Grade bands (recalibrated 2026-07): S≤3, A≤7, B≤20, C≤55, D≤87, E≤100
 describe('Grade boundary tests (unit tests on toGrade)', () => {
-  it('overallScore=50 maps to grade B', () => {
-    expect(toGrade(50)).toBe('B')
+  it('overallScore=50 maps to grade C', () => {
+    expect(toGrade(50)).toBe('C')
   })
 
   it('overallScore=86 maps to grade D', () => {
@@ -540,8 +541,8 @@ describe('Grade boundary tests (unit tests on toGrade)', () => {
     expect(toGrade(0)).toBe('S')
   })
 
-  it('overallScore=14 maps to grade A', () => {
-    expect(toGrade(14)).toBe('A')
+  it('overallScore=14 maps to grade B', () => {
+    expect(toGrade(14)).toBe('B')
   })
 
   it('overallScore=51 maps to grade C', () => {
@@ -619,7 +620,6 @@ describe('Determinism', () => {
 
     expect(r1.overallScore).toBe(r2.overallScore)
     expect(r1.overallGrade).toBe(r2.overallGrade)
-    expect(r1.overallPercentile).toBe(r2.overallPercentile)
     expect(r1.findings.length).toBe(r2.findings.length)
     r1.findings.forEach((f, i) => {
       expect(f.key).toBe(r2.findings[i].key)
@@ -627,6 +627,30 @@ describe('Determinism', () => {
       expect(f.zone).toBe(r2.findings[i].zone)
       expect(f.severityPct).toBe(r2.findings[i].severityPct)
     })
+  })
+})
+
+// ============================================================
+// Task 6: validity-weighted overall score + no overallPercentile
+// ============================================================
+describe('Task 6: validity-weighted overall score', () => {
+  it('weights the overall score by metric validity × landmark confidence', () => {
+    // One literature-cited metric (knee_extension) at danger and one proxy
+    // (trunk_lean) at maintain must NOT average to the midpoint: the cited
+    // metric carries double the proxy weight.
+    const frames = [generatePose('front', {}), generatePose('side', { kneeHyperextensionDeg: 12, trunkLeanDeg: 1 })]
+    const r = assessPosture(frames)
+    const knee = r.findings.find(f => f.key === 'knee_extension_back_knee')!
+    const trunk = r.findings.find(f => f.key === 'trunk_lean')!
+    const reliable = r.findings.filter(f => f.reliable)
+    const unweighted = Math.round(reliable.reduce((a, f) => a + f.severityPct, 0) / reliable.length)
+    expect(r.overallScore).not.toBe(unweighted)
+    expect(knee.severityPct).toBeGreaterThan(trunk.severityPct) // sanity of the setup
+  })
+
+  it('no longer emits overallPercentile', () => {
+    const r = assessPosture([generatePose('front', {}), generatePose('side', {})])
+    expect('overallPercentile' in r).toBe(false)
   })
 })
 

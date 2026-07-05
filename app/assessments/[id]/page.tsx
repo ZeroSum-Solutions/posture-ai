@@ -77,7 +77,7 @@ interface Assessment {
   status: string
   overall_score: number
   overall_grade: OverallGrade
-  overall_percentile: number
+  overall_percentile: number | null
   front_rank: number | null
   side_rank: number | null
   tilt_corrected: boolean | null

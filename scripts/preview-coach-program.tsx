@@ -34,7 +34,6 @@ const result: AssessmentResult = {
   findings,
   overallScore: 38,
   overallGrade: 'C',
-  overallPercentile: 61,
   ranks: { front: 36, side: 40 },
   generatedAt: '2026-06-23T00:00:00.000Z',
   engineVersion: 'sample',
