@@ -49,6 +49,11 @@ export interface Finding {
   stabilityScore?: number
   /** Robust 1σ (degrees) of this finding's deviation across the burst; undefined for a single frame. */
   uncertaintyDeg?: number
+  /**
+   * True when |deviation| sits within its own burst σ of a zone boundary — the
+   * zone claim is soft (spec §3.4). Display-only; program logic ignores it.
+   */
+  borderline?: boolean
 }
 
 export interface AssessmentResult {

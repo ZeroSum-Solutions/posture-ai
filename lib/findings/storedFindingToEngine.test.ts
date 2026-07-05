@@ -30,4 +30,14 @@ describe('toEngineFinding', () => {
     expect(toEngineFinding({ ...row, zone: 'maintain' }).reliable).toBe(true)
     expect(toEngineFinding({ ...row, zone: 'danger' }).reliable).toBe(true)
   })
+
+  it('passes borderline: true through from a stored row', () => {
+    const f = toEngineFinding({ ...row, borderline: true })
+    expect(f.borderline).toBe(true)
+  })
+
+  it('omits borderline when stored row has no borderline flag', () => {
+    const f = toEngineFinding(row)
+    expect(f.borderline).toBeUndefined()
+  })
 })

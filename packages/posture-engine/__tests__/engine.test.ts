@@ -18,7 +18,7 @@ import {
   genuVarumValgumRight,
   kneeExtensionBackKnee,
 } from '../src/metrics'
-import { generatePose } from '../golden/synthetic'
+import { generatePose, generateBurst } from '../golden/synthetic'
 
 const EPSILON = 0.1 // degrees tolerance for hand-computed expected values
 
@@ -521,6 +521,26 @@ describe('trunk_lean merge: emits one finding, no legacy t1/shift keys', () => {
     const tl = result.findings.find(f => f.key === 'trunk_lean')!
     expect(Math.abs(tl.deviation - 6)).toBeLessThan(0.15)
     expect(tl.direction).toBe('Forward')
+  })
+})
+
+// ============================================================
+// Task 9: Uncertainty-aware borderline zones (spec §3.4)
+// ============================================================
+describe('Task 9: uncertainty-aware borderline zones', () => {
+  it('flags borderline when the deviation sits within its own σ of a zone edge', () => {
+    // trunk_lean warn edge = 3°; burst engineered so median ≈ 2.8° with σ ≈ 0.5°
+    const burst = generateBurst('side', { trunkLeanDeg: 2.8 }, {}, 5, 0.004, 42)
+    const r = assessPosture([generatePose('front', {}), ...burst])
+    const tl = r.findings.find(f => f.key === 'trunk_lean')!
+    expect(tl.uncertaintyDeg).toBeGreaterThan(0)
+    if (Math.abs(Math.abs(tl.deviation) - 3) < tl.uncertaintyDeg!) expect(tl.borderline).toBe(true)
+  })
+
+  it('never flags borderline for a comfortably mid-zone finding', () => {
+    const burst = generateBurst('side', { trunkLeanDeg: 5.5 }, {}, 5, 0.001, 7)
+    const r = assessPosture([generatePose('front', {}), ...burst])
+    expect(r.findings.find(f => f.key === 'trunk_lean')!.borderline).toBeFalsy()
   })
 })
 

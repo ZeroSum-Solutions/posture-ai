@@ -27,6 +27,7 @@ interface Finding {
   confidence: number
   stability_score?: number | null
   uncertainty_deg?: number | null
+  borderline?: boolean | null
   explanation?: string | null
   causes_text?: string
   tight_muscles?: string[]
@@ -426,6 +427,12 @@ function FindingCard({ f }: { f: Finding }) {
           )}
           <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
             background: zoneColor + '22', color: isUnreliable ? '#A1A1AA' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
+          {f.borderline ? (
+            <span title="This reading sits within its own capture variability of a zone boundary — consider the zone as approximate."
+              style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
+              ± borderline
+            </span>
+          ) : null}
         </div>
       </div>
 

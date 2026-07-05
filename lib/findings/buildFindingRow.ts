@@ -20,6 +20,7 @@ export interface FindingRow {
   /** Within-capture stability (engine 1.3.0 bursts); null for single-frame captures — never fabricated. */
   stability_score: number | null
   uncertainty_deg: number | null
+  borderline: boolean | null
 }
 
 /**
@@ -49,5 +50,6 @@ export function buildFindingRow(
     metric_validity: metricValidity(f.key),
     stability_score: f.stabilityScore ?? null,
     uncertainty_deg: f.uncertaintyDeg ?? null,
+    borderline: f.borderline ?? null,
   }
 }
