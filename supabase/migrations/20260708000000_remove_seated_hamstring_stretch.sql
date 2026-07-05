@@ -1,0 +1,13 @@
+-- Safety follow-up to the content-library removal (PR #90). seated-hamstring-stretch
+-- is contraindicated for genu recurvatum: in a hyperextended knee the hamstrings are
+-- abnormally LONG, so stretching them is contraindicated, not merely incoherent
+-- (PMID 20308923). It was deleted from the content session-builder, but the DB
+-- exercise bank still carries it (seeded by 20260705000000, re-seeded by
+-- 20260707000000), so DB-fed surfaces (/api/exercises -> assessment-page
+-- recommendation preview) could still recommend it.
+--
+-- Delete it from the DB. This migration's timestamp is after every seed, so a
+-- future re-seed inserts then this removes -> net absent, and `supabase db reset`
+-- stays correct. exercise_muscles cascades on delete; exercise_recommendations is
+-- empty (and does not cascade, but there is nothing to block the delete).
+DELETE FROM exercises WHERE slug = 'seated-hamstring-stretch';
