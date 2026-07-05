@@ -1,9 +1,10 @@
-import { ALL_EXERCISES } from '../../content'
+import { ALL_EXERCISES, ALL_MUSCLES } from '../../content'
 import type { ExerciseContent } from '../../content/muscles/types'
 import type { AssessmentResult, Finding } from '../../packages/posture-engine/src/types'
 import { selectPriorities, type Capability, type SelectedPriority } from './selectPriorities'
 import { computeDose, freqLabel, type Dose } from './dosage'
 import { IMBALANCE_COPY, BILATERAL_KNEE_COPY, type ImbalanceCopy } from '../../content/report/imbalance-copy'
+import { exerciseEvidenceForKey, type LinkEvidence } from './evidenceWeight'
 
 const ZONE_RANK: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
 const CATEGORY_ORDER: Record<string, number> = { mobility: 0, stretch: 1, activation: 2, strengthen: 3 }
@@ -87,6 +88,17 @@ function primaryMuscle(ex: ExerciseContent): string {
   return ex.muscles[0]?.muscleSlug ?? ex.slug
 }
 
+function linksForKeys(keys: string[]): Array<{ muscleSlug: string; confidence?: LinkEvidence }> {
+  const out: Array<{ muscleSlug: string; confidence?: LinkEvidence }> = []
+  for (const m of ALL_MUSCLES) {
+    for (const l of m.links) {
+      if (l.scored === false || !keys.includes(l.imbalanceKey)) continue
+      out.push({ muscleSlug: m.slug, confidence: l.confidence })
+    }
+  }
+  return out
+}
+
 /** Recommended exercises for a priority: imbalance match + zone gate, no informational. */
 function candidatesFor(keys: string[], zone: string): ExerciseContent[] {
   return ALL_EXERCISES.filter(
@@ -150,11 +162,15 @@ function buildSteps(
   const core = all.filter((ex) => !ex.isIntegrative)
 
   // Session order: Loosen → Lengthen → Wake up → Strengthen, capped per category.
+  const keyLinks = linksForKeys(priority.keys)
   core.sort((a, b) => {
     const ca = CATEGORY_ORDER[a.category] ?? 9
     const cb = CATEGORY_ORDER[b.category] ?? 9
     if (ca !== cb) return ca - cb
-    return a.slug.localeCompare(b.slug)
+    const ea = exerciseEvidenceForKey(a.muscles.map((m) => m.muscleSlug), keyLinks)
+    const eb = exerciseEvidenceForKey(b.muscles.map((m) => m.muscleSlug), keyLinks)
+    if (ea !== eb) return eb - ea // higher link evidence survives the category cap first
+    return a.slug.localeCompare(b.slug) // deterministic fallback unchanged
   })
   const perCat: Record<string, number> = {}
   const picked: ExerciseContent[] = []
