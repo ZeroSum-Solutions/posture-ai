@@ -72,10 +72,10 @@ export const THRESHOLDS: Record<string, MetricThreshold> = {
 // Grade bands: overallScore 0-100 (higher = worse).
 // Recalibrated 2026-07 against validity-weighted golden anchors (spec §3.2).
 export const GRADE_BANDS: Array<{ max: number; grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' }> = [
-  { max: 3,   grade: 'S' }, // recalibrated 2026-07: 5→3, anchor: trunk-lean-warn (score 4 must exceed S)
-  { max: 7,   grade: 'A' }, // recalibrated 2026-07: 15→7, anchor: trunk-lean-danger (score 8 must exceed A)
-  { max: 20,  grade: 'B' }, // recalibrated 2026-07: 50→20, anchor: combined-moderate (score 22 must exceed B)
-  { max: 55,  grade: 'C' }, // recalibrated 2026-07: 85→55, anchor: combined-moderate (score 22 lands here)
+  { max: 3,   grade: 'S' }, // recalibrated 2026-07: 5→3, anchor: trunk-lean-warn (score 7 must exceed S)
+  { max: 7,   grade: 'A' }, // recalibrated 2026-07: 15→7, anchor: trunk-lean-danger (score 13 must exceed A)
+  { max: 20,  grade: 'B' }, // recalibrated 2026-07: 50→20, anchor: combined-moderate (score 24 must exceed B)
+  { max: 55,  grade: 'C' }, // recalibrated 2026-07: 85→55, anchor: combined-moderate (score 24 lands here)
   { max: 87,  grade: 'D' }, // recalibrated 2026-07: 95→87, preserves toGrade(86)→D
   { max: 100, grade: 'E' },
 ]
