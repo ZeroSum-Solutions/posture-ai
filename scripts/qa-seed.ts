@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto'
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import { buildFindingRow } from '../lib/findings/buildFindingRow'
 import { stripFaceLandmarks } from '../lib/pose/face-min'
+import { hashConsentToken } from '../lib/consent/token'
 
 // ─────────────────────────────────────────────────────────────
 // Config — local demo keys (public, same on every dev machine)
@@ -321,7 +322,7 @@ async function mintConsentToken(
     ? pastDate(3)  // expired 3 days ago
     : pastDate(-7) // expires 7 days from now
   await supabase.from('consent_tokens').insert({
-    token: rawToken,
+    token_hash: hashConsentToken(rawToken),
     client_id: clientId,
     practitioner_id: practitionerId,
     consent_version: CONSENT_VERSION,

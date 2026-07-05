@@ -3,7 +3,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { CONSENT_VERSION } from '@/lib/consent/policy'
 import { consentQrDataUrl } from '@/lib/consent/qr'
-import { randomUUID } from 'node:crypto'
+import { generateConsentToken } from '@/lib/consent/token'
 
 // Practitioner-initiated remote consent: mints a single-use, 7-day token for a
 // client and returns a shareable link + QR. The subject completes it at
@@ -31,12 +31,12 @@ export async function POST(req: NextRequest) {
   // The consent_tokens_reject_deleted_client trigger is the race-safe hard guard;
   // this check just gives a clean 404 in the common (already-deleted) case.
 
-  const token = randomUUID()
+  const { token, tokenHash } = generateConsentToken()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const service = createSupabaseServiceClient()
   const { error } = await service.from('consent_tokens').insert({
-    token,
+    token_hash: tokenHash,
     client_id: clientId,
     practitioner_id: user.id,
     consent_version: CONSENT_VERSION,
