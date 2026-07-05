@@ -21,6 +21,7 @@ test.describe('assessment golden path (test mode)', () => {
 
     const findings = page.locator('[data-testid^="finding-card-"]')
     await expect(findings).toHaveCount(9, { timeout: 15_000 })
+    await expect(page.getByText('Screening estimate').first()).toBeVisible()
 
     // Overall grade from the fixture is deterministic (B).
     await expect(page.getByText(/Grade/i).first()).toBeVisible()

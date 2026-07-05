@@ -28,6 +28,7 @@ interface Finding {
   stability_score?: number | null
   uncertainty_deg?: number | null
   borderline?: boolean | null
+  metric_validity?: string | null
   explanation?: string | null
   causes_text?: string
   tight_muscles?: string[]
@@ -433,6 +434,9 @@ function FindingCard({ f }: { f: Finding }) {
               ± borderline
             </span>
           ) : null}
+          <span style={{ fontSize: 11, opacity: 0.7 }}>
+            {f.metric_validity === 'LITERATURE_CITED' ? 'Literature-referenced thresholds' : 'Screening estimate'}
+          </span>
         </div>
       </div>
 
