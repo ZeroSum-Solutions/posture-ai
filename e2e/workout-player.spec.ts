@@ -8,7 +8,7 @@ import { createClient } from './helpers'
 test.describe('red-flag pre-session screen', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'Player UI test; run once on chromium')
 
-  async function mintSession(page: Page): Promise<string> {
+  async function mintSession(page: Page): Promise<{ sessionId: string; assessmentId: string }> {
     const c = await createClient(page, 'E2E', `RedFlag-${randomUUID().slice(0, 8)}`)
     const assessment = await page.request.post('/api/assessments', { data: { client_id: c.id, test_mode: true } })
     expect(assessment.ok(), `assessment create failed: ${assessment.status()}`).toBeTruthy()
@@ -19,11 +19,11 @@ test.describe('red-flag pre-session screen', () => {
 
     const mint = await page.request.post('/api/workouts', { data: { assessment_id: assessmentId } })
     expect(mint.ok(), `mint failed: ${mint.status()}`).toBeTruthy()
-    return (await mint.json()).session_id as string
+    return { sessionId: (await mint.json()).session_id as string, assessmentId }
   }
 
   test('flow 1: red-flag question renders before player controls, "No, I feel okay" unblocks begin, session starts', async ({ page }) => {
-    const sessionId = await mintSession(page)
+    const { sessionId, assessmentId } = await mintSession(page)
     await page.goto(`/workouts/${sessionId}`)
 
     // The red-flag question must be visible before any player timeline.
@@ -44,10 +44,14 @@ test.describe('red-flag pre-session screen', () => {
     await page.getByRole('button', { name: 'Begin session' }).click()
     // The "Up next" card confirms the player has advanced into a play phase.
     await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
+
+    // The practitioner-facing run list reflects the acknowledged pain check.
+    await page.goto(`/assessments/${assessmentId}`)
+    await expect(page.getByText('Pain check: clear')).toBeVisible({ timeout: 10_000 })
   })
 
   test('flow 2: "Yes" shows the stop card and no player timeline appears', async ({ page }) => {
-    const sessionId = await mintSession(page)
+    const { sessionId } = await mintSession(page)
     await page.goto(`/workouts/${sessionId}`)
 
     await expect(page.getByText('Before you start — are you feeling any sharp or worsening pain right now?')).toBeVisible({ timeout: 15_000 })
@@ -67,5 +71,30 @@ test.describe('red-flag pre-session screen', () => {
     // After dismiss the page reloads; wait for the red-flag question to reappear,
     // proving the player exited and the stop card is gone.
     await expect(page.getByTestId('stop-card')).not.toBeVisible({ timeout: 8_000 })
+  })
+
+  test('flow 3: resuming a session with prior progress re-asks the red-flag question before playback', async ({ page }) => {
+    const { sessionId } = await mintSession(page)
+
+    // Persist mid-session progress directly, so resumePlayer enters 'upNext' (it
+    // stays idle only at index 0 with nothing done) — this is the case the audit
+    // flagged as auto-playing past the safety screen.
+    const progress = await page.request.patch(`/api/workouts/${sessionId}/run`, {
+      data: { status: 'in_progress', current_item_index: 1, revision: 99 },
+    })
+    expect(progress.ok(), `progress patch failed: ${progress.status()}`).toBeTruthy()
+
+    await page.goto(`/workouts/${sessionId}`)
+
+    // resumePlayer now lands in 'upNext' and would previously auto-advance. The
+    // gate must render again, with no timeline behind it.
+    await expect(
+      page.getByText('Before you start — are you feeling any sharp or worsening pain right now?'),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/up next/i)).not.toBeVisible()
+
+    // Clearing it resumes at the persisted item, not from scratch.
+    await page.getByTestId('red-flag-no').click()
+    await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
   })
 })
