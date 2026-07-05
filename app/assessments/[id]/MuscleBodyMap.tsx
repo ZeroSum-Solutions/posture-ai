@@ -87,8 +87,13 @@ export default function MuscleBodyMap({
     weakLinks,
   })
 
-  const hasTightChips = tightMuscles.length > 0 || tightLinks.length > 0
-  const hasWeakChips = weakMuscles.length > 0 || weakLinks.length > 0
+  const isLowLink = (m: MuscleLink) => m.confidence === 'low'
+  const tightShown = tightLinks.filter((m) => !isLowLink(m))
+  const weakShown = weakLinks.filter((m) => !isLowLink(m))
+  const possibleLinks = [...tightLinks.filter(isLowLink), ...weakLinks.filter(isLowLink)]
+
+  const hasTightChips = tightMuscles.length > 0 || tightShown.length > 0
+  const hasWeakChips = weakMuscles.length > 0 || weakShown.length > 0
 
   // Render whenever there is anything to show — a marker OR a chip. A link with
   // no coordinate (e.g. rectus-femoris) shows as a chip with no marker rather
@@ -96,7 +101,7 @@ export default function MuscleBodyMap({
   // (the accordion gate). In production every legacy name has a coordinate, so
   // markers and chips always co-render exactly as before.
   const hasPossible = frontPossible.length > 0 || backPossible.length > 0
-  if (!hasAny && !hasTightChips && !hasWeakChips) return null
+  if (!hasAny && !hasTightChips && !hasWeakChips && possibleLinks.length === 0) return null
 
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -174,14 +179,14 @@ export default function MuscleBodyMap({
 
       {/* Named muscle lists */}
       <div style={{ flex: 1, minWidth: 100 }}>
-        {(tightMuscles.length > 0 || tightLinks.length > 0) && (
+        {(tightMuscles.length > 0 || tightShown.length > 0) && (
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}/>
               Tight
             </div>
-            {tightLinks.length > 0
-              ? tightLinks.map((m) => (
+            {tightShown.length > 0
+              ? tightShown.map((m) => (
                   <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
                     <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
                       style={{ color: '#EF4444', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(239,68,68,0.4)' }}>
@@ -194,14 +199,14 @@ export default function MuscleBodyMap({
             ))}
           </div>
         )}
-        {(weakMuscles.length > 0 || weakLinks.length > 0) && (
+        {(weakMuscles.length > 0 || weakShown.length > 0) && (
           <div>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4F46E5', display: 'inline-block' }}/>
               Weak
             </div>
-            {weakLinks.length > 0
-              ? weakLinks.map((m) => (
+            {weakShown.length > 0
+              ? weakShown.map((m) => (
                   <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
                     <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
                       style={{ color: '#818CF8', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(99,102,241,0.4)' }}>
@@ -211,6 +216,22 @@ export default function MuscleBodyMap({
                 ))
               : weakMuscles.map((m, i) => (
               <div key={i} style={{ fontSize: '0.72rem', color: '#818CF8', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
+            ))}
+          </div>
+        )}
+        {possibleLinks.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#A1A1AA', display: 'inline-block' }}/>
+              Possible
+            </div>
+            {possibleLinks.map((m) => (
+              <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
+                <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
+                  style={{ color: '#A1A1AA', opacity: 0.9, textDecoration: 'underline', textDecorationColor: 'rgba(161,161,170,0.4)' }}>
+                  • {m.name}
+                </Link>
+              </div>
             ))}
           </div>
         )}

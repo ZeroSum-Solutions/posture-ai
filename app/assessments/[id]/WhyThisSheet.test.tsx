@@ -69,4 +69,38 @@ describe('WhyThisBody', () => {
     )
     expect(screen.getByText(/lengthens/i)).toBeTruthy()
   })
+
+  it('0-muscle case: omits "listed above" and uses "involved in this finding" phrasing (M2/T9c)', () => {
+    render(
+      <WhyThisBody
+        findingLabel="Pelvic Axial Rotation"
+        exerciseName="Hip Flexor Stretch"
+        movementAction="lengthens"
+        muscles={[]}
+      />,
+    )
+    // "listed above" must NOT appear when there are no muscles
+    expect(screen.queryByText(/listed above/i)).toBeNull()
+    // Fallback phrasing must appear instead
+    expect(screen.getByText(/involved in this finding/i)).toBeTruthy()
+  })
+
+  it('does not overclaim: with muscles present, avoids "listed above" and scopes to the relevant muscles (C3)', () => {
+    // The sheet lists the finding's full muscle set (both roles), but a single exercise
+    // does not act on all of them. The copy must not claim the movement acts on every
+    // listed muscle ("the muscles listed above") — it addresses the relevant subset.
+    render(
+      <WhyThisBody
+        findingLabel="Trunk Lean"
+        exerciseName="Child's Pose Reach"
+        movementAction="lengthens"
+        muscles={[
+          { slug: 'latissimus-dorsi', name: 'Latissimus Dorsi', role: 'tight', confidence: 'medium' },
+          { slug: 'gluteus-maximus', name: 'Gluteus Maximus', role: 'weak', confidence: 'high' },
+        ]}
+      />,
+    )
+    expect(screen.queryByText(/listed above/i)).toBeNull()
+    expect(screen.getByText(/relevant muscles in this pattern/i)).toBeTruthy()
+  })
 })

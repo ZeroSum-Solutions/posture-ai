@@ -182,3 +182,33 @@ violation).
 - (b) Add a second valid finding key for this exercise (e.g. `knee_extension_back_knee`,
   where gastrocnemius-soleus IS linked though currently scored:false), then remove the genu
   keys — but this also requires resolving the scored:false gap first.
+
+---
+
+## Role-contradiction latent flags (muscle-role, not exercise×finding)
+
+These are separate from the exercise×finding pairs above: they are muscle links whose CODED
+role contradicts the cited literature. The gate does not catch them (a link is coherent with
+whatever role it is coded), so they are tracked here for the same deferred clinical pass.
+
+| Muscle | Finding | Coded role | Evidence | scored | Status |
+|---|---|---|---|---|---|
+| thoracic-erector-spinae | trunk_lean | weak | low (Park 2015 — inhibited in slouched sitting) | true | **RESOLVED** — Task 6 Option B flipped tight→weak; content + DB prose synced. |
+| hamstrings | trunk_lean | weak | low | true | **OPEN** — deliberate deferral (2026-07-05). |
+
+**hamstrings / trunk_lean (weak) — deferred by decision, NOT resolved:**
+- The citation itself records the contradiction: no study supports hamstring *weakness* in
+  sagittal trunk lean; lower-crossed literature describes hamstrings as short/overactive. Role
+  flagged for review during Task 2, roles frozen there.
+- Left AS-IS by explicit product-owner decision: the link is `scored: true`, so it drives the
+  2D/3D map and the ranker, but it is honestly graded `low` → it renders in the possible-
+  involvement tier (gray, "Possible / textbook-based" badge, 0.4 weight), which de-emphasises
+  it. Flipping the role weak→tight would break the coherence of the hamstring-strengthening
+  exercises currently mapped to trunk_lean; marking it `scored: false` would create NEW
+  exercise×finding debt (those strengthen exercises would lose their only weak justification).
+  Neither is a clean unilateral fix — it needs the clinical call.
+- **Resolution options:** (a) confirm hamstrings are genuinely weak/lengthened in the merged
+  trunk-lean pattern and rewrite the citation to support it; (b) recode the role to tight and
+  re-home the hamstring-strengthening exercises onto a finding where hamstring weakness is
+  supported; (c) mark `scored: false` and accept/relocate the dependent exercises. Requires
+  product-owner sign-off, same as the pairs above.

@@ -493,7 +493,6 @@ export default function PriorityProgram({
       {detail && <ExerciseDetailSheet slug={detail.slug} name={detail.name} onClose={() => setDetail(null)} />}
       {whyThis && (
         <WhyThisSheet
-          exerciseSlug={whyThis.slug}
           exerciseName={whyThis.name}
           findingKey={whyThis.findingKey}
           findingLabel={whyThis.findingLabel}

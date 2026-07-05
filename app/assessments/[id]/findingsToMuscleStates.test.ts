@@ -167,14 +167,34 @@ describe('findingsToMuscleStates', () => {
     expect(result.states.find(s => s.slug === 'latissimus-dorsi')?.confidence).toBe('low')
   })
 
-  it('takes the highest confidence when a slug appears in two findings', () => {
+  it('takes the highest confidence when a slug appears in two findings (confidence decoupled from severity-winner)', () => {
+    // severity-80 candidate is graded 'low'; severity-40 candidate is graded 'high'.
+    // The severity-winner (80) and the confidence-winner (40/high) are different candidates.
+    // Result confidence must be 'high' (group-max), proving confidence ≠ severity winner's grade.
     const result = findingsToMuscleStates([
-      { zone: 'warning', severity_pct: 40, imbalance_key: 'a',
+      { zone: 'danger', severity_pct: 80, imbalance_key: 'a',
         tight_muscle_links: [{ slug: 'upper-trapezius', name: 'Upper Trapezius', confidence: 'low' }], weak_muscle_links: [] },
-      { zone: 'danger', severity_pct: 80, imbalance_key: 'b',
+      { zone: 'warning', severity_pct: 40, imbalance_key: 'b',
         tight_muscle_links: [{ slug: 'upper-trapezius', name: 'Upper Trapezius', confidence: 'high' }], weak_muscle_links: [] },
     ])
-    expect(result.states.find(s => s.slug === 'upper-trapezius')?.confidence).toBe('high')
+    const state = result.states.find(s => s.slug === 'upper-trapezius')
+    expect(state?.confidence).toBe('high') // group-max confidence, not the severity winner's grade
+    expect(state?.severity).toBe(80)       // severity-winner's severity is still correct
+  })
+
+  it('confidence follows the WINNING role, not the losing role (opposing-role conflict, C4)', () => {
+    // gluteus-medius carries a low-confidence tight link AND a high-confidence weak link
+    // for the same finding. Equal severity → tie → tight wins. Confidence must be the
+    // winning tight role's grade ('low'), NOT the losing weak link's 'high' — otherwise a
+    // low-evidence tight signal renders at high 3D intensity.
+    const result = findingsToMuscleStates([
+      { zone: 'warning', severity_pct: 50, imbalance_key: 'pelvic_obliquity',
+        tight_muscle_links: [{ slug: 'gluteus-medius', name: 'Gluteus Medius', confidence: 'low' }],
+        weak_muscle_links: [{ slug: 'gluteus-medius', name: 'Gluteus Medius', confidence: 'high' }] },
+    ])
+    const state = result.states.find(s => s.slug === 'gluteus-medius')
+    expect(state?.role).toBe('tight')     // tie → tight
+    expect(state?.confidence).toBe('low') // winning role's grade, not the losing weak link's 'high'
   })
 
   it('does not mutate its input', () => {

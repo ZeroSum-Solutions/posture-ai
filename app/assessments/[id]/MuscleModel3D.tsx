@@ -1,15 +1,14 @@
 'use client'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { findingsToMuscleStates, type AssessmentFinding, type MuscleStateInput } from './findingsToMuscleStates'
+import { evidenceWeight } from '../../../lib/program/evidenceWeight'
 
-// Evidence weight: ungraded defaults to 0.7 so muscles never disappear without a grade.
-const EVIDENCE_WEIGHT: Record<string, number> = { high: 1.0, medium: 0.7, low: 0.4 }
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
 
 function withIntensity(states: MuscleStateInput[]) {
   return states.map((s) => ({
     ...s,
-    intensity: clamp01((s.severity ?? 50) / 100) * (EVIDENCE_WEIGHT[s.confidence ?? ''] ?? 0.7),
+    intensity: clamp01((s.severity ?? 50) / 100) * evidenceWeight(s.confidence),
   }))
 }
 

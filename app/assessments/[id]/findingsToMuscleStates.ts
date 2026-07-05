@@ -166,8 +166,14 @@ export function findingsToMuscleStates(
       winner = (bestTight ?? bestWeak)!
     }
 
-    const maxConf = group.reduce<'high' | 'medium' | 'low' | undefined>((acc, c) => higherConf(acc, c.confidence), undefined)
-    states.push({ slug, role: winner.role, severity: winner.severity, confidence: maxConf })
+    // Confidence must reflect the WINNING role's evidence, not the max across both roles.
+    // A muscle can carry a low-confidence tight link AND a high-confidence weak link
+    // (e.g. gluteus-medius / pelvic_obliquity). If tight wins by severity, borrowing the
+    // losing weak link's high confidence would paint a low-evidence signal at high intensity.
+    const winnerConf = group
+      .filter((c) => c.role === winner.role)
+      .reduce<'high' | 'medium' | 'low' | undefined>((acc, c) => higherConf(acc, c.confidence), undefined)
+    states.push({ slug, role: winner.role, severity: winner.severity, confidence: winnerConf })
     if (!slugToViewerId(slug)) notShown.push({ slug, name: winner.name })
   }
 

@@ -88,7 +88,7 @@ function primaryMuscle(ex: ExerciseContent): string {
   return ex.muscles[0]?.muscleSlug ?? ex.slug
 }
 
-function linksForKeys(keys: string[]): Array<{ muscleSlug: string; confidence?: LinkEvidence }> {
+export function linksForKeys(keys: string[]): Array<{ muscleSlug: string; confidence?: LinkEvidence }> {
   const out: Array<{ muscleSlug: string; confidence?: LinkEvidence }> = []
   for (const m of ALL_MUSCLES) {
     for (const l of m.links) {

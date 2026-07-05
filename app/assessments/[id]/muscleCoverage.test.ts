@@ -46,6 +46,28 @@ describe('muscleMap — links-first + possible-involvement tier', () => {
     expect([...r.frontTight, ...r.backTight].map(m => m.source)).toContain('latissimus-dorsi')
     expect([...r.frontPossible, ...r.backPossible]).toHaveLength(0)
   })
+
+  // T5(a): medium confidence routes to confident (tight/weak) bucket, NOT possible
+  it('medium-confidence tight link routes to tight bucket, not possible', () => {
+    const r = resolveMarkerRegions({
+      tightMuscles: [], weakMuscles: [],
+      tightLinks: [{ slug: 'latissimus-dorsi', name: 'Latissimus Dorsi', confidence: 'medium' }],
+      weakLinks: [],
+    })
+    expect([...r.frontTight, ...r.backTight].map(m => m.source)).toContain('latissimus-dorsi')
+    expect([...r.frontPossible, ...r.backPossible]).toHaveLength(0)
+  })
+
+  // T5(b): low-confidence weakLink routes to possible, not weak
+  it('low-confidence weak link routes to possible-involvement, not weak bucket', () => {
+    const r = resolveMarkerRegions({
+      tightMuscles: [], weakMuscles: [],
+      tightLinks: [],
+      weakLinks: [{ slug: 'gluteus-medius', name: 'Gluteus Medius', confidence: 'low' }],
+    })
+    expect([...r.frontPossible, ...r.backPossible].map(m => m.source)).toContain('gluteus-medius')
+    expect([...r.frontWeak, ...r.backWeak]).toHaveLength(0)
+  })
 })
 
 describe('muscle 3D coverage', () => {

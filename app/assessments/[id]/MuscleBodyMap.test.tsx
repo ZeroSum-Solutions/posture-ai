@@ -58,4 +58,43 @@ describe('MuscleBodyMap', () => {
     expect(container.querySelectorAll('ellipse')).toHaveLength(0)
     expect(container.querySelector('[data-testid="muscle-chip-rectus-femoris"]')).not.toBeNull()
   })
+
+  it('routes low-confidence links to Possible named list, not Tight/Weak chips (I2)', () => {
+    // HIGH tightLink → appears in Tight section (colored chip)
+    // LOW tightLink → appears in Possible section, NOT Tight
+    // LOW weakLink → appears in Possible section, NOT Weak
+    const { container, getByText } = render(
+      <MuscleBodyMap
+        tightMuscles={[]}
+        weakMuscles={[]}
+        tightLinks={[
+          { slug: 'pectoralis-major', name: 'Pectoralis Major', confidence: 'high' },
+          { slug: 'latissimus-dorsi', name: 'Latissimus Dorsi', confidence: 'low' },
+        ]}
+        weakLinks={[
+          { slug: 'hamstrings', name: 'Hamstrings', confidence: 'low' },
+        ]}
+      />,
+    )
+    // High link renders in Tight section (red chip present, not gray)
+    const highChip = container.querySelector('[data-testid="muscle-chip-pectoralis-major"]') as HTMLElement | null
+    expect(highChip).not.toBeNull()
+    // jsdom normalizes hex to rgb; #EF4444 = rgb(239, 68, 68)
+    expect(highChip?.style.color).toBe('rgb(239, 68, 68)')
+
+    // Low tight link appears as gray Possible chip, NOT red Tight chip
+    const lowTightChip = container.querySelector('[data-testid="muscle-chip-latissimus-dorsi"]') as HTMLElement | null
+    expect(lowTightChip).not.toBeNull()
+    // jsdom normalizes hex to rgb; #A1A1AA = rgb(161, 161, 170)
+    expect(lowTightChip?.style.color).toBe('rgb(161, 161, 170)')
+
+    // Low weak link appears as gray Possible chip, NOT blue Weak chip
+    const lowWeakChip = container.querySelector('[data-testid="muscle-chip-hamstrings"]') as HTMLElement | null
+    expect(lowWeakChip).not.toBeNull()
+    // jsdom normalizes hex to rgb; #A1A1AA = rgb(161, 161, 170)
+    expect(lowWeakChip?.style.color).toBe('rgb(161, 161, 170)')
+
+    // "Possible" header exists
+    expect(getByText('Possible')).toBeTruthy()
+  })
 })
