@@ -54,15 +54,15 @@ describe('muscleMap — resolveMarkerRegions', () => {
     expect(r.hasAny).toBe(true)
   })
 
-  it('legacy array takes precedence over links for the same role', () => {
+  it('links take precedence over legacy arrays for the same role (links-first flip)', () => {
     const r = resolveMarkerRegions({
       tightMuscles: ['quadriceps'],
       weakMuscles: [],
-      tightLinks: [{ slug: 'tfl-it-band', name: 'ignored' }],
+      tightLinks: [{ slug: 'tfl-it-band', name: 'TFL & IT Band' }],
       weakLinks: [],
     })
     expect(r.frontTight).toHaveLength(1)
-    expect(r.frontTight[0].region).toEqual(getMuscleRegion('quadriceps'))
+    expect(r.frontTight[0].region).toEqual(MUSCLE_REGIONS_BY_SLUG['tfl-it-band'])
   })
 
   it('ignores link slugs with no coordinate (e.g. rectus-femoris)', () => {
