@@ -421,10 +421,14 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
   // steps down independently and both flags re-arm on the next item.
   const [videoFailed, setVideoFailed] = useState(false)
   const [posterFailed, setPosterFailed] = useState(false)
-  useEffect(() => {
+  // Reset media-fallback flags when the exercise changes — adjusted during
+  // render (not an effect) so the stale-poster frame never commits.
+  const [prevSlug, setPrevSlug] = useState(item?.slug)
+  if (item?.slug !== prevSlug) {
+    setPrevSlug(item?.slug)
     setVideoFailed(false)
     setPosterFailed(false)
-  }, [item?.slug])
+  }
   const media = item?.media
   const showVideo = !!media && !videoFailed
   const showPoster = !!media && videoFailed && !posterFailed

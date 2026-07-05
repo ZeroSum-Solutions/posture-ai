@@ -100,7 +100,8 @@ function toViewSpace(p: V3, view: 'front' | 'side'): V3 {
  * MediaPipe convention asserted in metrics.ts:70. */
 function project(p: V3, cam: Required<CameraSpec>): Landmark {
   const SCALE = 0.4
-  let [x, y, z] = p
+  const [x, y0, z0] = p
+  let y = y0, z = z0
   // camera pitch: rotate world about the x-axis at camera height by −pitch
   if (cam.pitchDeg !== 0) {
     const a = -rad(cam.pitchDeg)
