@@ -111,3 +111,16 @@ export function buildRunUpdate(existing: RunRow, patch: RunPatch, nowIso: string
     red_flag_acknowledged,
   }
 }
+
+/**
+ * The pre-session red-flag screen is a safety control, not telemetry: a run may
+ * not be marked completed unless the acknowledgement exists (on the row or in
+ * this patch). Mirrors buildRunUpdate's completion semantics — terminal runs
+ * are unaffected.
+ */
+export function redFlagBlocksCompletion(existing: RunRow, patch: RunPatch): boolean {
+  const wouldComplete = patch.status === 'completed' && existing.status !== 'completed'
+  if (!wouldComplete) return false
+  const ackAfterPatch = patch.red_flag_acknowledged === true || existing.red_flag_acknowledged === true
+  return !ackAfterPatch
+}

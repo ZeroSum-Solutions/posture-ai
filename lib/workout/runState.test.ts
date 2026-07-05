@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { buildRunUpdate, mergeRunItems, type RunRow } from './runState'
+import { buildRunUpdate, mergeRunItems, redFlagBlocksCompletion, type RunRow } from './runState'
 
 // Non-null wrapper for cases where the patch is never stale (throws in-test otherwise).
 const mustBuild = (...args: Parameters<typeof buildRunUpdate>) => {
@@ -144,5 +144,36 @@ describe('runState.mergeRunItems', () => {
     expect(merged).toHaveLength(2)
     expect(merged.find((i) => i.slug === 'a')).toEqual({ slug: 'a', completed: true, skipped: false, durationMs: 4000 })
     expect(merged.find((i) => i.slug === 'b')).toEqual({ slug: 'b', completed: false, skipped: true })
+  })
+})
+
+describe('runState.redFlagBlocksCompletion', () => {
+  const row = (over: Partial<RunRow> = {}): RunRow => ({
+    status: 'in_progress',
+    current_item_index: 1,
+    items: [],
+    total_duration_ms: 1000,
+    last_paused_at: null,
+    completed_at: null,
+    revision: 3,
+    red_flag_acknowledged: null,
+    ...over,
+  })
+
+  test('blocks completion when ack is absent everywhere', () => {
+    expect(redFlagBlocksCompletion(row(), { status: 'completed' })).toBe(true)
+  })
+  test('allows completion when the patch itself carries the ack', () => {
+    expect(redFlagBlocksCompletion(row(), { status: 'completed', red_flag_acknowledged: true })).toBe(false)
+  })
+  test('allows completion when the row was already acknowledged', () => {
+    expect(redFlagBlocksCompletion(row({ red_flag_acknowledged: true }), { status: 'completed' })).toBe(false)
+  })
+  test('never blocks non-completing patches', () => {
+    expect(redFlagBlocksCompletion(row(), { status: 'in_progress' })).toBe(false)
+    expect(redFlagBlocksCompletion(row(), { current_item_index: 2 })).toBe(false)
+  })
+  test('never blocks a re-send to an already-completed run (terminal, no-op)', () => {
+    expect(redFlagBlocksCompletion(row({ status: 'completed' }), { status: 'completed' })).toBe(false)
   })
 })
