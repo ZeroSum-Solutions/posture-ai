@@ -7,7 +7,7 @@
  *   WhyThisBody   — pure presentational; used by tests.
  *   WhyThisSheet  — fetching wrapper; mirrors ExerciseDetailSheet structure.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ─── Evidence badge ───────────────────────────────────────────────────────────
@@ -91,7 +91,9 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
         <div style={label}>What this movement does</div>
         <div style={{ fontSize: '0.85rem', color: '#D4D4D8', lineHeight: 1.5 }}>
           <strong style={{ color: '#F5F5F5' }}>{exerciseName}</strong>{' '}
-          {movementAction} the muscles listed above, helping to address this finding.
+          {muscles.length > 0
+            ? `${movementAction} the muscles listed above, helping to address this finding.`
+            : `${movementAction} the muscles involved in this finding.`}
         </div>
       </div>
     </div>
@@ -110,7 +112,6 @@ interface MuscleRow {
 }
 
 export interface WhyThisSheetProps {
-  exerciseSlug: string
   exerciseName: string
   findingKey: string
   findingLabel: string
@@ -162,13 +163,14 @@ export default function WhyThisSheet({
     }
   }, [findingKey])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+  const escHandler = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose()
   }, [onClose])
+
+  useEffect(() => {
+    window.addEventListener('keydown', escHandler)
+    return () => window.removeEventListener('keydown', escHandler)
+  }, [escHandler])
 
   return (
     <div

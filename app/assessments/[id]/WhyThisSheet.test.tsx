@@ -69,4 +69,19 @@ describe('WhyThisBody', () => {
     )
     expect(screen.getByText(/lengthens/i)).toBeTruthy()
   })
+
+  it('0-muscle case: omits "listed above" and uses "involved in this finding" phrasing (M2/T9c)', () => {
+    render(
+      <WhyThisBody
+        findingLabel="Pelvic Axial Rotation"
+        exerciseName="Hip Flexor Stretch"
+        movementAction="lengthens"
+        muscles={[]}
+      />,
+    )
+    // "listed above" must NOT appear when there are no muscles
+    expect(screen.queryByText(/listed above/i)).toBeNull()
+    // Fallback phrasing must appear instead
+    expect(screen.getByText(/involved in this finding/i)).toBeTruthy()
+  })
 })

@@ -61,5 +61,11 @@ test.describe('red-flag pre-session screen', () => {
     // No player timeline (Up next, "set X of Y", segmented progress) is visible.
     await expect(page.getByText(/up next/i)).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Begin session' })).not.toBeVisible()
+
+    // Dismiss the stop card — onExit fires (window.location.reload), session exits.
+    await page.getByTestId('stop-card-dismiss').click()
+    // After dismiss the page reloads; wait for the red-flag question to reappear,
+    // proving the player exited and the stop card is gone.
+    await expect(page.getByTestId('stop-card')).not.toBeVisible({ timeout: 8_000 })
   })
 })
