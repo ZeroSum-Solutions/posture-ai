@@ -26,7 +26,9 @@ export default async function DashboardPage() {
       .from('clients')
       .select('id', { count: 'exact', head: true })
       .eq('practitioner_id', user.id)
-      .is('archived_at', null),
+      .is('archived_at', null)
+      // Erased clients (deleted_at set) must not inflate the count (QA-001).
+      .is('deleted_at', null),
     // Count completed assessments only, matching the Recent Activity feed — a
     // failed/abandoned capture must not show as "1 this week" above an empty feed.
     supabase
@@ -37,9 +39,12 @@ export default async function DashboardPage() {
       .gte('created_at', oneWeekAgo),
     supabase
       .from('assessments')
-      .select('id, overall_grade, overall_score, created_at, client_id, clients(first_name, last_name)')
+      // !inner + deleted_at filter drops assessments whose client has been erased
+      // so a tombstoned client never surfaces in Recent Activity (QA-001).
+      .select('id, overall_grade, overall_score, created_at, client_id, clients!inner(first_name, last_name, deleted_at)')
       .eq('practitioner_id', user.id)
       .eq('status', 'complete')
+      .is('clients.deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(5),
   ])

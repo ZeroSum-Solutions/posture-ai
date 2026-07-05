@@ -28,6 +28,10 @@ export default function ClientsPage() {
       .select('id, first_name, last_name, date_of_birth, created_at')
       .eq('practitioner_id', user.id)
       .is('archived_at', null)
+      // Exclude erased (right-to-erasure) clients — deleted_at is the tombstone.
+      // Without this an erased client lingers as a redacted ghost row, disagreeing
+      // with /api/clients which filters both (QA-001).
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
     if (fetchError) {
       setError(fetchError.message)

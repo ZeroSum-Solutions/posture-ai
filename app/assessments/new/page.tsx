@@ -63,6 +63,9 @@ function NewAssessmentWizard() {
           .select('id, first_name, last_name, date_of_birth')
           .eq('practitioner_id', user.id)
           .is('archived_at', null)
+          // Never offer an erased client in the picker — the assessment insert
+          // would be rejected by the reject-deleted-client trigger anyway (QA-001).
+          .is('deleted_at', null)
           .order('first_name')
         if (error) throw error
         const list = data || []
