@@ -58,9 +58,8 @@ export const THRESHOLDS: Record<string, MetricThreshold> = {
   forward_head_posture:           { warn: eng(5),  danger: eng(15), note: PROXY_NOTE },
   anterior_imbalanced_shoulders:  { warn: eng(2),  danger: eng(6),  note: PROXY_NOTE },
   posterior_imbalanced_shoulders: { warn: eng(2),  danger: eng(6),  note: PROXY_NOTE },
-  t1_tilt_backward:               { warn: eng(3),  danger: eng(8),  note: PROXY_NOTE },
+  trunk_lean:                     { warn: eng(3),  danger: eng(8),  note: PROXY_NOTE },
   pelvic_obliquity:               { warn: eng(2),  danger: eng(5),  note: PROXY_NOTE },
-  anterior_pelvic_shift:          { warn: eng(4),  danger: eng(12), note: PROXY_NOTE },
   genu_varum_valgum_left:         { warn: eng(5),  danger: eng(15), note: GENU_NOTE },
   genu_varum_valgum_right:        { warn: eng(5),  danger: eng(15), note: GENU_NOTE },
   knee_extension_back_knee: {

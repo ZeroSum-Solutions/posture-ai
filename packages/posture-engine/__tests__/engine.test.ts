@@ -11,14 +11,14 @@ import {
   forwardHeadPosture,
   anteriorImbalancedShoulders,
   posteriorImbalancedShoulders,
-  t1TiltBackward,
+  trunkLean,
   pelvicObliquity,
-  anteriorPelvicShift,
   pelvicAxialRotation,
   genuVarumValgumLeft,
   genuVarumValgumRight,
   kneeExtensionBackKnee,
 } from '../src/metrics'
+import { generatePose } from '../golden/synthetic'
 
 const EPSILON = 0.1 // degrees tolerance for hand-computed expected values
 
@@ -322,22 +322,22 @@ describe('Metric 3: Posterior Imbalanced Shoulders', () => {
 })
 
 // ============================================================
-// Metric 4: T1 Tilt Backward
+// Metric 4: Trunk Lean (replaces t1_tilt_backward + anterior_pelvic_shift)
 // ============================================================
-describe('Metric 4: T1 Tilt Backward', () => {
-  it('computes T1 deviation ≈ 3.81° (hand-computed from fixture)', () => {
-    const f = t1TiltBackward(T1_FRAME)
+describe('Metric 4: Trunk Lean', () => {
+  it('computes trunk lean deviation ≈ 3.81° (hand-computed from fixture)', () => {
+    const f = trunkLean(T1_FRAME)
     // shoulder=(0.500,0.220), hip=(0.520,0.520)
     // dx=0.020, dy=0.300 → atan2(0.020,0.300)*180/PI = 3.814°
     expect(withinEpsilon(f.deviation, 3.81)).toBe(true)
   })
 
   it('labels the facing-confirmed posterior shoulder Backward', () => {
-    expect(t1TiltBackward(T1_FRAME).direction).toBe('Backward')
+    expect(trunkLean(T1_FRAME).direction).toBe('Backward')
   })
 
   it('is mirror-invariant: the same tilt facing image-left still reads Backward', () => {
-    const f = t1TiltBackward(T1_FRAME_MIRROR)
+    const f = trunkLean(T1_FRAME_MIRROR)
     expect(withinEpsilon(f.deviation, 3.81)).toBe(true)
     expect(f.direction).toBe('Backward')
   })
@@ -355,24 +355,25 @@ describe('Metric 5: Pelvic Obliquity', () => {
 })
 
 // ============================================================
-// Metric 6: Anterior Pelvic Shift
+// Metric 6: Trunk Lean (larger deviation fixture — retargeted from anterior_pelvic_shift)
 // ============================================================
-describe('Metric 6: Anterior Pelvic Shift', () => {
-  it('computes anterior pelvic shift ≈ 7.60° (hand-computed from fixture)', () => {
-    const f = anteriorPelvicShift(APS_FRAME)
+describe('Metric 6: Trunk Lean (larger deviation fixture)', () => {
+  it('computes trunk lean deviation ≈ 7.60° (hand-computed from APS fixture)', () => {
+    const f = trunkLean(APS_FRAME)
     // shoulder=(0.500,0.220), hip=(0.540,0.520)
     // dx=0.040, dy=0.300 → atan2(0.040,0.300)*180/PI = 7.595°
     expect(withinEpsilon(f.deviation, 7.60)).toBe(true)
   })
 
-  it('labels the facing-confirmed anterior hip Anterior', () => {
-    expect(anteriorPelvicShift(APS_FRAME).direction).toBe('Anterior')
+  it('labels the facing-confirmed posterior shoulder Backward', () => {
+    // shoulder.x=0.500 < hip.x=0.540 → shoulderAnterior = -1 → Backward
+    expect(trunkLean(APS_FRAME).direction).toBe('Backward')
   })
 
-  it('is mirror-invariant: the same shift facing image-left still reads Anterior', () => {
-    const f = anteriorPelvicShift(APS_FRAME_MIRROR)
+  it('is mirror-invariant: the same lean facing image-left still reads Backward', () => {
+    const f = trunkLean(APS_FRAME_MIRROR)
     expect(withinEpsilon(f.deviation, 7.60)).toBe(true)
-    expect(f.direction).toBe('Anterior')
+    expect(f.direction).toBe('Backward')
   })
 })
 
@@ -504,6 +505,22 @@ describe('Metric 10: Knee Extension / Back Knee', () => {
     const f = kneeExtensionBackKnee(noFacing)
     expect(f.deviation).toBe(0)
     expect(f.direction).toBe('Neutral')
+  })
+})
+
+// ============================================================
+// Trunk Lean merge (engine 2.0.0): single finding, no legacy keys
+// ============================================================
+describe('trunk_lean merge: emits one finding, no legacy t1/shift keys', () => {
+  it('emits exactly one trunk_lean finding and no legacy t1/shift keys', () => {
+    const result = assessPosture([generatePose('front', {}), generatePose('side', { trunkLeanDeg: 6 })])
+    const keys = result.findings.map(f => f.key)
+    expect(keys).toContain('trunk_lean')
+    expect(keys).not.toContain('t1_tilt_backward')
+    expect(keys).not.toContain('anterior_pelvic_shift')
+    const tl = result.findings.find(f => f.key === 'trunk_lean')!
+    expect(Math.abs(tl.deviation - 6)).toBeLessThan(0.15)
+    expect(tl.direction).toBe('Forward')
   })
 })
 

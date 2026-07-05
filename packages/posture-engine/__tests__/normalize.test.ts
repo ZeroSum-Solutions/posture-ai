@@ -191,23 +191,22 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
     expect(r.overallGrade).toBe('B')
     expect(r.overallPercentile).toBe(76)
     expect(r.ranks.front).toBe(21) // was 18 uncorrected
-    expect(r.ranks.side).toBe(28)  // was 35 uncorrected
+    expect(r.ranks.side).toBe(30)  // was 35 uncorrected (was 28 pre-trunk_lean-merge)
 
     const byKey = Object.fromEntries(r.findings.map(f => [f.key, f]))
     expect(Math.abs(byKey['forward_head_posture'].deviation - 8.7778)).toBeLessThan(EPSILON)        // was 11.63
     expect(Math.abs(byKey['anterior_imbalanced_shoulders'].deviation - 3.8655)).toBeLessThan(EPSILON) // was 2.90
-    expect(Math.abs(byKey['t1_tilt_backward'].deviation - 2.7702)).toBeLessThan(EPSILON)            // was 3.69
-    expect(byKey['t1_tilt_backward'].zone).toBe('maintain')                                          // was 'warning'
-    expect(Math.abs(byKey['anterior_pelvic_shift'].deviation - 2.7702)).toBeLessThan(EPSILON)
+    expect(Math.abs(byKey['trunk_lean'].deviation - 2.7702)).toBeLessThan(EPSILON)                  // was 3.69 (merges t1 + aps)
+    expect(byKey['trunk_lean'].zone).toBe('maintain')                                                // was 'warning'
     expect(Math.abs(byKey['knee_extension_back_knee'].deviation - 2.0888)).toBeLessThan(EPSILON) // was 2.9112 under STANDARD=175
     expect(Math.abs(byKey['genu_varum_valgum_left'].deviation - 0.6218)).toBeLessThan(EPSILON)
   })
 
   it('frames WITHOUT aspectRatio keep the historical values (no silent re-scoring)', () => {
     const r = assessPosture(testLandmarksFrames)
-    expect(r.overallScore).toBe(26) // 25 before the recurvatum STANDARD 175→180 fix
+    expect(r.overallScore).toBe(25) // 26 before the trunk_lean merge (2.0.0)
     expect(r.ranks.front).toBe(18)
-    expect(r.ranks.side).toBe(35)
+    expect(r.ranks.side).toBe(37)
   })
 
   it('hand value: FHP fixture frame at aspect 0.75 → atan2(0.07·0.75, 0.10) ≈ 27.70°', () => {

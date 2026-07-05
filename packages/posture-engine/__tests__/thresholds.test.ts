@@ -8,9 +8,8 @@ const PROXY_KEYS = [
   'forward_head_posture',
   'anterior_imbalanced_shoulders',
   'posterior_imbalanced_shoulders',
-  't1_tilt_backward',
+  'trunk_lean',
   'pelvic_obliquity',
-  'anterior_pelvic_shift',
 ]
 
 describe('threshold provenance', () => {

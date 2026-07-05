@@ -3,17 +3,18 @@ import { normalizeFrame } from './geometry'
 import { medianFrame, deviationSpread, stabilityFromSigma } from './stability'
 import {
   forwardHeadPosture, anteriorImbalancedShoulders, posteriorImbalancedShoulders,
-  t1TiltBackward, pelvicObliquity, anteriorPelvicShift, pelvicAxialRotation,
+  trunkLean, pelvicObliquity, pelvicAxialRotation,
   genuVarumValgumLeft, genuVarumValgumRight, kneeExtensionBackKnee
 } from './metrics'
 import { toGrade, toPercentile } from './thresholds'
 
+// 2.0.0: trunk_lean merge — t1_tilt_backward + anterior_pelvic_shift were the identical shoulder→hip vector scored twice; now one finding.
 // 1.3.0: multi-frame capture bursts — robust per-landmark median point estimate
 // + per-finding within-capture stability (uncertaintyDeg / stabilityScore) and
 // AssessmentResult.captureStability. Single-frame-per-view input is unchanged.
 // 1.2.0: recurvatum metric fixed (STANDARD 175→180, facing-aware direction) +
 // boundary-level threshold provenance; knee_extension danger 15→10 (cited).
-export const ENGINE_VERSION = '1.3.0'
+export const ENGINE_VERSION = '2.0.0'
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
 
@@ -76,9 +77,8 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
     aggregate(side, forwardHeadPosture),
     aggregate(front, anteriorImbalancedShoulders),
     withStability(posteriorRep, postBurst, f => posteriorImbalancedShoulders(f, back.length ? f : undefined).deviation),
-    aggregate(side, t1TiltBackward),
+    aggregate(side, trunkLean),
     aggregate(front, pelvicObliquity),
-    aggregate(side, anteriorPelvicShift),
     aggregate(front, pelvicAxialRotation),
     aggregate(front, genuVarumValgumLeft),
     aggregate(front, genuVarumValgumRight),

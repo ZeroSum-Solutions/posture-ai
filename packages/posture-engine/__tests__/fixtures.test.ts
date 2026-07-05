@@ -6,14 +6,14 @@ describe('testLandmarksFrames (slice 1 canonical snapshot)', () => {
     const result = assessPosture(testLandmarksFrames)
 
     expect(result.overallGrade).toBe('B')
-    // 26 after the recurvatum fix (STANDARD 175→180 raised this near-straight
-    // knee's deviation 2.22°→2.78°, severity 15→18); ranks are front/side splits
-    // and the knee is a side finding, so only the side-inclusive aggregate moved.
-    expect(result.overallScore).toBe(26)
-    expect(result.overallPercentile).toBe(74)
+    // 25 after the trunk_lean merge (2.0.0): anterior_pelvic_shift was scoring the
+    // identical shoulder→hip vector as t1_tilt_backward — removing it lowers the
+    // side-view average by one duplicate finding.
+    expect(result.overallScore).toBe(25)
+    expect(result.overallPercentile).toBe(75)
     expect(result.ranks.front).toBe(18)
-    expect(result.ranks.side).toBe(35)
-    expect(result.findings).toHaveLength(10)
+    expect(result.ranks.side).toBe(37)
+    expect(result.findings).toHaveLength(9)
     expect(result.disclaimer).toContain('SCREENING ONLY')
   })
 })
