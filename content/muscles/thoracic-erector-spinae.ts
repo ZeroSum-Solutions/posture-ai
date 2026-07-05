@@ -9,15 +9,16 @@ export const thoracicErectorSpinae: MuscleContent = {
   functionText:
     'The thoracic erector spinae extend the mid-back, straightening the trunk and resisting the forward pull of gravity when sitting or standing. Acting on one side, they help the trunk side-bend and rotate. They also work to control the speed of bending forward, paying out length as the chest lowers and reversing it to bring the trunk back upright.',
   screeningNotes:
-    'Commonly short and overactive in clients who sit with the chest pressed up and the upper back arched, or who habitually lean the trunk backward. When the mid-back is held in extension, these muscles stay contracted and can feel like tight bands beside the spine. In screening they more often read as overactive rather than lengthened, so length and tone are the usual focus.',
+    'Their tone varies with posture: in clients who sit with the chest pressed up and the upper back arched, they can be short and overactive, feeling like firm bands beside the spine. In a slouched or forward-settled trunk, the same muscles more often lengthen and under-recruit. Screening should read which way the mid-back sits, since easing length and tone suits the arched presentation while endurance work suits the lengthened one.',
   links: [
     {
       imbalanceKey: 'trunk_lean',
-      role: 'tight',
+      role: 'weak',
       confidence: 'low',
-      citation: 'Park 2015 (PMID 25463688) — thoracic erector selective recruitment DECREASED (inhibited) in slouched posture, contradicting an overactive \'tight\' label; role in sway-back lean unstudied. Role flagged for review.',
+      citation:
+        'Park 2015 (PMID 25463688) — thoracic erector selective recruitment decreased (inhibited) in slouched sitting; graded weak/inhibited for trunk lean, consistent with this reduced-activity finding.',
       rationale:
-        'In a backward T1 tilt the upper trunk leans behind the hips, and the thoracic erector spinae hold that extended position, shortening on both sides to keep the chest lifted and the mid-back arched. Because they actively pull the thoracic spine into extension, sustained overactivity here reinforces the backward lean and limits the forward give needed to re-stack the ribcage over the pelvis. Easing their tone and restoring mid-back flexion may benefit the way the upper trunk settles back over the spine.',
+        'When the upper trunk settles out of a stacked position, the thoracic erector spinae tend to lengthen and under-recruit rather than hold the mid-back extended, so the chest drifts into flexion and the ribcage sits forward of the pelvis. Building endurance and control in these mid-back extensors helps re-stack the upper trunk over the spine. Because the merged trunk-lean pattern can also present as a backward-arched trunk where these muscles read short instead, screening should confirm which way the mid-back sits before loading.',
     },
   ],
   reviewedBy: null,
