@@ -34,6 +34,7 @@ export interface MarkerInput {
 export interface ResolvedMarker {
   source: string
   region: MuscleRegion
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 export interface ResolvedMarkers {
@@ -41,6 +42,8 @@ export interface ResolvedMarkers {
   frontWeak: ResolvedMarker[]
   backTight: ResolvedMarker[]
   backWeak: ResolvedMarker[]
+  frontPossible: ResolvedMarker[]
+  backPossible: ResolvedMarker[]
   hasAny: boolean
 }
 
@@ -169,35 +172,36 @@ function regionsFromLegacy(names: string[]): ResolvedMarker[] {
 }
 
 function regionsFromLinks(links: MuscleLink[]): ResolvedMarker[] {
-  return links
-    .map((l) => ({ source: l.slug, region: getMuscleRegionBySlug(l.slug) }))
-    .filter((x): x is ResolvedMarker => x.region !== null)
+  const out: ResolvedMarker[] = []
+  for (const l of links) {
+    const region = getMuscleRegionBySlug(l.slug)
+    if (region !== null) out.push({ source: l.slug, region, confidence: l.confidence })
+  }
+  return out
 }
 
-// Legacy-first per role: a role uses its legacy name array when non-empty, else
-// falls back to its normalized links. Existing assessments always carry legacy
-// arrays, so the link branch is inert in production (zero visible change).
+// Links-first: the graded knowledge base is the source of truth now that it is
+// seeded; legacy name arrays are the fallback for rows with no links.
 function regionsForRole(names: string[], links: MuscleLink[]): ResolvedMarker[] {
-  return names.length > 0 ? regionsFromLegacy(names) : regionsFromLinks(links)
+  return links.length > 0 ? regionsFromLinks(links) : regionsFromLegacy(names)
 }
 
 export function resolveMarkerRegions(input: MarkerInput): ResolvedMarkers {
   const tight = regionsForRole(input.tightMuscles, input.tightLinks ?? [])
   const weak = regionsForRole(input.weakMuscles, input.weakLinks ?? [])
-  const frontTight = tight.filter((r) => r.region.view === 'front')
-  const backTight = tight.filter((r) => r.region.view === 'back')
-  const frontWeak = weak.filter((r) => r.region.view === 'front')
-  const backWeak = weak.filter((r) => r.region.view === 'back')
+  const isLow = (m: ResolvedMarker) => m.confidence === 'low'
+  const possible = [...tight.filter(isLow), ...weak.filter(isLow)]
+  const shownTight = tight.filter((m) => !isLow(m))
+  const shownWeak = weak.filter((m) => !isLow(m))
+  const front = (a: ResolvedMarker[]) => a.filter((r) => r.region.view === 'front')
+  const back = (a: ResolvedMarker[]) => a.filter((r) => r.region.view === 'back')
+  const frontTight = front(shownTight), backTight = back(shownTight)
+  const frontWeak = front(shownWeak), backWeak = back(shownWeak)
+  const frontPossible = front(possible), backPossible = back(possible)
   return {
-    frontTight,
-    frontWeak,
-    backTight,
-    backWeak,
-    hasAny:
-      frontTight.length > 0 ||
-      frontWeak.length > 0 ||
-      backTight.length > 0 ||
-      backWeak.length > 0,
+    frontTight, frontWeak, backTight, backWeak, frontPossible, backPossible,
+    hasAny: frontTight.length > 0 || frontWeak.length > 0 || backTight.length > 0 ||
+            backWeak.length > 0 || frontPossible.length > 0 || backPossible.length > 0,
   }
 }
 

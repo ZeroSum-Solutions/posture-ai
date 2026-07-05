@@ -76,10 +76,11 @@ export default function MuscleBodyMap({
   tightLinks?: MuscleLink[]
   weakLinks?: MuscleLink[]
 }) {
-  // Legacy-first per role; falls back to normalized links when a role's legacy
-  // array is empty (see muscleMap.ts). In production legacy arrays are always
-  // present, so this is identical to the prior behavior.
-  const { frontTight, frontWeak, backTight, backWeak, hasAny } = resolveMarkerRegions({
+  // Links-first: graded knowledge-base links are the source of truth; legacy
+  // name arrays are the fallback when a role has no links. Low-confidence links
+  // are routed to the possible-involvement tier (dashed gray) and not drawn as
+  // tight/weak markers.
+  const { frontTight, frontWeak, backTight, backWeak, frontPossible, backPossible, hasAny } = resolveMarkerRegions({
     tightMuscles,
     weakMuscles,
     tightLinks,
@@ -94,12 +95,13 @@ export default function MuscleBodyMap({
   // than an empty accordion, keeping this body consistent with hasAnyMuscle()
   // (the accordion gate). In production every legacy name has a coordinate, so
   // markers and chips always co-render exactly as before.
+  const hasPossible = frontPossible.length > 0 || backPossible.length > 0
   if (!hasAny && !hasTightChips && !hasWeakChips) return null
 
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       {/* Front view */}
-      {(frontTight.length > 0 || frontWeak.length > 0) && (
+      {(frontTight.length > 0 || frontWeak.length > 0 || frontPossible.length > 0) && (
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.6rem', color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Front</div>
           <svg viewBox="0 0 80 175" width="72" height="157" style={{ display: 'block', background: '#0A0A0B', borderRadius: 6 }}>
@@ -120,12 +122,16 @@ export default function MuscleBodyMap({
                 fill="#6366F140" stroke="#6366F1" strokeWidth="1.2"
               />
             ))}
+            {frontPossible.map((item, i) => (
+              <ellipse key={`fp${i}`} cx={item.region.cx} cy={item.region.cy} rx={item.region.rx} ry={item.region.ry}
+                fill="#71717A22" stroke="#A1A1AA" strokeWidth={1} strokeDasharray="3,3" />
+            ))}
           </svg>
         </div>
       )}
 
       {/* Back view */}
-      {(backTight.length > 0 || backWeak.length > 0) && (
+      {(backTight.length > 0 || backWeak.length > 0 || backPossible.length > 0) && (
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.6rem', color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Back</div>
           <svg viewBox="0 0 80 175" width="72" height="157" style={{ display: 'block', background: '#0A0A0B', borderRadius: 6 }}>
@@ -146,7 +152,23 @@ export default function MuscleBodyMap({
                 fill="#6366F140" stroke="#6366F1" strokeWidth="1.2"
               />
             ))}
+            {backPossible.map((item, i) => (
+              <ellipse key={`bp${i}`} cx={item.region.cx} cy={item.region.cy} rx={item.region.rx} ry={item.region.ry}
+                fill="#71717A22" stroke="#A1A1AA" strokeWidth={1} strokeDasharray="3,3" />
+            ))}
           </svg>
+        </div>
+      )}
+
+      {/* Legend */}
+      {hasPossible && (
+        <div style={{ width: '100%', display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="16" height="10">
+              <ellipse cx="8" cy="5" rx="7" ry="4" fill="#71717A22" stroke="#A1A1AA" strokeWidth="1" strokeDasharray="3,3"/>
+            </svg>
+            <span style={{ fontSize: '0.65rem', color: '#A1A1AA' }}>Possible involvement</span>
+          </div>
         </div>
       )}
 
