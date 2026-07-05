@@ -118,6 +118,14 @@ export function toGrade(score: number): 'S' | 'A' | 'B' | 'C' | 'D' | 'E' {
  */
 export type MetricValidity = 'VALIDATED' | 'LITERATURE_CITED' | 'SCREENING_ONLY'
 
+/** Distance (deg) from |deviation| to the nearest zone boundary of key. */
+export function distanceToZoneEdge(deviation: number, key: string): number {
+  const t = THRESHOLDS[key]
+  if (!t) return Infinity
+  const abs = Math.abs(deviation)
+  return Math.min(Math.abs(abs - t.warn.deg), Math.abs(abs - t.danger.deg))
+}
+
 export function metricValidity(key: string): MetricValidity {
   const t = THRESHOLDS[key]
   if (!t) return 'SCREENING_ONLY'

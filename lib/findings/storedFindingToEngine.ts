@@ -15,6 +15,7 @@ export interface StoredFinding {
   zone: string
   view_used: string
   confidence: number
+  borderline?: boolean | null
 }
 
 /**
@@ -39,5 +40,6 @@ export function toEngineFinding(f: StoredFinding): Finding {
     confidence: f.confidence,
     reliable: f.zone !== 'unreliable',
     landmarksUsed: [],
+    ...(f.borderline ? { borderline: true } : {}),
   }
 }

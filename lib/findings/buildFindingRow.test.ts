@@ -52,4 +52,15 @@ describe('buildFindingRow', () => {
     expect(row.stability_score).toBeNull()
     expect(row.uncertainty_deg).toBeNull()
   })
+
+  it('persists borderline: true when the engine emitted it', () => {
+    const borderlineFinding: Finding = { ...baseFinding, borderline: true }
+    const row = buildFindingRow(borderlineFinding, 'a', 'p')
+    expect(row.borderline).toBe(true)
+  })
+
+  it('stores null borderline for a finding with no borderline flag', () => {
+    const row = buildFindingRow(baseFinding, 'a', 'p')
+    expect(row.borderline).toBeNull()
+  })
 })

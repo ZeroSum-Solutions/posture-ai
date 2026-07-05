@@ -6,7 +6,7 @@ import {
   trunkLean, pelvicObliquity, pelvicAxialRotation,
   genuVarumValgumLeft, genuVarumValgumRight, kneeExtensionBackKnee
 } from './metrics'
-import { toGrade, metricValidity, VALIDITY_WEIGHT } from './thresholds'
+import { toGrade, metricValidity, VALIDITY_WEIGHT, distanceToZoneEdge } from './thresholds'
 
 // 2.0.0: trunk_lean merge — t1_tilt_backward + anterior_pelvic_shift were the identical shoulder→hip vector scored twice; now one finding.
 // 1.3.0: multi-frame capture bursts — robust per-landmark median point estimate
@@ -30,7 +30,13 @@ function withStability(
 ): Finding | null {
   if (!rep || burst.length < 2) return rep
   const sigma = deviationSpread(burst.map(deviationOf))
-  return { ...rep, uncertaintyDeg: round2(sigma), stabilityScore: round2(stabilityFromSigma(sigma)) }
+  const borderline = rep.reliable && sigma > 0 && distanceToZoneEdge(rep.deviation, rep.key) < sigma
+  return {
+    ...rep,
+    uncertaintyDeg: round2(sigma),
+    stabilityScore: round2(stabilityFromSigma(sigma)),
+    ...(borderline ? { borderline: true } : {}),
+  }
 }
 
 /** Compute a single-view metric on the burst's median frame + its stability. */
