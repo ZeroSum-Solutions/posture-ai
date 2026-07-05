@@ -70,7 +70,6 @@ import { pushUpPlus } from './exercises/push-up-plus'
 import { quadrupedThoracicRotation } from './exercises/quadruped-thoracic-rotation'
 import { rearDeltoidStretch } from './exercises/rear-deltoid-stretch'
 import { seatedBandRow } from './exercises/seated-band-row'
-import { seatedHamstringStretch } from './exercises/seated-hamstring-stretch'
 import { seatedTibialRotation } from './exercises/seated-tibial-rotation'
 import { shoulderBladeSqueeze } from './exercises/shoulder-blade-squeeze'
 import { sideLungeAdductorStretch } from './exercises/side-lunge-adductor-stretch'
@@ -179,7 +178,6 @@ export const ALL_EXERCISES: ExerciseContent[] = [
   quadrupedThoracicRotation,
   rearDeltoidStretch,
   seatedBandRow,
-  seatedHamstringStretch,
   seatedTibialRotation,
   shoulderBladeSqueeze,
   sideLungeAdductorStretch,

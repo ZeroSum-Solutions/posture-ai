@@ -5,7 +5,7 @@ export const sidePlankKnees: ExerciseContent = {
   slug: 'side-plank-knees',
   name: 'Side Plank from Knees',
   category: 'strengthen',
-  primaryDeviationKeys: ['pelvic_axial_rotation', 'pelvic_obliquity'],
+  primaryDeviationKeys: ['pelvic_obliquity'],
   minZone: 'warning',
   dosageType: 'hold',
   reps: null,
