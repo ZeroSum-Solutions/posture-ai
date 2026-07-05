@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { generatePose, expectedDeviations } from '../golden/synthetic'
+import { generatePose, expectedDeviations, type PostureSpec } from '../golden/synthetic'
+import type { PoseFrame } from '../src/types'
 import {
   forwardHeadPosture, anteriorImbalancedShoulders, pelvicObliquity,
   trunkLean, genuVarumValgumLeft, kneeExtensionBackKnee,
@@ -30,19 +31,19 @@ describe('synthetic generator recovers spec angles (orthographic)', () => {
   })
 
   it.each([
-    [{ trunkLeanDeg: 8 }, 'trunk_lean', (f: any) => trunkLean(f).deviation, 8],
-    [{ forwardHeadDeg: 12 }, 'fhp', (f: any) => forwardHeadPosture(f).deviation, 12],
-    [{ kneeHyperextensionDeg: 7 }, 'knee', (f: any) => kneeExtensionBackKnee(f).deviation, 7],
+    [{ trunkLeanDeg: 8 }, 'trunk_lean', (f: PoseFrame) => trunkLean(f).deviation, 8],
+    [{ forwardHeadDeg: 12 }, 'fhp', (f: PoseFrame) => forwardHeadPosture(f).deviation, 12],
+    [{ kneeHyperextensionDeg: 7 }, 'knee', (f: PoseFrame) => kneeExtensionBackKnee(f).deviation, 7],
   ])('side-view spec %j recovers %s = %d°', (spec, _label, metric, want) => {
-    const side = generatePose('side', spec as any)
+    const side = generatePose('side', spec as PostureSpec)
     expect(Math.abs(metric(side) - (want as number))).toBeLessThan(TOL)
   })
 
   it.each([
-    [{ shoulderTiltDeg: 4 }, (f: any) => anteriorImbalancedShoulders(f), 4, 'Left Low'],
-    [{ pelvicTiltDeg: 3 }, (f: any) => pelvicObliquity(f), 3, 'Left Low'],
+    [{ shoulderTiltDeg: 4 }, (f: PoseFrame) => anteriorImbalancedShoulders(f), 4, 'Left Low'],
+    [{ pelvicTiltDeg: 3 }, (f: PoseFrame) => pelvicObliquity(f), 3, 'Left Low'],
   ])('front-view spec %j recovers deviation + direction', (spec, metric, want, dir) => {
-    const f = metric(generatePose('front', spec as any))
+    const f = metric(generatePose('front', spec as PostureSpec))
     expect(Math.abs(f.deviation - (want as number))).toBeLessThan(TOL)
     expect(f.direction).toBe(dir)
   })
