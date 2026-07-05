@@ -11,6 +11,7 @@ import { swapAlternatives } from '../../../lib/program/buildProgram'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
+import WhyThisSheet from './WhyThisSheet'
 
 const ZONE_COLOR: Record<'warning' | 'danger', string> = { warning: '#F59E0B', danger: '#EF4444' }
 const STEP_COLOR: Record<string, string> = {
@@ -21,6 +22,13 @@ const STEP_COLOR: Record<string, string> = {
   Connect: '#A78BFA',
 }
 const WEEK_THEME = ['Learn & Own', 'Reinforce', 'Consolidate']
+const MOVEMENT_ACTION: Record<string, string> = {
+  stretch: 'lengthens',
+  strengthen: 'strengthens',
+  mobility: 'mobilizes',
+  activation: 'activates',
+}
+
 const CAP_OPTIONS: { value: Capability; label: string }[] = [
   { value: 'regression', label: 'Regression (deconditioned)' },
   { value: 'standard', label: 'Standard' },
@@ -96,7 +104,17 @@ function SwapControl({
   )
 }
 
-function RampTable({ priority, onSwap, onOpenDetail }: { priority: ProgramPriority; onSwap: OverrideHandlers['onSwap']; onOpenDetail: (slug: string, name: string) => void }) {
+function RampTable({
+  priority,
+  onSwap,
+  onOpenDetail,
+  onWhyThis,
+}: {
+  priority: ProgramPriority
+  onSwap: OverrideHandlers['onSwap']
+  onOpenDetail: (slug: string, name: string) => void
+  onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
+}) {
   const th: React.CSSProperties = {
     textAlign: 'left',
     padding: '8px 10px',
@@ -137,7 +155,7 @@ function RampTable({ priority, onSwap, onOpenDetail }: { priority: ProgramPriori
             return (
               <tr key={s.baseSlug}>
                 <td style={td}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
                     <Pill text={s.stepLabel} color={stepColor} />
                     <button
                       data-testid={`exercise-detail-${s.slug}`}
@@ -145,6 +163,13 @@ function RampTable({ priority, onSwap, onOpenDetail }: { priority: ProgramPriori
                       style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: '#F5F5F5', fontSize: 'inherit', cursor: 'pointer', textDecoration: 'underline dotted rgba(255,255,255,0.3)', textUnderlineOffset: 3 }}
                     >
                       {s.name}
+                    </button>
+                    <button
+                      data-testid={`why-this-${s.slug}`}
+                      onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.72rem', color: '#818CF8', cursor: 'pointer', textDecoration: 'underline dotted rgba(129,140,248,0.4)', textUnderlineOffset: 3 }}
+                    >
+                      Why this?
                     </button>
                   </div>
                   <div style={{ fontSize: '0.7rem', color: '#A1A1AA', paddingLeft: 2 }}>
@@ -168,7 +193,17 @@ function RampTable({ priority, onSwap, onOpenDetail }: { priority: ProgramPriori
   )
 }
 
-function PriorityCard({ priority, onDemote, onSwap, onOpenDetail }: { priority: ProgramPriority; onOpenDetail: (slug: string, name: string) => void } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
+function PriorityCard({
+  priority,
+  onDemote,
+  onSwap,
+  onOpenDetail,
+  onWhyThis,
+}: {
+  priority: ProgramPriority
+  onOpenDetail: (slug: string, name: string) => void
+  onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
+} & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
   const zoneColor = ZONE_COLOR[priority.zone]
   const principle = priority.hasConnect ? 'Loosen → Strengthen → Connect' : 'Loosen → Strengthen'
 
@@ -237,7 +272,7 @@ function PriorityCard({ priority, onDemote, onSwap, onOpenDetail }: { priority: 
         {principle} <span style={{ color: '#A1A1AA', fontWeight: 600 }}>— the order is what makes it stick</span>
       </div>
 
-      <RampTable priority={priority} onSwap={onSwap} onOpenDetail={onOpenDetail} />
+      <RampTable priority={priority} onSwap={onSwap} onOpenDetail={onOpenDetail} onWhyThis={onWhyThis} />
     </div>
   )
 }
@@ -257,6 +292,13 @@ export default function PriorityProgram({
   onCapabilityChange: (c: Capability) => void
 } & OverrideHandlers) {
   const [detail, setDetail] = useState<{ slug: string; name: string } | null>(null)
+  const [whyThis, setWhyThis] = useState<{
+    slug: string
+    name: string
+    findingKey: string
+    findingLabel: string
+    movementAction: string
+  } | null>(null)
   return (
     <div data-testid="corrective-program" style={{ marginBottom: 24 }}>
       <div
@@ -339,7 +381,16 @@ export default function PriorityProgram({
       {report.hasPlan ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {report.priorities.map((p) => (
-            <PriorityCard key={p.primaryKey} priority={p} onDemote={onDemote} onSwap={onSwap} onOpenDetail={(slug, name) => setDetail({ slug, name })} />
+            <PriorityCard
+              key={p.primaryKey}
+              priority={p}
+              onDemote={onDemote}
+              onSwap={onSwap}
+              onOpenDetail={(slug, name) => setDetail({ slug, name })}
+              onWhyThis={(slug, name, findingKey, findingLabel, movementAction) =>
+                setWhyThis({ slug, name, findingKey, findingLabel, movementAction })
+              }
+            />
           ))}
         </div>
       ) : (
@@ -440,6 +491,16 @@ export default function PriorityProgram({
       )}
 
       {detail && <ExerciseDetailSheet slug={detail.slug} name={detail.name} onClose={() => setDetail(null)} />}
+      {whyThis && (
+        <WhyThisSheet
+          exerciseSlug={whyThis.slug}
+          exerciseName={whyThis.name}
+          findingKey={whyThis.findingKey}
+          findingLabel={whyThis.findingLabel}
+          movementAction={whyThis.movementAction}
+          onClose={() => setWhyThis(null)}
+        />
+      )}
     </div>
   )
 }
