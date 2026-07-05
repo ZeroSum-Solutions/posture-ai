@@ -155,6 +155,28 @@ describe('findingsToMuscleStates', () => {
     expect(bySlug(states, 'hip-adductors')?.role).toBe('tight')
   })
 
+  it('carries the max link confidence onto the muscle state', () => {
+    const result = findingsToMuscleStates([
+      { zone: 'danger', severity_pct: 80, imbalance_key: 'trunk_lean',
+        tight_muscle_links: [
+          { slug: 'iliopsoas', name: 'Iliopsoas', confidence: 'high' },
+          { slug: 'latissimus-dorsi', name: 'Latissimus Dorsi', confidence: 'low' },
+        ], weak_muscle_links: [] },
+    ])
+    expect(result.states.find(s => s.slug === 'iliopsoas')?.confidence).toBe('high')
+    expect(result.states.find(s => s.slug === 'latissimus-dorsi')?.confidence).toBe('low')
+  })
+
+  it('takes the highest confidence when a slug appears in two findings', () => {
+    const result = findingsToMuscleStates([
+      { zone: 'warning', severity_pct: 40, imbalance_key: 'a',
+        tight_muscle_links: [{ slug: 'upper-trapezius', name: 'Upper Trapezius', confidence: 'low' }], weak_muscle_links: [] },
+      { zone: 'danger', severity_pct: 80, imbalance_key: 'b',
+        tight_muscle_links: [{ slug: 'upper-trapezius', name: 'Upper Trapezius', confidence: 'high' }], weak_muscle_links: [] },
+    ])
+    expect(result.states.find(s => s.slug === 'upper-trapezius')?.confidence).toBe('high')
+  })
+
   it('does not mutate its input', () => {
     const input = [
       finding({ severity_pct: 70, tight_muscle_links: [link('upper-trapezius')] }),
