@@ -14,7 +14,8 @@ export const upperTrapezius: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'tight',
-      confidence: 'medium',
+      confidence: 'high',
+      citation: 'Khan 2020 (J Chiropr Med, PMC7835487) — EMG: elevated upper-trapezius activity in adults with FHP vs normal posture, at rest and during arm activity.',
       rationale:
         'As the head drifts forward of the shoulders, the upper trapezius works harder to hold the heavier load of the head against gravity and to keep the eyes level. Sustained low-level activity in this position shortens the upper fibers and raises their resting tone, which adds to the pull on the neck and reinforces the forward-head pattern. Easing this tension supports re-centering the head over the spine.',
     },
@@ -22,12 +23,15 @@ export const upperTrapezius: MuscleContent = {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'tight',
       confidence: 'high',
+      citation: 'Mahmoud 2023 (systematic review) — upper-trapezius overactivity a consistent feature of upper-crossed / rounded-shoulder posture across EMG studies.',
       rationale:
         'When the shoulders round and drift forward, the upper trapezius often over-works to stabilize and elevate the shoulder blade in place of the weaker mid- and lower-trapezius fibers. This over-reliance keeps the upper fibers short and tense, and when one side is loaded or leaned on more than the other it can hold that shoulder higher and further forward. Releasing it lets the lower scapular muscles re-engage.',
     },
     {
       imbalanceKey: 'posterior_imbalanced_shoulders',
       role: 'tight',
+      confidence: 'high',
+      citation: 'Mahmoud 2023 (systematic review) — upper-trapezius overactivity consistent across scapular-posture EMG studies.',
       rationale:
         'Posterior imbalanced shoulders involve a shoulder that sits elevated or hiked upward. The upper trapezius is a primary elevator of the shoulder blade, so chronic hiking, one-sided carrying, or guarding keeps these fibers shortened and overactive on the affected side. Sustained elevation is exactly what the upper trapezius produces, so reducing its tone helps the shoulder settle back toward a level resting height.',
     },

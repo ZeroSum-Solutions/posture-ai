@@ -14,7 +14,8 @@ export const pectoralisMajor: MuscleContent = {
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'tight',
-      confidence: 'high',
+      confidence: 'medium',
+      citation: 'Lewis 2010 (manual-therapy study) — pectoralis-major length associated with rounded-shoulder posture; indirect (length/manual measure, not dynamic EMG).',
       rationale:
         'With anterior imbalanced shoulders, the upper arm sits rolled forward and inward, which is exactly the position a short pectoralis major holds it in. Desk work and press-dominant training keep this muscle contracted, so it shortens and continuously tugs the shoulder toward the front of the body. Lengthening it through the chest helps the shoulder settle back over the ribcage and gives the mid-back muscles a fair chance to hold position.',
     },

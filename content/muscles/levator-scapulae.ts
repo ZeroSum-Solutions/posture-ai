@@ -14,12 +14,16 @@ export const levatorScapulae: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'tight',
+      confidence: 'low',
+      citation: 'Janda 1988 / Kendall 2005 (textbooks) — upper-crossed classification places levator scapulae as overactive in FHP; no FHP-specific EMG or kinematic study found.',
       rationale:
         'With the head held forward of the shoulders, the levator scapulae stays loaded as it helps support the neck and steady the head. Its attachment on the upper neck vertebrae means a forward-head position keeps it under sustained tension, shortening it over time and adding to the stiffness felt along the side and base of the neck. Lengthening it supports a more centered head position over the spine.',
     },
     {
       imbalanceKey: 'posterior_imbalanced_shoulders',
       role: 'tight',
+      confidence: 'medium',
+      citation: 'Mahmoud 2023 (systematic review) — levator/upper-crossed overactivity; applied to the posterior scapular pattern by extrapolation, not a dedicated study.',
       rationale:
         'Posterior imbalanced shoulders involve a shoulder that sits hiked or elevated. The levator scapulae is a direct elevator of the shoulder blade, so a chronically raised shoulder keeps these fibers shortened and overactive on the affected side. Because it also tips the inner corner of the shoulder blade, ongoing tension can hold the blade in a less efficient resting position; easing it helps the shoulder settle toward a level height.',
     },

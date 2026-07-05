@@ -14,7 +14,8 @@ export const iliopsoas: MuscleContent = {
     {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
-      confidence: 'low',
+      confidence: 'high',
+      citation: 'Sci Rep 2025 (PMC11923245) — tight-iliopsoas group showed altered gluteus-maximus, biceps-femoris and multifidus EMG vs normal hip-flexor group during landing (n=28).',
       rationale:
         'In an anterior pelvic shift the hips drift forward of the midline and the pelvis often tips into the bargain. A short, overactive iliopsoas is one contributor: pulling from its spine and pelvis attachments, it holds the hip flexed and tugs the pelvis into that forward, tilted position. As long as it stays tight it resists the hip extension needed to bring the pelvis back over the feet, so lengthening it is usually a first step before the glutes and deep abdominals can re-balance the position.',
     },

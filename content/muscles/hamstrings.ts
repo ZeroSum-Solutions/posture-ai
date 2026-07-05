@@ -14,13 +14,16 @@ export const hamstrings: MuscleContent = {
     {
       imbalanceKey: 'trunk_lean',
       role: 'weak',
+      confidence: 'low',
+      citation: 'Janda lower-crossed / Kendall 2005 — no study supports hamstring WEAKNESS in sagittal trunk lean; lower-crossed literature describes hamstrings as short/overactive. Role flagged for review.',
       rationale:
         'When the pelvis sways forward of the ankles, the hamstrings (alongside the glutes and deep abdominals) lengthen and lose the leverage to draw the pelvis back over the feet. Prolonged standing sway and a center of mass carried forward leave the back of the thigh underactive, so the front of the hip dominates the standing posture. Strengthening the hamstrings helps pull the pelvis back into a stacked position over the midfoot.',
     },
     {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'weak',
-      confidence: 'low',
+      confidence: 'medium',
+      citation: 'Zwick 2010 (J Pediatr Orthop B, PMID 20308923) — kinematic modelling + surface EMG identified elongated, functionally insufficient hamstrings as a main cause of knee recurvatum.',
       rationale:
         'The hamstrings bend the knee and resist it snapping into full extension, so in a back-knee (hyperextended) pattern they often test weak and let the joint settle into its locked end-range. With the quadriceps holding the knee backward and the hamstrings underactive, the joint loses its dynamic brake against hyperextension. Strengthening the hamstrings helps the knee hold a soft, neutral position under load.',
     },

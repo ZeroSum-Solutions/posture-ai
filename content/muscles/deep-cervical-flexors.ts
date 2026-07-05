@@ -15,6 +15,7 @@ export const deepCervicalFlexors: MuscleContent = {
       imbalanceKey: 'forward_head_posture',
       role: 'weak',
       confidence: 'high',
+      citation: 'Khan 2020 (J Chiropr Med, PMC7835487) — EMG: adults with FHP had reduced deep cervical flexor endurance and raised superficial activation vs normal-posture controls.',
       rationale:
         'The deep cervical flexors are the muscles that should hold the head balanced over the spine and keep the chin gently tucked. When they lose endurance and strength, the head drifts forward and larger surface muscles take over head support, letting the chin poke out. Because little is holding the cervical curve from the inside, the forward-head position settles in. Rebuilding their endurance helps the client hold a centered head position.',
     },

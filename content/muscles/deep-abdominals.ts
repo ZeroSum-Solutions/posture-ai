@@ -15,6 +15,7 @@ export const deepAbdominals: MuscleContent = {
       imbalanceKey: 'trunk_lean',
       role: 'weak',
       confidence: 'medium',
+      citation: 'Waongenngarm 2015 (PMID 27014491) — internal-oblique/TrA EMG fatigue occurred in slumped sitting in office workers but not upright; deep-core underactivity linked to forward-flexed trunk.',
       rationale:
         'The abdominal wall is the main counterweight to the back extensors: when the deep abdominals are lengthened and slow to engage, the back extensors dominate and the trunk drifts — the upper thoracic spine tips backward with the chest flared while the hips slide forward and the lumbar curve deepens. The common thread is an abdominal wall that cannot draw the ribcage down, tilt the pelvis, and stack the trunk back over the hips. Rebuilding the ability to brace the front of the trunk may benefit how the whole column re-centers over the pelvis.',
     },

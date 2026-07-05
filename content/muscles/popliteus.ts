@@ -15,6 +15,7 @@ export const popliteus: MuscleContent = {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'weak',
       confidence: 'low',
+      citation: 'Mann & Hagy 1977 (JBJS Am) — EMG showed popliteus active during knee hyperextension in adults; no study directly links popliteus weakness to recurvatum development.',
       scored: false,
       exclusionReason:
         'Display-only: no causal recurvatum data supports the popliteus inference (Grade C+); it stays on the muscle page as education but is excluded from the scored map alongside the calf and quadriceps links.',

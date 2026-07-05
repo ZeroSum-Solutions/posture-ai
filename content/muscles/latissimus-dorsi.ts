@@ -14,6 +14,8 @@ export const latissimusDorsi: MuscleContent = {
     {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
+      confidence: 'low',
+      citation: 'Lee 2016 (Ann Rehabil Med, PMC4855127) — lat activation changed with slouched sitting; no study links lat tightness specifically to sagittal trunk lean; Kendall 2005 inference.',
       rationale:
         'Because the latissimus dorsi anchors to the lower spine and pelvis and pulls on the upper arm and ribcage, a short lat tilts the ribcage upward and feeds extension into the spine, adding to a backward T1 tilt of the upper trunk. When clients reach overhead, a tight lat arches the mid-back rather than letting the arms rise freely, exaggerating the backward lean. Lengthening the lat reduces this extension pull and may benefit the way the ribcage settles down over the pelvis.',
     },

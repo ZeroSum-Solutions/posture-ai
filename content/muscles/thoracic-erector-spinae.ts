@@ -14,6 +14,8 @@ export const thoracicErectorSpinae: MuscleContent = {
     {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
+      confidence: 'low',
+      citation: 'Park 2015 (PMID 25463688) — thoracic erector selective recruitment DECREASED (inhibited) in slouched posture, contradicting an overactive \'tight\' label; role in sway-back lean unstudied. Role flagged for review.',
       rationale:
         'In a backward T1 tilt the upper trunk leans behind the hips, and the thoracic erector spinae hold that extended position, shortening on both sides to keep the chest lifted and the mid-back arched. Because they actively pull the thoracic spine into extension, sustained overactivity here reinforces the backward lean and limits the forward give needed to re-stack the ribcage over the pelvis. Easing their tone and restoring mid-back flexion may benefit the way the upper trunk settles back over the spine.',
     },

@@ -15,6 +15,7 @@ export const tflItBand: MuscleContent = {
       imbalanceKey: 'genu_varum_valgum_left',
       role: 'tight',
       confidence: 'medium',
+      citation: 'Stickley 2018 (J Athl Train, PMC5842903) — dynamic varus measures associated with IT-band syndrome onset; TFL-ITB lateral tension mechanistically plausible, not directly tested kinematically.',
       rationale:
         'On the left, the TFL and IT band are the lateral structures whose tightness applies specifically in the bow-knee (knee-bowing-outward) presentation. When the left knee bows outward, this outer-thigh unit sits shortened and overactive, reinforcing the lateral pull. In the knock-knee (knee-drifting-inward) presentation it is the inner-thigh adductors that tighten instead. Releasing the left TFL and IT band helps the knee and thigh track back toward neutral alignment.',
     },
@@ -22,6 +23,7 @@ export const tflItBand: MuscleContent = {
       imbalanceKey: 'genu_varum_valgum_right',
       role: 'tight',
       confidence: 'medium',
+      citation: 'Stickley 2018 (J Athl Train, PMC5842903) — dynamic varus measures associated with IT-band syndrome onset; TFL-ITB lateral tension mechanistically plausible, not directly tested kinematically.',
       rationale:
         'On the right, the TFL and IT band are the lateral structures whose tightness applies specifically in the bow-knee (knee-bowing-outward) presentation. When the right knee bows outward, this outer-thigh unit is held short and overactive, reinforcing the lateral pull. In the knock-knee (knee-drifting-inward) presentation the inner-thigh adductors tighten instead. Releasing and lengthening the right TFL and IT band helps the knee and thigh track back toward neutral alignment.',
     },

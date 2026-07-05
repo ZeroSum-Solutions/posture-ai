@@ -15,6 +15,7 @@ export const sternocleidomastoid: MuscleContent = {
       imbalanceKey: 'forward_head_posture',
       role: 'tight',
       confidence: 'high',
+      citation: 'Kim 2015 (J Phys Ther Sci, PMID 26696712) — EMG showed greater SCM activation during neck rotation in adults with FHP vs controls.',
       rationale:
         'In a forward-head position the lower neck bends forward while the head tips back slightly to keep the eyes level, and the sternocleidomastoid is well placed to drive and hold this combination. Relying on the SCM rather than the deeper neck flexors keeps it short and overactive, and it can become visibly prominent at rest. Easing its tone while rebuilding deep-flexor support helps the head re-center over the spine.',
     },

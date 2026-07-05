@@ -14,6 +14,8 @@ export const rhomboids: MuscleContent = {
     {
       imbalanceKey: 'anterior_imbalanced_shoulders',
       role: 'weak',
+      confidence: 'low',
+      citation: 'Janda (textbook) — retractor-weakness inference; EMG studies in this space quantify trapezius and serratus, not rhomboids in isolation; no isolating study found.',
       rationale:
         'In anterior imbalanced shoulders the rhomboids are stretched long and underactive, so they lose the tug-of-war against tight chest muscles and the shoulder blades slide forward. Without their steady retraction, the shoulder blade drifts away from the spine and the shoulder rounds toward the front. Strengthening them may help restore a counterpull that holds the shoulder blades back and supports re-centering the shoulders over the ribcage.',
     },

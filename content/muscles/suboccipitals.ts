@@ -16,6 +16,8 @@ export const suboccipitals: MuscleContent = {
     {
       imbalanceKey: 'forward_head_posture',
       role: 'tight',
+      confidence: 'medium',
+      citation: 'Lin 2022 (Clin Anat, PMID 35038194) — cadaveric study showed suboccipital extensors shortened in FHP; surface EMG is impractical for this group.',
       rationale:
         'When the head drifts forward of the shoulders, the eyes still need to stay level, so the suboccipitals hold the skull tipped back in sustained extension. Over time this constant holding shortens them, reinforcing the forward-head position and making it feel "normal" to the client. Releasing and lengthening them helps the head re-center over the spine.',
     },
