@@ -12,7 +12,7 @@ export const lumbarErectorSpinae: MuscleContent = {
     'Commonly short and overactive in clients who stand in a swayed posture or carry load in front of the body, where the low back stays arched to keep the chest up. Held in this shortened position, these muscles can feel tight and ropey beside the lumbar spine. In screening they tend to read as overactive paired with under-supporting deep abdominals, so length here is the usual focus.',
   links: [
     {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'tight',
       confidence: 'medium',
       rationale:

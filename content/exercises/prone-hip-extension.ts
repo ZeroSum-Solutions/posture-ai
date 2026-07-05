@@ -8,7 +8,7 @@ export const proneHipExtension: ExerciseContent = {
   slug: 'prone-hip-extension',
   name: 'Prone Hip Extension with Abdominal Brace',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 8, max: 10 },

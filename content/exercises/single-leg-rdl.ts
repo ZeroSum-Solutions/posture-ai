@@ -5,7 +5,7 @@ export const singleLegRdl: ExerciseContent = {
   slug: 'single-leg-rdl',
   name: 'Single-Leg Romanian Deadlift',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 'knee_extension_back_knee', 'pelvic_obliquity'],
+  primaryDeviationKeys: ['trunk_lean', 'knee_extension_back_knee', 'pelvic_obliquity'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

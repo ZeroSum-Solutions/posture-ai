@@ -5,7 +5,7 @@ export const kneelingLatStretch: ExerciseContent = {
   slug: 'kneeling-lat-stretch',
   name: 'Kneeling Lat Stretch on Chair',
   category: 'stretch',
-  primaryDeviationKeys: ['t1_tilt_backward'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,

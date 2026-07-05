@@ -12,7 +12,7 @@ export const thoracicErectorSpinae: MuscleContent = {
     'Commonly short and overactive in clients who sit with the chest pressed up and the upper back arched, or who habitually lean the trunk backward. When the mid-back is held in extension, these muscles stay contracted and can feel like tight bands beside the spine. In screening they more often read as overactive rather than lengthened, so length and tone are the usual focus.',
   links: [
     {
-      imbalanceKey: 't1_tilt_backward',
+      imbalanceKey: 'trunk_lean',
       role: 'tight',
       rationale:
         'In a backward T1 tilt the upper trunk leans behind the hips, and the thoracic erector spinae hold that extended position, shortening on both sides to keep the chest lifted and the mid-back arched. Because they actively pull the thoracic spine into extension, sustained overactivity here reinforces the backward lean and limits the forward give needed to re-stack the ribcage over the pelvis. Easing their tone and restoring mid-back flexion may benefit the way the upper trunk settles back over the spine.',

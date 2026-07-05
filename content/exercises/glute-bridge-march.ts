@@ -4,7 +4,7 @@ export const gluteBridgeMarch: ExerciseContent = {
   slug: 'glute-bridge-march',
   name: 'Glute Bridge March',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_obliquity'],
+  primaryDeviationKeys: ['trunk_lean', 'pelvic_obliquity'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 8, max: 12 },

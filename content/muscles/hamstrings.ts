@@ -12,7 +12,7 @@ export const hamstrings: MuscleContent = {
     'In screening, the hamstrings frequently read as underactive when the glutes are dominant or when the pelvis sways forward, leaving the back of the thigh unable to anchor the pelvis or control the knee. They may benefit from professional evaluation when a client cannot hinge at the hip without the lower back taking over. Both length and strength are worth checking, since a short-but-weak hamstring is common.',
   links: [
     {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'weak',
       rationale:
         'When the pelvis sways forward of the ankles, the hamstrings (alongside the glutes and deep abdominals) lengthen and lose the leverage to draw the pelvis back over the feet. Prolonged standing sway and a center of mass carried forward leave the back of the thigh underactive, so the front of the hip dominates the standing posture. Strengthening the hamstrings helps pull the pelvis back into a stacked position over the midfoot.',

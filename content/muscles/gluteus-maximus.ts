@@ -12,7 +12,7 @@ export const gluteusMaximus: MuscleContent = {
     'Commonly under-active and slow to fire in people who sit a great deal, where short hip flexors on the front of the hip reciprocally quiet the glutes. As the largest hip extender, a sleepy gluteus maximus lets the pelvis tip or shift forward and shifts work onto the low back and hamstrings. In screening it often shows as difficulty driving the hips fully back to neutral and a tendency to over-arch the low back instead.',
   links: [
     {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'weak',
       confidence: 'medium',
       rationale:

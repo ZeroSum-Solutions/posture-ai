@@ -5,7 +5,7 @@ export const catCow: ExerciseContent = {
   slug: 'cat-cow',
   name: 'Cat-Cow',
   category: 'mobility',
-  primaryDeviationKeys: ['t1_tilt_backward', 'anterior_pelvic_shift', 'forward_head_posture'],
+  primaryDeviationKeys: ['trunk_lean', 'forward_head_posture'],
   minZone: 'maintain',
   dosageType: 'dynamic',
   reps: { min: 8, max: 10 },

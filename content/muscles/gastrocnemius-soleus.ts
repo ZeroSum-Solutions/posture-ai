@@ -12,7 +12,7 @@ export const gastrocnemiusSoleus: MuscleContent = {
     'The calf commonly reads as short and overactive in clients who stand with weight shifted forward or who keep the knees locked back, since it works overtime to balance the body over the feet. Tightness here can pull the knee and ankle into less optimal positions. It may benefit from professional evaluation when ankle mobility is limited or the heels lift early during a squat.',
   links: [
     {
-      imbalanceKey: 'anterior_pelvic_shift',
+      imbalanceKey: 'trunk_lean',
       role: 'tight',
       rationale:
         'When the pelvis and body sway forward over the feet, the calf (gastrocnemius and soleus) fires constantly to keep the body from toppling, and over time it shortens. Prolonged standing sway, high heels, and a forward center of mass all load the calf this way. Releasing and lengthening it helps the body re-balance back over the midfoot rather than hanging forward at the ankles.',

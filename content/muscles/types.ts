@@ -18,15 +18,19 @@ export const IMBALANCE_KEYS = [
   'forward_head_posture',
   'anterior_imbalanced_shoulders',
   'posterior_imbalanced_shoulders',
-  't1_tilt_backward',
+  'trunk_lean',
   'pelvic_obliquity',
-  'anterior_pelvic_shift',
   'pelvic_axial_rotation',
   'genu_varum_valgum_left',
   'genu_varum_valgum_right',
   'knee_extension_back_knee',
 ] as const
 export type ImbalanceKey = (typeof IMBALANCE_KEYS)[number]
+
+/** Keys retired by the engine-2.0 trunk_lean merge. Stored v1.3 findings still
+ * carry them, so display maps must keep entries for them forever. */
+export const LEGACY_IMBALANCE_KEYS = ['t1_tilt_backward', 'anterior_pelvic_shift'] as const
+export type LegacyImbalanceKey = (typeof LEGACY_IMBALANCE_KEYS)[number]
 
 const screeningText = (min: number, max: number) =>
   z

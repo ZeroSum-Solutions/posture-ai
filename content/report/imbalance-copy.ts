@@ -1,4 +1,4 @@
-import { BANNED_TERM_PATTERNS, type ImbalanceKey } from '../muscles/types'
+import { BANNED_TERM_PATTERNS, type ImbalanceKey, type LegacyImbalanceKey } from '../muscles/types'
 
 /**
  * Plain-language, client-facing copy for each imbalance key. Screening-only
@@ -13,7 +13,7 @@ export interface ImbalanceCopy {
   reassurance: string
 }
 
-export const IMBALANCE_COPY: Record<ImbalanceKey, ImbalanceCopy> = {
+export const IMBALANCE_COPY: Record<ImbalanceKey | LegacyImbalanceKey, ImbalanceCopy> = {
   forward_head_posture: {
     plainLabel: 'Forward Head Posture',
     whatItMeans:
@@ -36,6 +36,16 @@ export const IMBALANCE_COPY: Record<ImbalanceKey, ImbalanceCopy> = {
     whatBetterLooksLike: 'Your shoulders look and feel more even from side to side.',
     reassurance: 'Small side-to-side differences are normal; gentle balancing work helps even them out.',
   },
+  trunk_lean: {
+    plainLabel: 'Trunk Lean',
+    whatItMeans:
+      'Your upper body tends to lean forward or backward of your hips instead of stacking straight over them.',
+    whatItCanFeel: 'Lower-back or mid-back fatigue after standing, and a sense of working to stay upright.',
+    whatBetterLooksLike: 'Your shoulders stack more easily over your hips, so standing tall takes less effort.',
+    reassurance: 'Trunk lean is very common and tends to respond well to a mix of core wake-up work and hip mobility.',
+  },
+  // Legacy entries — keys retired by engine 2.0. Kept forever so stored v1.3
+  // findings (which carry these keys) render correctly in the client report.
   t1_tilt_backward: {
     plainLabel: 'Upper-Back Rounding',
     whatItMeans: 'The base of your neck and upper back tends to round or tip backward.',

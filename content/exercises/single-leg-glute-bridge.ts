@@ -5,7 +5,7 @@ export const singleLegGluteBridge: ExerciseContent = {
   slug: 'single-leg-glute-bridge',
   name: 'Single-Leg Glute Bridge',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_axial_rotation', 'knee_extension_back_knee'],
+  primaryDeviationKeys: ['trunk_lean', 'pelvic_axial_rotation', 'knee_extension_back_knee'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

@@ -5,7 +5,7 @@ export const frontPlank: ExerciseContent = {
   slug: 'front-plank',
   name: 'Front Plank',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift', 't1_tilt_backward'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'warning',
   dosageType: 'hold',
   reps: null,

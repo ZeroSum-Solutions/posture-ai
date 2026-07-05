@@ -4,7 +4,7 @@ export const bandHipHingePullThrough: ExerciseContent = {
   slug: 'band-hip-hinge-pull-through',
   name: 'Band Hip Hinge Pull-Through',
   category: 'strengthen',
-  primaryDeviationKeys: ['anterior_pelvic_shift'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },

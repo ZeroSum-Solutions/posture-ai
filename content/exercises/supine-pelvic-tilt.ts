@@ -5,7 +5,7 @@ export const supinePelvicTilt: ExerciseContent = {
   slug: 'supine-pelvic-tilt',
   name: 'Supine Pelvic Tilt',
   category: 'activation',
-  primaryDeviationKeys: ['anterior_pelvic_shift'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'warning',
   dosageType: 'dynamic',
   reps: { min: 10, max: 15 },
