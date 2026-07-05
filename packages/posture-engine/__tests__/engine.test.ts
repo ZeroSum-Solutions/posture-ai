@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import { assessPosture } from '../src'
 import type { PoseFrame } from '../src'
-import { toGrade } from '../src/thresholds'
+import { toGrade, VALIDITY_WEIGHT, metricValidity } from '../src/thresholds'
 import {
   forwardHeadPosture,
   anteriorImbalancedShoulders,
@@ -534,6 +534,7 @@ describe('Task 9: uncertainty-aware borderline zones', () => {
     const r = assessPosture([generatePose('front', {}), ...burst])
     const tl = r.findings.find(f => f.key === 'trunk_lean')!
     expect(tl.uncertaintyDeg).toBeGreaterThan(0)
+    expect(tl.uncertaintyDeg!).toBeGreaterThan(Math.abs(Math.abs(tl.deviation) - 3))
     if (Math.abs(Math.abs(tl.deviation) - 3) < tl.uncertaintyDeg!) expect(tl.borderline).toBe(true)
   })
 
@@ -721,9 +722,13 @@ describe('Low confidence landmarks', () => {
     // Verify unreliable findings exist and are excluded
     expect(unreliableFindings.length).toBeGreaterThan(0)
 
-    // overallScore should equal average of reliable findings only
-    const expectedScore = reliableFindings.length > 0
-      ? Math.round(reliableFindings.reduce((acc, f) => acc + f.severityPct, 0) / reliableFindings.length)
+    // overallScore should equal validity-weighted average of reliable findings only.
+    // Uses the same formula as the engine (VALIDITY_WEIGHT × confidence).
+    const weightOf = (f: (typeof reliableFindings)[0]) =>
+      VALIDITY_WEIGHT[metricValidity(f.key)] * f.confidence
+    const totalWeight = reliableFindings.reduce((acc, f) => acc + weightOf(f), 0)
+    const expectedScore = totalWeight > 0
+      ? Math.round(reliableFindings.reduce((acc, f) => acc + f.severityPct * weightOf(f), 0) / totalWeight)
       : 0
     expect(result.overallScore).toBe(expectedScore)
   })

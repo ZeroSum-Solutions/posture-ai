@@ -29,13 +29,27 @@ const PROXY_NOTE =
   'angle, not the named clinical construct (CVA / FSA / kyphosis / APT). True ' +
   'clinical-convention metrics are deferred to the Layer-1 validation study.'
 
+// Pelvic obliquity thresholds are grounded in peer-reviewed surface-inclinometry
+// norms for the same iliac-crest/ASIS construct (Bibrowicz 2023, n=300 healthy).
+// No 2D-photograph-specific normative study exists, so a residual proxy caveat
+// remains: the photo line-angle is taken as functionally equivalent to the
+// inclinometer construct, pending the Layer-1 validation study.
+const PELVIC_NOTE =
+  'Literature-referenced (surface-inclinometry norms, Bibrowicz 2023 n=300 healthy). ' +
+  'Residual proxy: 2D-photo line angle taken as equivalent to the iliac-crest/ASIS ' +
+  'inclinometer construct; no photo-specific norm exists yet.'
+
 // Frontal knee alignment: no peer-reviewed 2D/goniometric degree cut-point
 // exists. Every OA-progression threshold (Sharma 2001 JAMA; MOST/OAI) is
 // radiographic mechanical-axis/HKA, and surface goniometry explains only ~20%
-// of mechanical-axis variance (Hinman 2012, n=1390) — so this stays a default.
+// of mechanical-axis variance (Riddle 2012, Manual Therapy 17(5):459, n=1390) —
+// so this stays a default. Hinman 2006 (Arthritis Rheum 55(2):306, n=40)
+// similarly found no significant goniometry–mechanical-axis correlation.
 const GENU_NOTE =
   'Engineering default. No peer-reviewed degree cut-point exists for 2D/goniometric ' +
-  'frontal knee alignment; the OA-progression literature is radiographic only. Tuned screening default.'
+  'frontal knee alignment; the OA-progression literature is radiographic only. ' +
+  'Surface goniometry explains only ~20% of radiographic mechanical-axis variance ' +
+  '(Riddle 2012, Manual Therapy 17(5):459, n=1390). Tuned screening default.'
 
 // Sagittal knee hyperextension (recurvatum). The cited cut-points govern ONLY a
 // confirmed hyperextension; flexion and unverifiable-facing knees are reported
@@ -59,7 +73,11 @@ export const THRESHOLDS: Record<string, MetricThreshold> = {
   anterior_imbalanced_shoulders:  { warn: eng(2),  danger: eng(6),  note: PROXY_NOTE },
   posterior_imbalanced_shoulders: { warn: eng(2),  danger: eng(6),  note: PROXY_NOTE },
   trunk_lean:                     { warn: eng(3),  danger: eng(8),  note: PROXY_NOTE },
-  pelvic_obliquity:               { warn: eng(2),  danger: eng(5),  note: PROXY_NOTE },
+  pelvic_obliquity: {
+    warn: lit(3, 'Bibrowicz 2023 (Front Psychol 14:1148239) — iliac-crest/ASIS obliquity >3° = moderate asymmetry in n=300 healthy adults (surface inclinometry; functionally equivalent to a 2D frontal-photo line angle).'),
+    danger: lit(6, 'Bibrowicz 2023 (Front Psychol 14:1148239) — >6° = significant asymmetry (75th/≈95th healthy percentiles; surface inclinometry, no 2D-photo-specific norm exists).'),
+    note: PELVIC_NOTE,
+  },
   genu_varum_valgum_left:         { warn: eng(5),  danger: eng(15), note: GENU_NOTE },
   genu_varum_valgum_right:        { warn: eng(5),  danger: eng(15), note: GENU_NOTE },
   knee_extension_back_knee: {
