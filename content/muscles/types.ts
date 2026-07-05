@@ -70,12 +70,11 @@ export const muscleLinkSchema = z.object({
   imbalanceKey: z.enum(IMBALANCE_KEYS),
   role: z.enum(['tight', 'weak']),
   /**
-   * Optional evidence-confidence grade for this specific link, from the research
-   * reconciliation (e.g. iliopsoas→APT is r=0.40/non-significant → 'low';
-   * upper-trapezius→FHP has direct but inconsistent EMG support → 'medium').
-   * Absent = not yet graded. This is the staged foundation for de-weighting
-   * low-confidence inferences — nothing consumes it yet (program/UI de-weighting
-   * is a deliberate follow-up).
+   * Evidence tier for this link. Every scored link is graded (Plan 2 §4);
+   * consumed by the map intensity, the possible-involvement tier, and
+   * program ranking. high = consistent EMG/RCT/review support;
+   * medium = plausible mechanism + partial/indirect evidence;
+   * low = textbook inference without corroborating studies.
    */
   confidence: z.enum(['high', 'medium', 'low']).optional(),
   /**
@@ -100,6 +99,12 @@ export const muscleLinkSchema = z.object({
   exclusionReason: screeningText(20, 300).optional(),
   /** 2-3 sentences tying this muscle to the specific distortion (side/condition nuance lives here). */
   rationale: screeningText(80, 600),
+  /**
+   * One-line source naming the evidence for this link's grade. A study
+   * (author year, journal) for high/medium; the textbook basis
+   * (e.g. "Kendall 2005 textbook inference") for low. Screening-gated.
+   */
+  citation: screeningText(8, 240).optional(),
 })
 
 export const muscleContentSchema = z.object({

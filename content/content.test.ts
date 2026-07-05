@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { muscleContentSchema, exerciseContentSchema, IMBALANCE_KEYS } from './muscles/types'
+import { muscleContentSchema, exerciseContentSchema, muscleLinkSchema, IMBALANCE_KEYS } from './muscles/types'
 import { MUSCLE_REGISTRY } from './muscles/registry'
 import { ALL_MUSCLES, ALL_EXERCISES } from './index'
 
@@ -248,6 +248,7 @@ describe('exercise content', () => {
     expect(ALL_EXERCISES.length).toBeLessThanOrEqual(80)
   })
 
+
   // Static stretches must hold >=30s to produce chronic ROM change (Bandy &
   // Irion 1994 meta-analysis; 2025 Delphi; Grade A). Sub-threshold holds are
   // an under-dose. Isometric strength/stability holds are a different category
@@ -260,5 +261,25 @@ describe('exercise content', () => {
       .filter(e => e.holdSeconds < 30)
       .map(e => `${e.slug} (${e.holdSeconds}s)`)
     expect(subThreshold, 'static stretches below the 30s evidence floor').toEqual([])
+  })
+})
+
+describe('muscle link citation field', () => {
+  const ALL_MUSCLE_LINKS = ALL_MUSCLES.flatMap(m => m.links)
+
+  it('citation, when present, passes screening vocabulary', () => {
+    for (const link of ALL_MUSCLE_LINKS) {
+      if (link.citation) {
+        expect(() => muscleLinkSchema.parse(link)).not.toThrow()
+        expect(link.citation).not.toMatch(/\b(diagnos|treat|cure|patient|prescri)/i)
+      }
+    }
+  })
+
+  it('schema accepts a citation field', () => {
+    const sample = { imbalanceKey: 'trunk_lean', role: 'tight',
+      confidence: 'medium', rationale: 'x'.repeat(90),
+      citation: 'Kendall 2005, Muscles: Testing and Function (textbook inference).' }
+    expect(() => muscleLinkSchema.parse(sample)).not.toThrow()
   })
 })
