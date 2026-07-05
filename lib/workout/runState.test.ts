@@ -117,6 +117,24 @@ describe('runState.buildRunUpdate — revisioned writes (authoritative replace)'
   })
 })
 
+describe('runState.buildRunUpdate — red_flag_acknowledged', () => {
+  test('a patch carrying red_flag_acknowledged persists it regardless of other fields', () => {
+    const u = mustBuild(base, { red_flag_acknowledged: true }, NOW)
+    expect(u.red_flag_acknowledged).toBe(true)
+  })
+
+  test('red_flag_acknowledged remains true when a subsequent patch omits it', () => {
+    const acknowledged: RunRow = { ...base, red_flag_acknowledged: true }
+    const u = mustBuild(acknowledged, { status: 'in_progress' }, NOW)
+    expect(u.red_flag_acknowledged).toBe(true)
+  })
+
+  test('red_flag_acknowledged is null when neither the patch nor the row carries it', () => {
+    const u = mustBuild(base, { status: 'in_progress' }, NOW)
+    expect(u.red_flag_acknowledged).toBeNull()
+  })
+})
+
 describe('runState.mergeRunItems', () => {
   test('unions items across resumes, preserving completion and max duration', () => {
     const merged = mergeRunItems(

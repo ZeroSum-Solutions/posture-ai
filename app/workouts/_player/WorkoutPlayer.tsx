@@ -25,6 +25,7 @@ export interface RunPatch {
   total_duration_ms?: number
   /** Monotonic write counter — the server drops stale/out-of-order patches. */
   revision?: number
+  red_flag_acknowledged?: boolean
 }
 export interface RatingPayload {
   clarity?: number
@@ -93,6 +94,8 @@ export function WorkoutPlayer({
   const { acquire, release } = useWakeLock()
   const [voiceMuted, setVoiceMuted] = useState(false)
   const [captionsOn, setCaptionsOn] = useState(true)
+  // Red-flag pre-session safety gate. Must be 'clear' before begin() can run.
+  const [redFlag, setRedFlag] = useState<'unasked' | 'clear' | 'stopped'>('unasked')
 
   const item = state.items[state.index] as SessionItem | undefined
   const accent = itemColor(item)
@@ -220,8 +223,17 @@ export function WorkoutPlayer({
   }, [canHide, state.index])
 
   const begin = () => {
+    // Unreachable until the pre-session red-flag screen has been answered clear.
+    if (redFlag !== 'clear') return
     dispatch({ type: 'START' })
     dispatch({ type: 'ADVANCE' })
+  }
+
+  const onRedFlagClear = () => {
+    setRedFlag('clear')
+    // Best-effort auth-path acknowledgement. On the share-token path saveRun
+    // writes to localStorage only (red_flag_acknowledged is silently dropped).
+    saveRun?.({ red_flag_acknowledged: true })
   }
 
   // Off the play phases the chrome is always shown; during play it auto-hides.
@@ -306,7 +318,23 @@ export function WorkoutPlayer({
       {/* phase content */}
       <div style={{ position: 'relative', zIndex: 3, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0 20px', textAlign: 'center' }}>
         <AnimatePresence mode="wait">
-          {(state.phase === 'idle' || state.phase === 'intro') && (
+          {(state.phase === 'idle' || state.phase === 'intro') && redFlag === 'unasked' && (
+            <Fade key="redflag" reduce={!!reduceMotion}>
+              <RedFlagCard
+                accent={accent}
+                onClear={onRedFlagClear}
+                onStop={() => setRedFlag('stopped')}
+              />
+            </Fade>
+          )}
+
+          {(state.phase === 'idle' || state.phase === 'intro') && redFlag === 'stopped' && (
+            <Fade key="stopped" reduce={!!reduceMotion}>
+              <StopCard onDismiss={onExit} />
+            </Fade>
+          )}
+
+          {(state.phase === 'idle' || state.phase === 'intro') && redFlag === 'clear' && (
             <Fade key="intro" reduce={!!reduceMotion}>
               <StartCard snapshot={snapshot} clientFirstName={clientFirstName} onBegin={begin} accent={accent} />
             </Fade>
@@ -693,6 +721,89 @@ function roundToggle(on: boolean): React.CSSProperties {
     alignItems: 'center',
     justifyContent: 'center',
   }
+}
+
+// ---- red-flag pre-session safety screen ---------------------------------
+function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () => void; onStop: () => void }) {
+  return (
+    <div>
+      <h2 style={{ fontSize: 'clamp(1.3rem, 5vw, 1.9rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', lineHeight: 1.2 }}>
+        Before you start — are you feeling any sharp or worsening pain right now?
+      </h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        <button
+          onClick={onClear}
+          data-testid="red-flag-no"
+          style={{
+            padding: '15px 40px',
+            minHeight: 56,
+            width: '100%',
+            maxWidth: 320,
+            borderRadius: 999,
+            border: 'none',
+            background: accent,
+            color: '#0A0A0B',
+            fontWeight: 800,
+            fontSize: '1.05rem',
+            cursor: 'pointer',
+            boxShadow: `0 10px 30px ${accent}44`,
+          }}
+        >
+          No, I feel okay
+        </button>
+        <button
+          onClick={onStop}
+          data-testid="red-flag-yes"
+          style={{
+            padding: '13px 40px',
+            minHeight: 52,
+            width: '100%',
+            maxWidth: 320,
+            borderRadius: 999,
+            border: '1px solid rgba(255,255,255,0.22)',
+            background: 'transparent',
+            color: '#D4D4D8',
+            fontWeight: 700,
+            fontSize: '1rem',
+            cursor: 'pointer',
+          }}
+        >
+          Yes
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---- stop card (shown when user reports pain) ----------------------------
+function StopCard({ onDismiss }: { onDismiss?: () => void }) {
+  return (
+    <div data-testid="stop-card">
+      <h2 style={{ fontSize: 'clamp(1.3rem, 5vw, 1.9rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.2 }}>
+        Let&apos;s pause here.
+      </h2>
+      <p style={{ color: '#A1A1AA', fontSize: '0.97rem', lineHeight: 1.6, margin: '0 0 28px', maxWidth: 360 }}>
+        Sharp pain is worth checking with a movement professional before continuing.
+      </p>
+      <button
+        onClick={onDismiss}
+        data-testid="stop-card-dismiss"
+        style={{
+          padding: '13px 34px',
+          minHeight: 52,
+          borderRadius: 999,
+          border: '1px solid rgba(255,255,255,0.22)',
+          background: 'transparent',
+          color: '#D4D4D8',
+          fontWeight: 700,
+          fontSize: '0.98rem',
+          cursor: 'pointer',
+        }}
+      >
+        End session
+      </button>
+    </div>
+  )
 }
 
 function timingLabel(item: SessionItem): string {

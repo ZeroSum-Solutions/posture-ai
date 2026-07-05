@@ -32,6 +32,7 @@ export interface RunRow {
   last_paused_at: string | null
   completed_at: string | null
   revision: number | null
+  red_flag_acknowledged?: boolean | null
 }
 
 export interface RunPatch {
@@ -40,6 +41,7 @@ export interface RunPatch {
   items?: RunItem[]
   total_duration_ms?: number
   revision?: number
+  red_flag_acknowledged?: boolean
 }
 
 export interface RunUpdate {
@@ -51,6 +53,7 @@ export interface RunUpdate {
   completed_at: string | null
   revision: number
   updated_at: string
+  red_flag_acknowledged?: boolean | null
 }
 
 /** Union two item lists by slug, OR-ing completed/skipped and keeping max duration. */
@@ -91,6 +94,11 @@ export function buildRunUpdate(existing: RunRow, patch: RunPatch, nowIso: string
       : mergeRunItems(existing.items ?? [], patch.items)
     : existing.items ?? []
 
+  // red_flag_acknowledged: once true it stays true (acknowledged cannot be
+  // un-acknowledged); patch carries it only on the initial screen clear.
+  const red_flag_acknowledged: boolean | null | undefined =
+    patch.red_flag_acknowledged === true ? true : existing.red_flag_acknowledged ?? null
+
   return {
     status,
     current_item_index: patch.current_item_index ?? existing.current_item_index,
@@ -100,5 +108,6 @@ export function buildRunUpdate(existing: RunRow, patch: RunPatch, nowIso: string
     completed_at: becameCompleted ? nowIso : existing.completed_at,
     revision: patch.revision ?? existing.revision ?? 0,
     updated_at: nowIso,
+    red_flag_acknowledged,
   }
 }
