@@ -10,6 +10,9 @@
 --    is required. Values for default_view, standard_value, unit,
 --    threshold_config, tight_muscles, weak_muscles mirror the t1_tilt_backward
 --    row (same spine region / same shoulder→hip vector).
+--    NOTE: threshold_config/standard_value are inert display-legacy columns —
+--    nothing reads them; the TS engine (thresholds.ts: warn 3 / danger 8) is
+--    authoritative for trunk_lean scoring.
 INSERT INTO imbalance_definitions (key, region, label, default_view, standard_value, unit, threshold_config, causes_text, tight_muscles, weak_muscles)
 VALUES ('trunk_lean', 'spine', 'Trunk Lean', 'side', 0, 'deg',
   '{"warning_start": 5, "danger_start": 15, "max_severity_dev": 30}'::jsonb,
