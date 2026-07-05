@@ -182,6 +182,21 @@ describe('findingsToMuscleStates', () => {
     expect(state?.severity).toBe(80)       // severity-winner's severity is still correct
   })
 
+  it('confidence follows the WINNING role, not the losing role (opposing-role conflict, C4)', () => {
+    // gluteus-medius carries a low-confidence tight link AND a high-confidence weak link
+    // for the same finding. Equal severity → tie → tight wins. Confidence must be the
+    // winning tight role's grade ('low'), NOT the losing weak link's 'high' — otherwise a
+    // low-evidence tight signal renders at high 3D intensity.
+    const result = findingsToMuscleStates([
+      { zone: 'warning', severity_pct: 50, imbalance_key: 'pelvic_obliquity',
+        tight_muscle_links: [{ slug: 'gluteus-medius', name: 'Gluteus Medius', confidence: 'low' }],
+        weak_muscle_links: [{ slug: 'gluteus-medius', name: 'Gluteus Medius', confidence: 'high' }] },
+    ])
+    const state = result.states.find(s => s.slug === 'gluteus-medius')
+    expect(state?.role).toBe('tight')     // tie → tight
+    expect(state?.confidence).toBe('low') // winning role's grade, not the losing weak link's 'high'
+  })
+
   it('does not mutate its input', () => {
     const input = [
       finding({ severity_pct: 70, tight_muscle_links: [link('upper-trapezius')] }),
