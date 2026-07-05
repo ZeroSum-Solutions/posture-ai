@@ -1,0 +1,16 @@
+{
+  "jitterSigma": 0.005,
+  "runs": 60,
+  "sigmaDegByMetric": {
+    "forward_head_posture": 6.104806723815311,
+    "anterior_imbalanced_shoulders": 2.160016088244461,
+    "posterior_imbalanced_shoulders": 2.160016088244461,
+    "t1_tilt_backward": 1.9094735689387718,
+    "pelvic_obliquity": 4.2270033475479405,
+    "anterior_pelvic_shift": 1.9094735689387718,
+    "pelvic_axial_rotation": 0,
+    "genu_varum_valgum_left": 3.1525695628417614,
+    "genu_varum_valgum_right": 2.465923343008352,
+    "knee_extension_back_knee": 3.230594034855451
+  }
+}

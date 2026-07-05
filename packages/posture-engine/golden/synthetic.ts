@@ -119,7 +119,7 @@ function project(p: V3, cam: Required<CameraSpec>): Landmark {
     yi = 0.5 - ((y - cam.heightM) * f / depth) * SCALE
   }
   if (cam.rollDeg !== 0) {
-    const a = rad(cam.rollDeg)
+    const a = -rad(cam.rollDeg)
     const rx = xi - 0.5, ry = yi - 0.5
     xi = 0.5 + rx * Math.cos(a) - ry * Math.sin(a)
     yi = 0.5 + rx * Math.sin(a) + ry * Math.cos(a)
