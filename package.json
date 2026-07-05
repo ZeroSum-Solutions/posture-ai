@@ -16,7 +16,8 @@
     "lint:vocab": "vitest run content",
     "test": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "qa:seed": "npx vite-node scripts/qa-seed.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.35",

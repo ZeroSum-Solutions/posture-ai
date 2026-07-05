@@ -73,6 +73,35 @@ test.describe('client archive', () => {
   })
 })
 
+// QA-001 regression: right-to-erasure must remove a client from the UI read
+// paths, not just /api/clients. Erasing sets deleted_at (archived_at stays null)
+// and redacts PII, so a list that filters only archived_at leaves the erased
+// client as a redacted ghost row. The row is still a <Link> to /clients/<id>, so
+// assert by that id-bearing href — it survives PII redaction where the name does
+// not. Guards the same deleted_at filter added to the dashboard count/recent
+// activity and the new-assessment client picker (all one root cause).
+test.describe('erased client is hidden from the clients list', () => {
+  test('an erased client no longer appears as a row in /clients', async ({ page }) => {
+    const token = randomUUID().slice(0, 8)
+    const victim = await createClient(page, 'E2E', `Erase-${token}`)
+    const keeper = await createClient(page, 'E2E', `Keep-${token}`)
+
+    // Both present before erasure.
+    await page.goto('/clients')
+    await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toBeVisible()
+
+    // Right-to-erasure: tombstone + redact + purge.
+    const del = await page.request.delete(`/api/clients/${victim.id}`, { data: { reason: 'test erasure' } })
+    expect(del.ok(), `delete failed: ${del.status()}`).toBeTruthy()
+
+    // The erased client's row is gone; the keeper still renders.
+    await page.goto('/clients')
+    await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toHaveCount(0)
+  })
+})
+
 // Empty state: a freshly-created client (zero assessments) shows the empty
 // Assessment History state + the "+ New Assessment" CTA, and — because the
 // Progress/Compare trend tabs require >= 2 assessments — those tabs are absent.
