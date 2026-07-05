@@ -1,0 +1,14 @@
+{
+  "acceptedAt": "2026-07-05T03:21:39.869Z",
+  "maeByMetric": {
+    "forward_head_posture": 2.1272,
+    "anterior_imbalanced_shoulders": 0,
+    "posterior_imbalanced_shoulders": 0,
+    "t1_tilt_backward": 0.0153,
+    "pelvic_obliquity": 0,
+    "anterior_pelvic_shift": 0.0153,
+    "genu_varum_valgum_left": 0.0016,
+    "genu_varum_valgum_right": 0.0015,
+    "knee_extension_back_knee": 0.0001
+  }
+}
