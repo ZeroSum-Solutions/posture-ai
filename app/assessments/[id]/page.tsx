@@ -659,6 +659,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [shareLink, setShareLink] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [runList, setRunList] = useState<Array<{ session_id: string; created_at: string; status: string; red_flag_acknowledged: boolean | null; completed_at: string | null }>>([])
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -715,6 +716,18 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     load()
     return () => ac.abort()
   }, [assessmentId, router])
+
+  // Practitioner-facing session-run list (with pain-check status). Refetched on
+  // mount; a launched session remounts this page on return from the player.
+  useEffect(() => {
+    if (!assessmentId) return
+    const ac = new AbortController()
+    fetch(`/api/workouts?assessment_id=${assessmentId}`, { signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : { runs: [] }))
+      .then((d) => setRunList(d.runs ?? []))
+      .catch(() => {})
+    return () => ac.abort()
+  }, [assessmentId])
 
   const exercises = useMemo(
     () => (allExercises.length > 0 && findings.length > 0 ? deriveExerciseRecommendations(allExercises, findings) : []),
@@ -1061,6 +1074,20 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             )}
             {shareError && <div role="alert" style={{ color: '#F87171', fontSize: '0.8rem', marginTop: 6 }}>{shareError}</div>}
           </div>
+          {runList.length > 0 && (
+            <div style={{ flexBasis: '100%', marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
+              <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A1A1AA', marginBottom: 8 }}>Session runs</div>
+              {runList.map((r) => (
+                <div key={r.session_id + r.created_at} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, color: '#D4D4D8', padding: '4px 0' }}>
+                  <span>{new Date(r.created_at).toLocaleDateString()}</span>
+                  <span style={{ textTransform: 'capitalize' }}>{r.status.replace('_', ' ')}</span>
+                  <span style={{ color: r.red_flag_acknowledged ? '#34D399' : '#F59E0B', fontWeight: 700 }}>
+                    {r.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ background: '#161618', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 16, padding: 20, marginBottom: 24 }}>

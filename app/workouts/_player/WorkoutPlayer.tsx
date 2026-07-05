@@ -100,7 +100,9 @@ export function WorkoutPlayer({
   const item = state.items[state.index] as SessionItem | undefined
   const accent = itemColor(item)
   const total = state.items.length
-  const active = state.phase !== 'idle' && state.phase !== 'summary'
+  // The player is inert until the red-flag screen is answered clear — a resumed
+  // session lands in 'upNext' and must NOT auto-advance past the safety check.
+  const active = state.phase !== 'idle' && state.phase !== 'summary' && redFlag === 'clear'
 
   // ---- timeline clock: one interval, real deltas, paused-aware -----------
   useEffect(() => {
@@ -152,6 +154,7 @@ export function WorkoutPlayer({
       window.speechSynthesis.cancel()
       return
     }
+    if (redFlag !== 'clear') return
     const cue = voiceCue(state.phase, state.items[state.index], state.set)
     if (!cue) return
     try {
@@ -165,7 +168,7 @@ export function WorkoutPlayer({
     // state.items is intentionally omitted: the reducer sets it once at init and
     // never replaces it, so it is a permanently stable reference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, state.index, state.set, voiceMuted])
+  }, [state.phase, state.index, state.set, voiceMuted, redFlag])
 
   // Stop any in-flight speech when the player unmounts.
   useEffect(() => () => { try { window.speechSynthesis?.cancel() } catch {} }, [])
@@ -187,6 +190,9 @@ export function WorkoutPlayer({
       current_item_index: Math.min(state.index, total),
       items,
       total_duration_ms: state.elapsedMs,
+      // Idempotent ratchet server-side; guarantees a completing patch always
+      // carries the acknowledgement even if the initial clear-time write raced.
+      ...(redFlag === 'clear' ? { red_flag_acknowledged: true } : {}),
     }
     const key = JSON.stringify([status, patch.current_item_index, items])
     if (key === lastSavedRef.current) return
@@ -196,7 +202,7 @@ export function WorkoutPlayer({
     // elapsedMs is read but intentionally not a dep: it changes every tick, and
     // the key-dedup above already gates writes to meaningful transitions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveRun, snapshot.items, total, state.phase, state.index, state.paused, state.results])
+  }, [saveRun, snapshot.items, total, state.phase, state.index, state.paused, state.results, redFlag])
 
   // ---- auto-hiding chrome (Apple-Fitness+ discipline) -------------------
   const [chromeShown, setChromeShown] = useState(true)
@@ -318,7 +324,7 @@ export function WorkoutPlayer({
       {/* phase content */}
       <div style={{ position: 'relative', zIndex: 3, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0 20px', textAlign: 'center' }}>
         <AnimatePresence mode="wait">
-          {(state.phase === 'idle' || state.phase === 'intro') && redFlag === 'unasked' && (
+          {redFlag === 'unasked' && state.phase !== 'summary' && (
             <Fade key="redflag" reduce={!!reduceMotion}>
               <RedFlagCard
                 accent={accent}
@@ -328,25 +334,25 @@ export function WorkoutPlayer({
             </Fade>
           )}
 
-          {(state.phase === 'idle' || state.phase === 'intro') && redFlag === 'stopped' && (
+          {redFlag === 'stopped' && state.phase !== 'summary' && (
             <Fade key="stopped" reduce={!!reduceMotion}>
               <StopCard onDismiss={onExit} />
             </Fade>
           )}
 
-          {(state.phase === 'idle' || state.phase === 'intro') && redFlag === 'clear' && (
+          {redFlag === 'clear' && (state.phase === 'idle' || state.phase === 'intro') && (
             <Fade key="intro" reduce={!!reduceMotion}>
               <StartCard snapshot={snapshot} clientFirstName={clientFirstName} onBegin={begin} accent={accent} />
             </Fade>
           )}
 
-          {state.phase === 'upNext' && item && (
+          {redFlag === 'clear' && state.phase === 'upNext' && item && (
             <Fade key={`upnext-${state.index}`} reduce={!!reduceMotion}>
               <UpNext item={item} index={state.index} total={total} accent={accent} onStart={() => dispatch({ type: 'ADVANCE' })} />
             </Fade>
           )}
 
-          {state.phase === 'preroll' && item && (
+          {redFlag === 'clear' && state.phase === 'preroll' && item && (
             <Fade key={`preroll-${state.index}`} reduce={!!reduceMotion}>
               <div>
                 <div style={{ fontSize: '0.9rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, marginBottom: 8 }}>Get ready</div>
@@ -356,7 +362,7 @@ export function WorkoutPlayer({
             </Fade>
           )}
 
-          {(state.phase === 'playing' || state.phase === 'resting') && item && (
+          {redFlag === 'clear' && (state.phase === 'playing' || state.phase === 'resting') && item && (
             <Fade key="playing" reduce={!!reduceMotion}>
               <PlayingHud state={state} item={item} accent={accent} captionText={captionsOn ? caption(state.phase, item) : ''} onNext={() => dispatch({ type: 'NEXT' })} />
             </Fade>

@@ -20,7 +20,7 @@ export function hashIp(forwardedFor: string | null): string | null {
 
 interface LogEvent {
   route: string
-  outcome: 'ok' | 'client_error' | 'server_error' | 'rate_limited'
+  outcome: 'ok' | 'client_error' | 'server_error' | 'rate_limited' | 'red_flag_block'
   status: number
   durationMs?: number
   userHash?: string

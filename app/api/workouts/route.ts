@@ -143,3 +143,43 @@ export async function POST(req: NextRequest) {
   logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash, assessmentId: assessment_id, durationMs: Date.now() - started })
   return NextResponse.json({ session_id: session.id, share_link: shareLink })
 }
+
+/**
+ * Practitioner-facing list of a client's guided-session runs for one assessment,
+ * including whether the pre-session red-flag pain check was recorded. Read-only,
+ * authenticated + practitioner-scoped (service-role bypasses RLS, so the
+ * practitioner_id filter is the authorization boundary).
+ */
+export async function GET(req: NextRequest) {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
+
+  const assessmentId = req.nextUrl.searchParams.get('assessment_id')
+  if (!assessmentId || !z.string().uuid().safeParse(assessmentId).success) {
+    return NextResponse.json({ error: 'Invalid assessment id' }, { status: 400 })
+  }
+
+  const service = createSupabaseServiceClient()
+  const { data, error } = await service
+    .from('workout_sessions')
+    .select('id, created_at, session_runs(status, red_flag_acknowledged, completed_at)')
+    .eq('assessment_id', assessmentId)
+    .eq('practitioner_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) return NextResponse.json({ error: 'Failed to load runs.' }, { status: 500 })
+
+  const runs = (data ?? []).flatMap((s) =>
+    (s.session_runs ?? []).map((r) => ({
+      session_id: s.id,
+      created_at: s.created_at,
+      status: r.status,
+      red_flag_acknowledged: r.red_flag_acknowledged,
+      completed_at: r.completed_at,
+    })),
+  )
+  return NextResponse.json({ runs })
+}
