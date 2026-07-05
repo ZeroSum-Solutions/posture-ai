@@ -103,7 +103,7 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'thoracic-erector-spinae',
     name: 'Thoracic Erector Spinae',
     region: 'trunk',
-    links: [{ imbalanceKey: 'trunk_lean', role: 'tight' }],
+    links: [{ imbalanceKey: 'trunk_lean', role: 'weak' }],
   },
   {
     slug: 'lumbar-erector-spinae',
