@@ -20,6 +20,7 @@ const bodySchema = z.object({
   items: z.array(runItemSchema).optional(),
   total_duration_ms: z.number().int().min(0).optional(),
   revision: z.number().int().min(0).optional(),
+  red_flag_acknowledged: z.boolean().optional(),
 }).strict()
 
 /**
@@ -57,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // RLS, so the practitioner_id filter is the authorization boundary).
   const { data: existing } = await service
     .from('session_runs')
-    .select('id, status, current_item_index, items, total_duration_ms, last_paused_at, completed_at, revision')
+    .select('id, status, current_item_index, items, total_duration_ms, last_paused_at, completed_at, revision, red_flag_acknowledged')
     .eq('workout_session_id', id)
     .eq('practitioner_id', user.id)
     .order('created_at', { ascending: true })
