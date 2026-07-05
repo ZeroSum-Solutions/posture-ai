@@ -7,12 +7,13 @@ import { assessPosture } from '../src/engine'
 // Proxy metrics: the engine measures a lean-from-vertical / line-tilt quantity,
 // NOT the named clinical construct (CVA, FSA, kyphosis, APT). Their thresholds
 // are tunable engineering defaults, not literature-cited cut-points.
+// pelvic_obliquity is NOT in this list — it graduated to LITERATURE_CITED
+// (Bibrowicz 2023, surface-inclinometry norms, n=300 healthy adults).
 const PROXY_KEYS = [
   'forward_head_posture',
   'anterior_imbalanced_shoulders',
   'posterior_imbalanced_shoulders',
   'trunk_lean',
-  'pelvic_obliquity',
 ]
 
 describe('threshold provenance', () => {
@@ -58,6 +59,15 @@ describe('threshold provenance', () => {
     }
   })
 
+  it('every literature boundary carries a citation; every engineering boundary carries none', () => {
+    for (const [key, t] of Object.entries(THRESHOLDS)) {
+      for (const b of [t.warn, t.danger]) {
+        if (b.source === 'literature') expect(b.citation, key).toBeTruthy()
+        else expect(b.citation, key).toBeNull()
+      }
+    }
+  })
+
   it('toZoneAndPct still maps deviations to zones after the model change', () => {
     expect(toZoneAndPct(0, 'knee_extension_back_knee').zone).toBe('maintain')
     expect(toZoneAndPct(7, 'knee_extension_back_knee').zone).toBe('warning')
@@ -74,6 +84,17 @@ describe('metricValidity (projection over threshold provenance)', () => {
     for (const key of [...PROXY_KEYS, 'genu_varum_valgum_left', 'genu_varum_valgum_right']) {
       expect(metricValidity(key), key).toBe('SCREENING_ONLY')
     }
+  })
+
+  it('pelvic_obliquity is LITERATURE_CITED after Bibrowicz 2023 graduation', () => {
+    expect(metricValidity('pelvic_obliquity')).toBe('LITERATURE_CITED')
+    const t = THRESHOLDS['pelvic_obliquity']
+    expect(t.warn.source).toBe('literature')
+    expect(t.danger.source).toBe('literature')
+    expect(t.warn.citation).toMatch(/Bibrowicz/)
+    expect(t.danger.citation).toMatch(/Bibrowicz/)
+    expect(t.warn.deg).toBe(3)
+    expect(t.danger.deg).toBe(6)
   })
 
   it('an absent / unscored key is SCREENING_ONLY (most conservative default)', () => {

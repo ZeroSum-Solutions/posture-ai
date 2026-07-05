@@ -185,8 +185,9 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
   it('locks the aspect-corrected canonical result', () => {
     const r = assessPosture(frames)
     // Aspect correction lowers the side-view angles; validity-weighted score
-    // (Task 6) shifts to 23 (was 24 unweighted). No overallPercentile emitted.
-    expect(r.overallScore).toBe(23)
+    // (Task 6) shifts to 23 (was 24 unweighted); further shifts to 21 after
+    // pelvic_obliquity graduated to LITERATURE_CITED weight (Task 11).
+    expect(r.overallScore).toBe(21)
     expect(r.overallGrade).toBe('C')
     expect(r.ranks.front).toBe(21) // was 18 uncorrected
     expect(r.ranks.side).toBe(30)  // was 35 uncorrected (was 28 pre-trunk_lean-merge)
@@ -202,7 +203,7 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
 
   it('frames WITHOUT aspectRatio keep the historical values (no silent re-scoring)', () => {
     const r = assessPosture(testLandmarksFrames)
-    expect(r.overallScore).toBe(24) // 25 before validity-weighted score (Task 6), 26 before trunk_lean-merge (2.0.0)
+    expect(r.overallScore).toBe(22) // 24 before pelvic_obliquity LITERATURE_CITED (Task 11); 25 before validity-weighted (Task 6); 26 before trunk_lean-merge (2.0.0)
     expect(r.ranks.front).toBe(18)
     expect(r.ranks.side).toBe(37)
   })
