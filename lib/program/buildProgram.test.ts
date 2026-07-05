@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildProgramFrom, swapAlternatives } from './buildProgram'
+import { buildProgramFrom, swapAlternatives, linksForKeys } from './buildProgram'
 import { exerciseEvidenceForKey, evidenceWeight } from './evidenceWeight'
 import type { Finding } from '../../packages/posture-engine/src/types'
 
@@ -32,6 +32,34 @@ it('exerciseEvidenceForKey returns the best-graded targeted muscle', () => {
   expect(exerciseEvidenceForKey(['anterior-deltoid'], keyLinks)).toBe(0.4)
   expect(exerciseEvidenceForKey(['unrelated'], keyLinks)).toBe(0)
   expect(evidenceWeight(undefined)).toBe(0.7) // ungraded → medium-equivalent
+})
+
+// T7(a): cover the medium weight path explicitly
+it('evidenceWeight returns 0.7 for medium confidence', () => {
+  expect(evidenceWeight('medium')).toBe(0.7)
+})
+
+// T7(c): NaN defense — out-of-enum and undefined both fall back to 0.7
+it('evidenceWeight falls back to 0.7 for out-of-enum and undefined values', () => {
+  expect(evidenceWeight('bogus' as never)).toBe(0.7)
+  expect(evidenceWeight(undefined)).toBe(0.7)
+})
+
+// T7(b): linksForKeys returns scored links with muscleSlug+confidence; skips scored===false
+it('linksForKeys returns scored links and skips scored===false entries', () => {
+  // knee_extension_back_knee has gastrocnemius-soleus with scored=false — must be absent
+  const result = linksForKeys(['knee_extension_back_knee'])
+  expect(result.every((l) => typeof l.muscleSlug === 'string' && l.muscleSlug.length > 0)).toBe(true)
+  const gastroc = result.find((l) => l.muscleSlug === 'gastrocnemius-soleus')
+  expect(gastroc).toBeUndefined() // scored=false link is excluded
+  // All items have optional confidence; any that are present must be a valid grade
+  for (const l of result) {
+    if (l.confidence !== undefined) {
+      expect(['high', 'medium', 'low']).toContain(l.confidence)
+    }
+  }
+  // The result set is non-empty (there are scored links for this key)
+  expect(result.length).toBeGreaterThan(0)
 })
 
 // Evidence tie-break permanently pinned: these assertions would fail if the
