@@ -19,16 +19,21 @@ for (const m of ALL_MUSCLES) {
 }
 lines.push('')
 
-// links: full refresh (content is the source of truth). Display-only links
-// (scored === false) are documented in content but kept OUT of the scored seed —
-// this mirrors the content.test demotion invariant and the demotion migration.
+// links: full refresh (content is the source of truth). All links — including
+// display-only (scored === false) ones — are included so the possible-involvement
+// / excluded tier has data. scored=false rows carry link_evidence but are excluded
+// from the composite score calculation.
 lines.push('DELETE FROM muscle_imbalance_links;')
 for (const m of ALL_MUSCLES) {
   for (const l of m.links) {
-    if (l.scored === false) continue
     lines.push(
-      `INSERT INTO muscle_imbalance_links (muscle_slug, imbalance_key, role, rationale_text) VALUES (` +
-        [q(m.slug), q(l.imbalanceKey), q(l.role), q(l.rationale)].join(', ') +
+      `INSERT INTO muscle_imbalance_links (muscle_slug, imbalance_key, role, rationale_text, link_evidence, scored, exclusion_reason) VALUES (` +
+        [
+          q(m.slug), q(l.imbalanceKey), q(l.role), q(l.rationale),
+          q(l.confidence ?? null),
+          l.scored === false ? 'false' : 'true',
+          q(l.exclusionReason ?? null),
+        ].join(', ') +
         `);`
     )
   }
