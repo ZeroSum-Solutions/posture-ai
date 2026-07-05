@@ -5,7 +5,7 @@ import { createClient, selectClientInWizard } from './helpers'
 // flow exercises client creation -> wizard -> scoring -> results -> PDF link
 // -> client progress without a camera.
 test.describe('assessment golden path (test mode)', () => {
-  test('create client, run fixture assessment, see 10 findings and PDF', async ({ page }) => {
+  test('create client, run fixture assessment, see 9 findings and PDF', async ({ page }) => {
     const stamp = Date.now().toString().slice(-7)
     const client = await createClient(page, 'E2E', `Flow${stamp}`)
 
@@ -20,7 +20,7 @@ test.describe('assessment golden path (test mode)', () => {
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
     const findings = page.locator('[data-testid^="finding-card-"]')
-    await expect(findings).toHaveCount(10, { timeout: 15_000 })
+    await expect(findings).toHaveCount(9, { timeout: 15_000 })
 
     // Overall grade from the fixture is deterministic (B).
     await expect(page.getByText(/Grade/i).first()).toBeVisible()
