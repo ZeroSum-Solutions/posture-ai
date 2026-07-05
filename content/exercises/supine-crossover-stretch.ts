@@ -5,7 +5,7 @@ export const supineCrossoverStretch: ExerciseContent = {
   slug: 'supine-crossover-stretch',
   name: 'Supine Crossover Stretch',
   category: 'stretch',
-  primaryDeviationKeys: ['pelvic_obliquity', 'pelvic_axial_rotation'],
+  primaryDeviationKeys: ['pelvic_obliquity'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,

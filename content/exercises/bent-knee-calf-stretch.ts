@@ -5,7 +5,7 @@ export const bentKneeCalfStretch: ExerciseContent = {
   slug: 'bent-knee-calf-stretch',
   name: 'Bent-Knee Calf Stretch',
   category: 'stretch',
-  primaryDeviationKeys: ['knee_extension_back_knee', 'trunk_lean'],
+  primaryDeviationKeys: ['trunk_lean'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,
