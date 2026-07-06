@@ -4,11 +4,11 @@ import type { ExerciseContent } from '../muscles/types'
 export const bandLyingHipInternalRotation: ExerciseContent = {
   slug: 'band-lying-hip-internal-rotation',
   name: 'Band Lying Hip Internal Rotation',
-  category: 'strengthen',
+  category: 'informational',
   primaryDeviationKeys: ['pelvic_axial_rotation'],
   minZone: 'warning',
   dosageType: 'dynamic',
-  reps: { min: 10, max: 12 },
+  reps: null,
   instructions:
     'Lie on your side or sit with the working knee bent and a light band providing gentle resistance to the lower leg. Rotate the lower leg to turn the hip inward with control, moving only through a comfortable range. Pause 2 seconds at the end of the turn, then return slowly to the start. Keep the hips stacked and steady so the movement comes from the hip. Perform 10-12 controlled repetitions, then switch sides.',
   sets: 3,

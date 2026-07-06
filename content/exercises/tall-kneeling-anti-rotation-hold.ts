@@ -4,7 +4,7 @@ import type { ExerciseContent } from '../muscles/types'
 export const tallKneelingAntiRotationHold: ExerciseContent = {
   slug: 'tall-kneeling-anti-rotation-hold',
   name: 'Tall-Kneeling Anti-Rotation Hold',
-  category: 'activation',
+  category: 'informational',
   primaryDeviationKeys: ['pelvic_axial_rotation'],
   minZone: 'warning',
   dosageType: 'hold',

@@ -4,7 +4,7 @@ import type { ExerciseContent } from '../muscles/types'
 export const rearDeltoidStretch: ExerciseContent = {
   slug: 'rear-deltoid-stretch',
   name: 'Rear Deltoid Stretch',
-  category: 'stretch',
+  category: 'informational',
   primaryDeviationKeys: ['posterior_imbalanced_shoulders'],
   minZone: 'maintain',
   dosageType: 'hold',

@@ -3,11 +3,11 @@ import type { ExerciseContent } from '../muscles/types'
 export const standingCalfRaise: ExerciseContent = {
   slug: 'standing-calf-raise',
   name: 'Standing Calf Raise',
-  category: 'strengthen',
+  category: 'informational',
   primaryDeviationKeys: ['knee_extension_back_knee'],
   minZone: 'warning',
   dosageType: 'dynamic',
-  reps: { min: 12, max: 15 },
+  reps: null,
   instructions:
     'Stand tall with your feet hip-width apart. Press up onto the balls of both feet, lifting your heels as high as you comfortably can. Pause at the top, then lower your heels slowly and with control. Rest a hand on a wall for balance if you need it. Move smoothly and keep your ankles steady. Perform 12-15 repetitions per set.',
   sets: 3,

@@ -3,11 +3,11 @@ import type { ExerciseContent } from '../muscles/types'
 export const wallAnkleDorsiflexionRock: ExerciseContent = {
   slug: 'wall-ankle-dorsiflexion-rock',
   name: 'Wall Ankle Dorsiflexion Rock',
-  category: 'mobility',
+  category: 'informational',
   primaryDeviationKeys: ['genu_varum_valgum_left', 'genu_varum_valgum_right'],
   minZone: 'maintain',
   dosageType: 'dynamic',
-  reps: { min: 8, max: 10 },
+  reps: null,
   instructions:
     'Set up half-kneeling or standing facing a wall, with your front foot a few inches away from it. Drive your front knee forward over your toes toward the wall while keeping that heel flat on the floor. Rock back to the start and repeat, feeling the movement open up through your ankle. Count each forward rock as one repetition per side. Switch sides. Perform 8-10 repetitions per side per set.',
   sets: 2,

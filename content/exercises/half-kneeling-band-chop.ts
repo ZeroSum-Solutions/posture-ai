@@ -4,11 +4,11 @@ import type { ExerciseContent } from '../muscles/types'
 export const halfKneelingBandChop: ExerciseContent = {
   slug: 'half-kneeling-band-chop',
   name: 'Half-Kneeling Band Chop',
-  category: 'strengthen',
+  category: 'informational',
   primaryDeviationKeys: ['pelvic_axial_rotation'],
   minZone: 'warning',
   dosageType: 'dynamic',
-  reps: { min: 8, max: 12 },
+  reps: null,
   instructions:
     'Set up in a half-kneeling position with a band anchored high to one side. Hold the band with both hands and draw it down and across your body slowly and with control, keeping the motion smooth rather than ballistic. Pause 2 seconds at the bottom, then guide the band back up with the same control. Keep your hips and torso tall and steady throughout. Perform 8-12 slow repetitions, then switch sides.',
   sets: 3,
