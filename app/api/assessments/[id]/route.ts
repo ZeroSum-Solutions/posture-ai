@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 import { isNoRows } from '@/lib/api/query-error'
 
 export async function GET(
@@ -142,11 +144,20 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const ROUTE = 'PATCH /api/assessments/[id]'
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
+
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'assessments_update', userId: user.id, limit: 30, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   const { id } = await params
   let body: unknown
@@ -182,7 +193,6 @@ export async function PATCH(
 
   // Service-role write (authenticated DB writes on regulated tables are revoked);
   // scoped by practitioner_id since service-role bypasses RLS.
-  const service = createSupabaseServiceClient()
   const { error } = await service
     .from('assessments')
     .update(update)

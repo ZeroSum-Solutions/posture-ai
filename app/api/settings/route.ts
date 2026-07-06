@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 
 const patchSchema = z.object({
   display_name: z.string().trim().max(120).optional(),
@@ -9,6 +11,7 @@ const patchSchema = z.object({
 }).strict()
 
 export async function PATCH(req: NextRequest) {
+  const ROUTE = 'PATCH /api/settings'
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -16,6 +19,14 @@ export async function PATCH(req: NextRequest) {
   }
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
+
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'settings_update', userId: user.id, limit: 30, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   let body: unknown
   try { body = await req.json() } catch {
@@ -57,6 +68,7 @@ const LOGO_TYPES: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   // Logo upload endpoint
+  const ROUTE = 'POST /api/settings'
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -64,6 +76,14 @@ export async function POST(req: NextRequest) {
   }
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
+
+  const serviceClient = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(serviceClient, { route: 'settings_logo', userId: user.id, limit: 10, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   const formData = await req.formData()
   const file = formData.get('logo') as File | null
@@ -78,7 +98,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Logo must be 2 MB or smaller.' }, { status: 413 })
   }
 
-  const serviceClient = createSupabaseServiceClient()
   const path = `${user.id}/logo.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildRunUpdate, redFlagBlocksCompletion, type RunRow } from '@/lib/workout/runState'
 
@@ -38,6 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (gate) return gate
   const userHash = hashUser(user.id)
 
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'workouts_run', userId: user.id, limit: 120, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
+
   const { id } = await params
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: 'Invalid session id' }, { status: 400 })
@@ -51,8 +59,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) {
     return NextResponse.json({ error: `Invalid payload: ${parsed.error.issues[0]?.message ?? 'malformed'}` }, { status: 422 })
   }
-
-  const service = createSupabaseServiceClient()
 
   // The run seeded at mint (scoped to this practitioner — service-role bypasses
   // RLS, so the practitioner_id filter is the authorization boundary).
