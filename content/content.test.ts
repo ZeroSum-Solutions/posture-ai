@@ -274,7 +274,7 @@ describe('muscle link grading completeness (Plan 2 §4)', () => {
   it('grade distribution is recorded (guards accidental mass-regrade)', () => {
     const counts = { high: 0, medium: 0, low: 0 }
     for (const l of ALL_MUSCLE_LINKS) counts[l.confidence!]++
-    expect(counts.high + counts.medium + counts.low).toBe(42)
+    expect(counts.high + counts.medium + counts.low).toBe(44)
   })
 })
 

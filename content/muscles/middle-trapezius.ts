@@ -19,6 +19,14 @@ export const middleTrapezius: MuscleContent = {
       rationale:
         'When the shoulders round and drift forward, the middle trapezius sits in a lengthened position and loses its ability to draw the shoulder blades back toward the spine. With this retractor switched off, the tight chest muscles win and the shoulders settle further forward, and any side-to-side difference in its activity can leave one shoulder more forward than the other. Strengthening it helps pull the shoulder blades back and level the shoulders.',
     },
+    {
+      imbalanceKey: 'posterior_imbalanced_shoulders',
+      role: 'weak',
+      confidence: 'medium',
+      scored: true,
+      rationale: 'Middle-trapezius under-activation is a modifiable contributor to a rounded-shoulder pattern; retraction strengthening improves resting scapular position.',
+      citation: 'Alghadir 2023 Int J Environ Res Public Health (RCT); Castelein 2019 EMG',
+    },
   ],
   reviewedBy: null,
   reviewedAt: null,

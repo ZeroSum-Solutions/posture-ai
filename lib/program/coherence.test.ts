@@ -25,15 +25,11 @@ function scoredSets(key: string) {
 // Target: this list shrinks to []. Do not add to it without product-owner sign-off.
 const KNOWN_DEBT: string[] = [
   'band-lying-hip-internal-rotation [strengthen] × pelvic_axial_rotation',
-  'band-rear-delt-row [strengthen] × posterior_imbalanced_shoulders',
-  'band-reverse-fly [strengthen] × posterior_imbalanced_shoulders',
   'cat-cow [mobility] × forward_head_posture',
   'figure-four-stretch [stretch] × pelvic_axial_rotation',
   'half-kneeling-band-chop [strengthen] × pelvic_axial_rotation',
   'open-book-stretch [mobility] × pelvic_axial_rotation',
   'pallof-press [strengthen] × pelvic_axial_rotation',
-  'prone-t-raise [strengthen] × posterior_imbalanced_shoulders',
-  'prone-w-raise [strengthen] × posterior_imbalanced_shoulders',
   'rear-deltoid-stretch [stretch] × posterior_imbalanced_shoulders',
   'seated-tibial-rotation [activation] × knee_extension_back_knee',
   'standing-band-trunk-rotation [strengthen] × pelvic_axial_rotation',
