@@ -4,11 +4,11 @@ import type { ExerciseContent } from '../muscles/types'
 export const standingBandTrunkRotation: ExerciseContent = {
   slug: 'standing-band-trunk-rotation',
   name: 'Standing Band Trunk Rotation',
-  category: 'strengthen',
+  category: 'informational',
   primaryDeviationKeys: ['pelvic_axial_rotation'],
   minZone: 'warning',
   dosageType: 'dynamic',
-  reps: { min: 8, max: 12 },
+  reps: null,
   instructions:
     'Stand side-on to a band anchored at chest height, feet hip-width apart, holding the band with both hands in front of your chest. Rotate your trunk away from the anchor with control, leading the motion from your ribs rather than pulling with your arms. Pause 2 seconds at the end of the turn, then return slowly to the start. Keep the hips facing forward throughout. Perform 8-12 controlled repetitions, then switch sides.',
   sets: 3,

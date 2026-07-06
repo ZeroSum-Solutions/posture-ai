@@ -23,21 +23,7 @@ function scoredSets(key: string) {
 //   * a listed pair that becomes coherent fails the test → delete it from this list.
 // Each pair's root cause and resolution options are tracked in docs/coherence-debt.md.
 // Target: this list shrinks to []. Do not add to it without product-owner sign-off.
-const KNOWN_DEBT: string[] = [
-  'band-lying-hip-internal-rotation [strengthen] × pelvic_axial_rotation',
-  'figure-four-stretch [stretch] × pelvic_axial_rotation',
-  'half-kneeling-band-chop [strengthen] × pelvic_axial_rotation',
-  'open-book-stretch [mobility] × pelvic_axial_rotation',
-  'pallof-press [strengthen] × pelvic_axial_rotation',
-  'rear-deltoid-stretch [stretch] × posterior_imbalanced_shoulders',
-  'seated-tibial-rotation [activation] × knee_extension_back_knee',
-  'standing-band-trunk-rotation [strengthen] × pelvic_axial_rotation',
-  'standing-calf-raise [strengthen] × knee_extension_back_knee',
-  'standing-quad-stretch [stretch] × knee_extension_back_knee',
-  'tall-kneeling-anti-rotation-hold [activation] × pelvic_axial_rotation',
-  'wall-ankle-dorsiflexion-rock [mobility] × genu_varum_valgum_left',
-  'wall-ankle-dorsiflexion-rock [mobility] × genu_varum_valgum_right',
-]
+const KNOWN_DEBT: string[] = []
 
 describe('exercise coherence gate (Plan 2 §5.1)', () => {
   const failures: string[] = []

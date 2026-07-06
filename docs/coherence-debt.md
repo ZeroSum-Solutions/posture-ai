@@ -32,18 +32,18 @@ pass the gate for this finding regardless of what it targets. Seven of these exe
 
 | Exercise | Category | Primary target muscles | Also serves |
 |---|---|---|---|
-| band-lying-hip-internal-rotation | strengthen | deep-hip-external-rotators(strengthen) | only key |
+| band-lying-hip-internal-rotation | strengthen | deep-hip-external-rotators(strengthen) | **RESOLVED** — marked `informational`; only key retained |
 | bird-dog | strengthen | gluteus-maximus(strengthen), deep-abdominals(strengthen) | trunk_lean (passes) |
-| figure-four-stretch | stretch | deep-hip-external-rotators(stretch) | only key |
-| half-kneeling-band-chop | strengthen | obliques(strengthen) | only key |
-| open-book-stretch | mobility | thoracic-erector-spinae(stretch) | only key |
-| pallof-press | strengthen | obliques(strengthen), deep-abdominals(strengthen) | only key |
+| figure-four-stretch | stretch | deep-hip-external-rotators(stretch) | **RESOLVED** — marked `informational`; only key retained |
+| half-kneeling-band-chop | strengthen | obliques(strengthen) | **RESOLVED** — marked `informational`; only key retained |
+| open-book-stretch | mobility | thoracic-erector-spinae(stretch) | **RESOLVED** — marked `informational`; only key retained |
+| pallof-press | strengthen | obliques(strengthen), deep-abdominals(strengthen) | **RESOLVED** — marked `informational`; only key retained |
 | side-plank-knees | strengthen | obliques(strengthen), gluteus-medius(strengthen) | pelvic_obliquity (passes) |
 | side-plank | strengthen | obliques(strengthen), gluteus-medius(strengthen) | pelvic_obliquity (passes) |
 | single-leg-glute-bridge | strengthen | gluteus-maximus(strengthen), hamstrings(strengthen) | trunk_lean, knee_extension_back_knee (both pass) |
-| standing-band-trunk-rotation | strengthen | obliques(strengthen) | only key |
+| standing-band-trunk-rotation | strengthen | obliques(strengthen) | **RESOLVED** — marked `informational`; only key retained |
 | supine-crossover-stretch | stretch | hip-adductors(stretch) | pelvic_obliquity (passes) |
-| tall-kneeling-anti-rotation-hold | activation | obliques(strengthen), deep-abdominals(strengthen) | only key |
+| tall-kneeling-anti-rotation-hold | activation | obliques(strengthen), deep-abdominals(strengthen) | **RESOLVED** — marked `informational`; only key retained |
 
 **Resolution options:**
 - (a) Re-add scored links for obliques and deep-hip-external-rotators to
@@ -74,7 +74,7 @@ during Task-2 grading.
 | band-reverse-fly | strengthen | middle-trapezius(strengthen), rhomboids(strengthen) | only key |
 | prone-t-raise | strengthen | middle-trapezius(strengthen), rhomboids(strengthen) | anterior_imbalanced_shoulders (passes) |
 | prone-w-raise | strengthen | middle-trapezius(strengthen), rhomboids(strengthen) | only key |
-| rear-deltoid-stretch | stretch | middle-trapezius(stretch), rhomboids(stretch) | only key |
+| rear-deltoid-stretch | stretch | middle-trapezius(stretch), rhomboids(stretch) | **RESOLVED** — marked `informational`; only key retained |
 
 **Resolution options:**
 - (a) Add middle-trapezius and rhomboids as weak muscles in `posterior_imbalanced_shoulders`
@@ -97,9 +97,9 @@ exercises directly target those unscored muscles.
 |---|---|---|---|
 | bent-knee-calf-stretch | stretch | gastrocnemius-soleus(stretch) | Calf linked tight, scored:false. Also serves trunk_lean (passes). |
 | seated-hamstring-stretch | stretch | hamstrings(stretch) | Hamstrings is weak (not tight); stretching a weak muscle. Only key. |
-| seated-tibial-rotation | activation | popliteus(strengthen) | Popliteus linked weak, scored:false. Only key. |
-| standing-calf-raise | strengthen | gastrocnemius-soleus(strengthen) | Strengthens a tight (scored:false) muscle. Only key. |
-| standing-quad-stretch | stretch | quadriceps(stretch) | Quadriceps linked tight, scored:false. Only key. |
+| seated-tibial-rotation | activation | popliteus(strengthen) | **RESOLVED** — marked `informational`; popliteus linked weak, scored:false. Only key. |
+| standing-calf-raise | strengthen | gastrocnemius-soleus(strengthen) | **RESOLVED** — marked `informational`; strengthens a tight scored muscle. Only key. |
+| standing-quad-stretch | stretch | quadriceps(stretch) | **RESOLVED** — marked `informational`; quadriceps linked tight, scored:false. Only key. |
 | wall-calf-stretch | stretch | gastrocnemius-soleus(stretch) | Calf linked tight, scored:false. Also serves trunk_lean (passes). |
 
 **Resolution options:**
@@ -174,7 +174,7 @@ violation).
 
 | Exercise | Category | Primary target muscles | Notes |
 |---|---|---|---|
-| wall-ankle-dorsiflexion-rock | mobility | gastrocnemius-soleus(stretch) | Both genu keys are the only keys for this exercise. |
+| wall-ankle-dorsiflexion-rock | mobility | gastrocnemius-soleus(stretch) | **RESOLVED** — marked `informational` for both genu keys; only keys retained. |
 
 **Resolution options:**
 - (a) Add gastrocnemius-soleus as a tight link to `genu_varum_valgum_left` and

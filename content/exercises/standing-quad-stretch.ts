@@ -4,7 +4,7 @@ import type { ExerciseContent } from '../muscles/types'
 export const standingQuadStretch: ExerciseContent = {
   slug: 'standing-quad-stretch',
   name: 'Standing Quad Stretch',
-  category: 'stretch',
+  category: 'informational',
   primaryDeviationKeys: ['knee_extension_back_knee'],
   minZone: 'maintain',
   dosageType: 'hold',

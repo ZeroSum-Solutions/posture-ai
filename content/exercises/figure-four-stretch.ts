@@ -4,7 +4,7 @@ import type { ExerciseContent } from '../muscles/types'
 export const figureFourStretch: ExerciseContent = {
   slug: 'figure-four-stretch',
   name: 'Supine Figure-Four Stretch',
-  category: 'stretch',
+  category: 'informational',
   primaryDeviationKeys: ['pelvic_axial_rotation'],
   minZone: 'maintain',
   dosageType: 'hold',
