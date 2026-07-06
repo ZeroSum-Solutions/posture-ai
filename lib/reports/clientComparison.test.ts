@@ -71,6 +71,30 @@ describe('buildClientComparison — overall direction', () => {
     })
     expect(c.priorDateStr).toBe('11 Jan 2026')
   })
+
+  it('returns not_comparable when engine versions differ, ignoring grade rank', () => {
+    const c = buildClientComparison({
+      ...base,
+      current: { grade: 'C', score: 30 },
+      prior: { grade: 'B', score: 30 },
+      currentFindings: [{ key: 'fhp', severityPct: 30 }],
+      priorFindings: [{ key: 'fhp', severityPct: 50 }],
+    }, { engineVersionMismatch: true })
+
+    expect(c.overall).toBe('not_comparable')
+    expect(c.byKey.fhp).toBe('improving')
+  })
+
+  it('still computes improved/slipped when versions match', () => {
+    const c = buildClientComparison({
+      ...base,
+      current: { grade: 'C', score: 30 },
+      prior: { grade: 'B', score: 30 },
+    }, { engineVersionMismatch: false })
+
+    expect(['improved', 'steady', 'slipped']).toContain(c.overall)
+    expect(c.overall).toBe('slipped')
+  })
 })
 
 describe('buildClientComparison — per-area direction', () => {

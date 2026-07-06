@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     .select(`
       id, client_id, status, overall_score, overall_grade, overall_percentile,
       front_rank, side_rank, assessed_at, practitioner_approved,
-      priority_keys, capability, exercise_swaps,
+      priority_keys, capability, exercise_swaps, scoring_engine_version,
       clients!inner(id, first_name, last_name)
     `)
     .eq('id', assessment_id)
@@ -77,10 +77,11 @@ export async function POST(req: NextRequest) {
   // exported without review, or leak from another practitioner's records (IDOR).
   // Captured here (after the gate passes) for the client-report progress section.
   let priorMeta: { grade: string; score: number; dateStr: string } | null = null
+  let engineVersionMismatch = false
   if (compared_to_assessment_id) {
     const { data: prior, error: pErr } = await supabase
       .from('assessments')
-      .select('id, client_id, practitioner_approved, overall_grade, overall_score, assessed_at')
+      .select('id, client_id, practitioner_approved, overall_grade, overall_score, assessed_at, scoring_engine_version')
       .eq('id', compared_to_assessment_id)
       .eq('practitioner_id', user.id)
       .maybeSingle()
@@ -100,6 +101,9 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
+    const currentVersion = assessment.scoring_engine_version ?? null
+    const priorVersion = prior.scoring_engine_version ?? null
+    engineVersionMismatch = currentVersion !== priorVersion || priorVersion === null
     if (!prior.practitioner_approved) {
       return NextResponse.json(
         { error: 'The comparison assessment must also be reviewed and approved before it can be exported.' },
@@ -180,7 +184,7 @@ export async function POST(req: NextRequest) {
             key: f.imbalance_key as string, severityPct: Number(f.severity_pct),
           })),
           priorFindings: priorComparisonFindings,
-        })
+        }, { engineVersionMismatch })
       : null
 
   const findings: PdfFinding[] = (findingsRaw || []).map((f: Record<string, unknown>) => {
@@ -279,6 +283,7 @@ export async function POST(req: NextRequest) {
       dateStr,
       report: program,
       comparison: clientComparison,
+      engineVersionMismatch,
     }) as unknown as ReactElement<DocumentProps>
   } else {
     docElement = React.createElement(PostureReportPdf, {
@@ -287,6 +292,7 @@ export async function POST(req: NextRequest) {
       exercises,
       practitioner: practitioner || undefined,
       hasDelta,
+      engineVersionMismatch,
     }) as unknown as ReactElement<DocumentProps>
   }
 
@@ -363,5 +369,7 @@ export async function POST(req: NextRequest) {
     report_id: report.id,
     signed_url: signedData.signedUrl,
     storage_path: storagePath,
+    comparison_overall: clientComparison?.overall ?? null,
+    engine_version_mismatch: engineVersionMismatch,
   })
 }
