@@ -20,6 +20,15 @@ export const thoracicErectorSpinae: MuscleContent = {
       rationale:
         'When the upper trunk settles out of a stacked position, the thoracic erector spinae tend to lengthen and under-recruit rather than hold the mid-back extended, so the chest drifts into flexion and the ribcage sits forward of the pelvis. Building endurance and control in these mid-back extensors helps re-stack the upper trunk over the spine. Because the merged trunk-lean pattern can also present as a backward-arched trunk where these muscles read short instead, screening should confirm which way the mid-back sits before loading.',
     },
+    {
+      imbalanceKey: 'forward_head_posture',
+      role: 'weak',
+      confidence: 'medium',
+      scored: true,
+      rationale:
+        'Thoracic erector spinae shows selective under-activation in slouched thoracic posture; waking it up supports the extension that offsets a forward-head position.',
+      citation: 'Lee 2014 J Phys Ther Sci PMID 25463688',
+    },
   ],
   reviewedBy: null,
   reviewedAt: null,

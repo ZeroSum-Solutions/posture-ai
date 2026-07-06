@@ -81,7 +81,10 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'pectoralis-minor',
     name: 'Pectoralis Minor',
     region: 'shoulder_girdle',
-    links: [{ imbalanceKey: 'anterior_imbalanced_shoulders', role: 'tight' }],
+    links: [
+      { imbalanceKey: 'anterior_imbalanced_shoulders', role: 'tight' },
+      { imbalanceKey: 'forward_head_posture', role: 'tight' },
+    ],
   },
   {
     slug: 'anterior-deltoid',
@@ -109,7 +112,10 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'thoracic-erector-spinae',
     name: 'Thoracic Erector Spinae',
     region: 'trunk',
-    links: [{ imbalanceKey: 'trunk_lean', role: 'weak' }],
+    links: [
+      { imbalanceKey: 'trunk_lean', role: 'weak' },
+      { imbalanceKey: 'forward_head_posture', role: 'weak' },
+    ],
   },
   {
     slug: 'lumbar-erector-spinae',

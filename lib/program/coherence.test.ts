@@ -25,7 +25,6 @@ function scoredSets(key: string) {
 // Target: this list shrinks to []. Do not add to it without product-owner sign-off.
 const KNOWN_DEBT: string[] = [
   'band-lying-hip-internal-rotation [strengthen] × pelvic_axial_rotation',
-  'cat-cow [mobility] × forward_head_posture',
   'figure-four-stretch [stretch] × pelvic_axial_rotation',
   'half-kneeling-band-chop [strengthen] × pelvic_axial_rotation',
   'open-book-stretch [mobility] × pelvic_axial_rotation',
@@ -36,7 +35,6 @@ const KNOWN_DEBT: string[] = [
   'standing-calf-raise [strengthen] × knee_extension_back_knee',
   'standing-quad-stretch [stretch] × knee_extension_back_knee',
   'tall-kneeling-anti-rotation-hold [activation] × pelvic_axial_rotation',
-  'thoracic-extension [mobility] × forward_head_posture',
   'wall-ankle-dorsiflexion-rock [mobility] × genu_varum_valgum_left',
   'wall-ankle-dorsiflexion-rock [mobility] × genu_varum_valgum_right',
 ]
