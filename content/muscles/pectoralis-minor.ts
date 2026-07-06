@@ -19,6 +19,15 @@ export const pectoralisMinor: MuscleContent = {
       rationale:
         'A short pectoralis minor tips the shoulder blade forward and pulls it around the ribcage, which is a direct driver of anterior imbalanced shoulders. Because it attaches to the shoulder blade rather than the arm, its tightness keeps the whole shoulder rounded forward even when the chest is relaxed. Releasing it lets the shoulder blade settle flat and back, which is hard to achieve while this deep muscle stays locked short.',
     },
+    {
+      imbalanceKey: 'forward_head_posture',
+      role: 'tight',
+      confidence: 'medium',
+      scored: true,
+      rationale:
+        'Pectoralis-minor shortening accompanies the rounded-shoulder pattern that co-occurs with a forward-head position; lengthening it supports upright carriage.',
+      citation: 'Singla 2017 J Chiropr Med (review); Alghadir 2023 RCT',
+    },
   ],
   reviewedBy: null,
   reviewedAt: null,
