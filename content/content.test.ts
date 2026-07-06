@@ -67,30 +67,30 @@ describe('muscle content', () => {
     expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('high')
     // iliopsoas trunk lean: Sci Rep 2025 RCT confirms gluteal/hamstring inhibition (Plan 2 lit-sweep)
     expect(linkConf('iliopsoas', 'trunk_lean', 'tight')).toBe('high')
-    // knee hyperextension: hamstrings + calf upgraded to medium; popliteus/quadriceps stay low
-    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('medium')
+    // knee hyperextension: hamstrings stay medium; calf, popliteus, and quadriceps stay low
+    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('low')
     expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('medium')
     expect(linkConf('popliteus', 'knee_extension_back_knee', 'weak')).toBe('low')
     expect(linkConf('quadriceps', 'knee_extension_back_knee', 'tight')).toBe('low')
   })
 
-  // Knee hyperextension: of the four classic inferences, only hamstrings→weak
-  // cleared the asymptomatic-population evidence bar (Bascevan 2024 H/Q ratio;
-  // Ahn 2020 extensor:flexor ratio predicts recurvatum). The calf (C, stroke-
-  // only + direction-ambiguous), popliteus (C+, no causal recurvatum data) and
-  // quadriceps (D) inferences are display-only — kept on their KB pages but
-  // excluded from the scored muscle map. See
+  // Knee hyperextension: hamstrings→weak and calf→tight are the scored links.
+  // Popliteus (C+, no causal recurvatum data) and quadriceps (D) stay display-only —
+  // kept on their KB pages but excluded from the scored muscle map. See
   // _intake/knee-hyperextension-muscle-evidence.md.
-  it('knee-hyperextension inferences are display-only except the evidence-backed hamstring link', () => {
+  it('knee-hyperextension keeps only the evidence-backed hamstring and calf links scored', () => {
     const kneeLinks = ALL_MUSCLES.flatMap(m =>
       m.links
         .filter(l => l.imbalanceKey === 'knee_extension_back_knee')
         .map(l => ({ slug: m.slug, role: l.role, scored: l.scored !== false }))
     )
     const scored = kneeLinks.filter(k => k.scored)
-    expect(scored).toEqual([{ slug: 'hamstrings', role: 'weak', scored: true }])
+    expect(scored).toEqual([
+      { slug: 'gastrocnemius-soleus', role: 'tight', scored: true },
+      { slug: 'hamstrings', role: 'weak', scored: true },
+    ])
     const displayOnly = kneeLinks.filter(k => !k.scored).map(k => k.slug).sort()
-    expect(displayOnly).toEqual(['gastrocnemius-soleus', 'popliteus', 'quadriceps'])
+    expect(displayOnly).toEqual(['popliteus', 'quadriceps'])
   })
 
   // Each display-only knee link must carry a screening-safe exclusion_reason
@@ -101,9 +101,7 @@ describe('muscle content', () => {
         .filter(l => l.imbalanceKey === 'knee_extension_back_knee' && l.scored === false)
         .map(l => ({ slug: m.slug, reason: l.exclusionReason }))
     )
-    expect(displayOnly.map(d => d.slug).sort()).toEqual(
-      ['gastrocnemius-soleus', 'popliteus', 'quadriceps']
-    )
+    expect(displayOnly.map(d => d.slug).sort()).toEqual(['popliteus', 'quadriceps'])
     for (const d of displayOnly) {
       expect(typeof d.reason === 'string' && d.reason.length > 0, d.slug).toBe(true)
     }
