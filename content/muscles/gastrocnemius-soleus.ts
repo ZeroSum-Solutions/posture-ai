@@ -22,11 +22,9 @@ export const gastrocnemiusSoleus: MuscleContent = {
     {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'tight',
-      confidence: 'medium',
-      citation: 'Svehlik 2010 (J Pediatr Orthop B, PMID 20442674) — high soleus EMG in single stance linked kinematically to recurvatum timing; calf-lengthening reduced hyperextension (PMID 24029800).',
-      scored: false,
-      exclusionReason:
-        'Display-only: the calf to recurvatum link rests on stroke-population and direction-ambiguous evidence (Grade C), below the asymptomatic-population bar the hamstring link cleared, so it is kept educational rather than scored.',
+      confidence: 'low',
+      citation: 'Kerkum 2016 (equinus to recurvatum); Klotz 2010 J Pediatr Orthop B PMID 20442674',
+      scored: true,
       rationale:
         'In a back-knee (hyperextended) pattern the calf — especially the gastrocnemius, which crosses the knee — pulls on the back of the joint and helps hold it locked into full extension. High heels and a backward-shifted center of mass reinforce this backward pull. Lengthening the calf reduces the tension behind the knee and lets the joint rest in a softer, neutral position.',
     },

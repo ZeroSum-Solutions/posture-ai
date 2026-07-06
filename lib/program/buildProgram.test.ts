@@ -47,11 +47,13 @@ it('evidenceWeight falls back to 0.7 for out-of-enum and undefined values', () =
 
 // T7(b): linksForKeys returns scored links with muscleSlug+confidence; skips scored===false
 it('linksForKeys returns scored links and skips scored===false entries', () => {
-  // knee_extension_back_knee has gastrocnemius-soleus with scored=false — must be absent
+  // knee_extension_back_knee scores hamstrings and gastrocnemius-soleus; display-only links stay absent.
   const result = linksForKeys(['knee_extension_back_knee'])
   expect(result.every((l) => typeof l.muscleSlug === 'string' && l.muscleSlug.length > 0)).toBe(true)
   const gastroc = result.find((l) => l.muscleSlug === 'gastrocnemius-soleus')
-  expect(gastroc).toBeUndefined() // scored=false link is excluded
+  expect(gastroc?.confidence).toBe('low')
+  expect(result.find((l) => l.muscleSlug === 'popliteus')).toBeUndefined()
+  expect(result.find((l) => l.muscleSlug === 'quadriceps')).toBeUndefined()
   // All items have optional confidence; any that are present must be a valid grade
   for (const l of result) {
     if (l.confidence !== undefined) {
@@ -107,10 +109,10 @@ describe('evidence tie-break ordering (pinned against content as of feat/evidenc
     expect(strengthens).not.toContain('glute-bridge-march')  // ev=0.0, excluded
   })
 
-  // knee_extension_back_knee: strengthen cap=2 of 3
+  // knee_extension_back_knee: strengthen cap=2
   //   glute-bridge (ev=0.7) + standing-hamstring-curl (ev=0.7) survive;
-  //   standing-calf-raise (ev=0) excluded (slug sort alone would have included it)
-  it('knee_extension_back_knee: zero-evidence standing-calf-raise excluded from strengthen', () => {
+  //   standing-calf-raise (ev=0.4) excluded by stronger hamstring-targeting work
+  it('knee_extension_back_knee: low-evidence standing-calf-raise excluded from strengthen', () => {
     const r = buildProgramFrom(
       [f({ key: 'knee_extension_back_knee', label: 'Knee Hyperextension', region: 'leg', severityPct: 60, zone: 'warning' })],
       'C',
@@ -119,7 +121,7 @@ describe('evidence tie-break ordering (pinned against content as of feat/evidenc
     const strengthens = p.steps.filter((s) => s.category === 'strengthen').map((s) => s.slug)
     expect(strengthens).toContain('glute-bridge')            // ev=0.7
     expect(strengthens).toContain('standing-hamstring-curl') // ev=0.7
-    expect(strengthens).not.toContain('standing-calf-raise') // ev=0.0, excluded
+    expect(strengthens).not.toContain('standing-calf-raise') // ev=0.4, excluded
   })
 })
 
