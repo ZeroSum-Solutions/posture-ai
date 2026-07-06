@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimitStrict } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 import { CONSENT_VERSION } from '@/lib/consent/policy'
 import { consentQrDataUrl } from '@/lib/consent/qr'
 import { generateConsentToken } from '@/lib/consent/token'
@@ -8,12 +10,22 @@ import { generateConsentToken } from '@/lib/consent/token'
 // Practitioner-initiated remote consent: mints a single-use, 7-day token for a
 // client and returns a shareable link + QR. The subject completes it at
 // /consent/[token] (public) without needing an account.
+const ROUTE = 'POST /api/consent/link'
+
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
+
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimitStrict(service, { route: 'consent_link', userId: user.id, limit: 20, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   let body: { client_id?: string }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
@@ -34,7 +46,6 @@ export async function POST(req: NextRequest) {
   const { token, tokenHash } = generateConsentToken()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const service = createSupabaseServiceClient()
   const { error } = await service.from('consent_tokens').insert({
     token_hash: tokenHash,
     client_id: clientId,

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 
 // Self-serve organization compliance settings: the HIPAA covered-entity flag and
 // Business Associate Agreement status that drive `practitionerGate`'s BAA gate.
@@ -30,6 +32,7 @@ const patchSchema = z
   .strict()
 
 const ORG_FIELDS = 'id, name, is_covered_entity, baa_status, baa_signed_at'
+const ROUTE = 'PATCH /api/settings/organization'
 
 type PractitionerRow = {
   id: string
@@ -88,6 +91,14 @@ export async function PATCH(req: NextRequest) {
   if (!prac) {
     return NextResponse.json({ error: 'Practitioner access required.' }, { status: 403 })
   }
+  const userHash = hashUser(user.id)
+
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'settings_org', userId: user.id, limit: 20, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   let body: unknown
   try {
@@ -114,8 +125,6 @@ export async function PATCH(req: NextRequest) {
       : input.baa_status !== undefined
         ? null
         : undefined
-
-  const service = createSupabaseServiceClient()
 
   // Bootstrap a personal org on first save so self-serve compliance has
   // something to attach to. Name precedence: explicit > practice > display > default.

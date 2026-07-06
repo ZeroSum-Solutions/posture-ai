@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { validateRating } from '@/lib/workout/rating'
 
@@ -20,6 +21,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (gate) return gate
   const userHash = hashUser(user.id)
 
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'workouts_rate', userId: user.id, limit: 20, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
+
   const { id } = await params
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: 'Invalid session id' }, { status: 400 })
@@ -33,8 +41,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!rating.ok) {
     return NextResponse.json({ error: rating.error }, { status: 422 })
   }
-
-  const service = createSupabaseServiceClient()
 
   const { data: session } = await service
     .from('workout_sessions')

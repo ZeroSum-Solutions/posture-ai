@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { enforceRateLimitStrict } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 import { CONSENT_VERSION, hashConsent } from '@/lib/consent/policy'
 
 // In-person subject consent for an existing client (typed-name e-signature on the
 // practitioner's device). Writes an immutable consent_record and stamps the
 // client's consent_recorded_at. Remote consent uses /api/consent/link + respond.
 const RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
+const ROUTE = 'POST /api/consent'
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -14,6 +17,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
+
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimitStrict(service, { route: 'consent_create', userId: user.id, limit: 20, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   let body: { client_id?: string; signer_name?: string; signer_relationship?: string }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
@@ -34,7 +45,6 @@ export async function POST(req: NextRequest) {
   // tables are revoked). The RPC locks the owned client row and refuses a
   // tombstoned (erased) one, so consent can't be recorded on a client mid/after a
   // right-to-erasure deletion — the same guarantee the remote path gets.
-  const service = createSupabaseServiceClient()
   const { data: result, error } = await service.rpc('record_inperson_consent', {
     p_client_id: client_id,
     p_practitioner_id: user.id,

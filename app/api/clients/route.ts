@@ -1,10 +1,12 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 import { CONSENT_VERSION, hashConsent } from '@/lib/consent/policy'
 import { NextRequest, NextResponse } from 'next/server'
 
 const SIGNER_RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
+const ROUTE = 'POST /api/clients'
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
@@ -34,10 +36,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
 
   const service = createSupabaseServiceClient()
   const allowed = await enforceRateLimit(service, { route: 'clients_create', userId: user.id, limit: 30, windowSeconds: 60 })
-  if (!allowed) return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+  }
 
   let body: Record<string, unknown>
   try {

@@ -1,17 +1,27 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { logEvent, hashUser } from '@/lib/log'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface Params { id: string }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<Params> }) {
+  const ROUTE = 'PATCH /api/clients/[id]'
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
+
+  const service = createSupabaseServiceClient()
+  const allowed = await enforceRateLimit(service, { route: 'clients_update', userId: user.id, limit: 30, windowSeconds: 60 })
+  if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
+  }
 
   let body: Record<string, unknown> = {}
   try { body = await req.json() } catch { /* empty body ok */ }
@@ -69,7 +79,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
   // Service-role write (authenticated DB writes on regulated tables are revoked).
   // Re-confirm ownership and refuse edits to a tombstoned (erased) client so a
   // PATCH can't repopulate PII after a right-to-erasure deletion.
-  const service = createSupabaseServiceClient()
   const { data: existing } = await service
     .from('clients').select('deleted_at').eq('id', id).eq('practitioner_id', user.id).maybeSingle()
   if (!existing) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -110,6 +119,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
 
   const { data: owned } = await supabase
     .from('clients').select('id').eq('id', id).eq('practitioner_id', user.id).maybeSingle()
@@ -123,7 +133,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
   // Erasure is a heavy multi-table purge — rate-limit it so an accidental or
   // malicious burst can't hammer the storage/DB layer.
   const allowed = await enforceRateLimit(service, { route: 'clients_delete', userId: user.id, limit: 10, windowSeconds: 60 })
-  if (!allowed) return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+  if (!allowed) {
+    logEvent({ route: 'DELETE /api/clients/[id]', outcome: 'rate_limited', status: 429, userHash })
+    return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
+  }
 
   // Right-to-erasure must be FAIL-CLOSED: if any purge/redaction step errors we
   // return 500 and do NOT claim success, so the practitioner retries instead of
