@@ -19,6 +19,14 @@ export const rhomboids: MuscleContent = {
       rationale:
         'In anterior imbalanced shoulders the rhomboids are stretched long and underactive, so they lose the tug-of-war against tight chest muscles and the shoulder blades slide forward. Without their steady retraction, the shoulder blade drifts away from the spine and the shoulder rounds toward the front. Strengthening them may help restore a counterpull that holds the shoulder blades back and supports re-centering the shoulders over the ribcage.',
     },
+    {
+      imbalanceKey: 'posterior_imbalanced_shoulders',
+      role: 'weak',
+      confidence: 'low',
+      scored: true,
+      rationale: 'Rhomboids assist scapular retraction; the link is anatomically coherent though the resting-position association is less direct than for middle-trapezius.',
+      citation: 'Kang 2016 (shoulder retractor EMG)',
+    },
   ],
   reviewedBy: null,
   reviewedAt: null,

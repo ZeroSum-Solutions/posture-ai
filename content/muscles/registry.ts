@@ -55,7 +55,10 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'middle-trapezius',
     name: 'Middle Trapezius',
     region: 'head_neck',
-    links: [{ imbalanceKey: 'anterior_imbalanced_shoulders', role: 'weak' }],
+    links: [
+      { imbalanceKey: 'anterior_imbalanced_shoulders', role: 'weak' },
+      { imbalanceKey: 'posterior_imbalanced_shoulders', role: 'weak' },
+    ],
   },
   {
     slug: 'lower-trapezius',
@@ -90,7 +93,10 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     slug: 'rhomboids',
     name: 'Rhomboids',
     region: 'shoulder_girdle',
-    links: [{ imbalanceKey: 'anterior_imbalanced_shoulders', role: 'weak' }],
+    links: [
+      { imbalanceKey: 'anterior_imbalanced_shoulders', role: 'weak' },
+      { imbalanceKey: 'posterior_imbalanced_shoulders', role: 'weak' },
+    ],
   },
   {
     slug: 'serratus-anterior',
