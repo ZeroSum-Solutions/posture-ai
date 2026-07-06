@@ -35,8 +35,8 @@ export async function GET(
     .from('assessments')
     .select(
       includeFindings
-        ? 'id, assessed_at, overall_grade, overall_score, status, assessment_findings(imbalance_key, label, severity_pct, zone, region, deviation, standard, unit)'
-        : 'id, assessed_at, overall_grade, overall_score, status'
+        ? 'id, assessed_at, overall_grade, overall_score, status, scoring_engine_version, assessment_findings(imbalance_key, label, severity_pct, zone, region, deviation, standard, unit)'
+        : 'id, assessed_at, overall_grade, overall_score, status, scoring_engine_version'
     )
     .eq('client_id', clientId)
     .eq('practitioner_id', user.id)

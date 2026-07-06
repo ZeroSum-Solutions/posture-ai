@@ -82,6 +82,7 @@ interface Assessment {
   overall_percentile: number | null
   front_rank: number | null
   side_rank: number | null
+  scoring_engine_version: string | null
   tilt_corrected: boolean | null
   level_verified: boolean | null
   capture_stability?: number | null
@@ -646,7 +647,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [approved, setApproved] = useState(false)
   const [approving, setApproving] = useState(false)
-  const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string}>>([])
+  const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
   const [allExercises, setAllExercises] = useState<Exercise[]>([])
   const [auxError, setAuxError] = useState<string | null>(null)
@@ -1157,6 +1158,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             {priorAssessments.map(a => (
               <option key={a.id} value={a.id}>
                 {new Date(a.assessed_at).toLocaleDateString()} — Grade {a.overall_grade}
+                {a.scoring_engine_version !== assessment.scoring_engine_version || a.scoring_engine_version === null ? ' (different scoring version)' : ''}
               </option>
             ))}
           </select>

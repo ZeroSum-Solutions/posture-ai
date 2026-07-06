@@ -9,6 +9,7 @@ import {
 } from '@react-pdf/renderer'
 
 const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational and screening purposes only. Do not substitute for clinical examination by a qualified professional.'
+const ENGINE_VERSION_CAVEAT = "These screenings used different scoring versions, so the grade change isn't directly comparable."
 
 const ZONE_COLORS: Record<string, string> = {
   maintain: '#22C55E',
@@ -303,6 +304,7 @@ interface Props {
   exercises?: PdfExercise[]
   practitioner?: { display_name?: string; practice_name?: string }
   hasDelta: boolean
+  engineVersionMismatch?: boolean
 }
 
 function Footer() {
@@ -388,7 +390,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   )
 }
 
-export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta }: Props) {
+export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta, engineVersionMismatch }: Props) {
   const grade = assessment.overall_grade
   const gradeCol = gradeColor(grade)
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
@@ -494,9 +496,12 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <Text style={{ fontSize: 9, color: '#71717A' }}>{clientName} — {dateStr}</Text>
         </View>
 
-        {hasDelta && (
+        {(hasDelta || engineVersionMismatch) && (
           <View style={{ backgroundColor: 'rgba(99,102,241,0.08)', borderRadius: 6, padding: 6, marginBottom: 8 }}>
-            <Text style={{ fontSize: 7, color: '#A1A1AA' }}>Delta column shows change vs prior assessment. Green = improved, Red = worsened.</Text>
+            <Text style={{ fontSize: 7, color: '#A1A1AA' }}>
+              {engineVersionMismatch ? ENGINE_VERSION_CAVEAT + ' ' : ''}
+              {hasDelta ? 'Delta column shows change vs prior assessment. Green = improved, Red = worsened.' : ''}
+            </Text>
           </View>
         )}
 

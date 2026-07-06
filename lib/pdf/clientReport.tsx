@@ -7,6 +7,8 @@ import type { ClientComparison, OverallDirection, AreaDirection } from '../repor
 
 const DISCLAIMER =
   'SCREENING ONLY — Not a medical assessment. For educational and screening purposes only. This does not replace evaluation by a qualified professional.'
+const ENGINE_VERSION_CAVEAT =
+  "These screenings used different scoring versions, so the grade change isn't directly comparable."
 
 // Dark palette (matches the app design tokens) with high-contrast text.
 // Solid hex throughout — react-pdf mis-renders rgba() border/background colors.
@@ -39,7 +41,7 @@ const STEP_COLOR: Record<string, string> = {
 
 // Encouraging, non-diagnostic phrasing for the "since last time" progress card.
 // Colours stay green/amber (never red) — a slip is framed as motivating, not alarming.
-const OVERALL_COPY: Record<OverallDirection, { word: string; color: string }> = {
+const OVERALL_COPY: Record<Exclude<OverallDirection, 'not_comparable'>, { word: string; color: string }> = {
   improved: { word: 'trending in the right direction', color: C.green },
   steady: { word: 'holding steady', color: C.sub },
   slipped: { word: 'some ground to make back — keep at it', color: C.amber },
@@ -175,6 +177,7 @@ export interface ClientReportProps {
   report: ProgramReport
   /** Optional "since last time" progress vs an approved, same-client prior screening. */
   comparison?: ClientComparison | null
+  engineVersionMismatch?: boolean
 }
 
 export function ClientReport({ clientName, practitioner, dateStr, report, comparison }: ClientReportProps) {
@@ -205,15 +208,22 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
         </View>
 
         {comparison ? (
-          <View style={[s.progress, { borderLeftColor: OVERALL_COPY[comparison.overall].color }]}>
+          <View style={[s.progress, { borderLeftColor: comparison.overall === 'not_comparable' ? C.sub : OVERALL_COPY[comparison.overall].color }]}>
             <Text style={s.progressTitle}>Since your last screening</Text>
-            <Text style={s.progressOverall}>
-              <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
-              Grade {comparison.priorGrade} → {comparison.currentGrade} ·{' '}
-              <Text style={{ color: OVERALL_COPY[comparison.overall].color, fontFamily: 'Helvetica-Bold' }}>
-                {OVERALL_COPY[comparison.overall].word}
-              </Text>.
-            </Text>
+            {comparison.overall === 'not_comparable' ? (
+              <Text style={s.progressOverall}>
+                <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
+                {ENGINE_VERSION_CAVEAT}
+              </Text>
+            ) : (
+              <Text style={s.progressOverall}>
+                <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
+                Grade {comparison.priorGrade} → {comparison.currentGrade} ·{' '}
+                <Text style={{ color: OVERALL_COPY[comparison.overall].color, fontFamily: 'Helvetica-Bold' }}>
+                  {OVERALL_COPY[comparison.overall].word}
+                </Text>.
+              </Text>
+            )}
             {report.priorities.map((p) => {
               const dir = comparison.byKey[p.primaryKey]
               if (!dir) return null

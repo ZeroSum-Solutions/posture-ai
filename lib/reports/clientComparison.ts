@@ -11,7 +11,7 @@
  * Framing is intentionally non-diagnostic: this describes screening-score
  * movement, not a clinical change.
  */
-export type OverallDirection = 'improved' | 'steady' | 'slipped'
+export type OverallDirection = 'improved' | 'steady' | 'slipped' | 'not_comparable'
 export type AreaDirection = 'improving' | 'steady' | 'attention'
 
 export interface ClientComparison {
@@ -40,8 +40,21 @@ export function buildClientComparison(args: {
   prior: { grade: string; score: number }
   currentFindings: FindingSeverity[]
   priorFindings: FindingSeverity[]
-}): ClientComparison {
+}, opts?: { engineVersionMismatch?: boolean }): ClientComparison {
   const { priorDateStr, current, prior, currentFindings, priorFindings } = args
+
+  const priorByKey = new Map(priorFindings.map((f) => [f.key, f.severityPct]))
+  const byKey: Record<string, AreaDirection> = {}
+  for (const f of currentFindings) {
+    const before = priorByKey.get(f.key)
+    if (before === undefined) continue // no prior reading for this area — nothing to compare
+    const d = f.severityPct - before
+    byKey[f.key] = d <= -SEVERITY_DEADBAND ? 'improving' : d >= SEVERITY_DEADBAND ? 'attention' : 'steady'
+  }
+
+  if (opts?.engineVersionMismatch) {
+    return { priorDateStr, priorGrade: prior.grade, currentGrade: current.grade, overall: 'not_comparable', byKey }
+  }
 
   // Overall: a grade change is unambiguous, so it decides direction. Within the
   // same grade, the (lower-is-better) score breaks the tie against a deadband.
@@ -53,15 +66,6 @@ export function buildClientComparison(args: {
   } else {
     const d = current.score - prior.score
     overall = d <= -SCORE_DEADBAND ? 'improved' : d >= SCORE_DEADBAND ? 'slipped' : 'steady'
-  }
-
-  const priorByKey = new Map(priorFindings.map((f) => [f.key, f.severityPct]))
-  const byKey: Record<string, AreaDirection> = {}
-  for (const f of currentFindings) {
-    const before = priorByKey.get(f.key)
-    if (before === undefined) continue // no prior reading for this area — nothing to compare
-    const d = f.severityPct - before
-    byKey[f.key] = d <= -SEVERITY_DEADBAND ? 'improving' : d >= SEVERITY_DEADBAND ? 'attention' : 'steady'
   }
 
   return { priorDateStr, priorGrade: prior.grade, currentGrade: current.grade, overall, byKey }
