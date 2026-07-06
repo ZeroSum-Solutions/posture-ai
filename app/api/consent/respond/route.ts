@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { hashIp } from '@/lib/log'
+import { logEvent, hashIp } from '@/lib/log'
 import { hashConsent } from '@/lib/consent/policy'
 import { hashConsentToken } from '@/lib/consent/token'
 
@@ -10,6 +10,7 @@ import { hashConsentToken } from '@/lib/consent/token'
 // service client (no session). Writes an immutable consent_record and stamps the
 // client's consent_recorded_at.
 const RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
+const ROUTE = 'POST /api/consent/respond'
 
 export async function POST(req: NextRequest) {
   let body: { token?: string; signer_name?: string; signer_relationship?: string }
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
   const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
   const allowed = await enforceRateLimit(service, { route: 'consent_respond', userId: ipHash ?? 'anon', limit: 10, windowSeconds: 60 })
   if (!allowed) {
+    logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash: ipHash ?? 'anon' })
     return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
   }
 
