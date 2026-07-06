@@ -223,7 +223,7 @@ export const MUSCLE_REGISTRY: RegistryEntry[] = [
     name: 'Hamstrings',
     region: 'knee_leg',
     links: [
-      { imbalanceKey: 'trunk_lean', role: 'weak' },
+      { imbalanceKey: 'trunk_lean', role: 'tight' },
       { imbalanceKey: 'knee_extension_back_knee', role: 'weak' },
     ],
   },

@@ -9,15 +9,15 @@ export const hamstrings: MuscleContent = {
   functionText:
     'The hamstrings bend the knee and extend the hip, powering walking, running, and standing up from a chair. Working with the glutes, they pull the pelvis out of a forward-tipped position and help hold the trunk upright over the legs. At the knee they also decelerate the lower leg as it swings and resist the joint snapping into full extension.',
   screeningNotes:
-    'In screening, the hamstrings frequently read as underactive when the glutes are dominant or when the pelvis sways forward, leaving the back of the thigh unable to anchor the pelvis or control the knee. They may benefit from professional evaluation when a client cannot hinge at the hip without the lower back taking over. Both length and strength are worth checking, since a short-but-weak hamstring is common.',
+    'In screening, hamstrings can show either limited length or poor force control depending on the pattern. In a sway-back or posterior trunk-lean presentation they are commonly held short and tonically active behind the thigh, while back-knee patterns may still reveal weak knee-flexion control. Check both length and strength before loading, especially when a client cannot hinge at the hip without the lower back taking over.',
   links: [
     {
       imbalanceKey: 'trunk_lean',
-      role: 'weak',
+      role: 'tight',
       confidence: 'low',
-      citation: 'Janda lower-crossed / Kendall 2005 — no study supports hamstring WEAKNESS in sagittal trunk lean; lower-crossed literature describes hamstrings as short/overactive. Role flagged for review.',
+      citation: 'Czaprowski 2018 Scoliosis Spinal Disord PMC5836359 (sway-back: hamstrings shortened); Tokunaga 2017 J Phys Ther Sci PMID 28744050',
       rationale:
-        'When the pelvis sways forward of the ankles, the hamstrings (alongside the glutes and deep abdominals) lengthen and lose the leverage to draw the pelvis back over the feet. Prolonged standing sway and a center of mass carried forward leave the back of the thigh underactive, so the front of the hip dominates the standing posture. Strengthening the hamstrings helps pull the pelvis back into a stacked position over the midfoot.',
+        'Sway-back classifications describe the hamstrings as shortened in the posterior pelvic-drift pattern, and EMG work reports high hamstring demand when the trunk leans back. That makes this trunk-lean link a short or overactive contributor rather than a weak one. Lengthening the back of the thigh, while pairing it with glute and trunk control, helps the pelvis stack back over the feet instead of bracing behind the knees.',
     },
     {
       imbalanceKey: 'knee_extension_back_knee',

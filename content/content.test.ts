@@ -67,6 +67,8 @@ describe('muscle content', () => {
     expect(linkConf('upper-trapezius', 'forward_head_posture', 'tight')).toBe('high')
     // iliopsoas trunk lean: Sci Rep 2025 RCT confirms gluteal/hamstring inhibition (Plan 2 lit-sweep)
     expect(linkConf('iliopsoas', 'trunk_lean', 'tight')).toBe('high')
+    // hamstrings trunk lean: Task 8 recode resolves the sway-back contradiction as tight/low.
+    expect(linkConf('hamstrings', 'trunk_lean', 'tight')).toBe('low')
     // knee hyperextension: hamstrings stay medium; calf, popliteus, and quadriceps stay low
     expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('low')
     expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('medium')
