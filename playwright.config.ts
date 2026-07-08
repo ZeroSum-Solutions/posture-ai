@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// E2E runs against `next dev` backed by the local Supabase stack
-// (`npx supabase start`). Use `npm run test:e2e`, which resolves the local
-// stack's URL/keys into E2E_* env vars before invoking Playwright.
+// E2E runs against `next dev` locally (production `next start` in CI), backed
+// by the local Supabase stack (`npx supabase start`). Use `npm run test:e2e`,
+// which resolves the local stack's URL/keys into E2E_* env vars before
+// invoking Playwright.
 const PORT = process.env.E2E_PORT ?? '3100'
 const baseURL = `http://127.0.0.1:${PORT}`
 
@@ -12,6 +13,9 @@ const supabaseEnv = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? '',
   // Server-side gate for fixture scoring; never set in production.
   POSTURE_TEST_MODE_ENABLED: '1',
+  // Unreviewed muscle-KB content must render for muscle-kb/unreviewed-content/
+  // a11y specs; no-op under `next dev`, required for CI's production server.
+  NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT: '1',
 }
 
 export default defineConfig({
@@ -43,7 +47,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npx next dev --turbopack --port ${PORT}`,
+    // CI serves the production build (compiled in scripts/run-e2e.mjs) — dev-mode
+    // lazy route compilation stalls past the per-test budget under CI load.
+    command: process.env.CI
+      ? `npx next start --port ${PORT}`
+      : `npx next dev --turbopack --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

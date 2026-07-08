@@ -3,11 +3,19 @@ import { logEvent } from './log'
 
 type RateLimitOpts = { route: string; userId: string; limit: number; windowSeconds: number }
 
+// The e2e suite (serial, one shared practitioner, production-server speed)
+// legitimately exceeds the per-user limits, so scale them under the e2e-only
+// server gate (never set in production) instead of disabling enforcement —
+// the RPC and fail-open paths stay exercised.
+function effectiveLimit(limit: number): number {
+  return process.env.POSTURE_TEST_MODE_ENABLED === '1' ? limit * 50 : limit
+}
+
 function rateLimitRpcArgs(opts: RateLimitOpts) {
   const key = `${opts.route}:${opts.userId}`
   return {
     p_key: key,
-    p_limit: opts.limit,
+    p_limit: effectiveLimit(opts.limit),
     p_window_seconds: opts.windowSeconds,
   }
 }
