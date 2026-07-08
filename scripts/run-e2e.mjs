@@ -30,6 +30,22 @@ if (!env.E2E_SUPABASE_URL || !env.E2E_SUPABASE_ANON_KEY || !env.E2E_SUPABASE_SER
   process.exit(1)
 }
 
+// In CI the webServer is `next start` (see playwright.config.ts), so build
+// here — after the stack env is resolved, because NEXT_PUBLIC_* values are
+// inlined into client bundles and the CSP connect-src at build time.
+if (process.env.CI) {
+  execFileSync('npx', ['next', 'build'], {
+    stdio: 'inherit',
+    env: {
+      ...env,
+      NEXT_PUBLIC_SUPABASE_URL: env.E2E_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: env.E2E_SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY: env.E2E_SUPABASE_SERVICE_ROLE_KEY,
+      POSTURE_TEST_MODE_ENABLED: '1',
+    },
+  })
+}
+
 const result = spawnSync('npx', ['playwright', 'test', ...process.argv.slice(2)], {
   stdio: 'inherit',
   env,
