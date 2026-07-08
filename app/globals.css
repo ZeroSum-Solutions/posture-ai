@@ -1,15 +1,78 @@
 @import "tailwindcss";
 
+/* ─── Plumbline design tokens (exported from DESIGN.md) ─────────────────────
+   Source of truth: /DESIGN.md · export: docs/brand/plumbline.theme.css */
+@theme {
+  /* Porcelain (light mode — marketing, reports) */
+  --color-porcelain-background: #f6f4ef;
+  --color-porcelain-background-sunken: #efece3;
+  --color-porcelain-surface: #ffffff;
+  --color-porcelain-text-primary: #161d2b;
+  --color-porcelain-text-secondary: #4a5568;
+  --color-porcelain-border: #e2ded4;
+  --color-porcelain-border-strong: #c9c4b8;
+  --color-porcelain-primary: #243b6b;
+  --color-porcelain-primary-hover: #1b2e56;
+  --color-porcelain-primary-tint: #e4e9f3;
+  --color-porcelain-maintain: #1f6e62;
+  --color-porcelain-maintain-tint: #e1eeeb;
+  --color-porcelain-warning: #8f5b12;
+  --color-porcelain-warning-tint: #f3ead8;
+  --color-porcelain-danger: #9e3b33;
+  --color-porcelain-danger-tint: #f2e2e0;
+  --color-copper: #8a5537;
+  --color-copper-large: #9c6644;
+  --color-copper-dark: #c58b62;
+
+  /* Ink (dark mode — the clinical app) */
+  --color-ink-background: #0e1420;
+  --color-ink-surface: #161e2e;
+  --color-ink-surface-elevated: #1d2740;
+  --color-ink-text-primary: #e9e7e1;
+  --color-ink-text-secondary: #9aa3b5;
+  --color-ink-border: #252f44;
+  --color-ink-primary: #8fa8d9;
+  --color-ink-maintain: #63bfa9;
+  --color-ink-warning: #d9a44a;
+  --color-ink-danger: #e38271;
+
+  --color-border-control: #8d897e; /* 3:1 UI-boundary border for inputs (light) */
+
+  --radius-control: 10px;
+  --radius-card: 16px;
+
+  --container-app: 1200px;
+  --container-marketing: 1360px;
+
+  --leading-display: 1.02;
+  --leading-headline: 1.1;
+  --leading-body: 1.6;
+  --leading-data: 1.4;
+}
+
+/* ─── Semantic variables (the app runs in Ink mode) ───────────────────────── */
 :root {
-  --background: #0A0A0B;
-  --surface: #161618;
-  --border: rgba(255, 255, 255, 0.08);
-  --text-primary: #F5F5F5;
-  --text-secondary: #A1A1AA;
-  --brand: #6366F1;
-  --maintain: #22C55E;
-  --warning: #F59E0B;
-  --danger: #EF4444;
+  --background: #0e1420;
+  --surface: #161e2e;
+  --surface-elevated: #1d2740;
+  --border: #252f44;
+  --text-primary: #e9e7e1;
+  --text-secondary: #9aa3b5;
+  --brand: #8fa8d9;
+  --maintain: #63bfa9;
+  --warning: #d9a44a;
+  --danger: #e38271;
+
+  --font-sans: var(--font-body, 'Hanken Grotesk'), system-ui, sans-serif;
+
+  /* Motion (DESIGN.md §Motion) */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-press: 120ms;
+  --duration-hover: 180ms;
+  --duration-state: 240ms;
+  --duration-panel: 320ms;
 }
 
 * {
@@ -21,8 +84,40 @@
 body {
   background: var(--background);
   color: var(--text-primary);
-  font-family: Inter, system-ui, sans-serif;
+  font-family: var(--font-body, 'Hanken Grotesk'), system-ui, sans-serif;
+  line-height: var(--leading-body);
   overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display, 'Schibsted Grotesk'), system-ui, sans-serif;
+  line-height: var(--leading-headline);
+  letter-spacing: -0.015em;
+}
+
+/* Numeric readouts: Plex Mono, slashed zero, tabular digits */
+.data-readout {
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-feature-settings: "zero" 1;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-data);
+}
+
+/* Skeleton loaders */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-elevated) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-control);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background: var(--surface); }
 }
 
 /* Responsive grid utilities */
@@ -45,16 +140,16 @@ nav a, nav button {
 
 /* Visible focus rings for keyboard navigation (WCAG 2.4.7) */
 :focus-visible {
-  outline: 2px solid #6366F1;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #6366F1;
+  outline: 2px solid var(--brand);
   outline-offset: 0;
-  border-color: #6366F1 !important;
+  border-color: var(--brand) !important;
 }
 
 /* iOS Safari sizes input[type=date] to its native control's intrinsic width
@@ -71,7 +166,7 @@ select:focus-visible {
 
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid #6366F1;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 4px;
 }

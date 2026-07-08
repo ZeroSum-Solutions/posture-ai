@@ -5,6 +5,7 @@
  */
 export function publicPaths(nodeEnv: string | undefined = process.env.NODE_ENV): string[] {
   return [
+    '/',
     '/auth/sign-in',
     '/auth/sign-up',
     '/auth/callback',
@@ -35,5 +36,5 @@ export function publicPaths(nodeEnv: string | undefined = process.env.NODE_ENV):
 export const PUBLIC_PATHS = publicPaths()
 
 export function isPublicPath(pathname: string, paths: readonly string[] = PUBLIC_PATHS): boolean {
-  return paths.some((p) => pathname.startsWith(p))
+  return paths.some((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p)))
 }
