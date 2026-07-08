@@ -42,6 +42,10 @@ if (process.env.CI) {
       NEXT_PUBLIC_SUPABASE_ANON_KEY: env.E2E_SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_ROLE_KEY: env.E2E_SUPABASE_SERVICE_ROLE_KEY,
       POSTURE_TEST_MODE_ENABLED: '1',
+      // All seeded muscle-KB content is clinically unreviewed; production builds
+      // hide it unless this flag is set, and muscle-kb/unreviewed-content/a11y
+      // specs depend on it rendering.
+      NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT: '1',
     },
   })
 }
