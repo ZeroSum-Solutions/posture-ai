@@ -509,7 +509,7 @@ export default function SettingsPage() {
             padding: '10px 18px',
             borderRadius: '8px',
             background: 'rgba(239,68,68,0.12)',
-            color: '#EF4444',
+            color: '#F87171',
             border: '1px solid rgba(239,68,68,0.3)',
             cursor: 'pointer',
             fontWeight: 500,

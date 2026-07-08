@@ -9,6 +9,9 @@ export default function NavBar() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+
+  if (pathname === '/') return null
+
   const links = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/clients', label: 'Clients' },

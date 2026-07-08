@@ -9,6 +9,7 @@ describe('proxy public-path allowlist', () => {
 
   test('public surfaces stay reachable without auth', () => {
     for (const p of [
+      '/',
       '/auth/sign-in',
       '/auth/sign-up',
       '/auth/callback?code=abc',
@@ -29,7 +30,6 @@ describe('proxy public-path allowlist', () => {
 
   test('protected surfaces are NOT public', () => {
     for (const p of [
-      '/',
       '/dashboard',
       '/clients',
       '/clients/123',
@@ -65,6 +65,7 @@ describe('proxy public-path allowlist', () => {
     // Every allowlisted entry must not be a prefix of these gated roots.
     const gatedRoots = ['/dashboard', '/clients', '/assessments', '/workouts', '/exercises', '/muscles', '/settings', '/api/assessments', '/api/clients', '/api/workouts', '/api/reports', '/api/settings']
     for (const pub of prod) {
+      if (pub === '/') continue
       for (const root of gatedRoots) {
         expect(root.startsWith(pub), `public "${pub}" would shadow gated "${root}"`).toBe(false)
       }
