@@ -43,6 +43,8 @@ export interface ProgramPriority {
   copy: ImbalanceCopy
   steps: ProgramStep[]
   hasConnect: boolean
+  /** The client's screened finding keys — needed to keep the swap menu safe. */
+  screenedKeys: string[]
 }
 
 /** A priority the coach demoted to "monitor only" — shown, no program. */
@@ -99,13 +101,36 @@ export function linksForKeys(keys: string[]): Array<{ muscleSlug: string; confid
   return out
 }
 
+/**
+ * Exercise selection ORs over one priority's keys, so a match on finding A says
+ * nothing about a concurrent finding B that makes the exercise unsafe. An exercise
+ * is withheld when any of its contraindicatedDeviationKeys is screened in the
+ * client — regardless of which priority pulled it in.
+ */
+function isContraindicated(ex: ExerciseContent, screenedKeys: string[]): boolean {
+  return (ex.contraindicatedDeviationKeys ?? []).some((k) => screenedKeys.includes(k))
+}
+
+/**
+ * The client's finding keys that can veto an exercise: reliable, and in an
+ * actionable zone. `maintain` is a negative screen (measured within normal range),
+ * and `reliable: false` means not measurable — neither is evidence the deviation
+ * is present. Same eligibility bar selectPriorities uses.
+ */
+function screenedKeysFor(findings: Finding[]): string[] {
+  return findings
+    .filter((f) => f.reliable && (f.zone === 'warning' || f.zone === 'danger'))
+    .map((f) => f.key)
+}
+
 /** Recommended exercises for a priority: imbalance match + zone gate, no informational. */
-function candidatesFor(keys: string[], zone: string): ExerciseContent[] {
+function candidatesFor(keys: string[], zone: string, screenedKeys: string[]): ExerciseContent[] {
   return ALL_EXERCISES.filter(
     (ex) =>
       ex.category !== 'informational' &&
       ex.primaryDeviationKeys.some((k) => keys.includes(k)) &&
-      ZONE_RANK[zone] >= ZONE_RANK[ex.minZone],
+      ZONE_RANK[zone] >= ZONE_RANK[ex.minZone] &&
+      !isContraindicated(ex, screenedKeys),
   )
 }
 
@@ -143,21 +168,27 @@ const bySlug = new Map(ALL_EXERCISES.map((ex) => [ex.slug, ex]))
  * candidate for this priority (same category, serves the keys, passes the zone
  * gate). Invalid swaps are ignored so the plan can never go off-protocol.
  */
-function applySwap(ex: ExerciseContent, priority: SelectedPriority, swaps?: Record<string, string>): ExerciseContent {
+function applySwap(
+  ex: ExerciseContent,
+  priority: SelectedPriority,
+  screenedKeys: string[],
+  swaps?: Record<string, string>,
+): ExerciseContent {
   const toSlug = swaps?.[ex.slug]
   if (!toSlug) return ex
   const replacement = bySlug.get(toSlug)
   if (!replacement || replacement.category !== ex.category) return ex
-  const valid = candidatesFor(priority.keys, priority.zone).some((c) => c.slug === toSlug)
+  const valid = candidatesFor(priority.keys, priority.zone, screenedKeys).some((c) => c.slug === toSlug)
   return valid ? replacement : ex
 }
 
 function buildSteps(
   priority: SelectedPriority,
   capability: Capability,
+  screenedKeys: string[],
   swaps?: Record<string, string>,
 ): ProgramStep[] {
-  const all = applyCapability(candidatesFor(priority.keys, priority.zone), capability)
+  const all = applyCapability(candidatesFor(priority.keys, priority.zone, screenedKeys), capability)
   const integrative = all.filter((ex) => ex.isIntegrative)
   const core = all.filter((ex) => !ex.isIntegrative)
 
@@ -183,7 +214,7 @@ function buildSteps(
 
   // `base` is the auto-selected exercise; `ex` is the effective one after any swap.
   const toStep = (base: ExerciseContent, isIntegrative: boolean): ProgramStep => {
-    const ex = applySwap(base, priority, swaps)
+    const ex = applySwap(base, priority, screenedKeys, swaps)
     return {
       stepLabel: isIntegrative ? 'Connect' : STEP_LABEL[ex.category] ?? 'Move',
       slug: ex.slug,
@@ -209,15 +240,18 @@ function buildSteps(
 /**
  * Valid swap alternatives for one step: other candidates in the same category
  * for this priority that aren't already in the plan. Drives the coach swap menu.
+ * `screenedKeys` is required — the menu must never offer an exercise that is
+ * contraindicated by another of the client's findings.
  */
 export function swapAlternatives(
   keys: string[],
   zone: string,
   category: string,
   excludeSlugs: string[],
+  screenedKeys: string[],
 ): { slug: string; name: string }[] {
   const exclude = new Set(excludeSlugs)
-  return candidatesFor(keys, zone)
+  return candidatesFor(keys, zone, screenedKeys)
     .filter((ex) => ex.category === category && !exclude.has(ex.slug))
     .map((ex) => ({ slug: ex.slug, name: ex.name }))
 }
@@ -243,6 +277,9 @@ export function buildProgramFrom(
 ): ProgramReport {
   const capability = overrides.capability ?? 'standard'
   const ranked = selectPriorities(findings)
+  // Computed from the whole finding set, not the active priorities: a contradicting
+  // finding vetoes an exercise even when it ranked outside the client's top 3.
+  const screenedKeys = screenedKeysFor(findings)
 
   // Active priorities: coach's ordered list if set, else the natural top 3.
   let active: SelectedPriority[]
@@ -261,7 +298,7 @@ export function buildProgramFrom(
 
   const priorities: ProgramPriority[] = active.map((p, i) => {
     const copy = p.isBilateral ? BILATERAL_KNEE_COPY : IMBALANCE_COPY[p.primaryKey as keyof typeof IMBALANCE_COPY]
-    const steps = buildSteps(p, capability, overrides.swaps?.[p.primaryKey])
+    const steps = buildSteps(p, capability, screenedKeys, overrides.swaps?.[p.primaryKey])
     return {
       rank: i + 1,
       primaryKey: p.primaryKey,
@@ -272,6 +309,7 @@ export function buildProgramFrom(
       copy: copy ?? BILATERAL_KNEE_COPY,
       steps,
       hasConnect: steps.some((s) => s.isIntegrative),
+      screenedKeys,
     }
   })
 

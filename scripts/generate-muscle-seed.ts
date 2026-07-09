@@ -43,14 +43,17 @@ lines.push('')
 // exercises (upsert by slug, keep ids stable for exercise_recommendations FKs)
 for (const e of ALL_EXERCISES) {
   lines.push(
-    `INSERT INTO exercises (slug, name, category, primary_deviation_keys, min_zone, instructions, sets, hold_seconds, video_url, poster_url, demo_gif_url) VALUES (` +
+    `INSERT INTO exercises (slug, name, category, primary_deviation_keys, contraindicated_deviation_keys, min_zone, instructions, sets, hold_seconds, video_url, poster_url, demo_gif_url) VALUES (` +
       [
         q(e.slug), q(e.name), q(e.category),
         `ARRAY[${e.primaryDeviationKeys.map(k => q(k)).join(', ')}]`,
+        e.contraindicatedDeviationKeys?.length
+          ? `ARRAY[${e.contraindicatedDeviationKeys.map(k => q(k)).join(', ')}]`
+          : 'NULL',
         q(e.minZone), q(e.instructions), String(e.sets), String(e.holdSeconds),
         q(e.media?.loopUrl ?? null), q(e.media?.posterUrl ?? null), q(e.media?.fallbackGifUrl ?? null),
       ].join(', ') +
-      `)\nON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category, primary_deviation_keys = EXCLUDED.primary_deviation_keys, min_zone = EXCLUDED.min_zone, instructions = EXCLUDED.instructions, sets = EXCLUDED.sets, hold_seconds = EXCLUDED.hold_seconds, video_url = EXCLUDED.video_url, poster_url = EXCLUDED.poster_url, demo_gif_url = EXCLUDED.demo_gif_url;`
+      `)\nON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category, primary_deviation_keys = EXCLUDED.primary_deviation_keys, contraindicated_deviation_keys = EXCLUDED.contraindicated_deviation_keys, min_zone = EXCLUDED.min_zone, instructions = EXCLUDED.instructions, sets = EXCLUDED.sets, hold_seconds = EXCLUDED.hold_seconds, video_url = EXCLUDED.video_url, poster_url = EXCLUDED.poster_url, demo_gif_url = EXCLUDED.demo_gif_url;`
   )
 }
 lines.push('')

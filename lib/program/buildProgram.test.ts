@@ -150,7 +150,7 @@ describe('buildProgramFrom overrides', () => {
     const base = buildProgramFrom(findings, 'C')
     const fhp = base.priorities.find((p) => p.primaryKey === 'forward_head_posture')!
     const target = fhp.steps.find((s) => s.category === 'stretch')!
-    const alts = swapAlternatives(['forward_head_posture'], 'danger', 'stretch', fhp.steps.map((s) => s.slug))
+    const alts = swapAlternatives(['forward_head_posture'], 'danger', 'stretch', fhp.steps.map((s) => s.slug), fhp.screenedKeys)
     expect(alts.length).toBeGreaterThan(0) // there is a real alternative to swap to
 
     const r = buildProgramFrom(findings, 'C', {
@@ -171,5 +171,65 @@ describe('buildProgramFrom overrides', () => {
     const after = r.priorities.find((p) => p.primaryKey === 'forward_head_posture')!
     expect(after.steps.some((s) => s.slug === target)).toBe(true)
     expect(after.steps.some((s) => s.slug === 'butterfly-stretch')).toBe(false)
+  })
+})
+
+// Exercise selection ORs over one priority's keys, so it cannot see a second,
+// concurrent finding that makes an otherwise-coherent exercise unsafe. In a
+// hyperextended knee the hamstrings are already abnormally long (Zwick 2010,
+// PMID 20308923), so lengthening them is withheld — yet the stretch is still
+// reachable for such a client through the trunk_lean key.
+//
+// A contradicting finding vetoes only when it is a positive screen: reliable and
+// in an actionable zone. `maintain` means measured within normal range, and
+// `reliable: false` means not measurable — neither is evidence the knee is
+// hyperextended. The two boundary tests below pin that rule.
+const SHS = 'seated-hamstring-stretch'
+
+const trunkLean = f({ key: 'trunk_lean', label: 'Trunk Lean', region: 'spine', severityPct: 70, zone: 'danger' })
+const knee = (over: Partial<Finding> = {}) =>
+  f({ key: 'knee_extension_back_knee', label: 'Knee Hyperextension', region: 'leg', severityPct: 65, zone: 'warning', ...over })
+
+/** Force SHS into the plan the way a coach can: swap it onto the trunk_lean stretch slot. */
+function slugsAfterSwappingInSHS(fs: Finding[]): string[] {
+  const base = buildProgramFrom(fs, 'C')
+  const trunk = base.priorities.find((p) => p.primaryKey === 'trunk_lean')!
+  const stretchStep = trunk.steps.find((s) => s.category === 'stretch')!
+  const r = buildProgramFrom(fs, 'C', { swaps: { trunk_lean: { [stretchStep.slug]: SHS } } })
+  return r.priorities.flatMap((p) => p.steps.map((s) => s.slug))
+}
+
+describe('cross-finding contraindication: seated-hamstring-stretch × knee hyperextension', () => {
+  it('is not offered in the coach swap menu when knee hyperextension is screened', () => {
+    const r = buildProgramFrom([trunkLean, knee()], 'C')
+    const trunk = r.priorities.find((p) => p.primaryKey === 'trunk_lean')!
+    const alts = swapAlternatives(trunk.keys, trunk.zone, 'stretch', [], trunk.screenedKeys)
+
+    expect(alts.map((a) => a.slug)).not.toContain(SHS)
+    expect(alts.length).toBeGreaterThan(0) // the rest of the menu survives
+  })
+
+  it('is rejected even when a coach swap explicitly names it', () => {
+    expect(slugsAfterSwappingInSHS([trunkLean, knee()])).not.toContain(SHS)
+  })
+
+  it('still vetoes when the knee finding ranks outside the active top-3 priorities', () => {
+    const findings = [
+      trunkLean,
+      f({ key: 'forward_head_posture', label: 'Forward Head Posture', region: 'head_shoulders', severityPct: 90, zone: 'danger' }),
+      f({ key: 'anterior_imbalanced_shoulders', label: 'Anterior Shoulders', region: 'head_shoulders', severityPct: 85, zone: 'danger' }),
+      knee({ severityPct: 20 }), // ranks 4th → monitored, not an active priority
+    ]
+    const r = buildProgramFrom(findings, 'C')
+    expect(r.monitored.map((m) => m.primaryKey)).toContain('knee_extension_back_knee')
+    expect(slugsAfterSwappingInSHS(findings)).not.toContain(SHS)
+  })
+
+  it('remains available when the knee is within normal range (maintain)', () => {
+    expect(slugsAfterSwappingInSHS([trunkLean, knee({ zone: 'maintain' })])).toContain(SHS)
+  })
+
+  it('remains available when the knee could not be measured (unreliable)', () => {
+    expect(slugsAfterSwappingInSHS([trunkLean, knee({ reliable: false })])).toContain(SHS)
   })
 })

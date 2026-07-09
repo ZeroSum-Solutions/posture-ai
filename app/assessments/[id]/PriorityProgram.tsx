@@ -71,7 +71,7 @@ function SwapControl({
   onSwap: OverrideHandlers['onSwap']
 }) {
   const otherSlugs = priority.steps.filter((s) => s.baseSlug !== step.baseSlug).map((s) => s.slug)
-  const alts = swapAlternatives(priority.keys, priority.zone, step.category, otherSlugs)
+  const alts = swapAlternatives(priority.keys, priority.zone, step.category, otherSlugs, priority.screenedKeys)
   if (alts.length <= 1) return null // nothing to swap to
 
   const swapped = step.slug !== step.baseSlug
