@@ -152,6 +152,13 @@ export const exerciseContentSchema = z
     category: z.enum(['stretch', 'strengthen', 'mobility', 'activation', 'informational']),
     /** Imbalances this exercise is recommended for (drives existing recommendation logic). */
     primaryDeviationKeys: z.array(z.enum(IMBALANCE_KEYS)).min(1),
+    /**
+     * Imbalances that make this exercise unsafe even when a primaryDeviationKey
+     * also matches. Selection ORs over one priority's keys, so without this an
+     * exercise coherent for finding A still reaches a client who also presents
+     * finding B. Applied as an exclusion pass over the client's whole finding set.
+     */
+    contraindicatedDeviationKeys: z.array(z.enum(IMBALANCE_KEYS)).optional(),
     minZone: z.enum(['maintain', 'warning', 'danger']),
     instructions: screeningText(80, 800),
     sets: z.number().int().min(1).max(6),
@@ -192,6 +199,17 @@ export const exerciseContentSchema = z
     restSecondsBetweenSets: z.number().int().min(0).max(120).optional(),
   })
   .superRefine((ex, ctx) => {
+    // A key cannot be both an indication and a contraindication for the same exercise.
+    const conflicting = (ex.contraindicatedDeviationKeys ?? []).filter((k) =>
+      (ex.primaryDeviationKeys as readonly string[]).includes(k),
+    )
+    if (conflicting.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['contraindicatedDeviationKeys'],
+        message: `key is both indicated and contraindicated: ${conflicting.join(', ')}`,
+      })
+    }
     // reps is null exactly when the item is dosed by time or is a stretch/informational.
     const repsMustBeNull =
       ex.dosageType === 'hold' || ex.category === 'stretch' || ex.category === 'informational'

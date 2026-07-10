@@ -47,7 +47,7 @@ const result: AssessmentResult = {
 const base = buildProgramFrom(findings, result.overallGrade, { capability: 'standard' })
 const fhp = base.priorities.find((p) => p.primaryKey === 'forward_head_posture')!
 const stretchStep = fhp.steps.find((s) => s.category === 'stretch')!
-const alts = swapAlternatives(fhp.keys, fhp.zone, 'stretch', fhp.steps.map((s) => s.slug))
+const alts = swapAlternatives(fhp.keys, fhp.zone, 'stretch', fhp.steps.map((s) => s.slug), fhp.screenedKeys)
 const swaps: Record<string, Record<string, string>> = alts.length
   ? { forward_head_posture: { [stretchStep.baseSlug]: alts[0].slug } }
   : {}

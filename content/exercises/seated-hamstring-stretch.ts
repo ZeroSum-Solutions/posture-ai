@@ -5,6 +5,10 @@ export const seatedHamstringStretch: ExerciseContent = {
   name: 'Seated Hamstring Stretch',
   category: 'stretch',
   primaryDeviationKeys: ['trunk_lean'],
+  // In a hyperextended knee the hamstrings are already abnormally long (Zwick 2010,
+  // PMID 20308923 — children with cerebral palsy), so lengthening them further is a
+  // conservative exclusion, not a proven contraindication in the screening population.
+  contraindicatedDeviationKeys: ['knee_extension_back_knee'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,
