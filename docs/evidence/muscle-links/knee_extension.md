@@ -1,6 +1,6 @@
 # Literature Grading: knee_extension_back_knee (Genu Recurvatum)
 
-- gastrocnemius-soleus [tight] (display-only): confidence=medium | citation="Svehlik et al. 2010 (J Pediatr Orthop B) — abnormally high soleus EMG in single stance and equinus foot position linked kinematically to recurvatum timing; 3D gait analysis in 47 limbs."
+- gastrocnemius-soleus [tight] (scored): confidence=medium | citation="Svehlik et al. 2010 (J Pediatr Orthop B) — abnormally high soleus EMG in single stance and equinus foot position linked kinematically to recurvatum timing; 3D gait analysis in 47 limbs."
 - hamstrings [weak] (scored): confidence=medium | citation="Zwick et al. 2010 (J Pediatr Orthop B) — 35 children with spastic cerebral palsy (47 limbs) vs 12 controls: hamstrings abnormally long at initial contact; surface EMG showed prolonged stance and early swing activity, not reduced."
 - popliteus [weak] (display-only): confidence=low | citation="Mann & Hagy 1977 (J Bone Joint Surg Am) — EMG showed popliteus active during knee hyperextension in adults; no study found directly linking popliteus weakness to recurvatum development."
 - quadriceps [tight] (display-only): confidence=low | citation="Kendall et al. 2005 (Muscles: Testing and Function, 5th ed.) — textbook inference; quadriceps anterior dominance implicated in recurvatum; no EMG or kinematic study found confirming this in asymptomatic adults."
@@ -9,7 +9,11 @@
 
 Evidence base for genu recurvatum muscle associations is almost entirely clinical-population gait analysis (cerebral palsy, stroke). Direct EMG/kinematic studies in asymptomatic adults are absent for all four links.
 
-**Gastrocnemius-soleus (medium):** Svehlik et al. 2010 (PMID 20442674) is a 3D gait kinematic + EMG study directly showing high soleus activity and equinus as the mechanistic driver of recurvatum. Supported by a 2013 intervention study (PMID 24029800) showing aponeurotic calf lengthening reduced knee hyperextension by 10.5°. Evidence is strong within clinical populations; mechanism is inferred for asymptomatic screening.
+**Gastrocnemius-soleus (medium, scored):** Svehlik et al. 2010 (PMID 20442674, "part A") is a 3D gait kinematic + EMG study directly showing high soleus activity and equinus as the mechanistic driver of recurvatum. Supported by Klotz et al. 2013 (Res Dev Disabil, PMID 24029800), an intervention study showing aponeurotic calf lengthening reduced knee hyperextension by 10.5° (p<0.001, 26 limbs, 23% non-responders). Evidence is strong within clinical populations; mechanism is inferred for asymptomatic screening.
+
+This link was promoted from display-only to scored on 2026-07-05 (#98) and regraded here on 2026-07-09. Two notes on that history:
+- #98's stated basis was "Kerkum 2016 (equinus to recurvatum); Klotz 2010 J Pediatr Orthop B PMID 20442674". Both were miscitations, verified against PubMed 2026-07-09. Kerkum et al. 2016 (Gait Posture, PMID 27131186) studies **excessive knee flexion**, not recurvatum, and supports nothing here. "Klotz 2010 J Pediatr Orthop B" does not exist — it conflates Svehlik 2010 (PMID 20442674, the correct source for that journal/year) with Klotz 2013 (PMID 24029800). The scoring decision survives on the corrected sources above; its citation did not.
+- #98 also set `confidence: low`, which the schema reserves for "textbook inference without corroborating studies" (`types.ts`). Two studies corroborate this link — one of them the only *directional* evidence among the four (lengthening the calf reduces hyperextension). Grading it below hamstrings, which rests on the companion paper from the same cohort with no intervention arm, was incoherent. Restored to `medium`, the ceiling the transferability rule allows for clinical-population evidence (HANDOFF adjudication 2).
 
 **Hamstrings (medium):** Zwick et al. 2010 (PMID 20308923) is the most direct study — kinematic modelling + surface EMG in 47 limbs (35 children with spastic CP) vs 12 controls, showing hamstrings abnormally *long* at initial contact. Single study in CP; no corroborating RCT or systematic review in asymptomatic adults found.
 

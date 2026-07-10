@@ -69,8 +69,10 @@ describe('muscle content', () => {
     expect(linkConf('iliopsoas', 'trunk_lean', 'tight')).toBe('high')
     // hamstrings trunk lean: Task 8 recode resolves the sway-back contradiction as tight/low.
     expect(linkConf('hamstrings', 'trunk_lean', 'tight')).toBe('low')
-    // knee hyperextension: hamstrings stay medium; calf, popliteus, and quadriceps stay low
-    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('low')
+    // knee hyperextension: hamstrings and calf are medium (both rest on the Svehlik/Zwick
+    // 2010 cerebral-palsy cohort, the calf additionally on the Klotz 2013 lengthening
+    // intervention); popliteus and quadriceps stay low on textbook inference alone.
+    expect(linkConf('gastrocnemius-soleus', 'knee_extension_back_knee', 'tight')).toBe('medium')
     expect(linkConf('hamstrings', 'knee_extension_back_knee', 'weak')).toBe('medium')
     expect(linkConf('popliteus', 'knee_extension_back_knee', 'weak')).toBe('low')
     expect(linkConf('quadriceps', 'knee_extension_back_knee', 'tight')).toBe('low')
@@ -79,7 +81,7 @@ describe('muscle content', () => {
   // Knee hyperextension: hamstrings→weak and calf→tight are the scored links.
   // Popliteus (C+, no causal recurvatum data) and quadriceps (D) stay display-only —
   // kept on their KB pages but excluded from the scored muscle map. See
-  // _intake/knee-hyperextension-muscle-evidence.md.
+  // docs/evidence/muscle-links/knee_extension.md.
   it('knee-hyperextension keeps only the evidence-backed hamstring and calf links scored', () => {
     const kneeLinks = ALL_MUSCLES.flatMap(m =>
       m.links
