@@ -11,6 +11,8 @@ import type { Capability } from '@/lib/program/selectPriorities'
 import { toEngineFinding } from '@/lib/findings/storedFindingToEngine'
 import { generateWorkoutSession } from '@/lib/workout/generateWorkoutSession'
 import { deriveExerciseRecommendations } from '@/lib/exercises'
+import { ALL_EXERCISES } from '@/content'
+import type { ExerciseContent } from '@/content/muscles/types'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -45,22 +47,6 @@ interface Capture {
   source: string
   capture_roll_deg: number | null
 }
-interface Exercise {
-  id: string
-  slug: string
-  name: string
-  category: string
-  primary_deviation_keys: string[]
-  min_zone: string
-  instructions: string
-  sets: number
-  hold_seconds: number
-  reps_min?: number | null
-  reps_max?: number | null
-  dosage_type?: string | null
-  is_integrative?: boolean | null
-}
-
 interface Assessment {
   id: string
   status: string
@@ -535,7 +521,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   informational: '#A1A1AA',
 }
 
-function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
+function ExerciseAccordionItem({ exercise }: { exercise: ExerciseContent }) {
   const [open, setOpen] = useState(false)
   const catColor = CATEGORY_COLORS[exercise.category] ?? '#6366F1'
   const catLabel = CATEGORY_LABELS[exercise.category] ?? exercise.category
@@ -582,15 +568,15 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
                 <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
-            {exercise.dosage_type !== 'dynamic' && exercise.hold_seconds > 0 && (
+            {exercise.dosageType !== 'dynamic' && exercise.holdSeconds > 0 && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.hold_seconds}s</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.holdSeconds}s</div>
                 <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Hold</div>
               </div>
             )}
-            {exercise.reps_min != null && exercise.reps_max != null && (
+            {exercise.reps != null && (
               <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.reps_min}–{exercise.reps_max}</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.reps.min}–{exercise.reps.max}</div>
                 <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
@@ -601,7 +587,7 @@ function ExerciseAccordionItem({ exercise }: { exercise: Exercise }) {
   )
 }
 
-function ExercisesSection({ exercises }: { exercises: Exercise[] }) {
+function ExercisesSection({ exercises }: { exercises: ExerciseContent[] }) {
   if (exercises.length === 0) return null
 
   return (
@@ -613,7 +599,7 @@ function ExercisesSection({ exercises }: { exercises: Exercise[] }) {
         All Matched Exercises (library reference)
       </h2>
       {exercises.map(ex => (
-        <ExerciseAccordionItem key={ex.id} exercise={ex} />
+        <ExerciseAccordionItem key={ex.slug} exercise={ex} />
       ))}
     </div>
   )
@@ -636,7 +622,6 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [approving, setApproving] = useState(false)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>>([])
   const [compareToId, setCompareToId] = useState<string>('')
-  const [allExercises, setAllExercises] = useState<Exercise[]>([])
   const [auxError, setAuxError] = useState<string | null>(null)
   const [capability, setCapability] = useState<Capability>('standard')
   const [activeKeys, setActiveKeys] = useState<string[] | null>(null)
@@ -683,16 +668,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             const priorData = await priorRes.json()
             setPriorAssessments(priorData.assessments || [])
           } else {
-            setAuxError('Some report options could not load (prior assessments or exercises). Refresh to try again.')
+            setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
           }
-        }
-        // Fetch exercises
-        const exRes = await fetch('/api/exercises', { signal: ac.signal })
-        if (exRes.ok) {
-          const exData = await exRes.json()
-          setAllExercises(exData.exercises || [])
-        } else {
-          setAuxError('Some report options could not load (prior assessments or exercises). Refresh to try again.')
         }
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') return
@@ -718,8 +695,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   }, [assessmentId])
 
   const exercises = useMemo(
-    () => (allExercises.length > 0 && findings.length > 0 ? deriveExerciseRecommendations(allExercises, findings) : []),
-    [allExercises, findings]
+    () => (findings.length > 0 ? deriveExerciseRecommendations(ALL_EXERCISES, findings) : []),
+    [findings]
   )
 
   const program = useMemo(
