@@ -194,7 +194,7 @@ whatever role it is coded), so they are tracked here for the same deferred clini
 | Muscle | Finding | Coded role | Evidence | scored | Status |
 |---|---|---|---|---|---|
 | thoracic-erector-spinae | trunk_lean | weak | low (Park 2015 — inhibited in slouched sitting) | true | **RESOLVED** — Task 6 Option B flipped tight→weak; content + DB prose synced. |
-| hamstrings | trunk_lean | tight | low | true | **RESOLVED** — Task 8 recoded weak→tight for sway-back / posterior trunk-lean evidence (Czaprowski 2018 PMC5836359; Tokunaga 2017 PMID 28744050). |
+| hamstrings | trunk_lean | tight | low | true | **RESOLVED** — Task 8 recoded weak→tight for sway-back / posterior trunk-lean evidence (Czaprowski 2018 PMC5836359, Table 8: shortened + hyperactive). Task 8 also cited "Tokunaga 2017 PMID 28744050" as EMG support; that citation was miscited and removed 2026-07-09 — PMID 28744050 is Fujitani 2017, which measured no hamstring EMG. The tight/low coding stands on Czaprowski alone, which is why it is graded `low`. |
 
 **hamstrings / trunk_lean (tight) — RESOLVED by Task 8:**
 - Sway-back / posterior trunk-lean evidence describes the hamstrings as shortened and active

@@ -44,7 +44,7 @@ Final distribution: **16 high / 15 medium / 11 low** = 42.
 
 ## knee_extension_back_knee (3 links are scored:false display-only — keep that flag; grade anyway)
 - gastrocnemius-soleus [tight] (display-only): confidence=medium | citation="Svehlik 2010 (J Pediatr Orthop B, PMID 20442674) — high soleus EMG in single stance linked kinematically to recurvatum timing; calf-lengthening reduced hyperextension (PMID 24029800)."
-- hamstrings [weak] (scored): confidence=medium | citation="Zwick 2010 (J Pediatr Orthop B, PMID 20308923) — kinematic modelling + surface EMG identified elongated, functionally insufficient hamstrings as a main cause of knee recurvatum."
+- hamstrings [weak] (scored): confidence=medium | citation="Zwick 2010 (J Pediatr Orthop B, PMID 20308923) — 35 children with spastic cerebral palsy (47 limbs) vs 12 controls: hamstrings abnormally long at initial contact; surface EMG showed prolonged stance and early swing activity, not reduced."
 - popliteus [weak] (display-only): confidence=low | citation="Mann & Hagy 1977 (JBJS Am) — EMG showed popliteus active during knee hyperextension in adults; no study directly links popliteus weakness to recurvatum development."
 - quadriceps [tight] (display-only): confidence=low | citation="Kendall 2005 (Muscles: Testing and Function, 5th ed.) — textbook inference; anterior quadriceps dominance implicated in recurvatum; no EMG/kinematic confirmation in asymptomatic adults found."
 

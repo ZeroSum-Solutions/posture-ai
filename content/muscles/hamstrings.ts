@@ -15,17 +15,19 @@ export const hamstrings: MuscleContent = {
       imbalanceKey: 'trunk_lean',
       role: 'tight',
       confidence: 'low',
-      citation: 'Czaprowski 2018 Scoliosis Spinal Disord PMC5836359 (sway-back: hamstrings shortened); Tokunaga 2017 J Phys Ther Sci PMID 28744050',
+      citation:
+        'Czaprowski 2018 Scoliosis Spinal Disord PMC5836359 — narrative review; Table 8 classifies sway-back hamstrings as shortened and hyperactive. Review-level classification, not primary measurement.',
       rationale:
-        'Sway-back classifications describe the hamstrings as shortened in the posterior pelvic-drift pattern, and EMG work reports high hamstring demand when the trunk leans back. That makes this trunk-lean link a short or overactive contributor rather than a weak one. Lengthening the back of the thigh, while pairing it with glute and trunk control, helps the pelvis stack back over the feet instead of bracing behind the knees.',
+        'Sway-back classifications describe the hamstrings as both shortened and overactive in the posterior pelvic-drift pattern, which makes this trunk-lean link a short or overactive contributor rather than a weak one. That grading rests on review-level classification rather than direct muscle-activity measurement, so it is held at low confidence. Lengthening the back of the thigh, while pairing it with glute and trunk control, helps the pelvis stack back over the feet instead of bracing behind the knees.',
     },
     {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'weak',
       confidence: 'medium',
-      citation: 'Zwick 2010 (J Pediatr Orthop B, PMID 20308923) — kinematic modelling + surface EMG identified elongated, functionally insufficient hamstrings as a main cause of knee recurvatum.',
+      citation:
+        'Zwick 2010 (J Pediatr Orthop B, PMID 20308923) — 35 children with spastic cerebral palsy (47 limbs) vs 12 controls: hamstrings abnormally long at initial contact; surface EMG showed prolonged stance and early swing activity, not reduced.',
       rationale:
-        'The hamstrings bend the knee and resist it snapping into full extension, so in a back-knee (hyperextended) pattern they often test weak and let the joint settle into its locked end-range. With the quadriceps holding the knee backward and the hamstrings underactive, the joint loses its dynamic brake against hyperextension. Strengthening the hamstrings helps the knee hold a soft, neutral position under load.',
+        'The hamstrings bend the knee and resist it snapping into full extension, so in a back-knee (hyperextended) pattern the joint loses its dynamic brake and settles into its locked end-range. The supporting gait study found them abnormally long at initial contact rather than short, with prolonged rather than diminished activity, and it ran in a cerebral-palsy group, not a healthy adult screening group. The weak coding here is therefore a mechanical inference about force control, not a measured force deficit. Strengthening the hamstrings helps the knee hold a soft, neutral position under load.',
     },
   ],
   reviewedBy: null,
