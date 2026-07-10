@@ -54,14 +54,14 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
     await expect(page.getByText(/No clients yet/)).toHaveCount(0)
   })
 
-  test('assessment results: exercises 500 shows aux error alert', async ({ page }) => {
-    const client = await createClient(page, 'E2E', `ErrExercises-${randomUUID().slice(0, 8)}`)
+  test('assessment results: prior assessments 500 shows aux error alert', async ({ page }) => {
+    const client = await createClient(page, 'E2E', `ErrPrior-${randomUUID().slice(0, 8)}`)
     const res = await page.request.post('/api/assessments', { data: { client_id: client.id, test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     const assessmentId = (await res.json()).id as string
 
-    // Route exercises to 500 before navigating
-    await page.route('**/api/exercises**', route =>
+    // Route prior assessments to 500 before navigating
+    await page.route('**/api/clients/*/assessments**', route =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server error' }) })
     )
     await page.goto(`/assessments/${assessmentId}`)

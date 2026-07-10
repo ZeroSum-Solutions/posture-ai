@@ -7,6 +7,8 @@ import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
+import { deriveExerciseRecommendations, type ZonedFinding } from '@/lib/exercises'
+import { ALL_EXERCISES } from '@/content'
 import { isNoRows } from '@/lib/api/query-error'
 import { dbFindingsToEngineFindings, isCapability, type DbFindingRow } from '@/lib/reports/clientProgram'
 import { buildClientComparison, type ClientComparison } from '@/lib/reports/clientComparison'
@@ -128,12 +130,6 @@ export async function POST(req: NextRequest) {
 
   // Enrich with causes_text, tight/weak muscles from imbalance_definitions
   const keys = (findingsRaw || []).map((f: { imbalance_key: string }) => f.imbalance_key)
-  // Exercises are only recommended for reliable findings — an unreliable finding
-  // (the unscoreable pelvic_axial_rotation, or any low-confidence capture) must
-  // not pull corrective exercises into the practitioner report.
-  const reliableKeys = (findingsRaw || [])
-    .filter((f: { zone?: string }) => f.zone !== 'unreliable')
-    .map((f: { imbalance_key: string }) => f.imbalance_key)
   const defsMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
   if (keys.length > 0) {
     const { data: defs } = await supabase
@@ -209,27 +205,20 @@ export async function POST(req: NextRequest) {
     }
   })
 
-  // Fetch exercises relevant to the findings
-  const exercises: PdfExercise[] = []
-  if (reliableKeys.length > 0) {
-    const { data: exRows } = await supabase
-      .from('exercises')
-      .select('name, category, instructions, sets, hold_seconds, primary_deviation_keys')
-    if (exRows) {
-      for (const ex of exRows) {
-        const devKeys: string[] = Array.isArray(ex.primary_deviation_keys) ? ex.primary_deviation_keys : []
-        if (devKeys.some((k: string) => reliableKeys.includes(k))) {
-          exercises.push({
-            name: ex.name,
-            category: ex.category,
-            instructions: ex.instructions,
-            sets: ex.sets,
-            hold_seconds: ex.hold_seconds,
-          })
-        }
-      }
-    }
-  }
+  // Exercises relevant to the findings, from authored content/ — the same source and the
+  // same selector the program builder uses, so the practitioner report cannot recommend an
+  // exercise contraindicated by a concurrent finding (nor an informational item, nor one
+  // below its own min zone). An unreliable finding recommends nothing.
+  const exercises: PdfExercise[] = deriveExerciseRecommendations(
+    ALL_EXERCISES,
+    (findingsRaw || []) as unknown as ZonedFinding[],
+  ).map((ex) => ({
+    name: ex.name,
+    category: ex.category,
+    instructions: ex.instructions,
+    sets: ex.sets,
+    hold_seconds: ex.holdSeconds,
+  }))
 
   // Fetch practitioner
   const { data: practitioner } = await supabase

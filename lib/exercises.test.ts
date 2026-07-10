@@ -4,15 +4,11 @@ import { deriveExerciseRecommendations } from './exercises'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
 
 interface ExerciseDef {
-  id: string
   slug: string
-  name: string
   category: string
-  primary_deviation_keys: string[]
-  min_zone: string
-  instructions: string
-  sets: number
-  hold_seconds: number
+  primaryDeviationKeys: string[]
+  contraindicatedDeviationKeys?: string[]
+  minZone: string
 }
 
 interface FindingDef {
@@ -21,35 +17,26 @@ interface FindingDef {
   severity_pct: number
 }
 
-// Test fixture: seed exercises (matches DB seed data)
+// Test fixture: mirrors the authored content/ exercises this selector now reads.
 const SEED_EXERCISES: ExerciseDef[] = [
-  { id: '1', slug: 'chin-tucks', name: 'Chin Tucks', category: 'strengthen',
-    primary_deviation_keys: ['forward_head_posture'], min_zone: 'warning',
-    instructions: 'Retract chin.', sets: 3, hold_seconds: 5 },
-  { id: '2', slug: 'neck-lateral-stretch', name: 'Neck Lateral Stretch', category: 'stretch',
-    primary_deviation_keys: ['forward_head_posture'], min_zone: 'maintain',
-    instructions: 'Tilt head.', sets: 3, hold_seconds: 20 },
-  { id: '3', slug: 'wall-angels', name: 'Wall Angels', category: 'strengthen',
-    primary_deviation_keys: ['anterior_imbalanced_shoulders', 'posterior_imbalanced_shoulders'], min_zone: 'maintain',
-    instructions: 'Wall angels.', sets: 3, hold_seconds: 10 },
-  { id: '4', slug: 'doorway-pec-stretch', name: 'Doorway Pec Stretch', category: 'stretch',
-    primary_deviation_keys: ['anterior_imbalanced_shoulders'], min_zone: 'maintain',
-    instructions: 'Doorway stretch.', sets: 3, hold_seconds: 20 },
-  { id: '5', slug: 'kneeling-hip-flexor-stretch', name: 'Kneeling Hip Flexor Stretch', category: 'stretch',
-    primary_deviation_keys: ['anterior_pelvic_shift', 'pelvic_obliquity'], min_zone: 'warning',
-    instructions: 'Kneeling stretch.', sets: 3, hold_seconds: 20 },
-  { id: '6', slug: 'glute-bridge', name: 'Glute Bridge', category: 'strengthen',
-    primary_deviation_keys: ['anterior_pelvic_shift', 'knee_extension_back_knee'], min_zone: 'maintain',
-    instructions: 'Glute bridge.', sets: 3, hold_seconds: 2 },
-  { id: '7', slug: 'clamshell', name: 'Clamshell Exercise', category: 'strengthen',
-    primary_deviation_keys: ['pelvic_obliquity', 'genu_varum_valgum_left', 'genu_varum_valgum_right'], min_zone: 'warning',
-    instructions: 'Clamshell.', sets: 3, hold_seconds: 5 },
-  { id: '8', slug: 'single-leg-balance', name: 'Single Leg Balance', category: 'activation',
-    primary_deviation_keys: ['pelvic_obliquity', 'genu_varum_valgum_left', 'genu_varum_valgum_right'], min_zone: 'warning',
-    instructions: 'Balance.', sets: 3, hold_seconds: 30 },
-  { id: '9', slug: 'standing-hamstring-curl', name: 'Standing Hamstring Curl', category: 'strengthen',
-    primary_deviation_keys: ['knee_extension_back_knee'], min_zone: 'warning',
-    instructions: 'Hamstring curl.', sets: 3, hold_seconds: 5 },
+  { slug: 'chin-tucks', category: 'strengthen',
+    primaryDeviationKeys: ['forward_head_posture'], minZone: 'warning' },
+  { slug: 'neck-lateral-stretch', category: 'stretch',
+    primaryDeviationKeys: ['forward_head_posture'], minZone: 'maintain' },
+  { slug: 'wall-angels', category: 'strengthen',
+    primaryDeviationKeys: ['anterior_imbalanced_shoulders', 'posterior_imbalanced_shoulders'], minZone: 'maintain' },
+  { slug: 'doorway-pec-stretch', category: 'stretch',
+    primaryDeviationKeys: ['anterior_imbalanced_shoulders'], minZone: 'maintain' },
+  { slug: 'kneeling-hip-flexor-stretch', category: 'stretch',
+    primaryDeviationKeys: ['anterior_pelvic_shift', 'pelvic_obliquity'], minZone: 'warning' },
+  { slug: 'glute-bridge', category: 'strengthen',
+    primaryDeviationKeys: ['anterior_pelvic_shift', 'knee_extension_back_knee'], minZone: 'maintain' },
+  { slug: 'clamshell', category: 'strengthen',
+    primaryDeviationKeys: ['pelvic_obliquity', 'genu_varum_valgum_left', 'genu_varum_valgum_right'], minZone: 'warning' },
+  { slug: 'single-leg-balance', category: 'activation',
+    primaryDeviationKeys: ['pelvic_obliquity', 'genu_varum_valgum_left', 'genu_varum_valgum_right'], minZone: 'warning' },
+  { slug: 'standing-hamstring-curl', category: 'strengthen',
+    primaryDeviationKeys: ['knee_extension_back_knee'], minZone: 'warning' },
 ]
 
 describe('deriveExerciseRecommendations - determinism', () => {
@@ -116,5 +103,70 @@ describe('deriveExerciseRecommendations - determinism', () => {
     const resultA = deriveExerciseRecommendations(SEED_EXERCISES, findingsA).map(e => e.slug).sort()
     const resultB = deriveExerciseRecommendations(SEED_EXERCISES, findingsB).map(e => e.slug).sort()
     expect(resultA).toEqual(resultB)
+  })
+})
+
+// Mirrors content/exercises/seated-hamstring-stretch.ts: indicated for trunk_lean,
+// contraindicated for knee_extension_back_knee (hyperextended knee → already-long hamstrings).
+const SEATED_HAMSTRING_STRETCH: ExerciseDef = {
+  slug: 'seated-hamstring-stretch', category: 'stretch',
+  primaryDeviationKeys: ['trunk_lean'],
+  contraindicatedDeviationKeys: ['knee_extension_back_knee'],
+  minZone: 'maintain',
+}
+
+describe('deriveExerciseRecommendations - cross-finding contraindications', () => {
+  it('withholds an exercise contraindicated by a concurrent finding', () => {
+    const findings: FindingDef[] = [
+      { imbalance_key: 'trunk_lean', zone: 'warning', severity_pct: 55 },
+      { imbalance_key: 'knee_extension_back_knee', zone: 'danger', severity_pct: 80 },
+    ]
+    const slugs = deriveExerciseRecommendations([SEATED_HAMSTRING_STRETCH], findings).map(e => e.slug)
+    expect(slugs).not.toContain('seated-hamstring-stretch')
+  })
+
+  it('recommends the exercise when the contraindicating finding is absent', () => {
+    const findings: FindingDef[] = [
+      { imbalance_key: 'trunk_lean', zone: 'warning', severity_pct: 55 },
+    ]
+    const slugs = deriveExerciseRecommendations([SEATED_HAMSTRING_STRETCH], findings).map(e => e.slug)
+    expect(slugs).toContain('seated-hamstring-stretch')
+  })
+
+  // A maintain-zone knee was measured within normal range, so there is no hyperextension
+  // to protect against. Vetoing on it would withhold a warranted stretch. Same bar as
+  // buildProgram's screenedKeysFor.
+  it('does not veto on a maintain-zone contraindicating finding', () => {
+    const findings: FindingDef[] = [
+      { imbalance_key: 'trunk_lean', zone: 'warning', severity_pct: 55 },
+      { imbalance_key: 'knee_extension_back_knee', zone: 'maintain', severity_pct: 8 },
+    ]
+    const slugs = deriveExerciseRecommendations([SEATED_HAMSTRING_STRETCH], findings).map(e => e.slug)
+    expect(slugs).toContain('seated-hamstring-stretch')
+  })
+
+  it('does not veto on an unreliable contraindicating finding', () => {
+    const findings: FindingDef[] = [
+      { imbalance_key: 'trunk_lean', zone: 'warning', severity_pct: 55 },
+      { imbalance_key: 'knee_extension_back_knee', zone: 'unreliable', severity_pct: 0 },
+    ]
+    const slugs = deriveExerciseRecommendations([SEATED_HAMSTRING_STRETCH], findings).map(e => e.slug)
+    expect(slugs).toContain('seated-hamstring-stretch')
+  })
+})
+
+describe('deriveExerciseRecommendations - informational items', () => {
+  // Informational content is reference reading, not movement to hand a client.
+  const SEATED_TIBIAL_ROTATION: ExerciseDef = {
+    slug: 'seated-tibial-rotation', category: 'informational',
+    primaryDeviationKeys: ['knee_extension_back_knee'], minZone: 'warning',
+  }
+
+  it('never recommends an informational item', () => {
+    const findings: FindingDef[] = [
+      { imbalance_key: 'knee_extension_back_knee', zone: 'danger', severity_pct: 80 },
+    ]
+    const slugs = deriveExerciseRecommendations([SEATED_TIBIAL_ROTATION], findings).map(e => e.slug)
+    expect(slugs).not.toContain('seated-tibial-rotation')
   })
 })
