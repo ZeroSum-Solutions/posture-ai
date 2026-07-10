@@ -96,7 +96,7 @@ Forward-only, per repo convention. The muscle seed and its migrations are auto-g
 1. Is `side` best modelled as a per-link enum, or does `pelvic_obliquity` want to split into two signed imbalance keys (mirroring `genu_varum_valgum_left` / `_right`, which already took that route)?
 2. Should `force: { state: 'reduced' }` be assertable **at all** without a force measurement in the target population? If not, `hamstrings × knee_extension_back_knee` loses its only basis for `weak` and should become display-only, matching popliteus.
 3. Does the possible-involvement tier need to distinguish "no evidence" from "evidence of normality"? Today both are just absence.
-4. Does `types.ts:90-91` get corrected now, or as part of this change? It currently asserts an evidence bar the project's own evidence base says was never met.
+4. ~~Does `types.ts:90-91` get corrected now, or as part of this change? It currently asserts an evidence bar the project's own evidence base says was never met.~~ **Resolved 2026-07-09** — corrected in the calf-link reconciliation, independently of this schema change. The comment no longer claims any knee link cleared an asymptomatic-population bar, and no longer lists the calf among the demoted links (it has been `scored` since #98). Open question 2 is unaffected: whether `weak` is assertable without a force measurement still stands for `hamstrings × knee_extension_back_knee`.
 
 ## Provenance
 

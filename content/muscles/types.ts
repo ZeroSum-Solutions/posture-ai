@@ -87,8 +87,11 @@ export const muscleLinkSchema = z.object({
    * map reads). The relationship still lives in the muscle's own anatomy/screening
    * prose; a labelled low-confidence visual tier on the map is deferred (Stage-2
    * §4 extended tier). Used to demote inferences the research reconciliation could
-   * not support — e.g. the knee-hyperextension calf/quadriceps/popliteus links,
-   * where only hamstrings→weak cleared the asymptomatic-population evidence bar.
+   * not support — e.g. the knee-hyperextension quadriceps and popliteus links, which
+   * rest on textbook inference with no study tying the muscle's state to recurvatum.
+   * No knee link clears an asymptomatic-adult bar: the two scored ones (hamstrings→weak,
+   * calf→tight) rest on pediatric cerebral-palsy gait studies and are graded `medium`
+   * accordingly. See docs/evidence/muscle-links/knee_extension.md.
    */
   scored: z.boolean().optional(),
   /**
