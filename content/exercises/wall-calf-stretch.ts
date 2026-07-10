@@ -5,7 +5,9 @@ export const wallCalfStretch: ExerciseContent = {
   slug: 'wall-calf-stretch',
   name: 'Wall Calf Stretch (Straight Knee)',
   category: 'stretch',
-  primaryDeviationKeys: ['trunk_lean'],
+  // knee_extension_back_knee: the scored calf→tight link (Svehlik/Klotz) implicates the
+  // knee-crossing gastrocnemius; this straight-knee variant is the on-point Lengthen step.
+  primaryDeviationKeys: ['trunk_lean', 'knee_extension_back_knee'],
   minZone: 'maintain',
   dosageType: 'hold',
   reps: null,

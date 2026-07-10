@@ -5,6 +5,7 @@ import { selectPriorities, type Capability, type SelectedPriority } from './sele
 import { computeDose, freqLabel, type Dose } from './dosage'
 import { IMBALANCE_COPY, BILATERAL_KNEE_COPY, type ImbalanceCopy } from '../../content/report/imbalance-copy'
 import { exerciseEvidenceForKey, type LinkEvidence } from './evidenceWeight'
+import { isCoherentForKey } from './roleCoherence'
 
 const ZONE_RANK: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
 const CATEGORY_ORDER: Record<string, number> = { mobility: 0, stretch: 1, activation: 2, strengthen: 3 }
@@ -123,12 +124,18 @@ function screenedKeysFor(findings: Finding[]): string[] {
     .map((f) => f.key)
 }
 
-/** Recommended exercises for a priority: imbalance match + zone gate, no informational. */
+/**
+ * Recommended exercises for a priority: role-aware imbalance match + zone gate.
+ * An exercise qualifies only for a key it acts on in the correct direction —
+ * stretch a tight-linked muscle, strengthen a weak one (isCoherentForKey). This
+ * mirrors the content coherence gate at runtime, so a tight link can never
+ * credit a strengthen exercise regardless of primaryDeviationKeys. Informational
+ * items are never coherent, so they are dropped here too.
+ */
 function candidatesFor(keys: string[], zone: string, screenedKeys: string[]): ExerciseContent[] {
   return ALL_EXERCISES.filter(
     (ex) =>
-      ex.category !== 'informational' &&
-      ex.primaryDeviationKeys.some((k) => keys.includes(k)) &&
+      ex.primaryDeviationKeys.some((k) => keys.includes(k) && isCoherentForKey(ex, k)) &&
       ZONE_RANK[zone] >= ZONE_RANK[ex.minZone] &&
       !isContraindicated(ex, screenedKeys),
   )

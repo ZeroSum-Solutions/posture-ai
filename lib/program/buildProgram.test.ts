@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { buildProgramFrom, swapAlternatives, linksForKeys } from './buildProgram'
 import { exerciseEvidenceForKey, evidenceWeight } from './evidenceWeight'
+import { isCoherentForKey } from './roleCoherence'
+import { ALL_EXERCISES } from '../../content'
+import type { ExerciseContent } from '../../content/muscles/types'
 import type { Finding } from '../../packages/posture-engine/src/types'
 
 const f = (over: Partial<Finding> & Pick<Finding, 'key' | 'label' | 'region' | 'severityPct' | 'zone'>): Finding => ({
@@ -125,6 +128,61 @@ describe('evidence tie-break ordering (pinned against content as of feat/evidenc
     expect(strengthens).toContain('glute-bridge')            // ev=0.7
     expect(strengthens).toContain('standing-hamstring-curl') // ev=0.7
     expect(strengthens).not.toContain('standing-calf-raise') // informational, never a candidate
+  })
+})
+
+// Follow-up #2 (PR #107/#108): the scored gastrocnemius-soleus→tight link for
+// knee_extension_back_knee drives a muscle-map highlight, and its rationale
+// prescribes lengthening — but no stretch exercise served the key, so the plan
+// had no "Lengthen" action to match the highlight.
+describe('knee_extension_back_knee: calf tight link has a matching stretch step', () => {
+  const kneeOnly = () =>
+    buildProgramFrom(
+      [f({ key: 'knee_extension_back_knee', label: 'Knee Hyperextension', region: 'leg', severityPct: 60, zone: 'warning' })],
+      'C',
+    ).priorities.find((p) => p.primaryKey === 'knee_extension_back_knee')!
+
+  it('includes a stretch step targeting the tight calf', () => {
+    const p = kneeOnly()
+    const stretch = p.steps.find((s) => s.category === 'stretch')
+    expect(stretch).toBeDefined()
+    const ex = ALL_EXERCISES.find((e) => e.slug === stretch!.slug)!
+    expect(ex.muscles.some((m) => m.muscleSlug === 'gastrocnemius-soleus' && m.role === 'stretch')).toBe(true)
+  })
+
+  it('the calf stretch is a Lengthen step', () => {
+    const p = kneeOnly()
+    expect(p.steps.some((s) => s.stepLabel === 'Lengthen')).toBe(true)
+  })
+})
+
+// Role-aware selection: candidatesFor must credit an exercise to a link only in
+// the correct DIRECTION — a stretch for a tight link, a strengthen for a weak
+// one. Guards the standing-calf-raise hazard structurally, independent of the
+// informational flag.
+describe('role-aware exercise selection (isCoherentForKey)', () => {
+  const asEx = (over: Partial<ExerciseContent>): ExerciseContent =>
+    ({ category: 'strengthen', muscles: [], primaryDeviationKeys: [], ...over }) as ExerciseContent
+
+  it('does not credit a strengthen exercise to a tight-linked muscle', () => {
+    // calf is scored TIGHT for knee_extension_back_knee — strengthening it is wrong-direction.
+    const ex = asEx({ category: 'strengthen', muscles: [{ muscleSlug: 'gastrocnemius-soleus', role: 'strengthen', progressionLevel: 2 }] })
+    expect(isCoherentForKey(ex, 'knee_extension_back_knee')).toBe(false)
+  })
+
+  it('credits a stretch exercise to a tight-linked muscle', () => {
+    const ex = asEx({ category: 'stretch', muscles: [{ muscleSlug: 'gastrocnemius-soleus', role: 'stretch', progressionLevel: 2 }] })
+    expect(isCoherentForKey(ex, 'knee_extension_back_knee')).toBe(true)
+  })
+
+  it('credits a strengthen exercise to a weak-linked muscle', () => {
+    const ex = asEx({ category: 'strengthen', muscles: [{ muscleSlug: 'hamstrings', role: 'strengthen', progressionLevel: 2 }] })
+    expect(isCoherentForKey(ex, 'knee_extension_back_knee')).toBe(true)
+  })
+
+  it('never credits an informational exercise', () => {
+    const ex = asEx({ category: 'informational', muscles: [{ muscleSlug: 'hamstrings', role: 'strengthen', progressionLevel: 2 }] })
+    expect(isCoherentForKey(ex, 'knee_extension_back_knee')).toBe(false)
   })
 })
 
