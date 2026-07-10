@@ -15,7 +15,7 @@ export const popliteus: MuscleContent = {
       imbalanceKey: 'knee_extension_back_knee',
       role: 'weak',
       confidence: 'low',
-      citation: 'Mann & Hagy 1977 (JBJS Am) — EMG showed popliteus active during knee hyperextension in adults; no study directly links popliteus weakness to recurvatum development.',
+      citation: 'Mann & Hagy 1977 (J Bone Joint Surg Am, PMID 908724) — adult EMG found popliteus active during tibial internal rotation, which unlocks the extended knee, not during hyperextension; no study ties popliteus weakness to recurvatum.',
       scored: false,
       exclusionReason:
         'Display-only: no causal recurvatum data supports the popliteus inference (Grade C+); it stays on the muscle page as education but is excluded from the scored map alongside the calf and quadriceps links.',
