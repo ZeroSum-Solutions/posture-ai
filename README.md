@@ -6,7 +6,7 @@ AI-assisted posture and musculoskeletal screening for movement professionals. Cl
 
 ## Stack
 
-- **Web:** Next.js (App Router) · React 19 · Tailwind v4 · TanStack Query
+- **Web:** Next.js (App Router) · React 19 · Tailwind v4
 - **Pose:** MediaPipe Tasks Vision (WASM, served from `public/mediapipe/`)
 - **Scoring:** `packages/posture-engine` — versioned, deterministic metric engine
 - **Backend:** Supabase (auth, Postgres, RLS) — migrations in `supabase/migrations/`

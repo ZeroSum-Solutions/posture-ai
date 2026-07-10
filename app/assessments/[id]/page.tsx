@@ -10,6 +10,7 @@ import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
 import { toEngineFinding } from '@/lib/findings/storedFindingToEngine'
 import { generateWorkoutSession } from '@/lib/workout/generateWorkoutSession'
+import { deriveExerciseRecommendations } from '@/lib/exercises'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -58,20 +59,6 @@ interface Exercise {
   reps_max?: number | null
   dosage_type?: string | null
   is_integrative?: boolean | null
-}
-
-const ZONE_ORDER: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
-function zoneAtOrAbove(findingZone: string, minZone: string): boolean {
-  return (ZONE_ORDER[findingZone] ?? -1) >= (ZONE_ORDER[minZone] ?? 0)
-}
-function deriveExerciseRecommendations(exercises: Exercise[], findings: Finding[]): Exercise[] {
-  const reliableFindings = findings.filter(f => f.zone !== 'unreliable')
-  return exercises.filter(ex =>
-    ex.primary_deviation_keys.some(key => {
-      const finding = reliableFindings.find(f => f.imbalance_key === key)
-      return finding && zoneAtOrAbove(finding.zone, ex.min_zone)
-    })
-  )
 }
 
 interface Assessment {
