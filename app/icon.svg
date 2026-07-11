@@ -1,17 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="pl" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8FA8D9" stop-opacity=".35"/>
-      <stop offset=".5" stop-color="#8FA8D9" stop-opacity="1"/>
-      <stop offset="1" stop-color="#8FA8D9" stop-opacity=".9"/>
+    <linearGradient id="accent" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8918"/>
+      <stop offset=".46" stop-color="#DA4E24"/>
+      <stop offset="1" stop-color="#0098F3"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#0E1420"/>
-  <!-- plumb line -->
-  <line x1="32" y1="8" x2="32" y2="50" stroke="url(#pl)" stroke-width="2.5"/>
-  <!-- landmark dots: head deviated, hip on line, ankle anchor -->
-  <circle cx="40" cy="16" r="4.5" fill="#E9E7E1"/>
-  <circle cx="32" cy="33" r="4" fill="#8FA8D9"/>
-  <!-- plumb bob anchor -->
-  <path d="M32 46 L37 52 L32 58 L27 52 Z" fill="#8FA8D9"/>
+  <rect width="64" height="64" rx="16" fill="#000000"/>
+  <rect x="8" y="8" width="48" height="48" rx="13" fill="#0B0B0B" stroke="#FFFFFF" stroke-opacity=".16"/>
+  <path d="M18 43C18 28.1 27.1 19 42 19h5" fill="none" stroke="url(#accent)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M21 45c0-10.5 6.8-17 17-17h9" fill="none" stroke="#FFFFFF" stroke-opacity=".14" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="45" cy="20" r="5" fill="#FFFFFF"/>
 </svg>

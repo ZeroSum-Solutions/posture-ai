@@ -4,14 +4,15 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { validatePasswordReset, MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
+import AuthFrame from '@/components/AuthFrame'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 12px',
-  background: '#0A0A0B',
+  background: 'var(--background)',
   border: '1px solid rgba(255,255,255,0.12)',
   borderRadius: '8px',
-  color: '#F5F5F5',
+  color: 'var(--text-primary)',
   fontSize: '0.9rem',
   boxSizing: 'border-box',
 }
@@ -53,26 +54,22 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: '400px', background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '32px' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '8px' }}>
-          Choose a new password
-        </h1>
+    <AuthFrame title="Choose a new password" description="Create a fresh password for your practitioner account.">
 
         {hasSession === null ? (
-          <p style={{ fontSize: '0.875rem', color: '#A1A1AA' }}>Verifying reset link…</p>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Verifying reset link…</p>
         ) : hasSession === false ? (
           <>
-            <p style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '24px' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
               This reset link is invalid or has expired. Request a new one to continue.
             </p>
-            <Link href="/auth/forgot-password" style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <Link href="/auth/forgot-password" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.85rem' }}>
               ← Request a new link
             </Link>
           </>
         ) : (
           <>
-            <p style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '24px' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
               Enter a new password for your account.
             </p>
             {error && (
@@ -84,7 +81,7 @@ export default function UpdatePasswordPage() {
                   border: '1px solid rgba(239,68,68,0.3)',
                   borderRadius: '8px',
                   padding: '12px',
-                  color: '#EF4444',
+                  color: 'var(--danger)',
                   fontSize: '0.85rem',
                   marginBottom: '16px',
                 }}
@@ -96,7 +93,7 @@ export default function UpdatePasswordPage() {
               <div style={{ marginBottom: '16px' }}>
                 <label
                   htmlFor="new_password"
-                  style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: '6px' }}
+                  style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
                 >
                   New password
                 </label>
@@ -115,7 +112,7 @@ export default function UpdatePasswordPage() {
               <div style={{ marginBottom: '24px' }}>
                 <label
                   htmlFor="confirm_password"
-                  style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: '6px' }}
+                  style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
                 >
                   Confirm password
                 </label>
@@ -137,7 +134,7 @@ export default function UpdatePasswordPage() {
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: loading ? 'rgba(99,102,241,0.5)' : '#4F46E5',
+                  background: loading ? 'rgba(0,152,243,0.5)' : 'var(--brand)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',
@@ -151,7 +148,6 @@ export default function UpdatePasswordPage() {
             </form>
           </>
         )}
-      </div>
-    </div>
+    </AuthFrame>
   )
 }

@@ -12,7 +12,7 @@ AI-assisted posture and musculoskeletal screening for movement professionals. Cl
 - **Backend:** Supabase (auth, Postgres, RLS) — migrations in `supabase/migrations/`
 - **Mobile:** Expo app in `mobile/`
 - **Reports:** `@react-pdf/renderer` PDFs + tokenized share links
-- **Design system:** "Plumbline" — normative contract in [`DESIGN.md`](DESIGN.md), showcase in `docs/brand/`
+- **Design system:** Posture AI Dark — normative contract in [`DESIGN.md`](DESIGN.md)
 
 ## Getting started
 
@@ -52,6 +52,6 @@ docs/                 Plans, QA runbook, brand system
 
 ## Docs
 
-- [`DESIGN.md`](DESIGN.md) — Plumbline design contract (lint: `npx --yes -p @google/design.md@0.3.0 design.md lint DESIGN.md`)
+- [`DESIGN.md`](DESIGN.md) — Posture AI Dark design contract (lint: `npx --yes -p @google/design.md@0.3.0 design.md lint DESIGN.md`)
 - [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — operations runbook
 - [`docs/plans/`](docs/plans/) — dated design and implementation plans

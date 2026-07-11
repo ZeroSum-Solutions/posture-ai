@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { findingsToMuscleStates, type AssessmentFinding, type MuscleStateInput } from './findingsToMuscleStates'
 import { evidenceWeight } from '../../../lib/program/evidenceWeight'
+import { AnatomyGlyph } from '../../../components/SignalGlyphs'
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
 
@@ -19,7 +20,7 @@ const HELLO_INTERVAL_MS = 300
 const HELLO_MAX_TRIES = 40 // ~12s of pinging before we surface "unavailable" (still recovers late)
 
 const CARD: CSSProperties = {
-  background: '#161618',
+  background: 'var(--surface)',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 16,
   padding: 24,
@@ -28,18 +29,18 @@ const CARD: CSSProperties = {
 const HEADING: CSSProperties = {
   fontSize: '1rem',
   fontWeight: 600,
-  color: '#A1A1AA',
+  color: 'var(--text-secondary)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   margin: 0,
 }
-const NOTE: CSSProperties = { marginTop: 8, fontSize: '0.72rem', color: '#A1A1AA', lineHeight: 1.5 }
+const NOTE: CSSProperties = { marginTop: 8, fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.5 }
 
 function Swatch({ color, label }: { color: string; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ width: 10, height: 10, borderRadius: 3, background: color }} />
-      <span style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>{label}</span>
+      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{label}</span>
     </div>
   )
 }
@@ -155,9 +156,9 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
       >
         <h2 style={HEADING}>3D Posture Summary</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Swatch color="#EF4444" label="Tight" />
-          <Swatch color="#6366F1" label="Weak" />
-          <span style={{ fontSize: '0.66rem', color: '#71717A', fontStyle: 'italic' }}>
+          <Swatch color="var(--danger)" label="Tight" />
+          <Swatch color="var(--brand)" label="Weak" />
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
             shaded by severity
           </span>
         </div>
@@ -190,13 +191,13 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
               cursor: 'pointer',
             }}
           >
-            <span style={{ fontSize: '2rem' }} aria-hidden>
-              🧍
+            <span style={{ display: 'grid', placeItems: 'center', width: 48, height: 48 }} aria-hidden>
+              <AnatomyGlyph size={42} />
             </span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#E4E4E7' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               Show 3D model
             </span>
-            <span style={{ fontSize: '0.72rem', color: '#71717A' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               Loads an interactive anatomy model (~9 MB)
             </span>
           </button>
@@ -219,7 +220,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
                   justifyContent: 'center',
                   textAlign: 'center',
                   padding: 24,
-                  color: '#A1A1AA',
+                  color: 'var(--text-secondary)',
                   background: 'rgba(10,10,15,0.85)',
                   fontSize: '0.8rem',
                 }}
@@ -245,7 +246,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
         </p>
       )}
 
-      <p style={{ marginTop: 14, fontSize: '0.62rem', color: '#71717A', lineHeight: 1.4 }}>
+      <p style={{ marginTop: 14, fontSize: '0.62rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
         Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP. Red =
         tight/overactive, blue = weak/inhibited; depth of color reflects severity.
       </p>

@@ -19,9 +19,9 @@ function evidenceBadge(confidence: 'high' | 'medium' | 'low' | undefined): strin
 }
 
 function badgeColor(confidence: 'high' | 'medium' | 'low' | undefined): string {
-  if (confidence === 'high') return '#34D399'
-  if (confidence === 'low') return '#F59E0B'
-  return '#818CF8'
+  if (confidence === 'high') return 'var(--maintain)'
+  if (confidence === 'low') return 'var(--warning)'
+  return 'var(--brand)'
 }
 
 // ─── WhyThisBody (pure) ───────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
   const label: React.CSSProperties = {
     fontSize: '0.66rem',
     fontWeight: 700,
-    color: '#8A8A93',
+    color: 'var(--text-muted)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     marginBottom: 4,
@@ -55,7 +55,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
       {/* Block 1 — finding */}
       <div>
         <div style={label}>Finding</div>
-        <div style={{ fontSize: '0.9rem', color: '#F5F5F5', fontWeight: 600 }}>{findingLabel}</div>
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>{findingLabel}</div>
       </div>
 
       {/* Block 2 — implicated muscles with evidence grade */}
@@ -65,7 +65,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {muscles.map((m) => (
               <div key={m.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.85rem', color: '#D4D4D8', textTransform: 'capitalize' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
                   {m.name}
                 </span>
                 <span
@@ -89,8 +89,8 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
       {/* Block 3 — movement action */}
       <div>
         <div style={label}>What this movement does</div>
-        <div style={{ fontSize: '0.85rem', color: '#D4D4D8', lineHeight: 1.5 }}>
-          <strong style={{ color: '#F5F5F5' }}>{exerciseName}</strong>{' '}
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--text-primary)' }}>{exerciseName}</strong>{' '}
           {muscles.length > 0
             ? `${movementAction} the relevant muscles in this pattern, helping to address this finding.`
             : `${movementAction} the muscles involved in this finding.`}
@@ -195,7 +195,7 @@ export default function WhyThisSheet({
           maxWidth: 560,
           maxHeight: '85vh',
           overflowY: 'auto',
-          background: '#161618',
+          background: 'var(--surface)',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '16px 16px 0 0',
           padding: 20,
@@ -204,7 +204,7 @@ export default function WhyThisSheet({
         <div
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
         >
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#F5F5F5' }}>Why this?</h3>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>Why this?</h3>
           <button
             onClick={onClose}
             aria-label="Close"
@@ -215,7 +215,7 @@ export default function WhyThisSheet({
               borderRadius: '50%',
               border: '1px solid rgba(255,255,255,0.14)',
               background: 'rgba(0,0,0,0.35)',
-              color: '#D4D4D8',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
             }}
           >
@@ -224,12 +224,12 @@ export default function WhyThisSheet({
         </div>
 
         {error && (
-          <p role="alert" style={{ color: '#EF4444', fontSize: '0.85rem' }}>
+          <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>
             {error}
           </p>
         )}
         {loading && !error && (
-          <p style={{ color: '#A1A1AA', fontSize: '0.85rem' }}>Loading…</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Loading…</p>
         )}
 
         {!loading && !error && (

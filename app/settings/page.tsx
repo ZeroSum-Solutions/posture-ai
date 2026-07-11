@@ -205,10 +205,10 @@ export default function SettingsPage() {
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px 12px',
-    background: '#0A0A0B',
+    background: 'var(--background)',
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: '8px',
-    color: '#F5F5F5',
+    color: 'var(--text-primary)',
     fontSize: '0.9rem',
         boxSizing: 'border-box',
   }
@@ -216,12 +216,12 @@ export default function SettingsPage() {
   const labelStyle: React.CSSProperties = {
     display: 'block',
     fontSize: '0.85rem',
-    color: '#A1A1AA',
+    color: 'var(--text-secondary)',
     marginBottom: '6px',
   }
 
   const cardStyle: React.CSSProperties = {
-    background: '#161618',
+    background: 'var(--surface)',
     border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '12px',
     padding: '24px',
@@ -230,15 +230,17 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: '32px 24px', maxWidth: '600px', margin: '0 auto' }}>
-        <p style={{ color: '#A1A1AA' }}>Loading settings...</p>
+      <div className="app-standard-page app-standard-page--narrow">
+        <p style={{ color: 'var(--text-secondary)' }}>Loading settings...</p>
       </div>
     )
   }
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '24px' }}>Settings</h1>
+    <div className="app-standard-page app-standard-page--narrow">
+      <p className="app-page-kicker">Workspace control</p>
+      <h1 className="app-page-heading">Settings</h1>
+      <p className="app-page-lede" style={{ marginBottom: 28 }}>Manage your identity, organization, and account security in one place.</p>
 
       {/* Toast notification */}
       {toast && (
@@ -256,7 +258,7 @@ export default function SettingsPage() {
             fontSize: '0.9rem',
             background: toast.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
             border: toast.type === 'success' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(239,68,68,0.4)',
-            color: toast.type === 'success' ? '#34D399' : '#F87171',
+            color: toast.type === 'success' ? 'var(--maintain)' : 'var(--danger)',
             boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
           }}
         >
@@ -265,8 +267,8 @@ export default function SettingsPage() {
       )}
 
       {/* Profile section */}
-      <div style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>Profile</h2>
+      <div className="app-panel" style={cardStyle}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Profile</h2>
         <form onSubmit={handleSaveProfile}>
           <div style={{ marginBottom: '16px' }}>
             <label htmlFor="display_name" style={labelStyle}>Display Name</label>
@@ -298,7 +300,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: saving ? 'rgba(99,102,241,0.4)' : '#4F46E5',
+              background: saving ? 'rgba(0,152,243,0.4)' : 'var(--brand)',
               color: saving ? '#9CA3AF' : '#fff',
               border: 'none',
               cursor: saving ? 'not-allowed' : 'pointer',
@@ -312,8 +314,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Organization & Compliance section */}
-      <div style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>Organization &amp; Compliance</h2>
+      <div className="app-panel" style={cardStyle}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Organization &amp; Compliance</h2>
         <form onSubmit={handleSaveOrg}>
           <div style={{ marginBottom: '16px' }}>
             <label htmlFor="org_name" style={labelStyle}>Organization Name</label>
@@ -334,11 +336,11 @@ export default function SettingsPage() {
               type="checkbox"
               checked={isCoveredEntity}
               onChange={e => setIsCoveredEntity(e.target.checked)}
-              style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#4F46E5', cursor: 'pointer' }}
+              style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: 'var(--brand)', cursor: 'pointer' }}
             />
             <label htmlFor="covered_entity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
               This organization is a HIPAA covered entity
-              <span style={{ display: 'block', color: '#A1A1AA', fontSize: '0.8rem', marginTop: '4px' }}>
+              <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
                 Turning this on requires a signed Business Associate Agreement before practitioner mode can be used.
               </span>
             </label>
@@ -396,7 +398,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: orgSaving ? 'rgba(99,102,241,0.4)' : '#4F46E5',
+              background: orgSaving ? 'rgba(0,152,243,0.4)' : 'var(--brand)',
               color: orgSaving ? '#9CA3AF' : '#fff',
               border: 'none',
               cursor: orgSaving ? 'not-allowed' : 'pointer',
@@ -406,21 +408,21 @@ export default function SettingsPage() {
           >
             {orgSaving ? 'Saving...' : 'Save Organization'}
           </button>
-          <p style={{ fontSize: '0.8rem', color: '#A1A1AA', marginTop: '10px' }}>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '10px' }}>
             These compliance details are self-attested by you and control whether the BAA gate applies.
           </p>
         </form>
       </div>
 
       {/* Logo section */}
-      <div style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>Practice Logo</h2>
+      <div className="app-panel" style={cardStyle}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Practice Logo</h2>
         {logoUrl && (
           <div style={{ marginBottom: '16px' }}>
             <img
               src={logoUrl}
               alt="Practice logo preview"
-              style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: '#0A0A0B' }}
+              style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--background)' }}
             />
           </div>
         )}
@@ -439,9 +441,9 @@ export default function SettingsPage() {
           style={{
             padding: '10px 20px',
             borderRadius: '8px',
-            background: 'rgba(99,102,241,0.12)',
-            color: logoUploading ? '#9CA3AF' : '#818CF8',
-            border: '1px solid rgba(99,102,241,0.3)',
+            background: 'rgba(0,152,243,0.12)',
+            color: logoUploading ? '#9CA3AF' : 'var(--brand)',
+            border: '1px solid rgba(0,152,243,0.3)',
             cursor: logoUploading ? 'not-allowed' : 'pointer',
             fontWeight: 500,
             fontSize: '0.9rem',
@@ -449,14 +451,14 @@ export default function SettingsPage() {
         >
           {logoUploading ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
         </button>
-        <p style={{ fontSize: '0.8rem', color: '#A1A1AA', marginTop: '8px' }}>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
           JPEG, PNG, or WebP. Shown on PDF reports.
         </p>
       </div>
 
       {/* Password section */}
-      <div style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#F5F5F5', marginBottom: '16px' }}>Change Password</h2>
+      <div className="app-panel" style={cardStyle}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Change Password</h2>
         <form onSubmit={handlePasswordChange}>
           <div style={{ marginBottom: '16px' }}>
             <label htmlFor="current_password" style={labelStyle}>Current Password</label>
@@ -488,7 +490,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: (passwordSaving || !newPassword.trim()) ? 'rgba(99,102,241,0.3)' : '#4F46E5',
+              background: (passwordSaving || !newPassword.trim()) ? 'rgba(0,152,243,0.3)' : 'var(--brand)',
               color: (passwordSaving || !newPassword.trim()) ? '#6B7280' : '#fff',
               border: 'none',
               cursor: (passwordSaving || !newPassword.trim()) ? 'not-allowed' : 'pointer',
@@ -509,7 +511,7 @@ export default function SettingsPage() {
             padding: '10px 18px',
             borderRadius: '8px',
             background: 'rgba(239,68,68,0.12)',
-            color: '#F87171',
+            color: 'var(--danger)',
             border: '1px solid rgba(239,68,68,0.3)',
             cursor: 'pointer',
             fontWeight: 500,

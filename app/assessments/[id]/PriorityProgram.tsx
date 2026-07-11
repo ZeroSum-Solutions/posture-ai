@@ -13,13 +13,13 @@ import { renderDose } from '../../../lib/program/dosage'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
 import WhyThisSheet from './WhyThisSheet'
 
-const ZONE_COLOR: Record<'warning' | 'danger', string> = { warning: '#F59E0B', danger: '#EF4444' }
+const ZONE_COLOR: Record<'warning' | 'danger', string> = { warning: 'var(--warning)', danger: 'var(--danger)' }
 const STEP_COLOR: Record<string, string> = {
-  Loosen: '#F59E0B',
-  Lengthen: '#818CF8',
+  Loosen: 'var(--warning)',
+  Lengthen: 'var(--brand)',
   'Wake up': '#F472B6',
-  Strengthen: '#22C55E',
-  Connect: '#A78BFA',
+  Strengthen: 'var(--maintain)',
+  Connect: 'var(--brand)',
 }
 const WEEK_THEME = ['Learn & Own', 'Reinforce', 'Consolidate']
 const MOVEMENT_ACTION: Record<string, string> = {
@@ -77,7 +77,7 @@ function SwapControl({
   const swapped = step.slug !== step.baseSlug
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-      <span style={{ fontSize: '0.64rem', color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</span>
+      <span style={{ fontSize: '0.64rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</span>
       <select
         data-testid={`swap-${priority.primaryKey}-${step.baseSlug}`}
         value={step.slug}
@@ -85,9 +85,9 @@ function SwapControl({
         style={{
           padding: '3px 6px',
           borderRadius: 6,
-          background: '#0A0A0B',
+          background: 'var(--background)',
           border: `1px solid ${swapped ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.12)'}`,
-          color: swapped ? '#C4B5FD' : '#A1A1AA',
+          color: swapped ? 'var(--brand)' : 'var(--text-secondary)',
           fontSize: '0.7rem',
           cursor: 'pointer',
           maxWidth: 200,
@@ -120,38 +120,38 @@ function RampTable({
     padding: '8px 10px',
     fontSize: '0.68rem',
     fontWeight: 700,
-    color: '#8A8A93',
+    color: 'var(--text-muted)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    borderBottom: '1px solid #2B2B31',
+    borderBottom: '1px solid var(--border)',
   }
   const wkTh: React.CSSProperties = { ...th, textAlign: 'center', minWidth: 86 }
   const td: React.CSSProperties = {
     padding: '9px 10px',
     fontSize: '0.82rem',
-    color: '#D4D4D8',
+    color: 'var(--text-secondary)',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
     verticalAlign: 'top',
   }
   const wkTd: React.CSSProperties = { ...td, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
 
   return (
-    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2B2B31' }}>
+    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--border)' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 460 }}>
         <thead>
           <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
             <th style={{ ...th, width: '46%' }}>Step &amp; Exercise</th>
             {WEEK_THEME.map((theme, i) => (
               <th key={i} style={wkTh}>
-                <div style={{ color: '#A1A1AA' }}>Week {i + 1}</div>
-                <div style={{ fontSize: '0.6rem', fontWeight: 600, color: '#A1A1AA', letterSpacing: 0 }}>{theme}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Week {i + 1}</div>
+                <div style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: 0 }}>{theme}</div>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {priority.steps.map((s) => {
-            const stepColor = STEP_COLOR[s.stepLabel] ?? '#6366F1'
+            const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--brand)'
             return (
               <tr key={s.baseSlug}>
                 <td style={td}>
@@ -160,19 +160,19 @@ function RampTable({
                     <button
                       data-testid={`exercise-detail-${s.slug}`}
                       onClick={() => onOpenDetail(s.slug, s.name)}
-                      style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: '#F5F5F5', fontSize: 'inherit', cursor: 'pointer', textDecoration: 'underline dotted rgba(255,255,255,0.3)', textUnderlineOffset: 3 }}
+                      style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: 'inherit', cursor: 'pointer', textDecoration: 'underline dotted rgba(255,255,255,0.3)', textUnderlineOffset: 3 }}
                     >
                       {s.name}
                     </button>
                     <button
                       data-testid={`why-this-${s.slug}`}
                       onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
-                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.72rem', color: '#818CF8', cursor: 'pointer', textDecoration: 'underline dotted rgba(129,140,248,0.4)', textUnderlineOffset: 3 }}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.72rem', color: 'var(--brand)', cursor: 'pointer', textDecoration: 'underline dotted rgba(0,152,243,0.4)', textUnderlineOffset: 3 }}
                     >
                       Why this?
                     </button>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#A1A1AA', paddingLeft: 2 }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', paddingLeft: 2 }}>
                     {s.freq}
                     {s.repRange ? ` · target ${s.repRange.min}–${s.repRange.max} reps` : ''}
                     {s.isIntegrative ? ' · new in week 3' : ''}
@@ -180,7 +180,7 @@ function RampTable({
                   <SwapControl priority={priority} step={s} onSwap={onSwap} />
                 </td>
                 {s.weeks.map((dose, i) => (
-                  <td key={i} style={{ ...wkTd, color: dose ? '#E4E4E7' : '#3F3F46' }}>
+                  <td key={i} style={{ ...wkTd, color: dose ? 'var(--text-primary)' : 'var(--border-strong)' }}>
                     {renderDose(dose)}
                   </td>
                 ))}
@@ -211,7 +211,7 @@ function PriorityCard({
     <div
       data-testid={`priority-card-${priority.primaryKey}`}
       style={{
-        background: '#161618',
+        background: 'var(--surface)',
         border: '1px solid rgba(255,255,255,0.08)',
         borderLeft: `3px solid ${zoneColor}`,
         borderRadius: 12,
@@ -236,7 +236,7 @@ function PriorityCard({
         >
           {priority.rank}
         </span>
-        <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#F5F5F5', flex: 1 }}>{priority.label}</span>
+        <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)', flex: 1 }}>{priority.label}</span>
         <Pill text={`${priority.severityWord} · ${priority.zone}`} color={zoneColor} />
         <button
           data-testid={`demote-${priority.primaryKey}`}
@@ -247,7 +247,7 @@ function PriorityCard({
             borderRadius: 8,
             background: 'none',
             border: '1px solid rgba(255,255,255,0.12)',
-            color: '#8A8A93',
+            color: 'var(--text-muted)',
             fontSize: '0.7rem',
             fontWeight: 600,
             cursor: 'pointer',
@@ -257,19 +257,19 @@ function PriorityCard({
         </button>
       </div>
 
-      <p style={{ fontSize: '0.85rem', color: '#A1A1AA', lineHeight: 1.5, margin: '0 0 14px' }}>{priority.copy.whatItMeans}</p>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 14px' }}>{priority.copy.whatItMeans}</p>
 
       <div
         style={{
           fontSize: '0.72rem',
           fontWeight: 700,
-          color: '#818CF8',
+          color: 'var(--brand)',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
           marginBottom: 8,
         }}
       >
-        {principle} <span style={{ color: '#A1A1AA', fontWeight: 600 }}>— the order is what makes it stick</span>
+        {principle} <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>— the order is what makes it stick</span>
       </div>
 
       <RampTable priority={priority} onSwap={onSwap} onOpenDetail={onOpenDetail} onWhyThis={onWhyThis} />
@@ -316,7 +316,7 @@ export default function PriorityProgram({
             style={{
               fontSize: '0.875rem',
               fontWeight: 600,
-              color: '#A1A1AA',
+              color: 'var(--text-secondary)',
               margin: 0,
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
@@ -324,10 +324,10 @@ export default function PriorityProgram({
           >
             Corrective Program
           </h2>
-          <p style={{ fontSize: '0.82rem', color: '#A1A1AA', margin: '4px 0 0' }}>{report.gradeHuman}</p>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{report.gradeHuman}</p>
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: '0.66rem', color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Client capability
           </span>
           <select
@@ -337,9 +337,9 @@ export default function PriorityProgram({
             style={{
               padding: '7px 10px',
               borderRadius: 8,
-              background: '#0A0A0B',
+              background: 'var(--background)',
               border: '1px solid rgba(255,255,255,0.15)',
-              color: '#F5F5F5',
+              color: 'var(--text-primary)',
               fontSize: '0.8rem',
               cursor: 'pointer',
             }}
@@ -367,11 +367,11 @@ export default function PriorityProgram({
             marginBottom: 14,
           }}
         >
-          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#22C55E', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--maintain)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Maintaining well
           </span>
           {report.positives.map((p) => (
-            <span key={p} style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>
+            <span key={p} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               {p}
             </span>
           ))}
@@ -396,12 +396,12 @@ export default function PriorityProgram({
       ) : (
         <div
           style={{
-            background: '#161618',
+            background: 'var(--surface)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 12,
             padding: 18,
             fontSize: '0.85rem',
-            color: '#A1A1AA',
+            color: 'var(--text-secondary)',
             lineHeight: 1.5,
           }}
         >
@@ -414,7 +414,7 @@ export default function PriorityProgram({
         <div
           style={{
             marginTop: 14,
-            background: '#131315',
+            background: 'var(--surface-elevated)',
             border: '1px solid rgba(255,255,255,0.07)',
             borderRadius: 10,
             padding: '12px 14px',
@@ -424,7 +424,7 @@ export default function PriorityProgram({
             style={{
               fontSize: '0.68rem',
               fontWeight: 700,
-              color: '#8A8A93',
+              color: 'var(--text-muted)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: 8,
@@ -436,7 +436,7 @@ export default function PriorityProgram({
             {report.monitored.map((m) => (
               <div key={m.primaryKey} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <Pill text={`${m.severityWord} · ${m.zone}`} color={ZONE_COLOR[m.zone]} />
-                <span style={{ fontSize: '0.82rem', color: '#D4D4D8', flex: 1 }}>{m.label}</span>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', flex: 1 }}>{m.label}</span>
                 {report.priorities.length < 3 && (
                   <button
                     data-testid={`promote-${m.primaryKey}`}
@@ -444,9 +444,9 @@ export default function PriorityProgram({
                     style={{
                       padding: '4px 10px',
                       borderRadius: 8,
-                      background: 'rgba(99,102,241,0.12)',
-                      border: '1px solid rgba(99,102,241,0.3)',
-                      color: '#818CF8',
+                      background: 'rgba(0,152,243,0.12)',
+                      border: '1px solid rgba(0,152,243,0.3)',
+                      color: 'var(--brand)',
                       fontSize: '0.7rem',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -465,7 +465,7 @@ export default function PriorityProgram({
         <div
           style={{
             marginTop: 14,
-            background: '#111113',
+            background: 'var(--surface-elevated)',
             border: '1px solid rgba(255,255,255,0.05)',
             borderRadius: 10,
             padding: '10px 14px',
@@ -475,7 +475,7 @@ export default function PriorityProgram({
             style={{
               fontSize: '0.68rem',
               fontWeight: 700,
-              color: '#A1A1AA',
+              color: 'var(--text-secondary)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: 4,
@@ -483,7 +483,7 @@ export default function PriorityProgram({
           >
             Couldn&apos;t be read reliably ({unreliable.length})
           </div>
-          <p style={{ fontSize: '0.78rem', color: '#A1A1AA', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
             {unreliable.map((u) => u.label).join(', ')} — not shown to the client. Re-capture front/side photos for a fuller
             picture.
           </p>

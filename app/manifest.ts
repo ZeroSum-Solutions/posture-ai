@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'AI-assisted posture and musculoskeletal screening',
     start_url: '/dashboard',
     display: 'standalone',
-    background_color: '#0E1420',
-    theme_color: '#0E1420',
+    background_color: '#000000',
+    theme_color: '#000000',
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

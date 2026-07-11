@@ -29,11 +29,11 @@ export default function ConsentResponder({ token }: { token: string }) {
   }
 
   const wrap: React.CSSProperties = {
-    maxWidth: 560, margin: '0 auto', padding: '32px 20px', color: '#F5F5F5',
+    maxWidth: 560, margin: '0 auto', padding: '32px 20px', color: 'var(--text-primary)',
   }
   const input: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', background: '#0A0A0B',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#F5F5F5',
+    width: '100%', padding: '10px 12px', background: 'var(--background)',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)',
     fontSize: '0.95rem', boxSizing: 'border-box', minHeight: 44,
   }
 
@@ -41,7 +41,7 @@ export default function ConsentResponder({ token }: { token: string }) {
     return (
       <main style={wrap}>
         <h1 style={{ fontSize: '1.4rem', marginBottom: 12 }}>Consent recorded</h1>
-        <p style={{ color: '#A1A1AA', lineHeight: 1.6 }}>
+        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           Thank you. Your consent has been recorded. You can close this page.
         </p>
       </main>
@@ -53,7 +53,7 @@ export default function ConsentResponder({ token }: { token: string }) {
       <h1 style={{ fontSize: '1.4rem', marginBottom: 16 }}>Posture Screening Consent</h1>
       <pre style={{
         whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '0.9rem', lineHeight: 1.6,
-        color: '#D4D4D8', background: '#161618', border: '1px solid rgba(255,255,255,0.08)',
+        color: 'var(--text-secondary)', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 12, padding: 16, marginBottom: 20,
       }}>{CONSENT_TEXT}</pre>
 
@@ -61,11 +61,11 @@ export default function ConsentResponder({ token }: { token: string }) {
         {error && (
           <div role="alert" style={{
             background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 8, padding: 12, color: '#EF4444', fontSize: '0.875rem', marginBottom: 16,
+            borderRadius: 8, padding: 12, color: 'var(--danger)', fontSize: '0.875rem', marginBottom: 16,
           }}>{error}</div>
         )}
 
-        <label htmlFor="signer_relationship" style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: 6 }}>
+        <label htmlFor="signer_relationship" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
           I am signing as
         </label>
         <select id="signer_relationship" value={rel} onChange={e => setRel(e.target.value)} style={{ ...input, marginBottom: 16 }}>
@@ -75,8 +75,8 @@ export default function ConsentResponder({ token }: { token: string }) {
           <option value="other">Other authorized representative</option>
         </select>
 
-        <label htmlFor="signer_name" style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: 6 }}>
-          Type full name to sign <span style={{ color: '#EF4444' }}>*</span>
+        <label htmlFor="signer_name" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
+          Type full name to sign <span style={{ color: 'var(--danger)' }}>*</span>
         </label>
         <input
           id="signer_name" type="text" value={name} onChange={e => setName(e.target.value)}
@@ -85,7 +85,7 @@ export default function ConsentResponder({ token }: { token: string }) {
         />
 
         <button type="submit" disabled={status === 'submitting'} style={{
-          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(99,102,241,0.4)' : '#4F46E5',
+          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(0,152,243,0.4)' : 'var(--brand)',
           color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: '0.95rem',
           cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
         }}>

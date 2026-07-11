@@ -45,17 +45,18 @@ export default function EditClientPage() {
   }
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: '640px', margin: '0 auto' }}>
+    <div className="app-standard-page app-standard-page--narrow">
       <div style={{ marginBottom: '24px' }}>
-        <Link href={`/clients/${id}`} style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+        <Link href={`/clients/${id}`} style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
           &#8592; Back to Client
         </Link>
       </div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '24px' }}>
-        Edit Client{name ? <span style={{ color: '#A1A1AA', fontWeight: 400 }}> — {name}</span> : null}
+      <p className="app-page-kicker">Client record</p>
+      <h1 className="app-page-heading" style={{ marginBottom: 28 }}>
+        Edit Client{name ? <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}> — {name}</span> : null}
       </h1>
       {loading || !initial ? (
-        <p style={{ color: '#A1A1AA' }}>Loading...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
       ) : (
         <ClientForm mode="edit" initial={initial} cancelHref={`/clients/${id}`} onSubmit={handleSave} />
       )}

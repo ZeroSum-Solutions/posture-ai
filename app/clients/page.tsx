@@ -56,26 +56,22 @@ export default function ClientsPage() {
   })
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '960px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5' }}>Clients</h1>
+    <div className="app-standard-page">
+      <div className="app-page-header">
+        <div>
+          <p className="app-page-kicker">Practice directory</p>
+          <h1 className="app-page-heading">Clients</h1>
+          <p className="app-page-lede">Find a record, review prior screens, or begin a new baseline.</p>
+        </div>
         <Link
           href="/clients/new"
-          style={{
-            padding: '10px 18px',
-            borderRadius: '8px',
-            background: '#4F46E5',
-            color: '#fff',
-            textDecoration: 'none',
-            fontWeight: 600,
-            fontSize: '0.9rem',
-          }}
+          className="app-gradient-action"
         >
-          + New Client
+          <span>New client&nbsp; ↗</span>
         </Link>
       </div>
 
-      <div style={{ marginBottom: '20px' }}>
+      <div className="app-search-shell">
         <input
           type="text"
           placeholder="Search clients by name..."
@@ -84,44 +80,36 @@ export default function ClientsPage() {
           style={{
             width: '100%',
             padding: '10px 14px',
-            background: '#161618',
+            background: 'var(--surface)',
             border: '1px solid rgba(255,255,255,0.12)',
             borderRadius: '8px',
-            color: '#F5F5F5',
+            color: 'var(--text-primary)',
             fontSize: '0.9rem',
                         boxSizing: 'border-box' as const,
           }}
         />
       </div>
 
-      {error && <p style={{ color: '#EF4444' }}>Error loading clients: {error}</p>}
+      {error && <p style={{ color: 'var(--danger)' }}>Error loading clients: {error}</p>}
 
       {loading ? (
-        <p style={{ color: '#A1A1AA' }}>Loading clients...</p>
+        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">···</span></div><div><h2>Loading clients</h2><p>Preparing the practice directory.</p></div></div>
       ) : filtered.length === 0 && clients.length === 0 ? (
-        <p style={{ color: '#A1A1AA' }}>No clients yet. Add your first client to get started.</p>
+        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">01</span></div><div><h2>No clients yet</h2><p>Add the first client when you are ready to create a baseline.</p></div><Link href="/clients/new">Add client →</Link></div>
       ) : filtered.length === 0 ? (
-        <p style={{ color: '#A1A1AA' }}>No clients match your search.</p>
+        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">0</span></div><div><h2>No matching clients</h2><p>Try a different first or last name.</p></div></div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {filtered.map((client) => (
+        <div className="app-list">
+          {filtered.map((client, index) => (
             <Link
               key={client.id}
               href={`/clients/${client.id}`}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px',
-                background: '#161618',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '10px',
-                textDecoration: 'none',
-                color: '#F5F5F5',
-              }}
+              className="app-list-row"
+              style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
             >
-              <span style={{ fontWeight: 500 }}>{client.first_name} {client.last_name}</span>
-              <span style={{ fontSize: '0.8rem', color: '#A1A1AA' }}>
+              <span className="app-row-index">{String(index + 1).padStart(2, '0')}</span>
+              <span className="app-row-main">{client.first_name} {client.last_name}</span>
+              <span className="app-row-meta">
                 {client.date_of_birth
                   ? `DOB: ${new Date(client.date_of_birth).toLocaleDateString()}`
                   : `Added ${new Date(client.created_at).toLocaleDateString()}`}

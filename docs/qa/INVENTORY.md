@@ -8,6 +8,15 @@ the real route tree at commit `c466787` (2026-07-04) — diff against
 **Status:** blank = untested · PASS · FAIL(QA-NNN) · BLOCKED(reason) · RETIRED
 **Edge cases are finite and risk-ranked — max 5/row.** `(expand)` = criteria need refinement in Phase 1 before testing that row.
 
+## Iteration 2 visual-system addendum (2026-07-10)
+
+The route-level functional verdicts below remain the Iteration 1 baseline. Iteration 2
+performed a separate production-build visual and motion sweep at 1440px and 390px across
+the marketing, auth, legal, dashboard, client list/detail/create, assessment create/results,
+exercise, muscle-guide, and settings surfaces. All captured routes passed horizontal-overflow
+and browser-console checks. Evidence and remaining device-only limits are recorded in
+`passes/PASS-02.md`.
+
 ## Auth & account
 
 | ID | Item | Roles | Acceptance criteria | Edge cases (risk-ranked) | Pass 1 |
@@ -86,7 +95,7 @@ the real route tree at commit `c466787` (2026-07-04) — diff against
 | ID | Item | Roles | Acceptance criteria | Edge cases | Pass 1 |
 |---|---|---|---|---|---|
 | SET-01 | `/settings` + organization settings | P | Profile + org branding save; branding appears on PDFs | empty org name on PDF; oversized logo upload | PASS (profile save→"Settings saved successfully", practice name persisted, polite aria-live; Org/HIPAA-BAA gate + logo upload present; PDF-branding + oversized-logo not exhaustively tested) |
-| MSC-01 | `/`, `/privacy`, `/terms` | A | Root redirects to sign-in (or dashboard when authed); legal pages render | (expand) | PASS (root anon→/auth/sign-in; authed→/dashboard; /privacy "Privacy Policy" 6 sections; /terms "Terms of Use" 4 sections + screening vocab; both 200) |
+| MSC-01 | `/`, `/privacy`, `/terms` | A | Root renders the public product page; legal pages render; authenticated app routes remain protected | (expand) | PASS (Iteration 1 redirect behavior was replaced intentionally by the Iteration 2 public product page; /privacy and /terms remain public and render screening-safe copy) |
 | MSC-02 | `/dashboard` | P | Correct counts vs seeded data (calculate expected numbers); recent activity accurate | fresh empty account state | FAIL(QA-001) — "Total Clients 30" but should be 28 (counts 2 tombstoned); recent activity ALSO lists tombstoned Carl Smith's assessment. Empty-account PASS (fresh account: 0/0 + "No assessments yet") |
 | XC-01 | a11y sweep | all | axe (a11y.spec) has no critical violations on: sign-in, dashboard, wizard, results, player | player contrast during video playback | PARTIAL(minor) — no critical crashes; consistent landmarks/headings/aria-live alerts observed. Chrome issue on results page: 13 form fields (SWAP/capability comboboxes) lack id/name (see BUGLOG QA-003, S4). Full axe run not executed |
 | XC-02 | Error states | all | Killed API mid-flow → user-facing message, no raw error text leaks (error-states.spec parity) | /api/health DB-down body leaks nothing (PR #50 hardening) | PASS — every error path walked returned a clean user-facing message, never raw error text: 403 (approval/PHI), 404 (uniform "not available"), 422 (zod "Invalid payload"/lint), 409 (tombstone). No stack traces/DB errors leaked |

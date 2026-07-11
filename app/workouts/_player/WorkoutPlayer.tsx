@@ -16,6 +16,7 @@ import { useWakeLock } from '@/lib/capture/use-wake-lock'
 import { caption, voiceCue } from '@/lib/workout/cues'
 import { CountdownRing } from './CountdownRing'
 import { RateForm } from './RateForm'
+import { AudioGlyph } from '@/components/SignalGlyphs'
 
 // ---- public contract ----------------------------------------------------
 export interface RunPatch {
@@ -49,13 +50,13 @@ export interface WorkoutPlayerProps {
 // Step colors mirror the results page (PriorityProgram) so the player's accent
 // traces the same corrective arc: Loosen → Lengthen → Wake up → Strengthen → Connect.
 const STEP_COLOR: Record<string, string> = {
-  Loosen: '#F59E0B',
-  Lengthen: '#818CF8',
+  Loosen: 'var(--warning)',
+  Lengthen: 'var(--brand)',
   'Wake up': '#F472B6',
-  Strengthen: '#22C55E',
-  Connect: '#A78BFA',
+  Strengthen: 'var(--maintain)',
+  Connect: 'var(--brand)',
 }
-const ACCENT_FALLBACK = '#818CF8'
+const ACCENT_FALLBACK = 'var(--brand)'
 const itemColor = (it?: SessionItem): string => (it ? STEP_COLOR[it.stepLabel] ?? ACCENT_FALLBACK : ACCENT_FALLBACK)
 
 function segmentTotalMs(s: PlayerState): number {
@@ -256,8 +257,8 @@ export function WorkoutPlayer({
         position: 'fixed',
         inset: 0,
         zIndex: 100,
-        background: '#08080A',
-        color: '#F5F5F5',
+        background: 'var(--background)',
+        color: 'var(--text-primary)',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
@@ -289,7 +290,7 @@ export function WorkoutPlayer({
             borderRadius: '50%',
             border: '1px solid rgba(255,255,255,0.14)',
             background: 'rgba(0,0,0,0.35)',
-            color: '#D4D4D8',
+            color: 'var(--text-secondary)',
             fontSize: 18,
             cursor: 'pointer',
             ...chromeStyle,
@@ -308,7 +309,7 @@ export function WorkoutPlayer({
             aria-pressed={voiceMuted}
             style={roundToggle(!voiceMuted)}
           >
-            {voiceMuted ? '🔇' : '🔊'}
+            <AudioGlyph muted={voiceMuted} />
           </button>
           <button
             onClick={() => setCaptionsOn((c) => !c)}
@@ -357,7 +358,7 @@ export function WorkoutPlayer({
               <div>
                 <div style={{ fontSize: '0.9rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, marginBottom: 8 }}>Get ready</div>
                 <div style={{ fontSize: '7rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{secs(state.remainingMs)}</div>
-                <div style={{ marginTop: 10, color: '#D4D4D8', fontWeight: 600 }}>{item.name}</div>
+                <div style={{ marginTop: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>{item.name}</div>
               </div>
             </Fade>
           )}
@@ -447,7 +448,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
         style={{
           position: 'absolute',
           inset: 0,
-          background: `radial-gradient(120% 80% at 50% 18%, ${accent}22 0%, transparent 55%), radial-gradient(90% 60% at 50% 108%, ${accent}18 0%, transparent 60%), #08080A`,
+          background: `radial-gradient(120% 80% at 50% 18%, ${accent}22 0%, transparent 55%), radial-gradient(90% 60% at 50% 108%, ${accent}18 0%, transparent 60%), var(--background)`,
           transition: 'background 0.8s ease',
         }}
       />
@@ -566,10 +567,10 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
     <div>
       {clientFirstName && <div style={{ color: accent, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 8 }}>Hi {clientFirstName}</div>}
       <h1 style={{ fontSize: 'clamp(1.8rem, 6vw, 2.6rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>Your guided session</h1>
-      <p style={{ color: '#A1A1AA', fontSize: '0.95rem', margin: '0 0 4px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: '0 0 4px' }}>
         {snapshot.items.length} movements · about {mins} min
       </p>
-      <p style={{ color: '#71717A', fontSize: '0.8rem', lineHeight: 1.5, margin: '14px auto 22px', maxWidth: 360 }}>{snapshot.disclaimer}</p>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.5, margin: '14px auto 22px', maxWidth: 360 }}>{snapshot.disclaimer}</p>
       <button
         onClick={onBegin}
         style={{
@@ -578,7 +579,7 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
           borderRadius: 999,
           border: 'none',
           background: accent,
-          color: '#0A0A0B',
+          color: 'var(--background)',
           fontWeight: 800,
           fontSize: '1.05rem',
           cursor: 'pointer',
@@ -595,15 +596,15 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
 function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; index: number; total: number; accent: string; onStart: () => void }) {
   return (
     <div>
-      <div style={{ fontSize: '0.78rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A1A1AA', marginBottom: 10 }}>
+      <div style={{ fontSize: '0.78rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 10 }}>
         Up next · {index + 1} of {total}
       </div>
       <div style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 999, background: `${accent}22`, color: accent, fontWeight: 700, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
         {item.stepLabel}
       </div>
       <h2 style={{ fontSize: 'clamp(1.6rem, 6vw, 2.3rem)', fontWeight: 800, margin: '0 0 8px', letterSpacing: '-0.02em' }}>{item.name}</h2>
-      <p style={{ color: '#A1A1AA', fontSize: '0.9rem', margin: '0 0 6px' }}>{timingLabel(item)}</p>
-      <p style={{ color: '#8A8A93', fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0 0 6px' }}>{timingLabel(item)}</p>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
       {item.steps && item.steps.length > 0 && (
         <ol
           style={{
@@ -611,7 +612,7 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
             maxWidth: 380,
             margin: '0 auto 22px',
             padding: '0 0 0 20px',
-            color: '#A1A1AA',
+            color: 'var(--text-secondary)',
             fontSize: '0.85rem',
             lineHeight: 1.55,
             display: 'flex',
@@ -641,37 +642,37 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
   const repsPerSet = item.timing.kind === 'reps' ? item.timing.repsPerSet : 0
   const totalMs = segmentTotalMs(state)
   const progress = isRest || isHold ? state.remainingMs / totalMs : 1
-  const ringColor = isRest ? '#A1A1AA' : accent
+  const ringColor = isRest ? 'var(--text-secondary)' : accent
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-      <div style={{ minHeight: 22, color: '#D4D4D8', fontWeight: 600, fontSize: '0.95rem' }}>
+      <div style={{ minHeight: 22, color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.95rem' }}>
         {isRest ? 'Rest' : item.name}
-        {!isRest && <span style={{ color: '#71717A' }}> · set {state.set} of {item.timing.sets}</span>}
+        {!isRest && <span style={{ color: 'var(--text-muted)' }}> · set {state.set} of {item.timing.sets}</span>}
       </div>
 
       {isRest || isHold ? (
         <CountdownRing progress={progress} color={ringColor} dimmed={isRest}>
           <div style={{ fontSize: '4.4rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{secs(state.remainingMs)}</div>
-          <div style={{ fontSize: '0.78rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#A1A1AA' }}>{isRest ? 'seconds' : 'hold'}</div>
+          <div style={{ fontSize: '0.78rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{isRest ? 'seconds' : 'hold'}</div>
         </CountdownRing>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontSize: '0.78rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#A1A1AA' }}>Target</div>
+          <div style={{ fontSize: '0.78rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Target</div>
           <div style={{ fontSize: '4.6rem', fontWeight: 800, lineHeight: 1, color: accent }}>×{repsPerSet}</div>
-          <div style={{ fontSize: '0.9rem', color: '#A1A1AA' }}>controlled reps</div>
+          <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>controlled reps</div>
         </div>
       )}
 
       {/* caption (mirrors the voice cue added in the voice pass) */}
-      <p aria-live="polite" style={{ minHeight: 20, maxWidth: 360, color: '#8A8A93', fontSize: '0.82rem', lineHeight: 1.5, margin: 0 }}>
+      <p aria-live="polite" style={{ minHeight: 20, maxWidth: 360, color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5, margin: 0 }}>
         {captionText}
       </p>
 
       {!isRest && !isHold && (
         <button
           onClick={onNext}
-          style={{ padding: '13px 40px', minHeight: 52, borderRadius: 999, border: 'none', background: accent, color: '#0A0A0B', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', boxShadow: `0 8px 24px ${accent}44` }}
+          style={{ padding: '13px 40px', minHeight: 52, borderRadius: 999, border: 'none', background: accent, color: 'var(--background)', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', boxShadow: `0 8px 24px ${accent}44` }}
         >
           Done, next →
         </button>
@@ -697,7 +698,7 @@ function Transport({ paused, onBack, onPauseToggle, onSkip, atStart }: { paused:
         borderRadius: 999,
         border: '1px solid rgba(255,255,255,0.14)',
         background: opts.primary ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.3)',
-        color: opts.disabled ? '#52525B' : '#F5F5F5',
+        color: opts.disabled ? 'var(--text-muted)' : 'var(--text-primary)',
         fontWeight: 700,
         fontSize: '0.9rem',
         cursor: opts.disabled ? 'not-allowed' : 'pointer',
@@ -724,7 +725,7 @@ function roundToggle(on: boolean): React.CSSProperties {
     borderRadius: '50%',
     border: '1px solid rgba(255,255,255,0.14)',
     background: on ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.35)',
-    color: on ? '#F5F5F5' : '#71717A',
+    color: on ? 'var(--text-primary)' : 'var(--text-muted)',
     fontSize: 16,
     cursor: 'pointer',
     display: 'inline-flex',
@@ -752,7 +753,7 @@ function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () 
             borderRadius: 999,
             border: 'none',
             background: accent,
-            color: '#0A0A0B',
+            color: 'var(--background)',
             fontWeight: 800,
             fontSize: '1.05rem',
             cursor: 'pointer',
@@ -772,7 +773,7 @@ function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () 
             borderRadius: 999,
             border: '1px solid rgba(255,255,255,0.22)',
             background: 'transparent',
-            color: '#D4D4D8',
+            color: 'var(--text-secondary)',
             fontWeight: 700,
             fontSize: '1rem',
             cursor: 'pointer',
@@ -792,7 +793,7 @@ function StopCard({ onDismiss }: { onDismiss?: () => void }) {
       <h2 style={{ fontSize: 'clamp(1.3rem, 5vw, 1.9rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.2 }}>
         Let&apos;s pause here.
       </h2>
-      <p style={{ color: '#A1A1AA', fontSize: '0.97rem', lineHeight: 1.6, margin: '0 0 28px', maxWidth: 360 }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.97rem', lineHeight: 1.6, margin: '0 0 28px', maxWidth: 360 }}>
         Sharp pain is worth checking with a movement professional before continuing.
       </p>
       <button
@@ -804,7 +805,7 @@ function StopCard({ onDismiss }: { onDismiss?: () => void }) {
           borderRadius: 999,
           border: '1px solid rgba(255,255,255,0.22)',
           background: 'transparent',
-          color: '#D4D4D8',
+          color: 'var(--text-secondary)',
           fontWeight: 700,
           fontSize: '0.98rem',
           cursor: 'pointer',

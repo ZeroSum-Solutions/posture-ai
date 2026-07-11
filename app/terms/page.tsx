@@ -1,20 +1,23 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import BrandMark from '@/components/BrandMark'
 
 export const metadata: Metadata = {
   title: 'Terms of Use — Posture AI',
   description: 'Terms governing the use of Posture AI.',
 }
 
-const wrap: React.CSSProperties = { maxWidth: 760, margin: '0 auto', padding: '40px 20px', color: '#D4D4D8', lineHeight: 1.65 }
-const h2: React.CSSProperties = { color: '#F5F5F5', fontSize: '1.1rem', marginTop: 28, marginBottom: 8 }
+const wrap: React.CSSProperties = { maxWidth: 760, margin: '0 auto', padding: '40px 20px', color: 'var(--text-secondary)', lineHeight: 1.65 }
+const h2: React.CSSProperties = { color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: 28, marginBottom: 8 }
 
 // NOTE: scaffolding pending legal counsel review. See docs/plans.
 export default function TermsPage() {
   return (
-    <main style={wrap}>
-      <h1 style={{ color: '#F5F5F5', fontSize: '1.6rem', marginBottom: 8 }}>Terms of Use</h1>
-      <p style={{ color: '#A1A1AA', fontSize: '0.85rem' }}>Screening tool only — not a medical diagnosis.</p>
+    <main className="app-standard-page app-standard-page--narrow" style={{ ...wrap, paddingTop: 52 }}>
+      <Link href="/" className="auth-brand" style={{ marginBottom: 54 }}><BrandMark size={32} /><span>Posture AI</span></Link>
+      <p className="app-page-kicker">Usage agreement</p>
+      <h1 className="app-page-heading" style={{ marginBottom: 8 }}>Terms of use</h1>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Screening tool only — not a medical diagnosis.</p>
 
       <h2 style={h2}>A screening tool, not a diagnosis</h2>
       <p>
@@ -45,8 +48,8 @@ export default function TermsPage() {
         decisions.
       </p>
 
-      <p style={{ marginTop: 32, fontSize: '0.85rem', color: '#A1A1AA' }}>
-        See also our <Link href="/privacy" style={{ color: '#818CF8', textDecoration: 'underline' }}>Privacy Policy</Link>.
+      <p style={{ marginTop: 32, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+        See also our <Link href="/privacy" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>Privacy Policy</Link>.
       </p>
     </main>
   )

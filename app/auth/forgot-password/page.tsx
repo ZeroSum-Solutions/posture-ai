@@ -2,14 +2,15 @@
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import AuthFrame from '@/components/AuthFrame'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 12px',
-  background: '#0A0A0B',
+  background: 'var(--background)',
   border: '1px solid rgba(255,255,255,0.12)',
   borderRadius: '8px',
-  color: '#F5F5F5',
+  color: 'var(--text-primary)',
   fontSize: '0.9rem',
   boxSizing: 'border-box',
 }
@@ -42,24 +43,20 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: '400px', background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '32px' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '8px' }}>
-          Reset password
-        </h1>
+    <AuthFrame title="Reset password" description="Request a secure link to regain access to your workspace.">
         {sent ? (
           <>
-            <p style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '24px' }}>
-              If an account exists for <strong style={{ color: '#F5F5F5' }}>{email}</strong>, we&apos;ve sent a
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              If an account exists for <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>, we&apos;ve sent a
               link to reset your password. Check your inbox.
             </p>
-            <Link href="/auth/sign-in" style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <Link href="/auth/sign-in" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.85rem' }}>
               ← Back to sign in
             </Link>
           </>
         ) : (
           <>
-            <p style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '24px' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
               Enter your email and we&apos;ll send you a link to reset your password.
             </p>
             {error && (
@@ -71,7 +68,7 @@ export default function ForgotPasswordPage() {
                   border: '1px solid rgba(239,68,68,0.3)',
                   borderRadius: '8px',
                   padding: '12px',
-                  color: '#EF4444',
+                  color: 'var(--danger)',
                   fontSize: '0.85rem',
                   marginBottom: '16px',
                 }}
@@ -83,7 +80,7 @@ export default function ForgotPasswordPage() {
               <div style={{ marginBottom: '24px' }}>
                 <label
                   htmlFor="email"
-                  style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: '6px' }}
+                  style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
                 >
                   Email
                 </label>
@@ -105,7 +102,7 @@ export default function ForgotPasswordPage() {
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: loading ? 'rgba(99,102,241,0.5)' : '#4F46E5',
+                  background: loading ? 'rgba(0,152,243,0.5)' : 'var(--brand)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',
@@ -117,15 +114,14 @@ export default function ForgotPasswordPage() {
               >
                 {loading ? 'Sending...' : 'Send reset link'}
               </button>
-              <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#A1A1AA' }}>
-                <Link href="/auth/sign-in" style={{ color: '#818CF8', textDecoration: 'none' }}>
+              <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <Link href="/auth/sign-in" style={{ color: 'var(--brand)', textDecoration: 'none' }}>
                   Back to sign in
                 </Link>
               </p>
             </form>
           </>
         )}
-      </div>
-    </div>
+    </AuthFrame>
   )
 }
