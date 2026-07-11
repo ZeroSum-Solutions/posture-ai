@@ -51,9 +51,9 @@ export default function NavBar() {
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
         margin: '12px auto 0', padding: '6px 8px 6px 14px', width: 'min(1200px, calc(100% - 32px))',
-        minHeight: '58px', background: 'rgba(18, 22, 20, 0.84)', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '14px', backdropFilter: 'blur(14px)', position: 'sticky', top: '12px', zIndex: 100,
-        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.2)',
+        minHeight: '58px', background: 'rgba(8, 9, 11, 0.68)', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '16px', backdropFilter: 'blur(28px) saturate(145%)', WebkitBackdropFilter: 'blur(28px) saturate(145%)', position: 'sticky', top: '12px', zIndex: 100,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.45), 0 24px 64px rgba(0,0,0,.32)',
       }}
     >
       <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', minHeight: '44px', color: 'var(--text-primary)', fontSize: '0.94rem', fontWeight: 700, letterSpacing: '-0.03em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
@@ -76,7 +76,7 @@ export default function NavBar() {
       )}
 
       {!isAuthPage && open && (
-        <div className="nav-mobile-menu" style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, display: 'none', flexDirection: 'column', gap: '4px', padding: '8px', background: 'rgba(18, 22, 20, 0.98)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 20px 42px rgba(0,0,0,0.32)' }}>
+        <div className="nav-mobile-menu" style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, display: 'none', flexDirection: 'column', gap: '4px', padding: '8px', background: 'rgba(8, 9, 11, 0.86)', backdropFilter: 'blur(28px) saturate(145%)', WebkitBackdropFilter: 'blur(28px) saturate(145%)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '16px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 20px 42px rgba(0,0,0,.5)' }}>
           {links.map((link) => <Link key={link.href} href={link.href} onClick={() => setOpen(false)} style={linkStyle(link.href)}>{link.label}</Link>)}
           <button onClick={() => { setOpen(false); handleSignOut() }} style={{ padding: '8px 12px', borderRadius: '8px', background: 'transparent', border: 0, color: 'var(--text-secondary)', cursor: 'pointer', font: 'inherit', fontSize: '0.875rem', fontWeight: 600, textAlign: 'left' }}>Sign out</button>
         </div>

@@ -3,9 +3,9 @@ import BrandMark from '@/components/BrandMark'
 import styles from './MarketingHome.module.css'
 
 const workflow = [
-  ['01', 'Capture', 'Guide a client through a consistent, consent-led capture.'],
-  ['02', 'Review', 'See the measurements that deserve a practitioner’s attention.'],
-  ['03', 'Coach', 'Turn screening context into a prioritized movement routine.'],
+  ['01', 'Capture', 'Guide a consistent, consent-led capture.'],
+  ['02', 'Review', 'See the measurements and focus areas that deserve your attention.'],
+  ['03', 'Coach', 'Turn the screen into a focused movement routine and a clearer client conversation.'],
 ]
 
 const findings = [
@@ -25,28 +25,29 @@ export function MarketingHome() {
           </Link>
           <nav className={styles.actions} aria-label="Marketing navigation">
             <Link href="/auth/sign-in" className={styles.signIn}>Sign in</Link>
-            <Link href="/auth/sign-in" className={styles.headerCta}>Run a scan <span aria-hidden="true">↗</span></Link>
+            <Link href="/auth/sign-in" className={styles.headerCta}>Run a screen <span aria-hidden="true">↗</span></Link>
           </nav>
         </div>
       </header>
 
       <main>
         <section className={styles.hero} aria-labelledby="hero-title">
-          <div className={styles.heroCopy}>
-            <p className={styles.kicker}><span /> Practitioner-led posture screening</p>
-            <h1 id="hero-title">A clearer view of how your clients move.</h1>
-            <p className={styles.heroBody}>Capture a baseline, review the signals that matter, and give every client a practical next step.</p>
+          <div className={styles.heroCopy} data-motion="left" data-motion-order="0">
+            <p className={styles.kicker}><span /> Built for movement professionals</p>
+            <h1 id="hero-title">See what to coach next.</h1>
+            <p className={styles.heroBody}>Capture a client baseline, review the movement signals that deserve attention, and leave every session with a focused next step.</p>
             <div className={styles.ctas}>
-              <Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture scan <span aria-hidden="true">↗</span></Link>
+              <Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture screen <span aria-hidden="true">↗</span></Link>
               <a href="#workflow" className={styles.secondaryButton}>See the workflow</a>
             </div>
             <div className={styles.heroProof}>
-              <span>Built for movement professionals</span>
-              <span>Explicit consent, every capture</span>
+              <span>Private capture</span>
+              <span>Explicit consent</span>
+              <span>Screening-only guidance</span>
             </div>
           </div>
 
-          <div className={styles.heroVisual} aria-label="Assessment product preview">
+          <div className={styles.heroVisual} aria-label="Assessment product preview" data-motion="right" data-motion-order="1">
             <div className={styles.orbit} aria-hidden="true" />
             <article className={styles.previewWindow}>
               <div className={styles.previewTopbar}><span>Assessment overview</span><span className={styles.liveStatus}><i /> Ready for review</span></div>
@@ -66,20 +67,20 @@ export function MarketingHome() {
           </div>
         </section>
 
-        <section className={styles.trust} aria-label="Product principles">
-          <span>Reliable capture guidance</span><span>Clear clinical boundaries</span><span>Progress you can revisit</span>
+        <section className={styles.trust} aria-label="Product principles" data-motion="rise">
+          <span>Consistent capture</span><span>Clear screening signals</span><span>Focused next steps</span>
         </section>
 
         <section id="workflow" className={styles.workflow} aria-labelledby="workflow-title">
-          <div className={styles.sectionIntro}><p className={styles.kicker}><span /> From capture to coaching</p><h2 id="workflow-title">One calm workflow. A more useful conversation.</h2></div>
+          <div className={styles.sectionIntro} data-motion="rise"><p className={styles.kicker}><span /> From capture to coaching</p><h2 id="workflow-title">A clearer baseline changes the conversation.</h2></div>
           <div className={styles.workflowGrid}>
-            {workflow.map(([number, title, body]) => <article className={styles.step} key={number}><span>{number}</span><h3>{title}</h3><p>{body}</p><i aria-hidden="true">↗</i></article>)}
+            {workflow.map(([number, title, body], index) => <article className={styles.step} key={number} data-motion="rise" data-motion-order={index}><span>{number}</span><h3>{title}</h3><p>{body}</p><i aria-hidden="true">↗</i></article>)}
           </div>
         </section>
 
         <section className={styles.signalSection} aria-labelledby="signal-title">
-          <div className={styles.signalCopy}><p className={styles.kicker}><span /> Evidence, not noise</p><h2 id="signal-title">Make the next decision easier to see.</h2><p>Give measurements enough room to read. Keep the context close. Let a client leave with a focused plan instead of a dense, impersonal printout.</p><Link href="/auth/sign-in" className={styles.textLink}>Explore the assessment view <span aria-hidden="true">→</span></Link></div>
-          <div className={styles.findingBoard}>
+          <div className={styles.signalCopy} data-motion="left"><p className={styles.kicker}><span /> Clear findings</p><h2 id="signal-title">Make the next decision easier to see.</h2><p>Give every client a report you can review together. Clear focus areas and readable measurements keep the conversation grounded in your professional judgment.</p><Link href="/auth/sign-in" className={styles.textLink}>Explore the assessment view <span aria-hidden="true">→</span></Link></div>
+          <div className={styles.findingBoard} data-motion="right" data-motion-order="1">
             <header><span>Priority findings</span><em>Sample screen</em></header>
             {findings.map((finding, index) => <article key={finding.label}><span className={styles.findingIndex}>0{index + 1}</span><div><h3>{finding.label}</h3><p>{finding.note}</p></div><strong className="data-readout">{finding.value}</strong><span className={finding.tone === 'review' ? styles.reviewChip : styles.quietChip}>{finding.tone === 'review' ? 'Review' : 'Monitor'}</span></article>)}
             <footer><span>Results are screening signals, not a clinical conclusion.</span><span>3 findings</span></footer>
@@ -87,11 +88,11 @@ export function MarketingHome() {
         </section>
 
         <section className={styles.coaching} aria-labelledby="coaching-title">
-          <div className={styles.routinePanel}><div className={styles.routineHeader}><span>Today’s focus</span><strong>12 min</strong></div><h3>Build the routine around the finding.</h3>{['Thoracic extension reset', 'Hip flexor mobility', 'Glute bridge patterning'].map((item, index) => <div className={styles.routineItem} key={item}><span>{String(index + 1).padStart(2, '0')}</span><p>{item}</p><i aria-hidden="true">↗</i></div>)}<div className={styles.routineBottom}><span>3 movements</span><button type="button">View routine</button></div></div>
-          <div className={styles.coachingCopy}><p className={styles.kicker}><span /> A plan they can follow</p><h2 id="coaching-title">Screen once. Coach with intent.</h2><p>Posture AI connects a screening result to your clinical judgment. Use the exercise layer to explain the next step without overstating what a screen can tell you.</p></div>
+          <div className={styles.routinePanel} data-motion="left"><div className={styles.routineHeader}><span>Today’s focus</span><strong>12 min</strong></div><h3>Build the routine around the finding.</h3>{['Thoracic extension reset', 'Hip flexor mobility', 'Glute bridge patterning'].map((item, index) => <div className={styles.routineItem} key={item}><span>{String(index + 1).padStart(2, '0')}</span><p>{item}</p><i aria-hidden="true">↗</i></div>)}<div className={styles.routineBottom}><span>3 movements</span><button type="button">View routine</button></div></div>
+          <div className={styles.coachingCopy} data-motion="right" data-motion-order="1"><p className={styles.kicker}><span /> A plan they can follow</p><h2 id="coaching-title">Screen once. Coach with intent.</h2><p>Use a client’s baseline to shape the next conversation and build a routine they can follow between sessions.</p></div>
         </section>
 
-        <section className={styles.finalCta} aria-labelledby="cta-title"><p className={styles.kicker}><span /> See the baseline</p><h2 id="cta-title">Give every client a more useful starting point.</h2><p>Private capture, clear results, and a workflow designed for the practitioner in the room.</p><Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture scan <span aria-hidden="true">↗</span></Link></section>
+        <section className={styles.finalCta} aria-labelledby="cta-title" data-motion="scale"><p className={styles.kicker}><span /> Start with a baseline</p><h2 id="cta-title">Give every client a better starting point.</h2><p>Private capture and clear screening signals for a more focused way to coach movement.</p><Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture screen <span aria-hidden="true">↗</span></Link></section>
       </main>
     </div>
   )

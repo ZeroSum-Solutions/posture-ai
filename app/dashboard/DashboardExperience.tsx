@@ -53,8 +53,8 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
       <motion.section className={styles.hero} {...enter()}>
         <div>
           <p className={styles.eyebrow}><span /> Practitioner console</p>
-          <h1>Your movement practice, in focus.</h1>
-          <p className={styles.heroCopy}>A calm place to capture a baseline, review what changed, and keep each next conversation clear.</p>
+          <h1>See what needs attention next.</h1>
+          <p className={styles.heroCopy}>Review recent screening signals, keep client context close, and start the next baseline when you are ready.</p>
         </div>
         <Link href="/assessments/new" className={styles.primaryAction}>
           <span>New assessment</span><b aria-hidden="true">↗</b>
@@ -65,12 +65,12 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
         <motion.article className={styles.metricCard} {...enter(0.05)}>
           <div className={styles.metricTop}><span>Active clients</span><i aria-hidden="true">01</i></div>
           <strong className="data-readout">{String(clientCount).padStart(2, '0')}</strong>
-          <p>People in your current care view</p>
+          <p>Client records in your active practice view</p>
         </motion.article>
         <motion.article className={styles.metricCard} {...enter(0.1)}>
           <div className={styles.metricTop}><span>Completed this week</span><i aria-hidden="true">02</i></div>
           <strong className="data-readout">{String(weekAssessments).padStart(2, '0')}</strong>
-          <p>Finished screening sessions</p>
+          <p>Completed screening sessions</p>
         </motion.article>
         <motion.article className={`${styles.metricCard} ${styles.metricHighlight}`} {...enter(0.15)}>
           <div className={styles.metricTop}><span>Recent screen average</span><i aria-hidden="true">03</i></div>
@@ -103,8 +103,8 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
 
         <motion.article className={styles.quickStart} {...enter(0.25)}>
           <span className={styles.panelKicker}>Next move</span>
-          <h2>Start with a clean baseline.</h2>
-          <p>Guide a new capture with consent, camera checks, and a focused review in one flow.</p>
+          <h2>Start with a clear baseline.</h2>
+          <p>Guide a consent-led capture, confirm camera readiness, then move into a focused review.</p>
           <Link href="/assessments/new" className={styles.textAction}>Open capture <span aria-hidden="true">→</span></Link>
           <div className={styles.orbit} aria-hidden="true"><span /><i /></div>
         </motion.article>

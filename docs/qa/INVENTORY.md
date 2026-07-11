@@ -17,6 +17,21 @@ exercise, muscle-guide, and settings surfaces. All captured routes passed horizo
 and browser-console checks. Evidence and remaining device-only limits are recorded in
 `passes/PASS-02.md`.
 
+## Iteration 3 motion-system addendum (2026-07-10)
+
+Iteration 3 recorded the Fusion reference and the local public/authenticated experience as
+scroll-and-hover video, extracted timestamped visual frames, and verified the translated
+motion system at 1440px and 390px. Evidence and motion-specific criteria are recorded in
+`passes/PASS-03.md`.
+
+## Iteration 4 glass-material addendum (2026-07-10)
+
+Iteration 4 replaced the opaque green-gray material with neutral smoked glass, localized
+orange/cyan illumination, directional highlights, layered shadows, and darker nested
+control wells. It includes literal Fusion-reference/build and before/after comparison
+images plus a separate adversarial verification pass. Evidence and material-specific
+criteria are recorded in `passes/PASS-04.md`.
+
 ## Auth & account
 
 | ID | Item | Roles | Acceptance criteria | Edge cases (risk-ranked) | Pass 1 |

@@ -11,8 +11,8 @@ description: >-
 ## Intent
 
 Posture AI makes a practitioner's screening workflow feel focused, modern, and
-substantial. The product is dark by default: graphite surfaces, soft depth,
-and the same black, white, orange/rust, and electric-blue action palette. The visual language borrows the cinematic
+substantial. The product is dark by default: neutral smoked glass, directional
+highlights, and the same black, white, orange, and electric-cyan palette. The visual language borrows the cinematic
 restraint, layered panels, and decisive composition of the Fusion AI reference
 without copying its content, layout, assets, or code.
 
@@ -22,7 +22,8 @@ measurement, or decision.
 
 ## Core rules
 
-- Dark graphite is the world; do not introduce a light marketing theme.
+- Black is the world; structural glass must stay neutral, never green or olive.
+- Color is localized illumination behind glass, not an opaque panel fill.
 - Use blue and orange/rust as deliberate, paired accent moments. Use the dark
   interior and gradient-rim treatment for primary actions.
 - One primary action per screen. Secondary actions use a tonal surface or a
@@ -42,11 +43,17 @@ measurement, or decision.
 | Token | Value | Use |
 | --- | --- | --- |
 | `--background` | `#000000` | Page canvas |
-| `--surface` | `#060606` | Cards and nav |
-| `--surface-elevated` | `#111111` | Inputs and raised panels |
-| `--surface-strong` | `#1A1A1A` | Pressed or selected wells |
-| `--border` | `#292929` | Quiet separators |
-| `--border-strong` | `#454545` | Inputs and active boundaries |
+| `--surface` | `#0A0B0D` | Neutral panel fallback |
+| `--surface-elevated` | `#0E0F12` | Raised neutral fallback |
+| `--surface-strong` | `#17191D` | Pressed or selected wells |
+| `--glass-fill` | `rgba(10,11,13,.62)` | Transmissive major panels |
+| `--glass-well` | `rgba(5,5,6,.90)` | Controls nested inside glass |
+| `--glass-border` | `rgba(255,255,255,.10)` | Neutral glass hairline |
+| `--glass-highlight` | `rgba(255,255,255,.14)` | Directional top highlight |
+| `--spectral-warm` | `#FF8A2A` | Localized warm beam |
+| `--spectral-cool` | `#38D6FF` | Localized cool beam |
+| `--border` | `#24262B` | Quiet separators |
+| `--border-strong` | `#3C4048` | Inputs and active boundaries |
 
 ### Type and action
 
@@ -86,10 +93,13 @@ less when a comfortable measure is possible.
   gradient rim, white label, 10px radius, and 44px minimum height.
 - **Secondary button:** graphite fill, quiet border, white label. It must never
   compete with the primary action.
-- **Glass navigation:** graphite with a translucent fill, 1px white-alpha
-  border, and only enough backdrop blur to separate it from moving content.
-- **Panel:** tonal lift before shadow. Use 16px radius for major panels and
-  12px for controls. Avoid gradients on data surfaces.
+- **Glass navigation:** neutral `rgba(8,9,11,.66)`, 1px white-alpha border,
+  `blur(28px) saturate(145%)`, and a brighter top edge.
+- **Panel:** neutral `rgba(10,11,13,.62)` over localized orange/cyan light,
+  `blur(24–40px) saturate(140–160%)`, directional inner highlights, and layered
+  black shadows. Use 20–24px radius for major panels and 12–14px for controls.
+- **Nested control:** use a near-black well (`#050506`), visibly darker than
+  its surrounding glass. Do not use cloudy white or colored structural fills.
 - **Data readout:** IBM Plex Mono, tabular figures, direct labels, and at least
   3:1 graphical contrast.
 
@@ -100,6 +110,17 @@ product-like report panel as the key visual. The authenticated product should
 favor a persistent shell, direct navigation, clear page titles, and one
 dominant task per view. A practitioner should understand a screen's next step
 within three seconds.
+
+### Authenticated application
+
+- Treat the dashboard as a practitioner console, not a marketing page: lead with
+  the next action, then the few measurements that orient the practitioner.
+- Major dashboard sections use 22–24px neutral glass panels. Dense activity rows
+  and filters sit in 12–14px near-black wells so scan targets remain distinct.
+- Keep orange/cyan as localized illumination and data emphasis. Use semantic
+  maintain, review, and alert colors only with a visible label.
+- At desktop, persistent navigation and one primary action remain visible. At
+  mobile, stack data panels and keep the primary action full width.
 
 ## Accessibility gates
 

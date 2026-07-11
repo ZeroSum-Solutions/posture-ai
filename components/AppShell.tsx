@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 import AppAtmosphere from './AppAtmosphere'
 import NavBar from './NavBar'
+import MotionOrchestrator from './MotionOrchestrator'
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? ''
@@ -16,6 +17,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div className={showAtmosphere ? 'app-shell app-shell--immersive' : 'app-shell'}>
         {showAtmosphere && <AppAtmosphere />}
         <NavBar />
+        <MotionOrchestrator />
         <motion.main
           key={pathname}
           className="app-shell-main"
