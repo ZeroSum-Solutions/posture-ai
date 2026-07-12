@@ -7,8 +7,9 @@ import type { PoseFrame } from '@posture-ai/engine/types'
 import { ageBand } from '@/lib/clients/age'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import FullScreenCapture from './FullScreenCapture'
-import type { CaptureSlotKey, SlotStatus, Captures } from './types'
+import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { SLOT_ORDER, REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot } from './types'
+import { revokeStaleUrls } from '@/lib/capture/object-urls'
 
 interface Client {
   id: string
@@ -221,28 +222,36 @@ function NewAssessmentWizard() {
     }
   }
 
+  // Revoke a slot's object URLs (preview + burst) that aren't reused, so a
+  // re-capture/re-upload never leaks the superseded blobs.
+  function revokeSlotUrls(slot: CaptureSlot, keep: Set<string>) {
+    revokeStaleUrls([slot.preview, ...(slot.burstPreviews ?? [])], keep)
+  }
+
   async function handleFileUpload(slot: CaptureSlotKey, file: File) {
-    const oldPreview = captures[slot].preview
+    const old = captures[slot]
     const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
     const preview = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
     setCaptures(prev => ({
       ...prev,
       [slot]: { ...emptySlot(), file, preview, source: 'upload' },
     }))
-    if (oldPreview && oldPreview.startsWith('blob:')) URL.revokeObjectURL(oldPreview)
+    revokeSlotUrls(old, new Set([preview]))
     setUploadError(null)
     if (!testMode) runPreflight(slot, preview, 'upload', null)
   }
 
-  function handleCameraCapture(slot: CaptureSlotKey, dataUrls: string[], captureRollDeg: number | null) {
-    // dataUrls is the shutter burst; the representative (index 0) drives the
+  function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, captureId: number) {
+    // burst is the shutter's object URLs; the representative (index 0) drives the
     // preview thumbnail + the fast quality preflight. Every frame is pose-detected
     // at submit so the engine can median them + report within-capture stability.
-    const preview = dataUrls[0]
+    const old = captures[slot]
+    const preview = burst[0]
     setCaptures(prev => ({
       ...prev,
-      [slot]: { ...emptySlot(), preview, source: 'camera', captureRollDeg, burstPreviews: dataUrls },
+      [slot]: { ...emptySlot(), preview, source: 'camera', captureRollDeg, burstPreviews: burst, captureId },
     }))
+    revokeSlotUrls(old, new Set(burst))
     setUploadError(null)
     if (!testMode) runPreflight(slot, preview, 'camera', captureRollDeg)
   }

@@ -14,8 +14,8 @@ const BURST_INTERVAL_MS = 70
 
 interface FullScreenCaptureProps {
   captures: Captures
-  /** dataUrls is the shutter burst; [0] is the representative still for preview. */
-  onCameraCapture: (slot: CaptureSlotKey, dataUrls: string[], captureRollDeg: number | null) => void
+  /** burst object URLs; [0] is the representative still. captureId ties the commit to its shutter. */
+  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, captureId: number) => void
   onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
@@ -44,6 +44,17 @@ function getErrorMessage(err: unknown): string {
     if (name === 'SecurityError') return 'Camera requires a secure (HTTPS) connection.'
   }
   return 'Could not access the camera. Please try again.'
+}
+
+/**
+ * Encode the current canvas as a JPEG blob object URL. Object URLs keep the
+ * ~5-frame×4-slot burst out of React state as strings (base64 data URLs bloat
+ * memory on mobile); callers revoke them on retake/replace/unmount.
+ */
+function canvasToObjectURL(canvas: HTMLCanvasElement): Promise<string | null> {
+  return new Promise(resolve => {
+    canvas.toBlob(blob => resolve(blob ? URL.createObjectURL(blob) : null), 'image/jpeg', 0.9)
+  })
 }
 
 /** Lightweight silhouette / directional cue per slot (side-right is mirrored). */
@@ -104,8 +115,14 @@ export default function FullScreenCapture({
   // Guards async work in openStream from touching a torn-down component (e.g. the
   // user leaves while the camera-permission prompt is open).
   const mountedRef = useRef(true)
-  // The shutter burst (dataUrls) awaiting commit; the middle one is the review still.
+  // The shutter burst (object URLs) awaiting commit; the middle one is the review still.
   const burstRef = useRef<string[]>([])
+  // The slot that owned the shutter at capture time. The burst commits to THIS
+  // slot, not the live `activeSlot`, so a mid-flight slot change can never
+  // mis-associate a capture. Free-order makes this race reachable.
+  const captureSlotRef = useRef<CaptureSlotKey>('front')
+  // Monotonic id stamped per shutter; carried onto the committed slot.
+  const captureIdRef = useRef(0)
 
   const [phase, setPhase] = useState<Phase>('disclaimer')
   const [started, setStarted] = useState(false)
@@ -116,6 +133,9 @@ export default function FullScreenCapture({
   const [activeSlot, setActiveSlot] = useState<CaptureSlotKey>('front')
   const [timerOn, setTimerOn] = useState(false)
   const [countdown, setCountdown] = useState(3)
+  // True while a shutter burst is being grabbed — locks tile nav + the shutter so
+  // the burst can't be re-targeted mid-flight.
+  const [isCapturing, setIsCapturing] = useState(false)
 
   const [reviewUrl, setReviewUrl] = useState<string | null>(null)
   const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
@@ -198,6 +218,10 @@ export default function FullScreenCapture({
       mountedRef.current = false
       releaseWakeLock()
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
+      // Revoke any uncommitted burst object URLs (committed ones are owned by the
+      // parent's captures state and outlive this overlay).
+      burstRef.current.forEach(URL.revokeObjectURL)
+      burstRef.current = []
     }
   }, [releaseWakeLock])
 
@@ -271,22 +295,27 @@ export default function FullScreenCapture({
     canvas.height = video.videoHeight || 960
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    // Freeze this capture's identity + commit target at the shutter instant, and
+    // lock the UI so a mid-burst tile tap can neither re-target nor race it.
+    const id = ++captureIdRef.current
+    captureSlotRef.current = activeSlot
+    setIsCapturing(true)
     const rollAt = level.rollRef.current // roll at the shutter instant
     const urls: string[] = []
+    // Discard partial work: revoke every object URL grabbed so far + unlock.
+    const bail = () => { urls.forEach(URL.revokeObjectURL); if (mountedRef.current) { setIsCapturing(false); setPhase('live') } }
     for (let i = 0; i < BURST_SIZE; i++) {
-      // Abort if the phone tilts into the red zone (>5°) partway through the
-      // burst — unless the user overrode the tilt gate. Without this a burst
-      // straddling a tilt would feed the engine frames the shutter itself would
-      // have blocked. Partial frames are discarded (burstRef untouched).
-      if (!overrideTilt && Math.abs(level.rollRef.current ?? 0) > 5) {
-        if (mountedRef.current) setPhase('live')
-        return
-      }
+      // Superseded (retake/unmount) or tilted into the red zone (>5°) partway
+      // through — discard the partial burst rather than feeding the engine frames
+      // the shutter itself would have blocked (unless the user overrode the gate).
+      if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
+      if (!overrideTilt && Math.abs(level.rollRef.current ?? 0) > 5) { bail(); return }
       ctx.drawImage(video, 0, 0)
-      urls.push(canvas.toDataURL('image/jpeg', 0.9))
+      const url = await canvasToObjectURL(canvas)
+      if (url) urls.push(url)
       if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
     }
-    if (!mountedRef.current) return
+    if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
     // Put the reviewed (middle) frame first so the preview thumbnail AND the
     // quality preflight — both of which the parent runs on burst[0] — judge
     // exactly the frame the user reviews and approves. The engine medians every
@@ -297,10 +326,11 @@ export default function FullScreenCapture({
     setRollAtCapture(rollAt)
     setPreviewQuality(null)
     setReviewUrl(representative) // representative still (now burst[0])
+    setIsCapturing(false)
     setPhase('review')
     // Stream keeps running so the next view is instant — the frozen still is
     // shown as an overlay during review.
-  }, [level.rollRef, overrideTilt])
+  }, [level.rollRef, overrideTilt, activeSlot])
 
   function startCountdown() {
     void acquireWakeLock()
@@ -309,7 +339,7 @@ export default function FullScreenCapture({
   }
 
   function onShutter() {
-    if (tiltBlocked || !ready) return
+    if (tiltBlocked || !ready || isCapturing) return
     if (timerOn) startCountdown()
     else void capture()
   }
@@ -367,10 +397,12 @@ export default function FullScreenCapture({
 
   function useThisPhoto() {
     if (!reviewUrl) return
-    const committed = activeSlot
+    // Commit to the slot that owned the shutter, never the (possibly changed)
+    // live `activeSlot` — the burst belongs to captureSlotRef.
+    const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
-    onCameraCapture(committed, burst, rollAtCapture)
-    burstRef.current = []
+    onCameraCapture(committed, burst, rollAtCapture, captureIdRef.current)
+    burstRef.current = [] // ownership transferred to the parent; do not revoke
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
@@ -383,8 +415,14 @@ export default function FullScreenCapture({
     setPhase('live')
   }
 
-  function retakeStill() {
+  // Discard an uncommitted review: revoke its object URLs so they don't leak.
+  function discardBurst() {
+    burstRef.current.forEach(URL.revokeObjectURL)
     burstRef.current = []
+  }
+
+  function retakeStill() {
+    discardBurst()
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
@@ -393,8 +431,10 @@ export default function FullScreenCapture({
   }
 
   function selectSlot(slot: CaptureSlotKey) {
-    // Free order: any slot is selectable at any time. Switching away from an
-    // unreviewed shot discards it (retakeStill resets review + returns to live).
+    // Free order: any slot is selectable at any time — EXCEPT mid-burst, where a
+    // switch would race the in-flight capture (the burst is locked until it
+    // resolves). Switching away from an unreviewed shot discards it.
+    if (isCapturing) return
     setActiveSlot(slot)
     if (phase === 'review') retakeStill()
   }
@@ -675,13 +715,13 @@ export default function FullScreenCapture({
                 <button
                   data-autofocus="shutter"
                   onClick={onShutter}
-                  aria-disabled={tiltBlocked || !ready}
+                  aria-disabled={tiltBlocked || !ready || isCapturing}
                   aria-label="Capture photo"
                   style={{
                     justifySelf: 'center', width: '72px', height: '72px', borderRadius: '50%',
-                    background: tiltBlocked || !ready ? 'rgba(255,255,255,0.25)' : '#fff',
+                    background: tiltBlocked || !ready || isCapturing ? 'rgba(255,255,255,0.25)' : '#fff',
                     border: '4px solid rgba(255,255,255,0.55)', boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
-                    cursor: tiltBlocked || !ready ? 'not-allowed' : 'pointer',
+                    cursor: tiltBlocked || !ready || isCapturing ? 'not-allowed' : 'pointer',
                   }}
                   aria-describedby={tiltBlocked ? 'tilt-blocked-banner' : undefined}
                 />
