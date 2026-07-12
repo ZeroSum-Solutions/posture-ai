@@ -36,15 +36,15 @@ test.describe('camera error handling and quality preflight', () => {
     await expect(errorMsg).toBeVisible({ timeout: 10_000 })
     await expect(errorMsg).toContainText('Camera access denied')
 
-    // The upload fallback is available for the Front view…
-    await expect(page.getByRole('button', { name: /Use File Upload Instead — Front View/ })).toBeVisible()
+    // The upload fallback is available for the Front slot…
+    await expect(page.getByRole('button', { name: /Use File Upload Instead — Front/ })).toBeVisible()
     await expect(page.locator('input[type="file"]').first()).toBeAttached()
 
-    // …and uploading Front advances the fallback to Side, so the upload-only path
-    // is not a dead-end (pending views aren't selectable in the strip).
+    // …and uploading Front advances the fallback to the Left Side slot, so the
+    // upload-only path walks through the required slots instead of dead-ending.
     await page.locator('input[type="file"]').nth(0)
       .setInputFiles(path.join(__dirname, 'fixtures', 'photos', 'front_standing.jpg'))
-    await expect(page.getByRole('button', { name: /Use File Upload Instead — Side View/ })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: /Use File Upload Instead — Left Side/ })).toBeVisible({ timeout: 10_000 })
   })
 
   test('camera works without orientation sensors: no gate, no indicator', async ({ page }) => {
@@ -97,7 +97,7 @@ test.describe('camera error handling and quality preflight', () => {
     const inputs = page.locator('input[type="file"]')
     await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
 
-    // Upload the no-person fixture to the front view slot (index 0)
+    // Upload the no-person fixture to the front slot (index 0)
     await inputs.nth(0).setInputFiles(nopersonPhoto)
 
     // Wait for the preflight to complete — the no-person banner appears
@@ -105,16 +105,19 @@ test.describe('camera error handling and quality preflight', () => {
     const noPersonBadge = page.getByText('No person detected — retake')
     await expect(noPersonBadge).toBeVisible({ timeout: 90_000 })
 
-    // Also upload a valid side view photo so the only blocker is the front slot
-    // (Otherwise submit will fail with "Side view required" before checking no_person)
+    // Fill BOTH side slots (indices 1 = left, 2 = right) with a valid photo so the
+    // required slots are all present and the Analyze action gates only on the
+    // front slot's no_person (otherwise it blocks earlier on a missing required slot).
     const photos = path.join(__dirname, 'fixtures', 'photos')
     await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
+    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
 
-    // Wait for side slot preflight (it may complete as ok or warnings — not no_person)
+    // Only the front slot stays no_person (the sides complete as ok or warnings)
     await expect(page.locator('text=No person detected — retake')).toHaveCount(1, { timeout: 90_000 })
 
-    // Now try to submit — the front slot (no_person) blocks it
-    await page.getByRole('button', { name: 'Analyze Posture' }).click()
+    // Now try to submit — the front slot (no_person) blocks it. Back is optional
+    // and uncaptured, so the action reads "Skip Back & Analyze Posture".
+    await page.getByRole('button', { name: 'Skip Back & Analyze Posture' }).click()
 
     // Should see the upload error about retaking
     const errorBanner = page.getByText(/person detected|retake/i).first()

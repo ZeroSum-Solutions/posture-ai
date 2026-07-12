@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
-import type { Captures, ViewKey } from './types'
-import { VIEW_ORDER, VIEW_LABEL } from './types'
+import type { Captures, CaptureSlotKey } from './types'
+import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
@@ -14,9 +14,9 @@ const BURST_INTERVAL_MS = 70
 
 interface FullScreenCaptureProps {
   captures: Captures
-  /** dataUrls is the shutter burst; [0] is the representative still for preview. */
-  onCameraCapture: (view: ViewKey, dataUrls: string[], captureRollDeg: number | null) => void
-  onFileUpload: (view: ViewKey, file: File) => void
+  /** raw burst object URLs; [0] is the representative still. */
+  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null) => void
+  onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
   modelLoading: boolean
@@ -27,11 +27,12 @@ interface FullScreenCaptureProps {
 
 type Phase = 'disclaimer' | 'live' | 'countdown' | 'review'
 
-// Directional prompt copy per view (replaces the old per-card labels).
-const DIRECTION: Record<ViewKey, { title: string; cue: string }> = {
-  front: { title: 'Face the camera', cue: 'Stand tall, arms relaxed at your sides — Front View' },
-  side: { title: 'Turn to your side', cue: 'Turn 90° so your profile faces the camera — Side View' },
-  back: { title: 'Turn around', cue: 'Turn 180° so your back faces the camera — Back View' },
+// Directional prompt copy per slot (the two side slots cue opposite profiles).
+const DIRECTION: Record<CaptureSlotKey, { title: string; cue: string }> = {
+  'front': { title: 'Face the camera', cue: 'Stand tall, arms relaxed at your sides — Front View' },
+  'side-left': { title: 'Left side to the camera', cue: 'Turn so your LEFT side faces the camera' },
+  'side-right': { title: 'Right side to the camera', cue: 'Turn so your RIGHT side faces the camera' },
+  'back': { title: 'Turn around', cue: 'Turn 180° so your back faces the camera — Back View' },
 }
 
 function getErrorMessage(err: unknown): string {
@@ -45,12 +46,26 @@ function getErrorMessage(err: unknown): string {
   return 'Could not access the camera. Please try again.'
 }
 
-/** Lightweight silhouette / directional cue per view. */
-function ViewSilhouette({ view, size = 30 }: { view: ViewKey; size?: number }) {
+/**
+ * Encode the current canvas as a JPEG blob object URL. Object URLs keep the
+ * ~5-frame×4-slot burst out of React state as strings (base64 data URLs bloat
+ * memory on mobile); callers revoke them on retake/replace/unmount.
+ */
+function canvasToObjectURL(canvas: HTMLCanvasElement): Promise<string | null> {
+  return new Promise(resolve => {
+    canvas.toBlob(blob => resolve(blob ? URL.createObjectURL(blob) : null), 'image/jpeg', 0.9)
+  })
+}
+
+/** Lightweight silhouette / directional cue per slot (side-right is mirrored). */
+function ViewSilhouette({ slot, size = 30 }: { slot: CaptureSlotKey; size?: number }) {
   const stroke = 'currentColor'
+  const { view } = slotToDomain(slot)
   if (view === 'side') {
+    // side-left faces one way; mirror the glyph for side-right.
+    const flip = slot === 'side-right' ? { transform: 'scaleX(-1)', transformOrigin: 'center' } : undefined
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={flip}>
         <circle cx="10" cy="5" r="2.4" fill={stroke} />
         <path d="M10 8c2 0 3 1.4 3 3.4 0 2-.6 3-1 4.4l1 4.2" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M10 8c-.6 1.6-.8 3.2-1.4 4.6M8.6 12.6 7 21" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -96,16 +111,18 @@ export default function FullScreenCapture({
   const streamRef = useRef<MediaStream | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const fileInputRefs = useRef<Record<ViewKey, HTMLInputElement | null>>({ front: null, side: null, back: null })
-  // Set when the final view is committed: proceed only AFTER that commit has
-  // flushed into the parent's `captures` (else validateAndProceed reads a stale
-  // snapshot and drops the just-captured frame).
-  const proceedAfterCommitRef = useRef(false)
+  const fileInputRefs = useRef<Record<CaptureSlotKey, HTMLInputElement | null>>({ 'front': null, 'side-left': null, 'side-right': null, 'back': null })
   // Guards async work in openStream from touching a torn-down component (e.g. the
   // user leaves while the camera-permission prompt is open).
   const mountedRef = useRef(true)
-  // The shutter burst (dataUrls) awaiting commit; the middle one is the review still.
+  // The shutter burst (object URLs) awaiting commit; the middle one is the review still.
   const burstRef = useRef<string[]>([])
+  // The slot that owned the shutter at capture time. The burst commits to THIS
+  // slot, not the live `activeSlot`, so a mid-flight slot change can never
+  // mis-associate a capture. Free-order makes this race reachable.
+  const captureSlotRef = useRef<CaptureSlotKey>('front')
+  // Monotonic id stamped per shutter; carried onto the committed slot.
+  const captureIdRef = useRef(0)
 
   const [phase, setPhase] = useState<Phase>('disclaimer')
   const [started, setStarted] = useState(false)
@@ -113,9 +130,12 @@ export default function FullScreenCapture({
   const [cameraFailed, setCameraFailed] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const [activeView, setActiveView] = useState<ViewKey>('front')
+  const [activeSlot, setActiveSlot] = useState<CaptureSlotKey>('front')
   const [timerOn, setTimerOn] = useState(false)
   const [countdown, setCountdown] = useState(3)
+  // True while a shutter burst is being grabbed — locks tile nav + the shutter so
+  // the burst can't be re-targeted mid-flight.
+  const [isCapturing, setIsCapturing] = useState(false)
 
   const [reviewUrl, setReviewUrl] = useState<string | null>(null)
   const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
@@ -198,6 +218,10 @@ export default function FullScreenCapture({
       mountedRef.current = false
       releaseWakeLock()
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
+      // Revoke any uncommitted burst object URLs (committed ones are owned by the
+      // parent's captures state and outlive this overlay).
+      burstRef.current.forEach(URL.revokeObjectURL)
+      burstRef.current = []
     }
   }, [releaseWakeLock])
 
@@ -271,22 +295,27 @@ export default function FullScreenCapture({
     canvas.height = video.videoHeight || 960
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    // Freeze this capture's identity + commit target at the shutter instant, and
+    // lock the UI so a mid-burst tile tap can neither re-target nor race it.
+    const id = ++captureIdRef.current
+    captureSlotRef.current = activeSlot
+    setIsCapturing(true)
     const rollAt = level.rollRef.current // roll at the shutter instant
     const urls: string[] = []
+    // Discard partial work: revoke every object URL grabbed so far + unlock.
+    const bail = () => { urls.forEach(URL.revokeObjectURL); if (mountedRef.current) { setIsCapturing(false); setPhase('live') } }
     for (let i = 0; i < BURST_SIZE; i++) {
-      // Abort if the phone tilts into the red zone (>5°) partway through the
-      // burst — unless the user overrode the tilt gate. Without this a burst
-      // straddling a tilt would feed the engine frames the shutter itself would
-      // have blocked. Partial frames are discarded (burstRef untouched).
-      if (!overrideTilt && Math.abs(level.rollRef.current ?? 0) > 5) {
-        if (mountedRef.current) setPhase('live')
-        return
-      }
+      // Superseded (retake/unmount) or tilted into the red zone (>5°) partway
+      // through — discard the partial burst rather than feeding the engine frames
+      // the shutter itself would have blocked (unless the user overrode the gate).
+      if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
+      if (!overrideTilt && Math.abs(level.rollRef.current ?? 0) > 5) { bail(); return }
       ctx.drawImage(video, 0, 0)
-      urls.push(canvas.toDataURL('image/jpeg', 0.9))
+      const url = await canvasToObjectURL(canvas)
+      if (url) urls.push(url)
       if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
     }
-    if (!mountedRef.current) return
+    if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
     // Put the reviewed (middle) frame first so the preview thumbnail AND the
     // quality preflight — both of which the parent runs on burst[0] — judge
     // exactly the frame the user reviews and approves. The engine medians every
@@ -297,10 +326,11 @@ export default function FullScreenCapture({
     setRollAtCapture(rollAt)
     setPreviewQuality(null)
     setReviewUrl(representative) // representative still (now burst[0])
+    setIsCapturing(false)
     setPhase('review')
     // Stream keeps running so the next view is instant — the frozen still is
     // shown as an overlay during review.
-  }, [level.rollRef, overrideTilt])
+  }, [level.rollRef, overrideTilt, activeSlot])
 
   function startCountdown() {
     void acquireWakeLock()
@@ -309,7 +339,7 @@ export default function FullScreenCapture({
   }
 
   function onShutter() {
-    if (tiltBlocked || !ready) return
+    if (tiltBlocked || !ready || isCapturing) return
     if (timerOn) startCountdown()
     else void capture()
   }
@@ -338,59 +368,61 @@ export default function FullScreenCapture({
       try {
         const { detectPose } = await import('@/lib/pose/detect')
         const { assessFrameQuality } = await import('@/lib/pose/quality')
-        const frame = await detectPose(reviewUrl, activeView, 'camera')
-        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, activeView))
+        const { view } = slotToDomain(activeSlot)
+        const frame = await detectPose(reviewUrl, view, 'camera')
+        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
       } catch {
         // non-fatal: the slot preflight still runs after "Use This Photo"
       }
     })()
     return () => { cancelled = true }
-  }, [phase, reviewUrl, activeView])
+  }, [phase, reviewUrl, activeSlot])
 
-  // Deferred auto-proceed: fires onProceed once the terminal (Back) commit has
-  // landed in `captures` AND the required views' preflight has settled — so the
-  // Back frame is included and a still-`checking` no-person Front/Side can't slip
-  // past validateAndProceed's block. Mutates a ref (not state) → no setState-in-effect.
-  useEffect(() => {
-    if (!proceedAfterCommitRef.current) return
-    const stillChecking = (['front', 'side'] as ViewKey[]).some(v => !!captures[v].preview && captures[v].slotStatus === 'checking')
-    if (stillChecking) return
-    proceedAfterCommitRef.current = false
-    onProceed()
-  }, [captures, onProceed])
-
-  function nextUncapturedAfter(committed: ViewKey): ViewKey | null {
-    const start = VIEW_ORDER.indexOf(committed)
-    for (let i = start + 1; i < VIEW_ORDER.length; i++) {
-      const v = VIEW_ORDER[i]
-      if (v !== committed && !captures[v].preview) return v
+  // The next uncaptured slot after `committed` in canonical order — a convenience
+  // advance after a capture. Free-order means every slot is selectable directly,
+  // so this only picks a sensible default next slot; it never gates proceeding.
+  function nextUncapturedAfter(committed: CaptureSlotKey): CaptureSlotKey | null {
+    const start = SLOT_ORDER.indexOf(committed)
+    for (let i = start + 1; i < SLOT_ORDER.length; i++) {
+      const s = SLOT_ORDER[i]
+      if (!isCaptured(captures[s])) return s
+    }
+    // Wrap: fill any earlier gap the user skipped past.
+    for (let i = 0; i < start; i++) {
+      const s = SLOT_ORDER[i]
+      if (!isCaptured(captures[s])) return s
     }
     return null
   }
 
   function useThisPhoto() {
     if (!reviewUrl) return
-    const committed = activeView
+    // Commit to the slot that owned the shutter, never the (possibly changed)
+    // live `activeSlot` — the burst belongs to captureSlotRef.
+    const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
     onCameraCapture(committed, burst, rollAtCapture)
-    burstRef.current = []
+    burstRef.current = [] // ownership transferred to the parent; do not revoke
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
     setOverrideTilt(false)
+    // Advance to the next uncaptured slot as a convenience. Analysis is ALWAYS an
+    // explicit user action (the Analyze button, enabled once the required slots
+    // are present) — capture order never auto-proceeds.
     const next = nextUncapturedAfter(committed)
-    if (next) setActiveView(next)
+    if (next) setActiveSlot(next)
     setPhase('live')
-    // Only the terminal forward step (committing Back) auto-advances to
-    // Processing — and only AFTER this commit has flushed into `captures` (see
-    // the deferred-proceed effect), so validateAndProceed includes the Back
-    // frame. Retaking front/side never auto-proceeds (its preflight may still be
-    // in-flight; the user proceeds explicitly via the Analyze button instead).
-    if (!next && committed === 'back') proceedAfterCommitRef.current = true
+  }
+
+  // Discard an uncommitted review: revoke its object URLs so they don't leak.
+  function discardBurst() {
+    burstRef.current.forEach(URL.revokeObjectURL)
+    burstRef.current = []
   }
 
   function retakeStill() {
-    burstRef.current = []
+    discardBurst()
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
@@ -398,33 +430,36 @@ export default function FullScreenCapture({
     setPhase('live')
   }
 
-  function selectView(view: ViewKey) {
-    // Only captured views (retake) or the current active view are selectable.
-    if (view !== activeView && !captures[view].preview) return
-    setActiveView(view)
+  function selectSlot(slot: CaptureSlotKey) {
+    // Free order: any slot is selectable at any time — EXCEPT mid-burst, where a
+    // switch would race the in-flight capture (the burst is locked until it
+    // resolves). Switching away from an unreviewed shot discards it.
+    if (isCapturing) return
+    setActiveSlot(slot)
     if (phase === 'review') retakeStill()
   }
 
   function triggerUpload() {
-    fileInputRefs.current[activeView]?.click()
+    fileInputRefs.current[activeSlot]?.click()
   }
 
-  // Uploading a view commits it and advances to the next uncaptured one — the
-  // camera path auto-advances on capture, and the upload fallback must match or
-  // the user gets stuck (pending views aren't selectable in the status strip).
-  function handleUpload(view: ViewKey, file: File) {
-    onFileUpload(view, file)
-    const next = nextUncapturedAfter(view)
-    if (next) setActiveView(next)
+  // Uploading a slot commits it and advances to the next uncaptured slot, so the
+  // upload-only path (no camera) still walks through every required slot.
+  function handleUpload(slot: CaptureSlotKey, file: File) {
+    onFileUpload(slot, file)
+    const next = nextUncapturedAfter(slot)
+    if (next) setActiveSlot(next)
   }
 
   // ---- derived UI state ----
-  const frontSideReady = !!captures.front.preview && !!captures.side.preview
-  // A required view whose quality preflight is still running — proceeding now
+  // Ready once front + both sides are present (back optional), independent of
+  // capture order — the free-order flow has no terminal "last view" trigger.
+  const requiredReady = REQUIRED_SLOTS.every(s => isCaptured(captures[s]))
+  // A required slot whose quality preflight is still running — proceeding now
   // would bypass the no-person block, so gate the Analyze action until it settles.
-  const requiredChecking = (['front', 'side'] as ViewKey[]).some(v => !!captures[v].preview && captures[v].slotStatus === 'checking')
-  const noPersonViews = VIEW_ORDER.filter(v => captures[v].preview && captures[v].slotStatus === 'no_person')
-  const direction = DIRECTION[activeView]
+  const requiredChecking = REQUIRED_SLOTS.some(s => isCaptured(captures[s]) && captures[s].slotStatus === 'checking')
+  const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
+  const direction = DIRECTION[activeSlot]
 
   const showLiveCamera = (phase === 'live' || phase === 'countdown') && !cameraFailed
   const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
@@ -436,19 +471,19 @@ export default function FullScreenCapture({
       <div role="timer" aria-live="assertive" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
         {phase === 'countdown' && countdown > 0 ? `Capturing in ${countdown}` : ''}
       </div>
-      {/* Hidden per-view file inputs — DOM order MUST stay front, side, back
-          (e2e targets input[type=file] by index). */}
-      {VIEW_ORDER.map(view => (
+      {/* Hidden per-slot file inputs — DOM order is front, side-left, side-right,
+          back (e2e targets input[type=file] by index). */}
+      {SLOT_ORDER.map(slot => (
         <input
-          key={view}
-          ref={el => { fileInputRefs.current[view] = el }}
+          key={slot}
+          ref={el => { fileInputRefs.current[slot] = el }}
           type="file"
           accept="image/jpeg,image/png"
           style={{ display: 'none' }}
-          aria-label={`Upload ${VIEW_LABEL[view]} photo`}
+          aria-label={`Upload ${SLOT_LABEL[slot]} photo`}
           onChange={e => {
             const file = e.target.files?.[0]
-            if (file) handleUpload(view, file)
+            if (file) handleUpload(slot, file)
             e.target.value = ''
           }}
         />
@@ -550,7 +585,7 @@ export default function FullScreenCapture({
           {showLiveCamera && (
             <div style={{ position: 'relative', zIndex: 2, marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '999px', padding: '8px 16px', maxWidth: '92%' }}>
-                <span style={{ color: '#fff', flexShrink: 0 }}><ViewSilhouette view={activeView} /></span>
+                <span style={{ color: '#fff', flexShrink: 0 }}><ViewSilhouette slot={activeSlot} /></span>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>{direction.title}</p>
                   <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{direction.cue}</p>
@@ -582,7 +617,7 @@ export default function FullScreenCapture({
             {/* No-person banner (blocks proceed on required views) */}
             {noPersonViews.length > 0 && (
               <div role="alert" style={{ background: 'rgba(239,68,68,0.9)', borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: '#fff', textAlign: 'center' }}>
-                No person detected — retake {noPersonViews.map(v => VIEW_LABEL[v]).join(', ')}
+                No person detected — retake {noPersonViews.map(s => SLOT_LABEL[s]).join(', ')}
               </div>
             )}
             {uploadError && (
@@ -630,44 +665,44 @@ export default function FullScreenCapture({
               </div>
             )}
 
-            {/* Status strip */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              {VIEW_ORDER.map(view => {
-                const slot = captures[view]
-                const isActive = view === activeView
-                const captured = !!slot.preview
-                const optional = view === 'back'
+            {/* Status strip — four free-order slots, all selectable at any time */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              {SLOT_ORDER.map(slotKey => {
+                const cap = captures[slotKey]
+                const isActive = slotKey === activeSlot
+                const captured = isCaptured(cap)
+                const optional = !REQUIRED_SLOTS.includes(slotKey)
                 const ring = isActive ? 'var(--brand)'
-                  : slot.slotStatus === 'no_person' ? 'var(--danger)'
-                  : slot.slotStatus === 'warnings' ? 'var(--warning)'
+                  : cap.slotStatus === 'no_person' ? 'var(--danger)'
+                  : cap.slotStatus === 'warnings' ? 'var(--warning)'
                   : captured ? '#10B981'
                   : 'rgba(255,255,255,0.2)'
-                const selectable = captured || isActive
                 return (
                   <button
-                    key={view}
-                    onClick={() => selectView(view)}
-                    aria-disabled={!selectable}
-                    aria-label={`${VIEW_LABEL[view]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
+                    key={slotKey}
+                    onClick={() => selectSlot(slotKey)}
+                    // Locked during a burst so the announced state matches selectSlot's guard.
+                    disabled={isCapturing}
+                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
-                      position: 'relative', width: '64px', textAlign: 'center', background: 'none', border: 'none',
-                      padding: 0, cursor: selectable ? 'pointer' : 'default', opacity: selectable || captured ? 1 : 0.7,
+                      position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
+                      padding: 0, cursor: isCapturing ? 'default' : 'pointer', opacity: isCapturing && !isActive ? 0.6 : 1,
                     }}
                   >
-                    <div style={{ position: 'relative', width: '54px', height: '54px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ring}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {captured && slot.preview ? (
+                    <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ring}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {captured && cap.displayPreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={slot.preview} alt={`${VIEW_LABEL[view]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={cap.displayPreviewUrl} alt={`${SLOT_LABEL[slotKey]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette view={view} size={26} /></span>
+                        <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: slot.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{slot.slotStatus === 'no_person' ? '!' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : '✓'}</span>
                       )}
                     </div>
-                    <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{view.charAt(0).toUpperCase() + view.slice(1)}</span>
-                    <span style={{ display: 'block', fontSize: '0.62rem', color: '#B4B4BD' }}>{optional ? 'Optional' : 'Required'}</span>
+                    <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>
+                    <span style={{ display: 'block', fontSize: '0.6rem', color: '#B4B4BD' }}>{optional ? 'Optional' : 'Required'}</span>
                   </button>
                 )
               })}
@@ -682,13 +717,13 @@ export default function FullScreenCapture({
                 <button
                   data-autofocus="shutter"
                   onClick={onShutter}
-                  aria-disabled={tiltBlocked || !ready}
+                  aria-disabled={tiltBlocked || !ready || isCapturing}
                   aria-label="Capture photo"
                   style={{
                     justifySelf: 'center', width: '72px', height: '72px', borderRadius: '50%',
-                    background: tiltBlocked || !ready ? 'rgba(255,255,255,0.25)' : '#fff',
+                    background: tiltBlocked || !ready || isCapturing ? 'rgba(255,255,255,0.25)' : '#fff',
                     border: '4px solid rgba(255,255,255,0.55)', boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
-                    cursor: tiltBlocked || !ready ? 'not-allowed' : 'pointer',
+                    cursor: tiltBlocked || !ready || isCapturing ? 'not-allowed' : 'pointer',
                   }}
                   aria-describedby={tiltBlocked ? 'tilt-blocked-banner' : undefined}
                 />
@@ -714,18 +749,18 @@ export default function FullScreenCapture({
             {/* Upload fallback when the camera failed */}
             {cameraFailed && (
               <button onClick={triggerUpload} style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>
-                Use File Upload Instead — {VIEW_LABEL[activeView]}
+                Use File Upload Instead — {SLOT_LABEL[activeSlot]}
               </button>
             )}
 
-            {/* Proceed (available once Front + Side are captured; also the Back-skip) */}
-            {frontSideReady && phase !== 'review' && (
+            {/* Proceed (available once Front + both Sides are captured; Back-skip) */}
+            {requiredReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
                 disabled={submitting || requiredChecking}
                 style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
-                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : captures.back.preview ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
+                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : isCaptured(captures.back) ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
               </button>
             )}
           </div>
