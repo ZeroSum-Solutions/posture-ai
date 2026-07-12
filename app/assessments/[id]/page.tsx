@@ -44,6 +44,7 @@ interface Finding {
 interface Capture {
   id: string
   view: string
+  profile_side: 'left' | 'right' | null
   signed_url: string | null
   source: string
   capture_roll_deg: number | null
@@ -904,7 +905,14 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const isApproved = approved || !!assessment.practitioner_approved
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const frontCapture = captures.find(c => c.view === 'front') ?? null
-  const sideCapture = captures.find(c => c.view === 'side') ?? null
+  // A per-side assessment now returns two `side` captures; pick deterministically
+  // (left, then right, then any) instead of arbitrary array order. Legacy single
+  // side rows carry a null profile_side and fall through to the first side row.
+  const sideCaptures = captures.filter(c => c.view === 'side')
+  const sideCapture =
+    sideCaptures.find(c => c.profile_side === 'left')
+    ?? sideCaptures.find(c => c.profile_side === 'right')
+    ?? sideCaptures[0] ?? null
   const rollNotes = captures
     .filter(c => typeof c.capture_roll_deg === 'number' && Math.abs(c.capture_roll_deg) >= 0.05)
     .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
