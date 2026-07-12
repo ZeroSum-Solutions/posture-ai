@@ -7,7 +7,8 @@ import type { PoseFrame } from '@posture-ai/engine/types'
 import { ageBand } from '@/lib/clients/age'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import FullScreenCapture from './FullScreenCapture'
-import type { ViewKey, SlotStatus, Captures } from './types'
+import type { CaptureSlotKey, SlotStatus, Captures } from './types'
+import { SLOT_ORDER, REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot } from './types'
 
 interface Client {
   id: string
@@ -37,9 +38,10 @@ function NewAssessmentWizard() {
   const [loadingClients, setLoadingClients] = useState(true)
   const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>({
-    front: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
-    side: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
-    back: { file: null, preview: null, source: null, poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
+    'front': emptySlot(),
+    'side-left': emptySlot(),
+    'side-right': emptySlot(),
+    'back': emptySlot(),
   })
   const [uploadError, setUploadError] = useState<string | null>(null)
 
@@ -172,15 +174,18 @@ function NewAssessmentWizard() {
   // result instead of overwriting the newer slot.
   const preflightSeq = useRef<Record<string, number>>({})
 
-  // Run detectPose + assessFrameQuality after each capture/upload
-  async function runPreflight(view: ViewKey, preview: string, source: 'camera' | 'upload', captureRollDeg: number | null) {
-    const token = (preflightSeq.current[view] ?? 0) + 1
-    preflightSeq.current[view] = token
-    const isStale = () => preflightSeq.current[view] !== token
+  // Run detectPose + assessFrameQuality after each capture/upload. `slot` is the
+  // capture-flow slot; detection/quality run on its engine view, and the side
+  // profile is stamped onto the frame so submit carries laterality.
+  async function runPreflight(slot: CaptureSlotKey, preview: string, source: 'camera' | 'upload', captureRollDeg: number | null) {
+    const token = (preflightSeq.current[slot] ?? 0) + 1
+    preflightSeq.current[slot] = token
+    const isStale = () => preflightSeq.current[slot] !== token
+    const { view, profileSide } = slotToDomain(slot)
 
     setCaptures(prev => ({
       ...prev,
-      [view]: { ...prev[view], slotStatus: 'checking' },
+      [slot]: { ...prev[slot], slotStatus: 'checking' },
     }))
 
     try {
@@ -189,7 +194,11 @@ function NewAssessmentWizard() {
 
       const detected = await detectPose(preview, view, source)
       if (isStale()) return
-      const poseFrame: PoseFrame = captureRollDeg !== null ? { ...detected, captureRollDeg } : detected
+      const poseFrame: PoseFrame = {
+        ...detected,
+        ...(profileSide ? { profileSide } : {}),
+        ...(captureRollDeg !== null ? { captureRollDeg } : {}),
+      }
       const quality = assessFrameQuality(poseFrame, view)
 
       const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
@@ -198,7 +207,7 @@ function NewAssessmentWizard() {
 
       setCaptures(prev => ({
         ...prev,
-        [view]: { ...prev[view], poseFrame, quality, slotStatus },
+        [slot]: { ...prev[slot], poseFrame, quality, slotStatus },
       }))
     } catch (err) {
       console.error('[wizard] preflight error:', err)
@@ -206,49 +215,49 @@ function NewAssessmentWizard() {
       // On model-load failure, don't block submission — mark idle
       setCaptures(prev => ({
         ...prev,
-        [view]: { ...prev[view], slotStatus: 'idle' },
+        [slot]: { ...prev[slot], slotStatus: 'idle' },
       }))
       setModelError(true)
     }
   }
 
-  async function handleFileUpload(view: ViewKey, file: File) {
-    const oldPreview = captures[view].preview
+  async function handleFileUpload(slot: CaptureSlotKey, file: File) {
+    const oldPreview = captures[slot].preview
     const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
     const preview = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
     setCaptures(prev => ({
       ...prev,
-      [view]: { file, preview, source: 'upload', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg: null, burstPreviews: null },
+      [slot]: { ...emptySlot(), file, preview, source: 'upload' },
     }))
     if (oldPreview && oldPreview.startsWith('blob:')) URL.revokeObjectURL(oldPreview)
     setUploadError(null)
-    if (!testMode) runPreflight(view, preview, 'upload', null)
+    if (!testMode) runPreflight(slot, preview, 'upload', null)
   }
 
-  function handleCameraCapture(view: ViewKey, dataUrls: string[], captureRollDeg: number | null) {
+  function handleCameraCapture(slot: CaptureSlotKey, dataUrls: string[], captureRollDeg: number | null) {
     // dataUrls is the shutter burst; the representative (index 0) drives the
     // preview thumbnail + the fast quality preflight. Every frame is pose-detected
     // at submit so the engine can median them + report within-capture stability.
     const preview = dataUrls[0]
     setCaptures(prev => ({
       ...prev,
-      [view]: { file: null, preview, source: 'camera', poseFrame: null, quality: null, slotStatus: 'idle', captureRollDeg, burstPreviews: dataUrls },
+      [slot]: { ...emptySlot(), preview, source: 'camera', captureRollDeg, burstPreviews: dataUrls },
     }))
     setUploadError(null)
-    if (!testMode) runPreflight(view, preview, 'camera', captureRollDeg)
+    if (!testMode) runPreflight(slot, preview, 'camera', captureRollDeg)
   }
 
   // Check if submit should be blocked: a required slot has 'no_person' status
   function hasBlockingSlot(): boolean {
-    const required: ViewKey[] = ['front', 'side']
-    return required.some(v => captures[v].preview && captures[v].slotStatus === 'no_person')
+    return REQUIRED_SLOTS.some(v => captures[v].preview && captures[v].slotStatus === 'no_person')
   }
 
   async function validateAndProceed() {
     if (!selectedClient) { setUploadError('Please select a client.'); return }
     if (!testMode) {
-      if (!captures.front.preview) { setUploadError('Front view is required before proceeding.'); return }
-      if (!captures.side.preview) { setUploadError('Side view is required before proceeding.'); return }
+      for (const slot of REQUIRED_SLOTS) {
+        if (!captures[slot].preview) { setUploadError(`${SLOT_LABEL[slot]} view is required before proceeding.`); return }
+      }
       if (hasBlockingSlot()) {
         setUploadError('One or more views has no person detected. Please retake those photos.')
         return
@@ -270,11 +279,18 @@ function NewAssessmentWizard() {
       if (!testMode) {
         frames = []
         const { detectPose } = await import('@/lib/pose/detect')
-        const withRoll = (f: PoseFrame, roll: number | null): PoseFrame =>
-          roll !== null ? { ...f, captureRollDeg: roll } : f
-        for (const v of ['front', 'side', 'back'] as ViewKey[]) {
-          const cap = captures[v]
+        // Stamp the slot's side profile (and roll) onto a freshly-detected frame
+        // so both side slots POST as distinct `{view:'side', profileSide}` groups
+        // (Slice 1) instead of collapsing into one legacy `side` group.
+        const stamp = (f: PoseFrame, profileSide: 'left' | 'right' | undefined, roll: number | null): PoseFrame => ({
+          ...f,
+          ...(profileSide ? { profileSide } : {}),
+          ...(roll !== null ? { captureRollDeg: roll } : {}),
+        })
+        for (const slot of SLOT_ORDER) {
+          const cap = captures[slot]
           if (!cap.preview) continue
+          const { view, profileSide } = slotToDomain(slot)
           const burst = cap.source === 'camera' && cap.burstPreviews && cap.burstPreviews.length > 1
             ? cap.burstPreviews
             : null
@@ -282,16 +298,16 @@ function NewAssessmentWizard() {
             // Detect every frame of the burst (the representative was already
             // detected in preflight; re-detecting it here keeps the set uniform).
             for (const url of burst) {
-              const detected = await detectPose(url, v, 'camera')
-              frames.push(withRoll(detected, cap.captureRollDeg))
+              const detected = await detectPose(url, view, 'camera')
+              frames.push(stamp(detected, profileSide, cap.captureRollDeg))
             }
           } else if (cap.poseFrame) {
-            // Single frame from preflight — no re-detection needed.
+            // Single frame from preflight — already carries profileSide + roll.
             frames.push(cap.poseFrame)
           } else {
             // Preflight was skipped or failed — detect now.
-            const detected = await detectPose(cap.preview, v, cap.source ?? 'upload')
-            frames.push(withRoll(detected, cap.captureRollDeg))
+            const detected = await detectPose(cap.preview, view, cap.source ?? 'upload')
+            frames.push(stamp(detected, profileSide, cap.captureRollDeg))
           }
         }
       }

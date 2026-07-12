@@ -43,7 +43,7 @@ test.describe('full-screen camera capture', () => {
     await selectClientInWizard(page, `E2E CamFlow${stamp}`)
     await dismissCaptureDisclaimer(page)
 
-    // Opens on the Front view with its directional prompt + a live shutter.
+    // Opens on the Front slot with its directional prompt + a live shutter.
     await expect(page.getByText('Face the camera')).toBeVisible({ timeout: 10_000 })
     const shutter = page.getByRole('button', { name: 'Capture photo' })
     await expect(shutter).toBeVisible()
@@ -57,26 +57,32 @@ test.describe('full-screen camera capture', () => {
     await shutter.click()
     await expect(page.getByRole('button', { name: 'Use This Photo' })).toBeVisible({ timeout: 12_000 })
 
-    // Committing the shot auto-advances Front → Side.
+    // Committing the shot advances Front → Left Side (canonical slot order).
     await page.getByRole('button', { name: 'Use This Photo' }).click()
-    await expect(page.getByText('Turn to your side')).toBeVisible()
-    await expect(page.getByRole('button', { name: /Front View captured/ })).toBeVisible()
+    await expect(page.getByText('Left side to the camera')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Front captured/ })).toBeVisible()
 
-    // Instant capture (timer back off) on the Side view → advances to Back.
+    // Instant capture (timer back off) on the Left Side → advances to Right Side.
     await timer.click()
     await expect(timer).toHaveAttribute('aria-pressed', 'false')
     await page.getByRole('button', { name: 'Capture photo' }).click()
     await expect(page.getByRole('button', { name: 'Use This Photo' })).toBeVisible({ timeout: 10_000 })
     await page.getByRole('button', { name: 'Use This Photo' }).click()
+    await expect(page.getByText('Right side to the camera')).toBeVisible()
+
+    // Capturing the Right Side advances to the optional Back slot.
+    await page.getByRole('button', { name: 'Capture photo' }).click()
+    await expect(page.getByRole('button', { name: 'Use This Photo' })).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Use This Photo' }).click()
     await expect(page.getByText('Turn around')).toBeVisible()
 
-    // Tapping an already-captured thumbnail re-arms that view for a retake.
-    await page.getByRole('button', { name: /Front View captured/ }).click()
+    // Free order: tapping any captured thumbnail re-arms that slot for a retake.
+    await page.getByRole('button', { name: /Front captured/ }).click()
     await expect(page.getByText('Face the camera')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Capture photo' })).toBeVisible()
   })
 
-  test('capturing Front+Side via the camera scores an assessment', async ({ page }) => {
+  test('capturing Front + both sides via the camera scores an assessment', async ({ page }) => {
     test.setTimeout(300_000)
     await page.setViewportSize({ width: 390, height: 844 })
 
@@ -125,16 +131,22 @@ test.describe('full-screen camera capture', () => {
     await page.waitForTimeout(600) // let the frame propagate into the <video>
     await page.getByRole('button', { name: 'Capture photo' }).click()
     await page.getByRole('button', { name: 'Use This Photo' }).click()
-    await expect(page.getByText('Turn to your side')).toBeVisible()
+    await expect(page.getByText('Left side to the camera')).toBeVisible()
 
-    // Capture the Side fixture.
+    // Capture the Left Side (the side fixture stands in for both profiles).
     await page.evaluate(() => (window as unknown as { __useFrame: (k: string) => void }).__useFrame('side'))
     await page.waitForTimeout(600)
     await page.getByRole('button', { name: 'Capture photo' }).click()
     await page.getByRole('button', { name: 'Use This Photo' }).click()
+    await expect(page.getByText('Right side to the camera')).toBeVisible()
 
-    // Front+Side captured → skip the optional Back and analyze.
-    await page.getByRole('button', { name: 'Analyze Posture' }).click()
+    // Capture the Right Side.
+    await page.waitForTimeout(600)
+    await page.getByRole('button', { name: 'Capture photo' }).click()
+    await page.getByRole('button', { name: 'Use This Photo' }).click()
+
+    // Front + both sides captured → skip the optional Back and analyze.
+    await page.getByRole('button', { name: 'Skip Back & Analyze Posture' }).click()
 
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
     await expect(page.locator('[data-testid^="finding-card-"]')).toHaveCount(9, { timeout: 15_000 })

@@ -40,3 +40,6 @@ data/exercises-dataset/
 docs/qa/evidence/
 packages/posture-engine/golden/photos-local/
 .golden-eval.ts
+
+# macOS
+.DS_Store

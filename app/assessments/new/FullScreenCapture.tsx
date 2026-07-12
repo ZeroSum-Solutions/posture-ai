@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
-import type { Captures, ViewKey } from './types'
-import { VIEW_ORDER, VIEW_LABEL } from './types'
+import type { Captures, CaptureSlotKey } from './types'
+import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
@@ -15,8 +15,8 @@ const BURST_INTERVAL_MS = 70
 interface FullScreenCaptureProps {
   captures: Captures
   /** dataUrls is the shutter burst; [0] is the representative still for preview. */
-  onCameraCapture: (view: ViewKey, dataUrls: string[], captureRollDeg: number | null) => void
-  onFileUpload: (view: ViewKey, file: File) => void
+  onCameraCapture: (slot: CaptureSlotKey, dataUrls: string[], captureRollDeg: number | null) => void
+  onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
   modelLoading: boolean
@@ -27,11 +27,12 @@ interface FullScreenCaptureProps {
 
 type Phase = 'disclaimer' | 'live' | 'countdown' | 'review'
 
-// Directional prompt copy per view (replaces the old per-card labels).
-const DIRECTION: Record<ViewKey, { title: string; cue: string }> = {
-  front: { title: 'Face the camera', cue: 'Stand tall, arms relaxed at your sides — Front View' },
-  side: { title: 'Turn to your side', cue: 'Turn 90° so your profile faces the camera — Side View' },
-  back: { title: 'Turn around', cue: 'Turn 180° so your back faces the camera — Back View' },
+// Directional prompt copy per slot (the two side slots cue opposite profiles).
+const DIRECTION: Record<CaptureSlotKey, { title: string; cue: string }> = {
+  'front': { title: 'Face the camera', cue: 'Stand tall, arms relaxed at your sides — Front View' },
+  'side-left': { title: 'Left side to the camera', cue: 'Turn so your LEFT side faces the camera' },
+  'side-right': { title: 'Right side to the camera', cue: 'Turn so your RIGHT side faces the camera' },
+  'back': { title: 'Turn around', cue: 'Turn 180° so your back faces the camera — Back View' },
 }
 
 function getErrorMessage(err: unknown): string {
@@ -45,12 +46,15 @@ function getErrorMessage(err: unknown): string {
   return 'Could not access the camera. Please try again.'
 }
 
-/** Lightweight silhouette / directional cue per view. */
-function ViewSilhouette({ view, size = 30 }: { view: ViewKey; size?: number }) {
+/** Lightweight silhouette / directional cue per slot (side-right is mirrored). */
+function ViewSilhouette({ slot, size = 30 }: { slot: CaptureSlotKey; size?: number }) {
   const stroke = 'currentColor'
+  const { view } = slotToDomain(slot)
   if (view === 'side') {
+    // side-left faces one way; mirror the glyph for side-right.
+    const flip = slot === 'side-right' ? { transform: 'scaleX(-1)', transformOrigin: 'center' } : undefined
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={flip}>
         <circle cx="10" cy="5" r="2.4" fill={stroke} />
         <path d="M10 8c2 0 3 1.4 3 3.4 0 2-.6 3-1 4.4l1 4.2" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M10 8c-.6 1.6-.8 3.2-1.4 4.6M8.6 12.6 7 21" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -96,11 +100,7 @@ export default function FullScreenCapture({
   const streamRef = useRef<MediaStream | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const fileInputRefs = useRef<Record<ViewKey, HTMLInputElement | null>>({ front: null, side: null, back: null })
-  // Set when the final view is committed: proceed only AFTER that commit has
-  // flushed into the parent's `captures` (else validateAndProceed reads a stale
-  // snapshot and drops the just-captured frame).
-  const proceedAfterCommitRef = useRef(false)
+  const fileInputRefs = useRef<Record<CaptureSlotKey, HTMLInputElement | null>>({ 'front': null, 'side-left': null, 'side-right': null, 'back': null })
   // Guards async work in openStream from touching a torn-down component (e.g. the
   // user leaves while the camera-permission prompt is open).
   const mountedRef = useRef(true)
@@ -113,7 +113,7 @@ export default function FullScreenCapture({
   const [cameraFailed, setCameraFailed] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const [activeView, setActiveView] = useState<ViewKey>('front')
+  const [activeSlot, setActiveSlot] = useState<CaptureSlotKey>('front')
   const [timerOn, setTimerOn] = useState(false)
   const [countdown, setCountdown] = useState(3)
 
@@ -338,39 +338,36 @@ export default function FullScreenCapture({
       try {
         const { detectPose } = await import('@/lib/pose/detect')
         const { assessFrameQuality } = await import('@/lib/pose/quality')
-        const frame = await detectPose(reviewUrl, activeView, 'camera')
-        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, activeView))
+        const { view } = slotToDomain(activeSlot)
+        const frame = await detectPose(reviewUrl, view, 'camera')
+        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
       } catch {
         // non-fatal: the slot preflight still runs after "Use This Photo"
       }
     })()
     return () => { cancelled = true }
-  }, [phase, reviewUrl, activeView])
+  }, [phase, reviewUrl, activeSlot])
 
-  // Deferred auto-proceed: fires onProceed once the terminal (Back) commit has
-  // landed in `captures` AND the required views' preflight has settled — so the
-  // Back frame is included and a still-`checking` no-person Front/Side can't slip
-  // past validateAndProceed's block. Mutates a ref (not state) → no setState-in-effect.
-  useEffect(() => {
-    if (!proceedAfterCommitRef.current) return
-    const stillChecking = (['front', 'side'] as ViewKey[]).some(v => !!captures[v].preview && captures[v].slotStatus === 'checking')
-    if (stillChecking) return
-    proceedAfterCommitRef.current = false
-    onProceed()
-  }, [captures, onProceed])
-
-  function nextUncapturedAfter(committed: ViewKey): ViewKey | null {
-    const start = VIEW_ORDER.indexOf(committed)
-    for (let i = start + 1; i < VIEW_ORDER.length; i++) {
-      const v = VIEW_ORDER[i]
-      if (v !== committed && !captures[v].preview) return v
+  // The next uncaptured slot after `committed` in canonical order — a convenience
+  // advance after a capture. Free-order means every slot is selectable directly,
+  // so this only picks a sensible default next slot; it never gates proceeding.
+  function nextUncapturedAfter(committed: CaptureSlotKey): CaptureSlotKey | null {
+    const start = SLOT_ORDER.indexOf(committed)
+    for (let i = start + 1; i < SLOT_ORDER.length; i++) {
+      const s = SLOT_ORDER[i]
+      if (!captures[s].preview) return s
+    }
+    // Wrap: fill any earlier gap the user skipped past.
+    for (let i = 0; i < start; i++) {
+      const s = SLOT_ORDER[i]
+      if (!captures[s].preview) return s
     }
     return null
   }
 
   function useThisPhoto() {
     if (!reviewUrl) return
-    const committed = activeView
+    const committed = activeSlot
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
     onCameraCapture(committed, burst, rollAtCapture)
     burstRef.current = []
@@ -378,15 +375,12 @@ export default function FullScreenCapture({
     setPreviewQuality(null)
     setRollAtCapture(null)
     setOverrideTilt(false)
+    // Advance to the next uncaptured slot as a convenience. Analysis is ALWAYS an
+    // explicit user action (the Analyze button, enabled once the required slots
+    // are present) — capture order never auto-proceeds.
     const next = nextUncapturedAfter(committed)
-    if (next) setActiveView(next)
+    if (next) setActiveSlot(next)
     setPhase('live')
-    // Only the terminal forward step (committing Back) auto-advances to
-    // Processing — and only AFTER this commit has flushed into `captures` (see
-    // the deferred-proceed effect), so validateAndProceed includes the Back
-    // frame. Retaking front/side never auto-proceeds (its preflight may still be
-    // in-flight; the user proceeds explicitly via the Analyze button instead).
-    if (!next && committed === 'back') proceedAfterCommitRef.current = true
   }
 
   function retakeStill() {
@@ -398,33 +392,34 @@ export default function FullScreenCapture({
     setPhase('live')
   }
 
-  function selectView(view: ViewKey) {
-    // Only captured views (retake) or the current active view are selectable.
-    if (view !== activeView && !captures[view].preview) return
-    setActiveView(view)
+  function selectSlot(slot: CaptureSlotKey) {
+    // Free order: any slot is selectable at any time. Switching away from an
+    // unreviewed shot discards it (retakeStill resets review + returns to live).
+    setActiveSlot(slot)
     if (phase === 'review') retakeStill()
   }
 
   function triggerUpload() {
-    fileInputRefs.current[activeView]?.click()
+    fileInputRefs.current[activeSlot]?.click()
   }
 
-  // Uploading a view commits it and advances to the next uncaptured one — the
-  // camera path auto-advances on capture, and the upload fallback must match or
-  // the user gets stuck (pending views aren't selectable in the status strip).
-  function handleUpload(view: ViewKey, file: File) {
-    onFileUpload(view, file)
-    const next = nextUncapturedAfter(view)
-    if (next) setActiveView(next)
+  // Uploading a slot commits it and advances to the next uncaptured slot, so the
+  // upload-only path (no camera) still walks through every required slot.
+  function handleUpload(slot: CaptureSlotKey, file: File) {
+    onFileUpload(slot, file)
+    const next = nextUncapturedAfter(slot)
+    if (next) setActiveSlot(next)
   }
 
   // ---- derived UI state ----
-  const frontSideReady = !!captures.front.preview && !!captures.side.preview
-  // A required view whose quality preflight is still running — proceeding now
+  // Ready once front + both sides are present (back optional), independent of
+  // capture order — the free-order flow has no terminal "last view" trigger.
+  const requiredReady = REQUIRED_SLOTS.every(s => !!captures[s].preview)
+  // A required slot whose quality preflight is still running — proceeding now
   // would bypass the no-person block, so gate the Analyze action until it settles.
-  const requiredChecking = (['front', 'side'] as ViewKey[]).some(v => !!captures[v].preview && captures[v].slotStatus === 'checking')
-  const noPersonViews = VIEW_ORDER.filter(v => captures[v].preview && captures[v].slotStatus === 'no_person')
-  const direction = DIRECTION[activeView]
+  const requiredChecking = REQUIRED_SLOTS.some(s => !!captures[s].preview && captures[s].slotStatus === 'checking')
+  const noPersonViews = SLOT_ORDER.filter(s => captures[s].preview && captures[s].slotStatus === 'no_person')
+  const direction = DIRECTION[activeSlot]
 
   const showLiveCamera = (phase === 'live' || phase === 'countdown') && !cameraFailed
   const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
@@ -436,19 +431,19 @@ export default function FullScreenCapture({
       <div role="timer" aria-live="assertive" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
         {phase === 'countdown' && countdown > 0 ? `Capturing in ${countdown}` : ''}
       </div>
-      {/* Hidden per-view file inputs — DOM order MUST stay front, side, back
-          (e2e targets input[type=file] by index). */}
-      {VIEW_ORDER.map(view => (
+      {/* Hidden per-slot file inputs — DOM order is front, side-left, side-right,
+          back (e2e targets input[type=file] by index). */}
+      {SLOT_ORDER.map(slot => (
         <input
-          key={view}
-          ref={el => { fileInputRefs.current[view] = el }}
+          key={slot}
+          ref={el => { fileInputRefs.current[slot] = el }}
           type="file"
           accept="image/jpeg,image/png"
           style={{ display: 'none' }}
-          aria-label={`Upload ${VIEW_LABEL[view]} photo`}
+          aria-label={`Upload ${SLOT_LABEL[slot]} photo`}
           onChange={e => {
             const file = e.target.files?.[0]
-            if (file) handleUpload(view, file)
+            if (file) handleUpload(slot, file)
             e.target.value = ''
           }}
         />
@@ -550,7 +545,7 @@ export default function FullScreenCapture({
           {showLiveCamera && (
             <div style={{ position: 'relative', zIndex: 2, marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '999px', padding: '8px 16px', maxWidth: '92%' }}>
-                <span style={{ color: '#fff', flexShrink: 0 }}><ViewSilhouette view={activeView} /></span>
+                <span style={{ color: '#fff', flexShrink: 0 }}><ViewSilhouette slot={activeSlot} /></span>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>{direction.title}</p>
                   <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{direction.cue}</p>
@@ -582,7 +577,7 @@ export default function FullScreenCapture({
             {/* No-person banner (blocks proceed on required views) */}
             {noPersonViews.length > 0 && (
               <div role="alert" style={{ background: 'rgba(239,68,68,0.9)', borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: '#fff', textAlign: 'center' }}>
-                No person detected — retake {noPersonViews.map(v => VIEW_LABEL[v]).join(', ')}
+                No person detected — retake {noPersonViews.map(s => SLOT_LABEL[s]).join(', ')}
               </div>
             )}
             {uploadError && (
@@ -630,44 +625,42 @@ export default function FullScreenCapture({
               </div>
             )}
 
-            {/* Status strip */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              {VIEW_ORDER.map(view => {
-                const slot = captures[view]
-                const isActive = view === activeView
-                const captured = !!slot.preview
-                const optional = view === 'back'
+            {/* Status strip — four free-order slots, all selectable at any time */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              {SLOT_ORDER.map(slotKey => {
+                const cap = captures[slotKey]
+                const isActive = slotKey === activeSlot
+                const captured = !!cap.preview
+                const optional = !REQUIRED_SLOTS.includes(slotKey)
                 const ring = isActive ? 'var(--brand)'
-                  : slot.slotStatus === 'no_person' ? 'var(--danger)'
-                  : slot.slotStatus === 'warnings' ? 'var(--warning)'
+                  : cap.slotStatus === 'no_person' ? 'var(--danger)'
+                  : cap.slotStatus === 'warnings' ? 'var(--warning)'
                   : captured ? '#10B981'
                   : 'rgba(255,255,255,0.2)'
-                const selectable = captured || isActive
                 return (
                   <button
-                    key={view}
-                    onClick={() => selectView(view)}
-                    aria-disabled={!selectable}
-                    aria-label={`${VIEW_LABEL[view]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
+                    key={slotKey}
+                    onClick={() => selectSlot(slotKey)}
+                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
-                      position: 'relative', width: '64px', textAlign: 'center', background: 'none', border: 'none',
-                      padding: 0, cursor: selectable ? 'pointer' : 'default', opacity: selectable || captured ? 1 : 0.7,
+                      position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
+                      padding: 0, cursor: 'pointer', opacity: 1,
                     }}
                   >
-                    <div style={{ position: 'relative', width: '54px', height: '54px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ring}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {captured && slot.preview ? (
+                    <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ring}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {captured && cap.preview ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={slot.preview} alt={`${VIEW_LABEL[view]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={cap.preview} alt={`${SLOT_LABEL[slotKey]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette view={view} size={26} /></span>
+                        <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: slot.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{slot.slotStatus === 'no_person' ? '!' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : '✓'}</span>
                       )}
                     </div>
-                    <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{view.charAt(0).toUpperCase() + view.slice(1)}</span>
-                    <span style={{ display: 'block', fontSize: '0.62rem', color: '#B4B4BD' }}>{optional ? 'Optional' : 'Required'}</span>
+                    <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>
+                    <span style={{ display: 'block', fontSize: '0.6rem', color: '#B4B4BD' }}>{optional ? 'Optional' : 'Required'}</span>
                   </button>
                 )
               })}
@@ -714,12 +707,12 @@ export default function FullScreenCapture({
             {/* Upload fallback when the camera failed */}
             {cameraFailed && (
               <button onClick={triggerUpload} style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>
-                Use File Upload Instead — {VIEW_LABEL[activeView]}
+                Use File Upload Instead — {SLOT_LABEL[activeSlot]}
               </button>
             )}
 
-            {/* Proceed (available once Front + Side are captured; also the Back-skip) */}
-            {frontSideReady && phase !== 'review' && (
+            {/* Proceed (available once Front + both Sides are captured; Back-skip) */}
+            {requiredReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
                 disabled={submitting || requiredChecking}
