@@ -17,6 +17,7 @@ import { caption, voiceCue } from '@/lib/workout/cues'
 import { CountdownRing } from './CountdownRing'
 import { RateForm } from './RateForm'
 import { AudioGlyph } from '@/components/SignalGlyphs'
+import { colorMix, workoutTheme as theme } from './theme'
 
 // ---- public contract ----------------------------------------------------
 export interface RunPatch {
@@ -50,14 +51,51 @@ export interface WorkoutPlayerProps {
 // Step colors mirror the results page (PriorityProgram) so the player's accent
 // traces the same corrective arc: Loosen → Lengthen → Wake up → Strengthen → Connect.
 const STEP_COLOR: Record<string, string> = {
-  Loosen: 'var(--warning)',
-  Lengthen: 'var(--brand)',
-  'Wake up': '#F472B6',
-  Strengthen: 'var(--maintain)',
-  Connect: 'var(--brand)',
+  Loosen: theme.warning,
+  Lengthen: theme.primary,
+  'Wake up': theme.copper,
+  Strengthen: theme.maintain,
+  Connect: theme.primary,
 }
-const ACCENT_FALLBACK = 'var(--brand)'
+const ACCENT_FALLBACK = theme.primary
 const itemColor = (it?: SessionItem): string => (it ? STEP_COLOR[it.stepLabel] ?? ACCENT_FALLBACK : ACCENT_FALLBACK)
+
+const panelStyle: React.CSSProperties = {
+  width: '100%',
+  border: `1px solid ${theme.border}`,
+  borderRadius: theme.radiusCard,
+  background: `linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 42%, rgba(255,255,255,.025)), ${theme.surface}`,
+  boxShadow: 'inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(0,0,0,.52), 0 8px 24px rgba(0,0,0,.38)',
+  WebkitBackdropFilter: 'blur(28px) saturate(145%)',
+  backdropFilter: 'blur(28px) saturate(145%)',
+  padding: '32px',
+}
+
+const uiFont = 'var(--font-ui, Inter), system-ui, sans-serif'
+
+const primaryButtonStyle = (): React.CSSProperties => ({
+  minHeight: 52,
+  border: '1px solid transparent',
+  borderRadius: theme.radiusControl,
+  background: `linear-gradient(#060606,#060606) padding-box, ${theme.gradient} border-box`,
+  color: theme.textPrimary,
+  fontFamily: uiFont,
+  fontSize: '1rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+})
+
+const secondaryButtonStyle = (accent: string): React.CSSProperties => ({
+  minHeight: 52,
+  border: `1px solid ${accent}`,
+  borderRadius: theme.radiusControl,
+  background: theme.surfaceWell,
+  color: theme.textPrimary,
+  fontFamily: uiFont,
+  fontSize: '0.98rem',
+  fontWeight: 600,
+  cursor: 'pointer',
+})
 
 function segmentTotalMs(s: PlayerState): number {
   const it = s.items[s.index]
@@ -268,17 +306,17 @@ export function WorkoutPlayer({
         position: 'fixed',
         inset: 0,
         zIndex: 100,
-        background: 'var(--background)',
-        color: 'var(--text-primary)',
+        background: theme.background,
+        color: theme.textPrimary,
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: uiFont,
         WebkitTapHighlightColor: 'transparent',
       }}
     >
       {/* full-bleed demo canvas: clip loop → poster → gradient fallback */}
-      <DemoCanvas item={item} accent={accent} active={state.phase === 'playing'} reduceMotion={!!reduceMotion} />
+      <DemoCanvas item={item} active={state.phase === 'playing'} reduceMotion={!!reduceMotion} />
 
       {/* top: segmented progress + exit */}
       {active && (
@@ -298,10 +336,10 @@ export function WorkoutPlayer({
             width: 40,
             height: 40,
             minHeight: 40,
-            borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.14)',
-            background: 'rgba(0,0,0,0.35)',
-            color: 'var(--text-secondary)',
+            borderRadius: theme.radiusControl,
+            border: `1px solid ${theme.border}`,
+            background: theme.surfaceWell,
+            color: theme.textSecondary,
             fontSize: 18,
             cursor: 'pointer',
             ...chromeStyle,
@@ -367,9 +405,9 @@ export function WorkoutPlayer({
           {redFlag === 'clear' && state.phase === 'preroll' && item && (
             <Fade key={`preroll-${state.index}`} reduce={!!reduceMotion}>
               <div>
-                <div style={{ fontSize: '0.9rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, marginBottom: 8 }}>Get ready</div>
-                <div style={{ fontSize: '7rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{secs(state.remainingMs)}</div>
-                <div style={{ marginTop: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>{item.name}</div>
+                <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.9rem', letterSpacing: 0, textTransform: 'uppercase', color: accent, marginBottom: 8, fontFeatureSettings: '"zero" 1' }}>Get ready</div>
+                <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '7rem', fontWeight: 300, lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"zero" 1' }}>{secs(state.remainingMs)}</div>
+                <div style={{ marginTop: 10, color: theme.textSecondary, fontWeight: 600 }}>{item.name}</div>
               </div>
             </Fade>
           )}
@@ -433,7 +471,7 @@ function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean
 // change on item/phase transitions — skip the reconciliation on ticks. (results
 // keeps a stable array identity across ticks; the reducer only replaces it on a
 // real transition.)
-const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion }: { item?: SessionItem; accent: string; active: boolean; reduceMotion: boolean }) {
+const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { item?: SessionItem; active: boolean; reduceMotion: boolean }) {
   // True three-tier fallback: clip loop → its poster (video 404s/decode-fails)
   // → today's gradient (poster also fails, or there is no media). Each tier
   // steps down independently and both flags re-arm on the next item.
@@ -459,25 +497,19 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
         style={{
           position: 'absolute',
           inset: 0,
-          background: `radial-gradient(120% 80% at 50% 18%, ${accent}22 0%, transparent 55%), radial-gradient(90% 60% at 50% 108%, ${accent}18 0%, transparent 60%), var(--background)`,
+          background: `linear-gradient(90deg, transparent calc(50% - 0.75px), ${colorMix(theme.primary, 34)} calc(50% - 0.75px), ${colorMix(theme.primary, 34)} calc(50% + 0.75px), transparent calc(50% + 0.75px)), linear-gradient(180deg, ${theme.background} 0%, ${theme.backgroundSunken} 100%)`,
           transition: 'background 0.8s ease',
         }}
       />
       {showGradient && (
-        <motion.div
-          animate={reduceMotion ? undefined : { scale: active ? [1, 1.08, 1] : 1, opacity: active ? [0.5, 0.75, 0.5] : 0.35 }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        <div
           style={{
             position: 'absolute',
-            top: '34%',
+            top: '18%',
+            bottom: '14%',
             left: '50%',
-            width: 460,
-            height: 460,
-            marginLeft: -230,
-            marginTop: -230,
-            borderRadius: '50%',
-            background: `radial-gradient(circle, ${accent}55 0%, ${accent}00 68%)`,
-            filter: 'blur(20px)',
+            width: 1.5,
+            background: colorMix(theme.primary, active && !reduceMotion ? 44 : 28),
           }}
         />
       )}
@@ -498,7 +530,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            opacity: active ? 0.92 : 0.55,
+            opacity: active ? 0.72 : 0.42,
             transition: 'opacity 0.6s ease',
           }}
         />
@@ -517,7 +549,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            opacity: active ? 0.92 : 0.55,
+            opacity: active ? 0.72 : 0.42,
             transition: 'opacity 0.6s ease',
           }}
         />
@@ -528,7 +560,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(180deg, rgba(8,8,10,0.55) 0%, rgba(8,8,10,0.18) 38%, rgba(8,8,10,0.72) 100%)',
+            background: `linear-gradient(180deg, ${colorMix(theme.background, 88)} 0%, ${colorMix(theme.background, 46)} 42%, ${colorMix(theme.background, 92)} 100%)`,
           }}
         />
       )}
@@ -540,10 +572,11 @@ const DemoCanvas = memo(function DemoCanvas({ item, accent, active, reduceMotion
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            fontSize: 'clamp(2.4rem, 9vw, 4.6rem)',
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: 'rgba(255,255,255,0.05)',
+            fontFamily: uiFont,
+            fontSize: '56px',
+            fontWeight: 700,
+            letterSpacing: 0,
+            color: colorMix(theme.primary, 8),
             textAlign: 'center',
             padding: '20% 24px 0',
             lineHeight: 1.05,
@@ -564,7 +597,7 @@ const SegmentedProgress = memo(function SegmentedProgress({ total, index, result
       {Array.from({ length: total }).map((_, i) => {
         const r = results[i]
         const isPast = i < index
-        const fill = r?.completed ? accent : r?.skipped ? 'rgba(255,255,255,0.35)' : isPast ? accent : i === index ? `${accent}88` : 'rgba(255,255,255,0.14)'
+        const fill = r?.completed ? accent : r?.skipped ? theme.borderStrong : isPast ? accent : i === index ? colorMix(accent, 52) : theme.border
         return <div key={i} style={{ flex: 1, height: 4, borderRadius: 3, background: fill, transition: 'background 0.3s ease' }} />
       })}
     </div>
@@ -575,26 +608,19 @@ const SegmentedProgress = memo(function SegmentedProgress({ total, index, result
 function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: SessionSnapshot; clientFirstName?: string | null; onBegin: () => void; accent: string }) {
   const mins = Math.max(1, Math.round(snapshot.estimatedDurationSec / 60))
   return (
-    <div>
-      {clientFirstName && <div style={{ color: accent, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 8 }}>Hi {clientFirstName}</div>}
-      <h1 style={{ fontSize: 'clamp(1.8rem, 6vw, 2.6rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>Your guided session</h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: '0 0 4px' }}>
+    <div style={panelStyle}>
+      {clientFirstName && <div style={{ color: accent, fontFamily: 'var(--font-data, monospace)', fontWeight: 400, letterSpacing: 0, marginBottom: 8, fontFeatureSettings: '"zero" 1' }}>Hi {clientFirstName}</div>}
+      <h1 style={{ fontFamily: uiFont, fontSize: '40px', fontWeight: 700, letterSpacing: 0, lineHeight: 1.08, margin: '0 0 10px' }}>Your guided session</h1>
+      <p style={{ color: theme.textSecondary, fontSize: '0.95rem', margin: '0 0 4px' }}>
         {snapshot.items.length} movements · about {mins} min
       </p>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.5, margin: '14px auto 22px', maxWidth: 360 }}>{snapshot.disclaimer}</p>
+      <p style={{ color: theme.textSecondary, fontSize: '0.8rem', lineHeight: 1.5, margin: '14px auto 22px', maxWidth: 360 }}>{snapshot.disclaimer}</p>
       <button
         onClick={onBegin}
         style={{
+          ...primaryButtonStyle(),
           padding: '15px 40px',
           minHeight: 56,
-          borderRadius: 999,
-          border: 'none',
-          background: accent,
-          color: 'var(--background)',
-          fontWeight: 800,
-          fontSize: '1.05rem',
-          cursor: 'pointer',
-          boxShadow: `0 10px 30px ${accent}44`,
         }}
       >
         Begin session
@@ -606,16 +632,16 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
 // ---- up next ------------------------------------------------------------
 function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; index: number; total: number; accent: string; onStart: () => void }) {
   return (
-    <div>
-      <div style={{ fontSize: '0.78rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 10 }}>
+    <div style={panelStyle}>
+      <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.78rem', letterSpacing: 0, textTransform: 'uppercase', color: theme.textSecondary, marginBottom: 10, fontFeatureSettings: '"zero" 1' }}>
         Up next · {index + 1} of {total}
       </div>
-      <div style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 999, background: `${accent}22`, color: accent, fontWeight: 700, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+      <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, background: colorMix(accent, 14), color: accent, fontWeight: 600, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: 0, marginBottom: 12 }}>
         {item.stepLabel}
       </div>
-      <h2 style={{ fontSize: 'clamp(1.6rem, 6vw, 2.3rem)', fontWeight: 800, margin: '0 0 8px', letterSpacing: '-0.02em' }}>{item.name}</h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0 0 6px' }}>{timingLabel(item)}</p>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
+      <h2 style={{ fontFamily: uiFont, fontSize: '34px', fontWeight: 700, lineHeight: 1.08, margin: '0 0 8px', letterSpacing: 0 }}>{item.name}</h2>
+      <p style={{ color: theme.textSecondary, fontSize: '0.9rem', margin: '0 0 6px' }}>{timingLabel(item)}</p>
+      <p style={{ color: theme.textSecondary, fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
       {item.steps && item.steps.length > 0 && (
         <ol
           style={{
@@ -623,7 +649,7 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
             maxWidth: 380,
             margin: '0 auto 22px',
             padding: '0 0 0 20px',
-            color: 'var(--text-secondary)',
+            color: theme.textSecondary,
             fontSize: '0.85rem',
             lineHeight: 1.55,
             display: 'flex',
@@ -636,10 +662,7 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
           ))}
         </ol>
       )}
-      <button
-        onClick={onStart}
-        style={{ padding: '13px 34px', minHeight: 52, borderRadius: 999, border: `1px solid ${accent}`, background: 'transparent', color: accent, fontWeight: 700, fontSize: '0.98rem', cursor: 'pointer' }}
-      >
+      <button onClick={onStart} style={{ ...secondaryButtonStyle(accent), padding: '13px 34px' }}>
         Start now →
       </button>
     </div>
@@ -653,37 +676,37 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
   const repsPerSet = item.timing.kind === 'reps' ? item.timing.repsPerSet : 0
   const totalMs = segmentTotalMs(state)
   const progress = isRest || isHold ? state.remainingMs / totalMs : 1
-  const ringColor = isRest ? 'var(--text-secondary)' : accent
+  const ringColor = isRest ? theme.textSecondary : accent
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-      <div style={{ minHeight: 22, color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.95rem' }}>
+    <div style={{ ...panelStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+      <div style={{ minHeight: 22, color: theme.textSecondary, fontWeight: 600, fontSize: '0.95rem' }}>
         {isRest ? 'Rest' : item.name}
-        {!isRest && <span style={{ color: 'var(--text-muted)' }}> · set {state.set} of {item.timing.sets}</span>}
+        {!isRest && <span style={{ color: theme.textSecondary }}> · set {state.set} of {item.timing.sets}</span>}
       </div>
 
       {isRest || isHold ? (
         <CountdownRing progress={progress} color={ringColor} dimmed={isRest}>
-          <div style={{ fontSize: '4.4rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{secs(state.remainingMs)}</div>
-          <div style={{ fontSize: '0.78rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{isRest ? 'seconds' : 'hold'}</div>
+          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '4.4rem', fontWeight: 300, lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"zero" 1' }}>{secs(state.remainingMs)}</div>
+          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.78rem', letterSpacing: 0, textTransform: 'uppercase', color: theme.textSecondary, fontFeatureSettings: '"zero" 1' }}>{isRest ? 'seconds' : 'hold'}</div>
         </CountdownRing>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontSize: '0.78rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Target</div>
-          <div style={{ fontSize: '4.6rem', fontWeight: 800, lineHeight: 1, color: accent }}>×{repsPerSet}</div>
-          <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>controlled reps</div>
+          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.78rem', letterSpacing: 0, textTransform: 'uppercase', color: theme.textSecondary, fontFeatureSettings: '"zero" 1' }}>Target</div>
+          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '4.6rem', fontWeight: 300, lineHeight: 1, color: accent, fontFeatureSettings: '"zero" 1' }}>×{repsPerSet}</div>
+          <div style={{ fontSize: '0.9rem', color: theme.textSecondary }}>controlled reps</div>
         </div>
       )}
 
       {/* caption (mirrors the voice cue added in the voice pass) */}
-      <p aria-live="polite" style={{ minHeight: 20, maxWidth: 360, color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5, margin: 0 }}>
+      <p aria-live="polite" style={{ minHeight: 20, maxWidth: 360, color: theme.textSecondary, fontSize: '0.82rem', lineHeight: 1.5, margin: 0 }}>
         {captionText}
       </p>
 
       {!isRest && !isHold && (
         <button
           onClick={onNext}
-          style={{ padding: '13px 40px', minHeight: 52, borderRadius: 999, border: 'none', background: accent, color: 'var(--background)', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', boxShadow: `0 8px 24px ${accent}44` }}
+          style={{ ...primaryButtonStyle(), padding: '13px 40px' }}
         >
           Done, next →
         </button>
@@ -706,13 +729,15 @@ function Transport({ paused, onBack, onPauseToggle, onSkip, atStart }: { paused:
         minWidth: opts.primary ? 108 : 64,
         minHeight: 52,
         padding: '0 18px',
-        borderRadius: 999,
-        border: '1px solid rgba(255,255,255,0.14)',
-        background: opts.primary ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.3)',
-        color: opts.disabled ? 'var(--text-muted)' : 'var(--text-primary)',
-        fontWeight: 700,
+        borderRadius: theme.radiusControl,
+        border: `1px solid ${opts.primary ? theme.primary : theme.border}`,
+        background: opts.primary ? theme.primaryStrong : theme.surfaceWell,
+        color: opts.disabled ? theme.textSecondary : theme.textPrimary,
+        fontFamily: uiFont,
+        fontWeight: 600,
         fontSize: '0.9rem',
         cursor: opts.disabled ? 'not-allowed' : 'pointer',
+        opacity: opts.disabled ? 0.5 : 1,
       }}
     >
       {opts.icon && <span aria-hidden="true">{opts.icon}</span>}
@@ -733,10 +758,10 @@ function roundToggle(on: boolean): React.CSSProperties {
     width: 40,
     height: 40,
     minHeight: 40,
-    borderRadius: '50%',
-    border: '1px solid rgba(255,255,255,0.14)',
-    background: on ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.35)',
-    color: on ? 'var(--text-primary)' : 'var(--text-muted)',
+    borderRadius: theme.radiusControl,
+    border: `1px solid ${on ? theme.primary : theme.border}`,
+    background: on ? colorMix(theme.primary, 14) : theme.surfaceWell,
+    color: on ? theme.primary : theme.textSecondary,
     fontSize: 16,
     cursor: 'pointer',
     display: 'inline-flex',
@@ -748,8 +773,8 @@ function roundToggle(on: boolean): React.CSSProperties {
 // ---- red-flag pre-session safety screen ---------------------------------
 function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () => void; onStop: () => void }) {
   return (
-    <div>
-      <h2 style={{ fontSize: 'clamp(1.3rem, 5vw, 1.9rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', lineHeight: 1.2 }}>
+    <div style={panelStyle}>
+      <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: 0, margin: '0 0 20px', lineHeight: 1.12 }}>
         Before you start — are you feeling any sharp or worsening pain right now?
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
@@ -761,14 +786,7 @@ function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () 
             minHeight: 56,
             width: '100%',
             maxWidth: 320,
-            borderRadius: 999,
-            border: 'none',
-            background: accent,
-            color: 'var(--background)',
-            fontWeight: 800,
-            fontSize: '1.05rem',
-            cursor: 'pointer',
-            boxShadow: `0 10px 30px ${accent}44`,
+            ...primaryButtonStyle(),
           }}
         >
           No, I feel okay
@@ -781,13 +799,7 @@ function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () 
             minHeight: 52,
             width: '100%',
             maxWidth: 320,
-            borderRadius: 999,
-            border: '1px solid rgba(255,255,255,0.22)',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '1rem',
-            cursor: 'pointer',
+            ...secondaryButtonStyle(accent),
           }}
         >
           Yes
@@ -800,11 +812,11 @@ function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () 
 // ---- stop card (shown when user reports pain) ----------------------------
 function StopCard({ onDismiss }: { onDismiss?: () => void }) {
   return (
-    <div data-testid="stop-card">
-      <h2 style={{ fontSize: 'clamp(1.3rem, 5vw, 1.9rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.2 }}>
+    <div data-testid="stop-card" style={panelStyle}>
+      <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: 0, margin: '0 0 16px', lineHeight: 1.12 }}>
         Let&apos;s pause here.
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.97rem', lineHeight: 1.6, margin: '0 0 28px', maxWidth: 360 }}>
+      <p style={{ color: theme.textSecondary, fontSize: '0.97rem', lineHeight: 1.6, margin: '0 auto 28px', maxWidth: 360 }}>
         Sharp pain is worth checking with a movement professional before continuing.
       </p>
       <button
@@ -813,13 +825,7 @@ function StopCard({ onDismiss }: { onDismiss?: () => void }) {
         style={{
           padding: '13px 34px',
           minHeight: 52,
-          borderRadius: 999,
-          border: '1px solid rgba(255,255,255,0.22)',
-          background: 'transparent',
-          color: 'var(--text-secondary)',
-          fontWeight: 700,
-          fontSize: '0.98rem',
-          cursor: 'pointer',
+          ...secondaryButtonStyle(theme.textSecondary),
         }}
       >
         End session

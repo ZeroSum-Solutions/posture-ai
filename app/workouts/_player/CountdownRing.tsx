@@ -1,5 +1,6 @@
 'use client'
 import type { ReactNode } from 'react'
+import { workoutTheme as theme } from './theme'
 
 /**
  * Circular countdown ring for the workout player. `progress` is the fraction of
@@ -36,7 +37,7 @@ export function CountdownRing({
         style={{ transform: 'rotate(-90deg)', display: 'block' }}
         aria-hidden="true"
       >
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={theme.borderStrong} strokeWidth={strokeWidth} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -50,7 +51,6 @@ export function CountdownRing({
           style={{
             transition: 'stroke-dashoffset 0.25s linear',
             opacity: dimmed ? 0.5 : 1,
-            filter: `drop-shadow(0 0 10px ${color}66)`,
           }}
         />
       </svg>
