@@ -24,9 +24,12 @@ export function toObservation(f: Finding, profileSide: 'left' | 'right'): SideOb
 export function compareSide(a: SideObservation, b: SideObservation): number {
   if (a.reliable !== b.reliable) return a.reliable ? -1 : 1
   // Both unreliable → left deterministically (unreliable severityPct is 0 and
-  // unreliable deviations aren't meaningfully comparable).
-  if (!a.reliable && !b.reliable)
-    return a.profileSide === 'left' ? -1 : b.profileSide === 'left' ? 1 : 0
+  // unreliable deviations aren't meaningfully comparable). Same-side first so the
+  // comparator stays reflexive/antisymmetric (compareSide(x, x) === 0).
+  if (!a.reliable && !b.reliable) {
+    if (a.profileSide === b.profileSide) return 0
+    return a.profileSide === 'left' ? -1 : 1
+  }
   if (a.severityPct !== b.severityPct) return b.severityPct - a.severityPct
   const ad = Math.abs(a.deviation), bd = Math.abs(b.deviation)
   if (ad !== bd) return bd - ad

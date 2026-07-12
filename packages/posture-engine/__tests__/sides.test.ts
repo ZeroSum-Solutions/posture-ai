@@ -34,6 +34,14 @@ describe('compareSide total order (worse first ⇒ negative)', () => {
     const b = obs({ profileSide: 'left', reliable: false, zone: 'unreliable', deviation: 1 })
     expect(compareSide(a, b)).toBeGreaterThan(0) // b (left) wins despite a's larger deviation
   })
+  it('is reflexive and antisymmetric even for both-unreliable same-side inputs', () => {
+    const x = obs({ profileSide: 'left', reliable: false, zone: 'unreliable', deviation: 4 })
+    expect(compareSide(x, x)).toBe(0)          // reflexive
+    expect(compareSide(x, { ...x })).toBe(0)   // equivalent clone
+    const l = obs({ profileSide: 'left', reliable: false, zone: 'unreliable' })
+    const r = obs({ profileSide: 'right', reliable: false, zone: 'unreliable' })
+    expect(Math.sign(compareSide(l, r))).toBe(-Math.sign(compareSide(r, l))) // antisymmetric
+  })
 })
 
 describe('aggregateSagittal', () => {
