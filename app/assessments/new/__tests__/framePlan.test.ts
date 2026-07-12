@@ -13,12 +13,16 @@ const frame = (view: PoseFrame['view']): PoseFrame => ({ view, landmarks: {} })
 describe('buildFramePlan — one entry per captured slot, raw channel only', () => {
   it('maps a camera burst on side-left to a burst-detect entry with left laterality', () => {
     const caps = base()
+    // Display URL is DISTINCT from the raw channel (as a Slice-4 corrected image
+    // would be) — the plan must detect the RAW burst, never the display image.
     caps['side-left'] = { ...emptySlot(), source: 'camera', captureRollDeg: 1.2,
-      rawRepresentativeUrl: 'blob:l0', rawBurstUrls: ['blob:l0', 'blob:l1', 'blob:l2'], displayPreviewUrl: 'blob:l0' }
+      rawRepresentativeUrl: 'blob:raw-l0', rawBurstUrls: ['blob:raw-l0', 'blob:raw-l1', 'blob:raw-l2'],
+      displayPreviewUrl: 'blob:CORRECTED-l' }
     const [p] = buildFramePlan(caps)
     expect(p.view).toBe('side')
     expect(p.profileSide).toBe('left')
-    expect(p.burstUrls).toEqual(['blob:l0', 'blob:l1', 'blob:l2'])
+    expect(p.burstUrls).toEqual(['blob:raw-l0', 'blob:raw-l1', 'blob:raw-l2'])
+    expect(p.burstUrls).not.toContain('blob:CORRECTED-l') // never the display channel
     expect(p.cachedFrame).toBeNull()
     expect(p.fallbackUrl).toBeNull()
     expect(p.roll).toBe(1.2)
@@ -38,12 +42,13 @@ describe('buildFramePlan — one entry per captured slot, raw channel only', () 
 
   it('maps a front upload with no preflight to the fallback-detect entry, no profileSide', () => {
     const caps = base()
+    // Distinct raw vs display again — fallback detection must use the raw still.
     caps['front'] = { ...emptySlot(), source: 'upload',
-      rawRepresentativeUrl: 'blob:f0', rawBurstUrls: null, rawPoseFrame: null, displayPreviewUrl: 'blob:f0' }
+      rawRepresentativeUrl: 'blob:raw-f0', rawBurstUrls: null, rawPoseFrame: null, displayPreviewUrl: 'blob:CORRECTED-f' }
     const [p] = buildFramePlan(caps)
     expect(p.view).toBe('front')
     expect(p.profileSide).toBeUndefined()
-    expect(p.fallbackUrl).toBe('blob:f0')
+    expect(p.fallbackUrl).toBe('blob:raw-f0') // raw, not 'blob:CORRECTED-f'
     expect(p.burstUrls).toBeNull()
     expect(p.cachedFrame).toBeNull()
   })

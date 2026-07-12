@@ -181,13 +181,18 @@ function NewAssessmentWizard() {
   // teardown never reads a stale closure.
   const capturesRef = useRef(captures)
   useEffect(() => { capturesRef.current = captures }, [captures])
+  // False once the wizard unmounts — an upload still normalizing then must not
+  // commit (setState-on-unmounted) nor leak its just-minted blob.
+  const mountedRef = useRef(true)
 
   // Revoke every committed object URL when the wizard unmounts (SPA navigation to
   // results). Committed URLs live in `captures` — the capture overlay only revokes
   // its own uncommitted burst — so without this they leak until document unload.
   useEffect(() => {
     const ref = capturesRef
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
       for (const slot of Object.values(ref.current)) {
         revokeStaleUrls([slot.rawRepresentativeUrl, slot.displayPreviewUrl, ...(slot.rawBurstUrls ?? [])], new Set())
       }
@@ -240,9 +245,10 @@ function NewAssessmentWizard() {
     const op = nextOp(slot)
     const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
     const rawUrl = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
-    // A newer capture/upload for this slot started while we were normalizing —
-    // discard this one (and its blob) instead of clobbering the newer result.
-    if (commitSeq.current[slot] !== op) {
+    // Superseded by a newer capture/upload for this slot, or the wizard unmounted,
+    // while we were normalizing — discard this one (and its blob) instead of
+    // clobbering the newer result or committing to an unmounted tree.
+    if (!mountedRef.current || commitSeq.current[slot] !== op) {
       if (rawUrl.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
       return
     }
