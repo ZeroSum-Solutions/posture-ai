@@ -26,7 +26,7 @@ describe('per-side engine', () => {
     expect(fhp[0].deviation).toBeGreaterThan(leftObs.deviation) // right (worse) drove the aggregate
   })
   it('legacy side input is byte-identical to pre-change scoring', () => {
-    const legacy = sideFrame('right', 0.10); delete (legacy as any).profileSide
+    const legacy = sideFrame('right', 0.10); delete legacy.profileSide
     const r = assessPosture([legacy])
     const fhp = r.findings.find(f => f.key === 'forward_head_posture')!
     const direct = forwardHeadPosture(legacy) // same metric run on the raw frame
