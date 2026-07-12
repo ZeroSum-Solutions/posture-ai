@@ -1,0 +1,211 @@
+.headerMetric {
+  min-width: 132px;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 42%, rgba(255,255,255,.025)),
+    var(--glass-fill-strong);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgba(0,0,0,.52),
+    0 8px 24px rgba(0,0,0,.34);
+  color: var(--text-muted);
+  text-align: right;
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.headerMetric span,
+.headerMetric em {
+  display: block;
+  font-size: .68rem;
+  font-style: normal;
+  font-weight: 650;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.headerMetric strong {
+  display: block;
+  margin: 3px 0;
+  color: var(--brand);
+  font-size: 1.72rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-fill);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.filterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-control);
+  background: var(--glass-well);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: .84rem;
+  font-weight: 650;
+}
+
+.filterButton span {
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+
+.filterButton[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--brand) 64%, transparent);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--brand) 18%, transparent), rgba(255,255,255,.018)),
+    var(--glass-well);
+  color: var(--text-primary);
+}
+
+.filterButton[aria-pressed="true"] span {
+  color: var(--brand);
+}
+
+.statePanel {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-fill);
+  color: var(--text-secondary);
+}
+
+.statePanel[data-tone="danger"] {
+  border-color: color-mix(in oklab, var(--danger) 55%, transparent);
+  color: var(--danger);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  padding: 16px !important;
+  border-color: var(--glass-border) !important;
+  border-radius: var(--radius-card) !important;
+  background:
+    radial-gradient(circle at 100% 0%, var(--exercise-tint), transparent 36%),
+    linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.01) 42%, rgba(255,255,255,.022)),
+    var(--glass-fill) !important;
+}
+
+.mediaFrame {
+  position: relative;
+  margin-bottom: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 12px;
+  background: var(--glass-well);
+}
+
+.mediaFrame::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background:
+    linear-gradient(180deg, transparent 58%, rgba(0,0,0,.42)),
+    linear-gradient(90deg, transparent calc(50% - .5px), color-mix(in oklab, var(--brand) 26%, transparent) calc(50% - .5px), color-mix(in oklab, var(--brand) 26%, transparent) calc(50% + .5px), transparent calc(50% + .5px));
+  pointer-events: none;
+}
+
+.mediaFrame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  opacity: .82;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.cardHeader > span:first-child {
+  color: var(--text-primary);
+  font-size: .98rem;
+  font-weight: 680;
+  line-height: 1.28;
+}
+
+.categoryPill {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in oklab, var(--exercise-accent) 36%, transparent);
+  border-radius: 7px;
+  background: var(--exercise-tint);
+  color: var(--exercise-accent);
+  font-size: .64rem;
+  font-weight: 760;
+  letter-spacing: .055em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.instructions {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+
+.dosage {
+  margin: auto 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.07);
+  color: var(--exercise-accent);
+  font-size: .78rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .filterButton:hover {
+    border-color: rgba(255,255,255,.2);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+  }
+
+  .card:hover {
+    border-color: color-mix(in oklab, var(--exercise-accent) 28%, var(--glass-border)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .headerMetric {
+    width: 100%;
+    text-align: left;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
