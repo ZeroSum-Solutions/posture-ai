@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useFocusTrap } from './useFocusTrap'
 
 // ─── Evidence badge ───────────────────────────────────────────────────────────
 
@@ -163,6 +164,8 @@ export default function WhyThisSheet({
     }
   }, [findingKey])
 
+  const dialogRef = useFocusTrap<HTMLDivElement>()
+
   const escHandler = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
   }, [onClose])
@@ -186,6 +189,8 @@ export default function WhyThisSheet({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Why ${exerciseName}?`}

@@ -6,6 +6,7 @@ import PriorityProgram from './PriorityProgram'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
 import { hasAnyMuscle, type MuscleLink } from './muscleMap'
+import { saveOverridePatch } from './saveOverride'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
 import { toEngineFinding } from '@/lib/findings/storedFindingToEngine'
@@ -370,7 +371,7 @@ function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
 }
 
 // ---- Finding Card ----
-function FindingCard({ f }: { f: Finding }) {
+export function FindingCard({ f }: { f: Finding }) {
   const isUnreliable = f.zone === 'unreliable'
   const zoneColor = ZONE_COLORS[f.zone]
   const [expanded, setExpanded] = useState(false)
@@ -454,6 +455,7 @@ function FindingCard({ f }: { f: Finding }) {
         <div style={{ marginTop: 12 }}>
           <button
             onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
             style={{
               background: 'none', border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
@@ -636,6 +638,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [shareLink, setShareLink] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [overrideError, setOverrideError] = useState<string | null>(null)
   const [runList, setRunList] = useState<Array<{ session_id: string; created_at: string; status: string; red_flag_acknowledged: boolean | null; completed_at: string | null }>>([])
 
   useEffect(() => {
@@ -720,19 +723,15 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   // the newer state. Each call chains onto the previous one's completion.
   const overrideQueue = useRef<Promise<void>>(Promise.resolve())
 
-  // Persist coach overrides so the client PDF regenerates identically.
+  // Persist coach overrides so the client PDF regenerates identically. fetch does
+  // NOT reject on 4xx/5xx, so a failed save must be detected via the returned ok flag
+  // and surfaced — otherwise the optimistic UI (and the PDF rebuilt from the persisted
+  // row) silently diverges from the DB with no signal to the practitioner.
   function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
     if (!assessmentId) return
     overrideQueue.current = overrideQueue.current.then(async () => {
-      try {
-        await fetch('/api/assessments/' + assessmentId, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(patch),
-        })
-      } catch {
-        // Non-blocking: the UI already reflects the change; a failed save retries on next edit.
-      }
+      const ok = await saveOverridePatch(assessmentId, patch)
+      setOverrideError(ok ? null : 'Your latest change couldn’t be saved. Check your connection and re-apply it before generating the client report.')
     })
   }
 
@@ -1025,6 +1024,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
                   >
                     {copied ? '✓ Copied' : 'Copy'}
                   </button>
+                  <span aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                    {copied ? 'Client link copied to clipboard' : ''}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -1081,6 +1083,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           onSwap={handleSwap}
         />
       )}
+      {overrideError && (
+        <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 16 }}>
+          {overrideError}
+        </div>
+      )}
 
       <SkeletalDiagramSection
         findings={findings}
@@ -1101,7 +1108,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       </div>
 
       {pdfUrl && (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(0,152,243,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+        <div role="status" aria-live="polite" style={{ background: 'var(--surface)', border: '1px solid rgba(0,152,243,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <p style={{ color: 'var(--maintain)', fontSize: '0.875rem', marginBottom: 8 }}>
             {pdfKind === 'client' ? 'Client report' : 'Practitioner report'} generated successfully.
           </p>
@@ -1143,7 +1150,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
           }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <span role="status" aria-live="polite" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               {isApproved
                 ? '✓ Reviewed & approved by practitioner — report export enabled.'
                 : 'Review these findings, then approve to enable report export. Exercises are suggestions for the practitioner to apply, not medical orders.'}

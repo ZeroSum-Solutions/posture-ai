@@ -23,15 +23,25 @@ export async function POST(req: NextRequest) {
     if (gate) return gate
     const userHash = hashUser(user.id)
 
-    const contentLength = Number(req.headers.get('content-length') ?? 0)
-    if (contentLength > MAX_PAYLOAD_BYTES) {
+    // Enforce the size cap on the ACTUAL received body, not the client-supplied
+    // Content-Length header — that header is absent on chunked / HTTP-2 requests
+    // (routine on Vercel), where `?? 0` would skip the check and let an oversized
+    // body buffer into JSON.parse before Zod's frame limits apply.
+    let rawBody: ArrayBuffer
+    try {
+      rawBody = await req.arrayBuffer()
+    } catch {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: 400, userHash })
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+    if (rawBody.byteLength > MAX_PAYLOAD_BYTES) {
       logEvent({ route: ROUTE, outcome: 'client_error', status: 413, userHash })
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
     }
 
     let body: unknown
     try {
-      body = await req.json()
+      body = JSON.parse(new TextDecoder().decode(rawBody))
     } catch {
       logEvent({ route: ROUTE, outcome: 'client_error', status: 400, userHash })
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })

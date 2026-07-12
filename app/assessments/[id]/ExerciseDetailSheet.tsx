@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useFocusTrap } from './useFocusTrap'
 
 type Detail = {
   name: string
@@ -49,6 +50,8 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const dialogRef = useFocusTrap<HTMLDivElement>()
+
   const prettyMuscle = (s: string) => s.replace(/-/g, ' ')
 
   return (
@@ -57,6 +60,8 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
       style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`${name} details`}

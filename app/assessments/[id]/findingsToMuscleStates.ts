@@ -101,7 +101,10 @@ export function findingsToMuscleStates(
   const legacyUnresolved: MuscleLink[] = []
 
   for (const f of findings ?? []) {
-    if (!f || f.zone === 'unreliable') continue
+    // Skip non-actionable zones: 'unreliable' (low signal) and 'maintain' (within
+    // normal range). Both count as non-actionable everywhere else (selectPriorities,
+    // buildProgram), so the 3D map must not paint them as imbalances.
+    if (!f || f.zone === 'unreliable' || f.zone === 'maintain') continue
     const severity = sanitizeSeverity(f.severity_pct)
     for (const role of ROLES) {
       const links = role === 'tight' ? f.tight_muscle_links : f.weak_muscle_links

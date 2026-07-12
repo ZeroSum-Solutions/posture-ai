@@ -122,15 +122,37 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch findings
-  const { data: findingsRaw } = await supabase
+  const { data: findingsRaw, error: findingsErr } = await supabase
     .from('assessment_findings')
     .select('*')
     .eq('assessment_id', assessment_id)
     .order('region')
 
+  // supabase-js returns {data:null,error} on failure instead of throwing, so a
+  // failed read is indistinguishable from a genuinely-empty result. Rendering from
+  // silently-empty findings would deliver a clinical PDF showing zero posture issues.
+  if (findingsErr) {
+    console.error('[api/reports] findings load failed:', assessment_id, findingsErr.message)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+
   // Enrich with causes_text, tight/weak muscles from imbalance_definitions
   const keys = (findingsRaw || []).map((f: { imbalance_key: string }) => f.imbalance_key)
   const defsMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
+  // Tolerate a malformed JSONB muscle list: a bad value must not abort the whole
+  // export with an uncaught SyntaxError (matches app/api/assessments/[id]/route.ts).
+  const parseMuscleList = (v: unknown): string[] => {
+    if (Array.isArray(v)) return v as string[]
+    if (typeof v === 'string') {
+      try {
+        const parsed = JSON.parse(v)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
   if (keys.length > 0) {
     const { data: defs } = await supabase
       .from('imbalance_definitions')
@@ -140,8 +162,8 @@ export async function POST(req: NextRequest) {
       for (const d of defs) {
         defsMap[d.key] = {
           causes_text: d.causes_text || '',
-          tight_muscles: Array.isArray(d.tight_muscles) ? d.tight_muscles : (typeof d.tight_muscles === 'string' ? JSON.parse(d.tight_muscles) : []),
-          weak_muscles: Array.isArray(d.weak_muscles) ? d.weak_muscles : (typeof d.weak_muscles === 'string' ? JSON.parse(d.weak_muscles) : []),
+          tight_muscles: parseMuscleList(d.tight_muscles),
+          weak_muscles: parseMuscleList(d.weak_muscles),
         }
       }
     }
@@ -151,10 +173,14 @@ export async function POST(req: NextRequest) {
   const deltaMap: Record<string, number> = {}
   let priorComparisonFindings: Array<{ key: string; severityPct: number }> = []
   if (compared_to_assessment_id) {
-    const { data: priorFindings } = await supabase
+    const { data: priorFindings, error: priorFindingsErr } = await supabase
       .from('assessment_findings')
       .select('imbalance_key, deviation, severity_pct')
       .eq('assessment_id', compared_to_assessment_id)
+    if (priorFindingsErr) {
+      console.error('[api/reports] prior findings load failed:', compared_to_assessment_id, priorFindingsErr.message)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
     if (priorFindings) {
       for (const pf of priorFindings) {
         deltaMap[pf.imbalance_key] = pf.deviation

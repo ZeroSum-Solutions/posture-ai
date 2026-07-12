@@ -209,6 +209,17 @@ export function WorkoutPlayer({
   const [chromeShown, setChromeShown] = useState(true)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canHide = state.phase === 'playing' || state.phase === 'resting'
+
+  // When the item changes, show the transport again so a stale `false` from the
+  // previous item's auto-hide doesn't leave the next item's chrome hidden and
+  // unclickable from its first frame (the auto-hide effect below re-arms the timer).
+  // Adjusting state during render is React's pattern for resetting on a changed
+  // value — no effect, no synchronous-setState-in-effect cascade.
+  const [chromeItemIndex, setChromeItemIndex] = useState(state.index)
+  if (state.index !== chromeItemIndex) {
+    setChromeItemIndex(state.index)
+    setChromeShown(true)
+  }
   const pokeChrome = useCallback(() => {
     setChromeShown(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)

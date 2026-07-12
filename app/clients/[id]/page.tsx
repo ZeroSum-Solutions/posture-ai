@@ -5,11 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
+import dynamic from 'next/dynamic'
+import { toNum } from './numeric'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceArea, Legend,
-} from 'recharts'
+
+// recharts (+ d3) is heavy and only used on the Progress tab for multi-assessment
+// clients; load it in its own chunk so it isn't shipped on every client-detail visit.
+const ProgressCharts = dynamic(() => import('./ProgressCharts'), { ssr: false })
 
 interface Client {
   id: string
@@ -53,11 +55,6 @@ const GRADE_TO_PCT: Record<string, number> = {
 const GRADE_ORDER: Record<string, number> = {
   S: 6, A: 5, B: 4, C: 3, D: 2, E: 1,
 }
-
-const IMBALANCE_COLORS = [
-  'var(--brand)', '#10B981', 'var(--warning)', 'var(--danger)', '#8B5CF6',
-  '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#14B8A6',
-]
 
 export default function ClientDetailPage() {
   const params = useParams()
@@ -185,7 +182,10 @@ export default function ClientDetailPage() {
     }
     const findingsMap: Record<string, number> = {}
     ;(a.assessment_findings || []).forEach((f) => {
-      if (f.severity_pct !== null) findingsMap[f.imbalance_key] = f.severity_pct
+      // severity_pct is NUMERIC → arrives as a string; coerce so the chart plots a
+      // number and the tooltip's value.toFixed(1) doesn't throw.
+      const sev = toNum(f.severity_pct)
+      if (sev !== null) findingsMap[f.imbalance_key] = sev
     })
     imbalanceKeys.forEach((key) => {
       if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
@@ -219,10 +219,13 @@ export default function ClientDetailPage() {
     allKeys.forEach((key) => {
       const b = baseMap[key]
       const t = targetMap[key]
-      const baseDev = b?.deviation ?? null
-      const targetDev = t?.deviation ?? null
-      const baseSev = b?.severity_pct ?? null
-      const targetSev = t?.severity_pct ?? null
+      // deviation / severity_pct are NUMERIC → arrive as strings; coerce so the
+      // delta table's toFixed() calls and the severity comparison below are numeric
+      // (a string compare would order "9" after "80").
+      const baseDev = toNum(b?.deviation)
+      const targetDev = toNum(t?.deviation)
+      const baseSev = toNum(b?.severity_pct)
+      const targetSev = toNum(t?.severity_pct)
       const unit = b?.unit || t?.unit || 'deg'
       const delta = targetDev !== null && baseDev !== null ? targetDev - baseDev : null
       // Improved = severity decreased (lower is better)
@@ -402,48 +405,9 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* Progress / Trend Charts Tab */}
+      {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
       {activeTab === 'progress' && hasMultipleAssessments && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Overall Grade Trend</h2>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Grade converted to 0–100 scale (S=100, A=83, B=66, C=50, D=33, E=0)</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-secondary)' }} />
-                <ReferenceArea y1={66} y2={100} fill="rgba(16,185,129,0.08)" label={{ value: 'Maintain', fill: '#10B981', fontSize: 10, position: 'insideTopRight' }} />
-                <ReferenceArea y1={33} y2={66} fill="rgba(255,137,24,0.08)" label={{ value: 'Warning', fill: 'var(--warning)', fontSize: 10, position: 'insideTopRight' }} />
-                <ReferenceArea y1={0} y2={33} fill="rgba(239,68,68,0.08)" label={{ value: 'Danger', fill: 'var(--danger)', fontSize: 10, position: 'insideTopRight' }} />
-                <Line type="monotone" dataKey="grade_pct" name="Grade" stroke="var(--brand)" strokeWidth={2} dot={{ fill: 'var(--brand)', r: 4 }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {imbalanceKeys.length > 0 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Imbalance Severity Over Time</h2>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Severity % per imbalance — lower is better</p>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} unit="%" />
-                  <Tooltip contentStyle={{ background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-secondary)' }} formatter={(value: number, name: string) => [`${value.toFixed(1)}%`, imbalanceLabels[name] || name]} />
-                  <Legend formatter={(value) => imbalanceLabels[value] || value} wrapperStyle={{ fontSize: '11px', color: 'var(--text-secondary)' }} />
-                  <ReferenceArea y1={0} y2={33} fill="rgba(16,185,129,0.06)" />
-                  <ReferenceArea y1={33} y2={66} fill="rgba(255,137,24,0.06)" />
-                  <ReferenceArea y1={66} y2={100} fill="rgba(239,68,68,0.06)" />
-                  {imbalanceKeys.map((key, i) => (
-                    <Line key={key} type="monotone" dataKey={key} name={key} stroke={IMBALANCE_COLORS[i % IMBALANCE_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
+        <ProgressCharts trendData={trendData} imbalanceKeys={imbalanceKeys} imbalanceLabels={imbalanceLabels} />
       )}
 
       {/* Compare Tab */}
