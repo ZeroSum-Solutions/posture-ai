@@ -8,7 +8,8 @@ import { ageBand } from '@/lib/clients/age'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
-import { SLOT_ORDER, REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot } from './types'
+import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
+import { buildFramePlan, stampFrame } from './framePlan'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
 
 interface Client {
@@ -170,102 +171,117 @@ function NewAssessmentWizard() {
       })
     : clients
 
-  // Monotonic preflight token per view: a re-capture/re-upload bumps the token so
-  // a still-running preflight for the previous image discards its (now stale)
-  // result instead of overwriting the newer slot.
-  const preflightSeq = useRef<Record<string, number>>({})
+  // Monotonic op token per slot: every capture/upload bumps it, so a still-running
+  // async commit for a SUPERSEDED capture — a preflight, or an upload's image
+  // normalization — discards its result instead of overwriting the newer one.
+  const commitSeq = useRef<Record<string, number>>({})
+  const nextOp = (slot: CaptureSlotKey) => (commitSeq.current[slot] = (commitSeq.current[slot] ?? 0) + 1)
 
-  // Run detectPose + assessFrameQuality after each capture/upload. `slot` is the
-  // capture-flow slot; detection/quality run on its engine view, and the side
-  // profile is stamped onto the frame so submit carries laterality.
-  async function runPreflight(slot: CaptureSlotKey, preview: string, source: 'camera' | 'upload', captureRollDeg: number | null) {
-    const token = (preflightSeq.current[slot] ?? 0) + 1
-    preflightSeq.current[slot] = token
-    const isStale = () => preflightSeq.current[slot] !== token
+  // Mirror the latest captures for revocation + unmount cleanup, so object-URL
+  // teardown never reads a stale closure.
+  const capturesRef = useRef(captures)
+  useEffect(() => { capturesRef.current = captures }, [captures])
+
+  // Revoke every committed object URL when the wizard unmounts (SPA navigation to
+  // results). Committed URLs live in `captures` — the capture overlay only revokes
+  // its own uncommitted burst — so without this they leak until document unload.
+  useEffect(() => {
+    const ref = capturesRef
+    return () => {
+      for (const slot of Object.values(ref.current)) {
+        revokeStaleUrls([slot.rawRepresentativeUrl, slot.displayPreviewUrl, ...(slot.rawBurstUrls ?? [])], new Set())
+      }
+    }
+  }, [])
+
+  // Revoke a slot's object URLs (raw + display + burst) that aren't reused, so a
+  // re-capture/re-upload never leaks the superseded blobs.
+  function revokeSlotUrls(slot: CaptureSlot, keep: Set<string>) {
+    revokeStaleUrls([slot.rawRepresentativeUrl, slot.displayPreviewUrl, ...(slot.rawBurstUrls ?? [])], keep)
+  }
+
+  // Run detectPose + assessFrameQuality after each capture/upload on the RAW
+  // still (never the display channel — design §4.3). `token` ties the result to
+  // its capture; a newer capture bumps commitSeq and staleness-invalidates it.
+  async function runPreflight(slot: CaptureSlotKey, rawUrl: string, source: 'camera' | 'upload', captureRollDeg: number | null, token: number) {
+    const isStale = () => commitSeq.current[slot] !== token
     const { view, profileSide } = slotToDomain(slot)
 
-    setCaptures(prev => ({
-      ...prev,
-      [slot]: { ...prev[slot], slotStatus: 'checking' },
-    }))
+    setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'checking' } }))
 
     try {
       const { detectPose } = await import('@/lib/pose/detect')
       const { assessFrameQuality } = await import('@/lib/pose/quality')
 
-      const detected = await detectPose(preview, view, source)
+      const detected = await detectPose(rawUrl, view, source)
       if (isStale()) return
-      const poseFrame: PoseFrame = {
+      const rawPoseFrame: PoseFrame = {
         ...detected,
         ...(profileSide ? { profileSide } : {}),
         ...(captureRollDeg !== null ? { captureRollDeg } : {}),
       }
-      const quality = assessFrameQuality(poseFrame, view)
+      const quality = assessFrameQuality(rawPoseFrame, view)
 
       const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
         : quality.status === 'warnings' ? 'warnings'
         : 'ok'
 
-      setCaptures(prev => ({
-        ...prev,
-        [slot]: { ...prev[slot], poseFrame, quality, slotStatus },
-      }))
+      setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], rawPoseFrame, quality, slotStatus } }))
     } catch (err) {
       console.error('[wizard] preflight error:', err)
       if (isStale()) return
       // On model-load failure, don't block submission — mark idle
-      setCaptures(prev => ({
-        ...prev,
-        [slot]: { ...prev[slot], slotStatus: 'idle' },
-      }))
+      setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'idle' } }))
       setModelError(true)
     }
   }
 
-  // Revoke a slot's object URLs (preview + burst) that aren't reused, so a
-  // re-capture/re-upload never leaks the superseded blobs.
-  function revokeSlotUrls(slot: CaptureSlot, keep: Set<string>) {
-    revokeStaleUrls([slot.preview, ...(slot.burstPreviews ?? [])], keep)
-  }
-
   async function handleFileUpload(slot: CaptureSlotKey, file: File) {
-    const old = captures[slot]
+    const op = nextOp(slot)
     const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
-    const preview = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
+    const rawUrl = (await normalizeUploadedImage(file)) ?? URL.createObjectURL(file)
+    // A newer capture/upload for this slot started while we were normalizing —
+    // discard this one (and its blob) instead of clobbering the newer result.
+    if (commitSeq.current[slot] !== op) {
+      if (rawUrl.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
+      return
+    }
+    const prevSlot = capturesRef.current[slot]
     setCaptures(prev => ({
       ...prev,
-      [slot]: { ...emptySlot(), file, preview, source: 'upload' },
+      [slot]: { ...emptySlot(), file, source: 'upload', captureId: op, rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl },
     }))
-    revokeSlotUrls(old, new Set([preview]))
+    revokeSlotUrls(prevSlot, new Set([rawUrl]))
     setUploadError(null)
-    if (!testMode) runPreflight(slot, preview, 'upload', null)
+    if (!testMode) runPreflight(slot, rawUrl, 'upload', null, op)
   }
 
-  function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, captureId: number) {
-    // burst is the shutter's object URLs; the representative (index 0) drives the
-    // preview thumbnail + the fast quality preflight. Every frame is pose-detected
-    // at submit so the engine can median them + report within-capture stability.
-    const old = captures[slot]
-    const preview = burst[0]
+  function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null) {
+    // burst is the shutter's raw object URLs; the representative (index 0) drives
+    // the thumbnail + the fast quality preflight. Every frame is pose-detected at
+    // submit so the engine can median them + report within-capture stability.
+    const op = nextOp(slot)
+    const prevSlot = capturesRef.current[slot]
+    const rep = burst[0]
     setCaptures(prev => ({
       ...prev,
-      [slot]: { ...emptySlot(), preview, source: 'camera', captureRollDeg, burstPreviews: burst, captureId },
+      [slot]: { ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, rawRepresentativeUrl: rep, rawBurstUrls: burst, displayPreviewUrl: rep },
     }))
-    revokeSlotUrls(old, new Set(burst))
+    revokeSlotUrls(prevSlot, new Set(burst))
     setUploadError(null)
-    if (!testMode) runPreflight(slot, preview, 'camera', captureRollDeg)
+    if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op)
   }
 
   // Check if submit should be blocked: a required slot has 'no_person' status
   function hasBlockingSlot(): boolean {
-    return REQUIRED_SLOTS.some(v => captures[v].preview && captures[v].slotStatus === 'no_person')
+    return REQUIRED_SLOTS.some(v => isCaptured(captures[v]) && captures[v].slotStatus === 'no_person')
   }
 
   async function validateAndProceed() {
     if (!selectedClient) { setUploadError('Please select a client.'); return }
     if (!testMode) {
       for (const slot of REQUIRED_SLOTS) {
-        if (!captures[slot].preview) { setUploadError(`${SLOT_LABEL[slot]} view is required before proceeding.`); return }
+        if (!isCaptured(captures[slot])) { setUploadError(`${SLOT_LABEL[slot]} view is required before proceeding.`); return }
       }
       if (hasBlockingSlot()) {
         setUploadError('One or more views has no person detected. Please retake those photos.')
@@ -288,35 +304,24 @@ function NewAssessmentWizard() {
       if (!testMode) {
         frames = []
         const { detectPose } = await import('@/lib/pose/detect')
-        // Stamp the slot's side profile (and roll) onto a freshly-detected frame
-        // so both side slots POST as distinct `{view:'side', profileSide}` groups
-        // (Slice 1) instead of collapsing into one legacy `side` group.
-        const stamp = (f: PoseFrame, profileSide: 'left' | 'right' | undefined, roll: number | null): PoseFrame => ({
-          ...f,
-          ...(profileSide ? { profileSide } : {}),
-          ...(roll !== null ? { captureRollDeg: roll } : {}),
-        })
-        for (const slot of SLOT_ORDER) {
-          const cap = captures[slot]
-          if (!cap.preview) continue
-          const { view, profileSide } = slotToDomain(slot)
-          const burst = cap.source === 'camera' && cap.burstPreviews && cap.burstPreviews.length > 1
-            ? cap.burstPreviews
-            : null
-          if (burst) {
+        // Detect + stamp per the pure plan (framePlan.ts). It reads ONLY the raw
+        // channel, so both side slots POST as distinct `{view:'side', profileSide}`
+        // groups (Slice 1) and a corrected display image can never reach detection.
+        for (const p of buildFramePlan(captures)) {
+          if (p.burstUrls) {
             // Detect every frame of the burst (the representative was already
             // detected in preflight; re-detecting it here keeps the set uniform).
-            for (const url of burst) {
-              const detected = await detectPose(url, view, 'camera')
-              frames.push(stamp(detected, profileSide, cap.captureRollDeg))
+            for (const url of p.burstUrls) {
+              const detected = await detectPose(url, p.view, 'camera')
+              frames.push(stampFrame(detected, p.profileSide, p.roll))
             }
-          } else if (cap.poseFrame) {
+          } else if (p.cachedFrame) {
             // Single frame from preflight — already carries profileSide + roll.
-            frames.push(cap.poseFrame)
-          } else {
+            frames.push(p.cachedFrame)
+          } else if (p.fallbackUrl) {
             // Preflight was skipped or failed — detect now.
-            const detected = await detectPose(cap.preview, view, cap.source ?? 'upload')
-            frames.push(stamp(detected, profileSide, cap.captureRollDeg))
+            const detected = await detectPose(p.fallbackUrl, p.view, p.source ?? 'upload')
+            frames.push(stampFrame(detected, p.profileSide, p.roll))
           }
         }
       }

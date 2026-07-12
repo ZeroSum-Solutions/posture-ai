@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SLOT_ORDER, REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot } from '../types'
+import { SLOT_ORDER, REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from '../types'
 
 describe('capture slot model', () => {
   it('has four slots in front, left, right, back order', () => {
@@ -28,8 +28,10 @@ describe('capture slot model', () => {
 
   it('emptySlot is idle with no capture', () => {
     const s = emptySlot()
-    expect(s.preview).toBeNull()
+    expect(s.rawRepresentativeUrl).toBeNull()
+    expect(s.displayPreviewUrl).toBeNull()
     expect(s.slotStatus).toBe('idle')
     expect(s.captureId).toBeNull()
+    expect(isCaptured(s)).toBe(false)
   })
 })

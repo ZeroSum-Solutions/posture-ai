@@ -16,26 +16,38 @@ export type SlotStatus = 'idle' | 'checking' | 'ok' | 'no_person' | 'warnings'
 
 export interface CaptureSlot {
   file: File | null
-  preview: string | null
   source: 'upload' | 'camera' | null
-  poseFrame: PoseFrame | null
   quality: FrameQuality | null
   slotStatus: SlotStatus
   /** Sensor-measured camera roll for camera captures; null for uploads/no-sensor. */
   captureRollDeg: number | null
   /**
-   * Camera capture burst — the stills grabbed at the shutter (engine 1.3.0
-   * within-capture stability). `preview` is the representative one; every frame
-   * is pose-detected at submit so the engine can median them + score stability.
-   * null for uploads (a single image can't estimate within-capture jitter).
-   */
-  burstPreviews: string[] | null
-  /**
    * Immutable id stamped at the shutter for this slot's current capture. Async
-   * preflight keys off it so a result from a superseded capture (e.g. the user
-   * retook mid-flight) is discarded instead of mis-associated.
+   * work (preflight, later slices' correction) keys off it so a result from a
+   * superseded capture (e.g. the user retook mid-flight) is discarded instead of
+   * mis-associated.
    */
   captureId: number | null
+
+  // ---- RAW detection channel (design §4.3) --------------------------------
+  // The ONLY data that ever reaches detectPose / the submit payload. Never the
+  // corrected image (Slice 4 writes correction to the display channel below), so
+  // scoring stays byte-identical to an uncorrected capture.
+  /** Raw representative still — the single/fallback detection source. */
+  rawRepresentativeUrl: string | null
+  /**
+   * Raw shutter burst — every frame grabbed at the shutter (engine 1.3.0
+   * within-capture stability). Pose-detected at submit so the engine can median
+   * them + score stability. null for uploads (a single image can't estimate jitter).
+   */
+  rawBurstUrls: string[] | null
+  /** Preflight-detected raw frame (carries profileSide); the cached submit path. */
+  rawPoseFrame: PoseFrame | null
+
+  // ---- DISPLAY channel ----------------------------------------------------
+  /** What the thumbnail + review overlay show. In this slice === rawRepresentativeUrl;
+   *  Slice 4 points it at the device-local corrected image (never detected). */
+  displayPreviewUrl: string | null
 }
 
 export type Captures = Record<CaptureSlotKey, CaptureSlot>
@@ -71,7 +83,13 @@ export function slotToDomain(slot: CaptureSlotKey): { view: ViewKey; profileSide
 /** A fresh, idle slot. */
 export function emptySlot(): CaptureSlot {
   return {
-    file: null, preview: null, source: null, poseFrame: null, quality: null,
-    slotStatus: 'idle', captureRollDeg: null, burstPreviews: null, captureId: null,
+    file: null, source: null, quality: null, slotStatus: 'idle', captureRollDeg: null,
+    captureId: null, rawRepresentativeUrl: null, rawBurstUrls: null, rawPoseFrame: null,
+    displayPreviewUrl: null,
   }
+}
+
+/** True once this slot holds a capture (raw detection data present). */
+export function isCaptured(slot: CaptureSlot): boolean {
+  return slot.rawRepresentativeUrl !== null
 }

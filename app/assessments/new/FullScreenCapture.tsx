@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import type { Captures, CaptureSlotKey } from './types'
-import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain } from './types'
+import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
@@ -14,8 +14,8 @@ const BURST_INTERVAL_MS = 70
 
 interface FullScreenCaptureProps {
   captures: Captures
-  /** burst object URLs; [0] is the representative still. captureId ties the commit to its shutter. */
-  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, captureId: number) => void
+  /** raw burst object URLs; [0] is the representative still. */
+  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null) => void
   onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
@@ -385,12 +385,12 @@ export default function FullScreenCapture({
     const start = SLOT_ORDER.indexOf(committed)
     for (let i = start + 1; i < SLOT_ORDER.length; i++) {
       const s = SLOT_ORDER[i]
-      if (!captures[s].preview) return s
+      if (!isCaptured(captures[s])) return s
     }
     // Wrap: fill any earlier gap the user skipped past.
     for (let i = 0; i < start; i++) {
       const s = SLOT_ORDER[i]
-      if (!captures[s].preview) return s
+      if (!isCaptured(captures[s])) return s
     }
     return null
   }
@@ -401,7 +401,7 @@ export default function FullScreenCapture({
     // live `activeSlot` — the burst belongs to captureSlotRef.
     const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
-    onCameraCapture(committed, burst, rollAtCapture, captureIdRef.current)
+    onCameraCapture(committed, burst, rollAtCapture)
     burstRef.current = [] // ownership transferred to the parent; do not revoke
     setReviewUrl(null)
     setPreviewQuality(null)
@@ -454,11 +454,11 @@ export default function FullScreenCapture({
   // ---- derived UI state ----
   // Ready once front + both sides are present (back optional), independent of
   // capture order — the free-order flow has no terminal "last view" trigger.
-  const requiredReady = REQUIRED_SLOTS.every(s => !!captures[s].preview)
+  const requiredReady = REQUIRED_SLOTS.every(s => isCaptured(captures[s]))
   // A required slot whose quality preflight is still running — proceeding now
   // would bypass the no-person block, so gate the Analyze action until it settles.
-  const requiredChecking = REQUIRED_SLOTS.some(s => !!captures[s].preview && captures[s].slotStatus === 'checking')
-  const noPersonViews = SLOT_ORDER.filter(s => captures[s].preview && captures[s].slotStatus === 'no_person')
+  const requiredChecking = REQUIRED_SLOTS.some(s => isCaptured(captures[s]) && captures[s].slotStatus === 'checking')
+  const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
   const direction = DIRECTION[activeSlot]
 
   const showLiveCamera = (phase === 'live' || phase === 'countdown') && !cameraFailed
@@ -670,7 +670,7 @@ export default function FullScreenCapture({
               {SLOT_ORDER.map(slotKey => {
                 const cap = captures[slotKey]
                 const isActive = slotKey === activeSlot
-                const captured = !!cap.preview
+                const captured = isCaptured(cap)
                 const optional = !REQUIRED_SLOTS.includes(slotKey)
                 const ring = isActive ? 'var(--brand)'
                   : cap.slotStatus === 'no_person' ? 'var(--danger)'
@@ -681,17 +681,19 @@ export default function FullScreenCapture({
                   <button
                     key={slotKey}
                     onClick={() => selectSlot(slotKey)}
+                    // Locked during a burst so the announced state matches selectSlot's guard.
+                    disabled={isCapturing}
                     aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
                       position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
-                      padding: 0, cursor: 'pointer', opacity: 1,
+                      padding: 0, cursor: isCapturing ? 'default' : 'pointer', opacity: isCapturing && !isActive ? 0.6 : 1,
                     }}
                   >
                     <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ring}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {captured && cap.preview ? (
+                      {captured && cap.displayPreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cap.preview} alt={`${SLOT_LABEL[slotKey]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={cap.displayPreviewUrl} alt={`${SLOT_LABEL[slotKey]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
                         <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
@@ -758,7 +760,7 @@ export default function FullScreenCapture({
                 disabled={submitting || requiredChecking}
                 style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
-                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : captures.back.preview ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
+                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : isCaptured(captures.back) ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
               </button>
             )}
           </div>
