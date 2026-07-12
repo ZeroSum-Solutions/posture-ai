@@ -1,4 +1,4 @@
-import type { Finding } from '@posture-ai/engine'
+import type { Finding, SideObservation } from '@posture-ai/engine'
 import { metricValidity } from '@posture-ai/engine/thresholds'
 
 /** Row shape inserted into assessment_findings by POST /api/assessments. */
@@ -21,6 +21,8 @@ export interface FindingRow {
   stability_score: number | null
   uncertainty_deg: number | null
   borderline: boolean | null
+  /** Per-side observations for sagittal metrics; null for front/back + legacy single-side. */
+  observations: { sides: SideObservation[]; drivingProfileSide: 'left' | 'right' } | null
 }
 
 /**
@@ -51,5 +53,8 @@ export function buildFindingRow(
     stability_score: f.stabilityScore ?? null,
     uncertainty_deg: f.uncertaintyDeg ?? null,
     borderline: f.borderline ?? null,
+    observations: f.observations && f.drivingProfileSide
+      ? { sides: f.observations, drivingProfileSide: f.drivingProfileSide }
+      : null,
   }
 }

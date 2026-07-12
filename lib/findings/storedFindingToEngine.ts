@@ -1,4 +1,4 @@
-import type { Finding } from '@posture-ai/engine'
+import type { Finding, SideObservation } from '@posture-ai/engine'
 
 /**
  * The subset of a stored assessment_findings row (snake_case) needed to rebuild
@@ -16,6 +16,8 @@ export interface StoredFinding {
   view_used: string
   confidence: number
   borderline?: boolean | null
+  /** Display-only per-side data; program reconstruction uses the aggregate values only. */
+  observations?: { sides: SideObservation[]; drivingProfileSide: 'left' | 'right' } | null
 }
 
 /**
