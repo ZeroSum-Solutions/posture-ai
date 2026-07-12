@@ -277,7 +277,7 @@ export default function ClientForm({
                   style={{
                     padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                     fontSize: '0.8rem', fontWeight: 600, minHeight: 'unset',
-                    background: active ? 'var(--brand)' : 'transparent',
+                    background: active ? 'var(--brand-strong)' : 'transparent',
                     color: active ? '#fff' : 'var(--text-secondary)',
                   }}
                 >

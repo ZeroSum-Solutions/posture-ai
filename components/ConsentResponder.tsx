@@ -92,7 +92,7 @@ export default function ConsentResponder({ token }: { token: string }) {
         />
 
         <button type="submit" disabled={status === 'submitting'} style={{
-          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(0,152,243,0.4)' : 'var(--brand)',
+          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
           color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: '0.95rem',
           cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
         }}>

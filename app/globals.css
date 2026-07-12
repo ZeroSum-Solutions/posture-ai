@@ -40,6 +40,10 @@
   --brand: #0098f3;
   --brand-hover: #34adff;
   --brand-pressed: #0074bf;
+  /* Deeper brand blue for solid CTA backgrounds under white text: #0098f3 gives
+     only 3.1:1 (fails WCAG AA); this hits ~5:1. Text/link uses keep --brand, which
+     needs to stay light for contrast against the dark background. */
+  --brand-strong: #0072be;
   --brand-ink: #000000;
   --brand-warm: #ff8918;
   --brand-hot: #da4e24;

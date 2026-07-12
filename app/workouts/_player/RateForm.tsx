@@ -182,5 +182,5 @@ const cardStyle: React.CSSProperties = { background: 'rgba(22,22,24,0.72)', bord
 const starBtn: React.CSSProperties = { background: 'none', border: 'none', fontSize: '1.9rem', cursor: 'pointer', lineHeight: 1, padding: 2, minHeight: 44 }
 const chip: React.CSSProperties = { padding: '8px 14px', minHeight: 44, borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(0,0,0,0.3)', color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }
 const chipOn: React.CSSProperties = { background: 'rgba(0,152,243,0.18)', borderColor: 'rgba(0,152,243,0.5)', color: 'var(--brand)' }
-const primaryBtn: React.CSSProperties = { padding: '13px 32px', minHeight: 52, borderRadius: 999, border: 'none', background: 'var(--brand)', color: '#fff', fontWeight: 800, fontSize: '1rem', cursor: 'pointer' }
+const primaryBtn: React.CSSProperties = { padding: '13px 32px', minHeight: 52, borderRadius: 999, border: 'none', background: 'var(--brand-strong)', color: '#fff', fontWeight: 800, fontSize: '1rem', cursor: 'pointer' }
 const ghostBtn: React.CSSProperties = { padding: '13px 24px', minHeight: 52, borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: 'transparent', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }

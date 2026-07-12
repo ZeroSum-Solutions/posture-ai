@@ -989,7 +989,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             data-testid="launch-session"
             style={{
               padding: '0 30px', minHeight: 56, borderRadius: 999, border: 'none',
-              background: isApproved && !launching ? 'var(--brand)' : 'rgba(0,152,243,0.25)',
+              background: isApproved && !launching ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
               color: '#fff', fontWeight: 800, fontSize: '1rem',
               cursor: isApproved && !launching ? 'pointer' : 'not-allowed',
               boxShadow: isApproved && !launching ? '0 10px 28px rgba(0,152,243,0.4)' : 'none', whiteSpace: 'nowrap',
@@ -1113,7 +1113,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             {pdfKind === 'client' ? 'Client report' : 'Practitioner report'} generated successfully.
           </p>
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
-            padding: '10px 20px', borderRadius: 8, background: 'var(--brand)',
+            padding: '10px 20px', borderRadius: 8, background: 'var(--brand-strong)',
             color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>
             Download {pdfKind === 'client' ? 'Client Report' : 'Practitioner PDF'}
           </a>

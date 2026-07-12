@@ -115,7 +115,7 @@ export default function OnboardingPage() {
           style={{
             width: '100%',
             padding: '12px',
-            background: !accepted || loading ? 'rgba(0,152,243,0.3)' : 'var(--brand)',
+            background: !accepted || loading ? 'rgba(0,152,243,0.3)' : 'var(--brand-strong)',
             color: !accepted || loading ? 'var(--text-secondary)' : '#fff',
             border: 'none',
             borderRadius: '8px',

@@ -171,7 +171,7 @@ export default function SignInPage() {
             style={{
               width: '100%',
               padding: '11px',
-              background: (loading || googleLoading) ? 'rgba(0,152,243,0.5)' : 'var(--brand)',
+              background: (loading || googleLoading) ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',

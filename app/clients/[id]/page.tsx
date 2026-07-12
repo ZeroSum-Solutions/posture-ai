@@ -151,7 +151,7 @@ export default function ClientDetailPage() {
 
   const tabStyle = (tab: Tab): React.CSSProperties => ({
     padding: '10px 20px',
-    background: activeTab === tab ? 'var(--brand)' : 'transparent',
+    background: activeTab === tab ? 'var(--brand-strong)' : 'transparent',
     color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
     border: 'none',
     borderRadius: '8px',
@@ -319,7 +319,7 @@ export default function ClientDetailPage() {
           <Link
             href={`/assessments/new?client_id=${client.id}`}
             style={{
-              padding: '10px 18px', borderRadius: '8px', background: 'var(--brand)',
+              padding: '10px 18px', borderRadius: '8px', background: 'var(--brand-strong)',
               color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem',
               whiteSpace: 'nowrap',
             }}
