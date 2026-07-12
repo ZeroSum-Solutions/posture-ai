@@ -4,6 +4,7 @@ import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { isNoRows } from '@/lib/api/query-error'
+import { dedupeCapturesByViewSide } from '@/lib/captures/dedupeCaptures'
 
 export async function GET(
   _req: NextRequest,
@@ -61,7 +62,7 @@ export async function GET(
     keys.length > 0
       ? supabase.from('muscle_imbalance_links').select('imbalance_key, role, muscle_slug, link_evidence, scored, muscles(name)').in('imbalance_key', keys)
       : Promise.resolve({ data: [] as unknown[] }),
-    service.from('captures').select('id, view, storage_path, source, pose_frame').eq('assessment_id', id),
+    service.from('captures').select('id, view, profile_side, storage_path, source, pose_frame').eq('assessment_id', id),
   ])
 
   const defMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
@@ -96,15 +97,12 @@ export async function GET(
 
   const rawCaptures = capturesRes.data
 
-  // One capture per view: a burst capture (engine 1.3.0) stores every frame for
-  // re-scorability, but the results page shows a single photo slot per view —
-  // frames within a burst share source/roll, so the first row stands in.
-  const seenViews = new Set<string>()
-  const perViewCaptures = (rawCaptures || []).filter((cap) => {
-    if (seenViews.has(cap.view)) return false
-    seenViews.add(cap.view)
-    return true
-  })
+  // One capture per (view, profile_side): a burst (engine 1.3.0) stores every
+  // frame for re-scorability, but the results page shows a single photo slot per
+  // distinct view/side — frames within a burst share source/roll, so the first
+  // row stands in. Keying on view alone would collapse left- and right-side
+  // captures into one indistinguishable `side` row.
+  const perViewCaptures = dedupeCapturesByViewSide(rawCaptures || [])
 
   // Generate signed URLs in parallel — one round trip per view was serial.
   const captures = await Promise.all(
@@ -118,7 +116,8 @@ export async function GET(
       }
       const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
       return {
-        id: cap.id, view: cap.view, signed_url, source: cap.source,
+        id: cap.id, view: cap.view, profile_side: cap.profile_side ?? null,
+        signed_url, source: cap.source,
         capture_roll_deg: typeof roll === 'number' ? roll : null,
       }
     }),

@@ -128,7 +128,12 @@ function project(p: V3, cam: Required<CameraSpec>): Landmark {
   return { x: xi, y: yi, z: 0, visibility: 1 }
 }
 
-export function generatePose(view: 'front' | 'side', spec: PostureSpec = {}, cam: CameraSpec = {}): PoseFrame {
+export function generatePose(
+  view: 'front' | 'side',
+  spec: PostureSpec = {},
+  cam: CameraSpec = {},
+  profileSide?: 'left' | 'right',
+): PoseFrame {
   const c: Required<CameraSpec> = {
     distanceM: cam.distanceM ?? Infinity,
     pitchDeg: cam.pitchDeg ?? 0,
@@ -138,7 +143,7 @@ export function generatePose(view: 'front' | 'side', spec: PostureSpec = {}, cam
   const pts = applyPosture(neutralSkeleton(), spec)
   const landmarks: Record<string, Landmark> = {}
   for (const [name, p] of Object.entries(pts)) landmarks[name] = project(toViewSpace(p, view), c)
-  return { view, landmarks, source: 'camera' }
+  return { view, landmarks, source: 'camera', ...(profileSide ? { profileSide } : {}) }
 }
 
 /** Deterministic LCG so bursts are reproducible without Math.random. */

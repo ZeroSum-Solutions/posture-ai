@@ -22,7 +22,7 @@ function getLm(frame: PoseFrame, name: string) {
 }
 
 /** 1. Forward head posture — side view */
-export function forwardHeadPosture(side: PoseFrame): Finding {
+export function forwardHeadPosture(side: PoseFrame, profileSide?: 'left' | 'right'): Finding {
   const key = 'forward_head_posture'
   // Prefer whichever ear is more visible
   const leftEar = getLm(side, 'left_ear')
@@ -31,7 +31,7 @@ export function forwardHeadPosture(side: PoseFrame): Finding {
   const rightShoulder = getLm(side, 'right_shoulder')
 
   // Use the side with higher visibility
-  const useRight = (rightEar?.visibility ?? 0) > (leftEar?.visibility ?? 0)
+  const useRight = profileSide ? profileSide === 'right' : (rightEar?.visibility ?? 0) > (leftEar?.visibility ?? 0)
   const ear = useRight ? rightEar : leftEar
   const shoulder = useRight ? rightShoulder : leftShoulder
 
@@ -93,14 +93,14 @@ export function posteriorImbalancedShoulders(front: PoseFrame, back?: PoseFrame)
  * vertical. Replaces the former t1_tilt_backward + anterior_pelvic_shift,
  * which computed this identical vector twice and double-counted it in the
  * overall score (engine 2.0.0 merge; see docs/plans/2026-07-05-pipeline-accuracy-v2-design.md §3.1). */
-export function trunkLean(side: PoseFrame): Finding {
+export function trunkLean(side: PoseFrame, profileSide?: 'left' | 'right'): Finding {
   const key = 'trunk_lean'
   const ls = getLm(side, 'left_shoulder')
   const rs = getLm(side, 'right_shoulder')
   const lh = getLm(side, 'left_hip')
   const rh = getLm(side, 'right_hip')
 
-  const useRight = (rs?.visibility ?? 0) > (ls?.visibility ?? 0)
+  const useRight = profileSide ? profileSide === 'right' : (rs?.visibility ?? 0) > (ls?.visibility ?? 0)
   const shoulder = useRight ? rs : ls
   const hip = useRight ? rh : lh
 
@@ -251,7 +251,7 @@ function sagittalFacing(frame: PoseFrame, useRight: boolean): number {
 }
 
 /** 10. Knee extension / back knee — sagittal recurvatum, side view */
-export function kneeExtensionBackKnee(side: PoseFrame): Finding {
+export function kneeExtensionBackKnee(side: PoseFrame, profileSide?: 'left' | 'right'): Finding {
   const key = 'knee_extension_back_knee'
   const lh = getLm(side, 'left_hip')
   const lk = getLm(side, 'left_knee')
@@ -260,7 +260,7 @@ export function kneeExtensionBackKnee(side: PoseFrame): Finding {
   const rk = getLm(side, 'right_knee')
   const ra = getLm(side, 'right_ankle')
 
-  const useRight = (rk?.visibility ?? 0) > (lk?.visibility ?? 0)
+  const useRight = profileSide ? profileSide === 'right' : (rk?.visibility ?? 0) > (lk?.visibility ?? 0)
   const hip = useRight ? rh : lh
   const knee = useRight ? rk : lk
   const ankle = useRight ? ra : la

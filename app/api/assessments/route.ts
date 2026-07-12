@@ -4,11 +4,11 @@ import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
-import { stripFaceLandmarks } from '@/lib/pose/face-min'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildFindingRow } from '@/lib/findings/buildFindingRow'
+import { buildCaptureRow } from '@/lib/captures/buildCaptureRow'
 
 const ROUTE = 'POST /api/assessments'
 const TEST_MODE_ENABLED = process.env.POSTURE_TEST_MODE_ENABLED === '1'
@@ -113,13 +113,9 @@ export async function POST(req: NextRequest) {
       // unused face-region keypoints stripped first (data minimization, BIPA).
       // Scoring above/below runs on the full in-memory frame; only what is saved
       // is minimized. storage_path is never set — no raw image bytes at rest.
-      const capturesToInsert = frames.map((f) => ({
-        assessment_id: assessmentId,
-        practitioner_id: user.id,
-        view: f.view,
-        source: useFixture ? 'fixture' : (f.source ?? 'upload'),
-        pose_frame: stripFaceLandmarks(f) as unknown as object,
-      }))
+      const capturesToInsert = frames.map((f) =>
+        buildCaptureRow(f, assessmentId, user.id, { useFixture }),
+      )
       const { error: capErr } = await service.from('captures').insert(capturesToInsert)
       if (capErr) throw new Error(`captures insert failed: ${capErr.message}`)
 

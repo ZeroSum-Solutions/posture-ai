@@ -227,4 +227,39 @@ describe('parseAssessmentPayload', () => {
       expect(r.ok).toBe(false)
     })
   })
+
+  describe('per-side profiles', () => {
+    const f = (view: string, extra: Record<string, unknown> = {}) =>
+      ({ view, landmarks: { nose: { x: 0.5, y: 0.5 } }, ...extra })
+
+    it('accepts profileSide on a side frame', () => {
+      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames: [f('side', { profileSide: 'left' })] }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+    })
+    it('rejects profileSide on a front frame', () => {
+      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames: [f('front', { profileSide: 'left' })] }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+    it('accepts 20 frames across four (view, profileSide) groups', () => {
+      const frames = [
+        ...Array.from({ length: 5 }, () => f('front')),
+        ...Array.from({ length: 5 }, () => f('side', { profileSide: 'left' })),
+        ...Array.from({ length: 5 }, () => f('side', { profileSide: 'right' })),
+        ...Array.from({ length: 5 }, () => f('back')),
+      ]
+      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.data.frames?.length).toBe(20)
+    })
+    it('rejects a 6-frame burst of the same (view, profileSide)', () => {
+      const frames = Array.from({ length: 6 }, () => f('side', { profileSide: 'left' }))
+      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+    it('rejects mixing an unspecified-side frame with a named-side frame', () => {
+      const frames = [f('side'), f('side', { profileSide: 'left' })]
+      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames }, { testModeEnabled: false })
+      expect(r.ok).toBe(false)
+    })
+  })
 })

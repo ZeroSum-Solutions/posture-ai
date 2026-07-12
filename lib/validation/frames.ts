@@ -52,12 +52,18 @@ const frameSchema = z.object({
   captureRollDeg: z.number().finite().min(-45).max(45).optional(),
   aspectRatio: z.number().finite().min(0.1).max(10).optional(),
   source: z.enum(['camera', 'upload']).optional(),
-}).strict()
+  // Anatomical side profile nearest the camera; valid only on a side view.
+  profileSide: z.enum(['left', 'right']).optional(),
+}).strict().superRefine((frame, ctx) => {
+  if (frame.profileSide && frame.view !== 'side') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profileSide'], message: 'profileSide is only valid on a side view' })
+  }
+})
 
-// A capture burst is 1–5 frames of the SAME view (engine 1.3.0 takes the
-// per-landmark median and reports within-capture stability). 3 views × 5 caps
-// the array; the per-view bound is enforced below so a client can't send 15
-// fronts.
+// A capture burst is 1–5 frames of the SAME (view, profileSide) group (engine
+// 1.3.0 takes the per-landmark median + within-capture stability). 4 groups
+// (front / side-left / side-right / back) × 5 caps the array; the per-group
+// bound below stops a client sending 20 fronts.
 const MAX_BURST_PER_VIEW = 5
 
 const payloadSchema = z.object({
@@ -66,17 +72,30 @@ const payloadSchema = z.object({
   frames: z
     .array(frameSchema)
     .min(1)
-    .max(3 * MAX_BURST_PER_VIEW)
+    .max(4 * MAX_BURST_PER_VIEW)
     .superRefine((frames, ctx) => {
-      const perView: Record<string, number> = {}
-      for (const f of frames) perView[f.view] = (perView[f.view] ?? 0) + 1
-      for (const [view, n] of Object.entries(perView)) {
+      const perGroup: Record<string, number> = {}
+      let sideUnspecified = false
+      let sideNamed = false
+      for (const f of frames) {
+        const key = `${f.view}:${f.profileSide ?? ''}`
+        perGroup[key] = (perGroup[key] ?? 0) + 1
+        if (f.view === 'side') { if (f.profileSide) sideNamed = true; else sideUnspecified = true }
+      }
+      for (const [key, n] of Object.entries(perGroup)) {
         if (n > MAX_BURST_PER_VIEW) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `Too many ${view} frames — a capture burst is at most ${MAX_BURST_PER_VIEW} per view`,
+            message: `Too many ${key} frames — a capture burst is at most ${MAX_BURST_PER_VIEW} per view/side`,
           })
         }
+      }
+      // The engine can't group a mix of unspecified-side and named-side captures.
+      if (sideUnspecified && sideNamed) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Cannot mix unspecified-side and named-side (left/right) side frames',
+        })
       }
     })
     .optional(),
