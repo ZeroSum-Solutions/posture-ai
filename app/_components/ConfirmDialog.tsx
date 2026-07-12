@@ -86,7 +86,7 @@ export function ConfirmDialog({
             ref={confirmRef}
             onClick={onConfirm}
             disabled={busy}
-            style={{ flex: 1, padding: '10px', background: busy ? (danger ? 'rgba(239,68,68,0.3)' : 'rgba(0,152,243,0.3)') : (danger ? 'var(--danger)' : 'var(--brand)'), color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
+            style={{ flex: 1, padding: '10px', background: busy ? (danger ? 'rgba(239,68,68,0.3)' : 'rgba(0,152,243,0.3)') : (danger ? 'var(--danger)' : 'var(--brand-strong)'), color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
           >
             {confirmLabel}
           </button>

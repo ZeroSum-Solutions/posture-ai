@@ -56,7 +56,7 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
           />
           <button
             onClick={() => copyLink(link.url)}
-            style={{ padding: '8px 14px', borderRadius: 8, background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+            style={{ padding: '8px 14px', borderRadius: 8, background: 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
           >
             {copied ? 'Copied' : 'Copy link'}
           </button>

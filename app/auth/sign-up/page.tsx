@@ -120,7 +120,7 @@ export default function SignUpPage() {
               style={{
                 width: '100%',
                 padding: '11px',
-                background: loading ? 'rgba(0,152,243,0.6)' : 'var(--brand)',
+                background: loading ? 'rgba(0,152,243,0.6)' : 'var(--brand-strong)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '8px',

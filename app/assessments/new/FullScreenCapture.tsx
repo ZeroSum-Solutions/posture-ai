@@ -468,7 +468,7 @@ export default function FullScreenCapture({
             <button
               data-testid="capture-disclaimer-dismiss"
               onClick={dismissDisclaimer}
-              style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}
+              style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}
             >
               Start Capture
             </button>
@@ -516,7 +516,7 @@ export default function FullScreenCapture({
                 <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
                 <p style={{ color: 'var(--danger)', fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
                 <p data-testid="camera-error-msg" style={{ color: '#C4C4CC', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
-                <button onClick={retryCamera} style={{ padding: '10px 20px', borderRadius: '10px', background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>Try Again</button>
+                <button onClick={retryCamera} style={{ padding: '10px 20px', borderRadius: '10px', background: 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>Try Again</button>
               </div>
             )}
           </div>
@@ -625,7 +625,7 @@ export default function FullScreenCapture({
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button data-autofocus="retake" onClick={retakeStill} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 600, cursor: 'pointer', minHeight: '44px' }}>Retake</button>
-                  <button onClick={useThisPhoto} style={{ flex: 2, padding: '14px', borderRadius: '12px', background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}>Use This Photo</button>
+                  <button onClick={useThisPhoto} style={{ flex: 2, padding: '14px', borderRadius: '12px', background: 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}>Use This Photo</button>
                 </div>
               </div>
             )}
@@ -723,7 +723,7 @@ export default function FullScreenCapture({
               <button
                 onClick={onProceed}
                 disabled={submitting || requiredChecking}
-                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(0,152,243,0.4)' : 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
+                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
                 {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : captures.back.preview ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
               </button>

@@ -71,7 +71,7 @@ export default function NavBar() {
 
       {!isAuthPage && (
         <button onClick={() => setOpen(!open)} className="nav-hamburger" aria-label="Toggle navigation menu" aria-expanded={open} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', padding: '8px', display: 'none', gap: '4px', flexDirection: 'column', justifyContent: 'center' }}>
-          {[0, 1, 2].map((line) => <span key={line} style={{ display: 'block', width: '18px', height: '2px', background: open ? 'var(--brand)' : 'var(--text-secondary)', borderRadius: '2px' }} />)}
+          {[0, 1, 2].map((line) => <span key={line} style={{ display: 'block', width: '18px', height: '2px', background: open ? 'var(--brand-strong)' : 'var(--text-secondary)', borderRadius: '2px' }} />)}
         </button>
       )}
 

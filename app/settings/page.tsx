@@ -300,7 +300,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: saving ? 'rgba(0,152,243,0.4)' : 'var(--brand)',
+              background: saving ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
               color: saving ? '#9CA3AF' : '#fff',
               border: 'none',
               cursor: saving ? 'not-allowed' : 'pointer',
@@ -398,7 +398,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: orgSaving ? 'rgba(0,152,243,0.4)' : 'var(--brand)',
+              background: orgSaving ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
               color: orgSaving ? '#9CA3AF' : '#fff',
               border: 'none',
               cursor: orgSaving ? 'not-allowed' : 'pointer',
@@ -490,7 +490,7 @@ export default function SettingsPage() {
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              background: (passwordSaving || !newPassword.trim()) ? 'rgba(0,152,243,0.3)' : 'var(--brand)',
+              background: (passwordSaving || !newPassword.trim()) ? 'rgba(0,152,243,0.3)' : 'var(--brand-strong)',
               color: (passwordSaving || !newPassword.trim()) ? '#6B7280' : '#fff',
               border: 'none',
               cursor: (passwordSaving || !newPassword.trim()) ? 'not-allowed' : 'pointer',

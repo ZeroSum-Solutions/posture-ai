@@ -391,7 +391,7 @@ function NewAssessmentWizard() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                     <div style={{
                       width: '32px', height: '32px', borderRadius: '50%',
-                      background: isActive ? 'var(--brand)' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
+                      background: isActive ? 'var(--brand-strong)' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
                       border: '2px solid ' + (isActive ? 'var(--brand)' : isDone ? '#10B981' : 'rgba(255,255,255,0.15)'),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: isActive || isDone ? '#fff' : 'var(--text-muted)',
@@ -489,7 +489,7 @@ function NewAssessmentWizard() {
               disabled={!selectedClient || checkingConsent}
               style={{
                 padding: '12px 28px', borderRadius: '10px',
-                background: selectedClient && !checkingConsent ? 'var(--brand)' : 'rgba(0,152,243,0.25)',
+                background: selectedClient && !checkingConsent ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
                 color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
                 cursor: selectedClient && !checkingConsent ? 'pointer' : 'not-allowed', minHeight: '44px',
               }}>
@@ -518,7 +518,7 @@ function NewAssessmentWizard() {
             </div>
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
               <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
-              <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
+              <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
                 {submitting ? 'Submitting...' : 'Run Test Analysis'}
               </button>
             </div>
@@ -551,7 +551,7 @@ function NewAssessmentWizard() {
                 <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
                 <p style={{ color: 'var(--text-secondary)', margin: '0 0 20px' }}>{processingError}</p>
                 <button onClick={handleRetry} style={{
-                  padding: '12px 24px', borderRadius: '10px', background: 'var(--brand)', color: '#fff',
+                  padding: '12px 24px', borderRadius: '10px', background: 'var(--brand-strong)', color: '#fff',
                   border: 'none', fontWeight: 600, cursor: 'pointer', minHeight: '44px',
                 }}>Try Again</button>
               </div>
