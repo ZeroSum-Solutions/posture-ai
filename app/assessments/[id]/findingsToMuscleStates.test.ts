@@ -29,6 +29,16 @@ describe('findingsToMuscleStates', () => {
     expect(states).toEqual([])
   })
 
+  it('skips maintain (within-normal) findings — the 3D must not paint a non-actionable result', () => {
+    // A reliable finding in the 'maintain' zone is within normal range; every other
+    // consumer (selectPriorities, buildProgram) treats it as non-actionable. The 3D
+    // muscle map must not color it as an imbalance the same report labels "looking great".
+    const { states } = findingsToMuscleStates([
+      finding({ zone: 'maintain', tight_muscle_links: [link('upper-trapezius')] }),
+    ])
+    expect(states).toEqual([])
+  })
+
   it('emits tight/weak from muscle links with finding-level severity', () => {
     const { states } = findingsToMuscleStates([
       finding({

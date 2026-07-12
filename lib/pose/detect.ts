@@ -103,7 +103,33 @@ export function warmUpLandmarker(): void {
  * "unreliable" rather than emitting bad numbers. The returned frame also
  * carries the image's aspect ratio and an optional source tag for downstream use.
  */
-export async function detectPose(
+// Detection is deterministic for a given (image bytes, model), but the
+// representative capture frame is requested up to 3× per view (preview badge,
+// preflight, submit burst). Memoize by (view|source|src) so the landmarker runs
+// once per distinct frame. Bounded so large data-URL keys don't accumulate.
+const detectCache = new Map<string, Promise<PoseFrame>>()
+const DETECT_CACHE_MAX = 8
+
+export function detectPose(
+  src: string,
+  view: ViewLabel,
+  source?: 'camera' | 'upload'
+): Promise<PoseFrame> {
+  const key = `${view}|${source ?? ''}|${src}`
+  const cached = detectCache.get(key)
+  if (cached) return cached
+  const promise = detectPoseUncached(src, view, source)
+  detectCache.set(key, promise)
+  if (detectCache.size > DETECT_CACHE_MAX) {
+    const oldest = detectCache.keys().next().value
+    if (oldest !== undefined) detectCache.delete(oldest)
+  }
+  // Don't cache a failure — evict so a later attempt can retry.
+  promise.catch(() => detectCache.delete(key))
+  return promise
+}
+
+async function detectPoseUncached(
   src: string,
   view: ViewLabel,
   source?: 'camera' | 'upload'

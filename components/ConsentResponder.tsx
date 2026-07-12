@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CONSENT_TEXT } from '@/lib/consent/text'
 
 export default function ConsentResponder({ token }: { token: string }) {
@@ -7,6 +7,13 @@ export default function ConsentResponder({ token }: { token: string }) {
   const [rel, setRel] = useState('self')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const doneRef = useRef<HTMLHeadingElement>(null)
+
+  // The success view replaces the whole form subtree; move focus to its heading so
+  // assistive tech lands on (and announces) the confirmation.
+  useEffect(() => {
+    if (status === 'done') doneRef.current?.focus()
+  }, [status])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -39,8 +46,8 @@ export default function ConsentResponder({ token }: { token: string }) {
 
   if (status === 'done') {
     return (
-      <main style={wrap}>
-        <h1 style={{ fontSize: '1.4rem', marginBottom: 12 }}>Consent recorded</h1>
+      <main style={wrap} role="status" aria-live="polite">
+        <h1 ref={doneRef} tabIndex={-1} style={{ fontSize: '1.4rem', marginBottom: 12 }}>Consent recorded</h1>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           Thank you. Your consent has been recorded. You can close this page.
         </p>

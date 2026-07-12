@@ -68,10 +68,11 @@ export default function SignUpPage() {
               </div>
             )}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              <label htmlFor="email" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Email
               </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -90,10 +91,11 @@ export default function SignUpPage() {
               />
             </div>
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              <label htmlFor="password" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Password
               </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}

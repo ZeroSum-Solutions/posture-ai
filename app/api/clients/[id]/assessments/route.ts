@@ -50,7 +50,14 @@ export async function GET(
     query = query.eq('practitioner_approved', true)
   }
 
-  const { data: assessments } = await query
+  const { data: assessments, error } = await query
+  if (error) {
+    // A DB/RLS/network failure must not be masked as "no assessments" — that would
+    // render the empty state (and drop the comparison picker's options) for a client
+    // with real history. Surface it so the consumer's `if (!res.ok)` path fires.
+    console.error('[api/clients/assessments] load failed:', clientId, error.message)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   return NextResponse.json({ assessments: assessments || [] })
 }

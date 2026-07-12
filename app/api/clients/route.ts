@@ -58,6 +58,21 @@ export async function POST(req: NextRequest) {
   }
   if (!first_name || !last_name) return NextResponse.json({ error: 'first_name and last_name are required' }, { status: 400 })
 
+  // Validate the optional demographics the same way PATCH /api/clients/[id] does, so
+  // an invalid enum can't reach Postgres (which would surface as a 500 leaking the raw
+  // DB error) and impossible body metrics can't persist as PHI.
+  const SEX_VALUES = ['male', 'female', 'other', 'prefer_not_to_say']
+  const bad = (msg: string) => NextResponse.json({ error: msg }, { status: 400 })
+  if (date_of_birth != null && typeof date_of_birth !== 'string') return bad('date_of_birth must be a string or null')
+  if (sex_at_birth != null && sex_at_birth !== '' && !(typeof sex_at_birth === 'string' && SEX_VALUES.includes(sex_at_birth))) {
+    return bad('sex_at_birth must be one of male, female, other, prefer_not_to_say, or null')
+  }
+  for (const [k, v] of [['height_cm', height_cm], ['weight_kg', weight_kg]] as [string, unknown][]) {
+    if (v != null && !(typeof v === 'number' && Number.isFinite(v) && v >= 0)) {
+      return bad(`${k} must be a non-negative number or null`)
+    }
+  }
+
   // Consent: capture the subject's e-signature now (in-person), or create the
   // client with consent pending and send a remote link afterward. Either way the
   // subject (not just the practitioner) is the one who consents.
@@ -81,7 +96,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await service.from('clients').insert(row).select().single()
   if (error) {
     console.error('[api/clients] POST error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create client.' }, { status: 500 })
   }
 
   if (!remote) {

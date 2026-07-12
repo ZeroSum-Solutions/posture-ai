@@ -55,7 +55,11 @@ export async function POST(req: NextRequest) {
   })
   if (error) return NextResponse.json({ error: 'Failed to create consent link' }, { status: 500 })
 
-  const url = `${new URL(req.url).origin}/consent/${token}`
+  // Build the shareable link from the canonical app origin, not the request Host
+  // header (which the caller controls) — a PHI consent link must never point off-site.
+  // Mirrors the hardened workouts share-link route.
+  const origin = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin).replace(/\/+$/, '')
+  const url = `${origin}/consent/${token}`
   const qr = await consentQrDataUrl(url)
   return NextResponse.json({ url, qr, expires_at: expiresAt })
 }
