@@ -20,17 +20,16 @@ export default async function MusclesPage() {
   const { data: muscles, error } = await query
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '960px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '8px' }}>
-        Muscle Guide
-      </h1>
-      <p style={{ color: '#A1A1AA', fontSize: '0.9rem', marginBottom: '16px' }}>
+    <div className="app-standard-page">
+      <p className="app-page-kicker">Anatomy reference</p>
+      <h1 className="app-page-heading">Muscle guide</h1>
+      <p className="app-page-lede" style={{ marginBottom: '18px' }}>
         Anatomy, function, and corrective exercise guidance for every muscle implicated in the
         ten postural screening measures.
       </p>
       <Disclaimer compact />
       {error ? (
-        <p style={{ color: '#EF4444' }}>Could not load the muscle guide: {error.message}</p>
+        <p style={{ color: 'var(--danger)' }}>Could not load the muscle guide: {error.message}</p>
       ) : (
         <MuscleLibrary muscles={muscles ?? []} />
       )}

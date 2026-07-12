@@ -21,6 +21,12 @@ describe('MuscleBodyMap', () => {
     )
     // quadriceps (front) + hamstrings (back) = 2 markers
     expect(container.querySelectorAll('ellipse')).toHaveLength(2)
+
+    const fills = Array.from(container.querySelectorAll('[fill]'), (node) => node.getAttribute('fill') ?? '')
+    expect(fills).not.toContain('var(--danger)40')
+    expect(fills).not.toContain('var(--brand)40')
+    expect(fills).toEqual(expect.arrayContaining(['var(--danger)', 'var(--brand)']))
+    expect(Array.from(container.querySelectorAll('ellipse'), (node) => node.getAttribute('fill-opacity'))).toEqual(['0.25', '0.25'])
   })
 
   it('renders nothing when there are no muscles at all', () => {
@@ -79,22 +85,24 @@ describe('MuscleBodyMap', () => {
     // High link renders in Tight section (red chip present, not gray)
     const highChip = container.querySelector('[data-testid="muscle-chip-pectoralis-major"]') as HTMLElement | null
     expect(highChip).not.toBeNull()
-    // jsdom normalizes hex to rgb; #EF4444 = rgb(239, 68, 68)
-    expect(highChip?.style.color).toBe('rgb(239, 68, 68)')
+    expect(highChip?.style.color).toBe('var(--danger)')
 
     // Low tight link appears as gray Possible chip, NOT red Tight chip
     const lowTightChip = container.querySelector('[data-testid="muscle-chip-latissimus-dorsi"]') as HTMLElement | null
     expect(lowTightChip).not.toBeNull()
-    // jsdom normalizes hex to rgb; #A1A1AA = rgb(161, 161, 170)
-    expect(lowTightChip?.style.color).toBe('rgb(161, 161, 170)')
+    expect(lowTightChip?.style.color).toBe('var(--text-secondary)')
 
     // Low weak link appears as gray Possible chip, NOT blue Weak chip
     const lowWeakChip = container.querySelector('[data-testid="muscle-chip-hamstrings"]') as HTMLElement | null
     expect(lowWeakChip).not.toBeNull()
-    // jsdom normalizes hex to rgb; #A1A1AA = rgb(161, 161, 170)
-    expect(lowWeakChip?.style.color).toBe('rgb(161, 161, 170)')
+    expect(lowWeakChip?.style.color).toBe('var(--text-secondary)')
 
     // "Possible" header exists
     expect(getByText('Possible')).toBeTruthy()
+
+    const possibleMarkers = Array.from(container.querySelectorAll('ellipse[stroke-dasharray="3,3"]'))
+    expect(possibleMarkers.length).toBeGreaterThan(0)
+    expect(possibleMarkers.every((node) => node.getAttribute('fill') === 'var(--text-muted)')).toBe(true)
+    expect(possibleMarkers.every((node) => node.getAttribute('fill-opacity') === '0.13')).toBe(true)
   })
 })

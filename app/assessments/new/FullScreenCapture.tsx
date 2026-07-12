@@ -4,6 +4,7 @@ import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import type { Captures, ViewKey } from './types'
 import { VIEW_ORDER, VIEW_LABEL } from './types'
+import { CameraGlyph } from '@/components/SignalGlyphs'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
 // A ~5-frame burst of a held pose is enough to estimate landmark jitter without
@@ -425,17 +426,11 @@ export default function FullScreenCapture({
   const noPersonViews = VIEW_ORDER.filter(v => captures[v].preview && captures[v].slotStatus === 'no_person')
   const direction = DIRECTION[activeView]
 
-  const plumbColor =
-    tiltZone === 'green' ? 'rgba(34,197,94,0.85)'
-    : tiltZone === 'amber' ? 'rgba(245,158,11,0.85)'
-    : tiltZone === 'red' ? 'rgba(239,68,68,0.9)'
-    : 'rgba(255,255,255,0.55)'
-
   const showLiveCamera = (phase === 'live' || phase === 'countdown') && !cameraFailed
   const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
 
   return (
-    <div ref={containerRef} tabIndex={-1} aria-label="Posture capture" style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 200, display: 'flex', flexDirection: 'column', color: '#F5F5F5', overflow: 'hidden', padding: pad, outline: 'none' }} data-testid="fullscreen-capture">
+    <div ref={containerRef} tabIndex={-1} aria-label="Posture capture" style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 200, display: 'flex', flexDirection: 'column', color: 'var(--text-primary)', overflow: 'hidden', padding: pad, outline: 'none' }} data-testid="fullscreen-capture">
       {/* sr-only assertive announcer for the self-timer countdown (must be
           always-mounted so the live region announces changes) */}
       <div role="timer" aria-live="assertive" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
@@ -464,7 +459,7 @@ export default function FullScreenCapture({
       {phase === 'disclaimer' ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div role="dialog" aria-modal="true" aria-labelledby="capture-disclaimer-title" data-testid="capture-disclaimer" style={{ maxWidth: '420px', background: '#0F0F11', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '24px' }}>
-            <p id="capture-disclaimer-title" style={{ color: '#818CF8', fontWeight: 700, fontSize: '0.95rem', margin: '0 0 10px' }}>Screening Tool Only</p>
+            <p id="capture-disclaimer-title" style={{ color: 'var(--brand)', fontWeight: 700, fontSize: '0.95rem', margin: '0 0 10px' }}>Screening Tool Only</p>
             <p style={{ color: '#B4B4BD', fontSize: '0.85rem', lineHeight: 1.6, margin: '0 0 20px' }}>
               Posture AI is a screening tool. Results are for informational purposes only and are not a
               substitute for evaluation by a qualified professional. Consult a qualified health professional
@@ -473,13 +468,13 @@ export default function FullScreenCapture({
             <button
               data-testid="capture-disclaimer-dismiss"
               onClick={dismissDisclaimer}
-              style={{ width: '100%', padding: '14px', borderRadius: '12px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}
+              style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}
             >
               Start Capture
             </button>
             <button
               onClick={onExit}
-              style={{ width: '100%', marginTop: '10px', padding: '10px', borderRadius: '10px', background: 'transparent', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', minHeight: '44px' }}
+              style={{ width: '100%', marginTop: '10px', padding: '10px', borderRadius: '10px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', minHeight: '44px' }}
             >
               Cancel
             </button>
@@ -505,8 +500,6 @@ export default function FullScreenCapture({
                 <line x1="66.6" y1="0" x2="66.6" y2="100" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
                 <line x1="0" y1="33.3" x2="100" y2="33.3" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
                 <line x1="0" y1="66.6" x2="100" y2="66.6" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
-                {/* plumb-line */}
-                <line x1="50" y1="0" x2="50" y2="100" stroke={plumbColor} strokeWidth="0.4" strokeDasharray="3,3" />
               </svg>
             )}
 
@@ -520,10 +513,10 @@ export default function FullScreenCapture({
                 proceed controls below stay usable (they render above this stage). */}
             {cameraFailed && (
               <div role="alert" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px' }}>
-                <span aria-hidden="true" style={{ fontSize: '2.2rem' }}>📷</span>
-                <p style={{ color: '#F87171', fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
+                <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
+                <p style={{ color: 'var(--danger)', fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
                 <p data-testid="camera-error-msg" style={{ color: '#C4C4CC', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
-                <button onClick={retryCamera} style={{ padding: '10px 20px', borderRadius: '10px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>Try Again</button>
+                <button onClick={retryCamera} style={{ padding: '10px 20px', borderRadius: '10px', background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>Try Again</button>
               </div>
             )}
           </div>
@@ -540,14 +533,14 @@ export default function FullScreenCapture({
             {showLiveCamera && roll !== null && (
               <div data-testid="level-indicator" style={{
                 pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#fff',
-                background: tiltZone === 'green' ? 'rgba(16,185,129,0.92)' : tiltZone === 'amber' ? 'rgba(245,158,11,0.92)' : 'rgba(239,68,68,0.92)',
+                background: tiltZone === 'green' ? 'rgba(16,185,129,0.92)' : tiltZone === 'amber' ? 'rgba(255,137,24,0.92)' : 'rgba(239,68,68,0.92)',
               }}>
                 {tiltZone === 'green' ? 'Level' : `Tilted ${roll > 0 ? 'right' : 'left'} ${Math.abs(roll).toFixed(1)}°`}
               </div>
             )}
 
             {(modelLoading || modelError) && (
-              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: modelError ? 'rgba(239,68,68,0.85)' : 'rgba(0,0,0,0.55)', color: modelError ? '#fff' : '#E4E4E7' }}>
+              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: modelError ? 'rgba(239,68,68,0.85)' : 'rgba(0,0,0,0.55)', color: modelError ? '#fff' : 'var(--text-primary)' }}>
                 {modelError ? 'Pose engine unavailable' : 'Preparing pose engine…'}
               </div>
             )}
@@ -560,17 +553,17 @@ export default function FullScreenCapture({
                 <span style={{ color: '#fff', flexShrink: 0 }}><ViewSilhouette view={activeView} /></span>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>{direction.title}</p>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#D4D4D8' }}>{direction.cue}</p>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{direction.cue}</p>
                 </div>
               </div>
 
               {level.pitchDeg !== null && Math.abs(level.pitchDeg) > 15 && (
-                <div style={{ background: 'rgba(245,158,11,0.9)', borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 600, color: '#fff' }}>
+                <div style={{ background: 'rgba(255,137,24,0.9)', borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 600, color: '#fff' }}>
                   Aim the camera straight ahead
                 </div>
               )}
               {notPortrait && (
-                <div style={{ background: 'rgba(245,158,11,0.9)', borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, color: '#fff' }}>
+                <div style={{ background: 'rgba(255,137,24,0.9)', borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, color: '#fff' }}>
                   Hold the phone upright (portrait) to capture
                 </div>
               )}
@@ -593,7 +586,7 @@ export default function FullScreenCapture({
               </div>
             )}
             {uploadError && (
-              <div role="alert" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', color: '#EF4444', textAlign: 'center' }}>
+              <div role="alert" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', color: 'var(--danger)', textAlign: 'center' }}>
                 {uploadError}
               </div>
             )}
@@ -602,10 +595,10 @@ export default function FullScreenCapture({
             {showLiveCamera && phase === 'live' && tiltBlocked && (
               <div data-testid="tilt-blocked" id="tilt-blocked-banner" role="status" aria-live="polite" style={{
                 background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 10, padding: '10px 14px',
-                fontSize: '0.82rem', color: '#F87171', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                fontSize: '0.82rem', color: 'var(--danger)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
               }}>
                 <span>Phone is tilted {Math.abs(roll ?? 0).toFixed(1)}° — straighten it to capture.</span>
-                <button onClick={() => setOverrideTilt(true)} style={{ background: 'none', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 6, color: '#F87171', fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture anyway</button>
+                <button onClick={() => setOverrideTilt(true)} style={{ background: 'none', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 6, color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture anyway</button>
               </div>
             )}
 
@@ -614,13 +607,13 @@ export default function FullScreenCapture({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div role="status" aria-live="polite" aria-atomic="true">
                   {previewQuality?.status === 'ok' && (
-                    <p style={{ color: '#34D399', fontSize: '0.8rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>Framing looks good</p>
+                    <p style={{ color: 'var(--maintain)', fontSize: '0.8rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>Framing looks good</p>
                   )}
                   {previewQuality?.status === 'no_person' && (
-                    <p style={{ color: '#F87171', fontSize: '0.82rem', textAlign: 'center', margin: 0, fontWeight: 700 }}>No person detected — retake</p>
+                    <p style={{ color: 'var(--danger)', fontSize: '0.82rem', textAlign: 'center', margin: 0, fontWeight: 700 }}>No person detected — retake</p>
                   )}
                   {previewQuality?.status === 'warnings' && previewQuality.warnings.length > 0 && (
-                    <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ background: 'rgba(255,137,24,0.12)', border: '1px solid rgba(255,137,24,0.3)', borderRadius: 8, padding: '8px 12px' }}>
                       {previewQuality.warnings.map((w, i) => (
                         <p key={i} style={{ color: '#FBBF24', fontSize: '0.75rem', margin: i > 0 ? '4px 0 0' : 0 }}>• {w}</p>
                       ))}
@@ -631,8 +624,8 @@ export default function FullScreenCapture({
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button data-autofocus="retake" onClick={retakeStill} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 600, cursor: 'pointer', minHeight: '44px' }}>Retake</button>
-                  <button onClick={useThisPhoto} style={{ flex: 2, padding: '14px', borderRadius: '12px', background: '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}>Use This Photo</button>
+                  <button data-autofocus="retake" onClick={retakeStill} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 600, cursor: 'pointer', minHeight: '44px' }}>Retake</button>
+                  <button onClick={useThisPhoto} style={{ flex: 2, padding: '14px', borderRadius: '12px', background: 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}>Use This Photo</button>
                 </div>
               </div>
             )}
@@ -644,9 +637,9 @@ export default function FullScreenCapture({
                 const isActive = view === activeView
                 const captured = !!slot.preview
                 const optional = view === 'back'
-                const ring = isActive ? '#818CF8'
-                  : slot.slotStatus === 'no_person' ? '#EF4444'
-                  : slot.slotStatus === 'warnings' ? '#F59E0B'
+                const ring = isActive ? 'var(--brand)'
+                  : slot.slotStatus === 'no_person' ? 'var(--danger)'
+                  : slot.slotStatus === 'warnings' ? 'var(--warning)'
                   : captured ? '#10B981'
                   : 'rgba(255,255,255,0.2)'
                 const selectable = captured || isActive
@@ -670,7 +663,7 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette view={view} size={26} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: slot.slotStatus === 'no_person' ? '#EF4444' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{slot.slotStatus === 'no_person' ? '!' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: slot.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{slot.slotStatus === 'no_person' ? '!' : '✓'}</span>
                       )}
                     </div>
                     <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{view.charAt(0).toUpperCase() + view.slice(1)}</span>
@@ -706,8 +699,8 @@ export default function FullScreenCapture({
                     aria-pressed={timerOn}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', borderRadius: '999px', minHeight: '44px',
-                      background: timerOn ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.08)',
-                      border: `1px solid ${timerOn ? 'rgba(129,140,248,0.6)' : 'rgba(255,255,255,0.15)'}`,
+                      background: timerOn ? 'rgba(0,152,243,0.25)' : 'rgba(255,255,255,0.08)',
+                      border: `1px solid ${timerOn ? 'rgba(0,152,243,0.6)' : 'rgba(255,255,255,0.15)'}`,
                       color: timerOn ? '#C7D2FE' : '#C4C4CC', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
                     }}
                   >
@@ -720,7 +713,7 @@ export default function FullScreenCapture({
 
             {/* Upload fallback when the camera failed */}
             {cameraFailed && (
-              <button onClick={triggerUpload} style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: '#F5F5F5', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>
+              <button onClick={triggerUpload} style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>
                 Use File Upload Instead — {VIEW_LABEL[activeView]}
               </button>
             )}
@@ -730,7 +723,7 @@ export default function FullScreenCapture({
               <button
                 onClick={onProceed}
                 disabled={submitting || requiredChecking}
-                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(99,102,241,0.4)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
+                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(0,152,243,0.4)' : 'var(--brand)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
                 {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : captures.back.preview ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
               </button>

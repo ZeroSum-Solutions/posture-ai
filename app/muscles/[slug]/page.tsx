@@ -69,32 +69,32 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
     .sort((a, b) => a.progression_level - b.progression_level)
 
   const card: React.CSSProperties = {
-    background: '#161618',
+    background: 'var(--surface)',
     border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '12px',
     padding: '18px',
     marginBottom: '16px',
   }
-  const h2: React.CSSProperties = { fontSize: '1rem', fontWeight: 600, color: '#C7C9FF', margin: '0 0 10px' }
-  const body: React.CSSProperties = { fontSize: '0.9rem', color: '#D4D4D8', lineHeight: 1.65, margin: 0 }
+  const h2: React.CSSProperties = { fontSize: '1rem', fontWeight: 600, color: 'var(--brand)', margin: '0 0 10px' }
+  const body: React.CSSProperties = { fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }
 
   return (
     <div style={{ padding: '32px 24px', maxWidth: '760px', margin: '0 auto' }}>
-      <Link href="/muscles" style={{ color: '#818CF8', fontSize: '0.85rem', textDecoration: 'none' }}>
+      <Link href="/muscles" style={{ color: 'var(--brand)', fontSize: '0.85rem', textDecoration: 'none' }}>
         ← Muscle Guide
       </Link>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '12px 0 4px', flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', margin: 0 }}>{muscle.name}</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{muscle.name}</h1>
         {!muscle.reviewed_at && (
           <span style={{
             fontSize: '0.65rem', padding: '3px 9px', borderRadius: '4px',
-            background: 'rgba(245,158,11,0.15)', color: '#FCD34D', textTransform: 'uppercase',
+            background: 'rgba(255,137,24,0.15)', color: 'var(--warning)', textTransform: 'uppercase',
           }}>
             Pending review
           </span>
         )}
       </div>
-      <p style={{ color: '#8A8A93', fontSize: '0.85rem', margin: '0 0 20px' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 20px' }}>
         {REGION_LABELS[muscle.region] ?? muscle.region}
       </p>
 
@@ -120,18 +120,18 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
           <h2 style={h2}>Related posture findings</h2>
           {tightLinks.map((l, i) => (
             <div key={`t${i}`} style={{ marginBottom: '12px' }}>
-              <p style={{ ...body, fontWeight: 600, color: '#F87171', marginBottom: '4px' }}>
+              <p style={{ ...body, fontWeight: 600, color: 'var(--danger)', marginBottom: '4px' }}>
                 Commonly tight in: {l.imbalance_definitions?.label}
               </p>
-              <p style={{ ...body, fontSize: '0.85rem', color: '#A1A1AA' }}>{l.rationale_text}</p>
+              <p style={{ ...body, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{l.rationale_text}</p>
             </div>
           ))}
           {weakLinks.map((l, i) => (
             <div key={`w${i}`} style={{ marginBottom: '12px' }}>
-              <p style={{ ...body, fontWeight: 600, color: '#818CF8', marginBottom: '4px' }}>
+              <p style={{ ...body, fontWeight: 600, color: 'var(--brand)', marginBottom: '4px' }}>
                 Commonly underactive in: {l.imbalance_definitions?.label}
               </p>
-              <p style={{ ...body, fontSize: '0.85rem', color: '#A1A1AA' }}>{l.rationale_text}</p>
+              <p style={{ ...body, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{l.rationale_text}</p>
             </div>
           ))}
         </div>
@@ -165,26 +165,26 @@ function ExerciseRow({ row, showLevel = false }: { row: ExerciseMuscleRow; showL
   return (
     <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600, color: '#F5F5F5', fontSize: '0.9rem' }}>{ex.name}</span>
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{ex.name}</span>
         <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {showLevel && (
             <span style={{
               fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase',
-              background: row.progression_level === 3 ? 'rgba(239,68,68,0.15)' : row.progression_level === 1 ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)',
-              color: row.progression_level === 3 ? '#F87171' : row.progression_level === 1 ? '#34D399' : '#818CF8',
+              background: row.progression_level === 3 ? 'rgba(239,68,68,0.15)' : row.progression_level === 1 ? 'rgba(16,185,129,0.15)' : 'rgba(0,152,243,0.15)',
+              color: row.progression_level === 3 ? 'var(--danger)' : row.progression_level === 1 ? 'var(--maintain)' : 'var(--brand)',
             }}>
               {LEVEL_LABELS[row.progression_level]}
             </span>
           )}
           {(ex.sets || ex.hold_seconds) && (
-            <span style={{ fontSize: '0.75rem', color: '#818CF8' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--brand)' }}>
               {ex.sets ? `${ex.sets} sets` : ''}{ex.sets && ex.hold_seconds ? ' · ' : ''}{ex.hold_seconds ? `${ex.hold_seconds}s` : ''}
             </span>
           )}
         </span>
       </div>
       {ex.instructions && (
-        <p style={{ fontSize: '0.82rem', color: '#A1A1AA', lineHeight: 1.5, margin: '6px 0 0' }}>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '6px 0 0' }}>
           {ex.instructions}
         </p>
       )}

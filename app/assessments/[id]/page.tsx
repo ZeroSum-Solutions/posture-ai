@@ -69,27 +69,27 @@ interface Assessment {
 
 // Grade → color mapping
 function gradeColor(grade: OverallGrade): string {
-  if (grade === 'S' || grade === 'A') return '#22C55E'
-  if (grade === 'B' || grade === 'C') return '#F59E0B'
-  return '#EF4444'
+  if (grade === 'S' || grade === 'A') return 'var(--maintain)'
+  if (grade === 'B' || grade === 'C') return 'var(--warning)'
+  return 'var(--danger)'
 }
 
 // Zone colors
 const ZONE_COLORS: Record<Zone, string> = {
-  maintain: '#22C55E',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  unreliable: '#71717A',
+  maintain: 'var(--maintain)',
+  warning: 'var(--warning)',
+  danger: 'var(--danger)',
+  unreliable: 'var(--text-muted)',
 }
 
 // Band reference table
 const GRADE_BANDS = [
-  { grade: 'S', range: '0–5', desc: 'Elite', color: '#22C55E' },
-  { grade: 'A', range: '5–15', desc: 'Excellent', color: '#22C55E' },
-  { grade: 'B', range: '15–50', desc: 'Good', color: '#F59E0B' },
-  { grade: 'C', range: '50–85', desc: 'Fair', color: '#F59E0B' },
-  { grade: 'D', range: '85–95', desc: 'Poor', color: '#EF4444' },
-  { grade: 'E', range: '95–100', desc: 'Critical', color: '#EF4444' },
+  { grade: 'S', range: '0–5', desc: 'Elite', color: 'var(--maintain)' },
+  { grade: 'A', range: '5–15', desc: 'Excellent', color: 'var(--maintain)' },
+  { grade: 'B', range: '15–50', desc: 'Good', color: 'var(--warning)' },
+  { grade: 'C', range: '50–85', desc: 'Fair', color: 'var(--warning)' },
+  { grade: 'D', range: '85–95', desc: 'Poor', color: 'var(--danger)' },
+  { grade: 'E', range: '95–100', desc: 'Critical', color: 'var(--danger)' },
 ]
 
 const REGION_ORDER: Record<string, number> = { head_shoulders: 0, spine: 1, pelvis: 2, leg: 3 }
@@ -122,7 +122,8 @@ function AngleMarker({ x, y, color, severity, label }: { x: number; y: number; c
   const r = severity >= 50 ? 16 : severity >= 20 ? 12 : 9
   return (
     <g>
-      <circle cx={x} cy={y} r={r + 4} fill={color + '18'} stroke={color} strokeWidth="1.5" strokeDasharray="3,2"/>
+      <circle cx={x} cy={y} r={r + 7} fill={color} fillOpacity="0.06" />
+      <circle cx={x} cy={y} r={r + 2} fill={color} fillOpacity="0.07" stroke={color} strokeOpacity=".72" strokeWidth="1.4" />
       <circle cx={x} cy={y} r={3} fill={color}/>
       <text x={x} y={y + r + 14} textAnchor="middle" fill={color} fontSize="8" fontWeight="700">
         {label}
@@ -142,7 +143,7 @@ function DirectionArrow({ x, y, color, direction, view }: { x: number; y: number
       x2={x + dx} y2={y + dy}
       stroke={color}
       strokeWidth="2.5"
-      markerEnd={`url(#arrow-${color.replace('#', '')})`}
+      markerEnd={`url(#arrow${view === 'side' ? '-side' : ''}-${color.replace('#', '')})`}
     />
   )
 }
@@ -160,32 +161,33 @@ function FrontSkeleton({ findings, captureUrl }: { findings: Finding[]; captureU
       )}
       <svg viewBox="0 0 180 410" width="160" height="365" aria-label="Front view skeletal diagram" style={{ display: 'block' }}>
         <defs>
+          <linearGradient id="front-body-glow" x1="36" y1="52" x2="142" y2="370" gradientUnits="userSpaceOnUse"><stop stopColor="#FF8918" stopOpacity=".19" /><stop offset=".48" stopColor="#FFFFFF" stopOpacity=".035" /><stop offset="1" stopColor="#0098F3" stopOpacity=".17" /></linearGradient>
           {uniqueColors.map(color => (
             <marker key={color} id={`arrow-${color.replace('#', '')}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto">
               <path d="M 0 0 L 10 5 L 0 10 z" fill={color}/>
             </marker>
           ))}
         </defs>
-        <circle cx="90" cy="26" r="20" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
-        <line x1="90" y1="46" x2="90" y2="62" stroke="#3F3F46" strokeWidth="2.5"/>
-        <line x1="48" y1="62" x2="132" y2="62" stroke="#3F3F46" strokeWidth="3"/>
-        <line x1="48" y1="62" x2="28" y2="132" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="28" y1="132" x2="16" y2="190" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="132" y1="62" x2="152" y2="132" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="152" y1="132" x2="164" y2="190" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="90" y1="62" x2="90" y2="218" stroke="#3F3F46" strokeWidth="2.5"/>
-        <path d="M 90 80 Q 62 95 58 120" stroke="#3F3F46" strokeWidth="1.5" fill="none" opacity="0.5"/>
-        <path d="M 90 80 Q 118 95 122 120" stroke="#3F3F46" strokeWidth="1.5" fill="none" opacity="0.5"/>
-        <line x1="62" y1="218" x2="118" y2="218" stroke="#3F3F46" strokeWidth="3"/>
-        <line x1="62" y1="218" x2="58" y2="305" stroke="#3F3F46" strokeWidth="2.5"/>
-        <line x1="118" y1="218" x2="122" y2="305" stroke="#3F3F46" strokeWidth="2.5"/>
-        <circle cx="58" cy="305" r="5" stroke="#3F3F46" strokeWidth="2" fill="#161618"/>
-        <circle cx="122" cy="305" r="5" stroke="#3F3F46" strokeWidth="2" fill="#161618"/>
-        <line x1="58" y1="310" x2="56" y2="390" stroke="#3F3F46" strokeWidth="2.5"/>
-        <line x1="122" y1="310" x2="124" y2="390" stroke="#3F3F46" strokeWidth="2.5"/>
-        <line x1="42" y1="392" x2="68" y2="392" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="112" y1="392" x2="138" y2="392" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="90" y1="0" x2="90" y2="410" stroke="rgba(99,102,241,0.2)" strokeWidth="1" strokeDasharray="4,4"/>
+        <path d="M90 47C62 47 48 67 43 105l-12 88c-2 15 8 24 20 21l15-5-8 91c-1 8 3 13 10 13h44c7 0 11-5 10-13l-8-91 15 5c12 3 22-6 20-21l-12-88c-5-38-19-58-47-58Z" fill="url(#front-body-glow)" />
+        <circle cx="90" cy="26" r="20" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
+        <line x1="90" y1="46" x2="90" y2="62" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <line x1="48" y1="62" x2="132" y2="62" stroke="rgba(255,255,255,0.32)" strokeWidth="3"/>
+        <line x1="48" y1="62" x2="28" y2="132" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <line x1="28" y1="132" x2="16" y2="190" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <line x1="132" y1="62" x2="152" y2="132" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <line x1="152" y1="132" x2="164" y2="190" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <path d="M 90 80 Q 62 95 58 120" stroke="rgba(255,255,255,0.32)" strokeWidth="1.5" fill="none" opacity="0.5"/>
+        <path d="M 90 80 Q 118 95 122 120" stroke="rgba(255,255,255,0.32)" strokeWidth="1.5" fill="none" opacity="0.5"/>
+        <line x1="62" y1="218" x2="118" y2="218" stroke="rgba(255,255,255,0.32)" strokeWidth="3"/>
+        <line x1="62" y1="218" x2="58" y2="305" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <line x1="118" y1="218" x2="122" y2="305" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <circle cx="58" cy="305" r="5" stroke="rgba(255,255,255,0.32)" strokeWidth="2" fill="var(--surface)"/>
+        <circle cx="122" cy="305" r="5" stroke="rgba(255,255,255,0.32)" strokeWidth="2" fill="var(--surface)"/>
+        <line x1="58" y1="310" x2="56" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <line x1="122" y1="310" x2="124" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <line x1="42" y1="392" x2="68" y2="392" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <line x1="112" y1="392" x2="138" y2="392" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <path d="M40 398H140" stroke="rgba(255,255,255,.12)" strokeWidth="1" />
         {relevantFindings.map(f => {
           const pos = FRONT_ANNOTATION_POSITIONS[f.imbalance_key]
           const color = ZONE_COLORS[f.zone]
@@ -216,25 +218,27 @@ function SideSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUr
       )}
       <svg viewBox="0 0 150 410" width="130" height="357" aria-label="Side view skeletal diagram" style={{ display: 'block' }}>
         <defs>
+          <linearGradient id="side-body-glow" x1="50" y1="42" x2="104" y2="380" gradientUnits="userSpaceOnUse"><stop stopColor="#FF8918" stopOpacity=".18" /><stop offset=".5" stopColor="#FFFFFF" stopOpacity=".03" /><stop offset="1" stopColor="#0098F3" stopOpacity=".16" /></linearGradient>
           {uniqueColors.map(color => (
             <marker key={color} id={`arrow-side-${color.replace('#', '')}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto">
               <path d="M 0 0 L 10 5 L 0 10 z" fill={color}/>
             </marker>
           ))}
         </defs>
-        <circle cx="80" cy="26" r="20" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
-        <path d="M 75 46 Q 70 54 68 62" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
-        <path d="M 68 62 Q 64 80 62 100" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
-        <line x1="68" y1="62" x2="88" y2="120" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="88" y1="120" x2="95" y2="178" stroke="#3F3F46" strokeWidth="2"/>
-        <path d="M 62 100 Q 58 135 60 165" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
-        <path d="M 60 165 Q 64 192 66 218" stroke="#3F3F46" strokeWidth="2.5" fill="none"/>
-        <path d="M 66 218 Q 72 228 70 238" stroke="#3F3F46" strokeWidth="3" fill="none"/>
-        <line x1="70" y1="238" x2="72" y2="305" stroke="#3F3F46" strokeWidth="2.5"/>
-        <circle cx="72" cy="305" r="5" stroke="#3F3F46" strokeWidth="2" fill="#161618"/>
-        <line x1="72" y1="310" x2="74" y2="390" stroke="#3F3F46" strokeWidth="2.5"/>
-        <line x1="60" y1="390" x2="100" y2="390" stroke="#3F3F46" strokeWidth="2"/>
-        <line x1="72" y1="0" x2="72" y2="410" stroke="rgba(99,102,241,0.2)" strokeWidth="1" strokeDasharray="4,4"/>
+        <path d="M76 47c-18 10-22 34-19 69l6 99c1 14 7 24 15 28l-10 59c-1 8 3 12 10 12h12c6 0 10-5 8-12l-13-67c11-9 15-29 10-49l-13-58 18 53c4 12 14 14 18 5 2-4 1-10-1-16L98 91c-5-25-10-38-22-44Z" fill="url(#side-body-glow)" />
+        <circle cx="80" cy="26" r="20" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
+        <path d="M 75 46 Q 70 54 68 62" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
+        <path d="M 68 62 Q 64 80 62 100" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
+        <line x1="68" y1="62" x2="88" y2="120" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <line x1="88" y1="120" x2="95" y2="178" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <path d="M 62 100 Q 58 135 60 165" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
+        <path d="M 60 165 Q 64 192 66 218" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
+        <path d="M 66 218 Q 72 228 70 238" stroke="rgba(255,255,255,0.32)" strokeWidth="3" fill="none"/>
+        <line x1="70" y1="238" x2="72" y2="305" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <circle cx="72" cy="305" r="5" stroke="rgba(255,255,255,0.32)" strokeWidth="2" fill="var(--surface)"/>
+        <line x1="72" y1="310" x2="74" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
+        <line x1="60" y1="390" x2="100" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
+        <path d="M50 398H112" stroke="rgba(255,255,255,.12)" strokeWidth="1" />
         {relevantFindings.map(f => {
           const pos = SIDE_ANNOTATION_POSITIONS[f.imbalance_key]
           const color = ZONE_COLORS[f.zone]
@@ -268,31 +272,31 @@ function SkeletalDiagramSection({
   }
 
   return (
-    <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+    <div className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Postural Alignment Diagram
       </h2>
       <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
           <FrontSkeleton findings={findings} captureUrl={frontCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{viewFindingsLabel('front')}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{viewFindingsLabel('front')}</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
           <SideSkeleton findings={findings} captureUrl={sideCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#8A8A93', fontWeight: 500 }}>{viewFindingsLabel('side')}</div>
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{viewFindingsLabel('side')}</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
-        {[{ color: '#22C55E', label: 'Maintain' }, { color: '#F59E0B', label: 'Warning' }, { color: '#EF4444', label: 'Danger' }].map(({ color, label }) => (
+        {[{ color: 'var(--maintain)', label: 'Maintain' }, { color: 'var(--warning)', label: 'Warning' }, { color: 'var(--danger)', label: 'Danger' }].map(({ color, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }}/>
-            <span style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>{label}</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{label}</span>
           </div>
         ))}
       </div>
-      <p style={{ marginTop: 14, fontSize: '0.68rem', color: '#A1A1AA', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5 }}>
+      <p style={{ marginTop: 14, fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5 }}>
         Diagrams are schematic representations only and do not depict literal measurements or anatomical accuracy.
         Markers indicate regions of interest detected during screening.
       </p>
@@ -330,16 +334,16 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
   return (
     <div>
       <div style={{ position: 'relative', height: 12, borderRadius: 6, overflow: 'hidden',
-        background: 'linear-gradient(to right, #22C55E 0%, #22C55E 15%, #F59E0B 50%, #EF4444 85%, #EF4444 100%)',
+        background: 'linear-gradient(to right, var(--maintain) 0%, var(--maintain) 15%, var(--warning) 50%, var(--danger) 85%, var(--danger) 100%)',
         marginBottom: 8 }}>
         <div style={{ position: 'absolute', left: positionPct + '%', top: '50%', transform: 'translate(-50%, -50%)',
-          width: 18, height: 18, borderRadius: '50%', background: color, border: '3px solid #0A0A0B',
-          boxShadow: '0 0 8px ' + color + '88' }} />
+          width: 18, height: 18, borderRadius: '50%', background: color, border: '3px solid var(--background)',
+          boxShadow: `0 0 8px color-mix(in srgb, ${color} 53%, transparent)` }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#8A8A93' }}>
-        <span style={{ color: '#22C55E' }}>S (Best)</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+        <span style={{ color: 'var(--maintain)' }}>S (Best)</span>
         <span>Deviation: {score}</span>
-        <span style={{ color: '#EF4444' }}>E (Worst)</span>
+        <span style={{ color: 'var(--danger)' }}>E (Worst)</span>
       </div>
     </div>
   )
@@ -348,16 +352,16 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
 function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
   return (
     <div>
-      <h3 style={{ fontSize: '0.78rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grade Reference</h3>
+      <h3 style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grade Reference</h3>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {GRADE_BANDS.map(b => (
           <div key={b.grade} style={{ padding: '6px 10px', borderRadius: 8,
-            background: b.grade === currentGrade ? b.color + '22' : 'rgba(255,255,255,0.04)',
+            background: b.grade === currentGrade ? `color-mix(in srgb, ${b.color} 13%, transparent)` : 'rgba(255,255,255,0.04)',
             border: '1px solid ' + (b.grade === currentGrade ? b.color : 'rgba(255,255,255,0.08)'),
             textAlign: 'center', minWidth: 56 }}>
             <div style={{ fontSize: '1rem', fontWeight: 900, color: b.color }}>{b.grade}</div>
-            <div style={{ fontSize: '0.68rem', color: '#A1A1AA', marginTop: 1 }}>{b.range}</div>
-            <div style={{ fontSize: '0.65rem', color: '#A1A1AA' }}>{b.desc}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: 1 }}>{b.range}</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{b.desc}</div>
           </div>
         ))}
       </div>
@@ -381,7 +385,7 @@ function FindingCard({ f }: { f: Finding }) {
     <div
       data-testid={`finding-card-${f.imbalance_key}`}
       style={{
-        background: isUnreliable ? '#111113' : '#161618',
+        background: isUnreliable ? 'var(--surface-elevated)' : 'var(--surface)',
         border: '1px solid ' + (isUnreliable ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'),
         borderRadius: 12, padding: 16,
         borderLeft: '3px solid ' + zoneColor,
@@ -390,18 +394,18 @@ function FindingCard({ f }: { f: Finding }) {
     >
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontWeight: 600, color: isUnreliable ? '#A1A1AA' : '#F5F5F5', fontSize: '0.9rem' }}>
+        <span style={{ fontWeight: 600, color: isUnreliable ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '0.9rem' }}>
           {f.label}
-          <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#8A8A93' }}>({f.view_used} view)</span>
+          <span style={{ marginLeft: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>({f.view_used} view)</span>
         </span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {isUnreliable && (
             <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
-              background: 'rgba(113,113,122,0.2)', color: '#8A8A93', border: '1px solid rgba(113,113,122,0.4)',
+              background: 'rgba(113,113,122,0.2)', color: 'var(--text-muted)', border: '1px solid rgba(113,113,122,0.4)',
               textTransform: 'uppercase' }}>Unreliable</span>
           )}
           <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-            background: zoneColor + '22', color: isUnreliable ? '#A1A1AA' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
+            background: `color-mix(in srgb, ${zoneColor} 13%, transparent)`, color: isUnreliable ? 'var(--text-secondary)' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
           {f.borderline ? (
             <span title="This reading sits within its own capture variability of a zone boundary — consider the zone as approximate."
               style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
@@ -417,10 +421,10 @@ function FindingCard({ f }: { f: Finding }) {
       </div>
 
       {/* Deviation */}
-      <div style={{ fontSize: '0.875rem', color: isUnreliable ? '#A1A1AA' : '#D4D4D8', marginBottom: 10 }}>
+      <div style={{ fontSize: '0.875rem', color: isUnreliable ? 'var(--text-secondary)' : 'var(--text-secondary)', marginBottom: 10 }}>
         <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation from 0&deg; standard
         {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' && (
-          <span style={{ color: '#A1A1AA' }}> — {f.direction}</span>
+          <span style={{ color: 'var(--text-secondary)' }}> — {f.direction}</span>
         )}
       </div>
 
@@ -428,7 +432,7 @@ function FindingCard({ f }: { f: Finding }) {
       {!isUnreliable && (
         <div style={{ marginBottom: f.causes_text ? 12 : 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: '0.72rem', color: '#8A8A93' }}>Severity</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Severity</span>
             <span style={{ fontSize: '0.72rem', fontWeight: 600, color: zoneColor }}>{f.severity_pct}%</span>
           </div>
           <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
@@ -439,8 +443,8 @@ function FindingCard({ f }: { f: Finding }) {
 
       {/* Behavioral causes */}
       {f.causes_text && (
-        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.5 }}>
-          <span style={{ fontWeight: 600, color: '#8A8A93', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
+        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
           {f.causes_text}
         </div>
       )}
@@ -453,12 +457,12 @@ function FindingCard({ f }: { f: Finding }) {
             style={{
               background: 'none', border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
-              color: '#A1A1AA', fontSize: '0.75rem', fontWeight: 600,
+              color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: 6, width: '100%',
             }}
           >
-            <span style={{ color: '#818CF8' }}>Muscle Analysis</span>
-            <span style={{ marginLeft: 'auto', color: '#A1A1AA', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+            <span style={{ color: 'var(--brand)' }}>Muscle Analysis</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
           </button>
           {expanded && (
             <div style={{ marginTop: 12, padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: 10 }}>
@@ -488,12 +492,12 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Detailed Findings
       </h2>
       {regions.map(region => (
         <div key={region} style={{ marginBottom: 16 }}>
-          <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#818CF8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {REGION_LABELS[region] ?? region}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -514,23 +518,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   informational: 'Info',
 }
 const CATEGORY_COLORS: Record<string, string> = {
-  stretch: '#818CF8',
-  strengthen: '#22C55E',
-  mobility: '#F59E0B',
+  stretch: 'var(--brand)',
+  strengthen: 'var(--maintain)',
+  mobility: 'var(--warning)',
   activation: '#F472B6',
-  informational: '#A1A1AA',
+  informational: 'var(--text-secondary)',
 }
 
 function ExerciseAccordionItem({ exercise }: { exercise: ExerciseContent }) {
   const [open, setOpen] = useState(false)
-  const catColor = CATEGORY_COLORS[exercise.category] ?? '#6366F1'
+  const catColor = CATEGORY_COLORS[exercise.category] ?? 'var(--brand)'
   const catLabel = CATEGORY_LABELS[exercise.category] ?? exercise.category
 
   return (
     <div
       data-testid={`exercise-item-${exercise.slug}`}
       style={{
-        background: '#161618', border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 10, overflow: 'hidden', marginBottom: 8,
       }}
     >
@@ -545,39 +549,39 @@ function ExerciseAccordionItem({ exercise }: { exercise: ExerciseContent }) {
       >
         <span style={{
           padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700,
-          background: catColor + '22', color: catColor, textTransform: 'uppercase',
+          background: `color-mix(in srgb, ${catColor} 13%, transparent)`, color: catColor, textTransform: 'uppercase',
           letterSpacing: '0.05em', flexShrink: 0,
         }}>{catLabel}</span>
-        <span style={{ flex: 1, fontWeight: 600, color: '#F5F5F5', fontSize: '0.9rem' }}>
+        <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
           {exercise.name}
         </span>
         <span style={{
-          color: '#A1A1AA', fontSize: '0.8rem', transition: 'transform 0.2s',
+          color: 'var(--text-secondary)', fontSize: '0.8rem', transition: 'transform 0.2s',
           display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
         }}>▾</span>
       </button>
       {open && (
         <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <p style={{ color: '#D4D4D8', fontSize: '0.875rem', lineHeight: 1.6, margin: '12px 0 10px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6, margin: '12px 0 10px' }}>
             {exercise.instructions}
           </p>
           <div style={{ display: 'flex', gap: 16 }}>
             {exercise.sets > 0 && (
-              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.sets}</div>
-                <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Sets</div>
+              <div style={{ background: 'rgba(0,152,243,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brand)' }}>{exercise.sets}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
             {exercise.dosageType !== 'dynamic' && exercise.holdSeconds > 0 && (
-              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.holdSeconds}s</div>
-                <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Hold</div>
+              <div style={{ background: 'rgba(0,152,243,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brand)' }}>{exercise.holdSeconds}s</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Hold</div>
               </div>
             )}
             {exercise.reps != null && (
-              <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8' }}>{exercise.reps.min}–{exercise.reps.max}</div>
-                <div style={{ fontSize: '0.7rem', color: '#A1A1AA', textTransform: 'uppercase' }}>Reps</div>
+              <div style={{ background: 'rgba(0,152,243,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brand)' }}>{exercise.reps.min}–{exercise.reps.max}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
           </div>
@@ -593,7 +597,7 @@ function ExercisesSection({ exercises }: { exercises: ExerciseContent[] }) {
   return (
     <div data-testid="exercises-section" style={{ marginBottom: 24 }}>
       <h2 style={{
-        fontSize: '0.875rem', fontWeight: 600, color: '#A1A1AA',
+        fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)',
         marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
       }}>
         All Matched Exercises (library reference)
@@ -875,9 +879,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   if (loading) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, border: '4px solid rgba(99,102,241,0.2)', borderTop: '4px solid #6366F1', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
+        <div style={{ width: 48, height: 48, border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
         <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-        <p style={{ color: '#A1A1AA' }}>Loading results...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
       </div>
     )
   }
@@ -885,8 +889,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   if (error || !assessment) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <p style={{ color: '#EF4444', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
-        <Link href="/clients" style={{ color: '#818CF8', textDecoration: 'none' }}>Back to Clients</Link>
+        <p style={{ color: 'var(--danger)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
+        <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none' }}>Back to Clients</Link>
       </div>
     )
   }
@@ -907,24 +911,25 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
     .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 960, margin: '0 auto' }}>
+    <div className="app-standard-page">
       <div style={{ marginBottom: 20 }}>
         <Link href={'/clients/' + assessment.clients.id}
-          style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
+          style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
           ← Back to {clientName}
         </Link>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', margin: '0 0 4px' }}>Assessment Results</h1>
-        <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>
+      <div style={{ marginBottom: 28 }}>
+        <p className="app-page-kicker">Screening review</p>
+        <h1 className="app-page-heading" style={{ margin: '0 0 7px' }}>Assessment results</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
           {clientName} — {new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
         {assessment.level_verified === true && (
           <span data-testid="level-badge" style={{
             display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 6,
             background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)',
-            color: '#34D399', fontSize: '0.75rem', fontWeight: 600,
+            color: 'var(--maintain)', fontSize: '0.75rem', fontWeight: 600,
           }}>
             Camera level verified
             {assessment.tilt_corrected && rollNotes.length > 0 && ` — tilt-corrected (${rollNotes.join(', ')})`}
@@ -933,29 +938,29 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         {assessment.level_verified === false && (
           <span data-testid="level-badge" style={{
             display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 6,
-            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
-            color: '#F59E0B', fontSize: '0.75rem', fontWeight: 600,
+            background: 'rgba(255,137,24,0.1)', border: '1px solid rgba(255,137,24,0.3)',
+            color: 'var(--warning)', fontSize: '0.75rem', fontWeight: 600,
           }}>
-            ⚠ Camera level not verified — results may be less accurate
+            <span aria-hidden="true">△</span> Camera level not verified — results may be less accurate
           </span>
         )}
       </div>
 
       <div data-testid="disclaimer" style={{
-        background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
-        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: '#D4D4D8', lineHeight: 1.5 }}>
-        Posture AI is a <strong style={{ color: '#818CF8' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
+        background: 'rgba(0,152,243,0.08)', border: '1px solid rgba(0,152,243,0.25)',
+        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        Posture AI is a <strong style={{ color: 'var(--brand)' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
       </div>
 
-      <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#A1A1AA', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Overall Rating
         </h2>
         <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 24 }}>
           <GradeRing grade={grade} score={score} />
           <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: 4 }}>{gradeDesc} posture</div>
-            <div style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: 16 }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{gradeDesc} posture</div>
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
               Deviation: {score}/100 (lower is better) — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
             </div>
             <ScoreBar score={score} grade={grade} />
@@ -967,17 +972,17 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       {/* Launch guided session (in-clinic) — the headline corrective action */}
       {sessionPreview ? (
         <div style={{
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.16), rgba(34,197,94,0.07))',
-          border: '1px solid rgba(99,102,241,0.32)', borderRadius: 16, padding: 20, marginBottom: 24,
+          background: 'linear-gradient(135deg, rgba(0,152,243,0.16), rgba(34,197,94,0.07))',
+          border: '1px solid rgba(0,152,243,0.32)', borderRadius: 16, padding: 20, marginBottom: 24,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
         }}>
           <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#F5F5F5', marginBottom: 4 }}>Guided corrective session</div>
-            <div style={{ color: '#A1A1AA', fontSize: '0.85rem' }}>
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Guided corrective session</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
               {sessionPreview.items.length} movements · ≈ {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
             </div>
-            {!isApproved && <div style={{ color: '#F59E0B', fontSize: '0.78rem', marginTop: 6 }}>Approve the assessment below to launch.</div>}
-            {launchError && <div role="alert" style={{ color: '#F87171', fontSize: '0.8rem', marginTop: 6 }}>{launchError}</div>}
+            {!isApproved && <div style={{ color: 'var(--warning)', fontSize: '0.78rem', marginTop: 6 }}>Approve the assessment below to launch.</div>}
+            {launchError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: 6 }}>{launchError}</div>}
           </div>
           <button
             onClick={handleLaunch}
@@ -985,10 +990,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             data-testid="launch-session"
             style={{
               padding: '0 30px', minHeight: 56, borderRadius: 999, border: 'none',
-              background: isApproved && !launching ? '#6366F1' : 'rgba(99,102,241,0.25)',
+              background: isApproved && !launching ? 'var(--brand)' : 'rgba(0,152,243,0.25)',
               color: '#fff', fontWeight: 800, fontSize: '1rem',
               cursor: isApproved && !launching ? 'pointer' : 'not-allowed',
-              boxShadow: isApproved && !launching ? '0 10px 28px rgba(99,102,241,0.4)' : 'none', whiteSpace: 'nowrap',
+              boxShadow: isApproved && !launching ? '0 10px 28px rgba(0,152,243,0.4)' : 'none', whiteSpace: 'nowrap',
             }}
           >
             {launching ? 'Starting…' : <><span aria-hidden="true">▶ </span>Launch session</>}
@@ -996,7 +1001,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           <div style={{ flexBasis: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginTop: 2 }}>
             {shareLink ? (
               <div>
-                <div style={{ color: '#A1A1AA', fontSize: '0.78rem', marginBottom: 6 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: 6 }}>
                   Client link — expires in 14 days. Send it only to this client.
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1008,14 +1013,14 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
                     style={{
                       flex: 1, minWidth: 200, minHeight: 40, padding: '0 12px', borderRadius: 8,
                       border: '1px solid rgba(255,255,255,0.14)', background: '#0E0E10',
-                      color: '#E4E4E7', fontSize: '0.8rem', fontFamily: 'monospace',
+                      color: 'var(--text-primary)', fontSize: '0.8rem', fontFamily: 'monospace',
                     }}
                   />
                   <button
                     onClick={copyShareLink}
                     style={{
-                      minHeight: 40, padding: '0 16px', borderRadius: 8, border: '1px solid rgba(129,140,248,0.5)',
-                      background: 'transparent', color: '#818CF8', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                      minHeight: 40, padding: '0 16px', borderRadius: 8, border: '1px solid rgba(0,152,243,0.5)',
+                      background: 'transparent', color: 'var(--brand)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
                     }}
                   >
                     {copied ? '✓ Copied' : 'Copy'}
@@ -1029,24 +1034,24 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
                 data-testid="share-session"
                 style={{
                   minHeight: 44, padding: '0 18px', borderRadius: 999,
-                  border: '1px solid rgba(129,140,248,0.5)', background: 'transparent',
-                  color: isApproved ? '#818CF8' : '#52525B', fontWeight: 700, fontSize: '0.9rem',
+                  border: '1px solid rgba(0,152,243,0.5)', background: 'transparent',
+                  color: isApproved ? 'var(--brand)' : 'var(--text-muted)', fontWeight: 700, fontSize: '0.9rem',
                   cursor: isApproved && !sharing ? 'pointer' : 'not-allowed',
                 }}
               >
-                {sharing ? 'Creating link…' : '🔗 Share with client'}
+                {sharing ? 'Creating link…' : 'Share with client ↗'}
               </button>
             )}
-            {shareError && <div role="alert" style={{ color: '#F87171', fontSize: '0.8rem', marginTop: 6 }}>{shareError}</div>}
+            {shareError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: 6 }}>{shareError}</div>}
           </div>
           {runList.length > 0 && (
             <div style={{ flexBasis: '100%', marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
-              <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A1A1AA', marginBottom: 8 }}>Session runs</div>
+              <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>Session runs</div>
               {runList.map((r) => (
-                <div key={r.session_id + r.created_at} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, color: '#D4D4D8', padding: '4px 0' }}>
+                <div key={r.session_id + r.created_at} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0' }}>
                   <span>{new Date(r.created_at).toLocaleDateString()}</span>
                   <span style={{ textTransform: 'capitalize' }}>{r.status.replace('_', ' ')}</span>
-                  <span style={{ color: r.red_flag_acknowledged ? '#34D399' : '#F59E0B', fontWeight: 700 }}>
+                  <span style={{ color: r.red_flag_acknowledged ? 'var(--maintain)' : 'var(--warning)', fontWeight: 700 }}>
                     {r.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}
                   </span>
                 </div>
@@ -1055,9 +1060,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           )}
         </div>
       ) : (
-        <div style={{ background: '#161618', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 16, padding: 20, marginBottom: 24 }}>
-          <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>No guided session yet</div>
-          <div style={{ color: '#A1A1AA', fontSize: '0.85rem', lineHeight: 1.5 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,137,24,0.3)', borderRadius: 16, padding: 20, marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, color: 'var(--warning)', marginBottom: 4 }}>No guided session yet</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
             There aren&apos;t enough reliably-measured findings to build a corrective session. Re-capture clear front &amp; side photos and try again.
           </div>
         </div>
@@ -1091,33 +1096,33 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
       <div style={{
         background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
-        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: '#8A8A93', lineHeight: 1.5, marginBottom: 24 }}>
-        <strong style={{ color: '#EF4444' }}>SCREENING TOOL ONLY.</strong> These findings are for educational and informational purposes only. Always consult a qualified health professional for evaluation and clinical decisions.
+        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 24 }}>
+        <strong style={{ color: 'var(--danger)' }}>SCREENING TOOL ONLY.</strong> These findings are for educational and informational purposes only. Always consult a qualified health professional for evaluation and clinical decisions.
       </div>
 
       {pdfUrl && (
-        <div style={{ background: '#161618', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <p style={{ color: '#22C55E', fontSize: '0.875rem', marginBottom: 8 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid rgba(0,152,243,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <p style={{ color: 'var(--maintain)', fontSize: '0.875rem', marginBottom: 8 }}>
             {pdfKind === 'client' ? 'Client report' : 'Practitioner report'} generated successfully.
           </p>
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
-            padding: '10px 20px', borderRadius: 8, background: '#4F46E5',
+            padding: '10px 20px', borderRadius: 8, background: 'var(--brand)',
             color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>
             Download {pdfKind === 'client' ? 'Client Report' : 'Practitioner PDF'}
           </a>
         </div>
       )}
-      {pdfError && <div role="alert" style={{ color: '#EF4444', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
-      {auxError && <div role="alert" style={{ color: '#F87171', fontSize: '0.85rem', marginBottom: 16 }}>{auxError}</div>}
+      {pdfError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
+      {auxError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 16 }}>{auxError}</div>}
 
       {priorAssessments.length > 0 && (
-        <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <label htmlFor="compare-prior" style={{ fontSize: '0.8rem', color: '#A1A1AA', display: 'block', marginBottom: 8 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <label htmlFor="compare-prior" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
             Compare PDF to prior assessment (optional):
           </label>
           <select id="compare-prior" aria-label="Compare PDF to prior assessment" value={compareToId} onChange={e => setCompareToId(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: 8, background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.15)',
-              color: '#F5F5F5', fontSize: '0.875rem', width: '100%', cursor: 'pointer' }}>
+            style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--background)', border: '1px solid rgba(255,255,255,0.15)',
+              color: 'var(--text-primary)', fontSize: '0.875rem', width: '100%', cursor: 'pointer' }}>
             <option value="">No comparison (single assessment)</option>
             {priorAssessments.map(a => (
               <option key={a.id} value={a.id}>
@@ -1133,19 +1138,19 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         const isApproved = approved || !!assessment.practitioner_approved
         return (
           <div style={{
-            background: isApproved ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
-            border: '1px solid ' + (isApproved ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'),
+            background: isApproved ? 'rgba(34,197,94,0.08)' : 'rgba(255,137,24,0.08)',
+            border: '1px solid ' + (isApproved ? 'rgba(34,197,94,0.3)' : 'rgba(255,137,24,0.3)'),
             borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
           }}>
-            <span style={{ fontSize: '0.85rem', color: '#D4D4D8' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               {isApproved
                 ? '✓ Reviewed & approved by practitioner — report export enabled.'
                 : 'Review these findings, then approve to enable report export. Exercises are suggestions for the practitioner to apply, not medical orders.'}
             </span>
             {!isApproved && (
               <button onClick={handleApprove} disabled={approving} style={{
-                padding: '9px 16px', borderRadius: 8, background: '#F59E0B', color: '#1A1205',
+                padding: '9px 16px', borderRadius: 8, background: 'var(--warning)', color: '#1A1205',
                 border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving ? 'not-allowed' : 'pointer',
               }}>{approving ? 'Approving…' : 'Approve report'}</button>
             )}
@@ -1156,27 +1161,27 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link href={'/clients/' + assessment.clients.id} style={{
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
-          color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)',
+          color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Back to Client</Link>
         <button onClick={() => handleGeneratePdf('practitioner')} disabled={pdfLoading !== null}
           style={{ padding: '12px 24px', borderRadius: 10,
-            background: pdfLoading !== null ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.15)',
-            color: pdfLoading !== null ? '#6366F1aa' : '#6366F1',
-            border: '1px solid rgba(99,102,241,0.3)',
+            background: pdfLoading !== null ? 'rgba(0,152,243,0.06)' : 'rgba(0,152,243,0.15)',
+            color: pdfLoading !== null ? 'color-mix(in srgb, var(--brand) 67%, transparent)' : 'var(--brand)',
+            border: '1px solid rgba(0,152,243,0.3)',
             fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'practitioner' ? 'Generating PDF...' : 'Practitioner PDF'}
         </button>
         <button onClick={() => handleGeneratePdf('client')} disabled={pdfLoading !== null}
           style={{ padding: '12px 24px', borderRadius: 10,
             background: pdfLoading !== null ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
-            color: pdfLoading !== null ? '#22C55Eaa' : '#22C55E',
+            color: pdfLoading !== null ? 'color-mix(in srgb, var(--maintain) 67%, transparent)' : 'var(--maintain)',
             border: '1px solid rgba(34,197,94,0.3)',
             fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'client' ? 'Generating…' : 'Client Report'}
         </button>
         <Link href="/assessments/new" style={{
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
-          color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.08)',
+          color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>New Assessment</Link>
       </div>
     </div>
@@ -1193,16 +1198,16 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
   const pill = (ok: boolean, label: string) => (
     <span style={{
       padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700,
-      background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-      color: ok ? '#34D399' : '#F59E0B',
-      border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+      background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(255,137,24,0.12)',
+      color: ok ? 'var(--maintain)' : 'var(--warning)',
+      border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'rgba(255,137,24,0.3)'}`,
     }}>{label}</span>
   )
   return (
-    <div data-testid="accuracy-card" style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#A1A1AA', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h2>
-      <p style={{ color: '#8A8A93', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
-        A single-photo <strong style={{ color: '#D4D4D8' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
+    <div data-testid="accuracy-card" className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
+        A single-photo <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
         {pill(assessment.level_verified === true, assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
@@ -1213,11 +1218,11 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {withStability.map(f => {
             const s = f.stability_score
-            const stColor = s == null ? '#A1A1AA' : s >= 0.8 ? '#22C55E' : s >= 0.6 ? '#F59E0B' : '#EF4444'
+            const stColor = s == null ? 'var(--text-secondary)' : s >= 0.8 ? 'var(--maintain)' : s >= 0.6 ? 'var(--warning)' : 'var(--danger)'
             return (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
-                <span style={{ color: '#D4D4D8', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>
-                {f.uncertainty_deg != null && <span style={{ color: '#A1A1AA', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>±{f.uncertainty_deg.toFixed(1)}°</span>}
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>
+                {f.uncertainty_deg != null && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>±{f.uncertainty_deg.toFixed(1)}°</span>}
                 {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{Math.round(s * 100)}% stable</span>}
               </div>
             )

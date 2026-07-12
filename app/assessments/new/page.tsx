@@ -364,16 +364,17 @@ function NewAssessmentWizard() {
   const fullScreenCapture = step === 2 && !testMode
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: '960px', margin: '0 auto' }}>
+    <div className="app-standard-page">
       {!fullScreenCapture && (
         <>
           <div style={{ marginBottom: '24px' }}>
-            <Link href="/clients" style={{ color: '#818CF8', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>← Back to Clients</Link>
+            <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>← Back to Clients</Link>
           </div>
+          <p className="app-page-kicker">Guided capture</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#F5F5F5', margin: 0 }}>New Assessment</h1>
+            <h1 className="app-page-heading" style={{ margin: 0 }}>New assessment</h1>
             {testMode && (
-              <span style={{ padding: '3px 10px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#818CF8' }}>
+              <span style={{ padding: '3px 10px', background: 'rgba(0,152,243,0.15)', border: '1px solid rgba(0,152,243,0.35)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand)' }}>
                 TEST MODE
               </span>
             )}
@@ -390,15 +391,15 @@ function NewAssessmentWizard() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                     <div style={{
                       width: '32px', height: '32px', borderRadius: '50%',
-                      background: isActive ? '#4F46E5' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
-                      border: '2px solid ' + (isActive ? '#6366F1' : isDone ? '#10B981' : 'rgba(255,255,255,0.15)'),
+                      background: isActive ? 'var(--brand)' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
+                      border: '2px solid ' + (isActive ? 'var(--brand)' : isDone ? '#10B981' : 'rgba(255,255,255,0.15)'),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: isActive || isDone ? '#fff' : '#8A8A93',
+                      color: isActive || isDone ? '#fff' : 'var(--text-muted)',
                       fontSize: '0.85rem', fontWeight: 700, flexShrink: 0,
                     }}>
                       {isDone ? '✓' : stepNum}
                     </div>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? '#818CF8' : isDone ? '#34D399' : '#8A8A93', whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? 'var(--brand)' : isDone ? 'var(--maintain)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>{label}</span>
                   </div>
                   {i < STEPS.length - 1 && (
                     <div style={{ flex: 1, height: '2px', background: isDone ? '#10B981' : 'rgba(255,255,255,0.08)', margin: '14px 8px 0', minWidth: '16px' }} />
@@ -414,25 +415,27 @@ function NewAssessmentWizard() {
       {step === 1 && (
         <div>
           <div style={{ marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#F5F5F5', margin: '0 0 4px' }}>Step 1: Select Client</h2>
-            <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>Search and select the client you are assessing.</p>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>Step 1: Select Client</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>Search and select the client you are assessing.</p>
           </div>
           {testMode && (
-            <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.875rem', color: '#818CF8' }}>
+            <div style={{ background: 'rgba(0,152,243,0.08)', border: '1px solid rgba(0,152,243,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.875rem', color: 'var(--brand)' }}>
               Test mode active — fixture landmarks will be used instead of MediaPipe.
             </div>
           )}
-          <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+          <div className="app-panel" style={{ padding: '24px' }}>
+            <div className="app-search-shell">
             <input type="text" placeholder="Search clients by name..." value={clientSearch} onChange={e => setClientSearch(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#F5F5F5', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
             />
+            </div>
             {loadingClients ? (
-              <p style={{ color: '#A1A1AA', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
+              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : clientsError ? (
-              <p role="alert" style={{ color: '#F87171', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
+              <p role="alert" style={{ color: 'var(--danger)', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
             ) : filteredClients.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#A1A1AA' }}>
-                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: '#818CF8' }}>Create a client</Link></span>}
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
+                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link></span>}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
@@ -441,16 +444,16 @@ function NewAssessmentWizard() {
                   return (
                     <button key={c.id} onClick={() => setSelectedClient(c)} style={{
                       width: '100%', padding: '14px 16px', textAlign: 'left',
-                      background: isSelected ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: '1px solid ' + (isSelected ? '#6366F1' : 'rgba(255,255,255,0.08)'),
-                      borderRadius: '10px', cursor: 'pointer', color: '#F5F5F5', transition: 'all 0.15s ease', minHeight: '44px',
+                      background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
+                      border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
+                      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', transition: 'all 0.15s ease', minHeight: '44px',
                     }}>
                       <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
                         {c.first_name} {c.last_name}
-                        {isSelected && <span style={{ color: '#818CF8', marginLeft: '8px' }}>✓ Selected</span>}
+                        {isSelected && <span style={{ color: 'var(--brand)', marginLeft: '8px' }}>✓ Selected</span>}
                       </span>
                       {c.date_of_birth && (
-                        <span style={{ display: 'block', fontSize: '0.8rem', color: '#A1A1AA', marginTop: '2px' }}>
+                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                           DOB: {new Date(c.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}
                         </span>
                       )}
@@ -461,7 +464,7 @@ function NewAssessmentWizard() {
             )}
           </div>
           {ageGateError && (
-            <div role="alert" style={{ marginTop: '16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px', color: '#EF4444', fontSize: '0.875rem' }}>
+            <div role="alert" style={{ marginTop: '16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px', color: 'var(--danger)', fontSize: '0.875rem' }}>
               {ageGateError}
               {selectedClient && ageGateError.includes('date of birth') && (
                 <>
@@ -486,7 +489,7 @@ function NewAssessmentWizard() {
               disabled={!selectedClient || checkingConsent}
               style={{
                 padding: '12px 28px', borderRadius: '10px',
-                background: selectedClient && !checkingConsent ? '#4F46E5' : 'rgba(99,102,241,0.25)',
+                background: selectedClient && !checkingConsent ? 'var(--brand)' : 'rgba(0,152,243,0.25)',
                 color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
                 cursor: selectedClient && !checkingConsent ? 'pointer' : 'not-allowed', minHeight: '44px',
               }}>
@@ -501,21 +504,21 @@ function NewAssessmentWizard() {
         testMode ? (
           <div>
             <div style={{ marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#F5F5F5', margin: '0 0 4px' }}>Step 2: Confirm Test Mode</h2>
-              <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>Test mode — no client required</p>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>Step 2: Confirm Test Mode</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>Test mode — no client required</p>
             </div>
-            <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-              <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                <p style={{ color: '#818CF8', fontWeight: 600, margin: '0 0 8px' }}>Test Mode Active</p>
-                <p style={{ color: '#A1A1AA', fontSize: '0.875rem', margin: 0 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+              <div style={{ background: 'rgba(0,152,243,0.08)', border: '1px solid rgba(0,152,243,0.25)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                <p style={{ color: 'var(--brand)', fontWeight: 600, margin: '0 0 8px' }}>Test Mode Active</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
                   Pre-computed fixture landmarks will be injected directly into the scoring engine.
                   Results will be saved to the database and you will be redirected to the results page.
                 </p>
               </div>
             </div>
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
-              <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(99,102,241,0.4)' : '#4F46E5', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
+              <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
+              <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
                 {submitting ? 'Submitting...' : 'Run Test Analysis'}
               </button>
             </div>
@@ -545,10 +548,10 @@ function NewAssessmentWizard() {
                 background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
                 borderRadius: '16px', padding: '24px', marginBottom: '24px', display: 'inline-block', maxWidth: '400px',
               }}>
-                <p style={{ color: '#EF4444', fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
-                <p style={{ color: '#A1A1AA', margin: '0 0 20px' }}>{processingError}</p>
+                <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
+                <p style={{ color: 'var(--text-secondary)', margin: '0 0 20px' }}>{processingError}</p>
                 <button onClick={handleRetry} style={{
-                  padding: '12px 24px', borderRadius: '10px', background: '#4F46E5', color: '#fff',
+                  padding: '12px 24px', borderRadius: '10px', background: 'var(--brand)', color: '#fff',
                   border: 'none', fontWeight: 600, cursor: 'pointer', minHeight: '44px',
                 }}>Try Again</button>
               </div>
@@ -556,12 +559,12 @@ function NewAssessmentWizard() {
           ) : (
             // Loading spinner + status (announced to screen readers)
             <div role="status" aria-live="polite">
-              <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(99,102,241,0.2)', borderTop: '4px solid #6366F1', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
+              <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
               <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-              <h2 style={{ color: '#F5F5F5', fontSize: '1.3rem', fontWeight: 700, marginBottom: '8px' }}>
+              <h2 style={{ color: 'var(--text-primary)', fontSize: '1.3rem', fontWeight: 700, marginBottom: '8px' }}>
                 {testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
               </h2>
-              <p style={{ color: '#A1A1AA', margin: 0 }}>
+              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
                 {assessmentId
                   ? 'Checking results...'
                   : testMode
@@ -570,7 +573,7 @@ function NewAssessmentWizard() {
                 }
               </p>
               {assessmentId && (
-                <p style={{ color: '#52525B', fontSize: '0.8rem', marginTop: '8px' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px' }}>
                   Assessment ID: {assessmentId}
                 </p>
               )}
@@ -584,7 +587,7 @@ function NewAssessmentWizard() {
 
 export default function NewAssessmentPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '48px 16px', textAlign: 'center', color: '#A1A1AA' }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading…</div>}>
       <NewAssessmentWizard />
     </Suspense>
   )

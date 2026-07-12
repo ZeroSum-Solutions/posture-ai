@@ -12,10 +12,10 @@ const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational 
 const ENGINE_VERSION_CAVEAT = "These screenings used different scoring versions, so the grade change isn't directly comparable."
 
 const ZONE_COLORS: Record<string, string> = {
-  maintain: '#22C55E',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  unreliable: '#71717A',
+  maintain: '#5BD5AC',
+  warning: '#FF8918',
+  danger: '#DA4E24',
+  unreliable: '#949494',
 }
 
 const REGION_ORDER: Record<string, number> = { head_shoulders: 0, spine: 1, pelvis: 2, leg: 3 }
@@ -27,15 +27,15 @@ const REGION_LABELS: Record<string, string> = {
 }
 
 function gradeColor(grade: string): string {
-  if (grade === 'S' || grade === 'A') return '#22C55E'
-  if (grade === 'B' || grade === 'C') return '#F59E0B'
-  return '#EF4444'
+  if (grade === 'S' || grade === 'A') return '#5BD5AC'
+  if (grade === 'B' || grade === 'C') return '#FF8918'
+  return '#DA4E24'
 }
 
 const styles = StyleSheet.create({
   page: {
-    backgroundColor: '#0A0A0B',
-    color: '#F5F5F5',
+    backgroundColor: '#000000',
+    color: '#FFFFFF',
     fontFamily: 'Helvetica',
     padding: 40,
     fontSize: 10,
@@ -52,19 +52,19 @@ const styles = StyleSheet.create({
   brandTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#6366F1',
+    color: '#0098F3',
     fontFamily: 'Helvetica-Bold',
   },
   clientName: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#F5F5F5',
+    color: '#FFFFFF',
     fontFamily: 'Helvetica-Bold',
   },
   sectionTitle: {
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#A1A1AA',
+    color: '#CCCCCC',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 10,
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
   },
   overallPanel: {
-    backgroundColor: '#161618',
+    backgroundColor: '#060606',
     borderRadius: 10,
     padding: 16,
     marginBottom: 16,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 8,
-    color: '#71717A',
+    color: '#949494',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -122,16 +122,16 @@ const styles = StyleSheet.create({
   },
   rankLabel: {
     fontSize: 8,
-    color: '#71717A',
+    color: '#949494',
     marginBottom: 2,
   },
   rankValue: {
     fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    color: '#F5F5F5',
+    color: '#FFFFFF',
   },
   findingCard: {
-    backgroundColor: '#161618',
+    backgroundColor: '#060606',
     borderRadius: 8,
     padding: 10,
     marginBottom: 6,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   findingLabel: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
-    color: '#F5F5F5',
+    color: '#FFFFFF',
     marginBottom: 3,
   },
   findingRow: {
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   findingDeviation: {
     fontSize: 9,
-    color: '#D4D4D8',
+    color: '#E4E4E4',
   },
   zoneBadge: {
     fontSize: 7,
@@ -173,13 +173,13 @@ const styles = StyleSheet.create({
   },
   causeText: {
     fontSize: 8,
-    color: '#A1A1AA',
+    color: '#CCCCCC',
     marginTop: 3,
     lineHeight: 1.4,
   },
   causeLabel: {
     fontSize: 7,
-    color: '#71717A',
+    color: '#949494',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontFamily: 'Helvetica-Bold',
@@ -203,13 +203,13 @@ const styles = StyleSheet.create({
   },
   muscleText: {
     fontSize: 7,
-    color: '#D4D4D8',
+    color: '#E4E4E4',
     lineHeight: 1.3,
   },
   regionTitle: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-    color: '#6366F1',
+    color: '#0098F3',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 6,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   unreliableBadge: {
     fontSize: 7,
-    color: '#71717A',
+    color: '#949494',
     fontFamily: 'Helvetica-Bold',
   },
   footer: {
@@ -242,22 +242,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
   },
   exerciseCard: {
-    backgroundColor: 'rgba(99,102,241,0.06)',
+    backgroundColor: 'rgba(0,152,243,0.06)',
     borderRadius: 6,
     padding: 8,
     marginTop: 4,
     borderLeftWidth: 2,
-    borderLeftColor: '#6366F1',
+    borderLeftColor: '#0098F3',
   },
   exerciseName: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
-    color: '#A1A1AA',
+    color: '#CCCCCC',
     marginBottom: 2,
   },
   exerciseInstr: {
     fontSize: 7,
-    color: '#71717A',
+    color: '#949494',
     lineHeight: 1.3,
   },
 })
@@ -317,9 +317,9 @@ function Footer() {
 
 function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   const isUnreliable = f.zone === 'unreliable'
-  const zoneColor = ZONE_COLORS[f.zone] || '#71717A'
-  const deltaColor = f.delta === undefined || f.delta === null ? '#71717A'
-    : f.delta <= 0 ? '#22C55E' : '#EF4444'
+  const zoneColor = ZONE_COLORS[f.zone] || '#949494'
+  const deltaColor = f.delta === undefined || f.delta === null ? '#949494'
+    : f.delta <= 0 ? '#5BD5AC' : '#DA4E24'
 
   const tightMuscles = Array.isArray(f.tight_muscles) ? f.tight_muscles : []
   const weakMuscles = Array.isArray(f.weak_muscles) ? f.weak_muscles : []
@@ -327,7 +327,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   return (
     <View wrap={false} style={[styles.findingCard, { borderLeftColor: zoneColor }, isUnreliable ? styles.unreliableOverlay : {}]}>
       <View style={styles.findingRow}>
-        <Text style={[styles.findingLabel, { color: isUnreliable ? '#71717A' : '#F5F5F5' }]}>
+        <Text style={[styles.findingLabel, { color: isUnreliable ? '#949494' : '#FFFFFF' }]}>
           {f.label}
           {isUnreliable ? ' [Unreliable]' : ''}
         </Text>
@@ -354,7 +354,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
           <View style={styles.barBackground}>
             <View style={[styles.barFill, { backgroundColor: zoneColor, width: f.severity_pct + '%' as unknown as number }]} />
           </View>
-          <Text style={{ fontSize: 7, color: '#71717A' }}>Severity: {f.severity_pct}%</Text>
+          <Text style={{ fontSize: 7, color: '#949494' }}>Severity: {f.severity_pct}%</Text>
         </View>
       )}
 
@@ -369,7 +369,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
         <View style={styles.muscleRow}>
           {tightMuscles.length > 0 && (
             <View style={[styles.muscleBox, { backgroundColor: 'rgba(239,68,68,0.08)' }]}>
-              <Text style={[styles.muscleLabel, { color: '#EF4444' }]}>Tight</Text>
+              <Text style={[styles.muscleLabel, { color: '#DA4E24' }]}>Tight</Text>
               <Text style={styles.muscleText}>{tightMuscles.join(', ')}</Text>
             </View>
           )}
@@ -415,12 +415,12 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <View>
             <Text style={styles.brandTitle}>Posture AI</Text>
             {practitioner?.practice_name && (
-              <Text style={{ fontSize: 9, color: '#71717A' }}>{practitioner.practice_name}</Text>
+              <Text style={{ fontSize: 9, color: '#949494' }}>{practitioner.practice_name}</Text>
             )}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.clientName}>{clientName}</Text>
-            <Text style={{ fontSize: 8, color: '#71717A' }}>{dateStr}</Text>
+            <Text style={{ fontSize: 8, color: '#949494' }}>{dateStr}</Text>
           </View>
         </View>
 
@@ -436,7 +436,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
             <View style={{ flex: 1 }}>
               <View style={{ marginTop: 8 }}>
                 <Text style={styles.statLabel}>Deviation (lower is better)</Text>
-                <Text style={[styles.statValue, { color: '#F5F5F5' }]}>{assessment.overall_score}/100</Text>
+                <Text style={[styles.statValue, { color: '#FFFFFF' }]}>{assessment.overall_score}/100</Text>
               </View>
             </View>
           </View>
@@ -472,15 +472,15 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
               minWidth: 60,
             }}>
               <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: gradeColor(b.g) }}>{b.g}</Text>
-              <Text style={{ fontSize: 7, color: '#71717A', marginTop: 2 }}>{b.desc}</Text>
+              <Text style={{ fontSize: 7, color: '#949494', marginTop: 2 }}>{b.desc}</Text>
             </View>
           ))}
         </View>
 
         {/* Screening disclaimer note on page 1 */}
-        <View style={{ marginTop: 20, backgroundColor: 'rgba(99,102,241,0.08)', borderRadius: 8, padding: 10 }}>
-          <Text style={{ fontSize: 8, color: '#A1A1AA', lineHeight: 1.5 }}>
-            <Text style={{ color: '#6366F1', fontFamily: 'Helvetica-Bold' }}>Screening Only. </Text>
+        <View style={{ marginTop: 20, backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 8, padding: 10 }}>
+          <Text style={{ fontSize: 8, color: '#CCCCCC', lineHeight: 1.5 }}>
+            <Text style={{ color: '#0098F3', fontFamily: 'Helvetica-Bold' }}>Screening Only. </Text>
             This report is produced by an AI-assisted posture screening tool. Results are for educational purposes only and require interpretation by a qualified health professional. Not a substitute for clinical examination.
           </Text>
         </View>
@@ -492,13 +492,13 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
 
         {/* Header */}
         <View style={[styles.header, { marginBottom: 10 }]}>
-          <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#F5F5F5' }}>Detailed Findings</Text>
-          <Text style={{ fontSize: 9, color: '#71717A' }}>{clientName} — {dateStr}</Text>
+          <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>Detailed Findings</Text>
+          <Text style={{ fontSize: 9, color: '#949494' }}>{clientName} — {dateStr}</Text>
         </View>
 
         {(hasDelta || engineVersionMismatch) && (
-          <View style={{ backgroundColor: 'rgba(99,102,241,0.08)', borderRadius: 6, padding: 6, marginBottom: 8 }}>
-            <Text style={{ fontSize: 7, color: '#A1A1AA' }}>
+          <View style={{ backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 6, padding: 6, marginBottom: 8 }}>
+            <Text style={{ fontSize: 7, color: '#CCCCCC' }}>
               {engineVersionMismatch ? ENGINE_VERSION_CAVEAT + ' ' : ''}
               {hasDelta ? 'Delta column shows change vs prior assessment. Green = improved, Red = worsened.' : ''}
             </Text>

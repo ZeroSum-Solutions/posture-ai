@@ -45,22 +45,22 @@ export default function OnboardingPage() {
       <div style={{
         width: '100%',
         maxWidth: '560px',
-        background: '#161618',
+        background: 'var(--surface)',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '16px',
         padding: '32px',
       }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '16px' }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>
           Non-Diagnostic Disclaimer
         </h1>
         <div style={{
-          background: 'rgba(245,158,11,0.08)',
-          border: '1px solid rgba(245,158,11,0.2)',
+          background: 'rgba(255,137,24,0.08)',
+          border: '1px solid rgba(255,137,24,0.2)',
           borderRadius: '8px',
           padding: '16px',
           marginBottom: '24px',
           fontSize: '0.9rem',
-          color: '#F5F5F5',
+          color: 'var(--text-primary)',
           lineHeight: 1.6,
         }}>
           <p style={{ marginBottom: '12px' }}>
@@ -89,7 +89,7 @@ export default function OnboardingPage() {
             onChange={e => setAccepted(e.target.checked)}
             style={{ marginTop: '2px', width: '16px', height: '16px', cursor: 'pointer' }}
           />
-          <span style={{ fontSize: '0.875rem', color: '#A1A1AA', lineHeight: 1.5 }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
             I understand and acknowledge that Posture AI is a screening tool, not a medical diagnostic device. I am a qualified movement professional and will use this tool appropriately.
           </span>
         </label>
@@ -101,7 +101,7 @@ export default function OnboardingPage() {
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '8px',
               padding: '12px',
-              color: '#F87171',
+              color: 'var(--danger)',
               fontSize: '0.85rem',
               marginBottom: '16px',
             }}
@@ -115,8 +115,8 @@ export default function OnboardingPage() {
           style={{
             width: '100%',
             padding: '12px',
-            background: !accepted || loading ? 'rgba(99,102,241,0.3)' : '#4F46E5',
-            color: !accepted || loading ? '#A1A1AA' : '#fff',
+            background: !accepted || loading ? 'rgba(0,152,243,0.3)' : 'var(--brand)',
+            color: !accepted || loading ? 'var(--text-secondary)' : '#fff',
             border: 'none',
             borderRadius: '8px',
             fontWeight: 600,

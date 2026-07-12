@@ -29,6 +29,18 @@ test.describe('assessment golden path (test mode)', () => {
     await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
     await expect(page.locator('[data-testid="disclaimer"]')).toBeVisible()
 
+    // Every coach-side program control needs stable form identity for browser
+    // autofill/devtools and explicit label association.
+    await expect(page.getByTestId('capability-select')).toBeVisible()
+    const firstSwap = page.locator('[data-testid^="swap-"]').first()
+    await expect(firstSwap).toBeVisible()
+    const firstSwapId = await firstSwap.getAttribute('id')
+    expect(firstSwapId).toBeTruthy()
+    await expect(page.locator(`label[for="${firstSwapId}"]`)).toHaveText('Swap')
+    await expect(
+      page.locator('[data-testid="corrective-program"] select:not([id]), [data-testid="corrective-program"] select:not([name])'),
+    ).toHaveCount(0)
+
     // Fixture frames carry no sensor roll → honest level-unverified badge.
     await expect(page.locator('[data-testid="level-badge"]')).toContainText(/level not verified/i)
 

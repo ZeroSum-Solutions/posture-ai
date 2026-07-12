@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AuthFrame from '@/components/AuthFrame'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -46,36 +47,16 @@ export default function SignInPage() {
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px 12px',
-    background: '#0A0A0B',
+    background: 'var(--background)',
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: '8px',
-    color: '#F5F5F5',
+    color: 'var(--text-primary)',
     fontSize: '0.9rem',
     boxSizing: 'border-box',
   }
 
   return (
-    <div style={{
-      minHeight: '80vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '400px',
-        background: '#161618',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '16px',
-        padding: '32px',
-      }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '8px' }}>
-          Sign in
-        </h1>
-        <p style={{ fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '24px' }}>
-          Sign in to your Posture AI account
-        </p>
+    <AuthFrame title="Welcome back" description="Sign in to continue to your practitioner workspace.">
         {error && (
           <div
             role="alert"
@@ -85,7 +66,7 @@ export default function SignInPage() {
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '8px',
               padding: '12px',
-              color: '#EF4444',
+              color: 'var(--danger)',
               fontSize: '0.85rem',
               marginBottom: '16px',
             }}
@@ -104,7 +85,7 @@ export default function SignInPage() {
             width: '100%',
             padding: '11px',
             background: 'transparent',
-            color: '#F5F5F5',
+            color: 'var(--text-primary)',
             border: '1px solid rgba(255,255,255,0.2)',
             borderRadius: '8px',
             fontWeight: 600,
@@ -136,7 +117,7 @@ export default function SignInPage() {
           marginBottom: '16px',
         }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-          <span style={{ fontSize: '0.8rem', color: '#A1A1AA' }}>or</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>or</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
         </div>
 
@@ -144,7 +125,7 @@ export default function SignInPage() {
           <div style={{ marginBottom: '16px' }}>
             <label
               htmlFor="email"
-              style={{ display: 'block', fontSize: '0.85rem', color: '#A1A1AA', marginBottom: '6px' }}
+              style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
             >
               Email
             </label>
@@ -164,11 +145,11 @@ export default function SignInPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
               <label
                 htmlFor="password"
-                style={{ fontSize: '0.85rem', color: '#A1A1AA' }}
+                style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
               >
                 Password
               </label>
-              <Link href="/auth/forgot-password" style={{ fontSize: '0.8rem', color: '#818CF8', textDecoration: 'underline' }}>
+              <Link href="/auth/forgot-password" style={{ fontSize: '0.8rem', color: 'var(--brand)', textDecoration: 'underline' }}>
                 Forgot password?
               </Link>
             </div>
@@ -190,7 +171,7 @@ export default function SignInPage() {
             style={{
               width: '100%',
               padding: '11px',
-              background: (loading || googleLoading) ? 'rgba(99,102,241,0.5)' : '#4F46E5',
+              background: (loading || googleLoading) ? 'rgba(0,152,243,0.5)' : 'var(--brand)',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
@@ -202,14 +183,13 @@ export default function SignInPage() {
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
-          <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#A1A1AA' }}>
+          <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             No account yet?{' '}
-            <Link href="/auth/sign-up" style={{ color: '#818CF8', textDecoration: 'underline' }}>
+            <Link href="/auth/sign-up" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
               Create one
             </Link>
           </p>
         </form>
-      </div>
-    </div>
+    </AuthFrame>
   )
 }

@@ -71,14 +71,14 @@ export function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
         style={{ background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '16px', padding: '32px', maxWidth: '420px', width: '90%' }}
       >
-        <h2 id={titleId} style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F5F5F5', marginBottom: '12px' }}>{title}</h2>
-        <div style={{ color: '#A1A1AA', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>{children}</div>
-        {error && <p role="alert" style={{ color: '#F87171', fontSize: '0.85rem', marginBottom: '16px' }}>{error}</p>}
+        <h2 id={titleId} style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>{title}</h2>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>{children}</div>
+        {error && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '16px' }}>{error}</p>}
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
             onClick={onCancel}
             disabled={busy}
-            style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.06)', color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
+            style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
           >
             {cancelLabel}
           </button>
@@ -86,7 +86,7 @@ export function ConfirmDialog({
             ref={confirmRef}
             onClick={onConfirm}
             disabled={busy}
-            style={{ flex: 1, padding: '10px', background: busy ? (danger ? 'rgba(239,68,68,0.3)' : 'rgba(99,102,241,0.3)') : (danger ? '#EF4444' : '#6366F1'), color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
+            style={{ flex: 1, padding: '10px', background: busy ? (danger ? 'rgba(239,68,68,0.3)' : 'rgba(0,152,243,0.3)') : (danger ? 'var(--danger)' : 'var(--brand)'), color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
           >
             {confirmLabel}
           </button>

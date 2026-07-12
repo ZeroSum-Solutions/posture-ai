@@ -170,17 +170,17 @@ export default function ClientForm({
   }
 
   const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', background: '#0A0A0B',
+    width: '100%', padding: '10px 12px', background: 'var(--background)',
     border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
-    color: '#F5F5F5', fontSize: '0.9rem', boxSizing: 'border-box',
+    color: 'var(--text-primary)', fontSize: '0.9rem', boxSizing: 'border-box',
     minHeight: '44px',
   }
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '0.875rem', color: '#A1A1AA', marginBottom: '6px',
+    display: 'block', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '6px',
   }
   const fieldStyle: React.CSSProperties = { marginBottom: '16px' }
   const errorStyle: React.CSSProperties = {
-    fontSize: '0.78rem', color: '#EF4444', marginTop: '4px',
+    fontSize: '0.78rem', color: 'var(--danger)', marginTop: '4px',
   }
 
   const submitLabel = mode === 'create'
@@ -188,12 +188,7 @@ export default function ClientForm({
     : (loading ? 'Saving...' : 'Save Changes')
 
   return (
-    <div style={{
-      background: '#161618',
-      border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: '16px',
-      padding: '24px 20px',
-    }}>
+    <div className="app-panel" style={{ padding: '28px 24px' }}>
       <form onSubmit={handleSubmit} noValidate aria-label={mode === 'create' ? 'New client form' : 'Edit client form'}>
         {error && (
           <div
@@ -203,7 +198,7 @@ export default function ClientForm({
               background: 'rgba(239,68,68,0.12)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '8px', padding: '12px',
-              color: '#EF4444', fontSize: '0.875rem', marginBottom: '20px',
+              color: 'var(--danger)', fontSize: '0.875rem', marginBottom: '20px',
             }}
           >
             {error}
@@ -213,7 +208,7 @@ export default function ClientForm({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '4px' }}>
           <div>
             <label htmlFor="first_name" style={labelStyle}>
-              First Name <span style={{ color: '#EF4444' }} aria-hidden="true">*</span>
+              First Name <span style={{ color: 'var(--danger)' }} aria-hidden="true">*</span>
             </label>
             <input
               id="first_name"
@@ -229,7 +224,7 @@ export default function ClientForm({
           </div>
           <div>
             <label htmlFor="last_name" style={labelStyle}>
-              Last Name <span style={{ color: '#EF4444' }} aria-hidden="true">*</span>
+              Last Name <span style={{ color: 'var(--danger)' }} aria-hidden="true">*</span>
             </label>
             <input
               id="last_name"
@@ -273,7 +268,7 @@ export default function ClientForm({
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginTop: '16px', marginBottom: '8px' }}>
           <span style={{ ...labelStyle, marginBottom: 0 }}>Measurements</span>
-          <div role="group" aria-label="Measurement units" style={{ display: 'inline-flex', background: '#0A0A0B', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '2px' }}>
+          <div role="group" aria-label="Measurement units" style={{ display: 'inline-flex', background: 'var(--background)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '2px' }}>
             {([['us', 'US (in / lb)'], ['metric', 'Metric (cm / kg)']] as const).map(([val, lbl]) => {
               const active = unitSystem === val
               return (
@@ -282,8 +277,8 @@ export default function ClientForm({
                   style={{
                     padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                     fontSize: '0.8rem', fontWeight: 600, minHeight: 'unset',
-                    background: active ? '#4F46E5' : 'transparent',
-                    color: active ? '#fff' : '#A1A1AA',
+                    background: active ? 'var(--brand)' : 'transparent',
+                    color: active ? '#fff' : 'var(--text-secondary)',
                   }}
                 >
                   {lbl}
@@ -338,11 +333,11 @@ export default function ClientForm({
         {mode === 'create' && (
           <>
             <div style={{
-              background: fieldErrors.consent ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)',
-              border: '1px solid ' + (fieldErrors.consent ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.25)'),
+              background: fieldErrors.consent ? 'rgba(239,68,68,0.08)' : 'rgba(0,152,243,0.08)',
+              border: '1px solid ' + (fieldErrors.consent ? 'rgba(239,68,68,0.4)' : 'rgba(0,152,243,0.25)'),
               borderRadius: '10px', padding: '16px', marginBottom: '8px',
             }}>
-              <p style={{ fontSize: '0.8rem', color: '#A1A1AA', marginTop: 0, marginBottom: '12px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '12px', lineHeight: 1.5 }}>
                 Posture AI is a screening tool, not a medical diagnosis. Photos are processed on this
                 device and never stored — only body-position measurements are saved, and no face-geometry
                 template is created. The subject (or their parent/legal guardian) consents below.
@@ -360,7 +355,7 @@ export default function ClientForm({
 
               <div style={{ marginBottom: '12px' }}>
                 <label htmlFor="signer_name" style={labelStyle}>
-                  Type full name to sign <span style={{ color: '#EF4444' }} aria-hidden="true">*</span>
+                  Type full name to sign <span style={{ color: 'var(--danger)' }} aria-hidden="true">*</span>
                 </label>
                 <input
                   id="signer_name" type="text" name="signer_name" value={form.signer_name}
@@ -387,7 +382,7 @@ export default function ClientForm({
                   aria-describedby={fieldErrors.consent ? 'error-consent' : undefined}
                   style={{ marginTop: '2px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0, minHeight: 'unset' }}
                 />
-                <span style={{ fontSize: '0.875rem', color: '#D4D4D8', lineHeight: 1.5 }}>
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   By typing the name above and checking this box, I confirm I have read and agree to the
                   posture-screening consent on behalf of the client.
                 </span>
@@ -402,22 +397,22 @@ export default function ClientForm({
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' }}>
           <Link href={cancelHref} style={{
             flex: 1, padding: '11px', background: 'rgba(255,255,255,0.06)',
-            color: '#A1A1AA', border: '1px solid rgba(255,255,255,0.1)',
+            color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '8px', fontWeight: 600, fontSize: '0.95rem',
             textAlign: 'center', textDecoration: 'none', display: 'flex',
             alignItems: 'center', justifyContent: 'center', minWidth: '100px',
           }}>
             Cancel
           </Link>
-          <button type="submit" disabled={loading} style={{
-            flex: 2, padding: '11px',
-            background: loading ? 'rgba(99,102,241,0.3)' : '#4F46E5',
+          <button type="submit" disabled={loading} className="app-gradient-action" style={{
+            flex: 2, padding: '3px',
+            background: loading ? 'rgba(0,152,243,0.3)' : undefined,
             color: loading ? '#6B7280' : '#fff',
             border: 'none', borderRadius: '8px', fontWeight: 600,
             fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer',
             minWidth: '120px',
           }}>
-            {submitLabel}
+            <span>{submitLabel}</span>
           </button>
         </div>
       </form>

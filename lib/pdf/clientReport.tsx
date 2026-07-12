@@ -13,30 +13,30 @@ const ENGINE_VERSION_CAVEAT =
 // Dark palette (matches the app design tokens) with high-contrast text.
 // Solid hex throughout — react-pdf mis-renders rgba() border/background colors.
 const C = {
-  bg: '#0A0A0B',
-  surface: '#161618',
-  surface2: '#202024',
-  border: '#2B2B31',
-  text: '#F5F5F5',
-  sub: '#A1A1AA',
-  faint: '#71717A',
-  brand: '#6366F1',
-  green: '#22C55E',
-  amber: '#F59E0B',
-  red: '#EF4444',
+  bg: '#000000',
+  surface: '#060606',
+  surface2: '#111111',
+  border: '#292929',
+  text: '#FFFFFF',
+  sub: '#CCCCCC',
+  faint: '#949494',
+  brand: '#0098F3',
+  green: '#5BD5AC',
+  amber: '#FF8918',
+  red: '#DA4E24',
 }
 
 const ZONE = {
-  warning: { c: '#FBBF24', bg: '#332608', word: 'Warning' },
-  danger: { c: '#F87171', bg: '#3A1414', word: 'Danger' },
+  warning: { c: '#FF8918', bg: '#332008', word: 'Warning' },
+  danger: { c: '#DA4E24', bg: '#3A1414', word: 'Danger' },
 }
 
 const STEP_COLOR: Record<string, string> = {
-  Loosen: '#22D3EE',
-  Lengthen: '#34D399',
-  'Wake up': '#F59E0B',
-  Strengthen: '#22C55E',
-  Connect: '#A78BFA',
+  Loosen: '#0098F3',
+  Lengthen: '#5BD5AC',
+  'Wake up': '#FF8918',
+  Strengthen: '#5BD5AC',
+  Connect: '#0098F3',
 }
 
 // Encouraging, non-diagnostic phrasing for the "since last time" progress card.

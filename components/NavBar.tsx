@@ -1,8 +1,18 @@
 'use client'
+
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import BrandMark from '@/components/BrandMark'
+
+const links = [
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/clients', label: 'Clients' },
+  { href: '/exercises', label: 'Exercises' },
+  { href: '/muscles', label: 'Muscles' },
+  { href: '/settings', label: 'Settings' },
+]
 
 export default function NavBar() {
   const pathname = usePathname()
@@ -10,15 +20,9 @@ export default function NavBar() {
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
-  if (pathname === '/') return null
-
-  const links = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/clients', label: 'Clients' },
-    { href: '/exercises', label: 'Exercises' },
-    { href: '/muscles', label: 'Muscles' },
-    { href: '/settings', label: 'Settings' },
-  ]
+  const isAuthPage = pathname?.startsWith('/auth') || pathname?.startsWith('/onboarding')
+  const isPublicDocument = pathname === '/privacy' || pathname === '/terms' || pathname?.startsWith('/consent/') || pathname?.startsWith('/s/')
+  if (pathname === '/' || isAuthPage || isPublicDocument) return null
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -29,164 +33,56 @@ export default function NavBar() {
     setSigningOut(false)
   }
 
-  const isAuthPage = pathname?.startsWith('/auth') || pathname?.startsWith('/onboarding')
+  const linkStyle = (href: string): React.CSSProperties => ({
+    padding: '8px 12px',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    letterSpacing: '-0.01em',
+    textDecoration: 'none',
+    color: pathname?.startsWith(href) ? 'var(--text-primary)' : 'var(--text-secondary)',
+    background: pathname?.startsWith(href) ? 'var(--surface-strong)' : 'transparent',
+    transition: 'background var(--duration-hover) var(--ease-standard), color var(--duration-hover) var(--ease-standard)',
+  })
 
   return (
-    <nav style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 16px',
-      height: '56px',
-      background: '#161618',
-      borderBottom: '1px solid rgba(255,255,255,0.08)',
-      position: 'sticky',
-      top: '0',
-      zIndex: 100,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818CF8', whiteSpace: 'nowrap' }}>Posture AI</span>
-      </div>
+    <nav
+      aria-label="Application navigation"
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
+        margin: '12px auto 0', padding: '6px 8px 6px 14px', width: 'min(1200px, calc(100% - 32px))',
+        minHeight: '58px', background: 'rgba(8, 9, 11, 0.68)', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '16px', backdropFilter: 'blur(28px) saturate(145%)', WebkitBackdropFilter: 'blur(28px) saturate(145%)', position: 'sticky', top: '12px', zIndex: 100,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.45), 0 24px 64px rgba(0,0,0,.32)',
+      }}
+    >
+      <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', minHeight: '44px', color: 'var(--text-primary)', fontSize: '0.94rem', fontWeight: 700, letterSpacing: '-0.03em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        <BrandMark size={26} />
+        Posture AI
+      </Link>
 
-      {/* Desktop nav links */}
-      {!isAuthPage && (
-        <div style={{ display: 'flex', gap: '4px' }} className="nav-desktop">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                textDecoration: 'none',
-                color: pathname?.startsWith(l.href) ? '#F5F5F5' : '#A1A1AA',
-                background: pathname?.startsWith(l.href) ? 'rgba(99,102,241,0.12)' : 'transparent',
-                minHeight: '44px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </div>
-      )}
+      {!isAuthPage && <div className="nav-desktop" style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>{links.map((link) => <Link key={link.href} href={link.href} style={linkStyle(link.href)}>{link.label}</Link>)}</div>}
 
-      {/* Sign out button (desktop, only on protected pages) */}
       {!isAuthPage && (
-        <button
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="nav-desktop"
-          style={{
-            padding: '6px 14px',
-            borderRadius: '6px',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            color: '#A1A1AA',
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.12)',
-            cursor: signingOut ? 'not-allowed' : 'pointer',
-            opacity: signingOut ? 0.6 : 1,
-            minHeight: '36px',
-          }}
-        >
-          {signingOut ? 'Signing out...' : 'Sign out'}
+        <button onClick={handleSignOut} disabled={signingOut} className="nav-desktop" style={{ padding: '8px 12px', borderRadius: '8px', color: 'var(--text-secondary)', background: 'transparent', border: '1px solid var(--border)', cursor: signingOut ? 'not-allowed' : 'pointer', font: 'inherit', fontSize: '0.825rem', fontWeight: 600, opacity: signingOut ? 0.6 : 1 }}>
+          {signingOut ? 'Signing out…' : 'Sign out'}
         </button>
       )}
 
-      {/* Mobile hamburger button */}
       {!isAuthPage && (
-        <button
-          onClick={() => setOpen(!open)}
-          className="nav-hamburger"
-          aria-label="Toggle menu"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '8px',
-            display: 'none',
-            flexDirection: 'column',
-            gap: '5px',
-            minWidth: '44px',
-            minHeight: '44px',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#4F46E5' : '#A1A1AA', borderRadius: '2px' }} />
-          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#4F46E5' : '#A1A1AA', borderRadius: '2px' }} />
-          <span style={{ display: 'block', width: '22px', height: '2px', background: open ? '#4F46E5' : '#A1A1AA', borderRadius: '2px' }} />
+        <button onClick={() => setOpen(!open)} className="nav-hamburger" aria-label="Toggle navigation menu" aria-expanded={open} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', padding: '8px', display: 'none', gap: '4px', flexDirection: 'column', justifyContent: 'center' }}>
+          {[0, 1, 2].map((line) => <span key={line} style={{ display: 'block', width: '18px', height: '2px', background: open ? 'var(--brand)' : 'var(--text-secondary)', borderRadius: '2px' }} />)}
         </button>
       )}
 
-      {/* Mobile dropdown menu */}
       {!isAuthPage && open && (
-        <div
-          className="nav-mobile-menu"
-          style={{
-            position: 'absolute',
-            top: '56px',
-            left: 0,
-            right: 0,
-            background: '#161618',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            display: 'none',
-            flexDirection: 'column',
-            padding: '8px 16px 16px',
-            zIndex: 99,
-          }}
-        >
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setOpen(false)}
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: 500,
-                textDecoration: 'none',
-                color: pathname?.startsWith(l.href) ? '#F5F5F5' : '#A1A1AA',
-                background: pathname?.startsWith(l.href) ? 'rgba(99,102,241,0.12)' : 'transparent',
-                minHeight: '44px',
-                display: 'flex',
-                alignItems: 'center',
-                marginBottom: '4px',
-              }}
-            >
-              {l.label}
-            </Link>
-          ))}
-          <button
-            onClick={() => { setOpen(false); handleSignOut(); }}
-            style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 500,
-              textDecoration: 'none',
-              color: '#A1A1AA',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              textAlign: 'left',
-              minHeight: '44px',
-              display: 'flex',
-              alignItems: 'center',
-              marginBottom: '4px',
-            }}
-          >
-            Sign out
-          </button>
+        <div className="nav-mobile-menu" style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, display: 'none', flexDirection: 'column', gap: '4px', padding: '8px', background: 'rgba(8, 9, 11, 0.86)', backdropFilter: 'blur(28px) saturate(145%)', WebkitBackdropFilter: 'blur(28px) saturate(145%)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '16px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 20px 42px rgba(0,0,0,.5)' }}>
+          {links.map((link) => <Link key={link.href} href={link.href} onClick={() => setOpen(false)} style={linkStyle(link.href)}>{link.label}</Link>)}
+          <button onClick={() => { setOpen(false); handleSignOut() }} style={{ padding: '8px 12px', borderRadius: '8px', background: 'transparent', border: 0, color: 'var(--text-secondary)', cursor: 'pointer', font: 'inherit', fontSize: '0.875rem', fontWeight: 600, textAlign: 'left' }}>Sign out</button>
         </div>
       )}
 
-      <style>{`@media (max-width: 600px) { .nav-desktop { display: none !important; } .nav-hamburger { display: flex !important; } .nav-mobile-menu { display: flex !important; } }`}</style>
+      <style>{`@media (max-width: 760px) { .nav-desktop { display: none !important; } .nav-hamburger { display: flex !important; } .nav-mobile-menu { display: flex !important; } }`}</style>
     </nav>
   )
 }
