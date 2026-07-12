@@ -20,7 +20,7 @@ test.describe('logout', () => {
     // Sanity: we start authenticated (dashboard did not bounce to sign-in).
     await expect(page).toHaveURL(/\/dashboard/)
 
-    const hamburger = page.getByRole('button', { name: 'Toggle menu' })
+    const hamburger = page.getByRole('button', { name: 'Toggle navigation menu' })
     if (await hamburger.isVisible().catch(() => false)) {
       await hamburger.click()
     }

@@ -29,6 +29,12 @@ test.describe('accessibility budget', () => {
   })
 
   test('static surfaces pass the axe budget', async ({ page }) => {
+    // Eight surfaces, each a full navigation + networkidle + a full axe-core scan.
+    // The redesign's heavier DOM and the WebGL atmosphere make each axe pass more
+    // CPU-bound, so the default 30s budget is too tight on slower CI hardware
+    // (runs in ~15s locally). Match the suite's convention of explicit budgets for
+    // heavy tests (capture=120s, real-detection=300s).
+    test.setTimeout(120_000)
     for (const [path, name] of [
       ['/dashboard', 'dashboard'],
       ['/clients', 'clients'],
