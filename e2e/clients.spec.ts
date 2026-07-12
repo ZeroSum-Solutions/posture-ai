@@ -30,7 +30,9 @@ test.describe('client list and search', () => {
     await createClient(page, 'E2E', `List-${tokenB}`)
 
     await page.goto('/clients')
-    await expect(page.getByRole('heading', { name: 'Clients' })).toBeVisible()
+    // `exact: true` so the page header <h1>Clients</h1> is not conflated with the
+    // transient <h2>Loading clients</h2> heading (substring-matched otherwise).
+    await expect(page.getByRole('heading', { name: 'Clients', exact: true })).toBeVisible()
 
     const rowA = page.getByRole('link', { name: new RegExp(`List-${tokenA}`) })
     const rowB = page.getByRole('link', { name: new RegExp(`List-${tokenB}`) })
