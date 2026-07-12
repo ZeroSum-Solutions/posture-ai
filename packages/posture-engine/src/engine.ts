@@ -7,6 +7,7 @@ import {
   genuVarumValgumLeft, genuVarumValgumRight, kneeExtensionBackKnee
 } from './metrics'
 import { toGrade, metricValidity, VALIDITY_WEIGHT, distanceToZoneEdge } from './thresholds'
+import { aggregateSagittal } from './sides'
 
 // 2.0.0: trunk_lean merge — t1_tilt_backward + anterior_pelvic_shift were the identical shoulder→hip vector scored twice; now one finding.
 // 1.3.0: multi-frame capture bursts — robust per-landmark median point estimate
@@ -14,7 +15,7 @@ import { toGrade, metricValidity, VALIDITY_WEIGHT, distanceToZoneEdge } from './
 // AssessmentResult.captureStability. Single-frame-per-view input is unchanged.
 // 1.2.0: recurvatum metric fixed (STANDARD 175→180, facing-aware direction) +
 // boundary-level threshold provenance; knee_extension danger 15→10 (cited).
-export const ENGINE_VERSION = '2.0.0'
+export const ENGINE_VERSION = '2.1.0'
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
 
@@ -65,6 +66,20 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
   const side = frames.filter(f => f.view === 'side')
   const back = frames.filter(f => f.view === 'back')
 
+  // Side profiles: score each captured side independently, then keep the worst
+  // per metric (spec §11.2), preserving per-side burst stability via aggregate().
+  // Validation rejects mixing unspecified-side with named-side frames, so when
+  // !hasProfiles every side frame is legacy → scoring is byte-identical to before.
+  const sideLeft = side.filter(f => f.profileSide === 'left')
+  const sideRight = side.filter(f => f.profileSide === 'right')
+  const hasProfiles = sideLeft.length > 0 || sideRight.length > 0
+  const sag = (m: (f: PoseFrame, s?: 'left' | 'right') => Finding): Finding | null => {
+    if (!hasProfiles) return aggregate(side, (f) => m(f))
+    const l = sideLeft.length ? aggregate(sideLeft, (f) => m(f, 'left')) : null
+    const r = sideRight.length ? aggregate(sideRight, (f) => m(f, 'right')) : null
+    return aggregateSagittal(l ? { finding: l, side: 'left' } : null, r ? { finding: r, side: 'right' } : null)
+  }
+
   const missingViews: ViewLabel[] = []
   if (front.length === 0) missingViews.push('front')
   if (side.length === 0) missingViews.push('side')
@@ -80,15 +95,15 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
 
   // Compute all findings (degrade gracefully if views missing)
   const findings = [
-    aggregate(side, forwardHeadPosture),
+    sag(forwardHeadPosture),
     aggregate(front, anteriorImbalancedShoulders),
     withStability(posteriorRep, postBurst, f => posteriorImbalancedShoulders(f, back.length ? f : undefined).deviation),
-    aggregate(side, trunkLean),
+    sag(trunkLean),
     aggregate(front, pelvicObliquity),
     aggregate(front, pelvicAxialRotation),
     aggregate(front, genuVarumValgumLeft),
     aggregate(front, genuVarumValgumRight),
-    aggregate(side, kneeExtensionBackKnee),
+    sag(kneeExtensionBackKnee),
   ].filter((f): f is Finding => f !== null)
 
   // Overall score (spec §3.2): validity- and confidence-weighted mean of
