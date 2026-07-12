@@ -74,7 +74,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
                     borderRadius: 20,
                     fontSize: '0.68rem',
                     fontWeight: 600,
-                    background: badgeColor(m.confidence) + '22',
+                    background: `color-mix(in srgb, ${badgeColor(m.confidence)} 13%, transparent)`,
                     color: badgeColor(m.confidence),
                   }}
                 >

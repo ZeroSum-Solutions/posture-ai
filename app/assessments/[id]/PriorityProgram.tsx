@@ -49,7 +49,7 @@ function Pill({ text, color }: { text: string; color: string }) {
         borderRadius: 20,
         fontSize: '0.72rem',
         fontWeight: 700,
-        background: color + '22',
+        background: `color-mix(in srgb, ${color} 13%, transparent)`,
         color,
         textTransform: 'uppercase',
         letterSpacing: '0.04em',
@@ -75,11 +75,14 @@ function SwapControl({
   if (alts.length <= 1) return null // nothing to swap to
 
   const swapped = step.slug !== step.baseSlug
+  const controlId = `swap-${priority.primaryKey}-${step.baseSlug}`
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-      <span style={{ fontSize: '0.64rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</span>
+      <label htmlFor={controlId} style={{ fontSize: '0.64rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</label>
       <select
-        data-testid={`swap-${priority.primaryKey}-${step.baseSlug}`}
+        id={controlId}
+        name={controlId}
+        data-testid={controlId}
         value={step.slug}
         onChange={(e) => onSwap(priority.primaryKey, step.baseSlug, e.target.value === step.baseSlug ? null : e.target.value)}
         style={{
@@ -224,7 +227,7 @@ function PriorityCard({
             width: 30,
             height: 30,
             borderRadius: '50%',
-            background: zoneColor + '22',
+            background: `color-mix(in srgb, ${zoneColor} 13%, transparent)`,
             color: zoneColor,
             fontWeight: 800,
             fontSize: '0.95rem',
@@ -331,6 +334,8 @@ export default function PriorityProgram({
             Client capability
           </span>
           <select
+            id="client-capability"
+            name="client-capability"
             data-testid="capability-select"
             value={capability}
             onChange={(e) => onCapabilityChange(e.target.value as Capability)}

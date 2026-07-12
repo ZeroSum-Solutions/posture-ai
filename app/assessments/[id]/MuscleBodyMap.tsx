@@ -116,7 +116,7 @@ export default function MuscleBodyMap({
                 key={'ft-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--danger)40" stroke="var(--danger)" strokeWidth="1.2"
+                fill="var(--danger)" fillOpacity="0.25" stroke="var(--danger)" strokeWidth="1.2"
               />
             ))}
             {frontWeak.map((item, i) => (
@@ -124,12 +124,12 @@ export default function MuscleBodyMap({
                 key={'fw-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--brand)40" stroke="var(--brand)" strokeWidth="1.2"
+                fill="var(--brand)" fillOpacity="0.25" stroke="var(--brand)" strokeWidth="1.2"
               />
             ))}
             {frontPossible.map((item, i) => (
               <ellipse key={`fp${i}`} cx={item.region.cx} cy={item.region.cy} rx={item.region.rx} ry={item.region.ry}
-                fill="var(--text-muted)22" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
+                fill="var(--text-muted)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
             ))}
           </svg>
         </div>
@@ -146,7 +146,7 @@ export default function MuscleBodyMap({
                 key={'bt-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--danger)40" stroke="var(--danger)" strokeWidth="1.2"
+                fill="var(--danger)" fillOpacity="0.25" stroke="var(--danger)" strokeWidth="1.2"
               />
             ))}
             {backWeak.map((item, i) => (
@@ -154,12 +154,12 @@ export default function MuscleBodyMap({
                 key={'bw-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--brand)40" stroke="var(--brand)" strokeWidth="1.2"
+                fill="var(--brand)" fillOpacity="0.25" stroke="var(--brand)" strokeWidth="1.2"
               />
             ))}
             {backPossible.map((item, i) => (
               <ellipse key={`bp${i}`} cx={item.region.cx} cy={item.region.cy} rx={item.region.rx} ry={item.region.ry}
-                fill="var(--text-muted)22" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
+                fill="var(--text-muted)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
             ))}
           </svg>
         </div>
@@ -170,7 +170,7 @@ export default function MuscleBodyMap({
         <div style={{ width: '100%', display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <svg width="16" height="10">
-              <ellipse cx="8" cy="5" rx="7" ry="4" fill="var(--text-muted)22" stroke="var(--text-secondary)" strokeWidth="1" strokeDasharray="3,3"/>
+              <ellipse cx="8" cy="5" rx="7" ry="4" fill="var(--text-muted)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth="1" strokeDasharray="3,3"/>
             </svg>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Possible involvement</span>
           </div>

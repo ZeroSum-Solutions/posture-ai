@@ -51,6 +51,10 @@ Full fix scope = add `.is('deleted_at', null)` to: clients list (page.tsx:30), d
 
 ## QA-002 — Muscle Guide + all muscle detail pages + results muscle links dead-end in production build
 severity: S3 · status: open · found: PASS-01 · item: KB-01, RES-02
+PASS-05 update: the current branch now renders a truthful "reviewed guide is being
+prepared" empty state, resolving the misleading empty-search copy. The results-page
+muscle chips still link unconditionally to detail routes that 404 when every entry is
+unreviewed, so QA-002 remains open with that reduced scope.
 root cause: the reviewed-content gate hides 100% of muscle content in prod because
 0 of 29 seeded muscles have `reviewed_at` set. `app/muscles/page.tsx:8` +
 `app/muscles/[slug]/page.tsx:6` compute `SHOW_UNREVIEWED = NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT==='1' || NODE_ENV!=='production'`.
@@ -73,7 +77,11 @@ evidence: docs/qa/evidence/QA-002-muscles-empty-prod.png · code: app/muscles/pa
 note: this is a launch-readiness + graceful-degradation issue, not a crash. Two-part fix — content review is a product decision (out of code scope); the code-side fix (graceful empty-state + suppress dead muscle links when target unreviewed) is one root-cause branch. Verified library FUNCTIONALITY separately by temporarily marking muscles reviewed on local DB (renders/searches/links correctly), so the components themselves are sound.
 
 ## QA-003 — Results-page program comboboxes lack id/name (a11y)
-severity: S4 · status: open · found: PASS-01 · item: XC-01, RES-04
+severity: S4 · status: FIXED (branch feat/strength-track) · found: PASS-01 · item: XC-01, RES-04
+FIX: added stable, unique `id` and `name` attributes to the client-capability and
+per-exercise swap selects, and associated each swap label with its control. The focused
+assessment-flow regression failed with 13 anonymous selects before the fix and passed
+afterward.
 root cause: the assessment results page renders ~13 `<select>` controls (per-focus
 CLIENT CAPABILITY + per-exercise SWAP dropdowns) without an `id` or `name` attribute.
 Chrome DevTools Issues reports "A form field element should have an id or name attribute
@@ -85,3 +93,50 @@ expected: each select has an id and/or name (e.g. `swap-${slug}`, `capability-${
 actual: 13 anonymous form fields; DevTools issue emitted.
 evidence: console issue msgid on assessment 97221b37 results page · likely in the RampTable / program-render component (SWAP + capability selects).
 note: cosmetic/hygiene — bundle with QA-002 muscle-guide graceful-degradation branch OR its own tiny a11y branch. Add id/name to the select elements + a regression test asserting the results page emits zero DevTools form-field issues.
+
+## QA-004 — CSS-variable alpha suffixes turn assessment highlights black or discard styles
+severity: S3 · status: FIXED (branch feat/strength-track) · found: PASS-05 · item: RES-01, RES-02, RES-04
+root cause: the design-token migration retained eight-digit-hex suffixes after replacing
+hex colors with CSS variables, producing invalid values such as `var(--danger)40` and
+`var(--brand)aa`. Chromium resolves the SVG muscle fills to black and discards affected
+background, shadow, and disabled-text declarations.
+repro: render a results muscle map with one tight and one weak muscle; inspect the computed
+ellipse fills. Before the fix both invalid fills resolve to black instead of distinct
+semantic colors.
+expected: tight, weak, and possible muscle regions retain distinct semantic colors and
+every translucent assessment style parses as valid CSS.
+actual: muscle regions lose their red/blue distinction and several translucent styles are
+silently ignored.
+evidence: focused `MuscleBodyMap` regression failed before the fix and passes afterward;
+production-code scan finds no direct `var(--token)<hex-alpha>` values. FIX: SVG fills now
+use `fillOpacity`; other assessment surfaces use `color-mix(..., transparent)`.
+
+## QA-005 — Motion orchestrator mutates route DOM before Suspense hydration completes
+severity: S3 · status: open · found: PASS-05 · item: WIZ-01
+root cause: `MotionOrchestrator` hydrates in `AppShell` before the nested assessment-wizard
+Suspense boundary, then its layout effect adds `motion-reveal` / `motion-visible` classes
+and `--motion-delay` styles to still-dehydrated route nodes. React later compares those
+nodes with the wizard's unchanged props and reports an attribute mismatch.
+repro: run the desktop Chromium assessment golden path and visit
+`/assessments/new?testMode=1`; capture browser console errors.
+expected: the route hydrates with no React mismatch warning.
+actual: React reports that server-rendered attributes do not match, listing the motion
+classes and delay styles inserted into wizard descendants.
+evidence: `node scripts/run-e2e.mjs e2e/assessment-flow.spec.ts --project=desktop-chromium
+--grep 'create client, run fixture assessment' --workers=1`; a temporary regression
+listener reproduced the warning reliably. Passive-effect and frame-delay timing changes
+were tried locally and rejected because they did not remove the race. A structural fix
+must avoid mutating React-owned descendants before their boundary hydrates.
+
+## QA-006 — Assessment results route has no document title
+severity: S3 · status: FIXED (branch feat/strength-track) · found: PASS-05 · item: RES-01, XC-01
+root cause: the dynamic assessment-results page is a client component and its route had no
+server layout metadata, so the rendered document contained no non-empty `<title>`.
+repro: complete the fixture assessment flow, then run the Axe serious-impact budget on
+the results page.
+expected: the results document has a descriptive title for browser and assistive-navigation
+context.
+actual: Axe reports `document-title` (serious) against the root `html` element.
+evidence: the focused accessibility test failed before the fix and passed afterward.
+FIX: added route-level server metadata in `app/assessments/[id]/layout.tsx`, producing
+`Assessment Results · Posture AI` through the root title template.

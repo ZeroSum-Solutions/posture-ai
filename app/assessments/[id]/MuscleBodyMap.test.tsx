@@ -21,6 +21,12 @@ describe('MuscleBodyMap', () => {
     )
     // quadriceps (front) + hamstrings (back) = 2 markers
     expect(container.querySelectorAll('ellipse')).toHaveLength(2)
+
+    const fills = Array.from(container.querySelectorAll('[fill]'), (node) => node.getAttribute('fill') ?? '')
+    expect(fills).not.toContain('var(--danger)40')
+    expect(fills).not.toContain('var(--brand)40')
+    expect(fills).toEqual(expect.arrayContaining(['var(--danger)', 'var(--brand)']))
+    expect(Array.from(container.querySelectorAll('ellipse'), (node) => node.getAttribute('fill-opacity'))).toEqual(['0.25', '0.25'])
   })
 
   it('renders nothing when there are no muscles at all', () => {
@@ -93,5 +99,10 @@ describe('MuscleBodyMap', () => {
 
     // "Possible" header exists
     expect(getByText('Possible')).toBeTruthy()
+
+    const possibleMarkers = Array.from(container.querySelectorAll('ellipse[stroke-dasharray="3,3"]'))
+    expect(possibleMarkers.length).toBeGreaterThan(0)
+    expect(possibleMarkers.every((node) => node.getAttribute('fill') === 'var(--text-muted)')).toBe(true)
+    expect(possibleMarkers.every((node) => node.getAttribute('fill-opacity') === '0.13')).toBe(true)
   })
 })

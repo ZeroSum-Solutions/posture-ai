@@ -122,8 +122,8 @@ function AngleMarker({ x, y, color, severity, label }: { x: number; y: number; c
   const r = severity >= 50 ? 16 : severity >= 20 ? 12 : 9
   return (
     <g>
-      <circle cx={x} cy={y} r={r + 7} fill={color + '10'} />
-      <circle cx={x} cy={y} r={r + 2} fill={color + '12'} stroke={color} strokeOpacity=".72" strokeWidth="1.4" />
+      <circle cx={x} cy={y} r={r + 7} fill={color} fillOpacity="0.06" />
+      <circle cx={x} cy={y} r={r + 2} fill={color} fillOpacity="0.07" stroke={color} strokeOpacity=".72" strokeWidth="1.4" />
       <circle cx={x} cy={y} r={3} fill={color}/>
       <text x={x} y={y + r + 14} textAnchor="middle" fill={color} fontSize="8" fontWeight="700">
         {label}
@@ -338,7 +338,7 @@ function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
         marginBottom: 8 }}>
         <div style={{ position: 'absolute', left: positionPct + '%', top: '50%', transform: 'translate(-50%, -50%)',
           width: 18, height: 18, borderRadius: '50%', background: color, border: '3px solid var(--background)',
-          boxShadow: '0 0 8px ' + color + '88' }} />
+          boxShadow: `0 0 8px color-mix(in srgb, ${color} 53%, transparent)` }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
         <span style={{ color: 'var(--maintain)' }}>S (Best)</span>
@@ -356,7 +356,7 @@ function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {GRADE_BANDS.map(b => (
           <div key={b.grade} style={{ padding: '6px 10px', borderRadius: 8,
-            background: b.grade === currentGrade ? b.color + '22' : 'rgba(255,255,255,0.04)',
+            background: b.grade === currentGrade ? `color-mix(in srgb, ${b.color} 13%, transparent)` : 'rgba(255,255,255,0.04)',
             border: '1px solid ' + (b.grade === currentGrade ? b.color : 'rgba(255,255,255,0.08)'),
             textAlign: 'center', minWidth: 56 }}>
             <div style={{ fontSize: '1rem', fontWeight: 900, color: b.color }}>{b.grade}</div>
@@ -405,7 +405,7 @@ function FindingCard({ f }: { f: Finding }) {
               textTransform: 'uppercase' }}>Unreliable</span>
           )}
           <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-            background: zoneColor + '22', color: isUnreliable ? 'var(--text-secondary)' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
+            background: `color-mix(in srgb, ${zoneColor} 13%, transparent)`, color: isUnreliable ? 'var(--text-secondary)' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
           {f.borderline ? (
             <span title="This reading sits within its own capture variability of a zone boundary — consider the zone as approximate."
               style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
@@ -549,7 +549,7 @@ function ExerciseAccordionItem({ exercise }: { exercise: ExerciseContent }) {
       >
         <span style={{
           padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700,
-          background: catColor + '22', color: catColor, textTransform: 'uppercase',
+          background: `color-mix(in srgb, ${catColor} 13%, transparent)`, color: catColor, textTransform: 'uppercase',
           letterSpacing: '0.05em', flexShrink: 0,
         }}>{catLabel}</span>
         <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
@@ -1166,7 +1166,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         <button onClick={() => handleGeneratePdf('practitioner')} disabled={pdfLoading !== null}
           style={{ padding: '12px 24px', borderRadius: 10,
             background: pdfLoading !== null ? 'rgba(0,152,243,0.06)' : 'rgba(0,152,243,0.15)',
-            color: pdfLoading !== null ? 'var(--brand)aa' : 'var(--brand)',
+            color: pdfLoading !== null ? 'color-mix(in srgb, var(--brand) 67%, transparent)' : 'var(--brand)',
             border: '1px solid rgba(0,152,243,0.3)',
             fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'practitioner' ? 'Generating PDF...' : 'Practitioner PDF'}
@@ -1174,7 +1174,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
         <button onClick={() => handleGeneratePdf('client')} disabled={pdfLoading !== null}
           style={{ padding: '12px 24px', borderRadius: 10,
             background: pdfLoading !== null ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
-            color: pdfLoading !== null ? 'var(--maintain)aa' : 'var(--maintain)',
+            color: pdfLoading !== null ? 'color-mix(in srgb, var(--maintain) 67%, transparent)' : 'var(--maintain)',
             border: '1px solid rgba(34,197,94,0.3)',
             fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'client' ? 'Generating…' : 'Client Report'}
