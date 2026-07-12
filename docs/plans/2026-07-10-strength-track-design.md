@@ -1,8 +1,13 @@
 # Strength track alongside correctives — design
 
-**Status:** Proposed — approved in-session by Devin 2026-07-10, not implemented.
+**Status:** Approved, **deferred 2026-07-11** — implementation not started, shelved for a later cycle.
 **Scope:** `content/muscles/types.ts`, `lib/program/*`, `lib/workout/*`, `app/workouts/_player/*`, six new `content/exercises/*.ts`.
 **Decisions locked in-session:** parallel track (not a second product surface); 4-week mesocycle with deload; first content slice bounded to bodyweight + band.
+
+**Resume checklist (when this is picked back up):**
+1. Get Devin's explicit OK on the two "Out of scope" gates below — no autoregulation (set-logging/load/RPE) and no demo media for the six new movements. The spec session ended awaiting exactly this.
+2. Nothing here was ever built. Note: commit `2aac5fa`, despite its message, implemented the UI redesign, **not** this spec. Start from a clean slate against the deliverable list in this doc.
+3. Follow the §"Fable 5 partition" hot/safe split; the contraindication ratchet re-derives across all seventeen movements — budget for adjudication, not authoring.
 
 ## Problem
 
