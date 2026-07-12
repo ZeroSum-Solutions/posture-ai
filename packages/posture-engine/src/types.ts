@@ -20,6 +20,11 @@ export interface PoseFrame {
   aspectRatio?: number
   /** How the frame was produced; uploads can never be sensor-verified. */
   source?: 'camera' | 'upload'
+  /**
+   * Which anatomical side profile faced the camera for a `view: 'side'` capture
+   * (the side nearest the lens). Absent = legacy single-side capture.
+   */
+  profileSide?: 'left' | 'right'
 }
 
 export type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -53,6 +58,33 @@ export interface Finding {
    * True when |deviation| sits within its own burst σ of a zone boundary — the
    * zone claim is soft (spec §3.4). Display-only; program logic ignores it.
    */
+  borderline?: boolean
+  /**
+   * Per-side observations for the sagittal metrics captured on both L and R
+   * profiles. The scored fields above are copied verbatim from the driving
+   * (worst) side; this array carries both sides for display. Absent for
+   * front/back metrics and legacy single-side captures.
+   */
+  observations?: SideObservation[]
+  /** Which profile's observation drove the aggregate scored fields. */
+  drivingProfileSide?: 'left' | 'right'
+}
+
+/**
+ * One side profile's measurement of a sagittal metric. The aggregate Finding is
+ * the worst of the (up to two) observations per spec §11.2; both are retained
+ * for display. `reliable === (zone !== 'unreliable')` is invariant.
+ */
+export interface SideObservation {
+  profileSide: 'left' | 'right'
+  deviation: number
+  direction: string
+  severityPct: number
+  zone: Zone
+  confidence: number
+  reliable: boolean
+  stabilityScore?: number
+  uncertaintyDeg?: number
   borderline?: boolean
 }
 
