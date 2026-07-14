@@ -80,6 +80,14 @@ describe('shutterGate (§4.2 translation-only)', () => {
     expect(r.coach).toBe('Fit your whole body in the frame')
   })
 
+  it('blocks framing when the only visible head landmark (an eye) is cropped off-screen', () => {
+    const lm = goodPose()
+    delete lm.nose; delete lm.left_ear; delete lm.right_ear // eye is the only head proof
+    lm.left_eye = p(1.3, 0.10); lm.right_eye = p(1.35, 0.10) // …and it's out of frame
+    const r = shutterGate({ landmarks: lm, toViewport: ID, rollDeg: null, overrideActive: false })
+    expect(r.factors.inFrame).toBe('blocked')
+  })
+
   it('manual override bypasses every translation-only gate', () => {
     const lm = goodPose()
     lm.left_ankle = p(0.02, 0.95); lm.right_ankle = p(0.05, 0.95); lm.right_hip = p(1.3, 0.55)

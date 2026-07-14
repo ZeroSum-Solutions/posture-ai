@@ -17,8 +17,10 @@ export const TILT_MAX_DEG = 5
 // cropped-off joint blocks "full body in frame".
 const HEAD_LANDMARKS = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear']
 const FOOT_LANDMARKS = ['left_ankle', 'right_ankle', 'left_heel', 'right_heel']
+// Every landmark that can prove "head present" (HEAD_LANDMARKS, incl. eyes) is
+// also bounds-checked, so an eye-only head cropped off-screen still fails framing.
 const BOUNDS_LANDMARKS = [
-  'nose', 'left_ear', 'right_ear',
+  ...HEAD_LANDMARKS,
   'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip',
   'left_knee', 'right_knee', 'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
 ]

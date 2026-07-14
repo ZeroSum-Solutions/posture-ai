@@ -323,6 +323,11 @@ export default function FullScreenCapture({
       if (video && video.videoWidth > 0 && ready && typeof createImageBitmap === 'function'
         && now - lastFrameTsRef.current >= LIVE_FRAME_INTERVAL_MS) {
         lastFrameTsRef.current = now
+        // Independent freshness watchdog: clear a stale pose whenever no real
+        // inference has landed within the window — whether frames are dropped
+        // in-flight, rejected by createImageBitmap/frameLive, or simply not
+        // returning. Runs synchronously so it never depends on a fulfilled null.
+        if (now - lastResultTsRef.current > LIVE_FRESHNESS_MS) setLiveFrame(null)
         // Self-heal: a fire-and-forget preflight (or a visibility-hidden close)
         // may have left the runtime out of live-video for this view — re-enter.
         if (runtime.state() !== 'live-video') void runtime.enterLive()
@@ -336,18 +341,14 @@ export default function FullScreenCapture({
             return runtime.frameLive(bitmap, { generation: gen, timestampMs: now, currentTime })
           })
           .then(res => {
-            if (stopped || liveGenRef.current !== gen) return
-            if (res) {
-              // A real inference result (landmarks may be empty = no person).
-              setLiveFrame({ landmarks: res.landmarks, videoDims })
-              lastResultTsRef.current = performance.now()
-            } else if (performance.now() - lastResultTsRef.current > LIVE_FRESHNESS_MS) {
-              // No fresh result for a while → tracking genuinely lost; clear.
-              setLiveFrame(null)
-            }
-            // else: a routine dropped/in-flight frame → sample-and-hold the pose.
+            if (stopped || liveGenRef.current !== gen || !res) return
+            // A real inference result (landmarks may be empty = no person); a
+            // routine dropped/in-flight null just holds the last pose (watchdog
+            // above expires it if drops persist past the freshness window).
+            setLiveFrame({ landmarks: res.landmarks, videoDims })
+            lastResultTsRef.current = performance.now()
           })
-          .catch(() => { /* frame skipped */ })
+          .catch(() => { /* frame skipped — the watchdog handles staleness */ })
       }
       raf = requestAnimationFrame(loop)
     }
@@ -356,6 +357,13 @@ export default function FullScreenCapture({
     // prior view's landmarks never linger in the gate or overlay.
     return () => { stopped = true; cancelAnimationFrame(raf); setLiveFrame(null) }
   }, [phase, activeSlot, cameraFailed, ready])
+
+  // A live camera failing/ending tears down the tracking loop but must also close
+  // the live worker — otherwise the VIDEO backend lingers resident on the
+  // camera-error screen (the IMAGE backend, if any, is closed on exit/submit).
+  useEffect(() => {
+    if (cameraFailed) void getCaptureRuntime().closeLive()
+  }, [cameraFailed])
 
   // Focus management: this overlay covers the whole viewport, so move focus to
   // the primary control of each phase and keep Tab within the overlay.
