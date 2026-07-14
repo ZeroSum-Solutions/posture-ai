@@ -1,16 +1,29 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Landmark } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
+import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
+import { shutterGate } from '@/lib/capture/shutter-gate'
+import { sourceToViewport } from '@/lib/capture/overlay-transform'
 import type { Captures, CaptureSlotKey } from './types'
 import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
+import LiveGuides from './LiveGuides'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
 // A ~5-frame burst of a held pose is enough to estimate landmark jitter without
 // a perceptible capture delay.
 const BURST_SIZE = 5
 const BURST_INTERVAL_MS = 70
+
+// Live-tracking throttle: ~11 fps is enough to steer framing without pinning the
+// GPU (the worker also drops overlapping / unchanged frames).
+const LIVE_FRAME_INTERVAL_MS = 90
+// Sample-and-hold window: a routine dropped/in-flight frame must NOT erase the
+// last pose (that would flicker the gate to tilt-only on slower devices). Only
+// clear tracking after this long with no fresh inference result.
+const LIVE_FRESHNESS_MS = 600
 
 interface FullScreenCaptureProps {
   captures: Captures
@@ -19,7 +32,6 @@ interface FullScreenCaptureProps {
   onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
-  modelLoading: boolean
   modelError: boolean
   submitting: boolean
   uploadError: string | null
@@ -101,7 +113,6 @@ export default function FullScreenCapture({
   onFileUpload,
   onProceed,
   onExit,
-  modelLoading,
   modelError,
   submitting,
   uploadError,
@@ -123,6 +134,12 @@ export default function FullScreenCapture({
   const captureSlotRef = useRef<CaptureSlotKey>('front')
   // Monotonic id stamped per shutter; carried onto the committed slot.
   const captureIdRef = useRef(0)
+  // Live-tracking: a generation token (bumped per view/phase change so stale
+  // worker results are dropped) + a frame throttle timestamp + the last real
+  // inference timestamp (for sample-and-hold freshness).
+  const liveGenRef = useRef(0)
+  const lastFrameTsRef = useRef(0)
+  const lastResultTsRef = useRef(0)
 
   const [phase, setPhase] = useState<Phase>('disclaimer')
   const [started, setStarted] = useState(false)
@@ -141,15 +158,33 @@ export default function FullScreenCapture({
   const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
   const [previewQuality, setPreviewQuality] = useState<FrameQuality | null>(null)
 
+  // Live worker tracking: landmarks + the source frame's dims, set together each
+  // tracked frame (null when the worker isn't tracking → sensor-only guides).
+  const [liveFrame, setLiveFrame] = useState<{ landmarks: Record<string, Landmark>; videoDims: { w: number; h: number } } | null>(null)
+  const [viewDims, setViewDims] = useState<{ w: number; h: number } | null>(null)
+  const liveLandmarks = liveFrame?.landmarks ?? null
+
   const level = useCameraLevel()
-  const [overrideTilt, setOverrideTilt] = useState(false)
+  // "Capture anyway" override — bypasses ALL translation-only gates (§ frozen gate).
+  const [overrideGate, setOverrideGate] = useState(false)
 
   const roll = level.rollDeg
-  // Gate thresholds (design §4.1): green ≤2°, amber ≤5° (allowed, corrected),
-  // red >5° (blocked, manual override available).
+  // Level-meter zones (design §4.1): green ≤2°, amber ≤5°, red >5°.
   const tiltZone: 'green' | 'amber' | 'red' | null =
     roll === null ? null : Math.abs(roll) <= 2 ? 'green' : Math.abs(roll) <= 5 ? 'amber' : 'red'
-  const tiltBlocked = tiltZone === 'red' && !overrideTilt
+
+  // Cover-crop affine used for BOTH drawing and gating (§11.7), so the gate
+  // judges where the subject appears on screen — not raw camera coords. Null
+  // until we know the viewport + source dims.
+  const overlayTransform = viewDims && liveFrame && liveFrame.videoDims.w > 0
+    ? sourceToViewport({ srcW: liveFrame.videoDims.w, srcH: liveFrame.videoDims.h, vpW: viewDims.w, vpH: viewDims.h, mirror: false })
+    : null
+
+  // Translation-only shutter gate (§4.2, §11.6): a pure function of tilt +
+  // support-base centering + full-body-in-frame (in viewport space); never the
+  // posture midline.
+  const gate = shutterGate({ landmarks: liveLandmarks, toViewport: overlayTransform?.toViewport ?? null, rollDeg: roll, overrideActive: overrideGate })
+  const gateBlocked = !gate.allowed
 
   const notPortrait =
     typeof screen !== 'undefined' && screen.orientation && !screen.orientation.type.startsWith('portrait')
@@ -222,6 +257,9 @@ export default function FullScreenCapture({
       // parent's captures state and outlive this overlay).
       burstRef.current.forEach(URL.revokeObjectURL)
       burstRef.current = []
+      // Close the live VIDEO worker (the scoring IMAGE landmarker, if resident, is
+      // the parent's to dispose after submit) — no worker outlives the overlay.
+      void getCaptureRuntime().closeLive()
     }
   }, [releaseWakeLock])
 
@@ -233,14 +271,99 @@ export default function FullScreenCapture({
     void openStream()
   }
 
-  // Re-acquire the wake lock when the tab becomes visible again.
+  // Re-acquire the wake lock when the tab becomes visible again; close the live
+  // worker when the tab is hidden so no GPU runtime lingers in the background.
   useEffect(() => {
     function onVisible() {
-      if (document.visibilityState === 'visible' && started && !cameraFailed) void acquireWakeLock()
+      // Hidden: close whichever backend is open (worker while live, IMAGE while
+      // reviewing) so no GPU runtime lingers backgrounded. On restore, the live
+      // tracking loop self-heals (re-enters live) when still framing.
+      if (document.visibilityState === 'hidden') { void getCaptureRuntime().dispose(); return }
+      if (started && !cameraFailed) void acquireWakeLock()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [started, cameraFailed, acquireWakeLock])
+
+  // Track the on-screen overlay size (for the cover-crop affine + level line).
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => { const r = el.getBoundingClientRect(); setViewDims({ w: r.width, h: r.height }) }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Live worker tracking loop: while framing a view, enter the live runtime and
+  // feed throttled frames to the worker; drop stale results by generation token.
+  // Any failure degrades silently to sensor-only guides (§4.1 fallback).
+  useEffect(() => {
+    // Track through BOTH live and countdown so the self-timer's shutter-instant
+    // recheck sees a current pose (not tilt-only). Only run when the camera is
+    // streaming and we can grab frames — no point spawning/closing a VIDEO
+    // landmarker (churning against the IMAGE one) with no ready camera
+    // (upload-only) or no createImageBitmap (SSR / disabled). Degrades to
+    // sensor-only guides + tilt-only shutter (§4.1 fallback).
+    if ((phase !== 'live' && phase !== 'countdown') || cameraFailed || !ready || typeof createImageBitmap !== 'function') return
+    const runtime = getCaptureRuntime()
+    liveGenRef.current += 1
+    const gen = liveGenRef.current
+    lastFrameTsRef.current = 0
+    lastResultTsRef.current = performance.now()
+    void runtime.enterLive()
+
+    let stopped = false
+    let raf = 0
+    const loop = () => {
+      if (stopped) return
+      const video = videoRef.current
+      const now = performance.now()
+      if (video && video.videoWidth > 0 && ready && typeof createImageBitmap === 'function'
+        && now - lastFrameTsRef.current >= LIVE_FRAME_INTERVAL_MS) {
+        lastFrameTsRef.current = now
+        // Independent freshness watchdog: clear a stale pose whenever no real
+        // inference has landed within the window — whether frames are dropped
+        // in-flight, rejected by createImageBitmap/frameLive, or simply not
+        // returning. Runs synchronously so it never depends on a fulfilled null.
+        if (now - lastResultTsRef.current > LIVE_FRESHNESS_MS) setLiveFrame(null)
+        // Self-heal: a fire-and-forget preflight (or a visibility-hidden close)
+        // may have left the runtime out of live-video for this view — re-enter.
+        if (runtime.state() !== 'live-video') void runtime.enterLive()
+        const videoDims = { w: video.videoWidth, h: video.videoHeight }
+        const currentTime = video.currentTime
+        createImageBitmap(video)
+          .then(bitmap => {
+            // Drop a stale bitmap (view changed / effect stopped while decoding)
+            // rather than spending inference on the old view.
+            if (stopped || liveGenRef.current !== gen) { bitmap.close?.(); return null }
+            return runtime.frameLive(bitmap, { generation: gen, timestampMs: now, currentTime })
+          })
+          .then(res => {
+            if (stopped || liveGenRef.current !== gen || !res) return
+            // A real inference result (landmarks may be empty = no person); a
+            // routine dropped/in-flight null just holds the last pose (watchdog
+            // above expires it if drops persist past the freshness window).
+            setLiveFrame({ landmarks: res.landmarks, videoDims })
+            lastResultTsRef.current = performance.now()
+          })
+          .catch(() => { /* frame skipped — the watchdog handles staleness */ })
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    // Clear tracking when leaving live/countdown (→ review) or changing view so a
+    // prior view's landmarks never linger in the gate or overlay.
+    return () => { stopped = true; cancelAnimationFrame(raf); setLiveFrame(null) }
+  }, [phase, activeSlot, cameraFailed, ready])
+
+  // A live camera failing/ending tears down the tracking loop but must also close
+  // the live worker — otherwise the VIDEO backend lingers resident on the
+  // camera-error screen (the IMAGE backend, if any, is closed on exit/submit).
+  useEffect(() => {
+    if (cameraFailed) void getCaptureRuntime().closeLive()
+  }, [cameraFailed])
 
   // Focus management: this overlay covers the whole viewport, so move focus to
   // the primary control of each phase and keep Tab within the overlay.
@@ -309,7 +432,7 @@ export default function FullScreenCapture({
       // through — discard the partial burst rather than feeding the engine frames
       // the shutter itself would have blocked (unless the user overrode the gate).
       if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
-      if (!overrideTilt && Math.abs(level.rollRef.current ?? 0) > 5) { bail(); return }
+      if (!overrideGate && Math.abs(level.rollRef.current ?? 0) > 5) { bail(); return }
       ctx.drawImage(video, 0, 0)
       const url = await canvasToObjectURL(canvas)
       if (url) urls.push(url)
@@ -330,7 +453,7 @@ export default function FullScreenCapture({
     setPhase('review')
     // Stream keeps running so the next view is instant — the frozen still is
     // shown as an overlay during review.
-  }, [level.rollRef, overrideTilt, activeSlot])
+  }, [level.rollRef, overrideGate, activeSlot])
 
   function startCountdown() {
     void acquireWakeLock()
@@ -339,16 +462,16 @@ export default function FullScreenCapture({
   }
 
   function onShutter() {
-    if (tiltBlocked || !ready || isCapturing) return
+    if (gateBlocked || !ready || isCapturing) return
     if (timerOn) startCountdown()
     else void capture()
   }
 
-  // Countdown driver — re-checks the tilt gate at the shutter instant.
+  // Countdown driver — re-checks the shutter gate at the capture instant.
   useEffect(() => {
     if (phase !== 'countdown') return
     if (countdown <= 0) {
-      if (tiltBlocked) {
+      if (gateBlocked) {
         const abort = setTimeout(() => { setPhase('live'); setCountdown(3) }, 0)
         return () => clearTimeout(abort)
       }
@@ -357,7 +480,7 @@ export default function FullScreenCapture({
     }
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [phase, countdown, capture, tiltBlocked])
+  }, [phase, countdown, capture, gateBlocked])
 
   // Best-effort framing feedback on the captured still, so the user can retake
   // before committing. The wizard's preflight remains authoritative.
@@ -366,10 +489,12 @@ export default function FullScreenCapture({
     let cancelled = false
     void (async () => {
       try {
-        const { detectPose } = await import('@/lib/pose/detect')
+        const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
         const { assessFrameQuality } = await import('@/lib/pose/quality')
         const { view } = slotToDomain(activeSlot)
-        const frame = await detectPose(reviewUrl, view, 'camera')
+        // Route through the runtime owner — it closes the live worker before the
+        // IMAGE landmarker scores this still, so the two never run at once (§11.1).
+        const frame = await getCaptureRuntime().detect(reviewUrl, view, 'camera')
         if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
       } catch {
         // non-fatal: the slot preflight still runs after "Use This Photo"
@@ -406,7 +531,7 @@ export default function FullScreenCapture({
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
-    setOverrideTilt(false)
+    setOverrideGate(false)
     // Advance to the next uncaptured slot as a convenience. Analysis is ALWAYS an
     // explicit user action (the Analyze button, enabled once the required slots
     // are present) — capture order never auto-proceeds.
@@ -426,7 +551,7 @@ export default function FullScreenCapture({
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
-    setOverrideTilt(false)
+    setOverrideGate(false)
     setPhase('live')
   }
 
@@ -435,6 +560,8 @@ export default function FullScreenCapture({
     // switch would race the in-flight capture (the burst is locked until it
     // resolves). Switching away from an unreviewed shot discards it.
     if (isCapturing) return
+    // A new view must earn its own "capture anyway" — override never carries over.
+    setOverrideGate(false)
     setActiveSlot(slot)
     if (phase === 'review') retakeStill()
   }
@@ -448,7 +575,7 @@ export default function FullScreenCapture({
   function handleUpload(slot: CaptureSlotKey, file: File) {
     onFileUpload(slot, file)
     const next = nextUncapturedAfter(slot)
-    if (next) setActiveSlot(next)
+    if (next) { setOverrideGate(false); setActiveSlot(next) }
   }
 
   // ---- derived UI state ----
@@ -528,14 +655,15 @@ export default function FullScreenCapture({
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: showLiveCamera ? 'block' : 'none' }}
             />
 
-            {showLiveCamera && (
-              <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                {/* rule-of-thirds grid */}
-                <line x1="33.3" y1="0" x2="33.3" y2="100" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
-                <line x1="66.6" y1="0" x2="66.6" y2="100" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
-                <line x1="0" y1="33.3" x2="100" y2="33.3" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
-                <line x1="0" y1="66.6" x2="100" y2="66.6" stroke="rgba(255,255,255,0.18)" strokeWidth="0.2" />
-              </svg>
+            {showLiveCamera && phase === 'live' && (
+              <LiveGuides
+                landmarks={liveLandmarks}
+                viewDims={viewDims}
+                videoDims={liveFrame?.videoDims ?? null}
+                rollDeg={roll}
+                view={slotToDomain(activeSlot).view}
+                centeringState={gate.factors.centering}
+              />
             )}
 
             {/* Frozen still during review */}
@@ -574,9 +702,9 @@ export default function FullScreenCapture({
               </div>
             )}
 
-            {(modelLoading || modelError) && (
-              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: modelError ? 'rgba(239,68,68,0.85)' : 'rgba(0,0,0,0.55)', color: modelError ? '#fff' : 'var(--text-primary)' }}>
-                {modelError ? 'Pose engine unavailable' : 'Preparing pose engine…'}
+            {modelError && (
+              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: 'rgba(239,68,68,0.85)', color: '#fff' }}>
+                Pose engine unavailable
               </div>
             )}
           </div>
@@ -626,14 +754,14 @@ export default function FullScreenCapture({
               </div>
             )}
 
-            {/* Tilt-blocked banner + override */}
-            {showLiveCamera && phase === 'live' && tiltBlocked && (
+            {/* Shutter-gate coaching banner + override (tilt / centering / framing) */}
+            {showLiveCamera && phase === 'live' && gateBlocked && gate.coach && (
               <div data-testid="tilt-blocked" id="tilt-blocked-banner" role="status" aria-live="polite" style={{
                 background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 10, padding: '10px 14px',
                 fontSize: '0.82rem', color: 'var(--danger)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
               }}>
-                <span>Phone is tilted {Math.abs(roll ?? 0).toFixed(1)}° — straighten it to capture.</span>
-                <button onClick={() => setOverrideTilt(true)} style={{ background: 'none', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 6, color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture anyway</button>
+                <span>{gate.coach}{gate.factors.tilt === 'blocked' ? ` — tilted ${Math.abs(roll ?? 0).toFixed(1)}°` : ''}</span>
+                <button onClick={() => setOverrideGate(true)} style={{ background: 'none', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 6, color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture anyway</button>
               </div>
             )}
 
@@ -717,15 +845,15 @@ export default function FullScreenCapture({
                 <button
                   data-autofocus="shutter"
                   onClick={onShutter}
-                  aria-disabled={tiltBlocked || !ready || isCapturing}
+                  aria-disabled={gateBlocked || !ready || isCapturing}
                   aria-label="Capture photo"
                   style={{
                     justifySelf: 'center', width: '72px', height: '72px', borderRadius: '50%',
-                    background: tiltBlocked || !ready || isCapturing ? 'rgba(255,255,255,0.25)' : '#fff',
+                    background: gateBlocked || !ready || isCapturing ? 'rgba(255,255,255,0.25)' : '#fff',
                     border: '4px solid rgba(255,255,255,0.55)', boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
-                    cursor: tiltBlocked || !ready || isCapturing ? 'not-allowed' : 'pointer',
+                    cursor: gateBlocked || !ready || isCapturing ? 'not-allowed' : 'pointer',
                   }}
-                  aria-describedby={tiltBlocked ? 'tilt-blocked-banner' : undefined}
+                  aria-describedby={gateBlocked ? 'tilt-blocked-banner' : undefined}
                 />
                 <div style={{ justifySelf: 'end' }}>
                   <button
