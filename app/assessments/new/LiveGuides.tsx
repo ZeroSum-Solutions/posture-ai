@@ -16,8 +16,9 @@ interface LiveGuidesProps {
   /** Sensor roll (deg) for the level line; null hides it. */
   rollDeg: number | null
   view: ViewKey
-  /** Colors the center line: true = support base centered, false = off. */
-  centeringOk: boolean
+  /** Center-line color from the gate: green only when the support base is
+   *  actually centered ('ok'); neutral when unknown ('na') or off ('blocked'). */
+  centeringState: 'ok' | 'blocked' | 'na'
 }
 
 // Vertical-ordered joint groups for the informational (non-gating) body midline.
@@ -43,8 +44,8 @@ function visibleMean(lm: Record<string, Landmark>, names: string[]): { x: number
  * cover-crop affine so the overlay sits on the subject, not on raw normalized
  * coords stretched across the SVG.
  */
-export default function LiveGuides({ landmarks, viewDims, videoDims, rollDeg, view, centeringOk }: LiveGuidesProps) {
-  const centerColor = centeringOk ? 'rgba(16,185,129,0.9)' : 'rgba(255,255,255,0.45)'
+export default function LiveGuides({ landmarks, viewDims, videoDims, rollDeg, view, centeringState }: LiveGuidesProps) {
+  const centerColor = centeringState === 'ok' ? 'rgba(16,185,129,0.9)' : 'rgba(255,255,255,0.45)'
 
   // Tracked body midline, mapped source → viewport (0..100 SVG units).
   let midline: Array<{ x: number; y: number }> = []

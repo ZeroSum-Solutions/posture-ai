@@ -79,10 +79,14 @@ ctx.addEventListener('message', (e: MessageEvent) => {
       break
     case 'generation':
       // A new phase/view: bump the token so any late frames from the old view
-      // are dropped, and reset the monotonic-timestamp / dedup baselines.
-      gate.generation = msg.generation
-      gate.lastTimestampMs = -Infinity
-      gate.lastCurrentTime = NaN
+      // are dropped, and reset the monotonic-timestamp / dedup baselines. Never
+      // move the generation backward (stale message) — that would re-admit an old
+      // view's frames.
+      if (msg.generation >= gate.generation) {
+        gate.generation = msg.generation
+        gate.lastTimestampMs = -Infinity
+        gate.lastCurrentTime = NaN
+      }
       break
     case 'frame':
       handleFrame(msg)

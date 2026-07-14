@@ -50,11 +50,12 @@ export function startLiveBackend(): Promise<void> {
 }
 
 export function detectLiveBackend(bitmap: ImageBitmap, meta: LiveFrameMeta): Promise<LiveResult | null> {
-  // Not ready, or a detect is already pending — drop this frame and release its
-  // bitmap so the shutter-burst-free live loop can't accumulate GPU memory.
-  if (!worker || !ready || inFlight) { bitmap.close?.(); return Promise.resolve(null) }
-  // Sync the worker's generation token on change so it drops stale-view frames.
-  if (meta.generation !== lastSentGeneration) {
+  // Not ready, a detect is already pending, or a stale-generation frame arrived
+  // (an old view's bitmap resolved late) — drop it and release its bitmap so the
+  // live loop can't accumulate GPU memory or waste inference on the old view.
+  if (!worker || !ready || inFlight || meta.generation < lastSentGeneration) { bitmap.close?.(); return Promise.resolve(null) }
+  // Sync the worker's generation token — monotonically, so it never moves backward.
+  if (meta.generation > lastSentGeneration) {
     try { worker.postMessage({ type: 'generation', generation: meta.generation }) } catch { /* ignore */ }
     lastSentGeneration = meta.generation
   }

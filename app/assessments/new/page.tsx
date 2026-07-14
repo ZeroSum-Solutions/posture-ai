@@ -300,27 +300,31 @@ function NewAssessmentWizard() {
         // channel, so both side slots POST as distinct `{view:'side', profileSide}`
         // groups (Slice 1) and a corrected display image can never reach detection.
         // All scoring detection goes through the runtime owner so the live worker
-        // is closed and exactly one landmarker is resident (§11.1).
-        for (const p of buildFramePlan(captures)) {
-          if (p.burstUrls) {
-            // Detect every frame of the burst (the representative was already
-            // detected in preflight; re-detecting it here keeps the set uniform).
-            for (const url of p.burstUrls) {
-              const detected = await runtime.detect(url, p.view, 'camera')
+        // is closed and exactly one landmarker is resident (§11.1). The IMAGE
+        // landmarker is released in `finally` even if a detection throws.
+        try {
+          for (const p of buildFramePlan(captures)) {
+            if (p.burstUrls) {
+              // Detect every frame of the burst (the representative was already
+              // detected in preflight; re-detecting it here keeps the set uniform).
+              for (const url of p.burstUrls) {
+                const detected = await runtime.detect(url, p.view, 'camera')
+                frames.push(stampFrame(detected, p.profileSide, p.roll))
+              }
+            } else if (p.cachedFrame) {
+              // Single frame from preflight — already carries profileSide + roll.
+              frames.push(p.cachedFrame)
+            } else if (p.fallbackUrl) {
+              // Preflight was skipped or failed — detect now.
+              const detected = await runtime.detect(p.fallbackUrl, p.view, p.source ?? 'upload')
               frames.push(stampFrame(detected, p.profileSide, p.roll))
             }
-          } else if (p.cachedFrame) {
-            // Single frame from preflight — already carries profileSide + roll.
-            frames.push(p.cachedFrame)
-          } else if (p.fallbackUrl) {
-            // Preflight was skipped or failed — detect now.
-            const detected = await runtime.detect(p.fallbackUrl, p.view, p.source ?? 'upload')
-            frames.push(stampFrame(detected, p.profileSide, p.roll))
           }
+        } finally {
+          // Release the IMAGE landmarker whether scoring succeeded or threw — no
+          // backend stays resident while we navigate to results.
+          await runtime.dispose()
         }
-        // Scoring done — release the IMAGE landmarker (no backend stays resident
-        // while we navigate to results).
-        await runtime.dispose()
       }
 
       const response = await fetch('/api/assessments', {
@@ -556,7 +560,7 @@ function NewAssessmentWizard() {
             onCameraCapture={handleCameraCapture}
             onFileUpload={handleFileUpload}
             onProceed={validateAndProceed}
-            onExit={() => setStep(1)}
+            onExit={() => { void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {}); setStep(1) }}
             modelError={modelError}
             submitting={submitting}
             uploadError={uploadError}
