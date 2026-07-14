@@ -8,6 +8,29 @@ export interface FrameQuality {
 
 type ViewKey = 'front' | 'side' | 'back'
 
+export const FRONT_REQUIRED_JOINTS = [
+  'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip',
+  'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
+]
+export const SIDE_LEFT_REQUIRED_JOINTS = [
+  'left_ear', 'left_shoulder', 'left_hip', 'left_knee', 'left_ankle',
+]
+export const SIDE_RIGHT_REQUIRED_JOINTS = [
+  'right_ear', 'right_shoulder', 'right_hip', 'right_knee', 'right_ankle',
+]
+export const BACK_REQUIRED_JOINTS = [
+  'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip',
+]
+
+export function requiredNearSideJoints(
+  view: ViewKey,
+  profileSide: 'left' | 'right' | undefined,
+): string[] {
+  if (view === 'front') return [...FRONT_REQUIRED_JOINTS]
+  if (view === 'back') return [...BACK_REQUIRED_JOINTS]
+  return [...(profileSide === 'right' ? SIDE_RIGHT_REQUIRED_JOINTS : SIDE_LEFT_REQUIRED_JOINTS)]
+}
+
 // Returns the max visibility of a set of landmark names in a frame.
 function maxVis(frame: PoseFrame, names: string[]): number {
   let best = 0
@@ -29,8 +52,8 @@ function groupOk(frame: PoseFrame, names: string[]): boolean {
 // (MediaPipe has no head-top landmark): 0.65 ≈ the spec's 70% head-to-ankle
 // minimum; 0.95 still leaves visible margin, and truly cut-off bodies are
 // caught by the out-of-frame check below.
-const HEAD_LANDMARKS = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear']
-const ANKLE_LANDMARKS = ['left_ankle', 'right_ankle']
+export const HEAD_LANDMARKS = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear']
+export const ANKLE_LANDMARKS = ['left_ankle', 'right_ankle']
 const BOUNDS_LANDMARKS = [
   'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip',
   'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
