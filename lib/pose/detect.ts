@@ -6,43 +6,13 @@
 
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
 import type { PoseFrame, ViewLabel } from '@posture-ai/engine/types'
-
-// BlazePose 33-landmark order. Index -> engine landmark name.
-const POSE_LANDMARK_NAMES = [
-  'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
-  'right_eye_inner', 'right_eye', 'right_eye_outer',
-  'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
-  'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-  'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
-  'left_index', 'right_index', 'left_thumb', 'right_thumb',
-  'left_hip', 'right_hip', 'left_knee', 'right_knee',
-  'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
-  'left_foot_index', 'right_foot_index',
-] as const
-
-// Self-hosted assets (copied from the pinned @mediapipe/tasks-vision package at build time).
-const WASM_URL = '/mediapipe/wasm'
-
-// Model selection: NEXT_PUBLIC_POSE_MODEL=lite (default) | full
-const modelVariant = process.env.NEXT_PUBLIC_POSE_MODEL === 'full' ? 'full' : 'lite'
-const MODEL_URL = modelVariant === 'full'
-  ? '/mediapipe/models/pose_landmarker_full.task'
-  : '/mediapipe/models/pose_landmarker_lite.task'
-
-// No-face-geometry guarantee (BIPA): this app must ONLY ever load the pose
-// (skeletal) model — never a face-mesh / face-landmark model. The bundled
-// MediaPipe WASM is generic and could technically run a face task, so we assert
-// the loaded asset is an allow-listed pose model and FAIL CLOSED otherwise.
-// This is a checked, logged code path — not a policy promise.
-const ALLOWED_POSE_MODELS = new Set([
-  '/mediapipe/models/pose_landmarker_lite.task',
-  '/mediapipe/models/pose_landmarker_full.task',
-])
-function assertPoseOnlyModel(url: string): void {
-  if (/face/i.test(url) || !ALLOWED_POSE_MODELS.has(url)) {
-    throw new Error(`[pose] refusing non-pose model asset "${url}" — face geometry is never computed`)
-  }
-}
+import {
+  WASM_URL,
+  SCORING_MODEL_URL as MODEL_URL,
+  SCORING_MODEL_VARIANT as modelVariant,
+  assertPoseOnlyModel,
+  mapLandmarks,
+} from './pose-model'
 
 let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
@@ -159,21 +129,7 @@ async function detectPoseUncached(
   const landmarker = await getLandmarker()
   const img = await loadImage(src)
   const result = landmarker.detect(img)
-  const pts = result.landmarks?.[0]
-  const landmarks: PoseFrame['landmarks'] = {}
-  if (pts) {
-    pts.forEach((p, i) => {
-      const name = POSE_LANDMARK_NAMES[i]
-      if (name) {
-        landmarks[name] = {
-          x: p.x,
-          y: p.y,
-          z: p.z,
-          visibility: typeof p.visibility === 'number' ? p.visibility : 1,
-        }
-      }
-    })
-  }
+  const landmarks = mapLandmarks(result.landmarks?.[0])
   const frame: PoseFrame = { view, landmarks }
   if (img.naturalWidth > 0 && img.naturalHeight > 0) {
     frame.aspectRatio = img.naturalWidth / img.naturalHeight

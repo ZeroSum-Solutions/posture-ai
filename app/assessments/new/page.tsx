@@ -47,8 +47,8 @@ function NewAssessmentWizard() {
   })
   const [uploadError, setUploadError] = useState<string | null>(null)
 
-  // Model load state (shown while warming up)
-  const [modelLoading, setModelLoading] = useState(false)
+  // Pose-engine failure state (warming itself is driven lazily by the
+  // capture-runtime state machine at review time, not eagerly here — §11.1).
   const [modelError, setModelError] = useState(false)
 
   // Assessment API state
@@ -86,27 +86,6 @@ function NewAssessmentWizard() {
     }
     loadClients()
   }, [preselectedClientId, router])
-
-  // Warm up the landmarker when step 2 mounts (hides ~5s Chromium cold-start)
-  useEffect(() => {
-    if (step !== 2 || testMode) return
-    let cancelled = false
-    async function warm() {
-      setModelLoading(true)
-      setModelError(false)
-      try {
-        const { warmUpLandmarker } = await import('@/lib/pose/detect')
-        warmUpLandmarker()
-        // Warm-up is fire-and-forget; clear the indicator after a brief settle
-        await new Promise(r => setTimeout(r, 500))
-        if (!cancelled) setModelLoading(false)
-      } catch {
-        if (!cancelled) { setModelLoading(false); setModelError(true) }
-      }
-    }
-    warm()
-    return () => { cancelled = true }
-  }, [step, testMode])
 
   // Step 3: Poll assessment status and redirect when complete
   useEffect(() => {
@@ -196,6 +175,9 @@ function NewAssessmentWizard() {
       for (const slot of Object.values(ref.current)) {
         revokeStaleUrls([slot.rawRepresentativeUrl, slot.displayPreviewUrl, ...(slot.rawBurstUrls ?? [])], new Set())
       }
+      // Close any resident landmarker (worker VIDEO or scoring IMAGE) so neither
+      // backend outlives the wizard (§11.1 error/unmount path).
+      void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {})
     }
   }, [])
 
@@ -215,10 +197,13 @@ function NewAssessmentWizard() {
     setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'checking' } }))
 
     try {
-      const { detectPose } = await import('@/lib/pose/detect')
+      const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
       const { assessFrameQuality } = await import('@/lib/pose/quality')
 
-      const detected = await detectPose(rawUrl, view, source)
+      // Route through the runtime owner: it closes the live worker and warms the
+      // IMAGE landmarker first, and serializes so a concurrent enterLive can't
+      // close the landmarker mid-detection (§11.1).
+      const detected = await getCaptureRuntime().detect(rawUrl, view, source)
       if (isStale()) return
       const rawPoseFrame: PoseFrame = {
         ...detected,
@@ -309,16 +294,19 @@ function NewAssessmentWizard() {
       let frames: unknown[] | undefined = undefined
       if (!testMode) {
         frames = []
-        const { detectPose } = await import('@/lib/pose/detect')
+        const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
+        const runtime = getCaptureRuntime()
         // Detect + stamp per the pure plan (framePlan.ts). It reads ONLY the raw
         // channel, so both side slots POST as distinct `{view:'side', profileSide}`
         // groups (Slice 1) and a corrected display image can never reach detection.
+        // All scoring detection goes through the runtime owner so the live worker
+        // is closed and exactly one landmarker is resident (§11.1).
         for (const p of buildFramePlan(captures)) {
           if (p.burstUrls) {
             // Detect every frame of the burst (the representative was already
             // detected in preflight; re-detecting it here keeps the set uniform).
             for (const url of p.burstUrls) {
-              const detected = await detectPose(url, p.view, 'camera')
+              const detected = await runtime.detect(url, p.view, 'camera')
               frames.push(stampFrame(detected, p.profileSide, p.roll))
             }
           } else if (p.cachedFrame) {
@@ -326,10 +314,13 @@ function NewAssessmentWizard() {
             frames.push(p.cachedFrame)
           } else if (p.fallbackUrl) {
             // Preflight was skipped or failed — detect now.
-            const detected = await detectPose(p.fallbackUrl, p.view, p.source ?? 'upload')
+            const detected = await runtime.detect(p.fallbackUrl, p.view, p.source ?? 'upload')
             frames.push(stampFrame(detected, p.profileSide, p.roll))
           }
         }
+        // Scoring done — release the IMAGE landmarker (no backend stays resident
+        // while we navigate to results).
+        await runtime.dispose()
       }
 
       const response = await fetch('/api/assessments', {
@@ -566,7 +557,6 @@ function NewAssessmentWizard() {
             onFileUpload={handleFileUpload}
             onProceed={validateAndProceed}
             onExit={() => setStep(1)}
-            modelLoading={modelLoading}
             modelError={modelError}
             submitting={submitting}
             uploadError={uploadError}

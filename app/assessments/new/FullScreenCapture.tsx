@@ -19,7 +19,6 @@ interface FullScreenCaptureProps {
   onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
-  modelLoading: boolean
   modelError: boolean
   submitting: boolean
   uploadError: string | null
@@ -101,7 +100,6 @@ export default function FullScreenCapture({
   onFileUpload,
   onProceed,
   onExit,
-  modelLoading,
   modelError,
   submitting,
   uploadError,
@@ -366,10 +364,12 @@ export default function FullScreenCapture({
     let cancelled = false
     void (async () => {
       try {
-        const { detectPose } = await import('@/lib/pose/detect')
+        const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
         const { assessFrameQuality } = await import('@/lib/pose/quality')
         const { view } = slotToDomain(activeSlot)
-        const frame = await detectPose(reviewUrl, view, 'camera')
+        // Route through the runtime owner — it closes the live worker before the
+        // IMAGE landmarker scores this still, so the two never run at once (§11.1).
+        const frame = await getCaptureRuntime().detect(reviewUrl, view, 'camera')
         if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
       } catch {
         // non-fatal: the slot preflight still runs after "Use This Photo"
@@ -574,9 +574,9 @@ export default function FullScreenCapture({
               </div>
             )}
 
-            {(modelLoading || modelError) && (
-              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: modelError ? 'rgba(239,68,68,0.85)' : 'rgba(0,0,0,0.55)', color: modelError ? '#fff' : 'var(--text-primary)' }}>
-                {modelError ? 'Pose engine unavailable' : 'Preparing pose engine…'}
+            {modelError && (
+              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: 'rgba(239,68,68,0.85)', color: '#fff' }}>
+                Pose engine unavailable
               </div>
             )}
           </div>
