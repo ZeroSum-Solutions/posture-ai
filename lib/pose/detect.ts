@@ -88,12 +88,34 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 /**
  * Warm up the landmarker by starting the model load without running detection.
- * Call this when the capture step mounts to hide the ~5 s Chromium cold-start.
+ * Call this before scoring to hide the ~5 s Chromium cold-start. Returns a
+ * promise so the capture-runtime owner can await residency before transitioning.
  */
-export function warmUpLandmarker(): void {
-  getLandmarker().catch(() => {
+export function warmUpLandmarker(): Promise<void> {
+  return getLandmarker().then(() => undefined).catch(() => {
     // Warm-up is best-effort; errors surface when detectPose is actually called.
   })
+}
+
+/**
+ * Close the resident IMAGE landmarker and drop the singleton so the next
+ * warm/detect constructs a fresh one. The capture-runtime state machine calls
+ * this so the scoring (IMAGE) backend never stays resident while the live
+ * (worker VIDEO) backend runs — at most one landmarker is alive at a time
+ * (design §11.1). No-op when nothing is resident.
+ */
+export async function closeLandmarker(): Promise<void> {
+  const pending = landmarkerPromise
+  if (!pending) return
+  // Null the singleton first so this reads as "closed" for the whole teardown
+  // window; the runtime serializes transitions, so no detect races in here.
+  landmarkerPromise = null
+  try {
+    const lm = await pending
+    lm.close()
+  } catch {
+    // Never warmed successfully / already torn down — nothing to close.
+  }
 }
 
 /**
