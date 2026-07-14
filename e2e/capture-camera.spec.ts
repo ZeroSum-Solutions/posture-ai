@@ -11,6 +11,16 @@ import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './
 // and for capture() to grab a frame. The drawn "figure" is not a real person,
 // so MediaPipe reports no_person; that's fine for testing the UI mechanics
 // (advancing does not require passing quality — only final submit does).
+// Disable the live VIDEO worker deterministically: the rAF loop skips tracking
+// when createImageBitmap is unavailable, so the overlay degrades to sensor-only
+// guides and the shutter is tilt-only (design §4.1 fallback). These specs cover
+// capture MECHANICS + scoring; the live-tracking gate is unit-tested
+// (shutter-gate.test.ts) + device-verified, and would otherwise make the
+// fake-subject shutter non-deterministic (no feet → full-body-in-frame blocks).
+const DISABLE_LIVE_TRACKING = () => {
+  ;(window as unknown as { createImageBitmap?: unknown }).createImageBitmap = undefined
+}
+
 const FAKE_FIGURE_STREAM = () => {
   const canvas = document.createElement('canvas')
   canvas.width = 720
@@ -35,6 +45,7 @@ test.describe('full-screen camera capture', () => {
   test('shutter, review, auto-advance, self-timer and retake work', async ({ page }) => {
     test.setTimeout(120_000)
     await page.setViewportSize({ width: 390, height: 844 })
+    await page.addInitScript(DISABLE_LIVE_TRACKING)
     await page.addInitScript(FAKE_FIGURE_STREAM)
 
     const stamp = Date.now().toString().slice(-7)
@@ -45,6 +56,8 @@ test.describe('full-screen camera capture', () => {
 
     // Opens on the Front slot with its directional prompt + a live shutter.
     await expect(page.getByText('Face the camera')).toBeVisible({ timeout: 10_000 })
+    // The on-camera guides overlay renders during the live phase.
+    await expect(page.locator('[data-testid="live-guides"]')).toBeVisible()
     const shutter = page.getByRole('button', { name: 'Capture photo' })
     await expect(shutter).toBeVisible()
 
@@ -92,6 +105,7 @@ test.describe('full-screen camera capture', () => {
     const toDataUrl = (f: string) => `data:image/jpeg;base64,${fs.readFileSync(path.join(photos, f)).toString('base64')}`
     const frames = { front: toDataUrl('front_standing.jpg'), side: toDataUrl('side_standing.jpg') }
 
+    await page.addInitScript(DISABLE_LIVE_TRACKING)
     await page.addInitScript((imgs: Record<string, string>) => {
       const loaded: Record<string, HTMLImageElement> = {}
       for (const [k, src] of Object.entries(imgs)) { const im = new Image(); im.src = src; loaded[k] = im }

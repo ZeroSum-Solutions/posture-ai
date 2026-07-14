@@ -31,12 +31,15 @@ test.describe('real pose detection through the wizard', () => {
     const inputs = page.locator('input[type="file"]')
     await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
 
-    // Slot order matches the wizard's view order: front, side, back.
+    // Slot order matches the wizard's four free-order slots: front, side-left,
+    // side-right, back. Both sides are required (Slice 2) — the single side
+    // fixture stands in for both profiles.
     await inputs.nth(0).setInputFiles(path.join(photos, 'front_standing.jpg'))
     await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
+    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
 
-    // Proceed once front+side are captured (label reads "Skip Back & Analyze Posture"
-    // until the optional back view is added — matched here as a substring).
+    // Proceed once front + both sides are captured (label reads "Skip Back &
+    // Analyze Posture" until the optional back view is added — substring match).
     await page.getByRole('button', { name: 'Analyze Posture' }).click()
 
     // detectPose runs per view at submit (model download + WASM init on first call).
