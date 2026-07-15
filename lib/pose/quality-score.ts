@@ -144,7 +144,7 @@ export function scoreFrameQuality(
   rollDeg: number | null,
 ): QualityScore {
   const warnings: string[] = []
-  const requiredJoints = requiredNearSideJoints(view, profileSide)
+  const requiredJoints = requiredNearSideJoints(view, profileSide, frame)
   const joints = scoreJoints(frame, requiredJoints, warnings)
   const framing = scoreFraming(frame, requiredJoints, warnings)
   const level = scoreLevel(rollDeg, warnings)

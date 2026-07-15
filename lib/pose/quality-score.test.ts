@@ -36,6 +36,21 @@ function makeFrontFrame(options: {
   return { view: 'front', landmarks, captureRollDeg: options.rollDeg }
 }
 
+function makeRightSideFrame(): PoseFrame {
+  return {
+    view: 'side',
+    landmarks: {
+      right_ear: landmark(0.5, 0.1),
+      right_shoulder: landmark(0.5, 0.3),
+      right_hip: landmark(0.5, 0.5),
+      right_knee: landmark(0.5, 0.7),
+      right_ankle: landmark(0.5, 0.9),
+      left_heel: landmark(0.45, 0.9),
+      right_heel: landmark(0.55, 0.9),
+    },
+  }
+}
+
 describe('requiredNearSideJoints', () => {
   it('selects the frozen required joints for each view and side', () => {
     expect(requiredNearSideJoints('front', undefined)).toEqual([
@@ -55,6 +70,14 @@ describe('requiredNearSideJoints', () => {
 })
 
 describe('scoreFrameQuality', () => {
+  it('preserves visibility-based scoring for a legacy side frame without profileSide', () => {
+    const frame = makeRightSideFrame()
+
+    expect(scoreFrameQuality(frame, 'side', undefined, 0)).toEqual(
+      scoreFrameQuality(frame, 'side', 'right', 0),
+    )
+  })
+
   it('scores a centered, well-framed, level front frame near 100 with no warnings', () => {
     const result = scoreFrameQuality(makeFrontFrame(), 'front', undefined, 0)
 

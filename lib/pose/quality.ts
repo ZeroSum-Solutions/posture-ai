@@ -25,10 +25,23 @@ export const BACK_REQUIRED_JOINTS = [
 export function requiredNearSideJoints(
   view: ViewKey,
   profileSide: 'left' | 'right' | undefined,
+  legacyFrame?: PoseFrame,
 ): string[] {
   if (view === 'front') return [...FRONT_REQUIRED_JOINTS]
   if (view === 'back') return [...BACK_REQUIRED_JOINTS]
-  return [...(profileSide === 'right' ? SIDE_RIGHT_REQUIRED_JOINTS : SIDE_LEFT_REQUIRED_JOINTS)]
+  if (profileSide === 'left') return [...SIDE_LEFT_REQUIRED_JOINTS]
+  if (profileSide === 'right') return [...SIDE_RIGHT_REQUIRED_JOINTS]
+
+  // Legacy side captures predate profileSide. Preserve the existing quality
+  // behavior by choosing the more-visible landmark in each bilateral group,
+  // without inventing a left/right profile label for the frame.
+  if (!legacyFrame) return []
+  return SIDE_LEFT_REQUIRED_JOINTS.map((leftName, index) => {
+    const rightName = SIDE_RIGHT_REQUIRED_JOINTS[index]
+    const leftVisibility = legacyFrame.landmarks[leftName]?.visibility ?? 0
+    const rightVisibility = legacyFrame.landmarks[rightName]?.visibility ?? 0
+    return rightVisibility > leftVisibility ? rightName : leftName
+  })
 }
 
 // Returns the max visibility of a set of landmark names in a frame.
