@@ -158,3 +158,31 @@ actual: controls retained their default tab order while invisible.
 evidence: the new workout-player flow fails against the old behavior and passes with
 `visibility`, `aria-hidden`, managed `tabIndex`, and pre-traversal reveal/focus. The same
 test verifies the three compact chrome controls measure at least 44 × 44 CSS px.
+
+## QA-008 — Global application navigation obscures immersive workout and capture surfaces
+severity: S2 · status: FIXED (branch codex/ui-optimization-loop) · found: PASS-07 · item: WKT-02, WIZ-02, XC-04
+root cause: `AppShell` rendered its sticky, inline-styled navigation and footer for every
+authenticated route, while workout/capture overlays lived inside the animated route
+stacking context. Equal/high z-index layers left the global bar over the dedicated flow.
+repro: open a workout or enter fullscreen capture; inspect the top controls and content.
+expected: the immersive surface owns the viewport and supplies its own local escape.
+actual: the Posture AI bar remains visible and overlaps the player/camera UI.
+evidence: the new browser assertions fail against the old shell and pass when either
+immersive surface is mounted; normal wizard/application routes retain their navigation.
+FIX: mark both fullscreen roots with `data-immersive-surface` and let the shell hide its
+direct navigation/footer while raising the immersive route layer.
+
+## QA-009 — Workout Exit disappears with optional playback chrome
+severity: S2 · status: FIXED (branch codex/ui-optimization-loop) · found: PASS-07 · item: WKT-02, XC-01, XC-04
+root cause: Exit shared the same `chromeStyle`, `aria-hidden`, and managed `tabIndex` as
+optional progress, caption, mute, and transport controls. The 3.2-second idle timer
+therefore removed the only obvious escape from sight and keyboard traversal.
+repro: begin a workout, enter playback, then stop moving the pointer for 3.2 seconds.
+expected: optional playback chrome may clear, but an explicit Exit stays visible and
+keyboard reachable at all times.
+actual: the close glyph fades out and becomes `tabindex=-1` until pointer/Tab activity.
+evidence: the fail-first playback test reproduces the hidden control; the final mobile
+viewport test verifies Exit opacity/visibility/tab order/geometry after secondary chrome
+hides, and the live Codex-browser screenshot confirms the labelled control.
+FIX: separate a labelled `× Exit` pill from auto-hide style/state while preserving managed
+reveal behavior for secondary controls.

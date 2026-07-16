@@ -15,6 +15,7 @@ import type { RunItem, RunStatus } from '@/lib/workout/runState'
 import type { RatingPace, RatingDifficulty } from '@/lib/workout/rating'
 import { useWakeLock } from '@/lib/capture/use-wake-lock'
 import { caption, voiceCue } from '@/lib/workout/cues'
+import { workoutCoachCueUrl } from '@/lib/workout/voicePack'
 import { CountdownRing } from './CountdownRing'
 import { RateForm } from './RateForm'
 import { AudioGlyph } from '@/components/SignalGlyphs'
@@ -187,31 +188,67 @@ export function WorkoutPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.index])
 
-  // ---- on-device voice cue at each phase boundary (Web Speech; on-device) --
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null)
+  const stopCoachVoice = useCallback(() => {
+    const audio = voiceAudioRef.current
+    if (audio) {
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+      voiceAudioRef.current = null
+    }
+    try { window.speechSynthesis?.cancel() } catch {}
+  }, [])
+
+  // ---- Voicebox River cue at each phase boundary; Web Speech is fallback ---
   useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    if (typeof window === 'undefined') return
+    stopCoachVoice()
     if (voiceMuted) {
-      window.speechSynthesis.cancel()
       return
     }
     if (redFlag !== 'clear') return
     const cue = voiceCue(state.phase, state.items[state.index], state.set)
     if (!cue) return
-    try {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(cue.speech)
-      utterance.rate = 1
-      window.speechSynthesis.speak(utterance)
-    } catch {
-      // Speech is best-effort — the caption always mirrors it on screen.
+
+    let cancelled = false
+    let fallbackStarted = false
+    const fallbackToWebSpeech = () => {
+      if (cancelled || fallbackStarted || !('speechSynthesis' in window)) return
+      fallbackStarted = true
+      try {
+        const utterance = new SpeechSynthesisUtterance(cue.speech)
+        utterance.rate = 1
+        window.speechSynthesis.speak(utterance)
+      } catch {
+        // Speech is best-effort — the caption always mirrors it on screen.
+      }
+    }
+
+    const audio = new Audio(workoutCoachCueUrl(cue.speech))
+    audio.preload = 'auto'
+    voiceAudioRef.current = audio
+    audio.addEventListener('error', fallbackToWebSpeech, { once: true })
+    audio.load()
+    void audio.play().catch(fallbackToWebSpeech)
+
+    return () => {
+      cancelled = true
+      audio.removeEventListener('error', fallbackToWebSpeech)
+      if (voiceAudioRef.current === audio) {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+        voiceAudioRef.current = null
+      }
     }
     // state.items is intentionally omitted: the reducer sets it once at init and
     // never replaces it, so it is a permanently stable reference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, state.index, state.set, voiceMuted, redFlag])
+  }, [state.phase, state.index, state.set, voiceMuted, redFlag, stopCoachVoice])
 
   // Stop any in-flight speech when the player unmounts.
-  useEffect(() => () => { try { window.speechSynthesis?.cancel() } catch {} }, [])
+  useEffect(() => () => stopCoachVoice(), [stopCoachVoice])
 
   // ---- persist playback state (deduped) for resume + analytics ----------
   const lastSavedRef = useRef('')
@@ -332,6 +369,7 @@ export function WorkoutPlayer({
 
   return (
     <div
+      data-immersive-surface
       onPointerMove={canHide ? pokeChrome : undefined}
       onClick={canHide ? pokeChrome : undefined}
       style={{
@@ -352,7 +390,7 @@ export function WorkoutPlayer({
 
       {/* top: segmented progress + exit */}
       {active && (
-        <div data-testid="workout-chrome-progress" aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 3, padding: '14px 16px 0', ...chromeStyle }}>
+        <div data-testid="workout-chrome-progress" aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 3, padding: `14px ${onExit ? 112 : 16}px 0 16px`, ...chromeStyle }}>
           <SegmentedProgress total={total} index={state.index} results={state.results} accent={accent} />
         </div>
       )}
@@ -360,33 +398,42 @@ export function WorkoutPlayer({
         <button
           onClick={onExit}
           aria-label="Exit session"
-          aria-hidden={!chromeVisible}
-          tabIndex={chromeVisible ? 0 : -1}
+          tabIndex={0}
           data-workout-chrome-controls
           style={{
             position: 'absolute',
-            top: 12,
-            right: 12,
-            zIndex: 5,
-            width: 44,
+            top: 'max(12px, env(safe-area-inset-top, 0px))',
+            right: 'max(12px, env(safe-area-inset-right, 0px))',
+            zIndex: 6,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '0 14px',
             height: 44,
             minHeight: 44,
             borderRadius: theme.radiusControl,
-            border: `1px solid ${theme.border}`,
-            background: theme.surfaceWell,
-            color: theme.textSecondary,
-            fontSize: 18,
+            border: `1px solid ${colorMix(theme.textPrimary, 18)}`,
+            background: colorMix(theme.background, 84),
+            color: theme.textPrimary,
+            fontFamily: uiFont,
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: '0.01em',
+            WebkitBackdropFilter: 'blur(18px)',
+            backdropFilter: 'blur(18px)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.36)',
             cursor: 'pointer',
-            ...chromeStyle,
           }}
         >
-          ✕
+          <span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1 }}>×</span>
+          <span>Exit</span>
         </button>
       )}
 
       {/* voice + caption toggles */}
       {active && (
-        <div data-testid="workout-chrome-toggles" data-workout-chrome-controls aria-hidden={!chromeVisible} style={{ position: 'absolute', top: onExit ? 64 : 12, right: 12, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8, ...chromeStyle }}>
+        <div data-testid="workout-chrome-toggles" data-workout-chrome-controls aria-hidden={!chromeVisible} style={{ position: 'absolute', top: onExit ? 'calc(max(12px, env(safe-area-inset-top, 0px)) + 56px)' : 'max(12px, env(safe-area-inset-top, 0px))', right: 'max(12px, env(safe-area-inset-right, 0px))', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8, ...chromeStyle }}>
           <button
             onClick={() => setVoiceMuted((m) => !m)}
             aria-label={voiceMuted ? 'Unmute coach voice' : 'Mute coach voice'}
