@@ -601,10 +601,17 @@ function ExerciseAccordionItem({ exercise }: { exercise: ExerciseContent }) {
 }
 
 function ExercisesSection({ exercises }: { exercises: ExerciseContent[] }) {
+  const [open, setOpen] = useState(true)
+
   if (exercises.length === 0) return null
 
   return (
-    <details data-testid="exercises-section" className={styles.disclosure}>
+    <details
+      data-testid="exercises-section"
+      className={styles.disclosure}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>Browse all matched exercises <span>{exercises.length}</span></summary>
       <div className={styles.disclosureContent}>
         {exercises.map(ex => (
