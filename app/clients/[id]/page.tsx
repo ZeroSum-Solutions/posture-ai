@@ -317,11 +317,9 @@ export default function ClientDetailPage() {
     ))
     : null
   const latestStatus = latestAssessment ? formatStatus(latestAssessment.status) : 'No assessment'
-  const latestApprovalContext = latestAssessment?.status === 'approved'
-    ? 'Practitioner-approved result.'
-    : latestAssessment
-      ? 'Not yet practitioner approved.'
-      : 'Approval context appears after the first assessment.'
+  const latestReviewContext = latestAssessment
+    ? 'Approval state is not included in this history response.'
+    : 'Review context appears after the first assessment.'
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -430,9 +428,9 @@ export default function ClientDetailPage() {
           </p>
         </article>
         <article className={styles.metricCard}>
-          <p className={styles.metricLabel}>Latest review status</p>
+          <p className={styles.metricLabel}>Latest assessment status</p>
           <p className={styles.metricValue}>{latestStatus}</p>
-          <p className={styles.metricSupport}>{latestApprovalContext}</p>
+          <p className={styles.metricSupport}>{latestReviewContext}</p>
         </article>
       </section>
 
@@ -531,141 +529,15 @@ export default function ClientDetailPage() {
 
       {/* Compare Tab */}
       {activeTab === 'compare' && hasMultipleAssessments && (
-        <div {...panelProps('compare')} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Assessment selectors */}
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Compare Two Assessments</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'center' }}>
-              <div>
-                <label htmlFor="compare-before" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Before (baseline)</label>
-                <select
-                  id="compare-before"
-                  value={compareBaseId}
-                  onChange={(e) => handleCompareBaseChange(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '0.875rem' }}
-                >
-                  {assessments.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {fmtDate(a.assessed_at)} — Grade {a.overall_grade ?? '?'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '1.25rem', textAlign: 'center' }}>→</span>
-              <div>
-                <label htmlFor="compare-after" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>After (comparison)</label>
-                <select
-                  id="compare-after"
-                  value={compareTargetId}
-                  onChange={(e) => handleCompareTargetChange(e.target.value)}
-                  disabled={laterAssessments.length === 0}
-                  style={{ width: '100%', padding: '8px 12px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '0.875rem' }}
-                >
-                  {laterAssessments.length === 0 && <option value="">No later assessment available</option>}
-                  {laterAssessments.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {fmtDate(a.assessed_at)} — Grade {a.overall_grade ?? '?'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {laterAssessments.length === 0 && (
-              <p role="status" style={{ margin: '12px 0 0', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                No later assessment is available. Choose an earlier Before assessment.
-              </p>
-            )}
-          </div>
-
-          {/* Grade change summary */}
-          {baseGrade && targetGrade && (
-            <div style={{
-              background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '16px', padding: '20px',
-            }}>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Overall Grade Change
-              </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--brand)' }}>Grade {baseGrade}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Before</div>
-                </div>
-                <div style={{ fontSize: '1.5rem', color: gradeImproved ? '#10B981' : gradeRegressed ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                  {gradeImproved ? '↑' : gradeRegressed ? '↓' : '→'}
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: gradeImproved ? '#10B981' : gradeRegressed ? 'var(--danger)' : 'var(--brand)' }}>
-                    Grade {targetGrade}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>After</div>
-                </div>
-                <div style={{
-                  marginLeft: '8px',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  background: gradeImproved ? 'rgba(16,185,129,0.12)' : gradeRegressed ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.06)',
-                  color: gradeImproved ? '#10B981' : gradeRegressed ? 'var(--danger)' : 'var(--text-secondary)',
-                  fontSize: '0.85rem', fontWeight: 600,
-                }}>
-                  {gradeImproved ? 'Improved' : gradeRegressed ? 'Regressed' : 'No Change'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Per-imbalance delta table */}
-          {deltaRows.length > 0 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Imbalance Deltas
-              </h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Metric</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Before</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>After</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Delta</th>
-                      <th style={{ textAlign: 'center', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deltaRows.map((row) => {
-                      const deltaSign = row.delta !== null ? (row.delta > 0 ? '+' : '') : ''
-                      const deltaColor = row.improved === true ? '#10B981' : row.improved === false ? 'var(--danger)' : 'var(--text-secondary)'
-                      return (
-                        <tr key={row.key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                          <td style={{ padding: '10px 12px', color: 'var(--text-primary)' }}>{row.label}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                            {row.baseDev !== null ? `${row.baseDev.toFixed(1)}${row.unit}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                            {row.targetDev !== null ? `${row.targetDev.toFixed(1)}${row.unit}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: deltaColor, fontWeight: 600 }}>
-                            {row.delta !== null ? `${deltaSign}${row.delta.toFixed(1)}${row.unit}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            {row.improved === true && (
-                              <span style={{ color: '#10B981', fontSize: '0.8rem', background: 'rgba(16,185,129,0.12)', padding: '2px 8px', borderRadius: '12px' }}>↓ Improved</span>
-                            )}
-                            {row.improved === false && (
-                              <span style={{ color: 'var(--danger)', fontSize: '0.8rem', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '12px' }}>↑ Regressed</span>
-                            )}
-                            {row.improved === null && (
-                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>—</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        <div {...panelProps('compare')}>
+          <ComparisonWorkspace
+            assessments={comparisonAssessments}
+            baseId={compareBaseId}
+            targetId={compareTargetId}
+            deltaRows={deltaRows}
+            onBaseChange={handleCompareBaseChange}
+            onTargetChange={handleCompareTargetChange}
+          />
         </div>
       )}
 
