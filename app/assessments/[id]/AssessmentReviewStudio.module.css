@@ -162,7 +162,7 @@
   overflow-wrap: anywhere;
 }
 
-.stateDetail {
+.stateList .stateDetail {
   grid-column: 2;
   margin: 0;
   color: var(--text-secondary);
