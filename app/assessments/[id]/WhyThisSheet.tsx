@@ -214,9 +214,9 @@ export default function WhyThisSheet({
             onClick={onClose}
             aria-label="Close"
             style={{
-              width: 36,
-              height: 36,
-              minHeight: 36,
+              width: 44,
+              height: 44,
+              minHeight: 44,
               borderRadius: '50%',
               border: '1px solid rgba(255,255,255,0.14)',
               background: 'rgba(0,0,0,0.35)',

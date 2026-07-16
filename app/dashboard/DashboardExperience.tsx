@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import styles from './DashboardExperience.module.css'
@@ -21,12 +20,6 @@ type Props = {
   recentAssessments: Assessment[]
   loadError?: string | null
 }
-
-const enter = (delay = 0) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.32, delay, ease: [0.16, 1, 0.3, 1] as const },
-})
 
 function clientName(assessment: Assessment) {
   const client = assessment.clients
@@ -64,7 +57,7 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
 
   return (
     <div className={styles.page}>
-      <motion.section className={styles.hero} {...enter()}>
+      <section className={styles.hero}>
         <div>
           <p className={styles.eyebrow}><span /> Practitioner console</p>
           <h1>See what needs attention next.</h1>
@@ -73,28 +66,28 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
         <Link href="/assessments/new" className={styles.primaryAction}>
           <span>New assessment</span><b aria-hidden="true">↗</b>
         </Link>
-      </motion.section>
+      </section>
 
       <section className={styles.metrics} aria-label="Practice overview">
-        <motion.article className={styles.metricCard} {...enter(0.05)}>
+        <article className={styles.metricCard}>
           <div className={styles.metricTop}><span>Active clients</span><i aria-hidden="true">01</i></div>
           <strong className="data-readout">{String(clientCount).padStart(2, '0')}</strong>
           <p>Client records in your active practice view</p>
-        </motion.article>
-        <motion.article className={styles.metricCard} {...enter(0.1)}>
+        </article>
+        <article className={styles.metricCard}>
           <div className={styles.metricTop}><span>Completed this week</span><i aria-hidden="true">02</i></div>
           <strong className="data-readout">{String(weekAssessments).padStart(2, '0')}</strong>
           <p>Completed screening sessions</p>
-        </motion.article>
-        <motion.article className={`${styles.metricCard} ${styles.metricHighlight}`} {...enter(0.15)}>
+        </article>
+        <article className={`${styles.metricCard} ${styles.metricHighlight}`}>
           <div className={styles.metricTop}><span>Recent screen average</span><i aria-hidden="true">03</i></div>
           <strong className="data-readout">{averageScore === null ? '—' : averageScore}</strong>
           <p>{averageScore === null ? 'Appears after your first assessment' : 'Across your latest five screens'}</p>
-        </motion.article>
+        </article>
       </section>
 
       <section className={styles.contentGrid}>
-        <motion.article className={styles.pulseCard} {...enter(0.2)}>
+        <article className={styles.pulseCard}>
           <header className={styles.panelHeader}>
             <div><span className={styles.panelKicker}>Assessment pulse</span><h2>Recent screening signal</h2></div>
             <span className={styles.liveTag}><i /> Live record</span>
@@ -113,18 +106,17 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
             <div className={styles.pulseMeta}><span>Scored screens</span><b className="data-readout">{scoredCount || '—'}</b></div>
           </div>
           <p className={styles.panelFoot}>Scores are screening signals, not a clinical conclusion.</p>
-        </motion.article>
+        </article>
 
-        <motion.article className={styles.quickStart} {...enter(0.25)}>
+        <article className={styles.quickStart}>
           <span className={styles.panelKicker}>Next move</span>
           <h2>Start with a clear baseline.</h2>
           <p>Guide a consent-led capture, confirm camera readiness, then move into a focused review.</p>
           <Link href="/assessments/new" className={styles.textAction}>Open capture <span aria-hidden="true">→</span></Link>
-          <div className={styles.orbit} aria-hidden="true"><span /><i /></div>
-        </motion.article>
+        </article>
       </section>
 
-      <motion.section className={styles.activity} {...enter(0.3)}>
+      <section className={styles.activity}>
         <header className={styles.panelHeader}>
           <div><span className={styles.panelKicker}>Practice log</span><h2>Recent activity</h2></div>
           <Link href="/clients" className={styles.quietLink}>View clients <span aria-hidden="true">→</span></Link>
@@ -132,19 +124,19 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
         {recentAssessments.length > 0 ? (
           <ul className={styles.activityList}>
             {recentAssessments.map((assessment, index) => (
-              <motion.li key={assessment.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.22, delay: 0.32 + index * 0.045 }}>
+              <li key={assessment.id}>
                 <Link href={`/assessments/${assessment.id}`}>
                   <span className={styles.activityIndex}>0{index + 1}</span>
                   <span className={styles.clientDetails}><b>{clientName(assessment)}</b><small>Assessment · {new Date(assessment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</small></span>
                   <span className={styles.activityResult}>{assessment.overall_grade && <em className={gradeTone(assessment.overall_grade)}>Grade {assessment.overall_grade}</em>}<i aria-hidden="true">→</i></span>
                 </Link>
-              </motion.li>
+              </li>
             ))}
           </ul>
         ) : (
           <div className={styles.emptyState}><span>01</span><div><h3>No assessments yet</h3><p>Your first completed screen will appear here with its score and review path.</p></div><Link href="/assessments/new">Run a scan <span aria-hidden="true">→</span></Link></div>
         )}
-      </motion.section>
+      </section>
     </div>
   )
 }

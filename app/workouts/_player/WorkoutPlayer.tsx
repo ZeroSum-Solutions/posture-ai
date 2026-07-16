@@ -1,5 +1,6 @@
 'use client'
 import { memo, useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { SessionItem, SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import {
@@ -258,17 +259,22 @@ export function WorkoutPlayer({
     setChromeItemIndex(state.index)
     setChromeShown(true)
   }
+  const hideChrome = useCallback(() => {
+    const focused = document.activeElement
+    if (focused instanceof Element && focused.closest('[data-workout-chrome-controls]')) return
+    setChromeShown(false)
+  }, [])
   const pokeChrome = useCallback(() => {
     setChromeShown(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)
-    hideTimer.current = setTimeout(() => setChromeShown(false), 3200)
-  }, [])
+    hideTimer.current = setTimeout(hideChrome, 3200)
+  }, [hideChrome])
   useEffect(() => {
     if (!canHide) return
     // Auto-hide the transport after entering a play phase / new item. setState
     // runs inside the deferred timer (never synchronously in the effect body).
     if (hideTimer.current) clearTimeout(hideTimer.current)
-    hideTimer.current = setTimeout(() => setChromeShown(false), 3200)
+    hideTimer.current = setTimeout(hideChrome, 3200)
     return () => {
       // hideTimer.current is the single live timer — a later pokeChrome may
       // have replaced ours, so clear whichever is pending (not a captured id)
@@ -276,7 +282,28 @@ export function WorkoutPlayer({
       if (hideTimer.current) clearTimeout(hideTimer.current)
       hideTimer.current = null
     }
-  }, [canHide, state.index])
+  }, [canHide, hideChrome, state.index])
+
+  useEffect(() => {
+    if (!canHide) return
+    const revealOnKeyboardIntent = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      // Commit visibility + tab-order changes before the browser moves focus.
+      const wasHidden = !chromeShown
+      flushSync(pokeChrome)
+      if (!wasHidden) return
+
+      // The player is a fixed overlay inside the app shell. Starting native
+      // traversal from document.body would otherwise reach obscured shell
+      // navigation before the newly revealed player chrome.
+      event.preventDefault()
+      document
+        .querySelector<HTMLElement>('[data-workout-chrome-controls][tabindex="0"]')
+        ?.focus()
+    }
+    document.addEventListener('keydown', revealOnKeyboardIntent, true)
+    return () => document.removeEventListener('keydown', revealOnKeyboardIntent, true)
+  }, [canHide, chromeShown, pokeChrome])
 
   const begin = () => {
     // Unreachable until the pre-session red-flag screen has been answered clear.
@@ -294,7 +321,12 @@ export function WorkoutPlayer({
 
   // Off the play phases the chrome is always shown; during play it auto-hides.
   const chromeVisible = !canHide || chromeShown
-  const chromeStyle = { opacity: chromeVisible ? 1 : 0, transition: 'opacity 0.4s ease', pointerEvents: chromeVisible ? undefined : ('none' as const) }
+  const chromeStyle = {
+    opacity: chromeVisible ? 1 : 0,
+    visibility: chromeVisible ? ('visible' as const) : ('hidden' as const),
+    transition: 'opacity 180ms cubic-bezier(0.16, 1, 0.3, 1)',
+    pointerEvents: chromeVisible ? undefined : ('none' as const),
+  }
   const done = state.results.filter((r) => r.completed).length
   const skipped = state.results.filter((r) => r.skipped).length
 
@@ -320,7 +352,7 @@ export function WorkoutPlayer({
 
       {/* top: segmented progress + exit */}
       {active && (
-        <div style={{ position: 'relative', zIndex: 3, padding: '14px 16px 0', ...chromeStyle }}>
+        <div data-testid="workout-chrome-progress" aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 3, padding: '14px 16px 0', ...chromeStyle }}>
           <SegmentedProgress total={total} index={state.index} results={state.results} accent={accent} />
         </div>
       )}
@@ -328,14 +360,17 @@ export function WorkoutPlayer({
         <button
           onClick={onExit}
           aria-label="Exit session"
+          aria-hidden={!chromeVisible}
+          tabIndex={chromeVisible ? 0 : -1}
+          data-workout-chrome-controls
           style={{
             position: 'absolute',
             top: 12,
             right: 12,
             zIndex: 5,
-            width: 40,
-            height: 40,
-            minHeight: 40,
+            width: 44,
+            height: 44,
+            minHeight: 44,
             borderRadius: theme.radiusControl,
             border: `1px solid ${theme.border}`,
             background: theme.surfaceWell,
@@ -351,11 +386,12 @@ export function WorkoutPlayer({
 
       {/* voice + caption toggles */}
       {active && (
-        <div style={{ position: 'absolute', top: onExit ? 60 : 12, right: 12, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8, ...chromeStyle }}>
+        <div data-testid="workout-chrome-toggles" data-workout-chrome-controls aria-hidden={!chromeVisible} style={{ position: 'absolute', top: onExit ? 64 : 12, right: 12, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8, ...chromeStyle }}>
           <button
             onClick={() => setVoiceMuted((m) => !m)}
             aria-label={voiceMuted ? 'Unmute coach voice' : 'Mute coach voice'}
             aria-pressed={voiceMuted}
+            tabIndex={chromeVisible ? 0 : -1}
             style={roundToggle(!voiceMuted)}
           >
             <AudioGlyph muted={voiceMuted} />
@@ -364,6 +400,7 @@ export function WorkoutPlayer({
             onClick={() => setCaptionsOn((c) => !c)}
             aria-label={captionsOn ? 'Hide captions' : 'Show captions'}
             aria-pressed={captionsOn}
+            tabIndex={chromeVisible ? 0 : -1}
             style={{ ...roundToggle(captionsOn), fontSize: 13, fontWeight: 800, letterSpacing: '0.02em' }}
           >
             CC
@@ -437,13 +474,14 @@ export function WorkoutPlayer({
 
       {/* transport */}
       {(state.phase === 'playing' || state.phase === 'resting') && (
-        <div style={{ position: 'relative', zIndex: 4, padding: '0 20px calc(env(safe-area-inset-bottom, 0px) + 22px)', ...chromeStyle }}>
+        <div data-testid="workout-chrome-transport" data-workout-chrome-controls aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 4, padding: '0 20px calc(env(safe-area-inset-bottom, 0px) + 22px)', ...chromeStyle }}>
           <Transport
             paused={state.paused}
             onBack={() => dispatch({ type: 'BACK' })}
             onPauseToggle={() => dispatch({ type: state.paused ? 'RESUME' : 'PAUSE' })}
             onSkip={() => dispatch({ type: 'SKIP' })}
             atStart={state.index === 0}
+            isVisible={chromeVisible}
           />
         </div>
       )}
@@ -455,10 +493,10 @@ export function WorkoutPlayer({
 function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean }) {
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
+      animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+      transition={{ duration: reduce ? 0.12 : 0.24, ease: [0.16, 1, 0.3, 1] }}
       style={{ width: '100%', maxWidth: 460 }}
     >
       {children}
@@ -498,7 +536,6 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
           position: 'absolute',
           inset: 0,
           background: `linear-gradient(90deg, transparent calc(50% - 0.75px), ${colorMix(theme.primary, 34)} calc(50% - 0.75px), ${colorMix(theme.primary, 34)} calc(50% + 0.75px), transparent calc(50% + 0.75px)), linear-gradient(180deg, ${theme.background} 0%, ${theme.backgroundSunken} 100%)`,
-          transition: 'background 0.8s ease',
         }}
       />
       {showGradient && (
@@ -531,7 +568,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
             height: '100%',
             objectFit: 'cover',
             opacity: active ? 0.72 : 0.42,
-            transition: 'opacity 0.6s ease',
+            transition: 'opacity 240ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         />
       )}
@@ -550,7 +587,7 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
             height: '100%',
             objectFit: 'cover',
             opacity: active ? 0.72 : 0.42,
-            transition: 'opacity 0.6s ease',
+            transition: 'opacity 240ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         />
       )}
@@ -598,7 +635,7 @@ const SegmentedProgress = memo(function SegmentedProgress({ total, index, result
         const r = results[i]
         const isPast = i < index
         const fill = r?.completed ? accent : r?.skipped ? theme.borderStrong : isPast ? accent : i === index ? colorMix(accent, 52) : theme.border
-        return <div key={i} style={{ flex: 1, height: 4, borderRadius: 3, background: fill, transition: 'background 0.3s ease' }} />
+        return <div key={i} style={{ flex: 1, height: 4, borderRadius: 3, background: fill }} />
       })}
     </div>
   )
@@ -715,12 +752,13 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
   )
 }
 
-function Transport({ paused, onBack, onPauseToggle, onSkip, atStart }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean }) {
+function Transport({ paused, onBack, onPauseToggle, onSkip, atStart, isVisible }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean; isVisible: boolean }) {
   const btn = (label: string, onClick: () => void, opts: { primary?: boolean; disabled?: boolean; icon?: string } = {}) => (
     <button
       onClick={onClick}
       aria-label={label}
       disabled={opts.disabled}
+      tabIndex={isVisible ? 0 : -1}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -755,9 +793,9 @@ function Transport({ paused, onBack, onPauseToggle, onSkip, atStart }: { paused:
 
 function roundToggle(on: boolean): React.CSSProperties {
   return {
-    width: 40,
-    height: 40,
-    minHeight: 40,
+    width: 44,
+    height: 44,
+    minHeight: 44,
     borderRadius: theme.radiusControl,
     border: `1px solid ${on ? theme.primary : theme.border}`,
     background: on ? colorMix(theme.primary, 14) : theme.surfaceWell,

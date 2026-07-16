@@ -70,7 +70,7 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>{name}</h3>
-          <button onClick={onClose} aria-label="Close" style={{ width: 36, height: 36, minHeight: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(0,0,0,0.35)', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} aria-label="Close" style={{ width: 44, height: 44, minHeight: 44, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(0,0,0,0.35)', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
         </div>
 
         {error && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{error}</p>}

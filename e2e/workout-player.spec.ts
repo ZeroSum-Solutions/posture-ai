@@ -97,4 +97,42 @@ test.describe('red-flag pre-session screen', () => {
     await page.getByTestId('red-flag-no').click()
     await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
   })
+
+  test('flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters', async ({ page }) => {
+    const { sessionId } = await mintSession(page)
+    await page.goto(`/workouts/${sessionId}`)
+
+    await expect(page.getByTestId('red-flag-no')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('red-flag-no').click()
+    await page.getByRole('button', { name: 'Begin session' }).click()
+    await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
+    await page.getByRole('button', { name: /Start now/ }).click()
+
+    const transport = page.getByTestId('workout-chrome-transport')
+    const exit = page.getByRole('button', { name: 'Exit session', includeHidden: true })
+    const mute = page.getByRole('button', { name: 'Mute coach voice', includeHidden: true })
+    const captions = page.getByRole('button', { name: 'Hide captions', includeHidden: true })
+
+    await expect(transport).toBeVisible({ timeout: 5_000 })
+    await expect(transport).toHaveCSS('visibility', 'hidden', { timeout: 6_000 })
+    await expect(transport).toHaveAttribute('aria-hidden', 'true')
+    await expect(exit).toHaveAttribute('tabindex', '-1')
+    await expect(mute).toHaveAttribute('tabindex', '-1')
+    await expect(captions).toHaveAttribute('tabindex', '-1')
+
+    // Tab intent is captured before native focus traversal, so chrome becomes
+    // visible and focus lands on the first control instead of skipping it.
+    await page.keyboard.press('Tab')
+    await expect(transport).toHaveCSS('visibility', 'visible')
+    await expect(exit).toBeFocused()
+
+    for (const control of [exit, mute, captions]) {
+      const size = await control.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height }
+      })
+      expect(size.width).toBeGreaterThanOrEqual(44)
+      expect(size.height).toBeGreaterThanOrEqual(44)
+    }
+  })
 })

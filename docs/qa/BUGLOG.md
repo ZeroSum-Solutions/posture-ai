@@ -112,7 +112,11 @@ production-code scan finds no direct `var(--token)<hex-alpha>` values. FIX: SVG 
 use `fillOpacity`; other assessment surfaces use `color-mix(..., transparent)`.
 
 ## QA-005 — Motion orchestrator mutates route DOM before Suspense hydration completes
-severity: S3 · status: open · found: PASS-05 · item: WIZ-01
+severity: S3 · status: FIXED (branch codex/ui-optimization-loop) · found: PASS-05 · item: WIZ-01
+PASS-06 FIX: replaced descendant discovery, observers, class mutation, and inline delay
+mutation with one keyed route-level entrance. The full desktop Chromium Axe suite,
+including the wizard/results flow, passed; a separate browser sweep reported zero
+console errors on the wizard and touched routes.
 root cause: `MotionOrchestrator` hydrates in `AppShell` before the nested assessment-wizard
 Suspense boundary, then its layout effect adds `motion-reveal` / `motion-visible` classes
 and `--motion-delay` styles to still-dehydrated route nodes. React later compares those
@@ -140,3 +144,17 @@ actual: Axe reports `document-title` (serious) against the root `html` element.
 evidence: the focused accessibility test failed before the fix and passed afterward.
 FIX: added route-level server metadata in `app/assessments/[id]/layout.tsx`, producing
 `Assessment Results · Posture AI` through the root title template.
+
+## QA-007 — Opacity-hidden workout controls remain keyboard focusable behind player content
+severity: S3 · status: FIXED (branch codex/ui-optimization-loop) · found: PASS-06 · item: WKT-02, XC-01
+root cause: the workout player hid its progress, voice, caption, exit, and transport chrome
+with opacity and pointer-events only. Native keyboard traversal could still focus the
+invisible controls, and traversal from the fixed player could reach obscured app-shell
+navigation.
+repro: begin a workout, choose `Start now`, wait for chrome auto-hide, then press Tab.
+expected: hidden chrome is absent from the accessibility/focus order and keyboard intent
+reveals the player controls before focus enters them.
+actual: controls retained their default tab order while invisible.
+evidence: the new workout-player flow fails against the old behavior and passes with
+`visibility`, `aria-hidden`, managed `tabIndex`, and pre-traversal reveal/focus. The same
+test verifies the three compact chrome controls measure at least 44 × 44 CSS px.
