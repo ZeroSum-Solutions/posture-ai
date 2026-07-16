@@ -53,6 +53,12 @@ test.describe('report approval gate', () => {
     await expect(page.getByRole('button', { name: 'Practitioner PDF' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Client report' })).toBeDisabled()
 
+    for (const width of [320, 375, 414, 768, 1280]) {
+      await page.setViewportSize({ width, height: 800 })
+      const hasHorizontalOverflow = await page.locator('html').evaluate((root) => root.scrollWidth > root.clientWidth)
+      expect(hasHorizontalOverflow, `review studio overflowed at ${width}px`).toBe(false)
+    }
+
     // Unapproved → 403.
     const blocked = await page.request.post('/api/reports', {
       data: { assessment_id: assessmentId, variant: 'practitioner' },

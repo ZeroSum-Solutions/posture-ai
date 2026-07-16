@@ -1,5 +1,6 @@
 /* Hallmark · macrostructure: Workbench · tone: clinical-technical · anchor hue: cyan-orange */
 /* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+/* Hallmark · contrast: inherited DESIGN tokens · slop: pass · mobile: pass at 320–1280 */
 
 .reviewPage {
   --review-sticky-offset: 6.25rem;
@@ -42,6 +43,24 @@
   font-size: .9375rem;
 }
 
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  margin-block-start: .75rem;
+  padding-inline: .625rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-well);
+  color: var(--maintain);
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.levelBadge[data-verified='false'] {
+  color: var(--warning);
+}
+
 .studioGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -58,8 +77,7 @@
 
 .dockSummary,
 .dockActions,
-.sectionNav,
-.canvasSection {
+.sectionNav {
   border: 1px solid var(--glass-border);
   background: var(--glass-fill);
   -webkit-backdrop-filter: blur(28px) saturate(145%);
@@ -312,8 +330,6 @@
 .canvasSection {
   min-width: 0;
   scroll-margin-top: var(--review-sticky-offset);
-  border-radius: 1.25rem;
-  padding: clamp(1rem, 3vw, 1.5rem);
 }
 
 .sectionHeading {
@@ -321,6 +337,53 @@
   color: var(--text-primary);
   font-size: 1.125rem;
   font-weight: 700;
+}
+
+.screeningNotice,
+.screeningFooter {
+  color: var(--text-secondary);
+  font-size: .8125rem;
+  line-height: 1.55;
+}
+
+.screeningNotice {
+  margin-block-end: 1.5rem;
+  padding: .75rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: .75rem;
+  background: var(--glass-well);
+}
+
+.screeningNotice strong {
+  color: var(--brand);
+}
+
+.screeningFooter {
+  margin-block-start: 1rem;
+  color: var(--text-muted);
+}
+
+.screeningFooter strong {
+  color: var(--danger);
+}
+
+.ratingSummary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+  margin-block-end: 1.5rem;
+}
+
+.ratingSummary strong {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+}
+
+.ratingSummary p {
+  margin: .25rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: .875rem;
 }
 
 .sessionSummary {
@@ -345,8 +408,57 @@
   font-size: .8125rem;
 }
 
+.runList {
+  display: grid;
+  gap: .5rem;
+  margin-block-start: 1rem;
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--glass-border);
+}
+
+.runList h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .6875rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.runList > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+  color: var(--text-secondary);
+  font-size: .75rem;
+  text-transform: capitalize;
+}
+
+.inlineAlert,
+.inlineStatus,
+.emptyState {
+  margin: .75rem 0 0;
+  color: var(--text-secondary);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.inlineAlert {
+  color: var(--danger);
+}
+
+.emptyState {
+  padding: 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: .875rem;
+  background: var(--glass-fill);
+}
+
 .disclosure {
-  border: 0;
+  padding: .5rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: .875rem;
+  background: var(--glass-fill);
 }
 
 .disclosure summary {
@@ -371,6 +483,13 @@
   color: var(--brand);
   font-size: .75rem;
   font-weight: 700;
+}
+
+.disclosure summary > span {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .disclosure[open] summary::after {
@@ -458,6 +577,10 @@
 
   .sessionSummary {
     flex-direction: column;
+  }
+
+  .ratingSummary {
+    grid-template-columns: 1fr;
   }
 }
 

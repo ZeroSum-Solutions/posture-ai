@@ -282,9 +282,9 @@ function SkeletalDiagramSection({
 
   return (
     <div className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Postural Alignment Diagram
-      </h2>
+      </h3>
       <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
@@ -506,9 +506,9 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
       </h3>
       {regions.map(region => (
         <div key={region} style={{ marginBottom: 16 }}>
-          <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {REGION_LABELS[region] ?? region}
-          </h3>
+          </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {grouped[region].map(f => <FindingCard key={f.id} f={f} />)}
           </div>
@@ -933,7 +933,6 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const gradeDesc = GRADE_BANDS.find(b => b.grade === grade)?.desc ?? 'Screening'
   const color = gradeColor(grade)
   const isApproved = approved || !!assessment.practitioner_approved
-  const areDependentActionsDisabled = overrideSaveState !== 'idle'
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const frontCapture = captures.find(c => c.view === 'front') ?? null
   // A per-side assessment now returns two `side` captures; pick deterministically
@@ -976,13 +975,13 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   return (
     <div className={styles.reviewPage}>
-      <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to {clientName}</Link>
+      <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to client</Link>
 
       <header className={styles.studioHeader}>
         <p className="app-page-kicker">Screening review</p>
         <h1>Assessment review studio</h1>
         <p>Verify the evidence, tune the corrective program, and release the next safe practitioner action.</p>
-        {assessment.level_verified !== null && (
+        {typeof assessment.level_verified === 'boolean' && (
           <span className={styles.levelBadge} data-testid="level-badge" data-verified={assessment.level_verified ? 'true' : 'false'}>
             {assessment.level_verified ? 'Camera level verified' : 'Camera level not verified — results may be less accurate'}
           </span>
@@ -1022,8 +1021,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           newAssessmentHref="/assessments/new"
         />
 
-        <main className={styles.canvas}>
-          <section id="review-summary" className={`${styles.canvasSection} ${styles.surfaceSection}`} aria-labelledby="review-summary-heading">
+        <div className={styles.canvas}>
+          <section id="review-summary" className={styles.canvasSection} aria-labelledby="review-summary-heading">
             <h2 id="review-summary-heading" className={styles.sectionHeading}>Summary</h2>
             <div data-testid="disclaimer" className={styles.screeningNotice}>
               Posture AI is a <strong>screening tool only</strong> — results are informational and educational, not a substitute for evaluation by a qualified professional.
@@ -1111,7 +1110,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
               : <p className={styles.emptyState}>No matched exercise references are available.</p>}
             <p className={styles.screeningFooter}><strong>Screening tool only.</strong> Exercise suggestions are for practitioner review, not medical orders.</p>
           </section>
-        </main>
+        </div>
       </div>
     </div>
   )
@@ -1133,8 +1132,8 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
     }}>{label}</span>
   )
   return (
-    <div data-testid="accuracy-card" className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h2>
+    <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--glass-border)' }}>
+      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h3>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
         A single-photo <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
       </p>
