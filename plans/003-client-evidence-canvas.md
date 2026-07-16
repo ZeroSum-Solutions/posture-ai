@@ -37,4 +37,3 @@ Turn Progress and Compare into a responsive practitioner canvas with persistent 
 - Existing client/report comparison tests.
 - Typecheck, lint, full Vitest, production build.
 - Browser screenshots and keyboard/zoom checks at all six required widths.
-

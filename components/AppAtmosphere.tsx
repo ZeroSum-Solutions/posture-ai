@@ -108,24 +108,38 @@ export default function AppAtmosphere() {
     }
 
     function render(now: number) {
+      frame = 0
+      if (document.hidden) return
+      if (now - lastRender >= 33) {
+        lastRender = now
+        context.useProgram(program)
+        context.bindBuffer(context.ARRAY_BUFFER, buffer)
+        context.enableVertexAttribArray(position)
+        context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0)
+        context.uniform2f(resolution, surface.width, surface.height)
+        context.uniform1f(time, now / 1000)
+        context.drawArrays(context.TRIANGLE_STRIP, 0, 4)
+      }
       frame = window.requestAnimationFrame(render)
-      if (now - lastRender < 33) return
-      lastRender = now
-      context.useProgram(program)
-      context.bindBuffer(context.ARRAY_BUFFER, buffer)
-      context.enableVertexAttribArray(position)
-      context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0)
-      context.uniform2f(resolution, surface.width, surface.height)
-      context.uniform1f(time, now / 1000)
-      context.drawArrays(context.TRIANGLE_STRIP, 0, 4)
+    }
+
+    function onVisibilityChange() {
+      if (document.hidden) {
+        if (frame) window.cancelAnimationFrame(frame)
+        frame = 0
+        return
+      }
+      if (!frame) frame = window.requestAnimationFrame(render)
     }
 
     resize()
     window.addEventListener('resize', resize, { passive: true })
-    frame = window.requestAnimationFrame(render)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    if (!document.hidden) frame = window.requestAnimationFrame(render)
     return () => {
-      window.cancelAnimationFrame(frame)
+      if (frame) window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       context.deleteBuffer(buffer)
       context.deleteProgram(program)
       context.deleteShader(vertex)

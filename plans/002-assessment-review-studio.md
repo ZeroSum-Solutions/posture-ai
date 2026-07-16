@@ -40,4 +40,3 @@ Adapt the AI Dashboard Canvas workspace model to the deterministic assessment re
 - Existing assessment, approval, report, program, share, and workout tests.
 - Typecheck, lint, full Vitest, production build.
 - Keyboard-only pass plus screenshots at all six required widths.
-

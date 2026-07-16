@@ -120,10 +120,10 @@ test.describe('client detail empty state', () => {
     await expect(page.getByRole('link', { name: /New Assessment/ })).toBeVisible()
 
     // Progress/Compare need >= 2 assessments → absent; Assessments/Info always present.
-    await expect(page.getByRole('button', { name: 'Assessments' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Info' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Progress' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: 'Assessments' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Info' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: 'Compare' })).toHaveCount(0)
   })
 })
 
@@ -176,7 +176,7 @@ test.describe('client edit', () => {
     await expect(page.getByRole('heading', { name: new RegExp(`Edited-${newToken}`) })).toBeVisible()
 
     // Info tab reflects the edited height + notes.
-    await page.getByRole('button', { name: 'Info' }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
     await expect(page.getByText(`Edited note ${newToken}`)).toBeVisible()
     await expect(page.getByText(/70 in/)).toBeVisible()
 

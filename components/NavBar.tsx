@@ -33,6 +33,8 @@ export default function NavBar() {
     setSigningOut(false)
   }
 
+  const isCurrentRoute = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
+
   const linkStyle = (href: string): React.CSSProperties => ({
     padding: '8px 12px',
     borderRadius: '8px',
@@ -40,8 +42,8 @@ export default function NavBar() {
     fontWeight: 600,
     letterSpacing: '-0.01em',
     textDecoration: 'none',
-    color: pathname?.startsWith(href) ? 'var(--text-primary)' : 'var(--text-secondary)',
-    background: pathname?.startsWith(href) ? 'var(--surface-strong)' : 'transparent',
+    color: isCurrentRoute(href) ? 'var(--text-primary)' : 'var(--text-secondary)',
+    background: isCurrentRoute(href) ? 'var(--surface-strong)' : 'transparent',
     transition: 'background var(--duration-hover) var(--ease-standard), color var(--duration-hover) var(--ease-standard)',
   })
 
@@ -61,7 +63,7 @@ export default function NavBar() {
         Posture AI
       </Link>
 
-      {!isAuthPage && <div className="nav-desktop" style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>{links.map((link) => <Link key={link.href} href={link.href} style={linkStyle(link.href)}>{link.label}</Link>)}</div>}
+      {!isAuthPage && <div className="nav-desktop" style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>{links.map((link) => <Link key={link.href} href={link.href} aria-current={isCurrentRoute(link.href) ? 'page' : undefined} style={linkStyle(link.href)}>{link.label}</Link>)}</div>}
 
       {!isAuthPage && (
         <button onClick={handleSignOut} disabled={signingOut} className="nav-desktop" style={{ padding: '8px 12px', borderRadius: '8px', color: 'var(--text-secondary)', background: 'transparent', border: '1px solid var(--border)', cursor: signingOut ? 'not-allowed' : 'pointer', font: 'inherit', fontSize: '0.825rem', fontWeight: 600, opacity: signingOut ? 0.6 : 1 }}>
@@ -77,7 +79,7 @@ export default function NavBar() {
 
       {!isAuthPage && open && (
         <div className="nav-mobile-menu" style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, display: 'none', flexDirection: 'column', gap: '4px', padding: '8px', background: 'rgba(8, 9, 11, 0.86)', backdropFilter: 'blur(28px) saturate(145%)', WebkitBackdropFilter: 'blur(28px) saturate(145%)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '16px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 20px 42px rgba(0,0,0,.5)' }}>
-          {links.map((link) => <Link key={link.href} href={link.href} onClick={() => setOpen(false)} style={linkStyle(link.href)}>{link.label}</Link>)}
+          {links.map((link) => <Link key={link.href} href={link.href} aria-current={isCurrentRoute(link.href) ? 'page' : undefined} onClick={() => setOpen(false)} style={linkStyle(link.href)}>{link.label}</Link>)}
           <button onClick={() => { setOpen(false); handleSignOut() }} style={{ padding: '8px 12px', borderRadius: '8px', background: 'transparent', border: 0, color: 'var(--text-secondary)', cursor: 'pointer', font: 'inherit', fontSize: '0.875rem', fontWeight: 600, textAlign: 'left' }}>Sign out</button>
         </div>
       )}

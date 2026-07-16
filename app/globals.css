@@ -80,6 +80,9 @@ body {
 
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; position: relative; isolation: isolate; }
 .app-shell-main { flex: 1; position: relative; z-index: 1; overflow-x: clip; }
+.app-shell:has([data-immersive-surface]) > nav,
+.app-shell:has([data-immersive-surface]) > .app-footer { display: none !important; }
+.app-shell:has([data-immersive-surface]) > .app-shell-main { z-index: 100; }
 .app-shell--immersive::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px); background-size: 72px 72px; mask-image: linear-gradient(to bottom, black, transparent 78%); }
 .app-atmosphere { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0.58; }
 

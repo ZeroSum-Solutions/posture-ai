@@ -7,11 +7,22 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import dynamic from 'next/dynamic'
 import { toNum } from './numeric'
+import {
+  initialComparison,
+  selectComparisonBase,
+  selectComparisonTarget,
+  sortAssessmentsChronologically,
+} from './comparison'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
+import ComparisonWorkspace, { type ComparisonDeltaRow } from './ComparisonWorkspace'
+import styles from './ClientEvidenceCanvas.module.css'
 
 // recharts (+ d3) is heavy and only used on the Progress tab for multi-assessment
 // clients; load it in its own chunk so it isn't shipped on every client-detail visit.
-const ProgressCharts = dynamic(() => import('./ProgressCharts'), { ssr: false })
+const ProgressCharts = dynamic(() => import('./ProgressCharts'), {
+  ssr: false,
+  loading: () => <div className={styles.loadingPanel} role="status">Loading progress charts…</div>,
+})
 
 interface Client {
   id: string
@@ -29,11 +40,11 @@ interface Client {
 interface Finding {
   imbalance_key: string
   label: string | null
-  severity_pct: number | null
+  severity_pct: number | string | null
   zone: string | null
   region: string | null
-  deviation: number | null
-  standard: number | null
+  deviation: number | string | null
+  standard: number | string | null
   unit: string | null
 }
 
@@ -41,7 +52,7 @@ interface Assessment {
   id: string
   assessed_at: string
   overall_grade: string | null
-  overall_score: number | null
+  overall_score: number | string | null
   status: string
   assessment_findings?: Finding[]
 }
@@ -52,8 +63,11 @@ const GRADE_TO_PCT: Record<string, number> = {
   S: 100, A: 83, B: 66, C: 50, D: 33, E: 0,
 }
 
-const GRADE_ORDER: Record<string, number> = {
-  S: 6, A: 5, B: 4, C: 3, D: 2, E: 1,
+function formatStatus(status: string) {
+  return status
+    .split('_')
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(' ')
 }
 
 export default function ClientDetailPage() {
@@ -95,12 +109,13 @@ export default function ClientDetailPage() {
         const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`, { signal: ac.signal })
         if (!res.ok) throw new Error(`Failed to load assessments (${res.status})`)
         const json = await res.json()
-        const list: Assessment[] = json.assessments || []
+        const list = sortAssessmentsChronologically<Assessment>(json.assessments || [])
         setAssessments(list)
         // Default compare: earliest vs latest
         if (list.length >= 2) {
-          setCompareBaseId(list[0].id)
-          setCompareTargetId(list[list.length - 1].id)
+          const initial = initialComparison(list)
+          setCompareBaseId(initial.baseId)
+          setCompareTargetId(initial.targetId)
         }
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') return
@@ -133,8 +148,8 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: '32px 24px', maxWidth: '960px', margin: '0 auto' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      <div className={styles.loadingPanel} role="status">
+        Loading client evidence…
       </div>
     )
   }
@@ -149,19 +164,58 @@ export default function ClientDetailPage() {
     ? new Date(client.consent_recorded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
     : null
 
-  const tabStyle = (tab: Tab): React.CSSProperties => ({
-    padding: '10px 20px',
-    background: activeTab === tab ? 'var(--brand-strong)' : 'transparent',
-    color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
-    border: 'none',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-  })
-
   const hasMultipleAssessments = assessments.length >= 2
+  const availableTabs: Tab[] = hasMultipleAssessments
+    ? ['assessments', 'progress', 'compare', 'info']
+    : ['assessments', 'info']
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
+    const currentIndex = availableTabs.indexOf(tab)
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % availableTabs.length
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = availableTabs.length - 1
+    if (nextIndex === null) return
+
+    event.preventDefault()
+    const nextTab = availableTabs[nextIndex]
+    setActiveTab(nextTab)
+    document.getElementById(`client-tab-${nextTab}`)?.focus()
+  }
+
+  function tabProps(tab: Tab) {
+    return {
+      id: `client-tab-${tab}`,
+      role: 'tab',
+      'aria-controls': `client-panel-${tab}`,
+      'aria-selected': activeTab === tab,
+      tabIndex: activeTab === tab ? 0 : -1,
+      onClick: () => setActiveTab(tab),
+      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(event, tab),
+    } as const
+  }
+
+  function panelProps(tab: Tab) {
+    return {
+      id: `client-panel-${tab}`,
+      role: 'tabpanel',
+      'aria-labelledby': `client-tab-${tab}`,
+      tabIndex: 0,
+    } as const
+  }
+
+  function handleCompareBaseChange(nextBaseId: string) {
+    const next = selectComparisonBase(assessments, compareTargetId, nextBaseId)
+    setCompareBaseId(next.baseId)
+    setCompareTargetId(next.targetId)
+  }
+
+  function handleCompareTargetChange(nextTargetId: string) {
+    const next = selectComparisonTarget(assessments, compareBaseId, nextTargetId)
+    setCompareBaseId(next.baseId)
+    setCompareTargetId(next.targetId)
+  }
 
   // Build chart trend data
   const imbalanceKeys: string[] = []
@@ -196,20 +250,12 @@ export default function ClientDetailPage() {
   // Comparison delta computation
   const baseAssessment = assessments.find((a) => a.id === compareBaseId)
   const targetAssessment = assessments.find((a) => a.id === compareTargetId)
-
-  type DeltaRow = {
-    key: string
-    label: string
-    baseDev: number | null
-    targetDev: number | null
-    baseSev: number | null
-    targetSev: number | null
-    unit: string
-    delta: number | null
-    improved: boolean | null
+  type WorkingDeltaRow = ComparisonDeltaRow & {
+    baseSeverity: number | null
+    targetSeverity: number | null
   }
 
-  const deltaRows: DeltaRow[] = []
+  const deltaRows: WorkingDeltaRow[] = []
   if (baseAssessment && targetAssessment) {
     const baseMap: Record<string, Finding> = {}
     const targetMap: Record<string, Finding> = {}
@@ -235,32 +281,52 @@ export default function ClientDetailPage() {
       deltaRows.push({
         key,
         label: b?.label || t?.label || key,
-        baseDev, targetDev, baseSev, targetSev, unit, delta, improved,
+        baseDeviation: baseDev,
+        targetDeviation: targetDev,
+        baseSeverity: baseSev,
+        targetSeverity: targetSev,
+        unit,
+        delta,
+        improved,
       })
     })
     // Sort by severity change (biggest regression first, then biggest improvement)
     deltaRows.sort((a, b) => {
-      const aChange = a.targetSev !== null && a.baseSev !== null ? a.targetSev - a.baseSev : 0
-      const bChange = b.targetSev !== null && b.baseSev !== null ? b.targetSev - b.baseSev : 0
+      const aChange = a.targetSeverity !== null && a.baseSeverity !== null
+        ? a.targetSeverity - a.baseSeverity
+        : 0
+      const bChange = b.targetSeverity !== null && b.baseSeverity !== null
+        ? b.targetSeverity - b.baseSeverity
+        : 0
       return bChange - aChange
     })
   }
 
-  const baseGrade = baseAssessment?.overall_grade ?? null
-  const targetGrade = targetAssessment?.overall_grade ?? null
-  const gradeImproved = baseGrade && targetGrade
-    ? (GRADE_ORDER[targetGrade] ?? 0) > (GRADE_ORDER[baseGrade] ?? 0)
+  const comparisonAssessments = assessments.map((assessment) => ({
+    id: assessment.id,
+    assessedAt: assessment.assessed_at,
+    overallGrade: assessment.overall_grade,
+    status: assessment.status,
+  }))
+  const latestAssessment = assessments.at(-1)
+  const latestDeviation = toNum(latestAssessment?.overall_score)
+  const trackingSpanDays = assessments.length >= 2
+    ? Math.max(0, Math.round(
+      (Date.parse(assessments[assessments.length - 1].assessed_at) - Date.parse(assessments[0].assessed_at))
+      / (24 * 60 * 60 * 1000),
+    ))
     : null
-  const gradeRegressed = baseGrade && targetGrade
-    ? (GRADE_ORDER[targetGrade] ?? 0) < (GRADE_ORDER[baseGrade] ?? 0)
-    : null
+  const latestStatus = latestAssessment ? formatStatus(latestAssessment.status) : 'No assessment'
+  const latestReviewContext = latestAssessment
+    ? 'Approval state is not included in this history response.'
+    : 'Review context appears after the first assessment.'
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   return (
-    <div className="app-standard-page">
+    <div className={`app-standard-page ${styles.canvas}`}>
       <div style={{ marginBottom: '24px' }}>
         <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem' }}>
           ← Back to Clients
@@ -335,6 +401,39 @@ export default function ClientDetailPage() {
         </div>
       )}
 
+      <section className={styles.metricsStrip} aria-label="Client evidence summary">
+        <article className={styles.metricCard}>
+          <p className={styles.metricLabel}>Latest screening</p>
+          <p className={styles.metricValue}>
+            {latestAssessment ? `Grade ${latestAssessment.overall_grade ?? '—'}` : '—'}
+          </p>
+          <p className={styles.metricSupport}>
+            {latestAssessment
+              ? `${latestDeviation === null ? 'Deviation unavailable' : `Deviation ${latestDeviation.toFixed(1)} / 100`} · ${fmtDate(latestAssessment.assessed_at)}`
+              : 'Complete an assessment to establish a baseline.'}
+          </p>
+        </article>
+        <article className={styles.metricCard}>
+          <p className={styles.metricLabel}>Assessment count</p>
+          <p className={styles.metricValue}>{assessments.length}</p>
+          <p className={styles.metricSupport}>
+            {assessments.length === 1 ? 'One recorded screening.' : `${assessments.length} recorded screenings.`}
+          </p>
+        </article>
+        <article className={styles.metricCard}>
+          <p className={styles.metricLabel}>Tracking span</p>
+          <p className={styles.metricValue}>{trackingSpanDays === null ? '—' : `${trackingSpanDays} days`}</p>
+          <p className={styles.metricSupport}>
+            {trackingSpanDays === null ? 'A second assessment starts the timeline.' : 'Elapsed time from first to latest assessment.'}
+          </p>
+        </article>
+        <article className={styles.metricCard}>
+          <p className={styles.metricLabel}>Latest assessment status</p>
+          <p className={styles.metricValue}>{latestStatus}</p>
+          <p className={styles.metricSupport}>{latestReviewContext}</p>
+        </article>
+      </section>
+
       {/* Archive Confirmation Dialog */}
       {showArchiveConfirm && (
         <ConfirmDialog
@@ -352,24 +451,40 @@ export default function ClientDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="app-panel" style={{
-        display: 'flex', gap: '4px', marginBottom: '16px',
-        background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '10px', padding: '4px', flexWrap: 'wrap',
-      }}>
-        <button style={tabStyle('assessments')} onClick={() => setActiveTab('assessments')}>Assessments</button>
+      <div className={styles.tabList} role="tablist" aria-label="Client workspace">
+        <button
+          {...tabProps('assessments')}
+          className={`${styles.tab} ${activeTab === 'assessments' ? styles.tabActive : ''}`}
+        >
+          Assessments
+        </button>
         {hasMultipleAssessments && (
           <>
-            <button style={tabStyle('progress')} onClick={() => setActiveTab('progress')}>Progress</button>
-            <button style={tabStyle('compare')} onClick={() => setActiveTab('compare')}>Compare</button>
+            <button
+              {...tabProps('progress')}
+              className={`${styles.tab} ${activeTab === 'progress' ? styles.tabActive : ''}`}
+            >
+              Progress
+            </button>
+            <button
+              {...tabProps('compare')}
+              className={`${styles.tab} ${activeTab === 'compare' ? styles.tabActive : ''}`}
+            >
+              Compare
+            </button>
           </>
         )}
-        <button style={tabStyle('info')} onClick={() => setActiveTab('info')}>Info</button>
+        <button
+          {...tabProps('info')}
+          className={`${styles.tab} ${activeTab === 'info' ? styles.tabActive : ''}`}
+        >
+          Info
+        </button>
       </div>
 
       {/* Assessments Tab */}
       {activeTab === 'assessments' && (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+        <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
           {loadError ? (
             <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>{loadError}</p>
@@ -407,143 +522,28 @@ export default function ClientDetailPage() {
 
       {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
       {activeTab === 'progress' && hasMultipleAssessments && (
-        <ProgressCharts trendData={trendData} imbalanceKeys={imbalanceKeys} imbalanceLabels={imbalanceLabels} />
+        <div {...panelProps('progress')}>
+          <ProgressCharts trendData={trendData} imbalanceKeys={imbalanceKeys} imbalanceLabels={imbalanceLabels} />
+        </div>
       )}
 
       {/* Compare Tab */}
       {activeTab === 'compare' && hasMultipleAssessments && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Assessment selectors */}
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Compare Two Assessments</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'center' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Before (baseline)</label>
-                <select
-                  value={compareBaseId}
-                  onChange={(e) => setCompareBaseId(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '0.875rem' }}
-                >
-                  {assessments.map((a) => (
-                    <option key={a.id} value={a.id} disabled={a.id === compareTargetId}>
-                      {fmtDate(a.assessed_at)} — Grade {a.overall_grade ?? '?'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '1.25rem', textAlign: 'center' }}>→</span>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>After (comparison)</label>
-                <select
-                  value={compareTargetId}
-                  onChange={(e) => setCompareTargetId(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '0.875rem' }}
-                >
-                  {assessments.map((a) => (
-                    <option key={a.id} value={a.id} disabled={a.id === compareBaseId}>
-                      {fmtDate(a.assessed_at)} — Grade {a.overall_grade ?? '?'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Grade change summary */}
-          {baseGrade && targetGrade && (
-            <div style={{
-              background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '16px', padding: '20px',
-            }}>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Overall Grade Change
-              </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--brand)' }}>Grade {baseGrade}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Before</div>
-                </div>
-                <div style={{ fontSize: '1.5rem', color: gradeImproved ? '#10B981' : gradeRegressed ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                  {gradeImproved ? '↑' : gradeRegressed ? '↓' : '→'}
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: gradeImproved ? '#10B981' : gradeRegressed ? 'var(--danger)' : 'var(--brand)' }}>
-                    Grade {targetGrade}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>After</div>
-                </div>
-                <div style={{
-                  marginLeft: '8px',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  background: gradeImproved ? 'rgba(16,185,129,0.12)' : gradeRegressed ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.06)',
-                  color: gradeImproved ? '#10B981' : gradeRegressed ? 'var(--danger)' : 'var(--text-secondary)',
-                  fontSize: '0.85rem', fontWeight: 600,
-                }}>
-                  {gradeImproved ? 'Improved' : gradeRegressed ? 'Regressed' : 'No Change'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Per-imbalance delta table */}
-          {deltaRows.length > 0 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Imbalance Deltas
-              </h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Metric</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Before</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>After</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Delta</th>
-                      <th style={{ textAlign: 'center', padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deltaRows.map((row) => {
-                      const deltaSign = row.delta !== null ? (row.delta > 0 ? '+' : '') : ''
-                      const deltaColor = row.improved === true ? '#10B981' : row.improved === false ? 'var(--danger)' : 'var(--text-secondary)'
-                      return (
-                        <tr key={row.key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                          <td style={{ padding: '10px 12px', color: 'var(--text-primary)' }}>{row.label}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                            {row.baseDev !== null ? `${row.baseDev.toFixed(1)}${row.unit}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                            {row.targetDev !== null ? `${row.targetDev.toFixed(1)}${row.unit}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: deltaColor, fontWeight: 600 }}>
-                            {row.delta !== null ? `${deltaSign}${row.delta.toFixed(1)}${row.unit}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            {row.improved === true && (
-                              <span style={{ color: '#10B981', fontSize: '0.8rem', background: 'rgba(16,185,129,0.12)', padding: '2px 8px', borderRadius: '12px' }}>↓ Improved</span>
-                            )}
-                            {row.improved === false && (
-                              <span style={{ color: 'var(--danger)', fontSize: '0.8rem', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '12px' }}>↑ Regressed</span>
-                            )}
-                            {row.improved === null && (
-                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>—</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        <div {...panelProps('compare')}>
+          <ComparisonWorkspace
+            assessments={comparisonAssessments}
+            baseId={compareBaseId}
+            targetId={compareTargetId}
+            deltaRows={deltaRows}
+            onBaseChange={handleCompareBaseChange}
+            onTargetChange={handleCompareTargetChange}
+          />
         </div>
       )}
 
       {/* Info Tab */}
       {activeTab === 'info' && (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+        <div {...panelProps('info')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
             {dob && (

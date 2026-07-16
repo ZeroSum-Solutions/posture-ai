@@ -41,4 +41,3 @@ Make practitioner actions and dashboard/comparison signals truthful before chang
 - `npx vitest run`
 - `npm run build`
 - Production-mode browser check against local synthetic data at 390 and 1440 px.
-

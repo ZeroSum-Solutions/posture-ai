@@ -32,6 +32,9 @@ test.describe('camera error handling and quality preflight', () => {
     // with NotAllowedError → the capture screen surfaces the error inline.
     await dismissCaptureDisclaimer(page)
 
+    await expect(page.getByRole('navigation', { name: 'Application navigation' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Cancel and return to client selection' })).toBeVisible()
+
     const errorMsg = page.getByTestId('camera-error-msg')
     await expect(errorMsg).toBeVisible({ timeout: 10_000 })
     await expect(errorMsg).toContainText('Camera access denied')
@@ -125,5 +128,6 @@ test.describe('camera error handling and quality preflight', () => {
 
     // Still on the capture screen — not redirected to processing
     await expect(page.getByTestId('fullscreen-capture')).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Application navigation' })).not.toBeVisible()
   })
 })

@@ -17,6 +17,8 @@
     "test": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
     "typecheck": "tsc --noEmit",
+    "voice:build": "vite-node scripts/generate-workout-voice-pack.ts --generate",
+    "voice:verify": "vite-node scripts/generate-workout-voice-pack.ts --verify",
     "qa:seed": "npx vite-node scripts/qa-seed.ts",
     "golden": "node scripts/golden-report.mjs"
   },

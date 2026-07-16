@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
 
@@ -26,6 +27,9 @@ test.describe('red-flag pre-session screen', () => {
     const { sessionId, assessmentId } = await mintSession(page)
     await page.goto(`/workouts/${sessionId}`)
 
+    await expect(page.getByRole('navigation', { name: 'Application navigation' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Exit session' })).toBeVisible()
+
     // The red-flag question must be visible before any player timeline.
     await expect(page.getByText('Before you start — are you feeling any sharp or worsening pain right now?')).toBeVisible({ timeout: 15_000 })
 
@@ -40,8 +44,14 @@ test.describe('red-flag pre-session screen', () => {
     // The red-flag question is gone.
     await expect(page.getByText('Before you start — are you feeling any sharp or worsening pain right now?')).not.toBeVisible()
 
-    // Click "Begin session" — player timeline (segmented progress) appears.
+    // Click "Begin session" — player timeline appears and the locally generated
+    // Voicebox coach pack serves the first cue (with Web Speech only as fallback).
+    const coachCue = page.waitForResponse(
+      (response) => response.url().includes('/audio/workout-coach-river/'),
+      { timeout: 10_000 },
+    )
     await page.getByRole('button', { name: 'Begin session' }).click()
+    expect([200, 206]).toContain((await coachCue).status())
     // The "Up next" card confirms the player has advanced into a play phase.
     await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
 
@@ -96,5 +106,54 @@ test.describe('red-flag pre-session screen', () => {
     // Clearing it resumes at the persisted item, not from scratch.
     await page.getByTestId('red-flag-no').click()
     await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
+  })
+
+  test('flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    const { sessionId } = await mintSession(page)
+    await page.goto(`/workouts/${sessionId}`)
+
+    await expect(page.getByTestId('red-flag-no')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('red-flag-no').click()
+    await page.getByRole('button', { name: 'Begin session' }).click()
+    await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
+    await page.getByRole('button', { name: /Start now/ }).click()
+
+    const transport = page.getByTestId('workout-chrome-transport')
+    const exit = page.getByRole('button', { name: 'Exit session', includeHidden: true })
+    const mute = page.getByRole('button', { name: 'Mute coach voice', includeHidden: true })
+    const captions = page.getByRole('button', { name: 'Hide captions', includeHidden: true })
+
+    await expect(transport).toBeVisible({ timeout: 5_000 })
+    await expect(transport).toHaveCSS('visibility', 'hidden', { timeout: 6_000 })
+    await expect(transport).toHaveAttribute('aria-hidden', 'true')
+    await expect(exit).toBeVisible()
+    await expect(exit).toHaveCSS('opacity', '1')
+    await expect(exit).toHaveCSS('visibility', 'visible')
+    await expect(exit).toHaveAttribute('tabindex', '0')
+    await expect(exit).not.toHaveAttribute('aria-hidden', 'true')
+    await expect(mute).toHaveAttribute('tabindex', '-1')
+    await expect(captions).toHaveAttribute('tabindex', '-1')
+
+    const axe = await new AxeBuilder({ page }).analyze()
+    const serious = axe.violations.filter((violation) =>
+      violation.impact === 'serious' || violation.impact === 'critical',
+    )
+    expect(serious.map((violation) => `${violation.id}: ${violation.help}`)).toEqual([])
+
+    // Tab intent is captured before native focus traversal, so chrome becomes
+    // visible and focus lands on the first control instead of skipping it.
+    await page.keyboard.press('Tab')
+    await expect(transport).toHaveCSS('visibility', 'visible')
+    await expect(exit).toBeFocused()
+
+    for (const control of [exit, mute, captions]) {
+      const size = await control.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height }
+      })
+      expect(size.width).toBeGreaterThanOrEqual(44)
+      expect(size.height).toBeGreaterThanOrEqual(44)
+    }
   })
 })

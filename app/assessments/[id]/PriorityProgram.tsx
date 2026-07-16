@@ -216,7 +216,6 @@ function PriorityCard({
       style={{
         background: 'var(--surface)',
         border: '1px solid rgba(255,255,255,0.08)',
-        borderLeft: `3px solid ${zoneColor}`,
         borderRadius: 12,
         padding: 18,
       }}
@@ -315,7 +314,7 @@ export default function PriorityProgram({
         }}
       >
         <div>
-          <h2
+          <h3
             style={{
               fontSize: '0.875rem',
               fontWeight: 600,
@@ -326,7 +325,7 @@ export default function PriorityProgram({
             }}
           >
             Corrective Program
-          </h2>
+          </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{report.gradeHuman}</p>
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

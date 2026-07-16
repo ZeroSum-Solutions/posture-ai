@@ -38,4 +38,3 @@ An executor implements each pass in an isolated worktree. The root advisor revie
 - No changes to posture scoring, thresholds, program generation, clinical language, or content under `docs/evidence/**`.
 - No font, black-canvas, glass-material, or global brand rewrite; those are settled in `DESIGN.md`.
 - No deployment, merge, or production data access in this series.
-
