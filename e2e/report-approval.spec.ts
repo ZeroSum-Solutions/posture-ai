@@ -47,6 +47,12 @@ test.describe('report approval gate', () => {
   test('export is blocked until the practitioner approves', async ({ page }) => {
     const assessmentId = await createCompleteAssessment(page)
 
+    await page.goto(`/assessments/${assessmentId}`)
+    await expect(page.getByTestId('review-dock')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Approve report' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Practitioner PDF' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Client report' })).toBeDisabled()
+
     // Unapproved → 403.
     const blocked = await page.request.post('/api/reports', {
       data: { assessment_id: assessmentId, variant: 'practitioner' },
@@ -59,6 +65,10 @@ test.describe('report approval gate', () => {
       data: { approved: true },
     })
     expect(approve.ok(), `approve failed: ${approve.status()}`).toBeTruthy()
+
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Practitioner PDF' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Client report' })).toBeEnabled()
 
     const after = await page.request.post('/api/reports', {
       data: { assessment_id: assessmentId, variant: 'practitioner' },

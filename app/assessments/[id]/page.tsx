@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
+import ReviewDock from './ReviewDock'
+import styles from './AssessmentReviewStudio.module.css'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
 import { hasAnyMuscle, type MuscleLink } from './muscleMap'
@@ -395,7 +397,6 @@ export function FindingCard({ f }: { f: Finding }) {
         background: isUnreliable ? 'var(--surface-elevated)' : 'var(--surface)',
         border: '1px solid ' + (isUnreliable ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'),
         borderRadius: 12, padding: 16,
-        borderLeft: '3px solid ' + zoneColor,
         opacity: isUnreliable ? 0.65 : 1,
       }}
     >
@@ -500,9 +501,9 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Detailed Findings
-      </h2>
+      </h3>
       {regions.map(region => (
         <div key={region} style={{ marginBottom: 16 }}>
           <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -603,17 +604,14 @@ function ExercisesSection({ exercises }: { exercises: ExerciseContent[] }) {
   if (exercises.length === 0) return null
 
   return (
-    <div data-testid="exercises-section" style={{ marginBottom: 24 }}>
-      <h2 style={{
-        fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)',
-        marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
-      }}>
-        All Matched Exercises (library reference)
-      </h2>
-      {exercises.map(ex => (
-        <ExerciseAccordionItem key={ex.slug} exercise={ex} />
-      ))}
-    </div>
+    <details data-testid="exercises-section" className={styles.disclosure}>
+      <summary>Browse all matched exercises <span>{exercises.length}</span></summary>
+      <div className={styles.disclosureContent}>
+        {exercises.map(ex => (
+          <ExerciseAccordionItem key={ex.slug} exercise={ex} />
+        ))}
+      </div>
+    </details>
   )
 }
 
@@ -949,303 +947,171 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const rollNotes = captures
     .filter(c => typeof c.capture_roll_deg === 'number' && Math.abs(c.capture_roll_deg) >= 0.05)
     .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
+  const assessedAtLabel = new Date(assessment.assessed_at).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const reliabilityLabel = assessment.level_verified === true
+    ? 'Camera level verified'
+    : assessment.level_verified === false
+      ? 'Camera level not verified'
+      : 'Camera level unavailable'
+  const reliabilityDetailParts = [
+    typeof assessment.capture_stability === 'number'
+      ? `Capture stability ${Math.round(assessment.capture_stability * 100)}%`
+      : null,
+    assessment.tilt_corrected && rollNotes.length > 0
+      ? `Tilt corrected: ${rollNotes.join(', ')}`
+      : null,
+  ].filter((part): part is string => part !== null)
+  const comparisonOptions = priorAssessments.map((prior) => ({
+    id: prior.id,
+    label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${
+      prior.scoring_engine_version !== assessment.scoring_engine_version || prior.scoring_engine_version === null
+        ? ' (different scoring version)'
+        : ''
+    }`,
+  }))
 
   return (
-    <div className="app-standard-page">
-      <div style={{ marginBottom: 20 }}>
-        <Link href={'/clients/' + assessment.clients.id}
-          style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
-          ← Back to {clientName}
-        </Link>
-      </div>
+    <div className={styles.reviewPage}>
+      <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to {clientName}</Link>
 
-      <div style={{ marginBottom: 28 }}>
+      <header className={styles.studioHeader}>
         <p className="app-page-kicker">Screening review</p>
-        <h1 className="app-page-heading" style={{ margin: '0 0 7px' }}>Assessment results</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-          {clientName} — {new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-        </p>
-        {assessment.level_verified === true && (
-          <span data-testid="level-badge" style={{
-            display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 6,
-            background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)',
-            color: 'var(--maintain)', fontSize: '0.75rem', fontWeight: 600,
-          }}>
-            Camera level verified
-            {assessment.tilt_corrected && rollNotes.length > 0 && ` — tilt-corrected (${rollNotes.join(', ')})`}
+        <h1>Assessment review studio</h1>
+        <p>Verify the evidence, tune the corrective program, and release the next safe practitioner action.</p>
+        {assessment.level_verified !== null && (
+          <span className={styles.levelBadge} data-testid="level-badge" data-verified={assessment.level_verified ? 'true' : 'false'}>
+            {assessment.level_verified ? 'Camera level verified' : 'Camera level not verified — results may be less accurate'}
           </span>
         )}
-        {assessment.level_verified === false && (
-          <span data-testid="level-badge" style={{
-            display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 6,
-            background: 'rgba(255,137,24,0.1)', border: '1px solid rgba(255,137,24,0.3)',
-            color: 'var(--warning)', fontSize: '0.75rem', fontWeight: 600,
-          }}>
-            <span aria-hidden="true">△</span> Camera level not verified — results may be less accurate
-          </span>
-        )}
-      </div>
+      </header>
 
-      <div data-testid="disclaimer" style={{
-        background: 'rgba(0,152,243,0.08)', border: '1px solid rgba(0,152,243,0.25)',
-        borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-        Posture AI is a <strong style={{ color: 'var(--brand)' }}>screening tool only</strong> — results are for informational and educational purposes and are not a substitute for evaluation by a qualified professional. Consult a qualified health professional before making any clinical decisions.
-      </div>
-
-      <div className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Overall Rating
-        </h2>
-        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 24 }}>
-          <GradeRing grade={grade} score={score} />
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{gradeDesc} posture</div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
-              Deviation: {score}/100 (lower is better) — Grade <span style={{ color, fontWeight: 700 }}>{grade}</span>
-            </div>
-            <ScoreBar score={score} grade={grade} />
-          </div>
-        </div>
-        <BandTable currentGrade={grade} />
-      </div>
-
-      {/* Launch guided session (in-clinic) — the headline corrective action */}
-      {sessionPreview ? (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(0,152,243,0.16), rgba(34,197,94,0.07))',
-          border: '1px solid rgba(0,152,243,0.32)', borderRadius: 16, padding: 20, marginBottom: 24,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
-        }}>
-          <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Guided corrective session</div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-              {sessionPreview.items.length} movements · ≈ {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
-            </div>
-            {!isApproved && <div style={{ color: 'var(--warning)', fontSize: '0.78rem', marginTop: 6 }}>Approve the assessment below to launch.</div>}
-            {overrideSaveState !== 'idle' && <div style={{ color: overrideSaveState === 'failed' ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.78rem', marginTop: 6 }}>Program changes must finish saving before launch or sharing.</div>}
-            {launchError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: 6 }}>{launchError}</div>}
-          </div>
-          <button
-            onClick={handleLaunch}
-            disabled={!isApproved || launching || areDependentActionsDisabled}
-            data-testid="launch-session"
-            style={{
-              padding: '0 30px', minHeight: 56, borderRadius: 999, border: 'none',
-              background: isApproved && !launching && !areDependentActionsDisabled ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
-              color: '#fff', fontWeight: 800, fontSize: '1rem',
-              cursor: isApproved && !launching && !areDependentActionsDisabled ? 'pointer' : 'not-allowed',
-              boxShadow: isApproved && !launching && !areDependentActionsDisabled ? '0 10px 28px rgba(0,152,243,0.4)' : 'none', whiteSpace: 'nowrap',
-            }}
-          >
-            {launching ? 'Starting…' : <><span aria-hidden="true">▶ </span>Launch session</>}
-          </button>
-          <div style={{ flexBasis: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginTop: 2 }}>
-            {shareLink ? (
-              <div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: 6 }}>
-                  Client link — expires in 14 days. Send it only to this client.
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    readOnly
-                    value={shareLink}
-                    data-testid="share-link"
-                    onFocus={(e) => e.currentTarget.select()}
-                    style={{
-                      flex: 1, minWidth: 200, minHeight: 40, padding: '0 12px', borderRadius: 8,
-                      border: '1px solid rgba(255,255,255,0.14)', background: '#0E0E10',
-                      color: 'var(--text-primary)', fontSize: '0.8rem', fontFamily: 'monospace',
-                    }}
-                  />
-                  <button
-                    onClick={copyShareLink}
-                    style={{
-                      minHeight: 40, padding: '0 16px', borderRadius: 8, border: '1px solid rgba(0,152,243,0.5)',
-                      background: 'transparent', color: 'var(--brand)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {copied ? '✓ Copied' : 'Copy'}
-                  </button>
-                  <span aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
-                    {copied ? 'Client link copied to clipboard' : ''}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={handleShare}
-                disabled={!isApproved || sharing || areDependentActionsDisabled}
-                data-testid="share-session"
-                style={{
-                  minHeight: 44, padding: '0 18px', borderRadius: 999,
-                  border: '1px solid rgba(0,152,243,0.5)', background: 'transparent',
-                  color: isApproved && !areDependentActionsDisabled ? 'var(--brand)' : 'var(--text-muted)', fontWeight: 700, fontSize: '0.9rem',
-                  cursor: isApproved && !sharing && !areDependentActionsDisabled ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {sharing ? 'Creating link…' : 'Share with client ↗'}
-              </button>
-            )}
-            {shareError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: 6 }}>{shareError}</div>}
-          </div>
-          {runList.length > 0 && (
-            <div style={{ flexBasis: '100%', marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
-              <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>Session runs</div>
-              {runList.map((r) => (
-                <div key={r.session_id + r.created_at} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0' }}>
-                  <span>{new Date(r.created_at).toLocaleDateString()}</span>
-                  <span style={{ textTransform: 'capitalize' }}>{r.status.replace('_', ' ')}</span>
-                  <span style={{ color: r.red_flag_acknowledged ? 'var(--maintain)' : 'var(--warning)', fontWeight: 700 }}>
-                    {r.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,137,24,0.3)', borderRadius: 16, padding: 20, marginBottom: 24 }}>
-          <div style={{ fontWeight: 700, color: 'var(--warning)', marginBottom: 4 }}>No guided session yet</div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-            There aren&apos;t enough reliably-measured findings to build a corrective session. Re-capture clear front &amp; side photos and try again.
-          </div>
-        </div>
-      )}
-
-      <AccuracyCard assessment={assessment} findings={findings} />
-
-      {findings.length > 0 && (
-        <PriorityProgram
-          report={program}
-          unreliable={unreliableFindings}
-          capability={capability}
-          onCapabilityChange={handleCapabilityChange}
-          onDemote={handleDemote}
-          onPromote={handlePromote}
-          onSwap={handleSwap}
+      <div className={styles.studioGrid}>
+        <ReviewDock
+          clientName={clientName}
+          assessedAtLabel={assessedAtLabel}
+          grade={grade}
+          score={score}
+          reliabilityLabel={reliabilityLabel}
+          reliabilityDetail={reliabilityDetailParts.join(' · ') || null}
+          unreliableCount={unreliableFindings.length}
+          isApproved={isApproved}
+          saveState={overrideSaveState}
+          hasSession={sessionPreview !== null}
+          isApproving={approving}
+          isLaunching={launching}
+          onApprove={handleApprove}
+          onLaunch={handleLaunch}
+          onRetrySave={retryOverrides}
+          pdfLoading={pdfLoading}
+          pdfUrl={pdfUrl}
+          pdfKind={pdfKind}
+          onGeneratePdf={handleGeneratePdf}
+          comparisonId={compareToId}
+          comparisonOptions={comparisonOptions}
+          onComparisonChange={setCompareToId}
+          isSharing={sharing}
+          shareLink={shareLink}
+          copied={copied}
+          onShare={handleShare}
+          onCopyShare={copyShareLink}
+          backHref={`/clients/${assessment.clients.id}`}
+          newAssessmentHref="/assessments/new"
         />
-      )}
-      {overrideSaveState === 'saving' && (
-        <div role="status" aria-live="polite" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 16 }}>
-          Saving program changes…
-        </div>
-      )}
-      {overrideError && (
-        <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 16 }}>
-          <span>{overrideError}</span>{' '}
-          {overrideSaveState === 'failed' && (
-            <button
-              type="button"
-              onClick={retryOverrides}
-              style={{ minHeight: 44, padding: '8px 14px', marginLeft: 8, borderRadius: 8, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontWeight: 700, cursor: 'pointer' }}
-            >
-              Retry save
-            </button>
-          )}
-        </div>
-      )}
 
-      <SkeletalDiagramSection
-        findings={findings}
-        frontCapture={frontCapture}
-        sideCapture={sideCapture}
-      />
+        <main className={styles.canvas}>
+          <section id="review-summary" className={`${styles.canvasSection} ${styles.surfaceSection}`} aria-labelledby="review-summary-heading">
+            <h2 id="review-summary-heading" className={styles.sectionHeading}>Summary</h2>
+            <div data-testid="disclaimer" className={styles.screeningNotice}>
+              Posture AI is a <strong>screening tool only</strong> — results are informational and educational, not a substitute for evaluation by a qualified professional.
+            </div>
+            <div className={styles.ratingSummary}>
+              <GradeRing grade={grade} score={score} />
+              <div>
+                <strong>{gradeDesc} posture</strong>
+                <p>Deviation: {score}/100 (lower is better) — Grade <span style={{ color }}>{grade}</span></p>
+                <ScoreBar score={score} grade={grade} />
+              </div>
+            </div>
+            <BandTable currentGrade={grade} />
 
-      {findings.length > 0 && <MuscleModel3D findings={findings} />}
+            <div className={styles.sessionSummary}>
+              {sessionPreview ? (
+                <div>
+                  <strong>Guided corrective session ready</strong>
+                  <p>{sessionPreview.items.length} movements · about {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach</p>
+                  {!isApproved && <p>Practitioner approval is required before launch.</p>}
+                </div>
+              ) : (
+                <div>
+                  <strong>No guided session available</strong>
+                  <p>There are not enough reliably measured findings. Re-capture clear front and side photos to build a session.</p>
+                </div>
+              )}
+            </div>
 
-      {findings.length > 0 && <FindingsSection findings={findings} />}
-
-      <ExercisesSection exercises={exercises} />
-
-      <div style={{
-        background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
-        borderRadius: 10, padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 24 }}>
-        <strong style={{ color: 'var(--danger)' }}>SCREENING TOOL ONLY.</strong> These findings are for educational and informational purposes only. Always consult a qualified health professional for evaluation and clinical decisions.
-      </div>
-
-      {pdfUrl && (
-        <div role="status" aria-live="polite" style={{ background: 'var(--surface)', border: '1px solid rgba(0,152,243,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <p style={{ color: 'var(--maintain)', fontSize: '0.875rem', marginBottom: 8 }}>
-            {pdfKind === 'client' ? 'Client report' : 'Practitioner report'} generated successfully.
-          </p>
-          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{
-            padding: '10px 20px', borderRadius: 8, background: 'var(--brand-strong)',
-            color: '#fff', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', display: 'inline-block' }}>
-            Download {pdfKind === 'client' ? 'Client Report' : 'Practitioner PDF'}
-          </a>
-        </div>
-      )}
-      {pdfError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.875rem', marginBottom: 16 }}>{pdfError}</div>}
-      {auxError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 16 }}>{auxError}</div>}
-
-      {priorAssessments.length > 0 && (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <label htmlFor="compare-prior" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
-            Compare PDF to prior assessment (optional):
-          </label>
-          <select id="compare-prior" aria-label="Compare PDF to prior assessment" value={compareToId} onChange={e => setCompareToId(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--background)', border: '1px solid rgba(255,255,255,0.15)',
-              color: 'var(--text-primary)', fontSize: '0.875rem', width: '100%', cursor: 'pointer' }}>
-            <option value="">No comparison (single assessment)</option>
-            {priorAssessments.map(a => (
-              <option key={a.id} value={a.id}>
-                {new Date(a.assessed_at).toLocaleDateString()} — Grade {a.overall_grade}
-                {a.scoring_engine_version !== assessment.scoring_engine_version || a.scoring_engine_version === null ? ' (different scoring version)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {(() => {
-        const isApproved = approved || !!assessment.practitioner_approved
-        return (
-          <div style={{
-            background: isApproved ? 'rgba(34,197,94,0.08)' : 'rgba(255,137,24,0.08)',
-            border: '1px solid ' + (isApproved ? 'rgba(34,197,94,0.3)' : 'rgba(255,137,24,0.3)'),
-            borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex',
-            alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-          }}>
-            <span role="status" aria-live="polite" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              {isApproved
-                ? '✓ Reviewed & approved by practitioner — report export enabled.'
-                : 'Review these findings, then approve to enable report export. Exercises are suggestions for the practitioner to apply, not medical orders.'}
-            </span>
-            {!isApproved && (
-              <button onClick={handleApprove} disabled={approving || areDependentActionsDisabled} style={{
-                padding: '9px 16px', borderRadius: 8, background: 'var(--warning)', color: '#1A1205',
-                border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving || areDependentActionsDisabled ? 'not-allowed' : 'pointer',
-              }}>{approving ? 'Approving…' : 'Approve report'}</button>
+            {runList.length > 0 && (
+              <div className={styles.runList}>
+                <h3>Session runs</h3>
+                {runList.map((run) => (
+                  <div key={run.session_id + run.created_at}>
+                    <span>{new Date(run.created_at).toLocaleDateString()}</span>
+                    <span>{run.status.replace('_', ' ')}</span>
+                    <span>{run.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}</span>
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
-        )
-      })()}
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <Link href={'/clients/' + assessment.clients.id} style={{
-          padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
-          color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)',
-          fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Back to Client</Link>
-        <button onClick={() => handleGeneratePdf('practitioner')} disabled={!isApproved || pdfLoading !== null || areDependentActionsDisabled}
-          style={{ padding: '12px 24px', borderRadius: 10,
-            background: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'rgba(0,152,243,0.06)' : 'rgba(0,152,243,0.15)',
-            color: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'color-mix(in srgb, var(--brand) 67%, transparent)' : 'var(--brand)',
-            border: '1px solid rgba(0,152,243,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'not-allowed' : 'pointer', minHeight: 44 }}>
-          {pdfLoading === 'practitioner' ? 'Generating PDF...' : 'Practitioner PDF'}
-        </button>
-        <button onClick={() => handleGeneratePdf('client')} disabled={!isApproved || pdfLoading !== null || areDependentActionsDisabled}
-          style={{ padding: '12px 24px', borderRadius: 10,
-            background: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
-            color: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'color-mix(in srgb, var(--maintain) 67%, transparent)' : 'var(--maintain)',
-            border: '1px solid rgba(34,197,94,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'not-allowed' : 'pointer', minHeight: 44 }}>
-          {pdfLoading === 'client' ? 'Generating…' : 'Client Report'}
-        </button>
-        <Link href="/assessments/new" style={{
-          padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
-          color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)',
-          fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>New Assessment</Link>
+            {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
+              <p key={message} className={styles.inlineAlert} role="alert">{message}</p>
+            ))}
+            <AccuracyCard assessment={assessment} findings={findings} />
+          </section>
+
+          <section id="review-program" className={styles.canvasSection} aria-labelledby="review-program-heading">
+            <h2 id="review-program-heading" className={styles.sectionHeading}>Program</h2>
+            {findings.length > 0 ? (
+              <PriorityProgram
+                report={program}
+                unreliable={unreliableFindings}
+                capability={capability}
+                onCapabilityChange={handleCapabilityChange}
+                onDemote={handleDemote}
+                onPromote={handlePromote}
+                onSwap={handleSwap}
+              />
+            ) : (
+              <p className={styles.emptyState}>No corrective priorities are available from this screening.</p>
+            )}
+            {overrideSaveState === 'saving' && <p role="status" aria-live="polite" className={styles.inlineStatus}>Saving program changes…</p>}
+            {overrideError && <p role="alert" aria-live="assertive" className={styles.inlineAlert}>{overrideError}</p>}
+          </section>
+
+          <section id="review-alignment" className={styles.canvasSection} aria-labelledby="review-alignment-heading">
+            <h2 id="review-alignment-heading" className={styles.sectionHeading}>Alignment evidence</h2>
+            <SkeletalDiagramSection findings={findings} frontCapture={frontCapture} sideCapture={sideCapture} />
+            {findings.length > 0 && <MuscleModel3D findings={findings} />}
+          </section>
+
+          <section id="review-findings" className={styles.canvasSection} aria-labelledby="review-findings-heading">
+            <h2 id="review-findings-heading" className={styles.sectionHeading}>Findings</h2>
+            {findings.length > 0
+              ? <FindingsSection findings={findings} />
+              : <p className={styles.emptyState}>No findings were recorded for this screening.</p>}
+          </section>
+
+          <section id="review-library" className={styles.canvasSection} aria-labelledby="review-library-heading">
+            <h2 id="review-library-heading" className={styles.sectionHeading}>Exercise library</h2>
+            {exercises.length > 0
+              ? <ExercisesSection exercises={exercises} />
+              : <p className={styles.emptyState}>No matched exercise references are available.</p>}
+            <p className={styles.screeningFooter}><strong>Screening tool only.</strong> Exercise suggestions are for practitioner review, not medical orders.</p>
+          </section>
+        </main>
       </div>
     </div>
   )
