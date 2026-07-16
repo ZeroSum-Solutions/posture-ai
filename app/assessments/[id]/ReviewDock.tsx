@@ -163,10 +163,6 @@ export default function ReviewDock({
         </dl>
       </div>
 
-      <nav className={styles.sectionNav} aria-label="Review sections">
-        {sections.map(([href, label]) => <a key={href} href={`#${href}`}>{label}</a>)}
-      </nav>
-
       <div className={styles.dockActions}>
         {saveState === 'failed' && (
           <p className={styles.actionAlert} role="alert">Program changes were not saved. Retry before using the report or session.</p>
@@ -241,6 +237,10 @@ export default function ReviewDock({
           <a href={newAssessmentHref}>New assessment</a>
         </div>
       </div>
+
+      <nav className={styles.sectionNav} aria-label="Review sections">
+        {sections.map(([href, label]) => <a key={href} href={`#${href}`}>{label}</a>)}
+      </nav>
     </aside>
   )
 }

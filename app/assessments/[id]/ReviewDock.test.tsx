@@ -44,7 +44,11 @@ describe('ReviewDock action hierarchy', () => {
   it('makes approval the only primary action and disables exports before approval', () => {
     const { container } = render(<ReviewDock {...props()} />)
 
-    expect(screen.getByRole('button', { name: 'Approve report' }).getAttribute('data-visual-weight')).toBe('primary')
+    const primary = screen.getByRole('button', { name: 'Approve report' })
+    const sectionNavigation = screen.getByRole('navigation', { name: 'Review sections' })
+
+    expect(primary.getAttribute('data-visual-weight')).toBe('primary')
+    expect(primary.compareDocumentPosition(sectionNavigation) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     expect(screen.queryByRole('button', { name: 'Launch session' })).toBeNull()
     expect((screen.getByRole('button', { name: 'Practitioner PDF' }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'Client report' }) as HTMLButtonElement).disabled).toBe(true)
