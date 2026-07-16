@@ -7,6 +7,12 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import dynamic from 'next/dynamic'
 import { toNum } from './numeric'
+import {
+  initialComparison,
+  selectComparisonBase,
+  selectComparisonTarget,
+  sortAssessmentsChronologically,
+} from './comparison'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
 
 // recharts (+ d3) is heavy and only used on the Progress tab for multi-assessment
@@ -95,12 +101,13 @@ export default function ClientDetailPage() {
         const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`, { signal: ac.signal })
         if (!res.ok) throw new Error(`Failed to load assessments (${res.status})`)
         const json = await res.json()
-        const list: Assessment[] = json.assessments || []
+        const list = sortAssessmentsChronologically<Assessment>(json.assessments || [])
         setAssessments(list)
         // Default compare: earliest vs latest
         if (list.length >= 2) {
-          setCompareBaseId(list[0].id)
-          setCompareTargetId(list[list.length - 1].id)
+          const initial = initialComparison(list)
+          setCompareBaseId(initial.baseId)
+          setCompareTargetId(initial.targetId)
         }
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') return
@@ -162,6 +169,57 @@ export default function ClientDetailPage() {
   })
 
   const hasMultipleAssessments = assessments.length >= 2
+  const availableTabs: Tab[] = hasMultipleAssessments
+    ? ['assessments', 'progress', 'compare', 'info']
+    : ['assessments', 'info']
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
+    const currentIndex = availableTabs.indexOf(tab)
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % availableTabs.length
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = availableTabs.length - 1
+    if (nextIndex === null) return
+
+    event.preventDefault()
+    const nextTab = availableTabs[nextIndex]
+    setActiveTab(nextTab)
+    document.getElementById(`client-tab-${nextTab}`)?.focus()
+  }
+
+  function tabProps(tab: Tab) {
+    return {
+      id: `client-tab-${tab}`,
+      role: 'tab',
+      'aria-controls': `client-panel-${tab}`,
+      'aria-selected': activeTab === tab,
+      tabIndex: activeTab === tab ? 0 : -1,
+      onClick: () => setActiveTab(tab),
+      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(event, tab),
+    } as const
+  }
+
+  function panelProps(tab: Tab) {
+    return {
+      id: `client-panel-${tab}`,
+      role: 'tabpanel',
+      'aria-labelledby': `client-tab-${tab}`,
+      tabIndex: 0,
+    } as const
+  }
+
+  function handleCompareBaseChange(nextBaseId: string) {
+    const next = selectComparisonBase(assessments, compareTargetId, nextBaseId)
+    setCompareBaseId(next.baseId)
+    setCompareTargetId(next.targetId)
+  }
+
+  function handleCompareTargetChange(nextTargetId: string) {
+    const next = selectComparisonTarget(assessments, compareBaseId, nextTargetId)
+    setCompareBaseId(next.baseId)
+    setCompareTargetId(next.targetId)
+  }
 
   // Build chart trend data
   const imbalanceKeys: string[] = []
@@ -196,6 +254,10 @@ export default function ClientDetailPage() {
   // Comparison delta computation
   const baseAssessment = assessments.find((a) => a.id === compareBaseId)
   const targetAssessment = assessments.find((a) => a.id === compareTargetId)
+  const baseDate = baseAssessment ? Date.parse(baseAssessment.assessed_at) : null
+  const laterAssessments = baseDate === null
+    ? []
+    : assessments.filter((assessment) => Date.parse(assessment.assessed_at) > baseDate)
 
   type DeltaRow = {
     key: string
@@ -352,24 +414,24 @@ export default function ClientDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="app-panel" style={{
+      <div className="app-panel" role="tablist" aria-label="Client workspace" style={{
         display: 'flex', gap: '4px', marginBottom: '16px',
         background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '10px', padding: '4px', flexWrap: 'wrap',
       }}>
-        <button style={tabStyle('assessments')} onClick={() => setActiveTab('assessments')}>Assessments</button>
+        <button {...tabProps('assessments')} style={tabStyle('assessments')}>Assessments</button>
         {hasMultipleAssessments && (
           <>
-            <button style={tabStyle('progress')} onClick={() => setActiveTab('progress')}>Progress</button>
-            <button style={tabStyle('compare')} onClick={() => setActiveTab('compare')}>Compare</button>
+            <button {...tabProps('progress')} style={tabStyle('progress')}>Progress</button>
+            <button {...tabProps('compare')} style={tabStyle('compare')}>Compare</button>
           </>
         )}
-        <button style={tabStyle('info')} onClick={() => setActiveTab('info')}>Info</button>
+        <button {...tabProps('info')} style={tabStyle('info')}>Info</button>
       </div>
 
       {/* Assessments Tab */}
       {activeTab === 'assessments' && (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+        <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
           {loadError ? (
             <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>{loadError}</p>
@@ -407,25 +469,28 @@ export default function ClientDetailPage() {
 
       {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
       {activeTab === 'progress' && hasMultipleAssessments && (
-        <ProgressCharts trendData={trendData} imbalanceKeys={imbalanceKeys} imbalanceLabels={imbalanceLabels} />
+        <div {...panelProps('progress')}>
+          <ProgressCharts trendData={trendData} imbalanceKeys={imbalanceKeys} imbalanceLabels={imbalanceLabels} />
+        </div>
       )}
 
       {/* Compare Tab */}
       {activeTab === 'compare' && hasMultipleAssessments && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div {...panelProps('compare')} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Assessment selectors */}
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Compare Two Assessments</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'center' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Before (baseline)</label>
+                <label htmlFor="compare-before" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Before (baseline)</label>
                 <select
+                  id="compare-before"
                   value={compareBaseId}
-                  onChange={(e) => setCompareBaseId(e.target.value)}
+                  onChange={(e) => handleCompareBaseChange(e.target.value)}
                   style={{ width: '100%', padding: '8px 12px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '0.875rem' }}
                 >
                   {assessments.map((a) => (
-                    <option key={a.id} value={a.id} disabled={a.id === compareTargetId}>
+                    <option key={a.id} value={a.id}>
                       {fmtDate(a.assessed_at)} — Grade {a.overall_grade ?? '?'}
                     </option>
                   ))}
@@ -433,20 +498,28 @@ export default function ClientDetailPage() {
               </div>
               <span style={{ color: 'var(--text-secondary)', fontSize: '1.25rem', textAlign: 'center' }}>→</span>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>After (comparison)</label>
+                <label htmlFor="compare-after" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>After (comparison)</label>
                 <select
+                  id="compare-after"
                   value={compareTargetId}
-                  onChange={(e) => setCompareTargetId(e.target.value)}
+                  onChange={(e) => handleCompareTargetChange(e.target.value)}
+                  disabled={laterAssessments.length === 0}
                   style={{ width: '100%', padding: '8px 12px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '0.875rem' }}
                 >
-                  {assessments.map((a) => (
-                    <option key={a.id} value={a.id} disabled={a.id === compareBaseId}>
+                  {laterAssessments.length === 0 && <option value="">No later assessment available</option>}
+                  {laterAssessments.map((a) => (
+                    <option key={a.id} value={a.id}>
                       {fmtDate(a.assessed_at)} — Grade {a.overall_grade ?? '?'}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
+            {laterAssessments.length === 0 && (
+              <p role="status" style={{ margin: '12px 0 0', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                No later assessment is available. Choose an earlier Before assessment.
+              </p>
+            )}
           </div>
 
           {/* Grade change summary */}
@@ -543,7 +616,7 @@ export default function ClientDetailPage() {
 
       {/* Info Tab */}
       {activeTab === 'info' && (
-        <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+        <div {...panelProps('info')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
             {dob && (

@@ -2,7 +2,9 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import styles from './DashboardExperience.module.css'
+import { deriveDashboardMetrics } from './dashboardMetrics'
 
 type Assessment = {
   id: string
@@ -17,6 +19,7 @@ type Props = {
   clientCount: number
   weekAssessments: number
   recentAssessments: Assessment[]
+  loadError?: string | null
 }
 
 const enter = (delay = 0) => ({
@@ -38,15 +41,26 @@ function gradeTone(grade: string | null) {
   return styles.gradeAlert
 }
 
-export default function DashboardExperience({ clientCount, weekAssessments, recentAssessments }: Props) {
-  const averageScore = recentAssessments.length
-    ? Math.round(recentAssessments.reduce((sum, assessment) => sum + (assessment.overall_score ?? 0), 0) / recentAssessments.length)
-    : null
-  const pulse = recentAssessments.slice(0, 5).reverse().map((assessment, index) => ({
-    x: 14 + index * 23,
-    y: Math.max(15, 72 - (assessment.overall_score ?? 58) * 0.55),
-  }))
-  const pulseLine = pulse.length > 1 ? pulse.map(point => `${point.x},${point.y}`).join(' ') : '14,58 38,48 61,64 84,36 106,44'
+export default function DashboardExperience({ clientCount, weekAssessments, recentAssessments, loadError }: Props) {
+  const router = useRouter()
+  const { averageScore, scoredCount, pulse, pulseLine } = deriveDashboardMetrics(recentAssessments)
+
+  if (loadError) {
+    return (
+      <div className={styles.page}>
+        <section className={styles.hero} role="alert" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <p className={styles.eyebrow}><span /> Dashboard unavailable</p>
+            <h1>Practice data could not load.</h1>
+            <p className={styles.heroCopy}>{loadError}</p>
+          </div>
+          <button type="button" className={styles.primaryAction} onClick={() => router.refresh()} style={{ border: 0, cursor: 'pointer', font: 'inherit' }}>
+            <span>Refresh dashboard</span><b aria-hidden="true">↻</b>
+          </button>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.page}>
@@ -85,18 +99,18 @@ export default function DashboardExperience({ clientCount, weekAssessments, rece
             <div><span className={styles.panelKicker}>Assessment pulse</span><h2>Recent screening signal</h2></div>
             <span className={styles.liveTag}><i /> Live record</span>
           </header>
-          <div className={styles.pulseGraphic} aria-label={recentAssessments.length ? `Recent screening average is ${averageScore}` : 'No screening data yet'}>
+          <div className={styles.pulseGraphic} aria-label={scoredCount > 0 ? `Recent screening average is ${averageScore}` : 'No scored screening data yet'}>
             <svg viewBox="0 0 120 86" role="img" aria-hidden="true" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="pulseStroke" x1="0" x2="1"><stop stopColor="#FF8918" /><stop offset="0.56" stopColor="#DA4E24" /><stop offset="1" stopColor="#0098F3" /></linearGradient>
                 <linearGradient id="pulseFill" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#0098F3" stopOpacity="0.26" /><stop offset="1" stopColor="#0098F3" stopOpacity="0" /></linearGradient>
               </defs>
               <path d="M0 72H120M0 50H120M0 28H120" className={styles.gridLine} />
-              <path d={`M ${pulseLine} L 106,86 L 14,86 Z`} fill="url(#pulseFill)" />
-              <polyline points={pulseLine} fill="none" stroke="url(#pulseStroke)" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />
+              {pulseLine && <path d={`M ${pulseLine} L ${pulse[pulse.length - 1].x},86 L ${pulse[0].x},86 Z`} fill="url(#pulseFill)" />}
+              {pulseLine && <polyline points={pulseLine} fill="none" stroke="url(#pulseStroke)" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />}
               {pulse.map((point, index) => <circle key={`${point.x}-${point.y}`} cx={point.x} cy={point.y} r="2.6" className={styles.pulsePoint} style={{ animationDelay: `${index * 80}ms` }} />)}
             </svg>
-            <div className={styles.pulseMeta}><span>Latest screens</span><b className="data-readout">{recentAssessments.length || '—'}</b></div>
+            <div className={styles.pulseMeta}><span>Scored screens</span><b className="data-readout">{scoredCount || '—'}</b></div>
           </div>
           <p className={styles.panelFoot}>Scores are screening signals, not a clinical conclusion.</p>
         </motion.article>

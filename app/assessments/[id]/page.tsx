@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
@@ -7,6 +7,11 @@ import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
 import { hasAnyMuscle, type MuscleLink } from './muscleMap'
 import { saveOverridePatch } from './saveOverride'
+import {
+  createOverrideQueue,
+  type OverridePatch,
+  type OverrideSaveState,
+} from './overrideQueue'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { Capability } from '@/lib/program/selectPriorities'
 import { toEngineFinding } from '@/lib/findings/storedFindingToEngine'
@@ -640,7 +645,18 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const [shareError, setShareError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [overrideError, setOverrideError] = useState<string | null>(null)
+  const [overrideSaveState, setOverrideSaveState] = useState<OverrideSaveState>('idle')
   const [runList, setRunList] = useState<Array<{ session_id: string; created_at: string; status: string; red_flag_acknowledged: boolean | null; completed_at: string | null }>>([])
+
+  const overrideQueue = useMemo(() => assessmentId ? createOverrideQueue(
+    (patch) => saveOverridePatch(assessmentId, patch),
+    (state) => {
+      setOverrideSaveState(state)
+      setOverrideError(state === 'failed'
+        ? 'Program changes were not saved. Retry the save before approving, exporting, sharing, or launching.'
+        : null)
+    },
+  ) : null, [assessmentId])
 
   useEffect(() => {
     params.then(p => setAssessmentId(p.id))
@@ -719,21 +735,29 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   // launched session exactly. null = empty-session floor (nothing reliable to play).
   const sessionPreview = useMemo(() => generateWorkoutSession(program, { week: 1 }), [program])
 
-  // Serialize override PATCHes: rapid edits (reorder, then swap) must reach the
-  // server in call order, or a slower earlier write could land last and overwrite
-  // the newer state. Each call chains onto the previous one's completion.
-  const overrideQueue = useRef<Promise<void>>(Promise.resolve())
-
   // Persist coach overrides so the client PDF regenerates identically. fetch does
   // NOT reject on 4xx/5xx, so a failed save must be detected via the returned ok flag
   // and surfaced — otherwise the optimistic UI (and the PDF rebuilt from the persisted
   // row) silently diverges from the DB with no signal to the practitioner.
-  function persistOverrides(patch: { capability?: Capability; priority_keys?: string[] | null; exercise_swaps?: Record<string, Record<string, string>> }) {
-    if (!assessmentId) return
-    overrideQueue.current = overrideQueue.current.then(async () => {
-      const ok = await saveOverridePatch(assessmentId, patch)
-      setOverrideError(ok ? null : 'Your latest change couldn’t be saved. Check your connection and re-apply it before generating the client report.')
-    })
+  function persistOverrides(patch: OverridePatch) {
+    void overrideQueue?.enqueue(patch)
+  }
+
+  async function waitForOverrides() {
+    if (!overrideQueue) {
+      setOverrideError('Program changes cannot be verified yet. Refresh and try again.')
+      return false
+    }
+    const didSave = await overrideQueue.waitForSettled()
+    if (!didSave) {
+      setOverrideError('Program changes were not saved. Retry the save before approving, exporting, sharing, or launching.')
+    }
+    return didSave
+  }
+
+  async function retryOverrides() {
+    if (!overrideQueue) return
+    await overrideQueue.retryFailed()
   }
 
   function handleCapabilityChange(c: Capability) {
@@ -766,6 +790,11 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   async function handleGeneratePdf(variant: 'practitioner' | 'client' = 'practitioner') {
     if (!assessmentId) return
+    if (!(approved || assessment?.practitioner_approved)) {
+      setPdfError('Approve the assessment before exporting a report.')
+      return
+    }
+    if (!(await waitForOverrides())) return
     setPdfLoading(variant)
     setPdfError(null)
     setPdfUrl(null)
@@ -792,6 +821,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   async function handleApprove() {
     if (!assessmentId) return
+    if (!(await waitForOverrides())) return
     setApproving(true)
     try {
       const r = await fetch(`/api/assessments/${assessmentId}/approve`, {
@@ -812,6 +842,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   // (in-clinic, same device). The frozen snapshot is generated server-side.
   async function handleLaunch() {
     if (!assessmentId || launching) return
+    if (!(await waitForOverrides())) return
     setLaunching(true)
     setLaunchError(null)
     try {
@@ -843,6 +874,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   // returned URL — never stored — so this is the one moment it exists to copy.
   async function handleShare() {
     if (!assessmentId || sharing) return
+    if (!(await waitForOverrides())) return
     setSharing(true)
     setShareError(null)
     setCopied(false)
@@ -903,6 +935,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   const gradeDesc = GRADE_BANDS.find(b => b.grade === grade)?.desc ?? 'Screening'
   const color = gradeColor(grade)
   const isApproved = approved || !!assessment.practitioner_approved
+  const areDependentActionsDisabled = overrideSaveState !== 'idle'
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const frontCapture = captures.find(c => c.view === 'front') ?? null
   // A per-side assessment now returns two `side` captures; pick deterministically
@@ -989,18 +1022,19 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
               {sessionPreview.items.length} movements · ≈ {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
             </div>
             {!isApproved && <div style={{ color: 'var(--warning)', fontSize: '0.78rem', marginTop: 6 }}>Approve the assessment below to launch.</div>}
+            {overrideSaveState !== 'idle' && <div style={{ color: overrideSaveState === 'failed' ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.78rem', marginTop: 6 }}>Program changes must finish saving before launch or sharing.</div>}
             {launchError && <div role="alert" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: 6 }}>{launchError}</div>}
           </div>
           <button
             onClick={handleLaunch}
-            disabled={!isApproved || launching}
+            disabled={!isApproved || launching || areDependentActionsDisabled}
             data-testid="launch-session"
             style={{
               padding: '0 30px', minHeight: 56, borderRadius: 999, border: 'none',
-              background: isApproved && !launching ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
+              background: isApproved && !launching && !areDependentActionsDisabled ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
               color: '#fff', fontWeight: 800, fontSize: '1rem',
-              cursor: isApproved && !launching ? 'pointer' : 'not-allowed',
-              boxShadow: isApproved && !launching ? '0 10px 28px rgba(0,152,243,0.4)' : 'none', whiteSpace: 'nowrap',
+              cursor: isApproved && !launching && !areDependentActionsDisabled ? 'pointer' : 'not-allowed',
+              boxShadow: isApproved && !launching && !areDependentActionsDisabled ? '0 10px 28px rgba(0,152,243,0.4)' : 'none', whiteSpace: 'nowrap',
             }}
           >
             {launching ? 'Starting…' : <><span aria-hidden="true">▶ </span>Launch session</>}
@@ -1040,13 +1074,13 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             ) : (
               <button
                 onClick={handleShare}
-                disabled={!isApproved || sharing}
+                disabled={!isApproved || sharing || areDependentActionsDisabled}
                 data-testid="share-session"
                 style={{
                   minHeight: 44, padding: '0 18px', borderRadius: 999,
                   border: '1px solid rgba(0,152,243,0.5)', background: 'transparent',
-                  color: isApproved ? 'var(--brand)' : 'var(--text-muted)', fontWeight: 700, fontSize: '0.9rem',
-                  cursor: isApproved && !sharing ? 'pointer' : 'not-allowed',
+                  color: isApproved && !areDependentActionsDisabled ? 'var(--brand)' : 'var(--text-muted)', fontWeight: 700, fontSize: '0.9rem',
+                  cursor: isApproved && !sharing && !areDependentActionsDisabled ? 'pointer' : 'not-allowed',
                 }}
               >
                 {sharing ? 'Creating link…' : 'Share with client ↗'}
@@ -1091,9 +1125,23 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           onSwap={handleSwap}
         />
       )}
+      {overrideSaveState === 'saving' && (
+        <div role="status" aria-live="polite" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 16 }}>
+          Saving program changes…
+        </div>
+      )}
       {overrideError && (
         <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 16 }}>
-          {overrideError}
+          <span>{overrideError}</span>{' '}
+          {overrideSaveState === 'failed' && (
+            <button
+              type="button"
+              onClick={retryOverrides}
+              style={{ minHeight: 44, padding: '8px 14px', marginLeft: 8, borderRadius: 8, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Retry save
+            </button>
+          )}
         </div>
       )}
 
@@ -1164,9 +1212,9 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
                 : 'Review these findings, then approve to enable report export. Exercises are suggestions for the practitioner to apply, not medical orders.'}
             </span>
             {!isApproved && (
-              <button onClick={handleApprove} disabled={approving} style={{
+              <button onClick={handleApprove} disabled={approving || areDependentActionsDisabled} style={{
                 padding: '9px 16px', borderRadius: 8, background: 'var(--warning)', color: '#1A1205',
-                border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving ? 'not-allowed' : 'pointer',
+                border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: approving || areDependentActionsDisabled ? 'not-allowed' : 'pointer',
               }}>{approving ? 'Approving…' : 'Approve report'}</button>
             )}
           </div>
@@ -1178,20 +1226,20 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           padding: '12px 24px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
           color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)',
           fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Back to Client</Link>
-        <button onClick={() => handleGeneratePdf('practitioner')} disabled={pdfLoading !== null}
+        <button onClick={() => handleGeneratePdf('practitioner')} disabled={!isApproved || pdfLoading !== null || areDependentActionsDisabled}
           style={{ padding: '12px 24px', borderRadius: 10,
-            background: pdfLoading !== null ? 'rgba(0,152,243,0.06)' : 'rgba(0,152,243,0.15)',
-            color: pdfLoading !== null ? 'color-mix(in srgb, var(--brand) 67%, transparent)' : 'var(--brand)',
+            background: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'rgba(0,152,243,0.06)' : 'rgba(0,152,243,0.15)',
+            color: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'color-mix(in srgb, var(--brand) 67%, transparent)' : 'var(--brand)',
             border: '1px solid rgba(0,152,243,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
+            fontWeight: 600, fontSize: '0.9rem', cursor: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'practitioner' ? 'Generating PDF...' : 'Practitioner PDF'}
         </button>
-        <button onClick={() => handleGeneratePdf('client')} disabled={pdfLoading !== null}
+        <button onClick={() => handleGeneratePdf('client')} disabled={!isApproved || pdfLoading !== null || areDependentActionsDisabled}
           style={{ padding: '12px 24px', borderRadius: 10,
-            background: pdfLoading !== null ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
-            color: pdfLoading !== null ? 'color-mix(in srgb, var(--maintain) 67%, transparent)' : 'var(--maintain)',
+            background: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'rgba(34,197,94,0.06)' : 'rgba(34,197,94,0.15)',
+            color: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'color-mix(in srgb, var(--maintain) 67%, transparent)' : 'var(--maintain)',
             border: '1px solid rgba(34,197,94,0.3)',
-            fontWeight: 600, fontSize: '0.9rem', cursor: pdfLoading !== null ? 'not-allowed' : 'pointer', minHeight: 44 }}>
+            fontWeight: 600, fontSize: '0.9rem', cursor: !isApproved || pdfLoading !== null || areDependentActionsDisabled ? 'not-allowed' : 'pointer', minHeight: 44 }}>
           {pdfLoading === 'client' ? 'Generating…' : 'Client Report'}
         </button>
         <Link href="/assessments/new" style={{

@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   // Three independent reads — run them together instead of three serial round trips.
-  const [{ count: clientCount }, { count: weekAssessments }, { data: recentAssessmentsRaw }] = await Promise.all([
+  const [clientCountResult, weekAssessmentsResult, recentAssessmentsResult] = await Promise.all([
     supabase
       .from('clients')
       .select('id', { count: 'exact', head: true })
@@ -49,7 +49,17 @@ export default async function DashboardPage() {
       .limit(5),
   ])
 
-  const recentAssessments = (recentAssessmentsRaw ?? []) as unknown as Assessment[]
+  const loadError = clientCountResult.error || weekAssessmentsResult.error || recentAssessmentsResult.error
+    ? 'Dashboard data could not load. Refresh to try again.'
+    : null
+  const recentAssessments = (recentAssessmentsResult.data ?? []) as unknown as Assessment[]
 
-  return <DashboardExperience clientCount={clientCount ?? 0} weekAssessments={weekAssessments ?? 0} recentAssessments={recentAssessments} />
+  return (
+    <DashboardExperience
+      clientCount={clientCountResult.count ?? 0}
+      weekAssessments={weekAssessmentsResult.count ?? 0}
+      recentAssessments={recentAssessments}
+      loadError={loadError}
+    />
+  )
 }
