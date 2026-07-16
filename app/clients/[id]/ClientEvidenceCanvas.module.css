@@ -1,0 +1,559 @@
+/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: DESIGN.md · designed-as-app */
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R5 V4 */
+
+.canvas {
+  min-width: 0;
+  overflow: clip;
+}
+
+.loadingPanel,
+.emptyState,
+.errorState {
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: var(--glass-fill);
+  color: var(--text-secondary);
+  padding: 24px;
+}
+
+.loadingPanel {
+  min-height: 120px;
+}
+
+.errorState {
+  border-color: color-mix(in srgb, var(--danger) 44%, var(--glass-border));
+  color: var(--text-primary);
+}
+
+.metricsStrip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-block: 0 24px;
+}
+
+.metricCard {
+  min-width: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: var(--glass-well);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
+  padding: 16px;
+}
+
+.metricLabel {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.metricValue {
+  margin-block-start: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.metricSupport {
+  margin-block-start: 6px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block-end: 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass-fill);
+  padding: 4px;
+}
+
+.tab {
+  min-height: 44px;
+  flex: 1 1 auto;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  padding-inline: 16px;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-hover) var(--ease-standard),
+    border-color var(--duration-hover) var(--ease-standard),
+    color var(--duration-hover) var(--ease-standard),
+    transform var(--duration-press) var(--ease-standard);
+}
+
+.tab:active {
+  transform: translateY(1px);
+}
+
+.tabActive {
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-strong) 34%, var(--glass-well));
+  color: var(--text-primary);
+}
+
+.tab:focus-visible,
+.select:focus-visible,
+.tableSummary:focus-visible {
+  outline: 2px solid var(--spectral-cool);
+  outline-offset: 2px;
+}
+
+.comparisonWorkspace,
+.progressStack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.selectorPanel,
+.assessmentCard,
+.transitionCard,
+.evidencePanel,
+.chartCard {
+  min-width: 0;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-fill);
+}
+
+.selectorPanel,
+.evidencePanel,
+.chartCard {
+  border-radius: 20px;
+  padding: clamp(16px, 4vw, 24px);
+}
+
+.workspaceHeader,
+.chartHeader {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.workspaceHeader h2,
+.chartHeader h2 {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.workspaceHeader p,
+.chartHeader p {
+  max-width: 65ch;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.selectorGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-block-start: 20px;
+}
+
+.selectorField {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.selectorLabel {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  background: var(--glass-well);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  padding-inline: 12px 36px;
+  transition:
+    background-color var(--duration-hover) var(--ease-standard),
+    border-color var(--duration-hover) var(--ease-standard);
+}
+
+.select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.selectorBridge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  color: var(--text-muted);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.selectorStatus {
+  margin-block-start: 12px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.comparisonSequence {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.assessmentCard,
+.transitionCard {
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.assessmentCard {
+  background: var(--glass-well);
+}
+
+.transitionCard {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--brand-warm) 8%, transparent),
+      color-mix(in srgb, var(--data-blue) 7%, transparent)
+    ),
+    var(--glass-well);
+}
+
+.cardHeading,
+.evidenceHeading {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.assessmentDate {
+  margin-block-start: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gradeReadout {
+  margin-block-start: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-size: clamp(1.5rem, 8vw, 2rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.statusLabel,
+.directionBadge,
+.rowStatus {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.statusLabel {
+  margin-block-start: 10px;
+  color: var(--text-secondary);
+  padding: 4px 9px;
+}
+
+.directionBadge {
+  margin-block-start: 12px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+}
+
+.directionImproved,
+.rowImproved {
+  border-color: color-mix(in srgb, var(--maintain) 42%, var(--glass-border));
+  background: color-mix(in srgb, var(--maintain) 11%, transparent);
+  color: var(--maintain);
+}
+
+.directionRegressed,
+.rowRegressed {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--glass-border));
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.directionNeutral,
+.rowNeutral {
+  color: var(--text-secondary);
+}
+
+.transitionNote {
+  margin-block-start: 10px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.evidencePanel {
+  background: var(--glass-fill);
+}
+
+.evidenceHeading {
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.evidenceIntro {
+  margin-block-start: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.evidenceList {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidenceRow {
+  min-width: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass-well);
+  padding: 14px;
+}
+
+.evidenceRow h4 {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.evidenceData {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-block-start: 12px;
+}
+
+.evidenceData > div {
+  min-width: 0;
+}
+
+.evidenceData dt {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.evidenceData dd {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.rowStatus {
+  font-family: var(--font-sans);
+  border-radius: 8px;
+  padding: 4px 7px;
+  white-space: normal;
+}
+
+.chartCard {
+  background: var(--glass-fill);
+}
+
+.chartViewport {
+  width: 100%;
+  min-width: 0;
+  height: 240px;
+  margin-block-start: 16px;
+}
+
+.chartViewportTall {
+  height: 300px;
+}
+
+.tableDetails {
+  margin-block-start: 16px;
+  border-block-start: 1px solid var(--glass-border);
+}
+
+.tableSummary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 650;
+  list-style-position: inside;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataTable th,
+.dataTable td {
+  border-block-start: 1px solid var(--glass-border);
+  padding: 10px 8px;
+  text-align: start;
+}
+
+.dataTable th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dataTable td {
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+}
+
+.chartDataList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chartDataRow {
+  min-width: 0;
+  border-block-start: 1px solid var(--glass-border);
+  padding-block: 10px;
+}
+
+.chartDataRow > strong {
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartDataValues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 6px 12px;
+  margin-block-start: 8px;
+}
+
+.chartDataValues div {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.chartDataValues dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chartDataValues dd {
+  flex: none;
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-data, 'IBM Plex Mono'), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover,
+  .select:hover,
+  .tableSummary:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+}
+
+@media (min-width: 40rem) {
+  .metricsStrip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .selectorGrid {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+  }
+
+  .selectorBridge {
+    min-height: 44px;
+  }
+
+  .evidenceData {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(10rem, 1.4fr);
+    align-items: center;
+  }
+
+  .chartViewport {
+    height: 280px;
+  }
+
+  .chartViewportTall {
+    height: 340px;
+  }
+}
+
+@media (min-width: 60rem) {
+  .comparisonSequence {
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.72fr) minmax(0, 1fr);
+  }
+
+  .transitionCard {
+    align-self: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .select {
+    transition-duration: 0ms;
+  }
+
+  .tab:active {
+    transform: none;
+  }
+}
