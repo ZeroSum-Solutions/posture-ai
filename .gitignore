@@ -43,3 +43,4 @@ packages/posture-engine/golden/photos-local/
 
 # macOS
 .DS_Store
+datasets/moti/
