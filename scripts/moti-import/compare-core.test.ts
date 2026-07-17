@@ -17,10 +17,10 @@ const debugRecord = (time: string, points: DebugRecord['points'] = {}): DebugRec
 describe('agreementStats', () => {
   // Expected values computed independently (Python) for these pairs.
   const engine = [2.1, 3.5, 1.0, 4.2, 2.8]
-  const truth = [2.4, 3.1, 1.3, 4.8, 2.5]
+  const reference = [2.4, 3.1, 1.3, 4.8, 2.5]
 
   test('computes MAE, bias, and Bland–Altman limits of agreement', () => {
-    const stats = agreementStats(engine, truth)!
+    const stats = agreementStats(engine, reference)!
     expect(stats.n).toBe(5)
     expect(stats.mae).toBeCloseTo(0.38, 10)
     expect(stats.bias).toBeCloseTo(-0.1, 10)
@@ -29,7 +29,7 @@ describe('agreementStats', () => {
   })
 
   test('computes Pearson r and ICC(2,1)', () => {
-    const stats = agreementStats(engine, truth)!
+    const stats = agreementStats(engine, reference)!
     expect(stats.pearson).toBeCloseTo(0.9424595874003714, 10)
     expect(stats.icc21).toBeCloseTo(0.9499524865378527, 10)
   })

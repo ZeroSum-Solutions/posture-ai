@@ -1,7 +1,8 @@
-// Pure comparison logic for the Moti-Physio validation harness:
+// Pure comparison logic for the Moti-Physio comparison harness:
 // agreement statistics (per the rebuild plan's methodology: ICC,
-// Bland–Altman limits of agreement, MAE), ground-truth angle extraction
+// Bland–Altman limits of agreement, MAE), Moti-reference angle extraction
 // from Moti debug landmarks, and debug-record → session pairing.
+// Moti output is a competitor reference, NOT clinical ground truth.
 
 import { debugTimeToIsoDate, type DebugRecord } from './decode'
 import type { SessionData } from './walk'
@@ -17,19 +18,19 @@ export interface AgreementStats {
 }
 
 /**
- * Agreement between paired measurements (engine vs ground truth).
+ * Agreement between paired measurements (engine vs Moti software reference).
  * ICC(2,1): two-way random effects, single measures, absolute agreement.
  * Returns null below 3 pairs — the statistics are meaningless there.
  */
-export function agreementStats(engine: number[], truth: number[]): AgreementStats | null {
-  if (engine.length !== truth.length) {
-    throw new Error(`length mismatch: ${engine.length} vs ${truth.length}`)
+export function agreementStats(engine: number[], reference: number[]): AgreementStats | null {
+  if (engine.length !== reference.length) {
+    throw new Error(`length mismatch: ${engine.length} vs ${reference.length}`)
   }
   const n = engine.length
   if (n < 3) return null
   const k = 2
 
-  const diffs = engine.map((value, i) => value - truth[i])
+  const diffs = engine.map((value, i) => value - reference[i])
   const mae = diffs.reduce((sum, d) => sum + Math.abs(d), 0) / n
   const bias = diffs.reduce((sum, d) => sum + d, 0) / n
   const sdDiff = Math.sqrt(
@@ -37,17 +38,17 @@ export function agreementStats(engine: number[], truth: number[]): AgreementStat
   )
 
   const meanEngine = engine.reduce((s, v) => s + v, 0) / n
-  const meanTruth = truth.reduce((s, v) => s + v, 0) / n
-  const cov = engine.reduce((s, v, i) => s + (v - meanEngine) * (truth[i] - meanTruth), 0)
+  const meanReference = reference.reduce((s, v) => s + v, 0) / n
+  const cov = engine.reduce((s, v, i) => s + (v - meanEngine) * (reference[i] - meanReference), 0)
   const varEngine = engine.reduce((s, v) => s + (v - meanEngine) ** 2, 0)
-  const varTruth = truth.reduce((s, v) => s + (v - meanTruth) ** 2, 0)
-  const pearson = cov / Math.sqrt(varEngine * varTruth)
+  const varReference = reference.reduce((s, v) => s + (v - meanReference) ** 2, 0)
+  const pearson = cov / Math.sqrt(varEngine * varReference)
 
-  const grand = (meanEngine + meanTruth) / 2
-  const rowMeans = engine.map((v, i) => (v + truth[i]) / 2)
+  const grand = (meanEngine + meanReference) / 2
+  const rowMeans = engine.map((v, i) => (v + reference[i]) / 2)
   const ssr = k * rowMeans.reduce((s, m) => s + (m - grand) ** 2, 0)
-  const ssc = n * ((meanEngine - grand) ** 2 + (meanTruth - grand) ** 2)
-  const sst = [...engine, ...truth].reduce((s, v) => s + (v - grand) ** 2, 0)
+  const ssc = n * ((meanEngine - grand) ** 2 + (meanReference - grand) ** 2)
+  const sst = [...engine, ...reference].reduce((s, v) => s + (v - grand) ** 2, 0)
   const sse = sst - ssr - ssc
   const msr = ssr / (n - 1)
   const msc = ssc / (k - 1)

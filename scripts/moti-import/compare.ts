@@ -1,6 +1,12 @@
-// Stage-1 validation: run the posture engine over BlazePose landmarks
+// Competitor comparison: run the posture engine over BlazePose landmarks
 // detected from the Moti-Physio archive photos and compare directly
-// comparable metrics against the archive's stored ground truth.
+// comparable metrics against the archive's stored Moti software output.
+//
+// The Moti values are a COMPETITOR REFERENCE, not clinical ground truth:
+// Moti/PAViR itself validates only r=0.32 vs EOS radiography for pelvic
+// obliquity (Healthcare 2023;11(5):686). Never treat agreement with Moti
+// as clinical validity, and never train models against this archive.
+// See docs/plans/2026-07-16-clinical-landmark-correction-spike.md.
 //
 //   npx vite-node scripts/moti-import/compare.ts -- [--model lite|full] [--out datasets/moti]
 //
@@ -55,7 +61,7 @@ interface ComparisonRow {
   session: number
   metric: string
   engine: number
-  truth: number
+  motiRef: number
   reliable: boolean
   zone: string
   confidence: number
@@ -87,14 +93,14 @@ for (const clientId of index.clients) {
     const finding = (key: string) => result.findings.find((f) => f.key === key)
 
     const pelvic = finding('pelvic_obliquity')
-    const pelvicTruth = session.extraData?.pelvisObliquity
-    if (pelvic && pelvicTruth != null) {
+    const pelvicRef = session.extraData?.pelvisObliquity
+    if (pelvic && pelvicRef != null) {
       rows.push({
         clientId,
         session: session.index,
         metric: 'pelvic_obliquity',
         engine: pelvic.deviation,
-        truth: Math.abs(pelvicTruth),
+        motiRef: Math.abs(pelvicRef),
         reliable: pelvic.reliable,
         zone: pelvic.zone,
         confidence: pelvic.confidence,
@@ -103,14 +109,14 @@ for (const clientId of index.clients) {
 
     const shoulders = finding('anterior_imbalanced_shoulders')
     const debugRecord = debugBySession[s]
-    const shoulderTruth = debugRecord ? shoulderAngleFromDebug(debugRecord) : null
-    if (shoulders && shoulderTruth != null) {
+    const shoulderRef = debugRecord ? shoulderAngleFromDebug(debugRecord) : null
+    if (shoulders && shoulderRef != null) {
       rows.push({
         clientId,
         session: session.index,
         metric: 'anterior_imbalanced_shoulders',
         engine: shoulders.deviation,
-        truth: shoulderTruth,
+        motiRef: shoulderRef,
         reliable: shoulders.reliable,
         zone: shoulders.zone,
         confidence: shoulders.confidence,
@@ -120,7 +126,12 @@ for (const clientId of index.clients) {
 }
 
 const metrics = [...new Set(rows.map((r) => r.metric))]
-const report: Record<string, unknown> = { model: MODEL, sessionsAssessed }
+const report: Record<string, unknown> = {
+  model: MODEL,
+  sessionsAssessed,
+  reference: 'moti_software_output',
+  clinicalValidity: false,
+}
 
 console.log(`\nSessions assessed: ${sessionsAssessed} (model=${MODEL})`)
 console.log(
@@ -139,7 +150,7 @@ for (const metric of metrics) {
   const unreliable = rows.filter((r) => r.metric === metric && !r.reliable).length
   const stats = agreementStats(
     reliableRows.map((r) => r.engine),
-    reliableRows.map((r) => r.truth),
+    reliableRows.map((r) => r.motiRef),
   )
   report[metric] = { stats, unreliableCount: unreliable, rows: rows.filter((r) => r.metric === metric) }
   if (!stats) {
