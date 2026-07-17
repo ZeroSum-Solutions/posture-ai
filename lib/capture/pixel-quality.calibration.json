@@ -1,0 +1,11 @@
+{
+  "scale": 320,
+  "thresholds": {
+    "sharpnessMin": 50,
+    "lumaDarkMax": 40,
+    "lumaBrightMin": 215,
+    "darkClipMax": 0.3,
+    "brightClipMax": 0.3
+  },
+  "perFixture": {}
+}
