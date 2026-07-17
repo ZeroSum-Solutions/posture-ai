@@ -2,8 +2,11 @@
 // Tier B JSONs are produced per model by running the ingest page twice with
 // NEXT_PUBLIC_POSE_MODEL=lite then =full (files suffixed -lite / -full).
 // Reports per-metric |deviation_lite − deviation_full| and each model's error
-// vs measured groundTruth. Decision rule (spec §2.1): any scored metric with
-// median |Δ| > 1° across Tier B ⇒ full becomes the default.
+// vs measured groundTruth. Decision rule (spec §2.1, amended 2026-07-16):
+// disagreement (any scored metric with median |Δ| > 1° across Tier B) makes
+// full a CANDIDATE; the switch verdict additionally requires full to be at
+// least as accurate as lite against ground truth. Disagreement alone proves
+// the models differ, not that full is better.
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -107,19 +110,37 @@ console.log(
 )
 console.log('-'.repeat(72))
 
-let fullDefault = false
+let disagreement = false
+const gtMaeDeltas = [] // fullMAE − liteMAE per metric with ground truth
 for (const [key, { deltas, liteErrs, fullErrs }] of Object.entries(byMetric)) {
   const medDelta = median(deltas)
   const liteMAE = median(liteErrs)
   const fullMAE = median(fullErrs)
   const flag = medDelta != null && medDelta > 1 ? ' ← >1°' : ''
-  if (medDelta != null && medDelta > 1) fullDefault = true
+  if (medDelta != null && medDelta > 1) disagreement = true
+  if (liteMAE != null && fullMAE != null) gtMaeDeltas.push(fullMAE - liteMAE)
   console.log(
     key.padEnd(36) +
     fmt(medDelta).padEnd(12) +
     fmt(liteMAE).padEnd(12) +
     fmt(fullMAE) +
     flag
+  )
+}
+
+let fullDefault = false
+if (!disagreement) {
+  console.log('\nModels agree within 1° on every metric — no reason to switch.')
+} else if (gtMaeDeltas.length === 0) {
+  console.log(
+    '\nModels disagree >1° but no groundTruth is present to adjudicate which is right.' +
+    '\nCapture Tier B ground truth before switching the default.'
+  )
+} else {
+  fullDefault = median(gtMaeDeltas) <= 0
+  console.log(
+    `\nModels disagree >1°; median ground-truth MAE delta (full − lite) = ${fmt(median(gtMaeDeltas))}` +
+    ` → full is ${fullDefault ? 'at least as accurate — switch justified' : 'less accurate — do NOT switch'}.`
   )
 }
 

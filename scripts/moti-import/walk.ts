@@ -32,6 +32,8 @@ export interface ClientRef {
 
 export interface SessionData {
   index: number
+  /** ISO screening date from client info, in session order; null if unknown. */
+  date: string | null
   extraData: ExtraData | null
   adams: Vec3[] | null
   ribsAngle: number[] | null
@@ -81,7 +83,9 @@ function parseIfExists<T>(path: string, parse: (raw: string) => T): T | null {
 }
 
 function sessionIndices(dir: string, clientId: string): number[] {
-  const pattern = new RegExp(`^${clientId}_(\\d+)_`)
+  // Only capture photos define a session: stray session-prefixed files
+  // (e.g. Background frames without any captures) are not real screenings.
+  const pattern = new RegExp(`^${clientId}_(\\d+)_(?:Front|Back|Side|Adams)Capture\\.png$`)
   const indices = new Set<number>()
   for (const file of readdirSync(dir)) {
     const match = basename(file).match(pattern)
@@ -100,8 +104,13 @@ export function importClient(ref: ClientRef): ClientDataset {
   const info = parseClientInfo(readFileSync(join(dir, '_Client Info.txt'), 'utf8'))
   const { clientId } = info
 
-  const sessions: SessionData[] = sessionIndices(dir, clientId).map((index) => ({
+  const indices = sessionIndices(dir, clientId)
+  const dates =
+    info.screeningDates.length === indices.length ? info.screeningDates : null
+
+  const sessions: SessionData[] = indices.map((index, ordinal) => ({
     index,
+    date: dates ? dates[ordinal] : null,
     extraData: parseIfExists(
       join(dir, `${clientId}_${index}_ExtraData_ver_1.mgs`),
       parseExtraData,

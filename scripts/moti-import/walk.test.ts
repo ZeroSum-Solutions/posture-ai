@@ -6,7 +6,7 @@ import { collectClients, importClient } from './walk'
 
 const BOM = '﻿'
 
-const clientInfoTxt = (id: string) => `${BOM}CLIENT SCREENING RECORD
+const clientInfoTxt = (id: string, sessionCount = 2) => `${BOM}CLIENT SCREENING RECORD
 =======================
 Name           : Test Person
 Client ID      : ${id}
@@ -17,7 +17,9 @@ Height         : 170 cm
 Email          : test@example.com
 
 App version    : Version 2
-Screening date : 2025-01-06 [v2]
+Screening date : ${
+  sessionCount === 1 ? '2025-01-06 [v1]' : '2025-01-06 [v1], 2025-03-18 [v2]'
+}
 `
 
 const skeletonJson = JSON.stringify({
@@ -65,7 +67,7 @@ let root: string
 function writeClient(group: string, folder: string, id: string, sessions: number[]) {
   const dir = join(root, group, folder)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, '_Client Info.txt'), clientInfoTxt(id))
+  writeFileSync(join(dir, '_Client Info.txt'), clientInfoTxt(id, sessions.length))
   writeFileSync(join(dir, `${id}_BodyAnalysis_Skeleton_Front_ver_2.mgs`), skeletonJson)
   writeFileSync(join(dir, `${id}_BodyAnalysis_Skeleton_Back_ver_2.mgs`), skeletonJson)
   writeFileSync(join(dir, `${id}_BodyAnalysis_Skeleton_Side_ver_2.mgs`), skeletonJson)
@@ -165,5 +167,39 @@ describe('importClient', () => {
     const client = importClient({ dir, group: 'version-1' })
     expect(client.sessions[0].extraData).toBeNull()
     expect(client.sessions[0].adams).toHaveLength(1)
+  })
+
+  test('ignores background-only phantom sessions', () => {
+    // Real archive shape (client 0002): a valid session 0 plus stray
+    // session-1 Background frames with no capture photos or measurements.
+    const dir = writeClient('Version 1 - Original', '0002 - B', '0774-AM-0002', [0])
+    for (const variant of ['BackgroundPicture', 'BackgroundDeepDepth', 'BackgroundUser']) {
+      writeFileSync(join(dir, `0774-AM-0002_1_${variant}.png`), 'png-bytes')
+    }
+
+    const client = importClient({ dir, group: 'version-1' })
+    expect(client.sessions).toHaveLength(1)
+    expect(client.sessions[0].index).toBe(0)
+  })
+
+  test('attaches screening dates to sessions in order', () => {
+    const dir = writeClient('Both Versions', '0052 - C', '0774-AM-0052', [0, 1])
+    const client = importClient({ dir, group: 'both-versions' })
+    expect(client.sessions[0].date).toBe('2025-01-06')
+    expect(client.sessions[1].date).toBe('2025-03-18')
+  })
+
+  test('leaves session date null when date count does not match', () => {
+    const dir = writeClient('Version 1 - Original', '0001 - A', '0774-AM-0001', [0, 1])
+    // clientInfoTxt lists two screening dates; drop one to force a mismatch.
+    writeFileSync(
+      join(dir, '_Client Info.txt'),
+      clientInfoTxt('0774-AM-0001').replace(
+        'Screening date : 2025-01-06 [v1], 2025-03-18 [v2]',
+        'Screening date : 2025-01-06 [v1]',
+      ),
+    )
+    const client = importClient({ dir, group: 'version-1' })
+    expect(client.sessions.map((s) => s.date)).toEqual([null, null])
   })
 })

@@ -72,7 +72,7 @@ for (const clientId of index.clients) {
   const client = JSON.parse(
     readFileSync(join(OUT, 'clients', `${clientId}.json`), 'utf8'),
   ) as ClientDataset
-  const debugBySession = pairDebugRecords(client.debugLandmarks, client.sessions.length)
+  const debugBySession = pairDebugRecords(client.debugLandmarks, client.sessions)
 
   for (let s = 0; s < client.sessions.length; s++) {
     const session = client.sessions[s]
@@ -158,5 +158,6 @@ for (const metric of metrics) {
   )
 }
 
-writeFileSync(join(OUT, 'comparison-report.json'), JSON.stringify(report, null, 1))
-console.log(`\nReport → ${join(OUT, 'comparison-report.json')}`)
+const reportPath = join(OUT, `comparison-report-${arg('model', 'lite')}.json`)
+writeFileSync(reportPath, JSON.stringify(report, null, 1))
+console.log(`\nReport → ${reportPath}`)

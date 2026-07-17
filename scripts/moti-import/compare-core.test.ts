@@ -4,6 +4,7 @@ import {
   pairDebugRecords,
   shoulderAngleFromDebug,
 } from './compare-core'
+import type { SessionData } from './walk'
 import type { DebugRecord } from './decode'
 
 const debugRecord = (time: string, points: DebugRecord['points'] = {}): DebugRecord => ({
@@ -72,18 +73,71 @@ describe('shoulderAngleFromDebug', () => {
 })
 
 describe('pairDebugRecords', () => {
-  test('pairs positionally when record count equals session count', () => {
-    const records = [debugRecord('a'), debugRecord('b')]
-    expect(pairDebugRecords(records, 2)).toEqual([records[0], records[1]])
+  const session = (index: number, date: string | null): SessionData => ({
+    index,
+    date,
+    extraData: null,
+    adams: null,
+    ribsAngle: null,
+    photos: { front: null, back: null, side: null, adams: null },
   })
 
-  test('pairs a single record to the last session', () => {
+  test('pairs by matching record date to session screening date', () => {
+    const records = [
+      debugRecord('1/6/2025 10:10:35 AM'),
+      debugRecord('3/18/2025 10:12:13 AM'),
+    ]
+    // Sessions listed out of order to prove pairing is by date, not position.
+    const sessions = [session(0, '2025-03-18'), session(1, '2025-01-06')]
+    expect(pairDebugRecords(records, sessions)).toEqual([records[1], records[0]])
+  })
+
+  test('falls back to positional pairing when dates are unavailable and counts match', () => {
+    const records = [debugRecord('a'), debugRecord('b')]
+    const sessions = [session(0, null), session(1, null)]
+    expect(pairDebugRecords(records, sessions)).toEqual([records[0], records[1]])
+  })
+
+  test('pairs a lone undated record only when there is a single session', () => {
     const records = [debugRecord('a')]
-    expect(pairDebugRecords(records, 3)).toEqual([null, null, records[0]])
+    expect(pairDebugRecords(records, [session(0, null)])).toEqual([records[0]])
+    expect(
+      pairDebugRecords(records, [session(0, null), session(1, null)]),
+    ).toEqual([null, null])
   })
 
-  test('gives up on ambiguous counts', () => {
-    const records = [debugRecord('a'), debugRecord('b')]
-    expect(pairDebugRecords(records, 3)).toEqual([null, null, null])
+  test('pairs same-day sessions to that day\'s records in file order', () => {
+    // Same-day re-screenings: record file order is chronological, and so is
+    // session index order, so within a date the pairing is positional.
+    const records = [
+      debugRecord('9/8/2023 8:06:52 AM'),
+      debugRecord('9/8/2023 8:12:51 AM'),
+    ]
+    const sessions = [session(0, '2023-09-08'), session(1, '2023-09-08')]
+    expect(pairDebugRecords(records, sessions)).toEqual([records[0], records[1]])
+  })
+
+  test('mixes per-date groups: unique dates match, same-day groups pair in order', () => {
+    const records = [
+      debugRecord('5/1/2024 2:32:11 PM'),
+      debugRecord('5/1/2024 3:26:23 PM'),
+      debugRecord('5/4/2024 12:10:50 PM'),
+    ]
+    const sessions = [
+      session(0, '2024-05-01'),
+      session(1, '2024-05-01'),
+      session(2, '2024-05-04'),
+    ]
+    expect(pairDebugRecords(records, sessions)).toEqual([
+      records[0],
+      records[1],
+      records[2],
+    ])
+  })
+
+  test('pairs nothing for a date whose record count mismatches its session count', () => {
+    const records = [debugRecord('1/6/2025 10:10:35 AM')]
+    const sessions = [session(0, '2025-01-06'), session(1, '2025-01-06')]
+    expect(pairDebugRecords(records, sessions)).toEqual([null, null])
   })
 })
