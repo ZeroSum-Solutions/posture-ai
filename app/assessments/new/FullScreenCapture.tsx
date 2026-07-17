@@ -457,6 +457,17 @@ export default function FullScreenCapture({
       if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
     }
     if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
+    // Every encode failed: there is no frame to review — bail to the live view
+    // and surface the existing camera-error screen instead of handing the
+    // review phase an undefined burst[0]/reviewUrl.
+    if (urls.length === 0) {
+      bail()
+      if (mountedRef.current) {
+        setErrorMsg('Capture failed — try again or upload instead.')
+        setCameraFailed(true)
+      }
+      return
+    }
     // Put the reviewed (representative) frame first so the preview thumbnail AND
     // the quality preflight — both of which the parent runs on burst[0] — judge
     // exactly the frame the user reviews and approves. The engine medians every

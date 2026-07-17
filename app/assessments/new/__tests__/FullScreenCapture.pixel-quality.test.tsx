@@ -69,10 +69,11 @@ function baseCaptures(overrides: Partial<Captures> = {}): Captures {
  * the outer capture canvas's 2d context (drawImage only — pixel sampling
  * itself is module-mocked above), and canvas.toBlob → URL.createObjectURL.
  * `failAtIndex` makes the encode at that burst iteration (0-based) fail
- * (blob === null), so the loop skips it exactly like a real dropped frame.
+ * (blob === null), so the loop skips it exactly like a real dropped frame;
+ * 'all' fails every encode (the empty-burst bail path).
  * Returns a `urlFor(i)` helper for asserting on the resulting object URLs.
  */
-function stubBrowserBoundary(failAtIndex: number | null) {
+function stubBrowserBoundary(failAtIndex: number | null | 'all') {
   const originalGetUserMedia = (navigator as unknown as { mediaDevices?: unknown }).mediaDevices
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
@@ -96,7 +97,7 @@ function stubBrowserBoundary(failAtIndex: number | null) {
   const originalToBlob = HTMLCanvasElement.prototype.toBlob
   HTMLCanvasElement.prototype.toBlob = vi.fn(function (cb: BlobCallback) {
     const idx = callIndex++
-    if (idx === failAtIndex) { cb(null); return }
+    if (failAtIndex === 'all' || idx === failAtIndex) { cb(null); return }
     const blob = new Blob(['x'], { type: 'image/jpeg' })
     blobIndex.set(blob, idx)
     cb(blob)
@@ -192,6 +193,19 @@ describe('FullScreenCapture — middle-frame association (URL-based, not index)'
     { name: 'encode fails AT the midpoint (i=2)', failAtIndex: MID_INDEX, expectBurst0: 3, expectPQ: false },
     { name: 'encode fails AFTER the midpoint (i=3)', failAtIndex: 3, expectBurst0: MID_INDEX, expectPQ: true },
   ]
+
+  it('bails to the camera-error screen when EVERY encode fails (empty burst)', async () => {
+    activeStubs = stubBrowserBoundary('all')
+    const { onCameraCapture } = await mountReady(baseCaptures())
+    fireEvent.click(screen.getByLabelText('Capture photo'))
+    // The empty-burst bail surfaces the existing camera-error panel instead of
+    // handing the review phase an undefined burst[0]/reviewUrl.
+    await waitFor(() => {
+      expect(screen.getByTestId('camera-error-msg').textContent).toContain('Capture failed')
+    }, { timeout: 5000 })
+    expect(screen.queryByRole('button', { name: 'Use This Photo' })).toBeNull()
+    expect(onCameraCapture).not.toHaveBeenCalled()
+  })
 
   for (const { name, failAtIndex, expectBurst0, expectPQ } of cases) {
     it(`reports the burst[0]-frame's metrics when ${name}`, async () => {
