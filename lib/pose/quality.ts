@@ -1,5 +1,9 @@
-import type { PoseFrame } from '@posture-ai/engine/types'
+import type { Landmark, PoseFrame } from '@posture-ai/engine/types'
 import { RELIABILITY_FLOOR } from '@posture-ai/engine/thresholds'
+
+export function isVisible(landmark: Landmark | undefined): landmark is Landmark {
+  return !!landmark && (landmark.visibility ?? 0) >= RELIABILITY_FLOOR
+}
 
 export interface FrameQuality {
   status: 'ok' | 'no_person' | 'warnings'
@@ -71,14 +75,12 @@ const BOUNDS_LANDMARKS = [
   'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip',
   'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
 ]
-const FRAME_SPAN_MIN = 0.65
-const FRAME_SPAN_MAX = 0.95
-const CENTER_TOLERANCE = 0.15
+export const FRAME_SPAN_MIN = 0.65
+export const FRAME_SPAN_MAX = 0.95
+export const CENTER_TOLERANCE = 0.15
 
 function visiblePoints(frame: PoseFrame, names: string[]) {
-  return names
-    .map(n => frame.landmarks[n])
-    .filter((p): p is NonNullable<typeof p> => !!p && (p.visibility ?? 0) >= RELIABILITY_FLOOR)
+  return names.map(n => frame.landmarks[n]).filter(isVisible)
 }
 
 function framingWarnings(frame: PoseFrame): string[] {
@@ -160,27 +162,14 @@ export function assessFrameQuality(frame: PoseFrame, view: ViewKey): FrameQualit
       warnings.push('Legs not fully visible — step back so feet are in frame.')
     }
   } else {
-    // Front and back views: both sides need to be visible
-    const leftShoulderVis = lm['left_shoulder']?.visibility ?? 0
-    const rightShoulderVis = lm['right_shoulder']?.visibility ?? 0
-    if (leftShoulderVis < RELIABILITY_FLOOR && rightShoulderVis < RELIABILITY_FLOOR) {
+    // Front and back views: each bilateral group needs at least one reliable side
+    if (!groupOk(frame, ['left_shoulder', 'right_shoulder'])) {
       warnings.push('Shoulders not clearly visible — step back or turn to face the camera directly.')
     }
-
-    const leftHipVis = lm['left_hip']?.visibility ?? 0
-    const rightHipVis = lm['right_hip']?.visibility ?? 0
-    if (leftHipVis < RELIABILITY_FLOOR && rightHipVis < RELIABILITY_FLOOR) {
+    if (!groupOk(frame, ['left_hip', 'right_hip'])) {
       warnings.push('Hips not clearly visible — step back so your full torso is in frame.')
     }
-
-    const leftKneeVis = lm['left_knee']?.visibility ?? 0
-    const rightKneeVis = lm['right_knee']?.visibility ?? 0
-    const leftAnkleVis = lm['left_ankle']?.visibility ?? 0
-    const rightAnkleVis = lm['right_ankle']?.visibility ?? 0
-    if (
-      (leftKneeVis < RELIABILITY_FLOOR && rightKneeVis < RELIABILITY_FLOOR) ||
-      (leftAnkleVis < RELIABILITY_FLOOR && rightAnkleVis < RELIABILITY_FLOOR)
-    ) {
+    if (!groupOk(frame, ['left_knee', 'right_knee']) || !groupOk(frame, ['left_ankle', 'right_ankle'])) {
       warnings.push('Legs not fully visible — step back so feet are in frame.')
     }
   }
