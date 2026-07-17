@@ -54,6 +54,20 @@ describe('testRetestReliability', () => {
     expect(testRetestReliability([])).toBeNull()
   })
 
+  it('floors SEM at the observed SD when ICC is negative (Weir 2005 convention)', () => {
+    // Within-case variance dwarfs between-case variance → ICC < 0. The true
+    // (negative) ICC is still reported, but SEM must never exceed the observed
+    // SD — a negative ICC is floored at 0 for the SEM step, so SEM = SD.
+    const stats = testRetestReliability([
+      [1, 9],
+      [2, 8],
+      [9, 1],
+    ])!
+    expect(stats.icc21).toBeLessThan(0)
+    expect(stats.sem).toBeCloseTo(stats.sd, 9)
+    expect(stats.mdc95).toBeCloseTo(1.96 * Math.SQRT2 * stats.sd, 9)
+  })
+
   it('returns null for a zero-variance (all-constant) matrix — ICC is undefined there', () => {
     expect(testRetestReliability([[7, 7], [7, 7], [7, 7]])).toBeNull()
   })

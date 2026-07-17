@@ -87,7 +87,10 @@ export function testRetestReliability(matrix: number[][]): ReliabilityStats | nu
   const icc21 = (msr - mse) / (msr + (k - 1) * mse + (k / n) * (msc - mse))
 
   const sd = Math.sqrt(flat.reduce((s, v) => s + (v - grand) ** 2, 0) / (n * k - 1))
-  const sem = sd * Math.sqrt(Math.max(0, 1 - icc21))
+  // icc21 is reported as computed (a negative value is itself informative),
+  // but for SEM it is clamped into [0,1] (Weir 2005): a negative ICC would
+  // otherwise yield SEM > SD, which is nonsensical — SEM saturates at SD.
+  const sem = sd * Math.sqrt(1 - Math.min(1, Math.max(0, icc21)))
   const mdc95 = 1.96 * Math.SQRT2 * sem
 
   return { nCases: n, kRepeats: k, icc21, sem, mdc95, mean: grand, sd }

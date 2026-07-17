@@ -80,6 +80,13 @@ let unreliableFindings = 0
 for (const { caseKey, frames } of captures.values()) {
   const result = assessPosture(frames)
   for (const finding of result.findings) {
+    // NOTE (honesty): excluding unreliable findings drops exactly the noisy
+    // captures, so the resulting ICC is repeatability of the RELIABLE-GATED
+    // pipeline, not of raw capture — an optimistic bound on the latter. The
+    // count is surfaced in the profile so readers can judge the bias. It also
+    // means a case can lose one repeat and be dropped by the complete-case
+    // guard; columns align by insertion order (repeats are exchangeable, but
+    // a matrix can look complete while mixing repeat labels across cases).
     if (!finding.reliable) {
       unreliableFindings++
       continue
@@ -133,6 +140,9 @@ writeFileSync(
       label: nSubjects <= 5 ? 'pilot' : 'full',
       nSubjects,
       capturesAssessed: captures.size,
+      // Reliability of the reliable-gated pipeline: unreliable findings are
+      // excluded before ICC, an optimistic bound on raw-capture repeatability.
+      unreliableFindingsExcluded: unreliableFindings,
       perMetric,
     },
     null,
