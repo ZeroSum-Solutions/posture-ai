@@ -46,7 +46,6 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^4.4.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "jsdom": "^26.1.0",

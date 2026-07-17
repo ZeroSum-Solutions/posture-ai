@@ -25,4 +25,4 @@ The practitioner can drill into **every implicated muscle** — anatomy, functio
 | Production finish line | Hardened core product + muscle knowledge base |
 | Out of scope this push | Billing/Stripe, app-store submission, native mobile, video/dynamic movement |
 
-See `2026-06-11-production-roadmap.md` for the execution plan.
+See `_archive/2026-06-11-production-roadmap.md` for the execution plan.
