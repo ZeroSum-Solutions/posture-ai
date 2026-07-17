@@ -3,7 +3,8 @@
 // Bland–Altman limits of agreement, MAE), ground-truth angle extraction
 // from Moti debug landmarks, and debug-record → session pairing.
 
-import type { DebugRecord } from './decode'
+import { debugTimeToIsoDate, type DebugRecord } from './decode'
+import type { SessionData } from './walk'
 
 export interface AgreementStats {
   n: number
@@ -80,18 +81,37 @@ export function shoulderAngleFromDebug(record: DebugRecord): number | null {
 }
 
 /**
- * Pair per-client debug records with capture sessions. Records are stored in
- * session order; a lone record on a multi-session client belongs to the most
- * recent screening. Ambiguous counts pair nothing rather than guessing.
+ * Pair per-client debug records with capture sessions, keyed on capture
+ * timestamps: each record's date must match the session's screening date,
+ * and a date shared by multiple sessions or records pairs nothing (no
+ * guessing). When dates are unavailable on both sides, falls back to
+ * positional pairing for equal counts, or a lone record ↔ lone session.
  */
 export function pairDebugRecords(
   records: DebugRecord[],
-  sessionCount: number,
+  sessions: SessionData[],
 ): (DebugRecord | null)[] {
-  if (records.length === sessionCount) return [...records]
-  const paired: (DebugRecord | null)[] = Array(sessionCount).fill(null)
-  if (records.length === 1 && sessionCount > 1) {
-    paired[sessionCount - 1] = records[0]
+  const paired: (DebugRecord | null)[] = Array(sessions.length).fill(null)
+
+  const anyDates = sessions.some((s) => s.date !== null)
+  if (anyDates) {
+    // Group by date. Within a date, record file order and session index
+    // order are both chronological, so equal-count groups pair positionally
+    // (covers same-day re-screenings); unequal counts pair nothing.
+    const dates = new Set(sessions.map((s) => s.date).filter((d) => d !== null))
+    for (const date of dates) {
+      const sessionIdxs = sessions
+        .map((s, i) => (s.date === date ? i : -1))
+        .filter((i) => i >= 0)
+      const dateRecords = records.filter((r) => debugTimeToIsoDate(r.time) === date)
+      if (dateRecords.length !== sessionIdxs.length) continue
+      sessionIdxs.forEach((sessionIdx, k) => {
+        paired[sessionIdx] = dateRecords[k]
+      })
+    }
+    return paired
   }
+
+  if (records.length === sessions.length) return [...records]
   return paired
 }

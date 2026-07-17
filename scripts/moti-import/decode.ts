@@ -45,6 +45,8 @@ export interface ClientInfo {
   clientId: string
   sex: 'male' | 'female'
   heightCm: number
+  /** ISO dates from the "Screening date" line, in session order. */
+  screeningDates: string[]
 }
 
 function stripBom(raw: string): string {
@@ -194,9 +196,22 @@ export function parseClientInfo(raw: string): ClientInfo {
     throw new Error('Client info missing Client ID, Sex, or Height')
   }
 
+  const screeningDates = [
+    ...(fields['Screening date'] ?? '').matchAll(/(\d{4}-\d{2}-\d{2})/g),
+  ].map((m) => m[1])
+
   return {
     clientId,
     sex: sexRaw === 'Man' ? 'male' : 'female',
     heightCm: Number(heightMatch[1]),
+    screeningDates,
   }
+}
+
+/** "7/12/2023 6:18:36 PM" (record time in .mgs files) → "2023-07-12". */
+export function debugTimeToIsoDate(time: string): string | null {
+  const match = time.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\b/)
+  if (!match) return null
+  const [, month, day, year] = match
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }

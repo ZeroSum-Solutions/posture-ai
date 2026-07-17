@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  debugTimeToIsoDate,
   parseAdams,
   parseClientInfo,
   parseDebugLandmarks,
@@ -241,5 +242,32 @@ Screening date : 2025-01-06 [v1], 2025-03-18 [v2]
   test('maps Woman to female', () => {
     const info = parseClientInfo(clientInfo.replace('Sex            : Man', 'Sex            : Woman'))
     expect(info.sex).toBe('female')
+  })
+
+  test('parses multi-session screening dates in order', () => {
+    const info = parseClientInfo(clientInfo)
+    expect(info.screeningDates).toEqual(['2025-01-06', '2025-03-18'])
+  })
+
+  test('parses a single screening date', () => {
+    const info = parseClientInfo(
+      clientInfo.replace(
+        'Screening date : 2025-01-06 [v1], 2025-03-18 [v2]',
+        'Screening date : 2023-07-12 [v1]',
+      ),
+    )
+    expect(info.screeningDates).toEqual(['2023-07-12'])
+  })
+})
+
+describe('debugTimeToIsoDate', () => {
+  test('converts the US-format record time to an ISO date', () => {
+    expect(debugTimeToIsoDate('7/12/2023 6:18:36 PM')).toBe('2023-07-12')
+    expect(debugTimeToIsoDate('1/6/2025 10:10:35 AM')).toBe('2025-01-06')
+    expect(debugTimeToIsoDate('3/18/2025 10:12:13 AM')).toBe('2025-03-18')
+  })
+
+  test('returns null for unparseable input', () => {
+    expect(debugTimeToIsoDate('not a time')).toBeNull()
   })
 })

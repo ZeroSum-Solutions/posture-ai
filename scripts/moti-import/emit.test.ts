@@ -12,6 +12,7 @@ const client = (id: string, group: string, sessionCount: number): ClientDataset 
   heightCm: 170,
   sessions: Array.from({ length: sessionCount }, (_, index) => ({
     index,
+    date: null,
     extraData: null,
     adams: null,
     ribsAngle: null,
