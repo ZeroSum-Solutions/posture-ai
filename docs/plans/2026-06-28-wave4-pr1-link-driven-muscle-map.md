@@ -12,7 +12,7 @@
 
 - **Zero visible change.** For any assessment whose findings carry legacy `tight_muscles`/`weak_muscles` arrays (all seeded data today), the rendered markers, chips, and "Muscle Analysis" accordion must be byte-identical to current production. The link path activates only when a role's legacy array is empty.
 - **Engine frozen at 1.2.0.** No scoring-math, threshold, or migration changes in PR1.
-- **Legacy-name → slug map is the reviewed P4a contract.** Authority: `docs/plans/2026-06-12-p4a-muscle-slug-mapping.md`. Do not invent mappings; copy them verbatim. Notable: `deep thoracic flexors` → `deep-abdominals` (NOT null), `it band` + `tensor fasciae latae` → `tfl-it-band`, `vastus medialis (vmo)` → `quadriceps`, `gluteals` → `gluteus-maximus`, `hip flexors` → `iliopsoas`, `one-side hip rotators` → `deep-hip-external-rotators`.
+- **Legacy-name → slug map is the reviewed P4a contract.** Authority: `docs/plans/_archive/2026-06-12-p4a-muscle-slug-mapping.md`. Do not invent mappings; copy them verbatim. Notable: `deep thoracic flexors` → `deep-abdominals` (NOT null), `it band` + `tensor fasciae latae` → `tfl-it-band`, `vastus medialis (vmo)` → `quadriceps`, `gluteals` → `gluteus-maximus`, `hip flexors` → `iliopsoas`, `one-side hip rotators` → `deep-hip-external-rotators`.
 - **`rectus-femoris` is the one linkable slug with no coordinate** (it has no legacy `MUSCLE_REGIONS` entry; reconciliation migration added it granularly). It must render as a chip with no marker — never error.
 - **TDD.** Every function ships test-first: write the test, watch it fail, minimal impl, watch it pass.
 - **Screening-only vocabulary** (hard constraint, unchanged): no `diagnos*`/`treat*`/`cure*`/`patient*`/`prescri*` in any new copy. PR1 adds no user-facing copy.
@@ -71,7 +71,7 @@ Create `app/assessments/[id]/muscleMap.ts`. Copy `MUSCLE_REGIONS`, `normalizeMus
 // is empty (no seeded data produces that today), so PR1 is invisible in prod.
 // See docs/plans/2026-06-28-wave4-honest-muscle-map-design.md (PR1) and the
 // reviewed legacy-name → slug contract in
-// docs/plans/2026-06-12-p4a-muscle-slug-mapping.md.
+// docs/plans/_archive/2026-06-12-p4a-muscle-slug-mapping.md.
 
 export interface MuscleRegion {
   view: 'front' | 'back'
@@ -155,7 +155,7 @@ export function getMuscleRegion(name: string): MuscleRegion | null {
 }
 
 // Legacy display name (normalized) → canonical muscle slug.
-// Authority: docs/plans/2026-06-12-p4a-muscle-slug-mapping.md (reviewed contract).
+// Authority: docs/plans/_archive/2026-06-12-p4a-muscle-slug-mapping.md (reviewed contract).
 // Keys are normalizeMuscle() outputs (lowercased, parentheticals stripped).
 export const LEGACY_NAME_TO_SLUG: Record<string, string> = {
   'suboccipitals': 'suboccipitals',

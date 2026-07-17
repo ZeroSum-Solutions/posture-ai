@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-30
 **Supersedes:** [2026-05-29-posture-ai-prd.md](_archive/2026-05-29-posture-ai-prd.SUPERSEDED.md) (web/PWA static-posture v1)
-**Companion:** [2026-05-30-competitive-landscape.md](2026-05-30-competitive-landscape.md)
+**Companion:** [2026-05-30-competitive-landscape.md](_archive/2026-05-30-competitive-landscape.md)
 **One-liner:** A phone-only, $199/year movement & posture **screening** tool that puts ~80% of a $7K Moti-Physio / lab-tethered Vald HumanTrak workflow in any practitioner's pocket — on iOS *and* Android.
 
 ---

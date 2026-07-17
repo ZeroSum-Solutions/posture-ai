@@ -1,4 +1,0 @@
-coding-1.err
-coding-1.session
-testing-0.err
-testing-0.session

@@ -41,7 +41,7 @@ QA workflow runs the `next start` prod server on. If the prod server is up, Play
 
 
 Resume-safe state file. Update as phases complete. Prior state: earlier ad-hoc
-QA effort (`pass-1-resolution.md`, 2026-06-29, 20 BUG-fixes, clean) predates the
+QA effort (`_archive/pass-1-resolution.md`, 2026-06-29, 20 BUG-fixes, clean) predates the
 formal skills; this is iteration 1 under `.claude/skills/qa-loop`. Deep-audit
 (`docs/qa/AUDIT.md`) done first — PROVED findings feed Phase 3 clusters.
 
