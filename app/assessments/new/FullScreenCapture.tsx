@@ -6,6 +6,9 @@ import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
 import { shutterGate } from '@/lib/capture/shutter-gate'
 import { sourceToViewport } from '@/lib/capture/overlay-transform'
+import { samplePixelsFromSource } from '@/lib/capture/pixel-sample'
+import { assessPixelQuality, mergePreflightQuality } from '@/lib/capture/pixel-quality'
+import type { PixelQualityResult, PixelSample } from '@/lib/capture/pixel-quality'
 import type { Captures, CaptureSlotKey } from './types'
 import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
@@ -28,7 +31,7 @@ const LIVE_FRESHNESS_MS = 600
 interface FullScreenCaptureProps {
   captures: Captures
   /** raw burst object URLs; [0] is the representative still. */
-  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null) => void
+  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) => void
   onFileUpload: (slot: CaptureSlotKey, file: File) => void
   onProceed: () => void
   onExit: () => void
@@ -128,6 +131,10 @@ export default function FullScreenCapture({
   const mountedRef = useRef(true)
   // The shutter burst (object URLs) awaiting commit; the middle one is the review still.
   const burstRef = useRef<string[]>([])
+  // Pixel-quality result for the representative (burst[0]) frame, scored after
+  // burst acquisition (off the shutter-tap path). Null when sampling/scoring
+  // failed or hasn't completed yet — read once, at "Use This Photo".
+  const representativePixelQualityRef = useRef<PixelQualityResult | null>(null)
   // The slot that owned the shutter at capture time. The burst commits to THIS
   // slot, not the live `activeSlot`, so a mid-flight slot change can never
   // mis-associate a capture. Free-order makes this race reachable.
@@ -425,6 +432,13 @@ export default function FullScreenCapture({
     setIsCapturing(true)
     const rollAt = level.rollRef.current // roll at the shutter instant
     const urls: string[] = []
+    const midIndex = Math.floor(BURST_SIZE / 2)
+    // Pixel sample of the representative middle frame, extracted (cheap GPU
+    // drawImage + small getImageData) BEFORE that frame's toBlob encode — kept
+    // only if that exact frame's encode succeeds (URL-based association, not
+    // index — the loop below may skip failed encodes; r3 Sol-1).
+    let midSample: PixelSample | null = null
+    let representativeUrl: string | null = null
     // Discard partial work: revoke every object URL grabbed so far + unlock.
     const bail = () => { urls.forEach(URL.revokeObjectURL); if (mountedRef.current) { setIsCapturing(false); setPhase('live') } }
     for (let i = 0; i < BURST_SIZE; i++) {
@@ -434,18 +448,30 @@ export default function FullScreenCapture({
       if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
       if (!overrideGate && Math.abs(level.rollRef.current ?? 0) > 5) { bail(); return }
       ctx.drawImage(video, 0, 0)
+      if (i === midIndex) midSample = samplePixelsFromSource(canvas, canvas.width, canvas.height)
       const url = await canvasToObjectURL(canvas)
-      if (url) urls.push(url)
+      if (url) {
+        urls.push(url)
+        if (i === midIndex) representativeUrl = url
+      }
       if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
     }
     if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
-    // Put the reviewed (middle) frame first so the preview thumbnail AND the
-    // quality preflight — both of which the parent runs on burst[0] — judge
+    // Put the reviewed (representative) frame first so the preview thumbnail AND
+    // the quality preflight — both of which the parent runs on burst[0] — judge
     // exactly the frame the user reviews and approves. The engine medians every
     // frame at submit, so array order is irrelevant to within-capture stability.
-    const mid = Math.floor(urls.length / 2)
-    const representative = urls[mid]
-    burstRef.current = [representative, ...urls.slice(0, mid), ...urls.slice(mid + 1)]
+    // Prefer the exact sampled middle frame by URL; if its encode failed, fall
+    // back to the existing middle-of-successful-frames ordering and drop the
+    // sample (no matching burst[0] frame to report against — fail open).
+    if (representativeUrl) {
+      burstRef.current = [representativeUrl, ...urls.filter(u => u !== representativeUrl)]
+    } else {
+      const mid = Math.floor(urls.length / 2)
+      burstRef.current = [urls[mid], ...urls.slice(0, mid), ...urls.slice(mid + 1)]
+      midSample = null
+    }
+    const representative = burstRef.current[0]
     setRollAtCapture(rollAt)
     setPreviewQuality(null)
     setReviewUrl(representative) // representative still (now burst[0])
@@ -453,6 +479,32 @@ export default function FullScreenCapture({
     setPhase('review')
     // Stream keeps running so the next view is instant — the frozen still is
     // shown as an overlay during review.
+
+    // Score off the shutter-tap path: yield a macrotask so the burst-finished
+    // review UI paints before this CPU-bound pass runs (r3 Sol-NIT-5/Gemini-
+    // NIT-1). Fails open — sampling/scoring failure never blocks capture or
+    // sets modelError. Completes well before "Use This Photo" is read.
+    // Defense in depth: if useThisPhoto() fires before this yield resolves
+    // (a very fast tap), the slot simply commits with pixelQuality: null —
+    // an accepted fail-open, not a bug; the wizard's own preflight remains
+    // authoritative regardless.
+    representativePixelQualityRef.current = null
+    if (midSample) {
+      const sample = midSample
+      await new Promise(r => setTimeout(r, 0))
+      // This guard only catches a NEW capture starting during the yield (id
+      // bumped). A DISCARDED burst (retake/unmount) finishing its scoring here
+      // is harmless without an extra check: reviewUrl is the sole reader of
+      // this ref (the review-quality effect below), so a discarded burst has
+      // no reviewUrl pointing at it — nothing reads a stale score — and every
+      // discard path (retakeStill/discardBurst/useThisPhoto) resets the ref.
+      if (captureIdRef.current !== id) return // superseded while yielding — discard
+      try {
+        representativePixelQualityRef.current = assessPixelQuality(sample)
+      } catch {
+        representativePixelQualityRef.current = null
+      }
+    }
   }, [level.rollRef, overrideGate, activeSlot])
 
   function startCountdown() {
@@ -495,7 +547,14 @@ export default function FullScreenCapture({
         // Route through the runtime owner — it closes the live worker before the
         // IMAGE landmarker scores this still, so the two never run at once (§11.1).
         const frame = await getCaptureRuntime().detect(reviewUrl, view, 'camera')
-        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
+        // Merge in the representative frame's precomputed pixel-quality (scored
+        // off the shutter-tap path, above) so pixel warnings are visible on the
+        // review screen before "Use This Photo" — reusing the already-scored
+        // result, never resampling/rescoring here. Reading the ref here is safe
+        // only because scoring resolves in one macrotask while this effect must
+        // first clear the detect() await above — if detect() ever becomes
+        // synchronous/instant-cached, the ref could still be null at this read.
+        if (!cancelled) setPreviewQuality(mergePreflightQuality(assessFrameQuality(frame, view), representativePixelQualityRef.current))
       } catch {
         // non-fatal: the slot preflight still runs after "Use This Photo"
       }
@@ -526,8 +585,9 @@ export default function FullScreenCapture({
     // live `activeSlot` — the burst belongs to captureSlotRef.
     const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
-    onCameraCapture(committed, burst, rollAtCapture)
+    onCameraCapture(committed, burst, rollAtCapture, representativePixelQualityRef.current)
     burstRef.current = [] // ownership transferred to the parent; do not revoke
+    representativePixelQualityRef.current = null
     setReviewUrl(null)
     setPreviewQuality(null)
     setRollAtCapture(null)
@@ -544,6 +604,7 @@ export default function FullScreenCapture({
   function discardBurst() {
     burstRef.current.forEach(URL.revokeObjectURL)
     burstRef.current = []
+    representativePixelQualityRef.current = null
   }
 
   function retakeStill() {
@@ -811,7 +872,7 @@ export default function FullScreenCapture({
                     onClick={() => selectSlot(slotKey)}
                     // Locked during a burst so the announced state matches selectSlot's guard.
                     disabled={isCapturing}
-                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
+                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}${cap.slotStatus === 'warnings' ? ' — quality warning' : ''}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
                       position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
@@ -826,7 +887,7 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : cap.slotStatus === 'warnings' ? 'var(--warning)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : cap.slotStatus === 'warnings' ? '⚠' : '✓'}</span>
                       )}
                     </div>
                     <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>

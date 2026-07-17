@@ -130,4 +130,58 @@ test.describe('camera error handling and quality preflight', () => {
     await expect(page.getByTestId('fullscreen-capture')).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Application navigation' })).not.toBeVisible()
   })
+
+  test('uploading a blurry photo shows a quality warning and does not block submit', async ({ page }) => {
+    test.setTimeout(120_000)
+
+    const stamp = Date.now().toString().slice(-7)
+    await createClient(page, 'E2E', `Blur${stamp}`)
+
+    await page.goto('/assessments/new')
+    await selectClientInWizard(page, `E2E Blur${stamp}`)
+    await dismissCaptureDisclaimer(page)
+
+    const photos = path.join(__dirname, 'fixtures', 'photos')
+    const inputs = page.locator('input[type="file"]')
+    await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
+
+    // Front gets the degraded (blurry) fixture; both side slots get the normal
+    // side fixture used elsewhere in this file as a valid, person-detected photo.
+    await inputs.nth(0).setInputFiles(path.join(photos, 'front_standing_blurry.jpg'))
+    await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
+    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
+
+    // Wait for all three preflights to settle: the Front tile's accessible name
+    // gains the "— quality warning" suffix (page.tsx runPreflight → slotStatus
+    // 'warnings' → FullScreenCapture.tsx:875) once MediaPipe + the pixel-quality
+    // merge finish for that slot. Real detector + real scorer, so give it the
+    // same generous budget as the no-person precedent above.
+    const frontTile = page.getByRole('button', { name: /Front.*quality warning/ })
+    await expect(frontTile).toBeVisible({ timeout: 90_000 })
+
+    // (a) An amber quality-warning indicator is visible on the Front slot tile —
+    // the ring/badge driven by slotStatus === 'warnings' (FullScreenCapture.tsx:866,
+    // 890). NOTE: the literal warning copy ("Photo looks blurry — hold the camera
+    // steady and retake.") only renders in the camera-capture review card
+    // (phase === 'review', FullScreenCapture.tsx:839-845 / previewQuality) — T3
+    // scoped that card to the shutter flow. The upload path (used here, matching
+    // this file's upload-only precedent) commits immediately without ever
+    // entering 'review', so no per-photo warning text is rendered anywhere in the
+    // DOM for uploads; the tile's amber ring + badge + this aria-label suffix are
+    // the only visible signal. Confirmed empirically before writing this test.
+    await expect(frontTile).toHaveAttribute('aria-label', /quality warning/)
+
+    // (b) The blurry fixture still has a detectable person — MediaPipe does not
+    // fall back to "no person detected" on it (verified empirically: sigma=3
+    // gaussian blur keeps enough structure for landmark detection).
+    await expect(page.getByText('No person detected — retake')).toHaveCount(0)
+
+    // (c) Warnings are soft — submit is not blocked. Back is optional and
+    // uncaptured, so the action reads "Skip Back & Analyze Posture".
+    await page.getByRole('button', { name: 'Skip Back & Analyze Posture' }).click()
+
+    // The capture overlay disappears and processing begins (Step 3).
+    await expect(page.getByTestId('fullscreen-capture')).not.toBeVisible()
+    await expect(page.getByText('Analyzing Posture...')).toBeVisible({ timeout: 10_000 })
+  })
 })

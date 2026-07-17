@@ -44,6 +44,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Run e2e suite
         run: npm run test:e2e
+      - name: Calibration drift gate
+        run: npm run calibrate:check
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

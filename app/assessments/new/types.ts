@@ -1,5 +1,6 @@
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
+import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
 
 /** Engine/detection view — what `detectPose` and `assessFrameQuality` consume. */
 export type ViewKey = 'front' | 'side' | 'back'
@@ -21,6 +22,14 @@ export interface CaptureSlot {
   slotStatus: SlotStatus
   /** Sensor-measured camera roll for camera captures; null for uploads/no-sensor. */
   captureRollDeg: number | null
+  /**
+   * Pixel-quality metrics sampled at acquisition time (camera: the
+   * representative burst frame's canvas; upload: the decoded-and-resized
+   * canvas) — precomputed by the caller, never re-derived here. Null when
+   * sampling/scoring failed (fails open) or hasn't run yet. T3 merges this
+   * into `quality`/`slotStatus`; this slice only threads it through.
+   */
+  pixelQuality: PixelQualityResult | null
   /**
    * Immutable id stamped at the shutter for this slot's current capture. Async
    * work (preflight, later slices' correction) keys off it so a result from a
@@ -84,6 +93,7 @@ export function slotToDomain(slot: CaptureSlotKey): { view: ViewKey; profileSide
 export function emptySlot(): CaptureSlot {
   return {
     file: null, source: null, quality: null, slotStatus: 'idle', captureRollDeg: null,
+    pixelQuality: null,
     captureId: null, rawRepresentativeUrl: null, rawBurstUrls: null, rawPoseFrame: null,
     displayPreviewUrl: null,
   }

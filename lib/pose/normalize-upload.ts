@@ -3,20 +3,32 @@
 // cap the decode size, returning an upright JPEG data URL. Canvas re-encoding
 // strips EXIF, so the orientation cannot be applied twice downstream.
 
+import { samplePixelsFromSource } from '@/lib/capture/pixel-sample'
+import { assessPixelQuality } from '@/lib/capture/pixel-quality'
+import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
+
 const MAX_DIMENSION_PX = 1600
 
+export interface NormalizedUpload {
+  dataUrl: string
+  /** Pixel-quality metrics sampled from the decoded-and-resized canvas, pre-
+   *  toDataURL (Core design: no post-encode sampling). Null on any sampling
+   *  or scoring failure — fails open, never blocks the upload. */
+  pixelQuality: PixelQualityResult | null
+}
+
 /**
- * Returns the upright JPEG data URL, or null when normalization is
- * unavailable (old browsers, decode failure) — the caller falls back to the
- * raw file object URL, and detectPose attaches the aspect ratio from the
- * decoded image either way.
+ * Returns the upright JPEG data URL plus its pixel-quality sample, or null
+ * when normalization is unavailable (old browsers, decode failure) — the
+ * caller falls back to the raw file object URL, and detectPose attaches the
+ * aspect ratio from the decoded image either way.
  *
  * Browser notes: Safari <16.4 may ignore the imageOrientation option, but
  * those versions already apply EXIF orientation when decoding blobs, so the
  * bitmap still arrives upright in practice. A synchronous TypeError from an
  * unsupported options argument is caught and degrades to the raw-file path.
  */
-export async function normalizeUploadedImage(file: File): Promise<string | null> {
+export async function normalizeUploadedImage(file: File): Promise<NormalizedUpload | null> {
   if (typeof createImageBitmap !== 'function') return null
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
@@ -33,7 +45,18 @@ export async function normalizeUploadedImage(file: File): Promise<string | null>
     }
     ctx.drawImage(bitmap, 0, 0, w, h)
     bitmap.close()
-    return canvas.toDataURL('image/jpeg', 0.92)
+
+    let pixelQuality: PixelQualityResult | null = null
+    const sample = samplePixelsFromSource(canvas, w, h)
+    if (sample) {
+      try {
+        pixelQuality = assessPixelQuality(sample)
+      } catch {
+        pixelQuality = null
+      }
+    }
+
+    return { dataUrl: canvas.toDataURL('image/jpeg', 0.92), pixelQuality }
   } catch {
     return null
   }
