@@ -1,7 +1,7 @@
 ---
 title: "Clinical-Landmark Correction Layer: Go/No-Go Spike"
 date: 2026-07-16
-status: decision-pending
+status: decided — screening/tracking (Devin, 2026-07-16)
 verdict: NO-GO (archive path) — ceiling is r=0.32 vs radiographic truth
 lanes: [gpt-5.6-sol-xhigh, deepseek-reasoner]
 verifiers: [claude-opus-4-8 (x2), gemini-3.1-pro-preview]
@@ -247,6 +247,9 @@ If the goal is a better *screening* product, the leverage is not in landmark cor
 1. **Positioning — the real question.** Screening/tracking (defensible now) or clinical
    measurement (needs a prospective study against a radiographic standard)? Everything else
    follows from this.
+   **ANSWERED 2026-07-16: Devin chose screening/tracking** (mem0 e4639d8b). Reliability is
+   the quality bar; no radiographic-validity claims; no correction layer; never train
+   against the Moti archive. The archive supports competitor-comparison claims only.
 2. Do threshold re-anchoring and the FHP construct fix still stand, given both leaned on
    numbers this document overturned, and FHP inherits Moti's weak validity?
 3. Was the Moti archive ever intended as clinical ground truth, or as a *comparison to a
