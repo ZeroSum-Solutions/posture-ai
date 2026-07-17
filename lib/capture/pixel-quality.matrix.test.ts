@@ -1,27 +1,27 @@
 // Phase-1 T1b acceptance: the calibrated thresholds must produce 0 warnings
-// on every normal fixture and the expected warning(s) on every degraded
-// fixture, per the labeled fixture matrix committed in
-// pixel-quality.calibration.json (perFixture — real values from
-// e2e/pixel-calibration.spec.ts, computed by the PRODUCTION sampler+scorer
-// over the committed photos, in a real browser).
+// on every normal fixture (front, side, back — ALL committed normals, post-T4
+// amendment) and the expected warning(s) on every degraded fixture, per the
+// labeled fixture matrix committed in pixel-quality.calibration.json
+// (perFixture — real values from e2e/pixel-calibration.spec.ts, computed by
+// the PRODUCTION sampler+scorer over the committed photos, in a real browser).
 //
 // This runs in node (no browser/canvas here), so it can't replay the actual
-// JPEG pixels. Instead it builds a synthetic PixelSample per fixture that
-// reproduces that fixture's calibrated lumaMean exactly and its sharpness on
-// the correct side of sharpnessMin (checkerboard when the fixture must read
-// as sharp, flat when it must read as blurry) — then runs the REAL
-// assessPixelQuality threshold comparisons against it. Reproducing the exact
-// source-photo pixels isn't the point; classifying the same lumaMean/
-// sharpness magnitudes the calibration observed, through the unmodified
-// scorer, is.
+// JPEG pixels. Two layers instead:
+// 1. Direct assertions on the committed per-fixture metrics against the
+//    committed thresholds — pinning the acceptance to the calibration
+//    artifact itself.
+// 2. Synthetic samples reproducing each fixture's calibrated lumaMean and a
+//    sharpness on the measured side of sharpnessMin, classified through the
+//    REAL assessPixelQuality — pinning the scorer's comparison logic.
 import { describe, it, expect } from 'vitest'
 import { assessPixelQuality } from './pixel-quality'
 import type { PixelSample } from './pixel-quality'
 import calibration from './pixel-quality.calibration.json'
 
 const BLUR_WARNING = 'Photo looks blurry — hold the camera steady and retake.'
-const DARK_WARNING = 'Photo is too dark — add more light and retake.'
 const BRIGHT_WARNING = 'Photo is overexposed — reduce direct light and retake.'
+
+const NORMAL_KEYS = ['normal_front', 'normal_side', 'normal_back'] as const
 
 const SIZE = 40 // 40x40 -> 1444 interior pixels, plenty for a stable checkerboard variance
 
@@ -67,6 +67,7 @@ function buildSample(lumaMean: number, sharp: boolean): PixelSample {
 // value for each fixture — both source sizes were within-margin at
 // calibration time, so either would classify the same way.
 const perFixture = calibration.perFixture
+const T = calibration.thresholds
 
 describe('pixel-quality matrix (calibrated thresholds)', () => {
   // The measured (browser-lane) per-fixture values themselves must sit on the
@@ -75,36 +76,56 @@ describe('pixel-quality matrix (calibrated thresholds)', () => {
   // than trusting this file's synthetic-sample construction.
   it('committed per-fixture metrics classify correctly against the committed thresholds (both source sizes)', () => {
     for (const source of ['camera', 'upload'] as const) {
-      // Sharpness: normal and overexposed above sharpnessMin (no blur FP);
-      // blurry below; dark also below (documented dual-warning finding).
-      expect(perFixture.normal[source].sharpness).toBeGreaterThan(calibration.thresholds.sharpnessMin)
-      expect(perFixture.overexposed[source].sharpness).toBeGreaterThan(calibration.thresholds.sharpnessMin)
-      expect(perFixture.blurry[source].sharpness).toBeLessThan(calibration.thresholds.sharpnessMin)
-      expect(perFixture.dark[source].sharpness).toBeLessThan(calibration.thresholds.sharpnessMin)
+      // Sharpness: every normal and the overexposed fixture above
+      // sharpnessMin (no blur FP anywhere in the normal population); blurry
+      // below; dark also below (documented dual-degradation finding — a
+      // uniform x0.35 multiply scales Laplacian variance by 0.35^2).
+      for (const normalKey of NORMAL_KEYS) {
+        expect(perFixture[normalKey][source].sharpness).toBeGreaterThan(T.sharpnessMin)
+      }
+      expect(perFixture.overexposed[source].sharpness).toBeGreaterThan(T.sharpnessMin)
+      expect(perFixture.blurry[source].sharpness).toBeLessThan(T.sharpnessMin)
+      expect(perFixture.dark[source].sharpness).toBeLessThan(T.sharpnessMin)
 
-      // Luma mean: only the dark fixture below lumaDarkMax; only the
-      // overexposed fixture above lumaBrightMin.
-      expect(perFixture.normal[source].lumaMean).toBeGreaterThan(calibration.thresholds.lumaDarkMax)
-      expect(perFixture.normal[source].lumaMean).toBeLessThan(calibration.thresholds.lumaBrightMin)
-      expect(perFixture.blurry[source].lumaMean).toBeGreaterThan(calibration.thresholds.lumaDarkMax)
-      expect(perFixture.blurry[source].lumaMean).toBeLessThan(calibration.thresholds.lumaBrightMin)
-      expect(perFixture.dark[source].lumaMean).toBeLessThan(calibration.thresholds.lumaDarkMax)
-      expect(perFixture.overexposed[source].lumaMean).toBeGreaterThan(calibration.thresholds.lumaBrightMin)
+      // Luma mean: every normal inside the (lumaDarkMax, lumaBrightMin) band;
+      // only the overexposed fixture above lumaBrightMin.
+      for (const normalKey of NORMAL_KEYS) {
+        expect(perFixture[normalKey][source].lumaMean).toBeGreaterThan(T.lumaDarkMax)
+        expect(perFixture[normalKey][source].lumaMean).toBeLessThan(T.lumaBrightMin)
+      }
+      expect(perFixture.blurry[source].lumaMean).toBeGreaterThan(T.lumaDarkMax)
+      expect(perFixture.blurry[source].lumaMean).toBeLessThan(T.lumaBrightMin)
+      expect(perFixture.overexposed[source].lumaMean).toBeGreaterThan(T.lumaBrightMin)
+
+      // DOCUMENTED LIMITATION (post-T4 amendment): the dark fixture's
+      // lumaMean (~70) sits ABOVE lumaDarkMax, because side/back normals are
+      // natively darker (~45/~28 mean luma; dark backgrounds) than the
+      // x0.35-degraded front fixture, and the PRD's 0-FP-on-normals bias is
+      // binding — no lumaDarkMax can catch the degraded-dark fixture without
+      // false-positive-ing on committed normals. Asserted here so the
+      // limitation is pinned, not hidden.
+      expect(perFixture.dark[source].lumaMean).toBeGreaterThan(T.lumaDarkMax)
 
       // Clip fractions: no fixture may false-positive through the clip
       // channel except overexposed through brightClip (its intended signal
-      // is lumaMean; brightClip firing too is consistent, not a FP).
-      expect(perFixture.normal[source].darkClip).toBeLessThanOrEqual(calibration.thresholds.darkClipMax)
-      expect(perFixture.normal[source].brightClip).toBeLessThanOrEqual(calibration.thresholds.brightClipMax)
-      expect(perFixture.blurry[source].darkClip).toBeLessThanOrEqual(calibration.thresholds.darkClipMax)
-      expect(perFixture.blurry[source].brightClip).toBeLessThanOrEqual(calibration.thresholds.brightClipMax)
-      expect(perFixture.dark[source].brightClip).toBeLessThanOrEqual(calibration.thresholds.brightClipMax)
-      expect(perFixture.overexposed[source].darkClip).toBeLessThanOrEqual(calibration.thresholds.darkClipMax)
+      // is lumaMean; brightClip firing too is consistent, not a FP). The
+      // dark fixture's darkClip (~0.003) is likewise uncatchable —
+      // back_standing's dark background alone clips ~66% of the frame — so
+      // it too must sit under darkClipMax.
+      for (const normalKey of NORMAL_KEYS) {
+        expect(perFixture[normalKey][source].darkClip).toBeLessThanOrEqual(T.darkClipMax)
+        expect(perFixture[normalKey][source].brightClip).toBeLessThanOrEqual(T.brightClipMax)
+      }
+      expect(perFixture.blurry[source].darkClip).toBeLessThanOrEqual(T.darkClipMax)
+      expect(perFixture.blurry[source].brightClip).toBeLessThanOrEqual(T.brightClipMax)
+      expect(perFixture.dark[source].darkClip).toBeLessThanOrEqual(T.darkClipMax)
+      expect(perFixture.dark[source].brightClip).toBeLessThanOrEqual(T.brightClipMax)
+      expect(perFixture.overexposed[source].darkClip).toBeLessThanOrEqual(T.darkClipMax)
     }
   })
 
-  it('normal fixture: 0 warnings', () => {
-    const sample = buildSample(perFixture.normal.camera.lumaMean, true)
+  it.each(NORMAL_KEYS.map(key => [key] as const))('%s fixture: 0 warnings', key => {
+    const sample = buildSample(perFixture[key].camera.lumaMean, true)
     const result = assessPixelQuality(sample)
     expect(result.warnings).toEqual([])
   })
@@ -115,21 +136,22 @@ describe('pixel-quality matrix (calibrated thresholds)', () => {
     expect(result.warnings).toEqual([BLUR_WARNING])
   })
 
-  // Known finding (documented, not a bug): a uniform exposure multiply scales
-  // the Laplacian linearly, so its variance scales by the SQUARE of the
-  // exposure factor (×0.35 here -> ~0.1225x). At every calibration-candidate
-  // scale, that reduction is larger than gaussian blur (sigma=3)'s own
-  // reduction, so the darkened fixture's sharpness sits BELOW sharpnessMin
-  // too — it is mathematically impossible for a threshold to catch the
-  // blurry fixture (which requires sharpnessMin > blurry's sharpness) without
-  // also catching the dark fixture (whose sharpness is even lower). This is
-  // inherent to the pure-luma-Laplacian scorer + the PRD's fixed degradation
-  // parameters, not a calibration bug — see the calibration spec for the
-  // real per-fixture numbers.
-  it('dark fixture: dark warning, AND blur warning (see comment above)', () => {
+  // Known finding, extended by the post-T4 amendment: the dark fixture gets
+  // ONLY the blur warning. (1) A uniform exposure multiply scales the
+  // Laplacian linearly, so its variance scales by the SQUARE of the factor
+  // (x0.35 -> ~0.1225x) — at every candidate scale that reduction exceeds
+  // gaussian sigma=3's own, so dark's sharpness sits below sharpnessMin
+  // whenever blurry's does. (2) With side/back in the normal population, the
+  // dark-exposure channel cannot fire on it at all: side (~45) and back
+  // (~28) normals are natively darker than the degraded fixture (~70), and
+  // 0-FP-on-normals is the binding PRD bias, so lumaDarkMax sits below all
+  // of them. Inherent to the scorer + these committed (interim, stock)
+  // fixtures, not a calibration bug — see the calibration spec's derivation
+  // comments and the README's note that these fixtures are interim.
+  it('dark fixture: blur warning only (dark channel honestly uncatchable — see comment)', () => {
     const sample = buildSample(perFixture.dark.camera.lumaMean, false)
     const result = assessPixelQuality(sample)
-    expect(result.warnings).toEqual([BLUR_WARNING, DARK_WARNING])
+    expect(result.warnings).toEqual([BLUR_WARNING])
   })
 
   it('overexposed fixture: bright warning only', () => {

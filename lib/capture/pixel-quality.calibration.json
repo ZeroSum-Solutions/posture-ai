@@ -2,13 +2,13 @@
   "scale": 320,
   "thresholds": {
     "sharpnessMin": 182.2,
-    "lumaDarkMax": 136,
+    "lumaDarkMax": 14,
     "lumaBrightMin": 227.2,
-    "darkClipMax": 0.05,
+    "darkClipMax": 0.8321,
     "brightClipMax": 0.4849
   },
   "perFixture": {
-    "normal": {
+    "normal_front": {
       "camera": {
         "sharpness": 272.3,
         "lumaMean": 201.5,
@@ -20,6 +20,34 @@
         "lumaMean": 201.7,
         "darkClip": 0.0002788,
         "brightClip": 0
+      }
+    },
+    "normal_side": {
+      "camera": {
+        "sharpness": 537.3,
+        "lumaMean": 44.79,
+        "darkClip": 0.2601,
+        "brightClip": 0
+      },
+      "upload": {
+        "sharpness": 809.2,
+        "lumaMean": 44.98,
+        "darkClip": 0.2598,
+        "brightClip": 0
+      }
+    },
+    "normal_back": {
+      "camera": {
+        "sharpness": 302.6,
+        "lumaMean": 28.01,
+        "darkClip": 0.6642,
+        "brightClip": 0
+      },
+      "upload": {
+        "sharpness": 562.3,
+        "lumaMean": 28.52,
+        "darkClip": 0.6547,
+        "brightClip": 0.00002441
       }
     },
     "blurry": {

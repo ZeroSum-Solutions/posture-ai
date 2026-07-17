@@ -39,13 +39,20 @@ declare global {
 const PHOTOS_DIR = path.join(__dirname, 'fixtures', 'photos')
 const CALIBRATION_PATH = path.join(__dirname, '..', 'lib', 'capture', 'pixel-quality.calibration.json')
 
+// ALL committed normal fixtures are normals (post-T4 amendment: calibrating
+// against front only left side/back — which e2e uses as valid uploads — able
+// to false-positive, violating the PRD's 0-FP-on-normals bias). Degraded
+// variants stay front-derived.
 const FIXTURES = {
-  normal: 'front_standing.jpg',
+  normal_front: 'front_standing.jpg',
+  normal_side: 'side_standing.jpg',
+  normal_back: 'back_standing.jpg',
   blurry: 'front_standing_blurry.jpg',
   dark: 'front_standing_dark.jpg',
   overexposed: 'front_standing_overexposed.jpg',
 } as const
 type FixtureKey = keyof typeof FIXTURES
+const NORMAL_KEYS = ['normal_front', 'normal_side', 'normal_back'] as const
 
 // scale candidates + the two source sizes the production pipeline hands the
 // sampler (camera shutter canvas ~720p-ish, upload-normalized canvas up to
@@ -87,22 +94,30 @@ function round4(n: number): number {
   return Math.round(n * magnitude) / magnitude
 }
 
-// Threshold where LOWER values trigger the warning (sharpness, luma-dark):
-// picks the midpoint between the worst-case (lowest) normal reading and the
-// worst-case (highest, i.e. hardest-to-catch) degraded reading. Throws if the
-// fixtures don't actually separate — a calibration precondition, not a
-// runtime possibility in production.
+// Threshold where LOWER values trigger the warning (sharpness, luma-dark),
+// with the PRD's 0-FP-on-normals bias as the BINDING constraint. When the
+// populations separate, take the midpoint. When they do NOT separate — the
+// degraded fixture reads higher than the worst normal, so any threshold that
+// catches it would false-positive on a normal — set the threshold at half the
+// normal minimum (0 FPs by construction, degraded honestly uncaught) and log
+// it loudly. Post-T4 reality: side/back normals are natively darker
+// (lumaMean ~45/~28) than the x0.35-degraded front fixture (~70), so the
+// luma-dark channel lands in this fallback by necessity, not by bug.
 function chooseLowerBoundThreshold(normalValues: number[], degradedValues: number[], label: string): number {
   const normalMin = Math.min(...normalValues)
   const degradedMax = Math.max(...degradedValues)
-  if (degradedMax >= normalMin) {
-    throw new Error(`${label}: cannot separate — degraded max ${degradedMax} >= normal min ${normalMin}`)
-  }
-  return (normalMin + degradedMax) / 2
+  if (degradedMax < normalMin) return (normalMin + degradedMax) / 2
+  const fallback = normalMin / 2
+  console.warn(
+    `[calibration] ${label}: NOT separable (degraded max ${degradedMax} >= normal min ${normalMin}) — ` +
+      `0-FP fallback threshold ${fallback}; the degraded fixture is NOT caught via this channel`,
+  )
+  return fallback
 }
 
 // Threshold where HIGHER values trigger the warning (luma-bright): mirror of
-// chooseLowerBoundThreshold.
+// chooseLowerBoundThreshold. All current populations separate; the throw
+// stays because no committed fixture exercises the fallback direction.
 function chooseUpperBoundThreshold(normalValues: number[], degradedValues: number[], label: string): number {
   const normalMax = Math.max(...normalValues)
   const degradedMin = Math.min(...degradedValues)
@@ -114,22 +129,27 @@ function chooseUpperBoundThreshold(normalValues: number[], degradedValues: numbe
 
 // Clip-fraction thresholds (darkClipMax/brightClipMax) are a secondary OR
 // signal (pixel-quality.ts: "a large clipped fraction with a normal mean").
-// Our synthetic fixtures are uniform global exposure shifts, not localized
+// The degraded fixtures are uniform global exposure shifts, not localized
 // clipping, so the target fixture's own clip fraction is a weak calibration
-// point — the primary signal for our fixtures is lumaMean. Derive a
-// conservative backstop that stays comfortably above every fixture that must
-// NOT trigger via this channel (0 false positives is the hard bar), taking
-// the midpoint against the target only when that midpoint is itself more
-// conservative than the backstop.
-function deriveClipThreshold(nonTargetValues: number[], targetValues: number[]): number {
+// point — the primary signal is lumaMean. 0 FPs on normals is the hard bar:
+// when the target's clip fraction clears every non-target with room, take the
+// midpoint (floored at a 0.05 backstop); when it does not — back_standing's
+// dark background alone dark-clips ~66% of the frame, far beyond the darkened
+// fixture's ~0.3% — place the threshold at the midpoint between the largest
+// non-target value and 1.0, which cannot false-positive and honestly leaves
+// the channel inert for the degraded fixture.
+function deriveClipThreshold(nonTargetValues: number[], targetValues: number[], label: string): number {
   const nonTargetMax = Math.max(0, ...nonTargetValues)
-  const backstop = Math.min(0.5, Math.max(0.05, nonTargetMax * 10))
   const targetMin = Math.min(...targetValues)
   if (targetMin > nonTargetMax) {
-    const midpoint = (nonTargetMax + targetMin) / 2
-    return Math.min(0.5, Math.max(midpoint, backstop))
+    return Math.max((nonTargetMax + targetMin) / 2, 0.05)
   }
-  return backstop
+  const fallback = (nonTargetMax + 1) / 2
+  console.warn(
+    `[calibration] ${label}: NOT separable (target min ${targetMin} <= non-target max ${nonTargetMax}) — ` +
+      `0-FP fallback threshold ${fallback}; the degraded fixture is NOT caught via this channel`,
+  )
+  return fallback
 }
 
 function assertWithinTolerance(label: string, committed: number, fresh: number) {
@@ -211,40 +231,66 @@ test.describe('pixel-quality calibration', () => {
         { images, scales: CANDIDATE_SCALES, sourceSizes: SOURCE_SIZES },
       )
 
-      // ---- Scale selection: smallest candidate where normal/blurry separate
-      // by >= SHARPNESS_MARGIN at BOTH source sizes (spec §T1b). ----
-      let chosenScale: number | null = null
-      for (const scale of CANDIDATE_SCALES) {
-        const separatesAtBothSizes = SOURCE_SIZES.every(sourceSize => {
-          const normalSharp = matrix[sourceSize].normal[scale].sharpness
+      // ---- Scale selection: smallest candidate where EVERY normal/blurry
+      // pair separates by >= SHARPNESS_MARGIN at BOTH source sizes (spec
+      // §T1b). If no candidate reaches the margin, fall back to the scale
+      // with the best worst-pair margin, derive anyway, and report the
+      // achieved margin honestly rather than forcing it. ----
+      const worstMarginAt = (scale: number): number => {
+        let worst = Infinity
+        for (const sourceSize of SOURCE_SIZES) {
           const blurrySharp = matrix[sourceSize].blurry[scale].sharpness
-          return blurrySharp > 0 && normalSharp / blurrySharp >= SHARPNESS_MARGIN
-        })
-        if (separatesAtBothSizes) {
+          if (blurrySharp <= 0) return 0
+          for (const normalKey of NORMAL_KEYS) {
+            worst = Math.min(worst, matrix[sourceSize][normalKey][scale].sharpness / blurrySharp)
+          }
+        }
+        return worst
+      }
+      let chosenScale: number = CANDIDATE_SCALES[0]
+      let achievedMargin = -Infinity
+      let marginMet = false
+      for (const scale of CANDIDATE_SCALES) {
+        const margin = worstMarginAt(scale)
+        if (margin >= SHARPNESS_MARGIN) {
           chosenScale = scale
+          achievedMargin = margin
+          marginMet = true
           break
         }
+        if (margin > achievedMargin) {
+          chosenScale = scale
+          achievedMargin = margin
+        }
       }
-      if (chosenScale === null) {
-        throw new Error(`no candidate scale in [${CANDIDATE_SCALES.join(', ')}] separates normal/blurry by >= ${SHARPNESS_MARGIN}x at both source sizes`)
+      if (!marginMet) {
+        console.warn(
+          `[calibration] no candidate scale reaches the ${SHARPNESS_MARGIN}x worst-pair margin; ` +
+            `using best-margin scale ${chosenScale} (worst pair ${achievedMargin.toFixed(2)}x)`,
+        )
       }
+      console.log(`[calibration] scale ${chosenScale}: worst normal/blurry margin ${achievedMargin.toFixed(2)}x (required ${SHARPNESS_MARGIN}x, met=${marginMet})`)
 
       // ---- Threshold derivation at the chosen scale, aggregated across both
-      // source sizes (conservative worst-case bound in each direction). ----
+      // source sizes AND the whole normal population (front + side + back) —
+      // conservative worst-case bound in each direction. ----
       const at = (fixture: FixtureKey, metric: keyof Metrics): number[] =>
-        SOURCE_SIZES.map(sourceSize => matrix[sourceSize][fixture][chosenScale as number][metric])
+        SOURCE_SIZES.map(sourceSize => matrix[sourceSize][fixture][chosenScale][metric])
+      const atNormals = (metric: keyof Metrics): number[] => NORMAL_KEYS.flatMap(key => at(key, metric))
 
       const thresholds: Thresholds = {
-        sharpnessMin: chooseLowerBoundThreshold(at('normal', 'sharpness'), at('blurry', 'sharpness'), 'sharpnessMin'),
-        lumaDarkMax: chooseLowerBoundThreshold(at('normal', 'lumaMean'), at('dark', 'lumaMean'), 'lumaDarkMax'),
-        lumaBrightMin: chooseUpperBoundThreshold(at('normal', 'lumaMean'), at('overexposed', 'lumaMean'), 'lumaBrightMin'),
+        sharpnessMin: chooseLowerBoundThreshold(atNormals('sharpness'), at('blurry', 'sharpness'), 'sharpnessMin'),
+        lumaDarkMax: chooseLowerBoundThreshold(atNormals('lumaMean'), at('dark', 'lumaMean'), 'lumaDarkMax'),
+        lumaBrightMin: chooseUpperBoundThreshold(atNormals('lumaMean'), at('overexposed', 'lumaMean'), 'lumaBrightMin'),
         darkClipMax: deriveClipThreshold(
-          [...at('normal', 'darkClip'), ...at('blurry', 'darkClip'), ...at('overexposed', 'darkClip')],
+          [...atNormals('darkClip'), ...at('blurry', 'darkClip'), ...at('overexposed', 'darkClip')],
           at('dark', 'darkClip'),
+          'darkClipMax',
         ),
         brightClipMax: deriveClipThreshold(
-          [...at('normal', 'brightClip'), ...at('blurry', 'brightClip'), ...at('dark', 'brightClip')],
+          [...atNormals('brightClip'), ...at('blurry', 'brightClip'), ...at('dark', 'brightClip')],
           at('overexposed', 'brightClip'),
+          'brightClipMax',
         ),
       }
       const roundedThresholds: Thresholds = {
@@ -274,6 +320,10 @@ test.describe('pixel-quality calibration', () => {
         const committed = JSON.parse(readFileSync(CALIBRATION_PATH, 'utf8')) as typeof fresh
 
         expect(fresh.scale, `calibrated scale drifted: committed=${committed.scale} fresh=${fresh.scale}`).toBe(committed.scale)
+
+        // Drift gate on the separation margin itself: a browser upgrade that
+        // erodes the 2x normal/blurry sharpness margin must fail CI, not just log.
+        expect(marginMet, `normal/blurry sharpness margin fell below ${SHARPNESS_MARGIN}x (achieved ${achievedMargin.toFixed(2)}x)`).toBe(true)
 
         for (const key of Object.keys(roundedThresholds) as (keyof Thresholds)[]) {
           assertWithinTolerance(`thresholds.${key}`, committed.thresholds[key], fresh.thresholds[key])

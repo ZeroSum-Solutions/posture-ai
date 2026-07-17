@@ -153,14 +153,46 @@ describe('assessPixelQuality', () => {
   })
 
   describe('threshold boundaries', () => {
-    it('lumaDarkMax: one below warns dark, at the threshold does not (exclusive upper bound)', () => {
-      expect(assessPixelQuality(flatSample(T.lumaDarkMax - 1, 6, 6)).warnings).toContain(DARK_WARNING)
-      expect(assessPixelQuality(flatSample(T.lumaDarkMax, 6, 6)).warnings).not.toContain(DARK_WARNING)
+    it('lumaDarkMax: mean just below warns dark, just above does not (exclusive upper bound)', () => {
+      if (T.lumaDarkMax > 17) {
+        // Threshold safely above the dark-clip level (16): a flat gray keeps
+        // darkClip at 0, so the mean channel is isolated by construction.
+        const justBelow = Math.ceil(T.lumaDarkMax) - 1
+        const atOrAbove = Math.ceil(T.lumaDarkMax)
+        expect(assessPixelQuality(flatSample(justBelow, 6, 6)).warnings).toContain(DARK_WARNING)
+        expect(assessPixelQuality(flatSample(atOrAbove, 6, 6)).warnings).not.toContain(DARK_WARNING)
+      } else {
+        // Threshold at/below the clip level (the post-T4 calibration: ~14):
+        // any flat gray with mean < threshold is also 100% dark-clipped, so
+        // isolate the mean channel with a two-level sample instead — k pixels
+        // at 0, the rest at 17: the first gray strictly above the clip level
+        // (gray 16 itself clips — the Rec.601 weights sum to just under 1 in
+        // float, so luma(16) is a hair below 16). Mean = (1 - k/N) * 17
+        // straddles the threshold while darkClip = k/N stays under
+        // darkClipMax. One extra granularity step on each side keeps the
+        // comparison clear of float rounding in the luma sum.
+        const total = 10_000
+        const kAtThreshold = Math.floor((1 - T.lumaDarkMax / 17) * total)
+        const kBelow = kAtThreshold + 2
+        const kAbove = kAtThreshold - 1
+        expect(kBelow / total).toBeLessThanOrEqual(T.darkClipMax) // precondition: clip channel stays quiet
+
+        const below = assessPixelQuality(mixedSample(kBelow, 0, 17, 100, 100))
+        expect(below.lumaMean).toBeLessThan(T.lumaDarkMax)
+        expect(below.darkClip).toBeLessThanOrEqual(T.darkClipMax)
+        expect(below.warnings).toContain(DARK_WARNING)
+
+        const above = assessPixelQuality(mixedSample(kAbove, 0, 17, 100, 100))
+        expect(above.lumaMean).toBeGreaterThan(T.lumaDarkMax)
+        expect(above.warnings).not.toContain(DARK_WARNING)
+      }
     })
 
-    it('lumaBrightMin: one above warns overexposed, at the threshold does not (exclusive lower bound)', () => {
-      expect(assessPixelQuality(flatSample(T.lumaBrightMin + 1, 6, 6)).warnings).toContain(BRIGHT_WARNING)
-      expect(assessPixelQuality(flatSample(T.lumaBrightMin, 6, 6)).warnings).not.toContain(BRIGHT_WARNING)
+    it('lumaBrightMin: smallest gray above warns overexposed, largest at/below does not (exclusive lower bound)', () => {
+      const justAbove = Math.floor(T.lumaBrightMin) + 1
+      const atOrBelow = Math.floor(T.lumaBrightMin)
+      expect(assessPixelQuality(flatSample(justAbove, 6, 6)).warnings).toContain(BRIGHT_WARNING)
+      expect(assessPixelQuality(flatSample(atOrBelow, 6, 6)).warnings).not.toContain(BRIGHT_WARNING)
     })
 
     it('darkClipMax: one fraction-unit above warns dark, exactly at the threshold does not (exclusive bound)', () => {
