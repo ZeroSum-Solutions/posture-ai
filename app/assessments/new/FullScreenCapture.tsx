@@ -164,6 +164,11 @@ export default function FullScreenCapture({
   const [reviewUrl, setReviewUrl] = useState<string | null>(null)
   const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
   const [previewQuality, setPreviewQuality] = useState<FrameQuality | null>(null)
+  // Most recently committed slot (upload or "Use This Photo"), tracked so its
+  // warning caption stays visible immediately after the auto-advance moves
+  // `activeSlot` off it — without this, a just-committed warned slot's coaching
+  // text would only be reachable by tapping back to its tile.
+  const [lastCommittedSlot, setLastCommittedSlot] = useState<CaptureSlotKey | null>(null)
 
   // Live worker tracking: landmarks + the source frame's dims, set together each
   // tracked frame (null when the worker isn't tracking → sensor-only guides).
@@ -597,6 +602,7 @@ export default function FullScreenCapture({
     const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
     onCameraCapture(committed, burst, rollAtCapture, representativePixelQualityRef.current)
+    setLastCommittedSlot(committed)
     burstRef.current = [] // ownership transferred to the parent; do not revoke
     representativePixelQualityRef.current = null
     setReviewUrl(null)
@@ -646,6 +652,7 @@ export default function FullScreenCapture({
   // upload-only path (no camera) still walks through every required slot.
   function handleUpload(slot: CaptureSlotKey, file: File) {
     onFileUpload(slot, file)
+    setLastCommittedSlot(slot)
     const next = nextUncapturedAfter(slot)
     if (next) { setOverrideGate(false); setActiveSlot(next) }
   }
@@ -659,6 +666,21 @@ export default function FullScreenCapture({
   const requiredChecking = REQUIRED_SLOTS.some(s => isCaptured(captures[s]) && captures[s].slotStatus === 'checking')
   const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
   const direction = DIRECTION[activeSlot]
+
+  // Committed-slot warning caption (soft coaching copy for the upload path,
+  // which has no review phase of its own — camera captures also land here
+  // once committed). Prefer the active tile; when the active tile has no
+  // warnings, fall back to the most recently committed slot so the coaching
+  // text from an auto-advanced-past upload/capture is visible without a tap.
+  // Suppressed during 'review' so it never doubles the review card's own
+  // warnings block, which covers the in-progress (uncommitted) capture.
+  const activeCap = captures[activeSlot]
+  const activeCapWarned = isCaptured(activeCap) && activeCap.slotStatus === 'warnings' && (activeCap.quality?.warnings.length ?? 0) > 0
+  const lastCap = lastCommittedSlot ? captures[lastCommittedSlot] : null
+  const lastCapWarned = !!lastCap && lastCommittedSlot !== activeSlot && isCaptured(lastCap) && lastCap.slotStatus === 'warnings' && (lastCap.quality?.warnings.length ?? 0) > 0
+  const captionSlot: CaptureSlotKey | null = phase === 'review' ? null : activeCapWarned ? activeSlot : lastCapWarned ? lastCommittedSlot : null
+  const captionWarnings = captionSlot ? captures[captionSlot].quality?.warnings ?? [] : []
+  const captionPrefix = captionSlot && captionSlot !== activeSlot ? `${SLOT_LABEL[captionSlot]}: ` : ''
 
   const showLiveCamera = (phase === 'live' || phase === 'countdown') && !cameraFailed
   const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
@@ -906,6 +928,25 @@ export default function FullScreenCapture({
                   </button>
                 )
               })}
+            </div>
+
+            {/* Committed-slot quality caption — soft coaching copy for a
+                committed slot with quality warnings (upload path has no review
+                phase of its own; camera captures land here too once committed).
+                Suppressed during 'review' so it never doubles the review card's
+                own warnings block above. The live region stays mounted (only its
+                content is gated) so insertion is reliably announced — mirrors
+                the review card's always-mounted status region. */}
+            <div role="status" aria-live="polite" aria-atomic="true">
+              {captionSlot && captionWarnings.length > 0 && (
+                <div data-testid="slot-quality-caption" style={{ background: 'rgba(255,137,24,0.12)', border: '1px solid rgba(255,137,24,0.3)', borderRadius: 8, padding: '8px 12px' }}>
+                  {captionWarnings.map((w, i) => (
+                    <p key={i} style={{ color: '#FBBF24', fontSize: '0.75rem', textAlign: 'center', margin: i > 0 ? '4px 0 0' : 0 }}>
+                      {i === 0 ? captionPrefix : ''}{w}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Shutter row (hidden during review / error / camera-failed) */}
