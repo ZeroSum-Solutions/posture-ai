@@ -164,9 +164,11 @@ mobile-webkit; NOT in the webkit testIgnore list; no MediaPipe dependency —
 drives the test-mode hooks): loads committed normal + blurry + dark +
 overexposed fixtures (r3 Sol-3: live overexposure classification included),
 asserts non-null sample, correct warning classification per fixture, and a
-main-thread budget: sampler+scorer ≤ 80ms per image on the CI runner
-(generous; catches accidental full-res scans). This makes the Safari check
-executable instead of a logged manual QA item.
+main-thread budget: sampler+scorer ≤ 250ms per warmed image on the CI runner
+(one untimed warm-up first; shared 2-core runners measured 110-287ms cold vs
+3-14ms locally — the budget catches accidental full-res scans, which are
+multi-second, not cold-start jitter). This makes the Safari check executable
+instead of a logged manual QA item.
 **Verify:** `npm run test:e2e -- e2e/pixel-sample.spec.ts` → exit 0 (both
 projects).
 

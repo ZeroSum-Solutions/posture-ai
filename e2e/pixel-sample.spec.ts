@@ -40,7 +40,12 @@ declare global {
 }
 
 const PHOTOS_DIR = path.join(__dirname, 'fixtures', 'photos')
-const PERF_BUDGET_MS = 80
+// Budget catches accidental full-res scans (multi-second at 1600px in pure
+// JS), not scheduler jitter: shared 2-core CI runners measured 110-287ms on
+// the FIRST call (cold JIT + first canvas readback) vs 3-14ms locally, so the
+// timed loop below runs one untimed warm-up first and the bound sits well
+// above warm CI noise while staying far under a genuine unbounded scan.
+const PERF_BUDGET_MS = 250
 
 const BLUR_WARNING = 'Photo looks blurry — hold the camera steady and retake.'
 const BRIGHT_WARNING = 'Photo is overexposed — reduce direct light and retake.'
@@ -83,6 +88,21 @@ test.describe('pixel-sample cross-engine spec', () => {
           img.onerror = () => reject(new Error('image load failed'))
           img.src = src
         })
+      }
+
+      // Untimed warm-up: absorb one-time JIT + first-canvas-readback cost so
+      // the timed loop measures steady-state sampler+scorer work (the thing
+      // the budget guards), not cold-start scheduler noise on slow CI runners.
+      {
+        const warm = document.createElement('canvas')
+        warm.width = 64
+        warm.height = 64
+        const wctx = warm.getContext('2d')
+        if (wctx) {
+          wctx.fillRect(0, 0, 64, 64)
+          const warmSample = hooks.samplePixelsFromSource(warm, 64, 64)
+          if (warmSample) hooks.assessPixelQuality(warmSample)
+        }
       }
 
       const out: { key: string; sampleIsNull: boolean; warnings: string[]; elapsedMs: number }[] = []
