@@ -169,6 +169,44 @@ describe('scoreFrameQuality', () => {
     expect(result.blocked).toBe(false)
   })
 
+  it('reduces the in-frame subscore and warns when a visible required joint is outside the frame', () => {
+    const frame = makeFrontFrame()
+    frame.landmarks.left_knee = landmark(-0.05, 0.7)
+    const result = scoreFrameQuality(frame, 'front', undefined, 0)
+
+    expect(result.factors.framing).toBeCloseTo(38.75, 10)
+    expect(result.warnings).toContain('Required joint outside frame: left_knee.')
+  })
+
+  it('clamps the level score to zero beyond ten degrees of roll', () => {
+    expect(scoreFrameQuality(makeFrontFrame(), 'front', undefined, 10).factors.level).toBe(0)
+    expect(scoreFrameQuality(makeFrontFrame(), 'front', undefined, -15).factors.level).toBe(0)
+  })
+
+  it('scores span zero when the span exceeds the upper cutoff', () => {
+    const result = scoreFrameQuality(makeFrontFrame({ headY: -0.15, ankleY: 1 }), 'front', undefined, 0)
+
+    expect(result.factors.framing).toBe(25)
+  })
+
+  it('treats a landmark below the reliability floor as not visible', () => {
+    const frame = makeFrontFrame()
+    frame.landmarks.left_knee = landmark(0.44, 0.7, 0.49)
+    const result = scoreFrameQuality(frame, 'front', undefined, 0)
+
+    expect(result.factors.joints).toBeCloseTo(30.625, 10)
+    expect(result.warnings).toContain('Required joint not visible: left_knee.')
+  })
+
+  it('treats a landmark exactly at the reliability floor as visible', () => {
+    const frame = makeFrontFrame()
+    frame.landmarks.left_knee = landmark(0.44, 0.7, 0.5)
+    const result = scoreFrameQuality(frame, 'front', undefined, 0)
+
+    expect(result.factors.joints).toBe(35)
+    expect(result.warnings).toEqual([])
+  })
+
   it('blocks front and side sparse frames but never blocks back sparse frames', () => {
     const sparse: PoseFrame = {
       view: 'front',
