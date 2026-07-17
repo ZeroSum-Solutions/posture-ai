@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // in the app and the PDF. Negation disclaimers ("not a medical diagnosis",
 // "Non-Diagnostic") are the one allowed use of the diagnosis stem.
 
-const ROOTS = ['app', 'components', 'lib/pdf']
+const ROOTS = ['app', 'components', 'lib/pdf', 'lib/capture']
 // Sanctioned disclaimer phrasings and schema identifiers — the only places
 // a banned stem may legitimately appear.
 const SANCTIONED = [

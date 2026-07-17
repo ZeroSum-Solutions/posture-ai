@@ -62,6 +62,11 @@ const SOURCE_SIZES = [720, 1600] as const // [camera-like, upload-like]
 const SHARPNESS_MARGIN = 2 // sharp/blurred pair must separate by >= this at the chosen scale, at BOTH source sizes
 
 const CHECK_MODE = process.env.CALIBRATION_CHECK === '1'
+// Write mode must be explicitly requested: a bare `npm run test:e2e` runs ALL
+// Playwright projects (calibration included), and an implicit write here would
+// clobber the committed baseline right before `calibrate:check` compares
+// against it — turning the CI drift gate into a permanent false-green.
+const WRITE_MODE = process.env.CALIBRATION_WRITE === '1'
 // Zero-safe drift tolerance (r3 Sol-3): relative-only tolerance is unstable for
 // metrics that sit at/near 0 (darkClip/brightClip on clean fixtures), so every
 // metric is compared against max(5% relative, ABS_EPS). ABS_EPS=0.005 is well
@@ -162,6 +167,10 @@ test.describe('pixel-quality calibration', () => {
   test(
     CHECK_MODE ? 'recomputes from committed fixtures and fails on drift' : 'derives thresholds from committed fixtures and writes calibration.json',
     async ({ page }) => {
+      test.skip(
+        !CHECK_MODE && !WRITE_MODE,
+        'calibration runs only via npm run calibrate (write) or calibrate:check (drift gate) — never in the bare e2e sweep',
+      )
       test.setTimeout(120_000)
 
       const images: Record<FixtureKey, string> = {} as Record<FixtureKey, string>
