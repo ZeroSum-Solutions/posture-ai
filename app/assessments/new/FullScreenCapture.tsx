@@ -7,7 +7,7 @@ import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
 import { shutterGate } from '@/lib/capture/shutter-gate'
 import { sourceToViewport } from '@/lib/capture/overlay-transform'
 import { samplePixelsFromSource } from '@/lib/capture/pixel-sample'
-import { assessPixelQuality } from '@/lib/capture/pixel-quality'
+import { assessPixelQuality, mergePreflightQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult, PixelSample } from '@/lib/capture/pixel-quality'
 import type { Captures, CaptureSlotKey } from './types'
 import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
@@ -484,10 +484,20 @@ export default function FullScreenCapture({
     // review UI paints before this CPU-bound pass runs (r3 Sol-NIT-5/Gemini-
     // NIT-1). Fails open — sampling/scoring failure never blocks capture or
     // sets modelError. Completes well before "Use This Photo" is read.
+    // Defense in depth: if useThisPhoto() fires before this yield resolves
+    // (a very fast tap), the slot simply commits with pixelQuality: null —
+    // an accepted fail-open, not a bug; the wizard's own preflight remains
+    // authoritative regardless.
     representativePixelQualityRef.current = null
     if (midSample) {
       const sample = midSample
       await new Promise(r => setTimeout(r, 0))
+      // This guard only catches a NEW capture starting during the yield (id
+      // bumped). A DISCARDED burst (retake/unmount) finishing its scoring here
+      // is harmless without an extra check: reviewUrl is the sole reader of
+      // this ref (the review-quality effect below), so a discarded burst has
+      // no reviewUrl pointing at it — nothing reads a stale score — and every
+      // discard path (retakeStill/discardBurst/useThisPhoto) resets the ref.
       if (captureIdRef.current !== id) return // superseded while yielding — discard
       try {
         representativePixelQualityRef.current = assessPixelQuality(sample)
@@ -537,7 +547,14 @@ export default function FullScreenCapture({
         // Route through the runtime owner — it closes the live worker before the
         // IMAGE landmarker scores this still, so the two never run at once (§11.1).
         const frame = await getCaptureRuntime().detect(reviewUrl, view, 'camera')
-        if (!cancelled) setPreviewQuality(assessFrameQuality(frame, view))
+        // Merge in the representative frame's precomputed pixel-quality (scored
+        // off the shutter-tap path, above) so pixel warnings are visible on the
+        // review screen before "Use This Photo" — reusing the already-scored
+        // result, never resampling/rescoring here. Reading the ref here is safe
+        // only because scoring resolves in one macrotask while this effect must
+        // first clear the detect() await above — if detect() ever becomes
+        // synchronous/instant-cached, the ref could still be null at this read.
+        if (!cancelled) setPreviewQuality(mergePreflightQuality(assessFrameQuality(frame, view), representativePixelQualityRef.current))
       } catch {
         // non-fatal: the slot preflight still runs after "Use This Photo"
       }
@@ -855,7 +872,7 @@ export default function FullScreenCapture({
                     onClick={() => selectSlot(slotKey)}
                     // Locked during a burst so the announced state matches selectSlot's guard.
                     disabled={isCapturing}
-                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}`}
+                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}${cap.slotStatus === 'warnings' ? ' — quality warning' : ''}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
                       position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
@@ -870,7 +887,7 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : cap.slotStatus === 'warnings' ? 'var(--warning)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : cap.slotStatus === 'warnings' ? '⚠' : '✓'}</span>
                       )}
                     </div>
                     <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>

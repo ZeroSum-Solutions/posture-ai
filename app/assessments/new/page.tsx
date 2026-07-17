@@ -11,6 +11,7 @@ import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
 import { buildFramePlan, stampFrame } from './framePlan'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
+import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
 import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hooks'
 
@@ -200,7 +201,7 @@ function NewAssessmentWizard() {
   // Run detectPose + assessFrameQuality after each capture/upload on the RAW
   // still (never the display channel — design §4.3). `token` ties the result to
   // its capture; a newer capture bumps commitSeq and staleness-invalidates it.
-  async function runPreflight(slot: CaptureSlotKey, rawUrl: string, source: 'camera' | 'upload', captureRollDeg: number | null, token: number) {
+  async function runPreflight(slot: CaptureSlotKey, rawUrl: string, source: 'camera' | 'upload', captureRollDeg: number | null, token: number, pixelQuality: PixelQualityResult | null) {
     const isStale = () => commitSeq.current[slot] !== token
     const { view, profileSide } = slotToDomain(slot)
 
@@ -220,7 +221,11 @@ function NewAssessmentWizard() {
         ...(profileSide ? { profileSide } : {}),
         ...(captureRollDeg !== null ? { captureRollDeg } : {}),
       }
-      const quality = assessFrameQuality(rawPoseFrame, view)
+      // Merge in the slot's precomputed pixel-quality metrics (T2) — synchronous,
+      // no new await; the merge is pure and total over these input types, so it
+      // can never throw and never trips the catch below into setModelError(true)
+      // (Product constraints: sampling/scoring failure fails open, never blocks).
+      const quality = mergePreflightQuality(assessFrameQuality(rawPoseFrame, view), pixelQuality)
 
       const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
         : quality.status === 'warnings' ? 'warnings'
@@ -256,7 +261,7 @@ function NewAssessmentWizard() {
     }))
     revokeSlotUrls(prevSlot, new Set([rawUrl]))
     setUploadError(null)
-    if (!testMode) runPreflight(slot, rawUrl, 'upload', null, op)
+    if (!testMode) runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality)
   }
 
   function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) {
@@ -272,7 +277,7 @@ function NewAssessmentWizard() {
     }))
     revokeSlotUrls(prevSlot, new Set(burst))
     setUploadError(null)
-    if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op)
+    if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality)
   }
 
   // Check if submit should be blocked: a required slot has 'no_person' status
