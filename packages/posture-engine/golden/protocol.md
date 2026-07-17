@@ -36,3 +36,12 @@ For each photo write one line in `golden/photos-local/manifest.csv`:
    `<name>.landmarks.json`
 3. Move the JSON to `golden/tierb/<subject>/`, fill `groundTruth` from the
    manifest, commit. Photos stay in `golden/photos-local/` (gitignored).
+4. Rename each file to `<pose>_<view>_<device>_r<repeat>.landmarks.json`
+   (e.g. `staged-trunk-lean_side_iphone_r2.landmarks.json`) — this is how
+   `scripts/golden-repeatability.ts` groups repeats. Pose and device names:
+   lowercase, digits and hyphens only.
+
+## Analysis
+`npx vite-node scripts/golden-repeatability.ts` — per-metric test-retest
+ICC(2,1)/SEM/MDC95 across the re-positioned repeats, written to
+`golden/reports/reliability-profile.json` (labeled `pilot` at ≤5 subjects).
