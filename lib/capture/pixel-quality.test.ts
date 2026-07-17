@@ -2,14 +2,21 @@ import { describe, it, expect } from 'vitest'
 import { assessPixelQuality, mergePreflightQuality } from './pixel-quality'
 import type { PixelSample, PixelQualityResult } from './pixel-quality'
 import type { FrameQuality } from '../pose/quality'
+import calibration from './pixel-quality.calibration.json'
 
 const BLUR_WARNING = 'Photo looks blurry — hold the camera steady and retake.'
 const DARK_WARNING = 'Photo is too dark — add more light and retake.'
 const BRIGHT_WARNING = 'Photo is overexposed — reduce direct light and retake.'
 
-// Calibration placeholder (lib/capture/pixel-quality.calibration.json):
-// sharpnessMin 50, lumaDarkMax 40, lumaBrightMin 215,
-// darkClipMax 0.3, brightClipMax 0.3.
+// Thresholds come from the calibrated JSON (lib/capture/pixel-quality.calibration.json,
+// produced by e2e/pixel-calibration.spec.ts), not hardcoded — these tests pin
+// the scorer's COMPARISON LOGIC (boundaries, warning combinations), not any
+// particular calibrated number, so they stay honest across recalibration.
+const T = calibration.thresholds
+// A luma value safely inside (lumaDarkMax, lumaBrightMin) with margin on both
+// sides — the "mid-range, doesn't trigger dark/bright" value used wherever a
+// test needs one that won't accidentally cross either exposure threshold.
+const SAFE_MID_LUMA = Math.round((T.lumaDarkMax + T.lumaBrightMin) / 2)
 
 function flatSample(value: number, width: number, height: number): PixelSample {
   const data = new Uint8ClampedArray(width * height * 4)
@@ -81,19 +88,21 @@ function singleOutlierSample(base: number, delta: number, size: number): { sampl
 
 describe('assessPixelQuality', () => {
   it('scores a flat mid-gray image as low sharpness and warns blurry only', () => {
-    const result = assessPixelQuality(flatSample(128, 8, 8))
+    const result = assessPixelQuality(flatSample(SAFE_MID_LUMA, 8, 8))
     expect(result.sharpness).toBe(0)
-    expect(result.lumaMean).toBeCloseTo(128, 5)
+    expect(result.lumaMean).toBeCloseTo(SAFE_MID_LUMA, 5)
     expect(result.darkClip).toBe(0)
     expect(result.brightClip).toBe(0)
     expect(result.warnings).toEqual([BLUR_WARNING])
   })
 
   it('scores a fine checkerboard as high sharpness with no warnings', () => {
-    // 32/224 stays clear of both clip levels (16/239) so no exposure warning fires.
-    const result = assessPixelQuality(checkerboardSample(32, 224, 8, 8))
-    expect(result.sharpness).toBeGreaterThan(50)
-    expect(result.lumaMean).toBeCloseTo(128, 5)
+    // Amplitude clears both the sharpness threshold and the clip levels
+    // (16/239) around the safe mid-gray mean, so no exposure warning fires.
+    const amplitude = Math.min(50, SAFE_MID_LUMA - 17, 238 - SAFE_MID_LUMA)
+    const result = assessPixelQuality(checkerboardSample(SAFE_MID_LUMA - amplitude, SAFE_MID_LUMA + amplitude, 8, 8))
+    expect(result.sharpness).toBeGreaterThan(T.sharpnessMin)
+    expect(result.lumaMean).toBeCloseTo(SAFE_MID_LUMA, 5)
     expect(result.darkClip).toBe(0)
     expect(result.brightClip).toBe(0)
     expect(result.warnings).toEqual([])
@@ -116,60 +125,81 @@ describe('assessPixelQuality', () => {
   })
 
   it('warns dark on a mid-gray mean with a large crushed-shadow fraction (clip signal, not mean)', () => {
-    // 40 of 100 pixels at 0 (clipped dark), 60 at 213 → mean ≈ 127.8 (normal),
-    // darkClip = 0.4 > darkClipMax 0.3.
-    const result = assessPixelQuality(mixedSample(40, 0, 213, 10, 10))
-    expect(result.lumaMean).toBeGreaterThan(40)
-    expect(result.lumaMean).toBeLessThan(215)
-    expect(result.darkClip).toBeCloseTo(0.4, 5)
+    // countA safely above darkClipMax (out of 100 pixels) at 0 (clipped dark);
+    // the other pixels sit at a value chosen so the OVERALL mean still lands
+    // strictly above lumaDarkMax (and below lumaBrightMin), so only the clip
+    // signal can fire the dark warning.
+    const countA = Math.round(T.darkClipMax * 100) + 5
+    const otherValue = Math.round(Math.min(254, ((T.lumaDarkMax + T.lumaBrightMin) / 2) * (100 / (100 - countA))))
+    const result = assessPixelQuality(mixedSample(countA, 0, otherValue, 10, 10))
+    expect(result.lumaMean).toBeGreaterThan(T.lumaDarkMax)
+    expect(result.lumaMean).toBeLessThan(T.lumaBrightMin)
+    expect(result.darkClip).toBeCloseTo(countA / 100, 5)
     expect(result.warnings).toContain(DARK_WARNING)
     expect(result.warnings).not.toContain(BRIGHT_WARNING)
   })
 
   it('warns overexposed on a mid-gray mean with a large blown-highlight fraction (clip signal, not mean)', () => {
-    // 40 of 100 pixels at 255 (clipped bright), 60 at 43 → mean ≈ 127.8 (normal),
-    // brightClip = 0.4 > brightClipMax 0.3.
-    const result = assessPixelQuality(mixedSample(40, 255, 43, 10, 10))
-    expect(result.lumaMean).toBeGreaterThan(40)
-    expect(result.lumaMean).toBeLessThan(215)
-    expect(result.brightClip).toBeCloseTo(0.4, 5)
+    // countA safely above brightClipMax (out of 100 pixels); the other value
+    // (50) holds the mean well clear of lumaBrightMin regardless, so only the
+    // clip signal decides.
+    const countA = Math.round(T.brightClipMax * 100) + 5
+    const result = assessPixelQuality(mixedSample(countA, 255, 50, 10, 10))
+    expect(result.lumaMean).toBeGreaterThan(T.lumaDarkMax)
+    expect(result.lumaMean).toBeLessThan(T.lumaBrightMin)
+    expect(result.brightClip).toBeCloseTo(countA / 100, 5)
     expect(result.warnings).toContain(BRIGHT_WARNING)
     expect(result.warnings).not.toContain(DARK_WARNING)
   })
 
   describe('threshold boundaries', () => {
-    it('lumaDarkMax=40: 39 warns dark, 40 does not (exclusive upper bound)', () => {
-      expect(assessPixelQuality(flatSample(39, 6, 6)).warnings).toContain(DARK_WARNING)
-      expect(assessPixelQuality(flatSample(40, 6, 6)).warnings).not.toContain(DARK_WARNING)
+    it('lumaDarkMax: one below warns dark, at the threshold does not (exclusive upper bound)', () => {
+      expect(assessPixelQuality(flatSample(T.lumaDarkMax - 1, 6, 6)).warnings).toContain(DARK_WARNING)
+      expect(assessPixelQuality(flatSample(T.lumaDarkMax, 6, 6)).warnings).not.toContain(DARK_WARNING)
     })
 
-    it('lumaBrightMin=215: 216 warns overexposed, 215 does not (exclusive lower bound)', () => {
-      expect(assessPixelQuality(flatSample(216, 6, 6)).warnings).toContain(BRIGHT_WARNING)
-      expect(assessPixelQuality(flatSample(215, 6, 6)).warnings).not.toContain(BRIGHT_WARNING)
+    it('lumaBrightMin: one above warns overexposed, at the threshold does not (exclusive lower bound)', () => {
+      expect(assessPixelQuality(flatSample(T.lumaBrightMin + 1, 6, 6)).warnings).toContain(BRIGHT_WARNING)
+      expect(assessPixelQuality(flatSample(T.lumaBrightMin, 6, 6)).warnings).not.toContain(BRIGHT_WARNING)
     })
 
-    it('darkClipMax=0.3: clip fraction 0.31 warns dark, exactly 0.30 does not (exclusive bound)', () => {
-      // Mean stays mid-range in both cases, so only the clip signal decides.
-      expect(assessPixelQuality(mixedSample(31, 0, 180, 10, 10)).warnings).toContain(DARK_WARNING)
-      expect(assessPixelQuality(mixedSample(30, 0, 180, 10, 10)).warnings).not.toContain(DARK_WARNING)
+    it('darkClipMax: one fraction-unit above warns dark, exactly at the threshold does not (exclusive bound)', () => {
+      // 10,000-pixel base gives exact-fraction granularity for any 4-sig-fig
+      // threshold. The other value (200) holds the mean well clear of
+      // lumaDarkMax regardless, so only the clip signal decides.
+      const atBoundary = Math.round(T.darkClipMax * 10_000)
+      expect(assessPixelQuality(mixedSample(atBoundary + 1, 0, 200, 100, 100)).warnings).toContain(DARK_WARNING)
+      expect(assessPixelQuality(mixedSample(atBoundary, 0, 200, 100, 100)).warnings).not.toContain(DARK_WARNING)
     })
 
-    it('brightClipMax=0.3: clip fraction 0.31 warns overexposed, exactly 0.30 does not (exclusive bound)', () => {
-      expect(assessPixelQuality(mixedSample(31, 255, 73, 10, 10)).warnings).toContain(BRIGHT_WARNING)
-      expect(assessPixelQuality(mixedSample(30, 255, 73, 10, 10)).warnings).not.toContain(BRIGHT_WARNING)
+    it('brightClipMax: one fraction-unit above warns overexposed, exactly at the threshold does not (exclusive bound)', () => {
+      // The other value (50) holds the mean well clear of lumaBrightMin
+      // regardless of the (large) clipped fraction, so only the clip signal decides.
+      const atBoundary = Math.round(T.brightClipMax * 10_000)
+      expect(assessPixelQuality(mixedSample(atBoundary + 1, 255, 50, 100, 100)).warnings).toContain(BRIGHT_WARNING)
+      expect(assessPixelQuality(mixedSample(atBoundary, 255, 50, 100, 100)).warnings).not.toContain(BRIGHT_WARNING)
     })
 
-    it('sharpnessMin=50: a single-pixel outlier straddling the threshold pins the blur decision exactly', () => {
-      const below = singleOutlierSample(128, 6, 6) // 20*36/16 = 45 < 50
-      expect(below.expectedSharpness).toBeCloseTo(45, 5)
+    it('sharpnessMin: a single-pixel outlier straddling the threshold pins the blur decision exactly', () => {
+      const size = 6
+      const interiorCount = (size - 2) * (size - 2) // 16
+      // Laplacian variance for this pattern is analytically exact (see
+      // singleOutlierSample): 20*delta^2/interiorCount. Solve for the delta
+      // at the threshold, then step to the integers straddling it.
+      const exactDelta = Math.sqrt((T.sharpnessMin * interiorCount) / 20)
+      const belowDelta = Math.max(1, Math.floor(exactDelta - 1e-6))
+      const aboveDelta = belowDelta + 1
+
+      const below = singleOutlierSample(SAFE_MID_LUMA, belowDelta, size)
+      expect(below.expectedSharpness).toBeLessThan(T.sharpnessMin)
       const belowResult = assessPixelQuality(below.sample)
-      expect(belowResult.sharpness).toBeCloseTo(45, 5)
+      expect(belowResult.sharpness).toBeCloseTo(below.expectedSharpness, 5)
       expect(belowResult.warnings).toContain(BLUR_WARNING)
 
-      const above = singleOutlierSample(128, 7, 6) // 20*49/16 = 61.25 > 50
-      expect(above.expectedSharpness).toBeCloseTo(61.25, 5)
+      const above = singleOutlierSample(SAFE_MID_LUMA, aboveDelta, size)
+      expect(above.expectedSharpness).toBeGreaterThan(T.sharpnessMin)
       const aboveResult = assessPixelQuality(above.sample)
-      expect(aboveResult.sharpness).toBeCloseTo(61.25, 5)
+      expect(aboveResult.sharpness).toBeCloseTo(above.expectedSharpness, 5)
       expect(aboveResult.warnings).not.toContain(BLUR_WARNING)
     })
   })

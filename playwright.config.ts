@@ -38,12 +38,23 @@ export default defineConfig({
       name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
+      testIgnore: /pixel-calibration\.spec\.ts/, // dedicated `calibration` project only
     },
     {
       name: 'mobile-webkit',
       use: { ...devices['iPhone 14'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
-      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts/, // model/camera tests run on chromium only
+      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts|pixel-calibration\.spec\.ts/, // model/camera tests run on chromium only; calibration is its own project
+    },
+    {
+      // T1b: browser-lane pixel-quality calibration — writes (or, under
+      // CALIBRATION_CHECK=1, verifies) lib/capture/pixel-quality.calibration.json.
+      // Desktop chromium only, scoped to its one spec file so it never runs
+      // inside desktop-chromium/mobile-webkit and they never run it.
+      name: 'calibration',
+      testMatch: /pixel-calibration\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },
+      dependencies: ['setup'],
     },
   ],
   webServer: {

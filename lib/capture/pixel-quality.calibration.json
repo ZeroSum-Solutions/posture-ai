@@ -1,11 +1,68 @@
 {
   "scale": 320,
   "thresholds": {
-    "sharpnessMin": 50,
-    "lumaDarkMax": 40,
-    "lumaBrightMin": 215,
-    "darkClipMax": 0.3,
-    "brightClipMax": 0.3
+    "sharpnessMin": 182.2,
+    "lumaDarkMax": 136,
+    "lumaBrightMin": 227.2,
+    "darkClipMax": 0.05,
+    "brightClipMax": 0.4849
   },
-  "perFixture": {}
+  "perFixture": {
+    "normal": {
+      "camera": {
+        "sharpness": 272.3,
+        "lumaMean": 201.5,
+        "darkClip": 0.00008803,
+        "brightClip": 0
+      },
+      "upload": {
+        "sharpness": 434.9,
+        "lumaMean": 201.7,
+        "darkClip": 0.0002788,
+        "brightClip": 0
+      }
+    },
+    "blurry": {
+      "camera": {
+        "sharpness": 76.59,
+        "lumaMean": 201.8,
+        "darkClip": 0,
+        "brightClip": 0
+      },
+      "upload": {
+        "sharpness": 92.15,
+        "lumaMean": 201.9,
+        "darkClip": 0,
+        "brightClip": 0
+      }
+    },
+    "dark": {
+      "camera": {
+        "sharpness": 35.03,
+        "lumaMean": 70.35,
+        "darkClip": 0.002479,
+        "brightClip": 0
+      },
+      "upload": {
+        "sharpness": 55.73,
+        "lumaMean": 70.53,
+        "darkClip": 0.003052,
+        "brightClip": 0
+      }
+    },
+    "overexposed": {
+      "camera": {
+        "sharpness": 326.8,
+        "lumaMean": 252.7,
+        "darkClip": 0,
+        "brightClip": 0.9698
+      },
+      "upload": {
+        "sharpness": 574.2,
+        "lumaMean": 252.7,
+        "darkClip": 0,
+        "brightClip": 0.9714
+      }
+    }
+  }
 }
