@@ -1,7 +1,14 @@
-import type { Landmark, PoseFrame } from '@posture-ai/engine/types'
-import { RELIABILITY_FLOOR } from '@posture-ai/engine/thresholds'
+import type { PoseFrame } from '@posture-ai/engine/types'
 import { supportAnchorX } from '../capture/support-anchor'
-import { ANKLE_LANDMARKS, HEAD_LANDMARKS, requiredNearSideJoints } from './quality'
+import {
+  ANKLE_LANDMARKS,
+  CENTER_TOLERANCE as CENTER_FULL_MAX,
+  FRAME_SPAN_MAX as FRAME_SPAN_FULL_MAX,
+  FRAME_SPAN_MIN as FRAME_SPAN_FULL_MIN,
+  HEAD_LANDMARKS,
+  isVisible,
+  requiredNearSideJoints,
+} from './quality'
 
 export interface QualityScore {
   score: number
@@ -12,16 +19,11 @@ export interface QualityScore {
 
 type QualityView = 'front' | 'side' | 'back'
 
-const FRAME_SPAN_FULL_MIN = 0.65
-const FRAME_SPAN_FULL_MAX = 0.95
+// Full-score bands reuse the calibrated framing thresholds from quality.ts
+// (imported above); the zero-score cutoffs below are unique to the score ramps.
 const FRAME_SPAN_ZERO_MIN = 0.45
 const FRAME_SPAN_ZERO_MAX = 1.10
-const CENTER_FULL_MAX = 0.15
 const CENTER_ZERO_MAX = 0.35
-
-function isVisible(landmark: Landmark | undefined): landmark is Landmark {
-  return !!landmark && (landmark.visibility ?? 0) >= RELIABILITY_FLOOR
-}
 
 function clampSubscore(value: number, maximum: number): number {
   return Math.max(0, Math.min(maximum, value))
