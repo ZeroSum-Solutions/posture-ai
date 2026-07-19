@@ -4,6 +4,9 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
+import InPersonConsentForm from '@/components/InPersonConsentForm'
+import RemoteConsentButton from '@/components/RemoteConsentButton'
+import { getConsentStatus } from '@/lib/consent/record'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import dynamic from 'next/dynamic'
 import { toNum } from './numeric'
@@ -13,7 +16,6 @@ import {
   selectComparisonTarget,
   sortAssessmentsChronologically,
 } from './comparison'
-import RemoteConsentButton from '@/components/RemoteConsentButton'
 import ComparisonWorkspace, { type ComparisonDeltaRow } from './ComparisonWorkspace'
 import styles from './ClientEvidenceCanvas.module.css'
 
@@ -85,6 +87,7 @@ export default function ClientDetailPage() {
   const [compareTargetId, setCompareTargetId] = useState<string>('')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [archiveError, setArchiveError] = useState<string | null>(null)
+  const [consentStatus, setConsentStatus] = useState<'checking' | 'valid' | 'missing'>('checking')
 
   useEffect(() => {
     // Abort a stale load when the client id changes / the page unmounts, so a
@@ -104,6 +107,10 @@ export default function ClientDetailPage() {
       if (ac.signal.aborted) return
       if (error || !data) { router.push('/clients'); return }
       setClient(data)
+
+      const consent = await getConsentStatus(supabase, id)
+      if (ac.signal.aborted) return
+      setConsentStatus(consent.hasConsent ? 'valid' : 'missing')
 
       try {
         const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`, { signal: ac.signal })
@@ -160,9 +167,16 @@ export default function ClientDetailPage() {
     ? new Date(client.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
     : null
 
-  const consentDate = client.consent_recorded_at
+  const consentDate = consentStatus === 'valid' && client.consent_recorded_at
     ? new Date(client.consent_recorded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
     : null
+
+  function handleConsentRecorded() {
+    setConsentStatus('valid')
+    setClient((current) => current
+      ? { ...current, consent_recorded_at: new Date().toISOString() }
+      : current)
+  }
 
   const hasMultipleAssessments = assessments.length >= 2
   const availableTabs: Tab[] = hasMultipleAssessments
@@ -352,9 +366,11 @@ export default function ClientDetailPage() {
               </span>
             )}
             <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              Consent: {consentDate
-                ? <span style={{ color: '#10B981' }}>✓ {consentDate}</span>
-                : <span style={{ color: 'var(--warning)' }}>pending</span>}
+              Consent: {consentStatus === 'checking'
+                ? <span style={{ color: 'var(--text-secondary)' }}>checking…</span>
+                : consentStatus === 'valid'
+                  ? <span style={{ color: '#10B981' }}>✓ {consentDate ?? 'recorded'}</span>
+                  : <span style={{ color: 'var(--warning)' }}>pending</span>}
             </span>
           </div>
         </div>
@@ -395,8 +411,13 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {!client.consent_recorded_at && (
-        <div style={{ marginBottom: '16px' }}>
+      {consentStatus === 'missing' && (
+        <div style={{ marginBottom: '16px', display: 'grid', gap: 12 }}>
+          <InPersonConsentForm
+            clientId={client.id}
+            subjectName={`${client.first_name} ${client.last_name}`}
+            onRecorded={handleConsentRecorded}
+          />
           <RemoteConsentButton clientId={client.id} />
         </div>
       )}
@@ -580,10 +601,16 @@ export default function ClientDetailPage() {
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Added</div>
               <div style={{ color: 'var(--text-primary)' }}>{new Date(client.created_at).toLocaleDateString()}</div>
             </div>
-            {client.consent_recorded_at && (
+            {consentStatus !== 'checking' && (
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Consent Recorded</div>
-                <div style={{ color: '#10B981', fontSize: '0.875rem' }}>✓ {new Date(client.consent_recorded_at).toLocaleDateString()}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Consent</div>
+                {consentStatus === 'valid' ? (
+                  <div style={{ color: '#10B981', fontSize: '0.875rem' }}>
+                    ✓ {client.consent_recorded_at ? new Date(client.consent_recorded_at).toLocaleDateString() : 'Recorded'}
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Pending</div>
+                )}
               </div>
             )}
           </div>

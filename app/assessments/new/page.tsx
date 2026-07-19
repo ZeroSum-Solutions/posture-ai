@@ -14,6 +14,7 @@ import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
 import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hooks'
+import InPersonConsentForm from '@/components/InPersonConsentForm'
 
 interface Client {
   id: string
@@ -39,6 +40,7 @@ function NewAssessmentWizard() {
   const [clientSearch, setClientSearch] = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
+  const [showConsentForm, setShowConsentForm] = useState(false)
   const [checkingConsent, setCheckingConsent] = useState(false)
   const [loadingClients, setLoadingClients] = useState(true)
   const [clientsError, setClientsError] = useState<string | null>(null)
@@ -383,8 +385,8 @@ function NewAssessmentWizard() {
   async function proceedToCapture() {
     if (!selectedClient || checkingConsent) return
     const band = ageBand(selectedClient.date_of_birth)
-    if (band === 'under_13') { setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
-    if (band === 'unknown') { setAgeGateError('Add a date of birth for this client before screening.'); return }
+    if (band === 'under_13') { setShowConsentForm(false); setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
+    if (band === 'unknown') { setShowConsentForm(false); setAgeGateError('Add a date of birth for this client before screening.'); return }
     setAgeGateError(null)
     setCheckingConsent(true)
     try {
@@ -392,15 +394,24 @@ function NewAssessmentWizard() {
       const consent = await getConsentStatus(supabase, selectedClient.id)
       const eligibility = captureEligibility(selectedClient.date_of_birth, consent)
       if (!eligibility.ok) {
+        setShowConsentForm(true)
         setAgeGateError(eligibility.reason ?? 'This client is not eligible for screening yet.')
         return
       }
+      setShowConsentForm(false)
       setStep(2)
     } catch {
+      setShowConsentForm(false)
       setAgeGateError('Could not verify consent. Refresh and try again.')
     } finally {
       setCheckingConsent(false)
     }
+  }
+
+  async function handleConsentRecorded() {
+    setShowConsentForm(false)
+    setAgeGateError(null)
+    await proceedToCapture()
   }
 
   const clientName = selectedClient
@@ -490,7 +501,11 @@ function NewAssessmentWizard() {
                 {filteredClients.map(c => {
                   const isSelected = selectedClient?.id === c.id
                   return (
-                    <button key={c.id} onClick={() => setSelectedClient(c)} style={{
+                    <button key={c.id} onClick={() => {
+                      setSelectedClient(c)
+                      setAgeGateError(null)
+                      setShowConsentForm(false)
+                    }} style={{
                       width: '100%', padding: '14px 16px', textAlign: 'left',
                       background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
                       border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
@@ -522,15 +537,16 @@ function NewAssessmentWizard() {
                   </Link>
                 </>
               )}
-              {selectedClient && ageGateError.toLowerCase().includes('consent') && (
-                <>
-                  {' '}
-                  <Link href={`/clients/${selectedClient.id}`} style={{ color: '#FCA5A5', fontWeight: 600, textDecoration: 'underline' }}>
-                    Record consent for this client →
-                  </Link>
-                </>
-              )}
+              {showConsentForm && ' Record consent below to continue.'}
             </div>
+          )}
+          {selectedClient && showConsentForm && (
+            <InPersonConsentForm
+              clientId={selectedClient.id}
+              subjectName={`${selectedClient.first_name} ${selectedClient.last_name}`}
+              submitLabel="Record Consent & Continue"
+              onRecorded={handleConsentRecorded}
+            />
           )}
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => { if (testMode) { setStep(2) } else { proceedToCapture() } }}
