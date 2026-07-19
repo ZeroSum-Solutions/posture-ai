@@ -177,7 +177,6 @@ export interface ClientReportProps {
   report: ProgramReport
   /** Optional "since last time" progress vs an approved, same-client prior screening. */
   comparison?: ClientComparison | null
-  engineVersionMismatch?: boolean
 }
 
 export function ClientReport({ clientName, practitioner, dateStr, report, comparison }: ClientReportProps) {
@@ -224,7 +223,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
                 </Text>.
               </Text>
             )}
-            {report.priorities.map((p) => {
+            {comparison.overall !== 'not_comparable' && report.priorities.map((p) => {
               const dir = comparison.byKey[p.primaryKey]
               if (!dir) return null
               const a = AREA_COPY[dir]

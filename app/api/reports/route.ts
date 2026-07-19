@@ -298,7 +298,6 @@ export async function POST(req: NextRequest) {
       dateStr,
       report: program,
       comparison: clientComparison,
-      engineVersionMismatch,
     }) as unknown as ReactElement<DocumentProps>
   } else {
     docElement = React.createElement(PostureReportPdf, {

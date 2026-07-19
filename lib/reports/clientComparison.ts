@@ -43,6 +43,20 @@ export function buildClientComparison(args: {
 }, opts?: { engineVersionMismatch?: boolean }): ClientComparison {
   const { priorDateStr, current, prior, currentFindings, priorFindings } = args
 
+  // severityPct is derived from the scoring version's thresholds. Across an
+  // engine boundary it is no more comparable than the overall grade, so fail
+  // closed before producing any client-facing direction labels. The
+  // practitioner report suppresses cross-version degree deltas as well.
+  if (opts?.engineVersionMismatch) {
+    return {
+      priorDateStr,
+      priorGrade: prior.grade,
+      currentGrade: current.grade,
+      overall: 'not_comparable',
+      byKey: {},
+    }
+  }
+
   const priorByKey = new Map(priorFindings.map((f) => [f.key, f.severityPct]))
   const byKey: Record<string, AreaDirection> = {}
   for (const f of currentFindings) {
@@ -50,10 +64,6 @@ export function buildClientComparison(args: {
     if (before === undefined) continue // no prior reading for this area — nothing to compare
     const d = f.severityPct - before
     byKey[f.key] = d <= -SEVERITY_DEADBAND ? 'improving' : d >= SEVERITY_DEADBAND ? 'attention' : 'steady'
-  }
-
-  if (opts?.engineVersionMismatch) {
-    return { priorDateStr, priorGrade: prior.grade, currentGrade: current.grade, overall: 'not_comparable', byKey }
   }
 
   // Overall: a grade change is unambiguous, so it decides direction. Within the

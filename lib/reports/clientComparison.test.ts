@@ -72,7 +72,7 @@ describe('buildClientComparison — overall direction', () => {
     expect(c.priorDateStr).toBe('11 Jan 2026')
   })
 
-  it('returns not_comparable when engine versions differ, ignoring grade rank', () => {
+  it('suppresses every directional claim when engine versions differ', () => {
     const c = buildClientComparison({
       ...base,
       current: { grade: 'C', score: 30 },
@@ -82,7 +82,7 @@ describe('buildClientComparison — overall direction', () => {
     }, { engineVersionMismatch: true })
 
     expect(c.overall).toBe('not_comparable')
-    expect(c.byKey.fhp).toBe('improving')
+    expect(c.byKey).toEqual({})
   })
 
   it('still computes improved/slipped when versions match', () => {

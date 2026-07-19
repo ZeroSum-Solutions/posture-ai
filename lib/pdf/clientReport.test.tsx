@@ -5,6 +5,7 @@ import { renderToBuffer } from '@react-pdf/renderer'
 import { ClientReport } from './clientReport'
 import { buildProgramFrom } from '../program/buildProgram'
 import { buildClientComparison } from '../reports/clientComparison'
+import type { ClientComparison } from '../reports/clientComparison'
 import type { Finding } from '../../packages/posture-engine/src/types'
 
 const f = (over: Partial<Finding> & Pick<Finding, 'key' | 'label' | 'region' | 'severityPct' | 'zone'>): Finding => ({
@@ -25,6 +26,13 @@ async function isPdf(el: React.ReactElement): Promise<boolean> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buf = await renderToBuffer(el as any)
   return Buffer.from(buf).slice(0, 4).toString('ascii') === '%PDF'
+}
+
+function renderedText(node: React.ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(renderedText).join(' ')
+  if (!React.isValidElement(node)) return ''
+  return renderedText((node.props as { children?: React.ReactNode }).children)
 }
 
 describe('ClientReport renders (smoke)', () => {
@@ -67,5 +75,28 @@ describe('ClientReport renders (smoke)', () => {
     expect(comparison.overall).toBe('slipped')
     const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} />
     expect(await isPdf(el)).toBe(true)
+  })
+
+  it('renders only the version caveat when a malicious caller supplies cross-version area directions', () => {
+    const comparison: ClientComparison = {
+      priorDateStr: '03 Jun 2026',
+      priorGrade: 'B',
+      currentGrade: 'C',
+      overall: 'not_comparable',
+      byKey: { forward_head_posture: 'improving' },
+    }
+
+    const tree = ClientReport({
+      clientName: 'Jane Doe',
+      practitioner: 'Acme Clinic',
+      dateStr: '28 Jun 2026',
+      report: program,
+      comparison,
+    })
+    const text = renderedText(tree)
+
+    expect(text).toContain("different scoring versions")
+    expect(text).not.toContain('improving')
+    expect(text).not.toContain('worth extra focus')
   })
 })

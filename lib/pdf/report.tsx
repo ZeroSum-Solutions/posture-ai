@@ -9,7 +9,7 @@ import {
 } from '@react-pdf/renderer'
 
 const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational and screening purposes only. Do not substitute for clinical examination by a qualified professional.'
-const ENGINE_VERSION_CAVEAT = "These screenings used different scoring versions, so the grade change isn't directly comparable."
+const ENGINE_VERSION_CAVEAT = 'These screenings used different scoring versions. Comparison values are hidden because scoring changes are not directly comparable.'
 
 const ZONE_COLORS: Record<string, string> = {
   maintain: '#5BD5AC',
@@ -395,6 +395,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
   const gradeCol = gradeColor(grade)
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const showDelta = hasDelta && !engineVersionMismatch
 
   // Group findings by region
   const grouped: Record<string, PdfFinding[]> = {}
@@ -496,11 +497,12 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <Text style={{ fontSize: 9, color: '#949494' }}>{clientName} — {dateStr}</Text>
         </View>
 
-        {(hasDelta || engineVersionMismatch) && (
+        {(showDelta || engineVersionMismatch) && (
           <View style={{ backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 6, padding: 6, marginBottom: 8 }}>
             <Text style={{ fontSize: 7, color: '#CCCCCC' }}>
-              {engineVersionMismatch ? ENGINE_VERSION_CAVEAT + ' ' : ''}
-              {hasDelta ? 'Delta column shows change vs prior assessment. Green = improved, Red = worsened.' : ''}
+              {engineVersionMismatch
+                ? ENGINE_VERSION_CAVEAT
+                : 'Delta column shows change vs prior assessment. Green = improved, Red = worsened.'}
             </Text>
           </View>
         )}
@@ -509,7 +511,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <View key={region}>
             <Text style={styles.regionTitle}>{REGION_LABELS[region] ?? region}</Text>
             {grouped[region].map(f => (
-              <FindingCardPdf key={f.id} f={f} hasDelta={hasDelta} />
+              <FindingCardPdf key={f.id} f={f} hasDelta={showDelta} />
             ))}
           </View>
         ))}
