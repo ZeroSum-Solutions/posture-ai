@@ -24,6 +24,20 @@ const sideFrame = testLandmarksFrames.find(f => f.view === 'side')!
 // ---- Test suite ----
 
 describe('assessFrameQuality', () => {
+  describe('multiple_people', () => {
+    it('blocks a frame when the detector found more than one person', () => {
+      const result = assessFrameQuality(
+        { ...frontFrame, detectedPoseCount: 2 },
+        'front',
+      )
+
+      expect(result.status).toBe('multiple_people')
+      expect(result.warnings).toEqual([
+        'More than one person detected — use one uncropped full-body photo per view.',
+      ])
+    })
+  })
+
   describe('no_person', () => {
     it('returns no_person when landmarks are empty', () => {
       const result = assessFrameQuality(makeFrame('front'), 'front')

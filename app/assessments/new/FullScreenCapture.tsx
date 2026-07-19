@@ -672,9 +672,10 @@ export default function FullScreenCapture({
   // capture order — the free-order flow has no terminal "last view" trigger.
   const requiredReady = REQUIRED_SLOTS.every(s => isCaptured(captures[s]))
   // A required slot whose quality preflight is still running — proceeding now
-  // would bypass the no-person block, so gate the Analyze action until it settles.
+  // would bypass the subject-count block, so gate the Analyze action until it settles.
   const requiredChecking = REQUIRED_SLOTS.some(s => isCaptured(captures[s]) && captures[s].slotStatus === 'checking')
   const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
+  const multiplePeopleViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'multiple_people')
   const direction = DIRECTION[activeSlot]
 
   // Committed-slot warning caption (soft coaching copy for the upload path,
@@ -853,6 +854,11 @@ export default function FullScreenCapture({
                 No person detected — retake {noPersonViews.map(s => SLOT_LABEL[s]).join(', ')}
               </div>
             )}
+            {multiplePeopleViews.length > 0 && (
+              <div role="alert" aria-label="More than one person detected" style={{ background: 'rgba(239,68,68,0.9)', borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+                More than one person detected — use one full-body photo for {multiplePeopleViews.map(s => SLOT_LABEL[s]).join(', ')}
+              </div>
+            )}
             {uploadError && (
               <div role="alert" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', color: 'var(--danger)', textAlign: 'center' }}>
                 {uploadError}
@@ -880,6 +886,9 @@ export default function FullScreenCapture({
                   {previewQuality?.status === 'no_person' && (
                     <p style={{ color: 'var(--danger)', fontSize: '0.82rem', textAlign: 'center', margin: 0, fontWeight: 700 }}>No person detected — retake</p>
                   )}
+                  {previewQuality?.status === 'multiple_people' && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.82rem', textAlign: 'center', margin: 0, fontWeight: 700 }}>More than one person detected — retake</p>
+                  )}
                   {previewQuality?.status === 'warnings' && previewQuality.warnings.length > 0 && (
                     <div style={{ background: 'rgba(255,137,24,0.12)', border: '1px solid rgba(255,137,24,0.3)', borderRadius: 8, padding: '8px 12px' }}>
                       {previewQuality.warnings.map((w, i) => (
@@ -905,8 +914,9 @@ export default function FullScreenCapture({
                 const isActive = slotKey === activeSlot
                 const captured = isCaptured(cap)
                 const optional = !REQUIRED_SLOTS.includes(slotKey)
+                const subjectCountBlocked = cap.slotStatus === 'no_person' || cap.slotStatus === 'multiple_people'
                 const ring = isActive ? 'var(--brand)'
-                  : cap.slotStatus === 'no_person' ? 'var(--danger)'
+                  : subjectCountBlocked ? 'var(--danger)'
                   : cap.slotStatus === 'warnings' ? 'var(--warning)'
                   : captured ? '#10B981'
                   : 'rgba(255,255,255,0.2)'
@@ -931,7 +941,7 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: cap.slotStatus === 'no_person' ? 'var(--danger)' : cap.slotStatus === 'warnings' ? 'var(--warning)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cap.slotStatus === 'no_person' ? '!' : cap.slotStatus === 'warnings' ? '⚠' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: subjectCountBlocked ? 'var(--danger)' : cap.slotStatus === 'warnings' ? 'var(--warning)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{subjectCountBlocked ? '!' : cap.slotStatus === 'warnings' ? '⚠' : '✓'}</span>
                       )}
                     </div>
                     <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>

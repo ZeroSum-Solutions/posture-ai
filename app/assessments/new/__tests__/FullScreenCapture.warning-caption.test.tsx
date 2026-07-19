@@ -58,6 +58,17 @@ function warnedSlot(): Captures[keyof Captures] {
   }
 }
 
+function multiplePeopleSlot(): Captures[keyof Captures] {
+  return {
+    ...emptySlot(), source: 'upload', slotStatus: 'multiple_people', captureId: 1,
+    rawRepresentativeUrl: 'blob:collage', displayPreviewUrl: 'blob:collage',
+    quality: {
+      status: 'multiple_people',
+      warnings: ['More than one person detected — use one uncropped full-body photo per view.'],
+    },
+  }
+}
+
 /**
  * Stubs the browser boundary `capture()` touches — copied from
  * FullScreenCapture.pixel-quality.test.tsx's `stubBrowserBoundary` (same
@@ -212,5 +223,15 @@ describe('FullScreenCapture — committed-slot warning caption', () => {
     // underlying `captures.front` prop is still 'warnings' (unchanged; nothing
     // has been committed yet).
     expect(screen.queryByTestId('slot-quality-caption')).toBeNull()
+  })
+})
+
+describe('FullScreenCapture — blocking subject-count feedback', () => {
+  it('labels a multi-person upload as blocked and tells the user to retake it', async () => {
+    mount(baseCaptures({ front: multiplePeopleSlot() }))
+
+    const alert = await screen.findByRole('alert', { name: /more than one person/i })
+    expect(alert.textContent).toContain('More than one person detected')
+    expect(alert.textContent).toContain('Front')
   })
 })

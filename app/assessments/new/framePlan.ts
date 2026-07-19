@@ -52,9 +52,19 @@ export function stampFrame(
   profileSide: 'left' | 'right' | undefined,
   roll: number | null,
 ): PoseFrame {
+  const scoringFrame = toScoringFrame(f)
   return {
-    ...f,
+    ...scoringFrame,
     ...(profileSide ? { profileSide } : {}),
     ...(roll !== null ? { captureRollDeg: roll } : {}),
   }
+}
+
+/** Remove client-only detection metadata before POSTing to the strict API schema. */
+export function toScoringFrame(
+  frame: PoseFrame & { detectedPoseCount?: number },
+): PoseFrame {
+  const { detectedPoseCount, ...scoringFrame } = frame
+  void detectedPoseCount
+  return scoringFrame
 }
