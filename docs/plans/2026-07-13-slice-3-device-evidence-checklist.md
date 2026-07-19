@@ -20,27 +20,34 @@ The Slice 3 gate (`docs/plans/2026-07-12-capture-guides-autoalign-flow-plan.md:4
 
 | Metric | How to read it | Rough target |
 |---|---|---|
-| Worker init time | time from entering a live view → first landmarks drawn | < ~2 s (masked by the shutter→review transition) |
+| Worker ready p95 | worker spawn → worker `ready` message, including late-ready workers | < ~2 s |
+| First tracked overlay | entering a live view → first landmarks visibly drawn (manual observation) | < ~2 s; investigate if the worker-ready number is fast but drawing is slow |
 | Inference p95 | per-frame `detectForVideo` latency, 95th pct over a 30 s session | ideally < ~90 ms; if higher, confirm the gate doesn't flicker (sample-and-hold covers this) |
 | Long tasks | Performance panel → Long Tasks during live framing | no sustained main-thread jank; shutter/tiles stay responsive |
 | Dropped UI frames | visual smoothness of the video + midline overlay | overlay tracks the subject without stutter |
 | Memory / context loss | repeat capture→retake across all four views ×3, watch memory | bounded (no monotonic growth); no WebGL context-loss crash |
 | Sustained four-view session | full front + left + right + back capture, retakes, then submit | completes; scores 9 findings; no leak/hang |
 
-## How to collect (no instrumentation shipped by default)
+## How to collect (development-only telemetry)
 
-The worker path has no perf logging in the committed code (kept clean). To measure, temporarily add timing in a throwaway branch:
+1. Run the app in development and open `/assessments/new?captureTelemetry=1` on the test phone. The flag is ignored in production builds.
+2. Start camera capture. Open the **Live telemetry · dev only** panel. It records worker-ready time, worker delegate, worker-side inference p95, main-thread round-trip p95, frame results/drops, worker errors/timeouts, long tasks when supported, and JS heap when supported. Results arriving after the UI's one-second timeout remain in the timing distribution and are counted separately as late results, so slow-device p95 is not censored.
+3. Complete the four-view session and retake loop. Before selecting **Analyze**, use **Copy telemetry JSON** and save the output with the device/date evidence.
+4. The export contains device/timing counters only — no photos, landmarks, client identifiers, or screening results.
+5. Safari does not expose Chrome's long-task or JS-heap APIs. An `unsupported` value is honest, not a pass: use Safari's remote Web Inspector for those two checks. WebGL context loss also remains a manual DevTools check because MediaPipe owns the worker's internal GPU context.
+6. `sampling.truncated` must be `false`. If it is `true`, the session exceeded the 20,000-sample safety cap and its percentile evidence is incomplete; repeat a shorter evidence run.
 
-- **Init time:** `console.time('worker-init')` around `startLiveBackend()` in `lib/pose/live-backend.ts`; log on the `ready` message.
-- **Inference p95:** in `lib/pose/live-worker.ts` `handleFrame`, wrap `detectForVideo` with `performance.now()` deltas, push to an array, and `postMessage` a p95 every N frames (or just log deltas and eyeball in the console).
-- **Long tasks:** DevTools Performance record during a live session (remote-debug Safari via Mac; Android via `chrome://inspect`).
-- **Memory:** DevTools Memory timeline across the retake loop.
+The panel removes the old throwaway-code step while keeping instrumentation opt-in and development-only. It does not turn unsupported browser telemetry into a passing result.
 
 ## What to watch for specifically (from the GPT-5.6 review)
 
 - **Gate flicker on slow devices** — if inference p95 > 90 ms, confirm the shutter gate does NOT oscillate between full-gating and tilt-only. The `LIVE_FRESHNESS_MS` (600 ms) sample-and-hold + independent watchdog should keep it stable. If it still flickers, raise `LIVE_FRAME_INTERVAL_MS` or `LIVE_FRESHNESS_MS`.
 - **Exclusivity churn cost** — every shutter closes the worker + warms the IMAGE landmarker, then the next view re-opens the worker (§11.1). Measure the added latency of that churn per view; if it's painful, that's a design conversation (not a code bug).
 - **Viewport-space gate accuracy** — with a real subject, confirm "Line up with the center line" fires when the feet are visibly off the drawn center line, and clears when centered (the gate now runs in viewport space via the same affine the overlay draws with).
+
+## Evidence record per device
+
+Save the copied JSON plus a short note containing: device model/OS/browser version, whether the full four-view flow scored nine findings, whether the gate flickered, whether memory rose monotonically, and whether DevTools showed context loss. Do not attach posture photos.
 
 ## Sign-off
 

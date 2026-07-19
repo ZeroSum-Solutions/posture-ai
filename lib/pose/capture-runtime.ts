@@ -1,4 +1,5 @@
 import type { PoseFrame, ViewLabel } from '@posture-ai/engine/types'
+import { recordLiveTelemetry } from './live-telemetry'
 
 /**
  * The live VIDEO backend (a Web Worker owning one lite `PoseLandmarker` in
@@ -35,6 +36,8 @@ export interface LiveResult {
   landmarks: Record<string, { x: number; y: number; z?: number; visibility?: number }>
   generation: number
   timestampMs: number
+  /** Worker-side synchronous detectForVideo duration. Telemetry only. */
+  inferenceMs: number
 }
 
 export type RuntimeState = 'closed' | 'live-video' | 'review-image'
@@ -103,7 +106,11 @@ export function createCaptureRuntime({ live, image }: RuntimeDeps): CaptureRunti
     frameLive: (bitmap, meta) => {
       // High-frequency; NOT on the mutex. If the worker isn't open, drop the
       // frame and release the bitmap so it can't leak (§11.7 bitmap ownership).
-      if (state !== 'live-video') { bitmap.close?.(); return Promise.resolve(null) }
+      if (state !== 'live-video') {
+        recordLiveTelemetry({ type: 'frame-drop', reason: 'runtime_not_live' })
+        bitmap.close?.()
+        return Promise.resolve(null)
+      }
       return live.detect(bitmap, meta)
     },
 

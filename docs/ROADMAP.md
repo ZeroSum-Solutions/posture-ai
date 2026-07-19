@@ -29,7 +29,9 @@ engine-version not_comparable guard is preserved.
 
 ## Phase 3 — Tier B data collection — BLOCKED (human)
 Devin runs golden/protocol.md (3–5 volunteers × poses × 3 re-positioned repeats
-× 2 devices). Not automatable; out of scope for the phase loop.
+× 2 devices). The minimum pilot is 144 photos. Development-only live telemetry
+now removes the throwaway-instrumentation step for the separate real-device worker
+sign-off, but neither physical evidence task is automatable.
 
 ## Parked (Devin's call, not phases)
 VALIDITY_WEIGHT retirement · pelvic threshold label downgrade · competitor-claim

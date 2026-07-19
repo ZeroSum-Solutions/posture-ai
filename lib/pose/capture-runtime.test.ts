@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { createCaptureRuntime } from './capture-runtime'
 import type { LiveBackend, ImageBackend } from './capture-runtime'
 import type { PoseFrame } from '@posture-ai/engine/types'
+import { disableLiveTelemetry, enableLiveTelemetry, getLiveTelemetrySnapshot } from './live-telemetry'
+
+afterEach(() => disableLiveTelemetry())
 
 // Fake backends that track exactly which landmarker is resident, so a residency
 // counter can PROVE the §11.1 exclusivity invariant: ≤1 landmarker alive at any
@@ -112,5 +115,23 @@ describe('capture-runtime state machine (§11.1 exclusivity)', () => {
     expect(detected).toBe(1)
     expect(frame.view).toBe('side')
     expect(rt.state()).toBe('review-image')
+  })
+
+  it('records and releases a frame offered while the live backend is closed', async () => {
+    const f = makeFakes()
+    const rt = createCaptureRuntime({ live: f.live, image: f.image })
+    let closed = false
+    const bitmap = { close: () => { closed = true } } as ImageBitmap
+    enableLiveTelemetry({
+      userAgent: 'test',
+      viewport: { width: 1, height: 1, devicePixelRatio: 1 },
+      hardwareConcurrency: null,
+      deviceMemoryGb: null,
+    })
+
+    await expect(rt.frameLive(bitmap, { generation: 1, timestampMs: 1, currentTime: 1 })).resolves.toBeNull()
+
+    expect(closed).toBe(true)
+    expect(getLiveTelemetrySnapshot()?.frames.dropReasons.runtime_not_live).toBe(1)
   })
 })

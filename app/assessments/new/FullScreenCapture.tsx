@@ -4,6 +4,7 @@ import type { Landmark } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
+import { recordLiveTelemetry } from '@/lib/pose/live-telemetry'
 import { shutterGate } from '@/lib/capture/shutter-gate'
 import { sourceToViewport } from '@/lib/capture/overlay-transform'
 import { samplePixelsFromSource } from '@/lib/capture/pixel-sample'
@@ -13,6 +14,7 @@ import type { Captures, CaptureSlotKey } from './types'
 import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
 import LiveGuides from './LiveGuides'
+import CaptureTelemetryPanel from './CaptureTelemetryPanel'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
 // A ~5-frame burst of a held pose is enough to estimate landmark jitter without
@@ -335,6 +337,7 @@ export default function FullScreenCapture({
       if (video && video.videoWidth > 0 && ready && typeof createImageBitmap === 'function'
         && now - lastFrameTsRef.current >= LIVE_FRAME_INTERVAL_MS) {
         lastFrameTsRef.current = now
+        recordLiveTelemetry({ type: 'frame-attempt' })
         // Independent freshness watchdog: clear a stale pose whenever no real
         // inference has landed within the window — whether frames are dropped
         // in-flight, rejected by createImageBitmap/frameLive, or simply not
@@ -349,7 +352,11 @@ export default function FullScreenCapture({
           .then(bitmap => {
             // Drop a stale bitmap (view changed / effect stopped while decoding)
             // rather than spending inference on the old view.
-            if (stopped || liveGenRef.current !== gen) { bitmap.close?.(); return null }
+            if (stopped || liveGenRef.current !== gen) {
+              recordLiveTelemetry({ type: 'frame-drop', reason: 'stale_bitmap' })
+              bitmap.close?.()
+              return null
+            }
             return runtime.frameLive(bitmap, { generation: gen, timestampMs: now, currentTime })
           })
           .then(res => {
@@ -360,7 +367,10 @@ export default function FullScreenCapture({
             setLiveFrame({ landmarks: res.landmarks, videoDims })
             lastResultTsRef.current = performance.now()
           })
-          .catch(() => { /* frame skipped — the watchdog handles staleness */ })
+          .catch(() => {
+            recordLiveTelemetry({ type: 'frame-drop', reason: 'bitmap_error' })
+            // Frame skipped — the watchdog handles staleness.
+          })
       }
       raf = requestAnimationFrame(loop)
     }
@@ -687,6 +697,7 @@ export default function FullScreenCapture({
 
   return (
     <div ref={containerRef} tabIndex={-1} aria-label="Posture capture" style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 200, display: 'flex', flexDirection: 'column', color: 'var(--text-primary)', overflow: 'hidden', padding: pad, outline: 'none' }} data-testid="fullscreen-capture" data-immersive-surface>
+      <CaptureTelemetryPanel activeSlot={activeSlot} phase={phase} />
       {/* sr-only assertive announcer for the self-timer countdown (must be
           always-mounted so the live region announces changes) */}
       <div role="timer" aria-live="assertive" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>

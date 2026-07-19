@@ -29,6 +29,7 @@ async function init() {
   try {
     assertPoseOnlyModel(LITE_MODEL_URL)
     const vision = await FilesetResolver.forVisionTasks(WASM_URL)
+    let delegate: 'gpu' | 'cpu' = 'gpu'
     try {
       landmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: LITE_MODEL_URL, delegate: 'GPU' },
@@ -36,13 +37,14 @@ async function init() {
         numPoses: 1,
       })
     } catch {
+      delegate = 'cpu'
       landmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: LITE_MODEL_URL, delegate: 'CPU' },
         runningMode: 'VIDEO',
         numPoses: 1,
       })
     }
-    ctx.postMessage({ type: 'ready' })
+    ctx.postMessage({ type: 'ready', delegate })
   } catch {
     // Init failure → the main thread degrades to sensor-only guides.
     ctx.postMessage({ type: 'error' })
@@ -53,18 +55,20 @@ function handleFrame(msg: FrameMsg) {
   const admitted = landmarker !== null && admitFrame(gate, { generation: msg.generation, timestampMs: msg.timestampMs, currentTime: msg.currentTime })
   if (!admitted) {
     msg.bitmap.close?.()
-    ctx.postMessage({ type: 'result', seq: msg.seq, result: null })
+    ctx.postMessage({ type: 'result', seq: msg.seq, result: null, dropReason: 'worker_gate' })
     return
   }
   gate.inFlight = true
   gate.lastTimestampMs = msg.timestampMs
   gate.lastCurrentTime = msg.currentTime
   try {
+    const startedAt = performance.now()
     const result = landmarker!.detectForVideo(msg.bitmap, msg.timestampMs)
+    const inferenceMs = performance.now() - startedAt
     const landmarks = mapLandmarks(result.landmarks?.[0])
-    ctx.postMessage({ type: 'result', seq: msg.seq, result: { landmarks, generation: msg.generation, timestampMs: msg.timestampMs } })
+    ctx.postMessage({ type: 'result', seq: msg.seq, result: { landmarks, generation: msg.generation, timestampMs: msg.timestampMs, inferenceMs } })
   } catch {
-    ctx.postMessage({ type: 'result', seq: msg.seq, result: null })
+    ctx.postMessage({ type: 'result', seq: msg.seq, result: null, dropReason: 'worker_detect_error' })
   } finally {
     msg.bitmap.close?.()
     gate.inFlight = false

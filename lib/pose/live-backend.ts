@@ -6,6 +6,9 @@
 // the worker's generation token so stale-view frames are dropped in the worker.
 
 import type { LiveFrameMeta, LiveResult } from './capture-runtime'
+import { recordLiveTelemetry, type LiveDropReason, type LiveTelemetryEvent } from './live-telemetry'
+
+type WorkerInitStatus = Extract<LiveTelemetryEvent, { type: 'worker-init' }>['status']
 
 let worker: Worker | null = null
 let ready = false
@@ -13,7 +16,8 @@ let initPromise: Promise<void> | null = null
 let lastSentGeneration = -1
 let inFlight = false
 let seq = 0
-const waiters = new Map<number, (r: LiveResult | null) => void>()
+const waiters = new Map<number, { finish: (r: LiveResult | null) => void; sentAt: number }>()
+const submittedAt = new Map<number, number>()
 
 function spawn(): Worker | null {
   try {
@@ -26,25 +30,64 @@ function spawn(): Worker | null {
 export function startLiveBackend(): Promise<void> {
   if (initPromise) return initPromise
   initPromise = new Promise<void>((resolve) => {
+    const startedAt = performance.now()
     const w = spawn()
-    if (!w) { resolve(); return }
+    if (!w) {
+      recordLiveTelemetry({ type: 'worker-init', durationMs: performance.now() - startedAt, status: 'unsupported' })
+      resolve()
+      return
+    }
     worker = w
     lastSentGeneration = -1
     let settled = false
-    const done = () => { if (!settled) { settled = true; resolve() } }
+    let settledStatus: WorkerInitStatus | null = null
+    let lateReadyRecorded = false
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    const done = (status: WorkerInitStatus, delegate?: 'gpu' | 'cpu') => {
+      if (settled) return
+      settled = true
+      settledStatus = status
+      if (timeout) clearTimeout(timeout)
+      recordLiveTelemetry({ type: 'worker-init', durationMs: performance.now() - startedAt, status, delegate })
+      resolve()
+    }
     w.onmessage = (e: MessageEvent) => {
       const msg = e.data
-      if (msg?.type === 'ready') { ready = true; done() }
-      else if (msg?.type === 'error') { ready = false; done() }
+      if (msg?.type === 'ready') {
+        ready = true
+        if (settled && settledStatus !== 'ready' && !lateReadyRecorded) {
+          lateReadyRecorded = true
+          recordLiveTelemetry({ type: 'worker-ready-late', durationMs: performance.now() - startedAt, delegate: msg.delegate })
+        } else done('ready', msg.delegate)
+      }
+      else if (msg?.type === 'error') { ready = false; done('error') }
       else if (msg?.type === 'result') {
-        const cb = waiters.get(msg.seq)
-        if (cb) { waiters.delete(msg.seq); cb(msg.result ?? null) }
+        const waiter = waiters.get(msg.seq)
+        const sentAt = submittedAt.get(msg.seq)
+        waiters.delete(msg.seq)
+        submittedAt.delete(msg.seq)
+        const result = (msg.result ?? null) as LiveResult | null
+        if (result && sentAt !== undefined) {
+          recordLiveTelemetry({
+            type: 'frame-result',
+            inferenceMs: result.inferenceMs,
+            roundTripMs: performance.now() - sentAt,
+            late: !waiter,
+          })
+        } else if (!result && waiter) {
+          recordLiveTelemetry({ type: 'frame-drop', reason: asDropReason(msg.dropReason) })
+        }
+        waiter?.finish(result)
       }
     }
-    w.onerror = () => { ready = false; done() }
-    try { w.postMessage({ type: 'init' }) } catch { done() }
+    w.onerror = () => {
+      ready = false
+      if (settled) recordLiveTelemetry({ type: 'worker-error', stage: 'runtime' })
+      else done('error')
+    }
+    try { w.postMessage({ type: 'init' }) } catch { done('post_failed') }
     // Never block the state machine forever on a silent worker.
-    setTimeout(done, 8000)
+    if (!settled) timeout = setTimeout(() => done('timeout'), 8000)
   })
   return initPromise
 }
@@ -53,7 +96,9 @@ export function detectLiveBackend(bitmap: ImageBitmap, meta: LiveFrameMeta): Pro
   // Not ready, a detect is already pending, or a stale-generation frame arrived
   // (an old view's bitmap resolved late) — drop it and release its bitmap so the
   // live loop can't accumulate GPU memory or waste inference on the old view.
-  if (!worker || !ready || inFlight || meta.generation < lastSentGeneration) { bitmap.close?.(); return Promise.resolve(null) }
+  if (!worker || !ready) return drop(bitmap, 'backend_not_ready')
+  if (inFlight) return drop(bitmap, 'backend_in_flight')
+  if (meta.generation < lastSentGeneration) return drop(bitmap, 'stale_generation')
   // Sync the worker's generation token — monotonically, so it never moves backward.
   if (meta.generation > lastSentGeneration) {
     try { worker.postMessage({ type: 'generation', generation: meta.generation }) } catch { /* ignore */ }
@@ -61,16 +106,29 @@ export function detectLiveBackend(bitmap: ImageBitmap, meta: LiveFrameMeta): Pro
   }
   const s = ++seq
   inFlight = true
+  const sentAt = performance.now()
   return new Promise<LiveResult | null>((resolve) => {
     const finish = (r: LiveResult | null) => { inFlight = false; resolve(r) }
-    waiters.set(s, finish)
+    waiters.set(s, { finish, sentAt })
+    submittedAt.set(s, sentAt)
     try {
       worker!.postMessage({ type: 'frame', seq: s, bitmap, generation: meta.generation, timestampMs: meta.timestampMs, currentTime: meta.currentTime }, [bitmap])
+      recordLiveTelemetry({ type: 'frame-submitted' })
     } catch {
-      waiters.delete(s); bitmap.close?.(); finish(null); return
+      waiters.delete(s)
+      submittedAt.delete(s)
+      recordLiveTelemetry({ type: 'frame-drop', reason: 'post_failed' })
+      bitmap.close?.()
+      finish(null)
+      return
     }
     // Guard against a lost message so the loop never hangs on `inFlight`.
-    setTimeout(() => { if (waiters.delete(s)) finish(null) }, 1000)
+    setTimeout(() => {
+      if (waiters.delete(s)) {
+        recordLiveTelemetry({ type: 'frame-drop', reason: 'timeout' })
+        finish(null)
+      }
+    }, 1000)
   })
 }
 
@@ -81,8 +139,12 @@ export async function closeLiveBackend(): Promise<void> {
   initPromise = null
   inFlight = false
   lastSentGeneration = -1
-  waiters.forEach(cb => cb(null))
+  waiters.forEach(({ finish }) => {
+    recordLiveTelemetry({ type: 'frame-drop', reason: 'backend_closed' })
+    finish(null)
+  })
   waiters.clear()
+  submittedAt.clear()
   if (!w) return
   await new Promise<void>((resolve) => {
     const t = setTimeout(resolve, 500)
@@ -90,4 +152,15 @@ export async function closeLiveBackend(): Promise<void> {
     try { w.postMessage({ type: 'close' }) } catch { clearTimeout(t); resolve() }
   })
   w.terminate()
+  recordLiveTelemetry({ type: 'worker-close' })
+}
+
+function drop(bitmap: ImageBitmap, reason: LiveDropReason): Promise<null> {
+  recordLiveTelemetry({ type: 'frame-drop', reason })
+  bitmap.close?.()
+  return Promise.resolve(null)
+}
+
+function asDropReason(value: unknown): LiveDropReason {
+  return value === 'worker_detect_error' ? value : 'worker_gate'
 }
