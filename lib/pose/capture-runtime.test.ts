@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect } from 'vitest'
 import { createCaptureRuntime } from './capture-runtime'
 import type { LiveBackend, ImageBackend } from './capture-runtime'
-import type { PoseFrame } from '@posture-ai/engine/types'
+import type { DetectedPoseFrame } from './detect'
 import { disableLiveTelemetry, enableLiveTelemetry, getLiveTelemetrySnapshot } from './live-telemetry'
 
 afterEach(() => disableLiveTelemetry())
@@ -27,7 +27,7 @@ function makeFakes() {
   const image: ImageBackend = {
     warm: async () => { if (liveOn) violations++; imageOn = true; record() },
     close: async () => { imageOn = false },
-    detect: async (): Promise<PoseFrame> => ({ view: 'front', landmarks: {} }),
+    detect: async (): Promise<DetectedPoseFrame> => ({ view: 'front', landmarks: {}, detectedPoseCount: 0 }),
   }
   return {
     live, image,
@@ -109,7 +109,7 @@ describe('capture-runtime state machine (§11.1 exclusivity)', () => {
   it('routes review/submit detection through the resident IMAGE backend', async () => {
     const f = makeFakes()
     let detected = 0
-    const image: ImageBackend = { ...f.image, detect: async () => { detected++; return { view: 'side', landmarks: {} } } }
+    const image: ImageBackend = { ...f.image, detect: async () => { detected++; return { view: 'side', landmarks: {}, detectedPoseCount: 0 } } }
     const rt = createCaptureRuntime({ live: f.live, image })
     const frame = await rt.detect('blob:s', 'side', 'upload')
     expect(detected).toBe(1)

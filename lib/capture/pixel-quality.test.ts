@@ -265,6 +265,10 @@ describe('mergePreflightQuality', () => {
   const ok: FrameQuality = { status: 'ok', warnings: [] }
   const withWarnings: FrameQuality = { status: 'warnings', warnings: ['Shoulders not clearly visible — step back or turn to face the camera directly.'] }
   const noPerson: FrameQuality = { status: 'no_person', warnings: [] }
+  const multiplePeople: FrameQuality = {
+    status: 'multiple_people',
+    warnings: ['More than one person detected — use one uncropped full-body photo per view.'],
+  }
 
   const pixelWarnings: PixelQualityResult = {
     sharpness: 10, lumaMean: 128, darkClip: 0, brightClip: 0, warnings: [BLUR_WARNING],
@@ -300,9 +304,14 @@ describe('mergePreflightQuality', () => {
     expect(mergePreflightQuality(noPerson, pixelClean)).toEqual(noPerson)
   })
 
+  it('multiple_people + pixel warnings → multiple_people unchanged (hard block wins)', () => {
+    expect(mergePreflightQuality(multiplePeople, pixelWarnings)).toEqual(multiplePeople)
+  })
+
   it('null pixelQuality → frameQuality verbatim, for every status', () => {
     expect(mergePreflightQuality(ok, null)).toEqual(ok)
     expect(mergePreflightQuality(withWarnings, null)).toEqual(withWarnings)
     expect(mergePreflightQuality(noPerson, null)).toEqual(noPerson)
+    expect(mergePreflightQuality(multiplePeople, null)).toEqual(multiplePeople)
   })
 })

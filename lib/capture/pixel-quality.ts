@@ -106,7 +106,7 @@ export function assessPixelQuality(img: PixelSample): PixelQualityResult {
 
 /**
  * Merges pixel-quality warnings into the existing frame-quality result.
- * Pure: 'no_person' is untouched (the hard block; pixel warnings never apply),
+ * Pure: subject-count failures are untouched (hard blocks; pixel warnings never apply),
  * a null pixelQuality (sampling/scoring failed open) returns frameQuality
  * verbatim, and otherwise pixel warnings are appended LAST after any existing
  * warnings, upgrading 'ok' to 'warnings' when pixel warnings exist.
@@ -116,7 +116,7 @@ export function mergePreflightQuality(
   pixelQuality: PixelQualityResult | null,
 ): FrameQuality {
   if (pixelQuality === null) return frameQuality
-  if (frameQuality.status === 'no_person') return frameQuality
+  if (frameQuality.status === 'no_person' || frameQuality.status === 'multiple_people') return frameQuality
   if (pixelQuality.warnings.length === 0) return frameQuality
 
   return {

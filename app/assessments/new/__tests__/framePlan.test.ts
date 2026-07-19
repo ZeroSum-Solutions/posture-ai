@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { PoseFrame } from '@posture-ai/engine/types'
-import { buildFramePlan, stampFrame } from '../framePlan'
+import { buildFramePlan, stampFrame, toScoringFrame } from '../framePlan'
 import { emptySlot } from '../types'
 import type { Captures } from '../types'
 
@@ -74,5 +74,17 @@ describe('stampFrame', () => {
     const out = stampFrame(frame('front'), undefined, null)
     expect(out.profileSide).toBeUndefined()
     expect(out.captureRollDeg).toBeUndefined()
+  })
+})
+
+describe('toScoringFrame', () => {
+  it('strips client-only subject-count metadata before the strict API boundary', () => {
+    const out = toScoringFrame({
+      ...frame('front'),
+      detectedPoseCount: 2,
+    })
+
+    expect(out).toEqual(frame('front'))
+    expect(out).not.toHaveProperty('detectedPoseCount')
   })
 })

@@ -13,7 +13,7 @@ export type ViewKey = 'front' | 'side' | 'back'
 export type CaptureSlotKey = 'front' | 'side-left' | 'side-right' | 'back'
 
 // Per-slot quality state
-export type SlotStatus = 'idle' | 'checking' | 'ok' | 'no_person' | 'warnings'
+export type SlotStatus = 'idle' | 'checking' | 'ok' | 'no_person' | 'multiple_people' | 'warnings'
 
 export interface CaptureSlot {
   file: File | null

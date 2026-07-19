@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-const detectSpy = vi.fn(() => ({
+const singlePoseResult = () => ({
   landmarks: [[{ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }]],
-}))
+})
+const detectSpy = vi.fn(singlePoseResult)
+const createSpy = vi.fn(async () => ({ detect: detectSpy }))
 
 vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: async () => ({}) },
-  PoseLandmarker: { createFromOptions: async () => ({ detect: detectSpy }) },
+  PoseLandmarker: { createFromOptions: createSpy },
 }))
 
 // jsdom's Image never fires load for a data URL; stub a decoder that resolves.
@@ -22,8 +24,37 @@ class FakeImage {
 }
 
 beforeEach(() => {
-  detectSpy.mockClear()
+  detectSpy.mockReset()
+  detectSpy.mockImplementation(singlePoseResult)
+  createSpy.mockClear()
+  vi.resetModules()
   vi.stubGlobal('Image', FakeImage as unknown as typeof Image)
+})
+
+describe('detectPose subject count', () => {
+  test('asks MediaPipe for enough poses to distinguish one subject from a collage', async () => {
+    const { detectPose } = await import('./detect')
+    await detectPose('data:image/png;base64,ONE_PERSON', 'front', 'upload')
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ numPoses: 2 }),
+    )
+  })
+
+  test('reports multiple detected poses instead of silently scoring the first one', async () => {
+    detectSpy.mockReturnValueOnce({
+      landmarks: [
+        [{ x: 0.25, y: 0.5, z: 0, visibility: 0.9 }],
+        [{ x: 0.75, y: 0.5, z: 0, visibility: 0.9 }],
+      ],
+    })
+    const { detectPose } = await import('./detect')
+
+    const frame = await detectPose('data:image/png;base64,TWO_PEOPLE', 'front', 'upload')
+
+    expect(frame.detectedPoseCount).toBe(2)
+  })
 })
 
 describe('detectPose result caching', () => {

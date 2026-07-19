@@ -9,7 +9,7 @@ import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
-import { buildFramePlan, stampFrame } from './framePlan'
+import { buildFramePlan, stampFrame, toScoringFrame } from './framePlan'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
@@ -230,6 +230,7 @@ function NewAssessmentWizard() {
       const quality = mergePreflightQuality(assessFrameQuality(rawPoseFrame, view), pixelQuality)
 
       const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
+        : quality.status === 'multiple_people' ? 'multiple_people'
         : quality.status === 'warnings' ? 'warnings'
         : 'ok'
 
@@ -282,9 +283,11 @@ function NewAssessmentWizard() {
     if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality)
   }
 
-  // Check if submit should be blocked: a required slot has 'no_person' status
+  // Check if submit should be blocked: a required slot has an invalid subject count.
   function hasBlockingSlot(): boolean {
-    return REQUIRED_SLOTS.some(v => isCaptured(captures[v]) && captures[v].slotStatus === 'no_person')
+    return REQUIRED_SLOTS.some(v => isCaptured(captures[v]) && (
+      captures[v].slotStatus === 'no_person' || captures[v].slotStatus === 'multiple_people'
+    ))
   }
 
   async function validateAndProceed() {
@@ -294,7 +297,7 @@ function NewAssessmentWizard() {
         if (!isCaptured(captures[slot])) { setUploadError(`${SLOT_LABEL[slot]} view is required before proceeding.`); return }
       }
       if (hasBlockingSlot()) {
-        setUploadError('One or more views has no person detected. Please retake those photos.')
+        setUploadError('Each required view must show exactly one person. Please retake the marked photos.')
         return
       }
     }
@@ -332,7 +335,7 @@ function NewAssessmentWizard() {
               }
             } else if (p.cachedFrame) {
               // Single frame from preflight — already carries profileSide + roll.
-              frames.push(p.cachedFrame)
+              frames.push(toScoringFrame(p.cachedFrame))
             } else if (p.fallbackUrl) {
               // Preflight was skipped or failed — detect now.
               const detected = await runtime.detect(p.fallbackUrl, p.view, p.source ?? 'upload')

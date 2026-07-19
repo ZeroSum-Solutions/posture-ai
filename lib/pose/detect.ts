@@ -14,6 +14,11 @@ import {
   mapLandmarks,
 } from './pose-model'
 
+/** Client-only detector metadata used by capture preflight, never sent to the API. */
+export interface DetectedPoseFrame extends PoseFrame {
+  detectedPoseCount: number
+}
+
 let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
 async function getLandmarker(): Promise<PoseLandmarker> {
@@ -26,14 +31,14 @@ async function getLandmarker(): Promise<PoseLandmarker> {
         lm = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
           runningMode: 'IMAGE',
-          numPoses: 1,
+          numPoses: 2,
         })
       } catch {
         // Fall back to CPU when the WebGL/GPU delegate is unavailable.
         lm = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
           runningMode: 'IMAGE',
-          numPoses: 1,
+          numPoses: 2,
         })
       }
       // Auditable affirmation: pose-only model loaded, no face geometry path.
@@ -99,14 +104,14 @@ export async function closeLandmarker(): Promise<void> {
 // representative capture frame is requested up to 3× per view (preview badge,
 // preflight, submit burst). Memoize by (view|source|src) so the landmarker runs
 // once per distinct frame. Bounded so large data-URL keys don't accumulate.
-const detectCache = new Map<string, Promise<PoseFrame>>()
+const detectCache = new Map<string, Promise<DetectedPoseFrame>>()
 const DETECT_CACHE_MAX = 8
 
 export function detectPose(
   src: string,
   view: ViewLabel,
   source?: 'camera' | 'upload'
-): Promise<PoseFrame> {
+): Promise<DetectedPoseFrame> {
   const key = `${view}|${source ?? ''}|${src}`
   const cached = detectCache.get(key)
   if (cached) return cached
@@ -125,12 +130,16 @@ async function detectPoseUncached(
   src: string,
   view: ViewLabel,
   source?: 'camera' | 'upload'
-): Promise<PoseFrame> {
+): Promise<DetectedPoseFrame> {
   const landmarker = await getLandmarker()
   const img = await loadImage(src)
   const result = landmarker.detect(img)
   const landmarks = mapLandmarks(result.landmarks?.[0])
-  const frame: PoseFrame = { view, landmarks }
+  const frame: DetectedPoseFrame = {
+    view,
+    landmarks,
+    detectedPoseCount: result.landmarks?.length ?? 0,
+  }
   if (img.naturalWidth > 0 && img.naturalHeight > 0) {
     frame.aspectRatio = img.naturalWidth / img.naturalHeight
   }

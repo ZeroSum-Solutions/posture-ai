@@ -1,4 +1,5 @@
-import type { PoseFrame, ViewLabel } from '@posture-ai/engine/types'
+import type { ViewLabel } from '@posture-ai/engine/types'
+import type { DetectedPoseFrame } from './detect'
 import { recordLiveTelemetry } from './live-telemetry'
 
 /**
@@ -29,7 +30,7 @@ export interface LiveBackend {
 export interface ImageBackend {
   warm(): Promise<void>
   close(): Promise<void>
-  detect(src: string, view: ViewLabel, source?: 'camera' | 'upload'): Promise<PoseFrame>
+  detect(src: string, view: ViewLabel, source?: 'camera' | 'upload'): Promise<DetectedPoseFrame>
 }
 
 export interface LiveResult {
@@ -53,7 +54,7 @@ export interface CaptureRuntime {
   /** Review-preflight + submit scoring: ensure the IMAGE backend is resident
    *  (closing the live worker first), then detect. Serialized so a concurrent
    *  enterLive can never close the landmarker mid-detection. */
-  detect(src: string, view: ViewLabel, source?: 'camera' | 'upload'): Promise<PoseFrame>
+  detect(src: string, view: ViewLabel, source?: 'camera' | 'upload'): Promise<DetectedPoseFrame>
   /** Close whichever backend is open (error / visibilitychange-hidden / unmount). */
   dispose(): Promise<void>
 }

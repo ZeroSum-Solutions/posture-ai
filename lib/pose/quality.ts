@@ -1,4 +1,5 @@
 import type { Landmark, PoseFrame } from '@posture-ai/engine/types'
+import type { DetectedPoseFrame } from './detect'
 import { RELIABILITY_FLOOR } from '@posture-ai/engine/thresholds'
 
 export function isVisible(landmark: Landmark | undefined): landmark is Landmark {
@@ -6,7 +7,7 @@ export function isVisible(landmark: Landmark | undefined): landmark is Landmark 
 }
 
 export interface FrameQuality {
-  status: 'ok' | 'no_person' | 'warnings'
+  status: 'ok' | 'no_person' | 'multiple_people' | 'warnings'
   warnings: string[]
 }
 
@@ -123,14 +124,25 @@ function framingWarnings(frame: PoseFrame): string[] {
  *
  * Returns:
  *   'no_person'  — no scoreable landmarks detected at all
+ *   'multiple_people' — more than one subject was detected; scoring is blocked
  *   'ok'         — all key landmark groups for this view are visible
  *   'warnings'   — some groups are low-vis; submit is allowed but with guidance
  *
  * Side view: only the BETTER side per group is evaluated. The far leg is
  * expected to be occluded in profile shots — do NOT warn about it.
  */
-export function assessFrameQuality(frame: PoseFrame, view: ViewKey): FrameQuality {
+export function assessFrameQuality(
+  frame: PoseFrame & Partial<Pick<DetectedPoseFrame, 'detectedPoseCount'>>,
+  view: ViewKey,
+): FrameQuality {
   const lm = frame.landmarks
+
+  if ((frame.detectedPoseCount ?? 0) > 1) {
+    return {
+      status: 'multiple_people',
+      warnings: ['More than one person detected — use one uncropped full-body photo per view.'],
+    }
+  }
 
   // No person: fewer than 4 landmarks populated
   if (Object.keys(lm).length < 4) {
