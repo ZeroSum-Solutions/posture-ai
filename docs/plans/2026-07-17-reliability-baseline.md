@@ -62,8 +62,12 @@ justifies cutoffs. Kept separate from lib/pose/quality.ts (landmark-space) by de
 
 ### 5. Honest uncertainty in reports (after 3 produces a profile)
 Replace the flat `SEVERITY_DEADBAND = 5` in lib/reports/clientComparison.ts:35 with
-per-metric MDC-based deltas from the versioned reliability profile; preserve the existing
-engine-version `not_comparable` guard. Only claim improving/attention when |Δ| > MDC95.
+per-metric severity-percentage-point MDC deltas from an eligible, versioned reliability
+profile; preserve the existing engine-version `not_comparable` guard. Only claim
+improving/attention when |Δ severity_pct| exceeds the profile's percentage-point MDC95.
+The degree MDC95 remains for measurement reporting and must never be compared directly
+with `severity_pct`. An absent, ineligible, stale, or incomplete profile retains the flat
+5-point fallback byte-for-byte.
 
 ## Flagged decisions for Devin (score-affecting — NOT in this phase's diffs)
 1. **VALIDITY_WEIGHT** (engine.ts:113, thresholds.ts:159): literature-cited metrics get 2×

@@ -10,18 +10,24 @@
 //
 // Groups the views of each re-positioned capture, runs the real engine, and
 // reports per-metric ICC(2,1)/SEM/MDC95 across repeats. Writes a versioned
-// profile to golden/reports/reliability-profile.json. With 3–5 pilot subjects
-// the profile is labeled "pilot" — never publish a universal ±X° claim from it.
+// profile to golden/reports/reliability-profile.json. The profile stays labeled
+// "pilot" and consumer-ineligible until uncertainty is separately qualified.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assessPosture, ENGINE_VERSION } from '../packages/posture-engine/src/engine'
 import type { PoseFrame } from '../packages/posture-engine/src/types'
+import type { TierBPoseModel } from '../lib/pose/tierb-contract'
 import {
-  buildRepeatMatrix,
-  testRetestReliability,
-  type ReliabilityStats,
-} from '../packages/posture-engine/src/reliability'
+  buildMetricReliability,
+  buildReliabilityProfile,
+  assertCapturePoseModel,
+  EXPECTED_REPEAT_IDS,
+  parseTierBFileName,
+  validateTierBProvenance,
+  type MetricCaptureRecord,
+  type MetricReliabilityProfile,
+} from './golden-repeatability-core'
 
 function arg(name: string, fallback: string): string {
   const index = process.argv.indexOf(`--${name}`)
@@ -30,34 +36,44 @@ function arg(name: string, fallback: string): string {
 
 const TIERB = arg('dir', join('packages', 'posture-engine', 'golden', 'tierb'))
 const REPORTS = arg('out', join('packages', 'posture-engine', 'golden', 'reports'))
-// [1]=pose [2]=view [3]=device [4]=repeat
-const FILE_RE = /^([a-z0-9-]+)_(front|side|back)_([a-z0-9-]+)_r(\d+)\.landmarks\.json$/
-
 interface IngestPayload {
   frames: PoseFrame[]
+  poseModel?: unknown
+  protocolVersion?: unknown
 }
 
 const subjects = existsSync(TIERB)
-  ? readdirSync(TIERB, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+  ? readdirSync(TIERB, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort()
   : []
 
 // captureKey = subject|pose|device|repeat → frames across views
-const captures = new Map<string, { caseKey: string; frames: PoseFrame[] }>()
+const captures = new Map<string, {
+  caseKey: string
+  repeatId: string
+  poseModel: TierBPoseModel
+  frames: PoseFrame[]
+}>()
 let skipped = 0
 
 for (const subject of subjects) {
   for (const file of readdirSync(join(TIERB, subject)).sort()) {
     if (!file.endsWith('.landmarks.json')) continue
-    const m = FILE_RE.exec(file)
-    if (!m) {
+    const parsed = parseTierBFileName(file)
+    if (!parsed) {
       console.warn(`skipping ${subject}/${file} — name must match <pose>_<view>_<device>_r<repeat>.landmarks.json`)
       skipped++
       continue
     }
-    const [, pose, , device, repeat] = m
     const payload = JSON.parse(readFileSync(join(TIERB, subject, file), 'utf8')) as IngestPayload
-    const captureKey = `${subject}|${pose}|${device}|${repeat}`
-    const entry = captures.get(captureKey) ?? { caseKey: `${subject}|${pose}|${device}`, frames: [] }
+    const poseModel = validateTierBProvenance(payload, `${subject}/${file}`)
+    const captureKey = `${subject}|${parsed.pose}|${parsed.device}|${parsed.repeatId}`
+    const entry = captures.get(captureKey) ?? {
+      caseKey: `${subject}|${parsed.pose}|${parsed.device}`,
+      repeatId: parsed.repeatId,
+      poseModel,
+      frames: [],
+    }
+    assertCapturePoseModel(entry.poseModel, poseModel, captureKey)
     entry.frames.push(...payload.frames)
     captures.set(captureKey, entry)
   }
@@ -73,31 +89,35 @@ if (captures.size === 0) {
   process.exit(0)
 }
 
-// metric → per-capture deviations, insertion-ordered so repeats align by caseKey
-const byMetric = new Map<string, Array<{ caseKey: string; value: number }>>()
+// metric → per-capture values. repeatId is preserved so missing unreliable
+// findings drop an incomplete case instead of silently shifting matrix columns.
+const byMetric = new Map<string, MetricCaptureRecord[]>()
 let unreliableFindings = 0
 
-for (const { caseKey, frames } of captures.values()) {
+for (const { caseKey, repeatId, frames } of captures.values()) {
   const result = assessPosture(frames)
   for (const finding of result.findings) {
     // NOTE (honesty): excluding unreliable findings drops exactly the noisy
     // captures, so the resulting ICC is repeatability of the RELIABLE-GATED
     // pipeline, not of raw capture — an optimistic bound on the latter. The
-    // count is surfaced in the profile so readers can judge the bias. It also
-    // means a case can lose one repeat and be dropped by the complete-case
-    // guard; columns align by insertion order (repeats are exchangeable, but
-    // a matrix can look complete while mixing repeat labels across cases).
+    // count is surfaced in the profile so readers can judge the bias. A case
+    // that loses one repeat is dropped by the labeled complete-case guard.
     if (!finding.reliable) {
       unreliableFindings++
       continue
     }
     const records = byMetric.get(finding.key) ?? []
-    records.push({ caseKey, value: finding.deviation })
+    records.push({
+      caseKey,
+      repeatId,
+      deviationDeg: finding.deviation,
+      severityPct: finding.severityPct,
+    })
     byMetric.set(finding.key, records)
   }
 }
 
-const perMetric: Record<string, ReliabilityStats & { droppedCases: string[] }> = {}
+const perMetric: Record<string, MetricReliabilityProfile> = {}
 
 console.log(`Captures assessed: ${captures.size} (engine ${ENGINE_VERSION})`)
 if (skipped) console.log(`Files skipped (bad name): ${skipped}`)
@@ -109,13 +129,17 @@ console.log(
 console.log('-'.repeat(69))
 
 for (const [metric, records] of byMetric) {
-  const { matrix, droppedCases, kRepeats } = buildRepeatMatrix(records)
-  const stats = testRetestReliability(matrix)
+  const metricProfile = buildMetricReliability(records, EXPECTED_REPEAT_IDS)
+  const stats = metricProfile.deviationDeg.stats
+  const { droppedCases, repeatIds } = metricProfile
   if (!stats) {
-    console.log(`${metric.padEnd(31)} insufficient data (${matrix.length} complete cases × ${kRepeats} repeats)`)
+    const completeCases = records.length > 0
+      ? new Set(records.map((record) => record.caseKey)).size - droppedCases.length
+      : 0
+    console.log(`${metric.padEnd(31)} insufficient data (${completeCases} complete cases × ${repeatIds.length} repeats)`)
     continue
   }
-  perMetric[metric] = { ...stats, droppedCases }
+  perMetric[metric] = metricProfile
   console.log(
     metric.padEnd(31) + String(stats.nCases).padStart(6) + String(stats.kRepeats).padStart(4) +
       stats.icc21.toFixed(3).padStart(10) + stats.sem.toFixed(2).padStart(8) +
@@ -127,26 +151,25 @@ for (const [metric, records] of byMetric) {
 const nSubjects = subjects.filter((s) =>
   [...captures.values()].some((c) => c.caseKey.startsWith(`${s}|`)),
 ).length
+const poseModels = [...new Set([...captures.values()].map((capture) => capture.poseModel))]
+if (poseModels.length !== 1) {
+  throw new Error(`Tier B dataset must contain exactly one pose model; found ${poseModels.join(', ') || 'none'}`)
+}
+
+const profile = buildReliabilityProfile({
+  engineVersion: ENGINE_VERSION,
+  poseModel: poseModels[0],
+  generatedAt: new Date().toISOString(),
+  nSubjects,
+  capturesAssessed: captures.size,
+  unreliableFindingsExcluded: unreliableFindings,
+  perMetric,
+})
 
 mkdirSync(REPORTS, { recursive: true })
 const outPath = join(REPORTS, 'reliability-profile.json')
 writeFileSync(
   outPath,
-  JSON.stringify(
-    {
-      engineVersion: ENGINE_VERSION,
-      generatedAt: new Date().toISOString(),
-      // pilot until the sample supports a general claim — see plan §3
-      label: nSubjects <= 5 ? 'pilot' : 'full',
-      nSubjects,
-      capturesAssessed: captures.size,
-      // Reliability of the reliable-gated pipeline: unreliable findings are
-      // excluded before ICC, an optimistic bound on raw-capture repeatability.
-      unreliableFindingsExcluded: unreliableFindings,
-      perMetric,
-    },
-    null,
-    2,
-  ) + '\n',
+  JSON.stringify(profile, null, 2) + '\n',
 )
 console.log(`\nProfile written: ${outPath}`)

@@ -9,6 +9,8 @@
 import { useState } from 'react'
 import { notFound } from 'next/navigation'
 import { detectPose } from '@/lib/pose/detect'
+import { SCORING_MODEL_VARIANT } from '@/lib/pose/pose-model'
+import { TIER_B_PROTOCOL_VERSION } from '@/lib/pose/tierb-contract'
 
 export default function GoldenIngestPage() {
   if (process.env.NODE_ENV === 'production') notFound()
@@ -24,6 +26,8 @@ export default function GoldenIngestPage() {
       const payload = {
         frames: [result],
         groundTruth: {}, // fill from photos-local/manifest.csv before committing
+        poseModel: SCORING_MODEL_VARIANT,
+        protocolVersion: TIER_B_PROTOCOL_VERSION,
         device: navigator.userAgent,
         capturedAt: new Date().toISOString(),
         sourceFile: file.name,

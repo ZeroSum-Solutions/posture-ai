@@ -19,6 +19,10 @@ only); dark photos also warn blur (contrast-dependent Laplacian).
 ## Phase 2 — Reliability-profile plumbing (plan §5, fallback form) — UNFINISHED
 Versioned per-metric reliability profile (golden/reports/reliability-profile.json)
 consumed by report comparison: |Δ| > MDC95 gates improving/attention claims.
+The pre-data contract emits separate degree and severity-percentage-point
+statistics; the comparison consumer must use the percentage-point MDC95 and
+must reject any profile with `consumerEligible: false`. Never compare degree
+MDC95 directly with `severity_pct`.
 HARD CONSTRAINT: with no committed profile (golden/tierb/ still empty), behavior
 must be byte-identical to today's flat SEVERITY_DEADBAND = 5 fallback; the
 engine-version not_comparable guard is preserved.

@@ -31,7 +31,10 @@ For each photo write one line in `golden/photos-local/manifest.csv`:
 `subject,pose,view,repeat,device,measured_angle_deg,notes`
 
 ## Ingestion
-1. `npm run dev`, open http://localhost:3000/dev/golden-ingest
+1. Run `NEXT_PUBLIC_POSE_MODEL=lite npm run dev`, then open
+   http://localhost:3000/dev/golden-ingest. The downloaded JSON records the
+   selected `poseModel` and protocol version; the repeatability harness rejects
+   missing, mixed, or incompatible provenance.
 2. Drop each photo; the page runs the real detectPose and downloads
    `<name>.landmarks.json`
 3. Move the JSON to `golden/tierb/<subject>/`, fill `groundTruth` from the
@@ -44,4 +47,7 @@ For each photo write one line in `golden/photos-local/manifest.csv`:
 ## Analysis
 `npx vite-node scripts/golden-repeatability.ts` — per-metric test-retest
 ICC(2,1)/SEM/MDC95 across the re-positioned repeats, written to
-`golden/reports/reliability-profile.json` (labeled `pilot` at ≤5 subjects).
+`golden/reports/reliability-profile.json`. The profile reports separate degree
+and severity-percentage-point statistics, remains labeled `pilot`, and carries
+`consumerEligible: false` until confidence-interval and clustered-uncertainty
+requirements are resolved. It must not gate report comparisons in that state.

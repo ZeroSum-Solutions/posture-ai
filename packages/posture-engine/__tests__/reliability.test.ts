@@ -37,6 +37,19 @@ describe('testRetestReliability', () => {
     expect(stats.sd).toBeCloseTo(5.670231, 5)
   })
 
+  it('penalizes a systematic repeat offset under absolute agreement', () => {
+    // Each row rises perfectly between repeats, so ICC(3,1) consistency is 1.
+    // ICC(2,1) absolute agreement must include that 10-unit column shift and is
+    // analytically 1/31 for this matrix (MSR=10/3, MSC=200, MSE=0).
+    const stats = testRetestReliability([
+      [1, 11],
+      [2, 12],
+      [3, 13],
+      [4, 14],
+    ])!
+    expect(stats.icc21).toBeCloseTo(1 / 31, 12)
+  })
+
   it('reports near-perfect reliability when repeats are identical', () => {
     const stats = testRetestReliability([
       [10, 10, 10],
@@ -76,6 +89,17 @@ describe('testRetestReliability', () => {
     expect(() => testRetestReliability([[1, 2], [3], [4, 5]])).toThrow()
   })
 
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'rejects non-finite measurement %s',
+    (nonFinite) => {
+      expect(() => testRetestReliability([
+        [1, 2],
+        [3, nonFinite],
+        [4, 5],
+      ])).toThrow('finite')
+    },
+  )
+
   it('does not mutate its input', () => {
     const input = KNOWN.map((r) => [...r])
     testRetestReliability(input)
@@ -84,31 +108,40 @@ describe('testRetestReliability', () => {
 })
 
 describe('buildRepeatMatrix', () => {
-  it('groups values by case into rows of k=max observed repeats, preserving insertion order', () => {
+  it('aligns columns by repeat label rather than record insertion order', () => {
     const { matrix, droppedCases, kRepeats } = buildRepeatMatrix([
-      { caseKey: 'a/neutral/front/iphone', value: 1 },
-      { caseKey: 'b/neutral/front/iphone', value: 10 },
-      { caseKey: 'a/neutral/front/iphone', value: 2 },
-      { caseKey: 'b/neutral/front/iphone', value: 11 },
-      { caseKey: 'a/neutral/front/iphone', value: 3 },
-      { caseKey: 'b/neutral/front/iphone', value: 12 },
+      { caseKey: 'a/neutral/front/iphone', repeatId: '2', value: 2 },
+      { caseKey: 'b/neutral/front/iphone', repeatId: '1', value: 10 },
+      { caseKey: 'a/neutral/front/iphone', repeatId: '1', value: 1 },
+      { caseKey: 'b/neutral/front/iphone', repeatId: '2', value: 20 },
     ])
-    expect(kRepeats).toBe(3)
+    expect(kRepeats).toBe(2)
     expect(matrix).toEqual([
-      [1, 2, 3],
-      [10, 11, 12],
+      [1, 2],
+      [10, 20],
     ])
     expect(droppedCases).toEqual([])
   })
 
-  it('drops cases with fewer than the max repeat count and reports them', () => {
-    const { matrix, droppedCases } = buildRepeatMatrix([
-      { caseKey: 'a', value: 1 },
-      { caseKey: 'a', value: 2 },
-      { caseKey: 'b', value: 5 },
-    ])
-    expect(matrix).toEqual([[1, 2]])
-    expect(droppedCases).toEqual(['b'])
+  it('drops a case missing the middle expected repeat instead of shifting columns', () => {
+    const { matrix, droppedCases, repeatIds } = buildRepeatMatrix([
+      { caseKey: 'a', repeatId: '1', value: 1 },
+      { caseKey: 'a', repeatId: '3', value: 3 },
+      { caseKey: 'b', repeatId: '1', value: 10 },
+      { caseKey: 'b', repeatId: '2', value: 20 },
+      { caseKey: 'b', repeatId: '3', value: 30 },
+    ], ['1', '2', '3'])
+    expect(matrix).toEqual([[10, 20, 30]])
+    expect(droppedCases).toEqual(['a'])
+    expect(repeatIds).toEqual(['1', '2', '3'])
+  })
+
+  it('rejects duplicate values for the same case and repeat label', () => {
+    expect(() => buildRepeatMatrix([
+      { caseKey: 'a', repeatId: '1', value: 1 },
+      { caseKey: 'a', repeatId: '1', value: 2 },
+      { caseKey: 'a', repeatId: '2', value: 3 },
+    ])).toThrow('duplicate repeat')
   })
 
   it('returns an empty matrix for no records', () => {

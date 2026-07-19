@@ -23,34 +23,55 @@ export interface ReliabilityStats {
 export interface RepeatMatrix {
   /** Rows = cases with the full repeat count, in first-seen order. */
   matrix: number[][]
-  /** Cases excluded for having fewer than kRepeats values (complete-case analysis). */
+  /** Cases excluded for missing one or more expected repeat labels. */
   droppedCases: string[]
-  /** Max repeat count observed across cases; 0 when there are no records. */
+  /** Repeat labels defining the matrix columns, in canonical order. */
+  repeatIds: string[]
+  /** Number of labeled repeat columns; 0 when there are no records or expected labels. */
   kRepeats: number
 }
 
 /**
  * Groups per-capture values into the repeated-measures matrix
- * testRetestReliability expects. Values sharing a caseKey are that case's
- * repeats, in insertion order; cases missing repeats are dropped and reported.
+ * testRetestReliability expects. Repeat labels, not record insertion order,
+ * define the columns. Cases missing an expected repeat are dropped and
+ * reported; duplicate or unexpected case/repeat cells fail loudly.
  */
 export function buildRepeatMatrix(
-  records: Array<{ caseKey: string; value: number }>,
+  records: Array<{ caseKey: string; repeatId: string; value: number }>,
+  expectedRepeatIds?: readonly string[],
 ): RepeatMatrix {
-  const byCase = new Map<string, number[]>()
-  for (const { caseKey, value } of records) {
-    const values = byCase.get(caseKey) ?? []
-    values.push(value)
+  const inferredRepeatIds = [...new Set(records.map((record) => record.repeatId))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const repeatIds = expectedRepeatIds ? [...expectedRepeatIds] : inferredRepeatIds
+  if (new Set(repeatIds).size !== repeatIds.length) {
+    throw new Error('duplicate repeat label in expectedRepeatIds')
+  }
+
+  const expected = new Set(repeatIds)
+  const byCase = new Map<string, Map<string, number>>()
+  for (const { caseKey, repeatId, value } of records) {
+    if (!expected.has(repeatId)) {
+      throw new Error(`unexpected repeat label ${repeatId} for case ${caseKey}`)
+    }
+    const values = byCase.get(caseKey) ?? new Map<string, number>()
+    if (values.has(repeatId)) {
+      throw new Error(`duplicate repeat ${repeatId} for case ${caseKey}`)
+    }
+    values.set(repeatId, value)
     byCase.set(caseKey, values)
   }
-  const kRepeats = Math.max(0, ...[...byCase.values()].map((v) => v.length))
+
+  const kRepeats = repeatIds.length
   const matrix: number[][] = []
   const droppedCases: string[] = []
   for (const [caseKey, values] of byCase) {
-    if (values.length === kRepeats) matrix.push(values)
+    if (repeatIds.every((repeatId) => values.has(repeatId))) {
+      matrix.push(repeatIds.map((repeatId) => values.get(repeatId)!))
+    }
     else droppedCases.push(caseKey)
   }
-  return { matrix, droppedCases, kRepeats }
+  return { matrix, droppedCases, repeatIds, kRepeats }
 }
 
 /**
@@ -64,6 +85,9 @@ export function testRetestReliability(matrix: number[][]): ReliabilityStats | nu
   for (const row of matrix) {
     if (row.length !== k) {
       throw new Error(`ragged matrix: expected ${k} repeats, got ${row.length}`)
+    }
+    if (row.some((value) => !Number.isFinite(value))) {
+      throw new Error('reliability matrix values must be finite')
     }
   }
   if (n < 3 || k < 2) return null
