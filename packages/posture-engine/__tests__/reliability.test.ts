@@ -13,7 +13,9 @@
  * (within-burst detector jitter, types.ts) explicitly cannot see.
  *
  * Expected values below were computed independently with the textbook
- * two-way-ANOVA formula (Shrout & Fleiss ICC(2,1)) in Python.
+ * two-way-ANOVA formula (Shrout & Fleiss ICC(2,1)) in Python. For KNOWN the
+ * reproducible ANOVA components are MSR=115.6666666667, MSC=0.5833333333,
+ * and MSE=0.9166666667.
  */
 import { describe, it, expect } from 'vitest'
 import { testRetestReliability, buildRepeatMatrix } from '../src/reliability'
@@ -105,6 +107,50 @@ describe('testRetestReliability', () => {
     testRetestReliability(input)
     expect(input).toEqual(KNOWN)
   })
+
+  it('is invariant to case-row and repeat-column ordering', () => {
+    const baseline = testRetestReliability(KNOWN)!
+    const rowPermuted = testRetestReliability([...KNOWN].reverse())!
+    const columnPermuted = testRetestReliability(KNOWN.map((row) => [row[2], row[0], row[1]]))!
+
+    for (const candidate of [rowPermuted, columnPermuted]) {
+      expect(candidate.icc21).toBeCloseTo(baseline.icc21, 12)
+      expect(candidate.mean).toBeCloseTo(baseline.mean, 12)
+      expect(candidate.sd).toBeCloseTo(baseline.sd, 12)
+      expect(candidate.sem).toBeCloseTo(baseline.sem, 12)
+      expect(candidate.mdc95).toBeCloseTo(baseline.mdc95, 12)
+    }
+  })
+
+  it('is translation invariant and scales dimensional statistics with the measurements', () => {
+    const baseline = testRetestReliability(KNOWN)!
+    const translated = testRetestReliability(KNOWN.map((row) => row.map((value) => value + 37)))!
+    const scaled = testRetestReliability(KNOWN.map((row) => row.map((value) => value * 3)))!
+
+    expect(translated.icc21).toBeCloseTo(baseline.icc21, 12)
+    expect(translated.mean).toBeCloseTo(baseline.mean + 37, 12)
+    expect(translated.sd).toBeCloseTo(baseline.sd, 12)
+    expect(translated.sem).toBeCloseTo(baseline.sem, 12)
+    expect(translated.mdc95).toBeCloseTo(baseline.mdc95, 12)
+
+    expect(scaled.icc21).toBeCloseTo(baseline.icc21, 12)
+    expect(scaled.mean).toBeCloseTo(baseline.mean * 3, 12)
+    expect(scaled.sd).toBeCloseTo(baseline.sd * 3, 12)
+    expect(scaled.sem).toBeCloseTo(baseline.sem * 3, 12)
+    expect(scaled.mdc95).toBeCloseTo(baseline.mdc95 * 3, 12)
+  })
+
+  it('stays finite when residual error is at floating-point scale', () => {
+    const stats = testRetestReliability([
+      [1, 2, 3 + Number.EPSILON],
+      [2, 3, 4],
+      [3, 4, 5],
+      [4, 5, 6],
+    ])!
+    expect(Number.isFinite(stats.icc21)).toBe(true)
+    expect(Number.isFinite(stats.sem)).toBe(true)
+    expect(Number.isFinite(stats.mdc95)).toBe(true)
+  })
 })
 
 describe('buildRepeatMatrix', () => {
@@ -142,6 +188,29 @@ describe('buildRepeatMatrix', () => {
       { caseKey: 'a', repeatId: '1', value: 2 },
       { caseKey: 'a', repeatId: '2', value: 3 },
     ])).toThrow('duplicate repeat')
+  })
+
+  it('rejects unexpected or duplicate expected repeat labels', () => {
+    expect(() => buildRepeatMatrix([
+      { caseKey: 'a', repeatId: '3', value: 3 },
+    ], ['1', '2'])).toThrow('unexpected repeat label')
+    expect(() => buildRepeatMatrix([], ['1', '1'])).toThrow('duplicate repeat label')
+  })
+
+  it('rejects a non-finite record even when its case would otherwise be dropped as incomplete', () => {
+    expect(() => buildRepeatMatrix([
+      { caseKey: 'incomplete', repeatId: '1', value: Number.NaN },
+    ], ['1', '2', '3'])).toThrow('finite')
+  })
+
+  it('sorts inferred numeric repeat labels canonically', () => {
+    const { repeatIds, matrix } = buildRepeatMatrix([
+      { caseKey: 'a', repeatId: '10', value: 10 },
+      { caseKey: 'a', repeatId: '2', value: 2 },
+      { caseKey: 'a', repeatId: '1', value: 1 },
+    ])
+    expect(repeatIds).toEqual(['1', '2', '10'])
+    expect(matrix).toEqual([[1, 2, 10]])
   })
 
   it('returns an empty matrix for no records', () => {

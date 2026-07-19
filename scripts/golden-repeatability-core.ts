@@ -3,14 +3,27 @@ import {
   testRetestReliability,
   type ReliabilityStats,
 } from '../packages/posture-engine/src/reliability'
+import { createHash } from 'node:crypto'
 import { TIER_B_PROTOCOL_VERSION, type TierBPoseModel } from '../lib/pose/tierb-contract'
 
-export const RELIABILITY_PROFILE_SCHEMA_VERSION = 1 as const
+export const RELIABILITY_PROFILE_SCHEMA_VERSION = 2 as const
 export const RELIABILITY_ALGORITHM_VERSION = 'icc-2-1-pooled-sd-mdc95-v1' as const
 export const RELIABILITY_PROTOCOL_VERSION = TIER_B_PROTOCOL_VERSION
 export const EXPECTED_REPEAT_IDS = ['1', '2', '3'] as const
 
 const TIER_B_FILE_RE = /^([a-z0-9-]+)_(front|side|back)_([a-z0-9-]+)_r(\d+)\.landmarks\.json$/
+
+export function fingerprintTierBDataset(entries: Array<{ path: string; content: string }>): string {
+  const hash = createHash('sha256')
+  for (const entry of [...entries].sort((a, b) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+  )) {
+    hash.update(`${entry.path}\0`)
+    hash.update(entry.content)
+    hash.update('\0')
+  }
+  return `sha256:${hash.digest('hex')}`
+}
 
 export interface TierBFileName {
   pose: string
@@ -66,6 +79,8 @@ interface ReliabilitySeries<Unit extends string> {
 }
 
 export interface MetricReliabilityProfile {
+  nSubjects: number
+  nCases: number
   repeatIds: string[]
   droppedCases: string[]
   deviationDeg: ReliabilitySeries<'deg'>
@@ -84,8 +99,20 @@ export function buildMetricReliability(
     records.map(({ caseKey, repeatId, severityPct }) => ({ caseKey, repeatId, value: severityPct })),
     expectedRepeatIds,
   )
+  const completeCaseKeys = new Set<string>()
+  const repeatsByCase = new Map<string, Set<string>>()
+  for (const { caseKey, repeatId } of records) {
+    const repeats = repeatsByCase.get(caseKey) ?? new Set<string>()
+    repeats.add(repeatId)
+    repeatsByCase.set(caseKey, repeats)
+  }
+  for (const [caseKey, repeats] of repeatsByCase) {
+    if (expectedRepeatIds.every((repeatId) => repeats.has(repeatId))) completeCaseKeys.add(caseKey)
+  }
 
   return {
+    nSubjects: new Set([...completeCaseKeys].map((caseKey) => caseKey.split('|', 1)[0])).size,
+    nCases: deviation.matrix.length,
     repeatIds: deviation.repeatIds,
     droppedCases: deviation.droppedCases,
     deviationDeg: { unit: 'deg', stats: testRetestReliability(deviation.matrix) },
@@ -96,6 +123,7 @@ export function buildMetricReliability(
 export interface ReliabilityProfileInput {
   engineVersion: string
   poseModel: TierBPoseModel
+  datasetFingerprint: string
   generatedAt: string
   nSubjects: number
   capturesAssessed: number
@@ -110,9 +138,11 @@ export function buildReliabilityProfile(input: ReliabilityProfileInput) {
     protocolVersion: RELIABILITY_PROTOCOL_VERSION,
     engineVersion: input.engineVersion,
     poseModel: input.poseModel,
+    datasetFingerprint: input.datasetFingerprint,
     generatedAt: input.generatedAt,
     label: 'pilot' as const,
     consumerEligible: false as const,
+    estimand: 'short-term within-session re-positioning repeatability' as const,
     method: {
       icc: 'ICC(2,1): two-way random, absolute agreement, single measure',
       sem: 'pooled sample SD * sqrt(1 - clamp(ICC, 0, 1))',
@@ -124,6 +154,7 @@ export function buildReliabilityProfile(input: ReliabilityProfileInput) {
     caveats: [
       'No confidence intervals are reported; this pilot profile must not gate report comparisons.',
       'Cases cluster within subjects, so case counts are not independent-subject counts.',
+      'Subject count, not photo, capture, or model-output count, is the independent biological sample size.',
       'Unreliable findings are excluded, so this describes the reliable-gated pipeline.',
     ],
     perMetric: input.perMetric,

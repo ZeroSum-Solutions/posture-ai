@@ -51,6 +51,9 @@ export function buildRepeatMatrix(
   const expected = new Set(repeatIds)
   const byCase = new Map<string, Map<string, number>>()
   for (const { caseKey, repeatId, value } of records) {
+    if (!Number.isFinite(value)) {
+      throw new Error(`repeat value must be finite for case ${caseKey}, repeat ${repeatId}`)
+    }
     if (!expected.has(repeatId)) {
       throw new Error(`unexpected repeat label ${repeatId} for case ${caseKey}`)
     }

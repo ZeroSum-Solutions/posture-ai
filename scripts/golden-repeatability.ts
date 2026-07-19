@@ -23,6 +23,7 @@ import {
   buildReliabilityProfile,
   assertCapturePoseModel,
   EXPECTED_REPEAT_IDS,
+  fingerprintTierBDataset,
   parseTierBFileName,
   validateTierBProvenance,
   type MetricCaptureRecord,
@@ -53,6 +54,7 @@ const captures = new Map<string, {
   poseModel: TierBPoseModel
   frames: PoseFrame[]
 }>()
+const datasetEntries: Array<{ path: string; content: string }> = []
 let skipped = 0
 
 for (const subject of subjects) {
@@ -64,7 +66,9 @@ for (const subject of subjects) {
       skipped++
       continue
     }
-    const payload = JSON.parse(readFileSync(join(TIERB, subject, file), 'utf8')) as IngestPayload
+    const rawPayload = readFileSync(join(TIERB, subject, file), 'utf8')
+    datasetEntries.push({ path: `${subject}/${file}`, content: rawPayload })
+    const payload = JSON.parse(rawPayload) as IngestPayload
     const poseModel = validateTierBProvenance(payload, `${subject}/${file}`)
     const captureKey = `${subject}|${parsed.pose}|${parsed.device}|${parsed.repeatId}`
     const entry = captures.get(captureKey) ?? {
@@ -159,6 +163,7 @@ if (poseModels.length !== 1) {
 const profile = buildReliabilityProfile({
   engineVersion: ENGINE_VERSION,
   poseModel: poseModels[0],
+  datasetFingerprint: fingerprintTierBDataset(datasetEntries),
   generatedAt: new Date().toISOString(),
   nSubjects,
   capturesAssessed: captures.size,

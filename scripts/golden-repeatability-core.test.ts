@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildMetricReliability,
   buildReliabilityProfile,
+  fingerprintTierBDataset,
   assertCapturePoseModel,
   parseTierBFileName,
   validateTierBProvenance,
@@ -24,6 +25,8 @@ describe('buildMetricReliability', () => {
     const result = buildMetricReliability(records, ['1', '2'])
 
     expect(result.repeatIds).toEqual(['1', '2'])
+    expect(result.nSubjects).toBe(3)
+    expect(result.nCases).toBe(3)
     expect(result.droppedCases).toEqual([])
     expect(result.deviationDeg.unit).toBe('deg')
     expect(result.deviationDeg.stats?.nCases).toBe(3)
@@ -35,6 +38,25 @@ describe('buildMetricReliability', () => {
 })
 
 describe('Tier B ingest provenance', () => {
+  it('fingerprints accepted dataset bytes deterministically by relative path', () => {
+    const a = fingerprintTierBDataset([
+      { path: 's2/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[2]}' },
+      { path: 's1/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[1]}' },
+    ])
+    const reordered = fingerprintTierBDataset([
+      { path: 's1/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[1]}' },
+      { path: 's2/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[2]}' },
+    ])
+    const changed = fingerprintTierBDataset([
+      { path: 's1/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[9]}' },
+      { path: 's2/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[2]}' },
+    ])
+
+    expect(a).toMatch(/^sha256:[a-f0-9]{64}$/)
+    expect(reordered).toBe(a)
+    expect(changed).not.toBe(a)
+  })
+
   it('parses the frozen filename fields used for capture grouping', () => {
     expect(parseTierBFileName('neutral_front_iphone_r2.landmarks.json')).toEqual({
       pose: 'neutral',
@@ -71,6 +93,7 @@ describe('buildReliabilityProfile', () => {
     const profile = buildReliabilityProfile({
       engineVersion: '2.1.0',
       poseModel: 'lite',
+      datasetFingerprint: 'sha256:test-fixture',
       generatedAt: '2026-07-19T00:00:00.000Z',
       nSubjects: 3,
       capturesAssessed: 6,
@@ -84,8 +107,10 @@ describe('buildReliabilityProfile', () => {
       protocolVersion: RELIABILITY_PROTOCOL_VERSION,
       engineVersion: '2.1.0',
       poseModel: 'lite',
+      datasetFingerprint: 'sha256:test-fixture',
       label: 'pilot',
       consumerEligible: false,
+      estimand: 'short-term within-session re-positioning repeatability',
       method: {
         icc: 'ICC(2,1): two-way random, absolute agreement, single measure',
         sem: 'pooled sample SD * sqrt(1 - clamp(ICC, 0, 1))',
