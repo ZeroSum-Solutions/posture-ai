@@ -9,6 +9,7 @@ import NavBar from './NavBar'
 import MotionOrchestrator from './MotionOrchestrator'
 import AuthSessionGuard from './AuthSessionGuard'
 import { shouldRenderAppAtmosphere } from './appAtmospherePolicy'
+import LegalNotice from './LegalNotice'
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? ''
@@ -23,7 +24,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <MotionOrchestrator>{children}</MotionOrchestrator>
         </AuthSessionGuard>
         <footer className="app-footer">
-          <div>Screening only — not a medical diagnosis. Consult a qualified healthcare professional before making any clinical decisions.</div>
+          <LegalNotice kind="screening_notice" compact />
           <div className="app-footer-links">
             <Link href="/privacy">Privacy Policy</Link>
             <span aria-hidden="true">·</span>

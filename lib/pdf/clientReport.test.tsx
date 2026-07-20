@@ -8,8 +8,25 @@ import { buildClientComparison } from '../reports/clientComparison'
 import type { ClientComparison } from '../reports/clientComparison'
 import type { Finding } from '../../packages/posture-engine/src/types'
 import { compareOverallScores, compareSeverityPercentages } from '@/lib/comparison/policy'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 const VERSION = '2.0.0'
+const legalNotice: LegalSnapshot = {
+  schemaVersion: 1,
+  documentId: 'screening-notice-test-fixture-v1',
+  kind: 'screening_notice',
+  version: 'test-1',
+  title: 'Screening Notice',
+  effectiveAt: '2026-07-20T00:00:00.000Z',
+  jurisdiction: 'US',
+  locale: 'en-US',
+  productScope: 'us_fitness_wellness_assessment_beta_v1',
+  audience: 'subject',
+  bodySha256: 'c'.repeat(64),
+  text: 'Exact governed screening notice text.',
+  sections: [{ id: 'notice', heading: null, paragraphs: ['Exact governed screening notice text.'] }],
+  isFixture: true,
+}
 
 const f = (over: Partial<Finding> & Pick<Finding, 'key' | 'label' | 'region' | 'severityPct' | 'zone'>): Finding => ({
   deviation: 10, standard: 0, unit: 'deg', direction: 'Forward',
@@ -35,12 +52,16 @@ function renderedText(node: React.ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node)
   if (Array.isArray(node)) return node.map(renderedText).join(' ')
   if (!React.isValidElement(node)) return ''
+  if (typeof node.type === 'function') {
+    const Component = node.type as (props: Record<string, unknown>) => React.ReactNode
+    return renderedText(Component(node.props as Record<string, unknown>))
+  }
   return renderedText((node.props as { children?: React.ReactNode }).children)
 }
 
 describe('ClientReport renders (smoke)', () => {
   it('renders without a comparison (base path stays intact)', async () => {
-    const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} />
+    const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} legalNotice={legalNotice} />
     expect(await isPdf(el)).toBe(true)
   })
 
@@ -63,7 +84,7 @@ describe('ClientReport renders (smoke)', () => {
     expect(comparison.overall.status).toBe('improved')
     expect(comparison.byKey.forward_head_posture.status).toBe('improved')
     expect(comparison.byKey.anterior_pelvic_shift.status).toBe('regressed')
-    const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} />
+    const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} legalNotice={legalNotice} />
     expect(await isPdf(el)).toBe(true)
   })
 
@@ -76,7 +97,7 @@ describe('ClientReport renders (smoke)', () => {
       priorFindings: [{ key: 'forward_head_posture', severityPct: 60 }],
     })
     expect(comparison.overall.status).toBe('regressed')
-    const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} />
+    const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} legalNotice={legalNotice} />
     expect(await isPdf(el)).toBe(true)
   })
 
@@ -111,11 +132,28 @@ describe('ClientReport renders (smoke)', () => {
       dateStr: '28 Jun 2026',
       report: program,
       comparison,
+      legalNotice,
     })
     const text = renderedText(tree)
 
     expect(text).toContain('different or missing scoring versions')
     expect(text).not.toContain('Improved — lower severity')
     expect(text).not.toContain('Regressed — higher severity')
+  })
+
+  it('renders the exact governed screening notice text, version, and effective date', () => {
+    const tree = ClientReport({
+      clientName: 'Jane Doe',
+      practitioner: 'Acme Clinic',
+      dateStr: '28 Jun 2026',
+      report: program,
+      legalNotice,
+    })
+    const text = renderedText(tree)
+
+    expect(text).toContain(legalNotice.text)
+    expect(text).toContain(`Version ${legalNotice.version}`)
+    expect(text).toContain(`Effective ${legalNotice.effectiveAt}`)
+    expect(text).toContain('NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY')
   })
 })

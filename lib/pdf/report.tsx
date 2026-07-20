@@ -17,8 +17,7 @@ import {
   comparisonTone,
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
-
-const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational and screening purposes only. Do not substitute for clinical examination by a qualified professional.'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 const ZONE_COLORS: Record<string, string> = {
   maintain: '#5BD5AC',
@@ -286,12 +285,17 @@ interface Props {
   practitioner?: { display_name?: string; practice_name?: string }
   hasDelta: boolean
   engineVersionMismatch?: boolean
+  legalNotice: LegalSnapshot
 }
 
-function Footer() {
+function Footer({ legalNotice }: { legalNotice: LegalSnapshot }) {
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>{DISCLAIMER}</Text>
+      {legalNotice.isFixture ? (
+        <Text style={[styles.footerText, { color: '#FF8918', fontFamily: 'Helvetica-Bold' }]}>NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY</Text>
+      ) : null}
+      <Text style={styles.footerText}>{legalNotice.text}</Text>
+      <Text style={styles.footerText}>{`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}</Text>
     </View>
   )
 }
@@ -385,7 +389,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   )
 }
 
-export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta, engineVersionMismatch }: Props) {
+export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta, engineVersionMismatch, legalNotice }: Props) {
   const grade = assessment.overall_grade
   const gradeCol = getGradeDisplayBand(grade).hexColor
   const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
@@ -405,7 +409,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
     <Document>
       {/* Page 1: Summary */}
       <Page size="A4" style={styles.page}>
-        <Footer />
+        <Footer legalNotice={legalNotice} />
 
         {/* Header */}
         <View style={styles.header}>
@@ -467,16 +471,16 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
 
         {/* Screening disclaimer note on page 1 */}
         <View style={{ marginTop: 20, backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 8, padding: 10 }}>
-          <Text style={{ fontSize: 8, color: '#CCCCCC', lineHeight: 1.5 }}>
-            <Text style={{ color: '#0098F3', fontFamily: 'Helvetica-Bold' }}>Screening Only. </Text>
-            This report is produced by an AI-assisted posture screening tool. Results are for educational purposes only and require interpretation by a qualified health professional. Not a substitute for clinical examination.
+          <Text style={{ fontSize: 8, color: '#CCCCCC', lineHeight: 1.5 }}>{legalNotice.text}</Text>
+          <Text style={{ fontSize: 7, color: '#949494', marginTop: 4 }}>
+            {`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}
           </Text>
         </View>
       </Page>
 
       {/* Page 2: Detailed Findings */}
       <Page size="A4" style={styles.page}>
-        <Footer />
+        <Footer legalNotice={legalNotice} />
 
         {/* Header */}
         <View style={[styles.header, { marginBottom: 10 }]}>

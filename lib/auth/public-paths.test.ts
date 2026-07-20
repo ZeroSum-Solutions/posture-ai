@@ -22,6 +22,7 @@ describe('proxy public-path allowlist', () => {
       '/auth/forgot-password',
       '/auth/update-password',
       '/api/health',
+      '/api/legal/documents?kind=terms',
       '/privacy',
       '/terms',
       '/consent/some-token',
@@ -75,6 +76,7 @@ describe('proxy public-path allowlist', () => {
       '/api/settings',
       '/api/consent', // consent MINTING is practitioner-only; only /respond is public
       '/api/consent/link',
+      '/api/legal/accept',
       '/api/dev/create-test-user', // never public in production builds
     ]) {
       expect(isPublicPath(p, prod), `${p} must stay auth-gated`).toBe(false)

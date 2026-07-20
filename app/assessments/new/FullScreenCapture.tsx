@@ -16,6 +16,8 @@ import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from
 import { CameraGlyph } from '@/components/SignalGlyphs'
 import LiveGuides from './LiveGuides'
 import CaptureTelemetryPanel from './CaptureTelemetryPanel'
+import LegalNotice from '@/components/LegalNotice'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
 // A ~5-frame burst of a held pose is enough to estimate landmark jitter without
@@ -32,6 +34,8 @@ const LIVE_FRAME_INTERVAL_MS = 90
 const LIVE_FRESHNESS_MS = 600
 
 interface FullScreenCaptureProps {
+  /** Exact server-resolved notice required before the wizard may enter capture. */
+  screeningNotice: LegalSnapshot
   captures: Captures
   /** raw burst object URLs; [0] is the representative still. */
   onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) => void
@@ -115,6 +119,7 @@ function ViewSilhouette({ slot, size = 30 }: { slot: CaptureSlotKey; size?: numb
 }
 
 export default function FullScreenCapture({
+  screeningNotice,
   captures,
   onCameraCapture,
   onFileUpload,
@@ -778,13 +783,8 @@ export default function FullScreenCapture({
       {/* ---------- Disclaimer (first open only) ---------- */}
       {phase === 'disclaimer' ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="capture-disclaimer-title" data-testid="capture-disclaimer" style={{ maxWidth: '420px', background: '#0F0F11', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '24px' }}>
-            <p id="capture-disclaimer-title" style={{ color: 'var(--brand)', fontWeight: 700, fontSize: '0.95rem', margin: '0 0 10px' }}>Screening Tool Only</p>
-            <p style={{ color: '#B4B4BD', fontSize: '0.85rem', lineHeight: 1.6, margin: '0 0 20px' }}>
-              Posture AI is a screening tool. Results are for informational purposes only and are not a
-              substitute for evaluation by a qualified professional. Consult a qualified health professional
-              before making any clinical decisions.
-            </p>
+          <div role="dialog" aria-modal="true" aria-label="Screening notice" data-testid="capture-disclaimer" style={{ maxWidth: '420px', background: '#0F0F11', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '24px' }}>
+            <LegalNotice document={screeningNotice} compact />
             <button
               data-testid="capture-disclaimer-dismiss"
               onClick={dismissDisclaimer}

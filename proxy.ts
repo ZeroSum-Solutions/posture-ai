@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { classifyAuthPath } from '@/lib/auth/public-paths'
+import { practitionerLegalAcceptanceStatus } from '@/lib/auth/requirePractitioner'
 
 type CookieToSet = {
   name: string
@@ -9,7 +10,6 @@ type CookieToSet = {
 }
 
 type PractitionerAccessState = {
-  non_diagnostic_ack_at: string | null
   access_status: string
   role: string
   session_is_current: boolean
@@ -17,6 +17,9 @@ type PractitionerAccessState = {
 
 const isOnboardingPath = (pathname: string) =>
   pathname === '/onboarding' || pathname.startsWith('/onboarding/')
+
+const isLegalAcceptanceCorridor = (pathname: string) =>
+  isOnboardingPath(pathname) || pathname === '/api/legal/accept'
 
 const isApiPath = (pathname: string) =>
   pathname === '/api' || pathname.startsWith('/api/')
@@ -190,14 +193,31 @@ export async function proxy(request: NextRequest) {
     )
   }
 
-  // Active AAL2 users may acknowledge the screening boundary here. Every other
-  // protected route requires the acknowledgement to have persisted.
-  if (isOnboardingPath(pathname)) return supabaseResponse
+  // This is the only protected corridor before governed acceptance. The API
+  // independently repeats admission and verifies the exact submitted snapshots.
+  if (isLegalAcceptanceCorridor(pathname)) return supabaseResponse
 
-  if (!practitioner.non_diagnostic_ack_at) {
+  const legalStatus = await practitionerLegalAcceptanceStatus(supabase, user.id)
+  if (legalStatus === 'unavailable') {
     if (isApiPath(pathname)) {
       return jsonWithAuthCookies(
-        { error: 'Screening acknowledgement required.', code: 'acknowledgement_required' },
+        { error: 'Legal documents are temporarily unavailable.', code: 'legal_unavailable' },
+        503,
+        refreshedCookies,
+      )
+    }
+    return redirectWithAuthCookies(
+      request,
+      '/onboarding',
+      refreshedCookies,
+      { reason: 'legal_unavailable' },
+    )
+  }
+
+  if (legalStatus === 'required') {
+    if (isApiPath(pathname)) {
+      return jsonWithAuthCookies(
+        { error: 'Legal acceptance required.', code: 'legal_acceptance_required' },
         403,
         refreshedCookies,
       )

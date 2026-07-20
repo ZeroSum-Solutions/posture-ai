@@ -3,9 +3,11 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimitStrict } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
-import { CONSENT_VERSION } from '@/lib/consent/policy'
+import { consentLegalProvenance } from '@/lib/consent/policy'
 import { consentQrDataUrl } from '@/lib/consent/qr'
 import { generateConsentToken } from '@/lib/consent/token'
+import { snapshotLegalDocument } from '@/lib/legal/policy'
+import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 
 // Practitioner-initiated remote consent: mints a single-use, 7-day token for a
 // client and returns a shareable link + QR. The subject completes it at
@@ -32,6 +34,15 @@ export async function POST(req: NextRequest) {
   const clientId = body.client_id
   if (!clientId) return NextResponse.json({ error: 'client_id is required' }, { status: 400 })
 
+  const legalResolution = resolveRuntimeLegalDocument({ kind: 'subject_consent' })
+  if (!legalResolution.ok) {
+    return NextResponse.json(
+      { error: 'Consent terms are temporarily unavailable.', code: 'legal_unavailable' },
+      { status: 503 },
+    )
+  }
+  const document = snapshotLegalDocument(legalResolution.document)
+
   const { data: client } = await supabase
     .from('clients')
     .select('id')
@@ -50,8 +61,9 @@ export async function POST(req: NextRequest) {
     token_hash: tokenHash,
     client_id: clientId,
     practitioner_id: user.id,
-    consent_version: CONSENT_VERSION,
+    consent_version: document.version,
     expires_at: expiresAt,
+    ...consentLegalProvenance(document),
   })
   if (error) return NextResponse.json({ error: 'Failed to create consent link' }, { status: 500 })
 

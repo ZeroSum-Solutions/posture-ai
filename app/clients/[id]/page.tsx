@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
-import { getConsentStatus } from '@/lib/consent/record'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import dynamic from 'next/dynamic'
 import { toNum } from './numeric'
@@ -86,7 +85,7 @@ export default function ClientDetailPage() {
   const [compareTargetId, setCompareTargetId] = useState<string>('')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [archiveError, setArchiveError] = useState<string | null>(null)
-  const [consentStatus, setConsentStatus] = useState<'checking' | 'valid' | 'missing'>('checking')
+  const [consentStatus, setConsentStatus] = useState<'checking' | 'valid' | 'missing' | 'unavailable'>('checking')
 
   useEffect(() => {
     // Abort a stale load when the client id changes / the page unmounts, so a
@@ -107,9 +106,19 @@ export default function ClientDetailPage() {
       if (error || !data) { router.push('/clients'); return }
       setClient(data)
 
-      const consent = await getConsentStatus(supabase, id)
-      if (ac.signal.aborted) return
-      setConsentStatus(consent.hasConsent ? 'valid' : 'missing')
+      try {
+        const consentResponse = await fetch(`/api/consent?client_id=${encodeURIComponent(id)}`, {
+          cache: 'no-store',
+          signal: ac.signal,
+        })
+        if (!consentResponse.ok) throw new Error(`Failed to load consent (${consentResponse.status})`)
+        const consent = await consentResponse.json() as { hasConsent?: boolean }
+        if (ac.signal.aborted) return
+        setConsentStatus(consent.hasConsent ? 'valid' : 'missing')
+      } catch (caught) {
+        if ((caught as Error)?.name === 'AbortError') return
+        setConsentStatus('unavailable')
+      }
 
       try {
         const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`, { signal: ac.signal })
@@ -400,6 +409,8 @@ export default function ClientDetailPage() {
                 ? <span style={{ color: 'var(--text-secondary)' }}>checking…</span>
                 : consentStatus === 'valid'
                   ? <span style={{ color: '#10B981' }}>✓ {consentDate ?? 'recorded'}</span>
+                  : consentStatus === 'unavailable'
+                    ? <span style={{ color: 'var(--danger)' }}>unavailable</span>
                   : <span style={{ color: 'var(--warning)' }}>pending</span>}
             </span>
           </div>

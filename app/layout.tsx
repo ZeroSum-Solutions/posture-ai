@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
+import { siteOrigin } from '@/lib/site-origin'
 
 const uiFont = Inter({
   subsets: ['latin'],
@@ -16,10 +17,8 @@ const dataFont = IBM_Plex_Mono({
   display: 'swap',
 })
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://posture-ai.vercel.app'
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(siteOrigin),
   title: {
     default: 'Posture AI',
     template: '%s · Posture AI',
@@ -28,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Posture AI',
     description: 'AI-assisted posture and musculoskeletal screening',
-    url: siteUrl,
+    url: siteOrigin,
     siteName: 'Posture AI',
   },
 }

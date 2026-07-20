@@ -4,6 +4,8 @@ import type { RatingPace, RatingDifficulty } from '@/lib/workout/rating'
 import type { RatingPayload } from './WorkoutPlayer'
 import { CheckGlyph } from '@/components/SignalGlyphs'
 import { colorMix, workoutTheme as theme } from './theme'
+import LegalNotice from '@/components/LegalNotice'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 const PACE: { value: RatingPace; label: string }[] = [
   { value: 'too_slow', label: 'Too slow' },
@@ -32,7 +34,8 @@ export function RateForm({
   skipped,
   total,
   durationSec,
-  disclaimer,
+  legalNotice,
+  legacyDisclaimer,
   allowNotes,
   submitRating,
   onExit,
@@ -41,7 +44,8 @@ export function RateForm({
   skipped: number
   total: number
   durationSec: number
-  disclaimer: string
+  legalNotice?: LegalSnapshot
+  legacyDisclaimer?: string
   allowNotes: boolean
   submitRating: (payload: RatingPayload) => Promise<{ ok: boolean; error?: string }>
   onExit?: () => void
@@ -139,7 +143,7 @@ export function RateForm({
         )}
       </div>
 
-      <p style={{ color: theme.textMuted, fontSize: '0.72rem', lineHeight: 1.5, margin: '14px auto 18px', maxWidth: 380 }}>{disclaimer}</p>
+      <WorkoutLegalNotice legalNotice={legalNotice} legacyDisclaimer={legacyDisclaimer} />
 
       {error && <div role="alert" style={{ color: theme.danger, fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>}
 
@@ -154,6 +158,32 @@ export function RateForm({
         )}
       </div>
     </form>
+  )
+}
+
+export function WorkoutLegalNotice({
+  legalNotice,
+  legacyDisclaimer,
+}: {
+  legalNotice?: LegalSnapshot
+  legacyDisclaimer?: string
+}) {
+  if (legalNotice) {
+    return (
+      <div style={{ margin: '14px auto 18px', maxWidth: 440, textAlign: 'left' }}>
+        <LegalNotice document={legalNotice} compact />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      data-legal-provenance="legacy"
+      style={{ color: theme.textMuted, fontSize: '0.72rem', lineHeight: 1.5, margin: '14px auto 18px', maxWidth: 380 }}
+    >
+      <p style={{ margin: '0 0 6px' }}>{legacyDisclaimer}</p>
+      <p style={{ margin: 0, fontWeight: 700 }}>Legacy notice — version and effective date unavailable.</p>
+    </div>
   )
 }
 

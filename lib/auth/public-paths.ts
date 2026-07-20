@@ -21,6 +21,9 @@ export function publicPaths(nodeEnv: string | undefined = process.env.NODE_ENV):
     '/auth/forgot-password',
     '/auth/update-password',
     '/api/health',
+    // The legal-document catalog is public so signed-out onboarding and remote
+    // subject-consent surfaces can render the exact governed snapshot.
+    '/api/legal/documents',
     // Public legal pages + the remote subject-consent flow (the subject is not an
     // authenticated user). The remote consent API self-authenticates via a signed,
     // single-use token, so its public endpoint is allow-listed here too.

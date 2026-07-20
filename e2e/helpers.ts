@@ -1,6 +1,33 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
+type LegalDocumentIdentity = {
+  documentId: string
+  version: string
+  bodySha256: string
+}
+
+export async function currentLegalDocument(
+  page: Page,
+  kind: 'subject_consent' | 'privacy' | 'terms' | 'screening_notice',
+): Promise<LegalDocumentIdentity> {
+  const response = await page.request.get(`/api/legal/documents?kind=${kind}`)
+  expect(response.ok(), `${kind} legal document failed: ${response.status()}`).toBeTruthy()
+  const body = await response.json() as { document?: LegalDocumentIdentity }
+  expect(body.document?.documentId).toBeTruthy()
+  expect(body.document?.version).toBeTruthy()
+  expect(body.document?.bodySha256).toMatch(/^[0-9a-f]{64}$/)
+  return body.document!
+}
+
+export function legalDocumentSubmission(document: LegalDocumentIdentity) {
+  return {
+    legal_document_id: document.documentId,
+    legal_document_version: document.version,
+    legal_document_body_sha256: document.bodySha256,
+  }
+}
+
 /**
  * Creates a client via the authenticated API session and returns it. Defaults to
  * an adult subject with an in-person self-consent so it passes the capture gate;
@@ -20,8 +47,10 @@ export async function createClient(
   if (opts?.remote) {
     data.consent_mode = 'remote'
   } else {
+    const document = await currentLegalDocument(page, 'subject_consent')
     data.signer_name = `${firstName} ${lastName}`
     data.signer_relationship = opts?.signerRelationship ?? 'self'
+    Object.assign(data, legalDocumentSubmission(document))
   }
   const res = await page.request.post('/api/clients', { data })
   expect(res.ok(), `client creation failed: ${res.status()}`).toBeTruthy()

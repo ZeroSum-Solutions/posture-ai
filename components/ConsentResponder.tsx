@@ -1,12 +1,20 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { CONSENT_TEXT } from '@/lib/consent/text'
+import LegalDocumentView from './LegalDocumentView'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
-export default function ConsentResponder({ token }: { token: string }) {
+export default function ConsentResponder({
+  token,
+  document,
+}: {
+  token: string
+  document: LegalSnapshot | null
+}) {
   const [name, setName] = useState('')
   const [rel, setRel] = useState('self')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
   const doneRef = useRef<HTMLHeadingElement>(null)
 
   // The success view replaces the whole form subtree; move focus to its heading so
@@ -18,12 +26,24 @@ export default function ConsentResponder({ token }: { token: string }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) { setError('Please type the signer’s full name to sign.'); return }
+    if (!confirmed) { setError('Confirm that you have read and agree to the consent terms.'); return }
+    if (!document) {
+      setError('This consent link is unavailable or has been superseded.')
+      return
+    }
     setStatus('submitting'); setError(null)
     try {
       const res = await fetch('/api/consent/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, signer_name: name, signer_relationship: rel }),
+        body: JSON.stringify({
+          token,
+          signer_name: name.trim(),
+          signer_relationship: rel,
+          legal_document_id: document.documentId,
+          legal_document_version: document.version,
+          legal_document_body_sha256: document.bodySha256,
+        }),
       })
       if (res.ok) { setStatus('done'); return }
       const j = await res.json().catch(() => ({}))
@@ -58,14 +78,17 @@ export default function ConsentResponder({ token }: { token: string }) {
   return (
     <main style={wrap}>
       <h1 style={{ fontSize: '1.4rem', marginBottom: 16 }}>Posture Screening Consent</h1>
-      <pre style={{
-        whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '0.9rem', lineHeight: 1.6,
-        color: 'var(--text-secondary)', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 12, padding: 16, marginBottom: 20,
-      }}>{CONSENT_TEXT}</pre>
+      <div style={{ marginBottom: 20 }}>
+        {!document && (
+          <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)' }}>
+            This consent link is unavailable or has been superseded. Ask the practitioner to create a new consent request.
+          </div>
+        )}
+        {document && <LegalDocumentView document={document} headingLevel={2} />}
+      </div>
 
       <form onSubmit={submit} aria-label="Remote consent form">
-        {error && (
+        {error && document && (
           <div role="alert" style={{
             background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
             borderRadius: 8, padding: 12, color: 'var(--danger)', fontSize: '0.875rem', marginBottom: 16,
@@ -91,10 +114,23 @@ export default function ConsentResponder({ token }: { token: string }) {
           required aria-required="true"
         />
 
-        <button type="submit" disabled={status === 'submitting'} style={{
-          width: '100%', padding: 12, background: status === 'submitting' ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
+        <label htmlFor="consent_confirm" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+          <input
+            id="consent_confirm"
+            type="checkbox"
+            checked={confirmed}
+            disabled={!document}
+            onChange={(event) => setConfirmed(event.target.checked)}
+            aria-required="true"
+            style={{ width: 20, height: 20, marginTop: 1, flexShrink: 0 }}
+          />
+          <span>I confirm I have read and agree to the exact consent shown above.</span>
+        </label>
+
+        <button type="submit" disabled={status === 'submitting' || !document} style={{
+          width: '100%', padding: 12, background: status === 'submitting' || !document ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
           color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: '0.95rem',
-          cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
+          cursor: status === 'submitting' || !document ? 'not-allowed' : 'pointer',
         }}>
           {status === 'submitting' ? 'Submitting…' : 'I Agree & Sign'}
         </button>

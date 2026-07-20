@@ -16,6 +16,7 @@ import { ALL_EXERCISES } from '../../content'
 import type { ProgramReport } from '../program/buildProgram'
 import type { Capability } from '../program/selectPriorities'
 import type { Week, Dose } from '../program/dosage'
+import type { LegalSnapshot } from '../legal/types'
 
 export type SessionTiming =
   | { kind: 'hold'; sets: number; secondsPerSet: number; restSeconds: number }
@@ -43,17 +44,28 @@ export interface SessionItem {
   timing: SessionTiming
 }
 
-export interface SessionSnapshot {
-  version: 1
+interface SessionSnapshotBase {
   week: Week
   capability: Capability
   /** The screening findings this session derives from — intro voice + traceability. */
   priorities: { primaryKey: string; label: string; zone: 'warning' | 'danger'; severityWord: string }[]
   items: SessionItem[]
   estimatedDurationSec: number
+}
+
+export interface LegacySessionSnapshot extends SessionSnapshotBase {
+  version: 1
   /** Travels with the snapshot so a shared link always carries it. */
   disclaimer: string
 }
+
+export interface GovernedSessionSnapshot extends SessionSnapshotBase {
+  version: 2
+  /** Immutable notice resolved when this workout artifact was minted. */
+  legalNotice: LegalSnapshot
+}
+
+export type SessionSnapshot = LegacySessionSnapshot | GovernedSessionSnapshot
 
 // Session order mirrors the builder's authored arc; interleaving by band means
 // the client warms up globally once instead of once per priority.
@@ -88,7 +100,7 @@ function itemSeconds(t: SessionTiming): number {
 
 export function generateWorkoutSession(
   report: ProgramReport,
-  opts: { week: Week },
+  opts: { week: Week; legalNotice?: LegalSnapshot },
 ): SessionSnapshot | null {
   const { week } = opts
 
@@ -143,8 +155,7 @@ export function generateWorkoutSession(
   })
   const estimatedDurationSec = items.reduce((acc, i) => acc + itemSeconds(i.timing), 0)
 
-  return {
-    version: 1,
+  const snapshotBase: SessionSnapshotBase = {
     week,
     capability: report.capability,
     priorities: report.priorities.map((p) => ({
@@ -155,6 +166,29 @@ export function generateWorkoutSession(
     })),
     items,
     estimatedDurationSec,
-    disclaimer: DISCLAIMER,
+  }
+
+  return opts.legalNotice
+    ? { ...snapshotBase, version: 2, legalNotice: opts.legalNotice }
+    : { ...snapshotBase, version: 1, disclaimer: DISCLAIMER }
+}
+
+/**
+ * Upgrade a freshly built legacy snapshot at the persistence boundary without
+ * changing its playable content. Persisted v1 snapshots remain valid; all newly
+ * minted governed artifacts use v2.
+ */
+export function governSessionSnapshot(
+  snapshot: SessionSnapshot,
+  legalNotice: LegalSnapshot,
+): GovernedSessionSnapshot {
+  return {
+    version: 2,
+    week: snapshot.week,
+    capability: snapshot.capability,
+    priorities: snapshot.priorities,
+    items: snapshot.items,
+    estimatedDurationSec: snapshot.estimatedDurationSec,
+    legalNotice,
   }
 }

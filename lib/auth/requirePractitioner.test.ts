@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const serviceOrgResult = { data: null as unknown, error: null as unknown }
+const serviceAcceptanceResult = { data: [] as unknown[], error: null as unknown }
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceClient: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => serviceOrgResult }),
-      }),
+    from: (table: string) => ({
+      select: () => table === 'organizations'
+        ? {
+            eq: () => ({ maybeSingle: async () => serviceOrgResult }),
+          }
+        : {
+            eq: () => ({ order: async () => serviceAcceptanceResult }),
+          },
     }),
   }),
 }))
@@ -21,6 +26,36 @@ const activePractitioner = {
   access_status: 'active',
   role: 'practitioner',
 }
+
+const fixtureAcceptances = [
+  {
+    legal_document_id: 'terms-test-fixture-v1',
+    legal_document_version: 'test-1',
+    legal_document_body_sha256: '57a4cdb692b60cde1662346c292a6213ac1351dee20ed55ec23339ecf6a733b2',
+    legal_document_effective_at: '2026-07-20T00:00:00+00:00',
+    legal_jurisdiction: 'US',
+    legal_product_scope: 'us_fitness_wellness_assessment_beta_v1',
+    accepted_at: '2026-07-20T01:00:00.000Z',
+  },
+  {
+    legal_document_id: 'privacy-test-fixture-v1',
+    legal_document_version: 'test-1',
+    legal_document_body_sha256: '0b15b685fd1032bff1547563c6ce44dffb573485f6aef46d16e3f472597cea3b',
+    legal_document_effective_at: '2026-07-20T00:00:00+00:00',
+    legal_jurisdiction: 'US',
+    legal_product_scope: 'us_fitness_wellness_assessment_beta_v1',
+    accepted_at: '2026-07-20T01:00:00.000Z',
+  },
+  {
+    legal_document_id: 'screening-notice-test-fixture-v1',
+    legal_document_version: 'test-1',
+    legal_document_body_sha256: 'ce14bfa5b311aeed4c47267068730ef35b5daf6944a3fcf0d776c3a0868fac8f',
+    legal_document_effective_at: '2026-07-20T00:00:00+00:00',
+    legal_jurisdiction: 'US',
+    legal_product_scope: 'us_fitness_wellness_assessment_beta_v1',
+    accepted_at: '2026-07-20T01:00:00.000Z',
+  },
+]
 
 type FakeOptions = {
   assurance?: unknown
@@ -122,8 +157,12 @@ describe('practitionerAdmission', () => {
 
 describe('practitionerGate BAA enforcement', () => {
   beforeEach(() => {
+    process.env.POSTURE_TEST_MODE_ENABLED = '1'
+    process.env.VERCEL_ENV = 'preview'
     serviceOrgResult.data = null
     serviceOrgResult.error = null
+    serviceAcceptanceResult.data = fixtureAcceptances
+    serviceAcceptanceResult.error = null
   })
 
   test('allows an active AAL2 practitioner with no organization', async () => {
@@ -167,5 +206,45 @@ describe('practitionerGate BAA enforcement', () => {
 
     expect(response?.status).toBe(403)
     expect(await responseBody(response)).toMatchObject({ code: 'compliance' })
+  })
+
+  test('blocks a legacy acknowledgement timestamp without governed evidence', async () => {
+    serviceAcceptanceResult.data = []
+
+    const response = await practitionerGate(fakeSupabase(), 'u1')
+
+    expect(response?.status).toBe(403)
+    expect(await responseBody(response)).toMatchObject({ code: 'legal_acceptance_required' })
+  })
+
+  test('blocks when any one of the three current documents is missing', async () => {
+    serviceAcceptanceResult.data = fixtureAcceptances.slice(0, 2)
+
+    const response = await practitionerGate(fakeSupabase(), 'u1')
+
+    expect(response?.status).toBe(403)
+    expect(await responseBody(response)).toMatchObject({ code: 'legal_acceptance_required' })
+  })
+
+  test('blocks stale or forged evidence', async () => {
+    serviceAcceptanceResult.data = [
+      { ...fixtureAcceptances[0], legal_document_body_sha256: '0'.repeat(64) },
+      ...fixtureAcceptances.slice(1),
+    ]
+
+    const response = await practitionerGate(fakeSupabase(), 'u1')
+
+    expect(response?.status).toBe(403)
+    expect(await responseBody(response)).toMatchObject({ code: 'legal_acceptance_required' })
+  })
+
+  test('fails closed when current approved production documents are unavailable', async () => {
+    delete process.env.POSTURE_TEST_MODE_ENABLED
+    process.env.VERCEL_ENV = 'production'
+
+    const response = await practitionerGate(fakeSupabase(), 'u1')
+
+    expect(response?.status).toBe(503)
+    expect(await responseBody(response)).toMatchObject({ code: 'legal_unavailable' })
   })
 })

@@ -48,6 +48,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     return NextResponse.json({ error: 'This session link is not available.' }, { status: 404, headers: NO_STORE })
   }
 
+  const publicSession = redactSessionForPublic(resolved)
+  if (!publicSession) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detail: 'workout legal provenance mismatch' })
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })
+  }
+
   // Best-effort audit — never block the client on the write.
   await service.from('workout_share_events').insert({
     workout_session_id: resolved.workout_session_id,
@@ -58,5 +64,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   })
 
   logEvent({ route: ROUTE, outcome: 'ok', status: 200 })
-  return NextResponse.json(redactSessionForPublic(resolved), { headers: NO_STORE })
+  return NextResponse.json(publicSession, { headers: NO_STORE })
 }

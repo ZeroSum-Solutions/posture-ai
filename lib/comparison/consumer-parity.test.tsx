@@ -7,6 +7,7 @@ import { ClientReport } from '@/lib/pdf/clientReport'
 import { PostureReportPdf, type PdfAssessment } from '@/lib/pdf/report'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
 import type { ClientComparison } from '@/lib/reports/clientComparison'
+import type { LegalSnapshot } from '@/lib/legal/types'
 import {
   compareOverallScores,
   compareSeverityPercentages,
@@ -16,6 +17,22 @@ import {
 } from './policy'
 
 const VERSION = '2.0.0'
+const legalNotice: LegalSnapshot = {
+  schemaVersion: 1,
+  documentId: 'screening-notice-test-v1',
+  kind: 'screening_notice',
+  version: 'test-1',
+  title: 'Screening Notice',
+  effectiveAt: '2026-01-01T00:00:00.000Z',
+  jurisdiction: 'US',
+  locale: 'en-US',
+  productScope: 'us_fitness_wellness_assessment_beta_v1',
+  audience: 'subject',
+  bodySha256: 'b'.repeat(64),
+  text: 'Exact screening notice.',
+  sections: [{ id: 'notice', heading: null, paragraphs: ['Exact screening notice.'] }],
+  isFixture: true,
+}
 const versionPair = {
   currentEngineVersion: VERSION,
   priorEngineVersion: VERSION,
@@ -105,6 +122,7 @@ function clientPdfText(
     dateStr: '01 Feb 2026',
     report: program,
     comparison,
+    legalNotice,
   }))
 }
 
@@ -112,6 +130,7 @@ function practitionerPdfText(decision: ComparisonDecision) {
   return renderedText(PostureReportPdf({
     assessment,
     hasDelta: true,
+    legalNotice,
     findings: [{
       id: 'finding',
       imbalance_key: finding.key,

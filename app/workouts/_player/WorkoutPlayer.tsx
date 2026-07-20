@@ -17,7 +17,7 @@ import { useWakeLock } from '@/lib/capture/use-wake-lock'
 import { caption, voiceCue } from '@/lib/workout/cues'
 import { workoutCoachCueUrl } from '@/lib/workout/voicePack'
 import { CountdownRing } from './CountdownRing'
-import { RateForm } from './RateForm'
+import { RateForm, WorkoutLegalNotice } from './RateForm'
 import { AudioGlyph } from '@/components/SignalGlyphs'
 import { colorMix, workoutTheme as theme } from './theme'
 
@@ -509,7 +509,9 @@ export function WorkoutPlayer({
                 skipped={skipped}
                 total={total}
                 durationSec={state.elapsedMs > 0 ? Math.round(state.elapsedMs / 1000) : snapshot.estimatedDurationSec}
-                disclaimer={snapshot.disclaimer}
+                {...(snapshot.version === 2
+                  ? { legalNotice: snapshot.legalNotice }
+                  : { legacyDisclaimer: snapshot.disclaimer })}
                 allowNotes={allowNotes}
                 submitRating={submitRating}
                 onExit={onExit}
@@ -698,7 +700,11 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
       <p style={{ color: theme.textSecondary, fontSize: '0.95rem', margin: '0 0 4px' }}>
         {snapshot.items.length} movements · about {mins} min
       </p>
-      <p style={{ color: theme.textSecondary, fontSize: '0.8rem', lineHeight: 1.5, margin: '14px auto 22px', maxWidth: 360 }}>{snapshot.disclaimer}</p>
+      <WorkoutLegalNotice
+        {...(snapshot.version === 2
+          ? { legalNotice: snapshot.legalNotice }
+          : { legacyDisclaimer: snapshot.disclaimer })}
+      />
       <button
         onClick={onBegin}
         style={{

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import { ageBand } from '@/lib/clients/age'
-import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
 import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
@@ -16,6 +15,7 @@ import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
 import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hooks'
 import { createSubmissionGuard } from '@/lib/capture/submission-guard'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
+import useLegalDocument from '@/components/useLegalDocument'
 
 interface Client {
   id: string
@@ -44,6 +44,7 @@ function NewAssessmentWizard() {
   const preselectedClientId = searchParams.get('client_id')
   const testModeParam = searchParams.get('testMode') === '1'
   const testMode = IS_TEST_MODE || testModeParam
+  const screeningNotice = useLegalDocument('screening_notice')
 
   const [step, setStep] = useState(1)
   const [clients, setClients] = useState<Client[]>([])
@@ -457,8 +458,8 @@ function NewAssessmentWizard() {
 
   // Gate the camera on BIPA/subject consent, not just age. Biometric capture must
   // not begin before a valid consent is on record, so we verify it (via the same
-  // authoritative getConsentStatus + captureEligibility the server enforces at
-  // submit) BEFORE advancing to Step 2 and opening the camera. The server remains
+  // authoritative server consent endpoint that the submit route also enforces)
+  // BEFORE advancing to Step 2 and opening the camera. The server remains
   // the final gate; this stops biometric data from ever being captured for an
   // unconsented subject.
   async function proceedToCapture() {
@@ -469,19 +470,30 @@ function NewAssessmentWizard() {
     setAgeGateError(null)
     setCheckingConsent(true)
     try {
-      const supabase = createSupabaseBrowserClient()
-      const consent = await getConsentStatus(supabase, selectedClient.id)
-      const eligibility = captureEligibility(selectedClient.date_of_birth, consent)
-      if (!eligibility.ok) {
+      if (!screeningNotice.document) {
+        throw new Error(screeningNotice.error || 'The required screening notice is still loading.')
+      }
+      const response = await fetch(`/api/consent?client_id=${encodeURIComponent(selectedClient.id)}`, {
+        cache: 'no-store',
+      })
+      const decision = await response.json().catch(() => ({})) as {
+        captureAllowed?: boolean
+        reason?: string | null
+        error?: string
+      }
+      if (!response.ok) throw new Error(decision.error || 'Could not verify consent.')
+      if (!decision.captureAllowed) {
         setShowConsentForm(true)
-        setAgeGateError(eligibility.reason ?? 'This client is not eligible for screening yet.')
+        setAgeGateError(decision.reason ?? 'This client is not eligible for screening yet.')
         return
       }
       setShowConsentForm(false)
       setStep(2)
-    } catch {
+    } catch (caught) {
       setShowConsentForm(false)
-      setAgeGateError('Could not verify consent. Refresh and try again.')
+      setAgeGateError(caught instanceof Error && caught.message
+        ? caught.message
+        : 'Could not verify consent. Refresh and try again.')
     } finally {
       setCheckingConsent(false)
     }
@@ -665,6 +677,7 @@ function NewAssessmentWizard() {
           </div>
         ) : (
           <FullScreenCapture
+            screeningNotice={screeningNotice.document!}
             captures={captures}
             onCameraCapture={handleCameraCapture}
             onFileUpload={handleFileUpload}

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import FullScreenCapture from '../FullScreenCapture'
 import { emptySlot } from '../types'
 import type { Captures } from '../types'
+import { SCREENING_NOTICE_SNAPSHOT } from '@/components/legal-test-fixture'
 
 const mocks = vi.hoisted(() => ({
   detect: vi.fn(),
@@ -91,6 +92,7 @@ async function captureToReview() {
   const onCameraCapture = vi.fn()
   render(
     <FullScreenCapture
+      screeningNotice={SCREENING_NOTICE_SNAPSHOT}
       captures={captures()}
       onCameraCapture={onCameraCapture}
       onFileUpload={vi.fn()}
@@ -113,6 +115,7 @@ describe('FullScreenCapture hard-failure acceptance', () => {
     restore = stubBrowserBoundary()
     render(
       <FullScreenCapture
+        screeningNotice={SCREENING_NOTICE_SNAPSHOT}
         captures={captures()}
         onCameraCapture={vi.fn()}
         onFileUpload={vi.fn()}

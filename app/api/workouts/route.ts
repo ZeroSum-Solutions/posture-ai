@@ -7,6 +7,9 @@ import { logEvent, hashUser, hashIp } from '@/lib/log'
 import { buildSessionFromAssessment } from '@/lib/workout/buildSessionFromAssessment'
 import type { StoredFinding } from '@/lib/findings/storedFindingToEngine'
 import { generateShareToken } from '@/lib/workout/token'
+import { governSessionSnapshot } from '@/lib/workout/generateWorkoutSession'
+import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
+import { snapshotLegalDocument } from '@/lib/legal/policy'
 
 const ROUTE = 'POST /api/workouts'
 const SHARE_TTL_DAYS = 7
@@ -65,6 +68,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Approve the assessment before launching a session.' }, { status: 403 })
   }
 
+  // A workout snapshot is a new shareable artifact. Resolve the applicable
+  // notice before generating or persisting anything so an ungoverned workout
+  // can never be minted in production.
+  const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
+  if (!legalResolution.ok) {
+    return NextResponse.json(
+      { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
+      { status: 503 },
+    )
+  }
+  const legalNotice = snapshotLegalDocument(legalResolution.document)
+
   const { data: findings, error: findingsErr } = await service
     .from('assessment_findings')
     .select('imbalance_key, label, region, deviation, direction, severity_pct, zone, view_used, confidence')
@@ -75,12 +90,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to load findings.' }, { status: 500 })
   }
 
-  const snapshot = buildSessionFromAssessment(assessment, (findings ?? []) as StoredFinding[], week)
-  if (!snapshot) {
+  const draftSnapshot = buildSessionFromAssessment(assessment, (findings ?? []) as StoredFinding[], week)
+  if (!draftSnapshot) {
     // Empty-session floor — nothing reliable to build a workout from.
     logEvent({ route: ROUTE, outcome: 'client_error', status: 422, userHash, detail: 'no playable session' })
     return NextResponse.json({ error: 'This screening has no reliable findings to build a workout from — re-capture and try again.' }, { status: 422 })
   }
+  const snapshot = governSessionSnapshot(draftSnapshot, legalNotice)
 
   const shareToken = share ? generateShareToken() : null
   const expiresAt = share ? new Date(Date.now() + SHARE_TTL_DAYS * 86_400_000).toISOString() : null
@@ -97,6 +113,13 @@ export async function POST(req: NextRequest) {
       estimated_duration_sec: snapshot.estimatedDurationSec,
       session_token_hash: shareToken?.tokenHash ?? null,
       expires_at: expiresAt,
+      legal_document_id: legalNotice.documentId,
+      legal_document_version: legalNotice.version,
+      legal_document_body_sha256: legalNotice.bodySha256,
+      legal_document_effective_at: legalNotice.effectiveAt,
+      legal_jurisdiction: legalNotice.jurisdiction,
+      legal_product_scope: legalNotice.productScope,
+      legal_provenance_state: 'governed',
     })
     .select('id')
     .single()

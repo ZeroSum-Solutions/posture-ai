@@ -5,6 +5,7 @@ import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
+import { consentLegalProvenance } from '@/lib/consent/policy'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildFindingRow } from '@/lib/findings/buildFindingRow'
@@ -82,10 +83,31 @@ export async function POST(req: NextRequest) {
     // must be satisfied before any capture is persisted/scored. (BIPA pre-capture
     // consent; COPPA/minor: under-13 blocked, 13–17 needs guardian consent.)
     const consent = await getConsentStatus(service, client_id)
+    if (consent.legalState === 'legal_unavailable') {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 503, userHash, detail: 'subject consent legal document unavailable' })
+      return NextResponse.json(
+        { error: 'Consent terms are temporarily unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
+    }
+    if (consent.legalState === 'reconsent_required') {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: 'subject reconsent required' })
+      return NextResponse.json(
+        { error: 'The subject must review and sign the current consent terms before screening.', code: 'reconsent_required' },
+        { status: 403 },
+      )
+    }
     const eligibility = captureEligibility(client.date_of_birth, consent)
     if (!eligibility.ok) {
       logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: eligibility.reason ?? 'capture blocked' })
       return NextResponse.json({ error: eligibility.reason }, { status: 403 })
+    }
+    if (!consent.document || consent.legalState !== 'current') {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 503, userHash, detail: 'governed subject consent provenance unavailable' })
+      return NextResponse.json(
+        { error: 'Consent evidence is temporarily unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
     }
 
     const findExistingSubmission = () => service
@@ -126,6 +148,7 @@ export async function POST(req: NextRequest) {
         submission_digest: submissionDigest,
         status: 'processing',
         assessment_type: 'static',
+        ...consentLegalProvenance(consent.document),
       })
       .select('id')
       .single()

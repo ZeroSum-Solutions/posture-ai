@@ -24,6 +24,7 @@ import type { ExerciseContent } from '@/content/muscles/types'
 import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
+import LegalNotice from '@/components/LegalNotice'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -953,7 +954,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
           <section id="review-summary" className={styles.canvasSection} aria-labelledby="review-summary-heading">
             <h2 id="review-summary-heading" className={styles.sectionHeading}>Summary</h2>
             <div data-testid="disclaimer" className={styles.screeningNotice}>
-              Posture AI is a <strong>screening tool only</strong> — results are informational and educational, not a substitute for evaluation by a qualified professional.
+              <LegalNotice kind="screening_notice" compact />
             </div>
             <div className={styles.ratingSummary}>
               <GradeRing grade={grade} score={score} description={gradeDesc} />
@@ -1038,7 +1039,7 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
             {exercises.length > 0
               ? <ExercisesSection exercises={exercises} />
               : <p className={styles.emptyState}>No matched exercise references are available.</p>}
-            <p className={styles.screeningFooter}><strong>Screening tool only.</strong> Exercise suggestions are for practitioner review, not medical orders.</p>
+            <div className={styles.screeningFooter}><LegalNotice kind="screening_notice" compact /></div>
           </section>
         </div>
       </div>

@@ -11,9 +11,7 @@ import {
   comparisonTone,
   type ComparisonStatus,
 } from '@/lib/comparison/policy'
-
-const DISCLAIMER =
-  'SCREENING ONLY — Not a medical assessment. For educational and screening purposes only. This does not replace evaluation by a qualified professional.'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 // Dark palette (matches the app design tokens) with high-contrast text.
 // Solid hex throughout — react-pdf mis-renders rgba() border/background colors.
@@ -127,10 +125,14 @@ function Header({ clientName, practitioner, dateStr }: { clientName: string; pra
   )
 }
 
-function Footer() {
+function Footer({ legalNotice }: { legalNotice: LegalSnapshot }) {
   return (
     <View style={s.footer} fixed>
-      <Text style={s.footerText}>{DISCLAIMER}</Text>
+      {legalNotice.isFixture ? (
+        <Text style={[s.footerText, { color: C.amber, fontFamily: 'Helvetica-Bold' }]}>NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY</Text>
+      ) : null}
+      <Text style={s.footerText}>{legalNotice.text}</Text>
+      <Text style={s.footerText}>{`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}</Text>
     </View>
   )
 }
@@ -178,9 +180,10 @@ export interface ClientReportProps {
   report: ProgramReport
   /** Optional "since last time" progress vs an approved, same-client prior screening. */
   comparison?: ClientComparison | null
+  legalNotice: LegalSnapshot
 }
 
-export function ClientReport({ clientName, practitioner, dateStr, report, comparison }: ClientReportProps) {
+export function ClientReport({ clientName, practitioner, dateStr, report, comparison, legalNotice }: ClientReportProps) {
   const first = clientName.split(' ')[0]
   const mode = clientSummaryMode(report)
   const positivesLine =
@@ -277,7 +280,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
             </Text>
           </View>
         )}
-        <Footer />
+        <Footer legalNotice={legalNotice} />
       </Page>
 
       {/* PER-PRIORITY plan + 3-week ramp */}
@@ -306,7 +309,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
             Aim for ~15 minutes a day. If a week felt hard, repeat the same numbers before moving up — the path
             is a suggestion, not a rule.
           </Text>
-          <Footer />
+          <Footer legalNotice={legalNotice} />
         </Page>
       ))}
 
@@ -336,7 +339,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
           <Text style={s.safety}>• See a qualified professional if you have ongoing pain, numbness, tingling, dizziness, or a recent injury.</Text>
           <Text style={s.safety}>• This plan is general guidance from a posture screening, not a personalized medical assessment.</Text>
         </View>
-        <Footer />
+        <Footer legalNotice={legalNotice} />
       </Page>
     </Document>
   )

@@ -23,6 +23,7 @@ connector is OAuth-scoped to a different org — use the Management API
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | prod/preview/dev (Vercel) | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | prod/preview/dev | Public anon key (RLS enforced) |
+| `NEXT_PUBLIC_SITE_URL` | prod/preview/dev | Canonical public origin; production must be `https://posture-ai-ivory.vercel.app` |
 | `SUPABASE_SERVICE_ROLE_KEY` | prod/preview only | Server-only; never client-bundled |
 | `POSTURE_TEST_MODE_ENABLED` | **never in production** | Server gate for fixture scoring; set to `1` only by the e2e runner/CI |
 | `NEXT_PUBLIC_POSE_MODEL` | optional | `lite` (default) or `full` MediaPipe model |
@@ -37,6 +38,12 @@ connector is OAuth-scoped to a different org — use the Management API
   `{"status":"ok","database":"connected","schema":"ready"}`.
 
 ## Rollback
+
+First check the legal-governance activation receipt described below. Before that
+one-way latch is activated, the normal application rollback procedure remains
+available. After activation, **never promote a deployment older than PR-05**:
+its writers are intentionally rejected by the database. Use a PR-05-compatible
+known-good deployment or a forward hotfix instead.
 
 1. Vercel dashboard → Deployments → previous READY production deployment →
    *Promote to Production* (instant; no rebuild), or
@@ -66,6 +73,38 @@ is exactly how the assessment-detail / report routes silently broke once).
    table or column) shows `"pending_migration"`. Data-only migrations (row
    inserts/updates) aren't fully covered by the probe — CI's `supabase db reset`
    (the full chain) and the startup seed-count log are the backstop for those.
+
+### PR-05 legal-governance cutover (HG-02; one way)
+
+The `20260720000000_legal_document_provenance.sql` migration is an expand step.
+Its latch starts inactive, so the migration alone does not disable the prior app.
+Do not activate it during autonomous engineering or before counsel/product HG-02.
+
+Activation prerequisites, all recorded in one privacy-safe HG-02 release receipt:
+
+1. Counsel-approved, effective production documents for Privacy, Terms, Subject
+   Consent, and Screening Notice are committed; their IDs, versions, hashes,
+   jurisdiction, locale, scope, materiality, and approval references pass CI.
+2. The migration is applied and `/api/health` reports `schema: ready`.
+3. The PR-05-compatible app is the active production deployment; test mode is off.
+4. Hosted smoke checks pass for practitioner acceptance/re-acceptance, new and
+   existing-client subject consent/re-consent, pre-capture gating, assessment,
+   both PDF variants, and workout/share notice projection. Final counsel text must
+   be visibly legible in both PDFs.
+5. In-flight writes from the previous release are drained. Record the deployment
+   ID, migration receipt, smoke-check receipt, operator, and UTC time.
+
+Then invoke the no-argument `public.activate_legal_governance()` function once
+through the approved Supabase service-role database channel. Do not place the
+service credential or SQL in shell history. Record the returned `activated_at`
+timestamp and verify a new governed assessment succeeds while a disposable
+`legacy_unverified` insert is rejected. The activation is idempotent and has no
+deactivation path.
+
+After activation, rollback behind PR-05 is forbidden. The INSERT latch blocks new
+legacy consent tokens, consent records, assessments, reports, and workout sessions;
+historical legacy rows remain readable and may still undergo non-provenance
+lifecycle updates such as approval or erasure redaction.
 
 Muscle KB content: edit files under `content/`, then
 `node scripts/generate-content-index.mjs` and regenerate the seed migration via

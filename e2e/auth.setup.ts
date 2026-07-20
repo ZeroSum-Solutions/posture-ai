@@ -62,7 +62,7 @@ setup('authenticate test practitioner', async ({ page }) => {
   // First sign-in lands on the non-diagnostic acknowledgement gate.
   if (page.url().includes('/onboarding')) {
     await page.getByRole('checkbox').check()
-    await page.getByRole('button', { name: 'I Acknowledge and Continue' }).click()
+    await page.getByRole('button', { name: 'Accept and Continue' }).click()
     await page.waitForURL((url) => !url.pathname.startsWith('/onboarding'), { timeout: 15_000 })
   }
 

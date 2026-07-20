@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { redactSessionForPublic, type ResolvedSession } from './tokenProjection'
 import type { SessionSnapshot } from './generateWorkoutSession'
+import type { LegalSnapshot } from '../legal/types'
 
 const snapshot = { version: 1, week: 1, capability: 'standard', priorities: [], items: [], estimatedDurationSec: 720, disclaimer: 'Screening only.' } as SessionSnapshot
 
@@ -13,6 +14,30 @@ const resolved: ResolvedSession = {
   estimated_duration_sec: 720,
   client_first_name: 'Sam',
   expires_at: '2026-07-09T00:00:00.000Z',
+  legal_document_id: null,
+  legal_document_version: null,
+  legal_document_body_sha256: null,
+  legal_document_effective_at: null,
+  legal_jurisdiction: null,
+  legal_product_scope: null,
+  legal_provenance_state: 'legacy_unverified',
+}
+
+const legalNotice: LegalSnapshot = {
+  schemaVersion: 1,
+  documentId: 'screening-notice-v1',
+  kind: 'screening_notice',
+  version: '2026-07-20',
+  title: 'Screening Notice',
+  effectiveAt: '2026-07-20T00:00:00.000Z',
+  jurisdiction: 'US',
+  locale: 'en-US',
+  productScope: 'us_fitness_wellness_assessment_beta_v1',
+  audience: 'public',
+  bodySha256: 'ad48aaa235c910cc56721c4e5c0ccc17d476e8207df0f73db8129a6cabb85ce7',
+  text: 'Screening Notice\n\nExact governed workout notice.',
+  sections: [{ id: 'notice', heading: null, paragraphs: ['Exact governed workout notice.'] }],
+  isFixture: true,
 }
 
 describe('redactSessionForPublic', () => {
@@ -43,13 +68,119 @@ describe('redactSessionForPublic', () => {
       ...snapshot,
       assessmentId: 'assess-secret',
       internalNotes: 'client has a history of…',
-    } as SessionSnapshot
+    } as unknown as SessionSnapshot
     const pub = redactSessionForPublic({ ...resolved, program_snapshot: drifted })
+    expect(pub).not.toBeNull()
     const serialized = JSON.stringify(pub)
     expect(serialized).not.toContain('assess-secret')
     expect(serialized).not.toContain('internalNotes')
-    expect(Object.keys(pub.snapshot).sort()).toEqual(
+    expect(Object.keys(pub!.snapshot).sort()).toEqual(
       ['capability', 'disclaimer', 'estimatedDurationSec', 'items', 'priorities', 'version', 'week'].sort(),
     )
+  })
+
+  test('projects a governed v2 snapshot with its exact legal notice and no legacy disclaimer', () => {
+    const governed = {
+      version: 2,
+      week: 1,
+      capability: 'standard',
+      priorities: [],
+      items: [],
+      estimatedDurationSec: 720,
+      legalNotice,
+      internalNotes: 'must remain private',
+    } as unknown as SessionSnapshot
+
+    const pub = redactSessionForPublic({
+      ...resolved,
+      program_snapshot: governed,
+      legal_document_id: legalNotice.documentId,
+      legal_document_version: legalNotice.version,
+      legal_document_body_sha256: legalNotice.bodySha256,
+      legal_document_effective_at: '2026-07-20T00:00:00+00:00',
+      legal_jurisdiction: legalNotice.jurisdiction,
+      legal_product_scope: legalNotice.productScope,
+      legal_provenance_state: 'governed',
+    })
+
+    expect(pub?.snapshot).toEqual({
+      version: 2,
+      week: 1,
+      capability: 'standard',
+      priorities: [],
+      items: [],
+      estimatedDurationSec: 720,
+      legalNotice,
+    })
+    expect((pub?.snapshot as { legalNotice: LegalSnapshot }).legalNotice).toBe(legalNotice)
+    expect(pub?.snapshot).not.toHaveProperty('disclaimer')
+    expect(JSON.stringify(pub)).not.toContain('internalNotes')
+  })
+
+  test.each([
+    ['row id', { legal_document_id: 'different-id' }],
+    ['row hash', { legal_document_body_sha256: '0'.repeat(64) }],
+    ['row effective instant', { legal_document_effective_at: '2026-07-21T00:00:00+00:00' }],
+    ['embedded content', {
+      program_snapshot: {
+        version: 2,
+        week: 1,
+        capability: 'standard',
+        priorities: [],
+        items: [],
+        estimatedDurationSec: 720,
+        legalNotice: { ...legalNotice, text: 'Tampered notice text.' },
+      },
+    }],
+  ])('rejects governed snapshots whose %s is not bound to provenance', (_label, mutation) => {
+    const governed = {
+      version: 2,
+      week: 1,
+      capability: 'standard',
+      priorities: [],
+      items: [],
+      estimatedDurationSec: 720,
+      legalNotice,
+    } as SessionSnapshot
+    const row = {
+      ...resolved,
+      program_snapshot: governed,
+      legal_document_id: legalNotice.documentId,
+      legal_document_version: legalNotice.version,
+      legal_document_body_sha256: legalNotice.bodySha256,
+      legal_document_effective_at: legalNotice.effectiveAt,
+      legal_jurisdiction: legalNotice.jurisdiction,
+      legal_product_scope: legalNotice.productScope,
+      legal_provenance_state: 'governed',
+      ...mutation,
+    } as ResolvedSession
+
+    expect(redactSessionForPublic(row)).toBeNull()
+  })
+
+  test('rejects a governed v2 snapshot presented as legacy provenance', () => {
+    const governed = {
+      version: 2,
+      week: 1,
+      capability: 'standard',
+      priorities: [],
+      items: [],
+      estimatedDurationSec: 720,
+      legalNotice,
+    } as SessionSnapshot
+    expect(redactSessionForPublic({ ...resolved, program_snapshot: governed })).toBeNull()
+  })
+
+  test('rejects a legacy snapshot paired with governed provenance', () => {
+    expect(redactSessionForPublic({
+      ...resolved,
+      legal_document_id: legalNotice.documentId,
+      legal_document_version: legalNotice.version,
+      legal_document_body_sha256: legalNotice.bodySha256,
+      legal_document_effective_at: legalNotice.effectiveAt,
+      legal_jurisdiction: legalNotice.jurisdiction,
+      legal_product_scope: legalNotice.productScope,
+      legal_provenance_state: 'governed',
+    })).toBeNull()
   })
 })

@@ -70,7 +70,7 @@ test.describe('red-flag pre-session screen', () => {
     await page.getByTestId('red-flag-yes').click()
     await expect(page.getByTestId('stop-card')).toBeVisible({ timeout: 5_000 })
     await expect(page.getByText(/Let's pause here/)).toBeVisible()
-    await expect(page.getByText(/movement professional/)).toBeVisible()
+    await expect(page.getByTestId('stop-card').getByText(/movement professional/)).toBeVisible()
 
     // No player timeline (Up next, "set X of Y", segmented progress) is visible.
     await expect(page.getByText(/up next/i)).not.toBeVisible()

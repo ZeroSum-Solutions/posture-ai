@@ -23,6 +23,7 @@ import { emptySlot } from '../types'
 import type { Captures } from '../types'
 import { assessPixelQuality } from '@/lib/capture/pixel-quality'
 import type { PixelSample } from '@/lib/capture/pixel-quality'
+import { SCREENING_NOTICE_SNAPSHOT } from '@/components/legal-test-fixture'
 
 vi.mock('@/lib/pose/capture-runtime', () => ({
   getCaptureRuntime: () => ({
@@ -128,6 +129,7 @@ async function mountReady(captures: Captures) {
   const onCameraCapture = vi.fn()
   render(
     <FullScreenCapture
+      screeningNotice={SCREENING_NOTICE_SNAPSHOT}
       captures={captures}
       onCameraCapture={onCameraCapture}
       onFileUpload={vi.fn()}

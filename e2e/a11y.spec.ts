@@ -47,6 +47,16 @@ test.describe('accessibility budget', () => {
     ] as const) {
       await page.goto(path)
       await page.waitForLoadState('networkidle')
+      if (path === '/privacy' || path === '/terms') {
+        const id = path === '/privacy'
+          ? 'privacy-test-fixture-v1'
+          : 'terms-test-fixture-v1'
+        const document = page.locator(`article[data-legal-document-id="${id}"]`)
+        await expect(document.getByText('NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY')).toBeVisible()
+        await expect(document).toHaveAttribute('data-legal-document-version', 'test-1')
+        await expect(document).toHaveAttribute('data-legal-document-body-sha256', /^[0-9a-f]{64}$/)
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i)
+      }
       await expectNoSeriousViolations(page, name)
     }
   })

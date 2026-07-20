@@ -19,8 +19,10 @@ export async function GET() {
       supabase.from('muscles').select('slug').limit(0),
       supabase.from('assessments').select('priority_keys').limit(1),
       supabase.from('assessments').select('submission_id, submission_digest').limit(0),
+      supabase.from('assessments').select('legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, legal_provenance_state').limit(0),
       supabase.from('captures').select('profile_side').limit(0),
       supabase.from('assessment_findings').select('observations').limit(0),
+      supabase.from('practitioner_legal_acceptances').select('legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, accepted_at').limit(0),
     ])
 
     // 42P01 = missing table, 42703 = missing column -> schema not fully applied.

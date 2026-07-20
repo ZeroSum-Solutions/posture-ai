@@ -5,6 +5,24 @@ import { ENGINE_VERSION, type OverallGrade } from '@posture-ai/engine'
 import { getGradeDisplayBand } from '@/lib/scoring/grade-display'
 import { PostureReportPdf, type PdfAssessment, type PdfFinding } from './report'
 import { compareSeverityPercentages, comparisonStatusText } from '@/lib/comparison/policy'
+import type { LegalSnapshot } from '@/lib/legal/types'
+
+const legalNotice: LegalSnapshot = {
+  schemaVersion: 1,
+  documentId: 'screening-notice-test-fixture-v1',
+  kind: 'screening_notice',
+  version: 'test-1',
+  title: 'Screening Notice',
+  effectiveAt: '2026-07-20T00:00:00.000Z',
+  jurisdiction: 'US',
+  locale: 'en-US',
+  productScope: 'us_fitness_wellness_assessment_beta_v1',
+  audience: 'subject',
+  bodySha256: 'c'.repeat(64),
+  text: 'Exact governed screening notice text.',
+  sections: [{ id: 'notice', heading: null, paragraphs: ['Exact governed screening notice text.'] }],
+  isFixture: true,
+}
 
 const assessment: PdfAssessment = {
   id: 'assessment-current',
@@ -67,7 +85,7 @@ function renderedColors(node: React.ReactNode): string[] {
 
 describe('PostureReportPdf comparisons', () => {
   it('uses the same exact grade ranges and neutral descriptions as the web projection', () => {
-    const tree = PostureReportPdf({ assessment, findings, hasDelta: false })
+    const tree = PostureReportPdf({ assessment, findings, hasDelta: false, legalNotice })
     const text = renderedText(tree)
 
     for (const [description, range] of [
@@ -92,6 +110,7 @@ describe('PostureReportPdf comparisons', () => {
       assessment: { ...assessment, overall_grade: 'D', scoring_engine_version: '1.0.0' },
       findings,
       hasDelta: false,
+      legalNotice,
     })
     const text = renderedText(tree)
 
@@ -106,13 +125,14 @@ describe('PostureReportPdf comparisons', () => {
       assessment: { ...assessment, overall_grade: grade },
       findings,
       hasDelta: false,
+      legalNotice,
     })
 
     expect(renderedColors(tree)).toContain(getGradeDisplayBand(grade).hexColor)
   })
 
   it('shows a same-version degree delta', () => {
-    const tree = PostureReportPdf({ assessment, findings, hasDelta: true })
+    const tree = PostureReportPdf({ assessment, findings, hasDelta: true, legalNotice })
     const text = renderedText(tree)
 
     expect(text).toContain('Recorded measurement deltas are shown separately')
@@ -136,11 +156,26 @@ describe('PostureReportPdf comparisons', () => {
       })),
       hasDelta: true,
       engineVersionMismatch: true,
+      legalNotice,
     })
     const text = renderedText(tree)
 
     expect(text).toContain('different or missing scoring versions')
     expect(text).not.toContain('+42.5°')
     expect(text).toContain('Not comparable')
+  })
+
+  it('renders the exact governed screening notice text, version, and effective date', () => {
+    const text = renderedText(PostureReportPdf({
+      assessment,
+      findings,
+      hasDelta: false,
+      legalNotice,
+    }))
+
+    expect(text).toContain(legalNotice.text)
+    expect(text).toContain(`Version ${legalNotice.version}`)
+    expect(text).toContain(`Effective ${legalNotice.effectiveAt}`)
+    expect(text).toContain('NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY')
   })
 })

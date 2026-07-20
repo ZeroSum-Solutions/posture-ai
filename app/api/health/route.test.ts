@@ -36,8 +36,10 @@ describe('GET /api/health schema readiness', () => {
       'muscles.slug',
       'assessments.priority_keys',
       'assessments.submission_id, submission_digest',
+      'assessments.legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, legal_provenance_state',
       'captures.profile_side',
       'assessment_findings.observations',
+      'practitioner_legal_acceptances.legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, accepted_at',
     ]))
     expect((await response.json()).schema).toBe('ready')
   })
@@ -45,8 +47,10 @@ describe('GET /api/health schema readiness', () => {
   test.each([
     'practitioners.id, role, access_status, invitation_id, session_valid_after',
     'assessments.submission_id, submission_digest',
+    'assessments.legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, legal_provenance_state',
     'captures.profile_side',
     'assessment_findings.observations',
+    'practitioner_legal_acceptances.legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, accepted_at',
   ])('reports pending_migration when %s is missing', async (probe) => {
     probeResults[probe] = { error: { code: '42703', message: 'column does not exist' } }
 

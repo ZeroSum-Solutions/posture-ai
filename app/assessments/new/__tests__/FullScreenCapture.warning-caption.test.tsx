@@ -17,6 +17,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import FullScreenCapture from '../FullScreenCapture'
 import { emptySlot } from '../types'
 import type { Captures, CaptureSlotKey } from '../types'
+import { SCREENING_NOTICE_SNAPSHOT } from '@/components/legal-test-fixture'
 
 vi.mock('@/lib/pose/capture-runtime', () => ({
   getCaptureRuntime: () => ({
@@ -136,6 +137,7 @@ function mount(captures: Captures) {
   activeStubs = stubBrowserBoundary()
   render(
     <FullScreenCapture
+      screeningNotice={SCREENING_NOTICE_SNAPSHOT}
       captures={captures}
       onCameraCapture={vi.fn()}
       onFileUpload={vi.fn()}
@@ -187,6 +189,7 @@ describe('FullScreenCapture — committed-slot warning caption', () => {
       const [captures, setCaptures] = useState<Captures>(baseCaptures())
       return (
         <FullScreenCapture
+          screeningNotice={SCREENING_NOTICE_SNAPSHOT}
           captures={captures}
           onCameraCapture={vi.fn()}
           onFileUpload={(slot: CaptureSlotKey) => setCaptures(prev => ({ ...prev, [slot]: warnedSlot() }))}

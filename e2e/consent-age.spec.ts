@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { createClient } from './helpers'
+import { createClient, currentLegalDocument, legalDocumentSubmission } from './helpers'
 
 // The authoritative capture gate lives in POST /api/assessments: a valid subject
 // consent + the age policy must hold before anything is persisted/scored
@@ -60,16 +60,59 @@ test.describe('capture consent + age gate', () => {
     const link = await page.request.post('/api/consent/link', { data: { client_id: c.id } })
     expect(link.ok(), `link failed: ${link.status()}`).toBeTruthy()
     const token = String((await link.json()).url).split('/consent/')[1]
+    const document = await currentLegalDocument(page, 'subject_consent')
+
+    // A mismatched document hash must not consume the single-use token.
+    const tampered = await page.request.post('/api/consent/respond', {
+      data: {
+        token,
+        signer_name: 'Adult Subject',
+        signer_relationship: 'self',
+        ...legalDocumentSubmission({ ...document, bodySha256: '0'.repeat(64) }),
+      },
+    })
+    expect(tampered.status()).toBe(409)
 
     // Subject completes it (public endpoint).
     const respond = await page.request.post('/api/consent/respond', {
-      data: { token, signer_name: 'Adult Subject', signer_relationship: 'self' },
+      data: {
+        token,
+        signer_name: 'Adult Subject',
+        signer_relationship: 'self',
+        ...legalDocumentSubmission(document),
+      },
     })
     expect(respond.ok(), `respond failed: ${respond.status()}`).toBeTruthy()
 
+    const supabaseUrl = process.env.E2E_SUPABASE_URL
+    const serviceKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY
+    if (!supabaseUrl?.startsWith('http://127.0.0.1') || !serviceKey) {
+      throw new Error('Remote-consent provenance check requires local Supabase')
+    }
+    const service = createSupabaseClient(supabaseUrl, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+    const { data: record, error: recordError } = await service
+      .from('consent_records')
+      .select('legal_document_id, legal_document_version, legal_document_body_sha256, legal_provenance_state')
+      .eq('client_id', c.id)
+      .single()
+    expect(recordError).toBeNull()
+    expect(record).toEqual({
+      legal_document_id: document.documentId,
+      legal_document_version: document.version,
+      legal_document_body_sha256: document.bodySha256,
+      legal_provenance_state: 'governed',
+    })
+
     // Single-use: a second submission with the same token is rejected.
     const again = await page.request.post('/api/consent/respond', {
-      data: { token, signer_name: 'Adult Subject', signer_relationship: 'self' },
+      data: {
+        token,
+        signer_name: 'Adult Subject',
+        signer_relationship: 'self',
+        ...legalDocumentSubmission(document),
+      },
     })
     expect(again.status()).toBe(410)
 

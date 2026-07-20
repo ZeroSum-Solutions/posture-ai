@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash, randomUUID } from 'node:crypto'
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -17,6 +18,8 @@ import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
+import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
+import { snapshotLegalDocument } from '@/lib/legal/policy'
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -74,6 +77,18 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     )
   }
+
+  // A generated report is a new governed artifact. Resolve and freeze the
+  // applicable notice before doing any rendering or storage work so production
+  // fails closed when no approved legal document is available.
+  const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
+  if (!legalResolution.ok) {
+    return NextResponse.json(
+      { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
+      { status: 503 },
+    )
+  }
+  const legalNotice = snapshotLegalDocument(legalResolution.document)
 
   // A comparison assessment's findings also get exported (deltas), so it must
   // belong to this practitioner AND be approved too — otherwise its data could be
@@ -359,6 +374,7 @@ export async function POST(req: NextRequest) {
       dateStr,
       report: program,
       comparison: clientComparison,
+      legalNotice,
     }) as unknown as ReactElement<DocumentProps>
   } else {
     docElement = React.createElement(PostureReportPdf, {
@@ -368,6 +384,7 @@ export async function POST(req: NextRequest) {
       practitioner: practitioner || undefined,
       hasDelta,
       engineVersionMismatch,
+      legalNotice,
     }) as unknown as ReactElement<DocumentProps>
   }
 
@@ -381,7 +398,8 @@ export async function POST(req: NextRequest) {
 
   // Upload to Supabase Storage via service role
   const serviceSupabase = createSupabaseServiceClient()
-  const storagePath = `${user.id}/${assessment_id}/${variant === 'client' ? 'report-client.pdf' : 'report.pdf'}`
+  const pdfSha256 = createHash('sha256').update(Buffer.from(pdfBuffer)).digest('hex')
+  const storagePath = `${user.id}/${assessment_id}/${variant}/${pdfSha256}-${randomUUID()}.pdf`
 
   // Ensure bucket exists
   const { error: bucketErr } = await serviceSupabase.storage.createBucket('posture-reports', {
@@ -396,7 +414,7 @@ export async function POST(req: NextRequest) {
     .from('posture-reports')
     .upload(storagePath, pdfBuffer, {
       contentType: 'application/pdf',
-      upsert: true,
+      upsert: false,
     })
 
   if (uploadErr) {
@@ -418,6 +436,13 @@ export async function POST(req: NextRequest) {
       compared_to_assessment_id: variant === 'client'
         ? (clientComparison ? compared_to_assessment_id : null)
         : (compared_to_assessment_id || null),
+      legal_document_id: legalNotice.documentId,
+      legal_document_version: legalNotice.version,
+      legal_document_body_sha256: legalNotice.bodySha256,
+      legal_document_effective_at: legalNotice.effectiveAt,
+      legal_jurisdiction: legalNotice.jurisdiction,
+      legal_product_scope: legalNotice.productScope,
+      legal_provenance_state: 'governed',
     })
     .select('id')
     .single()

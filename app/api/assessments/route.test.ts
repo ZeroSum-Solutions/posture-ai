@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from 'vitest'
+import { beforeEach, describe, test, expect, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { testLandmarksFrames } from '@posture-ai/engine'
 import { MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
@@ -12,7 +12,28 @@ interface StoredAssessment {
   [key: string]: unknown
 }
 
-const mockState = vi.hoisted(() => ({ service: null as unknown }))
+const mockState = vi.hoisted(() => ({
+  service: null as unknown,
+  consent: {
+    hasConsent: true,
+    signerRelationship: 'self',
+    legalState: 'current',
+    document: {
+      schemaVersion: 1,
+      documentId: 'subject-consent-test-fixture-v1',
+      kind: 'subject_consent',
+      version: 'test-1',
+      effectiveAt: '2026-07-20T00:00:00.000Z',
+      jurisdiction: 'US',
+      locale: 'en-US',
+      productScope: 'us_fitness_wellness_assessment_beta_v1',
+      audience: 'subject',
+      bodySha256: '66ccb18e51a1b930ea7ca0091c7e18100fe97d66970a7cadadfc2adfa3979b7c',
+      text: 'fixture',
+      isFixture: true,
+    },
+  } as Record<string, unknown>,
+}))
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
@@ -24,8 +45,8 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
 vi.mock('@/lib/consent/record', () => ({
-  getConsentStatus: async () => ({ hasConsent: true }),
-  captureEligibility: () => ({ ok: true }),
+  getConsentStatus: async () => mockState.consent,
+  captureEligibility: () => ({ ok: mockState.consent.hasConsent === true, reason: 'Subject consent is required before screening can begin.' }),
 }))
 
 import { POST } from './route'
@@ -33,6 +54,28 @@ import { POST } from './route'
 const CLIENT_ID = '2f5d3f6a-4b1c-4f6e-9b3a-1c2d3e4f5a6b'
 const SUBMISSION_A = '6a76a8b9-df1d-4e93-a65b-33419bb01bb4'
 const SUBMISSION_B = '65a5f322-0d90-4ba2-bf2e-2201958dd668'
+
+beforeEach(() => {
+  mockState.consent = {
+    hasConsent: true,
+    signerRelationship: 'self',
+    legalState: 'current',
+    document: {
+      schemaVersion: 1,
+      documentId: 'subject-consent-test-fixture-v1',
+      kind: 'subject_consent',
+      version: 'test-1',
+      effectiveAt: '2026-07-20T00:00:00.000Z',
+      jurisdiction: 'US',
+      locale: 'en-US',
+      productScope: 'us_fitness_wellness_assessment_beta_v1',
+      audience: 'subject',
+      bodySha256: '66ccb18e51a1b930ea7ca0091c7e18100fe97d66970a7cadadfc2adfa3979b7c',
+      text: 'fixture',
+      isFixture: true,
+    },
+  }
+})
 
 function validFrames() {
   const front = testLandmarksFrames.find(frame => frame.view === 'front')!
@@ -156,6 +199,60 @@ describe('POST /api/assessments payload cap', () => {
     expect(req.headers.get('content-length')).toBeNull()
     const res = await POST(req)
     expect(res.status).toBe(413)
+  })
+})
+
+describe('POST /api/assessments governed consent provenance', () => {
+  test('persists the current required subject-consent snapshot on creation', async () => {
+    const db = makeAssessmentService()
+    mockState.service = db.service
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(200)
+    expect(db.snapshot().assessments[0]).toMatchObject({
+      legal_document_id: 'subject-consent-test-fixture-v1',
+      legal_document_version: 'test-1',
+      legal_document_body_sha256: '66ccb18e51a1b930ea7ca0091c7e18100fe97d66970a7cadadfc2adfa3979b7c',
+      legal_document_effective_at: '2026-07-20T00:00:00.000Z',
+      legal_jurisdiction: 'US',
+      legal_product_scope: 'us_fitness_wellness_assessment_beta_v1',
+      legal_provenance_state: 'governed',
+    })
+  })
+
+  test('rejects reconsent before assessment persistence or scoring', async () => {
+    const db = makeAssessmentService()
+    mockState.service = db.service
+    mockState.consent = {
+      hasConsent: false,
+      signerRelationship: null,
+      legalState: 'reconsent_required',
+      document: null,
+    }
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({ code: 'reconsent_required' })
+    expect(db.snapshot()).toMatchObject({ assessments: [], captureInsertCount: 0, findingInsertCount: 0 })
+  })
+
+  test('fails closed before persistence when legal resolution is unavailable', async () => {
+    const db = makeAssessmentService()
+    mockState.service = db.service
+    mockState.consent = {
+      hasConsent: false,
+      signerRelationship: null,
+      legalState: 'legal_unavailable',
+      document: null,
+    }
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toMatchObject({ code: 'legal_unavailable' })
+    expect(db.snapshot()).toMatchObject({ assessments: [], captureInsertCount: 0, findingInsertCount: 0 })
   })
 })
 

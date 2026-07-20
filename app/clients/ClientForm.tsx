@@ -1,6 +1,8 @@
 'use client'
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import LegalDocumentView from '@/components/LegalDocumentView'
+import useLegalDocument from '@/components/useLegalDocument'
 import { inchesToCm, cmToInches, poundsToKg, kgToPounds, round1 } from '@/lib/units'
 
 type UnitSystem = 'us' | 'metric'
@@ -19,6 +21,9 @@ export type ClientPayload = {
   // Subject consent (create mode only) — the typed-name e-signature + relationship.
   signer_name?: string
   signer_relationship?: string
+  legal_document_id?: string
+  legal_document_version?: string
+  legal_document_body_sha256?: string
 }
 
 export type ClientFormInitial = {
@@ -58,6 +63,7 @@ export default function ClientForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [consentChecked, setConsentChecked] = useState(false)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('us')
+  const legal = useLegalDocument('subject_consent', mode === 'create')
   // Inputs hold the displayed unit (default US); stored values are metric, so
   // convert any initial height/weight from cm/kg to in/lb for the initial US view.
   const [form, setForm] = useState({
@@ -128,6 +134,9 @@ export default function ClientForm({
       errors.weight = `Weight must be a positive number (${weightUnit}).`
     }
     if (mode === 'create') {
+      if (!legal.document) {
+        errors.consent = legal.error ?? 'Consent terms are unavailable. Client creation is disabled.'
+      }
       if (!form.signer_name.trim()) {
         errors.signer_name = 'Type the signer’s full name to sign.'
       }
@@ -155,7 +164,13 @@ export default function ClientForm({
         : null,
       notes: form.notes.trim() ? form.notes.trim() : null,
       ...(mode === 'create'
-        ? { signer_name: form.signer_name.trim(), signer_relationship: form.signer_relationship }
+        ? {
+            signer_name: form.signer_name.trim(),
+            signer_relationship: form.signer_relationship,
+            legal_document_id: legal.document!.documentId,
+            legal_document_version: legal.document!.version,
+            legal_document_body_sha256: legal.document!.bodySha256,
+          }
         : {}),
     }
 
@@ -337,11 +352,17 @@ export default function ClientForm({
               border: '1px solid ' + (fieldErrors.consent ? 'rgba(239,68,68,0.4)' : 'rgba(0,152,243,0.25)'),
               borderRadius: '10px', padding: '16px', marginBottom: '8px',
             }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '12px', lineHeight: 1.5 }}>
-                Posture AI is a screening tool, not a medical diagnosis. Photos are processed on this
-                device and never stored — only body-position measurements are saved, and no face-geometry
-                template is created. The subject (or their parent/legal guardian) consents below.
-              </p>
+              {legal.isLoading && <p role="status" aria-live="polite">Loading consent terms…</p>}
+              {legal.error && (
+                <p role="alert" aria-live="assertive" style={{ color: 'var(--danger)', fontSize: '0.84rem' }}>
+                  {legal.error}
+                </p>
+              )}
+              {legal.document && (
+                <div style={{ marginBottom: 16 }}>
+                  <LegalDocumentView document={legal.document} headingLevel={3} compact />
+                </div>
+              )}
 
               <div style={{ marginBottom: '12px' }}>
                 <label htmlFor="signer_relationship" style={labelStyle}>Who is giving consent?</label>
@@ -374,6 +395,7 @@ export default function ClientForm({
                   id="consent_checkbox"
                   type="checkbox"
                   checked={consentChecked}
+                  disabled={!legal.document}
                   onChange={e => {
                     setConsentChecked(e.target.checked)
                     if (e.target.checked) setFieldErrors(prev => { const next = { ...prev }; delete next.consent; return next })
@@ -404,12 +426,16 @@ export default function ClientForm({
           }}>
             Cancel
           </Link>
-          <button type="submit" disabled={loading} className="app-gradient-action" style={{
+          <button
+            type="submit"
+            disabled={loading || (mode === 'create' && !legal.document)}
+            className="app-gradient-action"
+            style={{
             flex: 2, padding: '3px',
-            background: loading ? 'rgba(0,152,243,0.3)' : undefined,
-            color: loading ? '#6B7280' : '#fff',
+            background: loading || (mode === 'create' && !legal.document) ? 'rgba(0,152,243,0.3)' : undefined,
+            color: loading || (mode === 'create' && !legal.document) ? '#6B7280' : '#fff',
             border: 'none', borderRadius: '8px', fontWeight: 600,
-            fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer',
+            fontSize: '0.95rem', cursor: loading || (mode === 'create' && !legal.document) ? 'not-allowed' : 'pointer',
             minWidth: '120px',
           }}>
             <span>{submitLabel}</span>
