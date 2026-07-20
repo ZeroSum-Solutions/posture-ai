@@ -15,7 +15,7 @@ export async function GET() {
     // truth — so a skipped migration must surface as 'pending_migration' here
     // rather than a misleading 'ready'.
     const probes = await Promise.all([
-      supabase.from('practitioners').select('id').limit(0),
+      supabase.from('practitioners').select('id, role, access_status, invitation_id, session_valid_after').limit(0),
       supabase.from('muscles').select('slug').limit(0),
       supabase.from('assessments').select('priority_keys').limit(1),
       supabase.from('assessments').select('submission_id, submission_digest').limit(0),

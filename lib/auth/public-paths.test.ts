@@ -1,5 +1,10 @@
 import { describe, test, expect } from 'vitest'
-import { publicPaths, isPublicPath } from './public-paths'
+import {
+  classifyAuthPath,
+  isAal1CorridorPath,
+  isPublicPath,
+  publicPaths,
+} from './public-paths'
 
 // The proxy allowlist IS the auth boundary: a typo here either exposes every
 // gated page or breaks the public share/consent links. These tests pin both
@@ -13,6 +18,7 @@ describe('proxy public-path allowlist', () => {
       '/auth/sign-in',
       '/auth/sign-up',
       '/auth/callback?code=abc',
+      '/auth/confirm',
       '/auth/forgot-password',
       '/auth/update-password',
       '/api/health',
@@ -25,6 +31,25 @@ describe('proxy public-path allowlist', () => {
       '/api/workouts/token/some-share-token/rate',
     ]) {
       expect(isPublicPath(new URL(p, 'http://x').pathname, prod), `${p} should be public`).toBe(true)
+    }
+  })
+
+  test('AAL1 corridor is authenticated but does not require active AAL2 admission', () => {
+    for (const p of [
+      '/auth/accept-invite',
+      '/auth/mfa',
+      '/api/auth/complete-invitation',
+      '/api/auth/sign-out',
+    ]) {
+      expect(isPublicPath(p, prod), `${p} must not be public`).toBe(false)
+      expect(isAal1CorridorPath(p), `${p} should be in the AAL1 corridor`).toBe(true)
+      expect(classifyAuthPath(p, 'production')).toBe('aal1-corridor')
+    }
+  })
+
+  test('classifies all other application and API routes as protected', () => {
+    for (const p of ['/dashboard', '/onboarding', '/api/clients', '/api/settings/organization']) {
+      expect(classifyAuthPath(p, 'production')).toBe('protected')
     }
   })
 
@@ -59,6 +84,18 @@ describe('proxy public-path allowlist', () => {
   test('dev routes are allow-listed outside production only', () => {
     expect(isPublicPath('/api/dev/create-test-user', publicPaths('development'))).toBe(true)
     expect(isPublicPath('/api/dev/create-test-user', publicPaths('production'))).toBe(false)
+  })
+
+  test('public and corridor matches are segment-anchored', () => {
+    for (const p of [
+      '/auth/sign-in-admin',
+      '/auth/confirm-malicious',
+      '/auth/mfa-export',
+      '/api/auth/sign-out-everyone',
+      '/consenter',
+    ]) {
+      expect(classifyAuthPath(p, 'production')).toBe('protected')
+    }
   })
 
   test('no public prefix accidentally shadows a protected route family', () => {

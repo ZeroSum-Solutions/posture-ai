@@ -404,15 +404,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to upload PDF: ' + uploadErr.message }, { status: 500 })
   }
 
-  // Get signed URL (1 hour)
-  const { data: signedData, error: signErr } = await serviceSupabase.storage
-    .from('posture-reports')
-    .createSignedUrl(storagePath, 3600)
-
-  if (signErr || !signedData) {
-    return NextResponse.json({ error: 'Failed to create signed URL' }, { status: 500 })
-  }
-
   // Insert reports row (service-role: authenticated DB writes on regulated tables
   // are revoked; practitioner_id is set explicitly below).
   const { data: report, error: reportErr } = await serviceSupabase
@@ -442,7 +433,9 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     report_id: report.id,
-    signed_url: signedData.signedUrl,
+    // A same-origin download re-checks active AAL2 access on every request.
+    // Do not issue a storage capability that could outlive revocation.
+    signed_url: `/api/reports/${encodeURIComponent(report.id)}/download`,
     storage_path: storagePath,
     comparison_overall: clientComparison?.overall.status ?? null,
     engine_version_mismatch: engineVersionMismatch,

@@ -35,7 +35,6 @@ vi.mock('@/lib/supabase/server', () => ({
       createBucket: async () => ({ error: null }),
       from: () => ({
         upload: uploadSpy,
-        createSignedUrl: async () => ({ data: { signedUrl: 'https://signed' }, error: null }),
         remove: async () => ({ error: null }),
       }),
     },
@@ -98,6 +97,7 @@ describe('POST /api/reports', () => {
     }
     const res = await POST(req({ assessment_id: 'a1' }))
     expect(res.status).toBe(200)
+    expect((await res.json()).signed_url).toBe('/api/reports/r1/download')
   })
 
   test('rejects a comparison assessment that is not earlier than the current assessment', async () => {

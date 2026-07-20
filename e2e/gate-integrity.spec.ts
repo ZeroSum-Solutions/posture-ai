@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test'
 test.describe('gate integrity (regression: security fixes)', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'run once on chromium')
 
-  test.skip('onboarding ack failure: stays on /onboarding when PATCH fails', async ({ page }) => {
-    // The shared test account (testpractitioner@postureai.test) is already acked
+  test.skip('onboarding ack failure: stays on /onboarding when PATCH fails', async () => {
+    // The shared invited test practitioner is already acked
     // (non_diagnostic_ack_at is set in the DB), so the server-side middleware
     // redirects /onboarding → /dashboard on direct navigation for this user.
     // Testing the full onboarding flow requires a fresh unacked account, which is

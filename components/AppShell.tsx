@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 import AppAtmosphere from './AppAtmosphere'
 import NavBar from './NavBar'
 import MotionOrchestrator from './MotionOrchestrator'
+import AuthSessionGuard from './AuthSessionGuard'
 import { shouldRenderAppAtmosphere } from './appAtmospherePolicy'
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -17,8 +18,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <MotionConfig reducedMotion="user">
       <div className={showAtmosphere ? 'app-shell app-shell--immersive' : 'app-shell'}>
         {showAtmosphere && <AppAtmosphere />}
-        <NavBar />
-        <MotionOrchestrator>{children}</MotionOrchestrator>
+        <AuthSessionGuard pathname={pathname}>
+          <NavBar />
+          <MotionOrchestrator>{children}</MotionOrchestrator>
+        </AuthSessionGuard>
         <footer className="app-footer">
           <div>Screening only — not a medical diagnosis. Consult a qualified healthcare professional before making any clinical decisions.</div>
           <div className="app-footer-links">

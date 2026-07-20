@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { validatePasswordReset, MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
 import AuthFrame from '@/components/AuthFrame'
@@ -24,12 +23,13 @@ export default function UpdatePasswordPage() {
   const [loading, setLoading] = useState(false)
   // null = still checking for a recovery session, true/false = result
   const [hasSession, setHasSession] = useState<boolean | null>(null)
-  const router = useRouter()
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session)
+    // getUser validates the recovery JWT with Auth. getSession only reads local
+    // storage and must not decide whether this security-sensitive form is usable.
+    supabase.auth.getUser().then(({ data, error: userError }) => {
+      setHasSession(!userError && !!data.user)
     })
   }, [])
 
@@ -49,8 +49,9 @@ export default function UpdatePasswordPage() {
       setError(error.message)
       return
     }
-    router.push('/dashboard')
-    router.refresh()
+    // A password reset never grants protected access. Existing users must
+    // challenge their factor; approved lost-factor recovery must re-enroll one.
+    window.location.assign('/auth/mfa?mode=recovery&next=/dashboard')
   }
 
   return (

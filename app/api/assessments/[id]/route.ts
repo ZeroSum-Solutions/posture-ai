@@ -104,24 +104,18 @@ export async function GET(
   // captures into one indistinguishable `side` row.
   const perViewCaptures = dedupeCapturesByViewSide(rawCaptures || [])
 
-  // Generate signed URLs in parallel — one round trip per view was serial.
-  const captures = await Promise.all(
-    perViewCaptures.map(async (cap) => {
-      let signed_url: string | null = null
-      if (cap.storage_path) {
-        const { data: urlData } = await service.storage
-          .from('posture-captures')
-          .createSignedUrl(cap.storage_path, 3600)
-        signed_url = urlData?.signedUrl ?? null
-      }
-      const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
-      return {
-        id: cap.id, view: cap.view, profile_side: cap.profile_side ?? null,
-        signed_url, source: cap.source,
-        capture_roll_deg: typeof roll === 'number' ? roll : null,
-      }
-    }),
-  )
+  // Keep regulated images behind a same-origin admission check. A storage
+  // signed URL remains usable until its TTL even after practitioner revocation;
+  // this endpoint path re-checks active AAL2 access on every image request.
+  const captures = perViewCaptures.map((cap) => {
+    const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
+    return {
+      id: cap.id, view: cap.view, profile_side: cap.profile_side ?? null,
+      signed_url: cap.storage_path ? `/api/captures/${encodeURIComponent(cap.id)}/image` : null,
+      source: cap.source,
+      capture_roll_deg: typeof roll === 'number' ? roll : null,
+    }
+  })
 
   return NextResponse.json({ assessment, findings: enrichedFindings, captures })
 }

@@ -51,11 +51,11 @@
       "sha256": "0db125faece171a9ffb0fbce7688a896ae2e8a0c1dd97c11dfb2b3d852e3317e"
     },
     {
-      "id": "posture-ai-e2e-runner-2026-07-19",
+      "id": "posture-ai-e2e-runner-2026-07-19-pr04",
       "path": "scripts/run-e2e.mjs",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "c216c07c6baf3e236ca7a0d2c2b3e956c1b5a2f7e960ca8b89181912d090702e"
+      "sha256": "2052852de4eb6dcbbfe0c141843d33fc3e3efdf9e41650ffedb6e737265085eb"
     }
   ],
   "source_identity_contract": {
@@ -1285,15 +1285,15 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 66,
-      "mobile-webkit": 57,
+      "desktop-chromium": 69,
+      "mobile-webkit": 60,
       "calibration": 1
     },
-    "expected_total": 125,
-    "expected_files": 27,
-    "test_ids_sha256": "9ccdc5b085f45af8f1f244dfe7e37ed9461a23690c1b7d6b69858e37216576dc"
+    "expected_total": 131,
+    "expected_files": 28,
+    "test_ids_sha256": "1ba46f6942d8a73c4241b261a092c4ed293680072078dc22466fa0650210fb76"
   },
-  "inventory_hash": "eb573ca580d7ce9365c049296c1d3e57efec0d7f72a5c1e5b40d16f60ff5fdef",
+  "inventory_hash": "118e0d658df28a951bc8b1358de62ede99d39d4585adc45ca779c913a9152fd5",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1419,7 +1419,7 @@
       "retry_results"
     ],
     "required_evidence_values": {
-      "inventory_id": "playwright-production-readiness-2026-07-19-v1",
+      "inventory_id": "playwright-production-readiness-2026-07-19-v2",
       "report_format": "playwright-json-report",
       "status": "passed"
     },

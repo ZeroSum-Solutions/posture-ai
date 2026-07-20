@@ -2,11 +2,91 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
+export type AdmittedPractitioner = {
+  id: string
+  organization_id: string | null
+  practice_name: string | null
+  display_name: string | null
+  access_status: string
+  role: string
+}
+
+export type PractitionerAdmission =
+  | { practitioner: AdmittedPractitioner; response: null }
+  | { practitioner: null; response: NextResponse }
+
+function forbidden(code: 'mfa_required' | 'practitioner_access_required' | 'compliance', error: string) {
+  return NextResponse.json({ error, code }, { status: 403 })
+}
+
+/**
+ * Admission shared by the normal practitioner gate and the organization-settings
+ * exception. Authentication (401) remains the caller's responsibility; this
+ * function authorizes only sessions that have reached AAL2 and whose practitioner
+ * account is explicitly active.
+ */
+export async function practitionerAdmission(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<PractitionerAdmission> {
+  try {
+    const { data: assurance, error: assuranceError } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+    if (assuranceError || assurance?.currentLevel !== 'aal2') {
+      return {
+        practitioner: null,
+        response: forbidden('mfa_required', 'Multi-factor authentication is required.'),
+      }
+    }
+  } catch {
+    return {
+      practitioner: null,
+      response: forbidden('mfa_required', 'Multi-factor authentication is required.'),
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('practitioners')
+      .select('id, organization_id, practice_name, display_name, access_status, role')
+      .eq('id', userId)
+      .maybeSingle()
+    const practitioner = data as AdmittedPractitioner | null
+
+    if (
+      error ||
+      !practitioner ||
+      practitioner.access_status !== 'active' ||
+      practitioner.role !== 'practitioner'
+    ) {
+      return {
+        practitioner: null,
+        response: forbidden(
+          'practitioner_access_required',
+          'Active practitioner access is required.',
+        ),
+      }
+    }
+
+    return { practitioner, response: null }
+  } catch {
+    return {
+      practitioner: null,
+      response: forbidden(
+        'practitioner_access_required',
+        'Active practitioner access is required.',
+      ),
+    }
+  }
+}
+
 /**
  * Practitioner access gate for API routes. Reuses the caller's already-authed
  * Supabase client + user id (no extra session round-trip) and enforces:
- *  1. the user is a practitioner (a row in `practitioners`) — 403 otherwise,
- *  2. the HIPAA org BAA gate: if the practitioner belongs to a covered-entity
+ *  1. the session has reached AAL2 — 403 otherwise,
+ *  2. the user is an active practitioner — 403 otherwise,
+ *  3. the HIPAA org BAA gate: if the practitioner belongs to a covered-entity
  *     organization whose BAA is not signed, access is blocked (403).
  *
  * Returns a NextResponse to short-circuit with, or null when access is allowed.
@@ -22,15 +102,9 @@ export async function practitionerGate(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<NextResponse | null> {
-  const { data: prac } = await supabase
-    .from('practitioners')
-    .select('id, organization_id')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (!prac) {
-    return NextResponse.json({ error: 'Practitioner access required.' }, { status: 403 })
-  }
+  const admission = await practitionerAdmission(supabase, userId)
+  if (admission.response) return admission.response
+  const prac = admission.practitioner
 
   if (prac.organization_id) {
     // Read the org with service-role: the BAA gate must not depend on the
@@ -47,16 +121,16 @@ export async function practitionerGate(
     // error, or a dangling organization_id) is denied. A HIPAA BAA gate must
     // never be skipped just because the compliance check itself failed.
     if (error || !org) {
-      return NextResponse.json(
-        { error: 'Could not verify your organization’s compliance status. Please try again.' },
-        { status: 403 },
+      return forbidden(
+        'compliance',
+        'Could not verify your organization’s compliance status. Please try again.',
       )
     }
 
     if (org.is_covered_entity === true && org.baa_status !== 'signed') {
-      return NextResponse.json(
-        { error: 'A signed Business Associate Agreement is required before practitioner mode can be used for this organization.' },
-        { status: 403 },
+      return forbidden(
+        'compliance',
+        'A signed Business Associate Agreement is required before practitioner mode can be used for this organization.',
       )
     }
   }

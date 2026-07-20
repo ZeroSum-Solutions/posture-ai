@@ -32,7 +32,7 @@ describe('GET /api/health schema readiness', () => {
 
     expect(response.status).toBe(200)
     expect(observedProbes).toEqual(expect.arrayContaining([
-      'practitioners.id',
+      'practitioners.id, role, access_status, invitation_id, session_valid_after',
       'muscles.slug',
       'assessments.priority_keys',
       'assessments.submission_id, submission_digest',
@@ -43,6 +43,7 @@ describe('GET /api/health schema readiness', () => {
   })
 
   test.each([
+    'practitioners.id, role, access_status, invitation_id, session_valid_after',
     'assessments.submission_id, submission_digest',
     'captures.profile_side',
     'assessment_findings.observations',

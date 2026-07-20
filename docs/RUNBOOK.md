@@ -1,7 +1,7 @@
 # Posture AI — Ops Runbook
 
 Production operations reference for the Next.js app on Vercel + Supabase.
-Last updated: 2026-06-12 (production push P0–P6).
+Last updated: 2026-07-19 (production-readiness engineering; no provider mutation).
 
 ## Topology
 
@@ -93,6 +93,96 @@ gate regressions in CI.
 - Photos are never uploaded or persisted — landmarks only.
 - Supabase advisors: clean as of 2026-06-12 except the intentional
   `api_rate_limits` RLS-no-policy INFO (service-role-only table).
+
+## Practitioner admission and MFA
+
+The practitioner beta is invitation-only. Hiding the signup screen is not the
+security boundary: local Auth configuration, the admission trigger, application
+gates, and sensitive-table RLS all independently deny public or AAL1 access.
+Production provider configuration is verified separately under HG-01.
+
+HG-01 must verify the hosted Auth project against this exact contract before
+launch (the committed `supabase/config.toml` governs local Auth only):
+
+- global public signup off while the email/password provider remains enabled;
+- before-user-created hook enabled at
+  `pg-functions://postgres/public/hook_enforce_practitioner_invitation`;
+- TOTP enrollment and verification enabled, phone MFA disabled;
+- invite and recovery templates installed from `supabase/templates/`;
+- Site URL and redirect allowlist contain only the intended HTTPS app origins;
+- secure password change and double-confirmed email changes enabled; and
+- the practitioner admission migrations, including
+  `current_practitioner_access_state`, are present before app promotion; and
+- on a disposable hosted invite, `begin-mfa-recovery` can delete that user's
+  managed `auth.sessions` rows and the pre-recovery access token, refresh token,
+  `/auth/v1/user`, and `/auth/v1/factors` requests all fail afterward. This is
+  proven on the local pinned stack only; a hosted schema/permission difference is
+  a launch NO-GO until the implementation uses a provider-supported equivalent.
+
+Record the read-only settings evidence under HG-01. Do not change the hosted
+provider while running the autonomous engineering gates.
+
+`npm run auth:practitioner` is the only repository operator entry point. It reads
+all values from the environment so the service key never appears in command
+history. It accepts these actions through `PRACTITIONER_ACCESS_ACTION`:
+
+| Action | Required values | Result |
+|---|---|---|
+| `invite` | `PRACTITIONER_EMAIL`, `PRACTITIONER_DISPLAY_NAME`, `PRACTITIONER_ACCESS_ACTOR`, `NEXT_PUBLIC_APP_URL` | Creates one expiring allowlist record, then asks Auth to email the bound invitation. A retry or expired bound invite safely uses a recovery-token delivery instead of revoking/recreating the user. |
+| `approve-existing` | `PRACTITIONER_EMAIL`, `PRACTITIONER_ACCESS_ACTOR` | Approves a reviewed pre-migration account; the next session still needs AAL2. |
+| `revoke` | email, actor, `PRACTITIONER_ACCESS_REASON` | Revokes database membership first, then bans the Auth identity. Existing JWTs immediately lose data access through admission-aware RLS. |
+| `begin-mfa-recovery` | email, actor, reason, `NEXT_PUBLIC_APP_URL` | Atomically moves the account to `recovery_pending` and deletes every Auth session, removes provider factors, freezes a new session cutoff, then sends a recovery-token email. |
+
+The target defaults safely to local Supabase. A remote URL additionally requires
+`PRACTITIONER_ACCESS_REMOTE_APPROVED=I_ACKNOWLEDGE_THIS_MUTATES_AUTH`. That flag
+is a mechanical guard, not authorization: do not set it without the explicit
+provider-change approval tracked by the release goal. Use ZS Vault for the
+service-role credential; never paste it into a command or config file.
+
+### Normal invitation
+
+1. The Auth account owner verifies the intended email and records the operator
+   identity. Issue one invitation; do not create the Auth user directly.
+2. The practitioner opens the invitation email. The server verifies the invite
+   token hash, then the practitioner sets a password.
+3. The MFA page enrolls or challenges TOTP. Password setup alone remains AAL1
+   and cannot read practitioner or client data.
+4. After successful challenge, an authenticated database transition atomically
+   binds the same user/email/invitation and marks membership active. The app then
+   shows the non-diagnostic acknowledgement.
+
+### Lost factor and break-glass recovery
+
+There is deliberately no self-service MFA removal and no AAL1 emergency-data
+bypass.
+
+1. The Auth account owner verifies identity out of band using the approved HG-01
+   procedure and records requester, verifier, reason, time, and ticket/receipt.
+2. Run `begin-mfa-recovery`. One database transaction changes membership to
+   `recovery_pending` and deletes all GoTrue sessions, so old access and refresh
+   tokens cannot call Auth account-management endpoints after it commits.
+3. The operator then removes all factors, freezes the post-deletion cutoff, and
+   sends the recovery email. Any partial failure leaves access blocked; rerun the
+   same action after resolving the provider problem.
+4. The practitioner opens that email, chooses a new password, enrolls exactly
+   one new TOTP factor, and verifies it. Completion requires both the email OTP
+   and TOTP authentication timestamps to be after the frozen cutoff.
+5. Confirm old sessions fail, the new AAL2 session passes, and attach the
+   privacy-safe access-event receipt. Do not record the TOTP secret or raw token.
+
+For suspected compromise, use `revoke` instead of recovery. Never delete the
+Auth user to revoke access: the schema intentionally cascades practitioner
+deletion into client records.
+
+### Admission cutover and old file capabilities
+
+New report and capture responses use same-origin, per-request authorized download
+routes; they no longer mint one-hour storage URLs. URLs issued by a prior release
+cannot be retroactively shortened. After deploying this change, allow the former
+one-hour TTL to drain before treating URL revocation as fully effective or before
+opening the practitioner beta. During that drain window, an emergency revocation
+also requires deleting the affected stored object or rotating its path. Record the
+cutover time and the one-hour drain completion in the release evidence.
 
 ## Known limitations / follow-ups
 

@@ -24,8 +24,9 @@ for (const line of statusOut.split('\n')) {
 env.E2E_SUPABASE_URL = env.SUPABASE_LOCAL_API_URL
 env.E2E_SUPABASE_ANON_KEY = env.SUPABASE_LOCAL_ANON_KEY
 env.E2E_SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_LOCAL_SERVICE_ROLE_KEY
+env.E2E_SUPABASE_DB_URL = env.SUPABASE_LOCAL_DB_URL
 
-if (!env.E2E_SUPABASE_URL || !env.E2E_SUPABASE_ANON_KEY || !env.E2E_SUPABASE_SERVICE_ROLE_KEY) {
+if (!env.E2E_SUPABASE_URL || !env.E2E_SUPABASE_ANON_KEY || !env.E2E_SUPABASE_SERVICE_ROLE_KEY || !env.E2E_SUPABASE_DB_URL) {
   console.error('Could not parse API_URL/ANON_KEY/SERVICE_ROLE_KEY from `supabase status -o env`. Output was:\n' + statusOut)
   process.exit(1)
 }
