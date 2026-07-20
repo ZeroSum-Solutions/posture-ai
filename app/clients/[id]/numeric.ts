@@ -6,5 +6,7 @@
  * ordering, and formatting operate on real numbers. null/undefined stay null.
  */
 export function toNum(v: number | string | null | undefined): number | null {
-  return v == null ? null : Number(v)
+  if (v == null || (typeof v === 'string' && v.trim() === '')) return null
+  const parsed = Number(v)
+  return Number.isFinite(parsed) ? parsed : null
 }

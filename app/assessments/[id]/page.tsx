@@ -23,6 +23,7 @@ import { ALL_EXERCISES } from '@/content'
 import type { ExerciseContent } from '@/content/muscles/types'
 import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
+import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -886,14 +887,19 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
       ? `Tilt corrected: ${rollNotes.join(', ')}`
       : null,
   ].filter((part): part is string => part !== null)
-  const comparisonOptions = priorAssessments.map((prior) => ({
+  const currentAssessmentTime = Date.parse(assessment.assessed_at)
+  const comparisonOptions = priorAssessments
+    .filter((prior) => {
+      const priorTime = Date.parse(prior.assessed_at)
+      return Number.isFinite(currentAssessmentTime) && Number.isFinite(priorTime) && priorTime < currentAssessmentTime
+    })
+    .map((prior) => ({
     id: prior.id,
-    label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${
-      prior.scoring_engine_version !== assessment.scoring_engine_version || prior.scoring_engine_version === null
-        ? ' (different scoring version)'
-        : ''
-    }`,
-  }))
+    label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(
+      assessment.scoring_engine_version,
+      prior.scoring_engine_version,
+    )}`,
+    }))
 
   return (
     <div className={styles.reviewPage}>

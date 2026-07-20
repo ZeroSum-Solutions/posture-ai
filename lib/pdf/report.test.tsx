@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { ENGINE_VERSION, type OverallGrade } from '@posture-ai/engine'
 import { getGradeDisplayBand } from '@/lib/scoring/grade-display'
 import { PostureReportPdf, type PdfAssessment, type PdfFinding } from './report'
+import { compareSeverityPercentages, comparisonStatusText } from '@/lib/comparison/policy'
 
 const assessment: PdfAssessment = {
   id: 'assessment-current',
@@ -20,12 +21,21 @@ const findings: PdfFinding[] = [{
   region: 'head_shoulders',
   label: 'Shoulder imbalance',
   deviation: 3.5,
+  unit: 'deg',
   direction: 'Right',
   severity_pct: 45,
   zone: 'warning',
   view_used: 'front',
   confidence: 0.9,
   delta: 42.5,
+  comparison: compareSeverityPercentages({
+    current: 45,
+    prior: 40,
+    currentEngineVersion: ENGINE_VERSION,
+    priorEngineVersion: ENGINE_VERSION,
+    currentAssessedAt: '2026-07-19',
+    priorAssessedAt: '2026-06-19',
+  }),
 }]
 
 function renderedText(node: React.ReactNode): string {
@@ -105,22 +115,32 @@ describe('PostureReportPdf comparisons', () => {
     const tree = PostureReportPdf({ assessment, findings, hasDelta: true })
     const text = renderedText(tree)
 
-    expect(text).toContain('Delta column shows change vs prior assessment')
-    expect(text).toContain('+42.5°')
+    expect(text).toContain('Recorded measurement deltas are shown separately')
+    expect(text).toContain('Recorded delta +42.5°')
+    expect(text).toContain(comparisonStatusText('regressed', 'finding'))
   })
 
   it('suppresses all degree deltas when scoring versions differ', () => {
     const tree = PostureReportPdf({
       assessment,
-      findings,
+      findings: findings.map((finding) => ({
+        ...finding,
+        comparison: compareSeverityPercentages({
+          current: 45,
+          prior: 40,
+          currentEngineVersion: ENGINE_VERSION,
+          priorEngineVersion: '1.0.0',
+          currentAssessedAt: '2026-07-19',
+          priorAssessedAt: '2026-06-19',
+        }),
+      })),
       hasDelta: true,
       engineVersionMismatch: true,
     })
     const text = renderedText(tree)
 
-    expect(text).toContain('different scoring versions')
-    expect(text).toContain('Comparison values are hidden')
+    expect(text).toContain('different or missing scoring versions')
     expect(text).not.toContain('+42.5°')
-    expect(text).not.toContain('Delta column')
+    expect(text).toContain('Not comparable')
   })
 })

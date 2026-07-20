@@ -7,12 +7,12 @@ import {
   Legend,
   Line,
   LineChart,
-  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import { trendValueForSegment } from '@/lib/comparison/trends'
 import styles from './ClientEvidenceCanvas.module.css'
 
 const SERIES_STYLES = [
@@ -23,23 +23,28 @@ const SERIES_STYLES = [
 ] as const
 
 export interface ProgressChartsProps {
-  trendData: Record<string, number | string>[]
+  trendData: Record<string, number | string | null>[]
+  trendSegments: Array<{ id: string; scoringEngineVersion: string | null }>
   imbalanceKeys: string[]
   imbalanceLabels: Record<string, string>
 }
 
-function numericValue(value: number | string | undefined) {
-  if (value === undefined || value === '') return null
+function numericValue(value: number | string | null | undefined) {
+  if (value === undefined || value === null || value === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function formatPercent(value: number | string) {
+function formatPercent(value: number | string | null) {
   const parsed = numericValue(value)
   return parsed === null ? '—' : `${parsed.toFixed(1)}%`
 }
 
-export default function ProgressCharts({ trendData, imbalanceKeys, imbalanceLabels }: ProgressChartsProps) {
+function versionLabel(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : 'Unknown — not comparable'
+}
+
+export default function ProgressCharts({ trendData, trendSegments, imbalanceKeys, imbalanceLabels }: ProgressChartsProps) {
   if (trendData.length === 0) {
     return (
       <div className={styles.emptyState} role="status">
@@ -52,13 +57,24 @@ export default function ProgressCharts({ trendData, imbalanceKeys, imbalanceLabe
     <div className={styles.progressStack}>
       <section className={styles.chartCard} aria-labelledby="grade-trend-heading">
         <header className={styles.chartHeader}>
-          <h2 id="grade-trend-heading">Overall grade trend</h2>
-          <p>Grade on a 0–100 display scale: S 100, A 83, B 66, C 50, D 33, E 0.</p>
+          <h2 id="grade-trend-heading">Recorded screening score over time</h2>
+          <p>Deviation score from 0–100; lower is better. Lines stop at every scoring-version boundary. The chart shows recorded values only and does not label movement as improvement or regression; use Compare for the measurement-tolerance decision.</p>
         </header>
+        <div className={styles.versionKey} aria-label="Scoring version segments">
+          <strong>Scoring version segments</strong>
+          <ul>
+            {trendSegments.map((segment, index) => (
+              <li key={segment.id}>
+                <span className={styles.versionSwatch} data-series-index={index % SERIES_STYLES.length} aria-hidden="true" />
+                <span>{versionLabel(segment.scoringEngineVersion)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
         <div
           className={styles.chartViewport}
           role="img"
-          aria-label="Overall grade trend chart. The numeric data table follows."
+          aria-label="Recorded screening score trend chart. The numeric data table follows."
         >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData} margin={{ top: 12, right: 18, bottom: 8, left: 0 }}>
@@ -74,50 +90,44 @@ export default function ProgressCharts({ trendData, imbalanceKeys, imbalanceLabe
                 labelStyle={{ color: 'var(--text-primary)' }}
                 itemStyle={{ color: 'var(--text-secondary)' }}
               />
-              <ReferenceArea
-                y1={66}
-                y2={100}
-                fill="color-mix(in srgb, var(--maintain) 8%, transparent)"
-                label={{ value: 'Maintain 66–100', fill: 'var(--maintain)', fontSize: 10, position: 'insideTopRight' }}
-              />
-              <ReferenceArea
-                y1={33}
-                y2={66}
-                fill="color-mix(in srgb, var(--warning) 8%, transparent)"
-                label={{ value: 'Review 33–65', fill: 'var(--warning)', fontSize: 10, position: 'insideTopRight' }}
-              />
-              <ReferenceArea
-                y1={0}
-                y2={33}
-                fill="color-mix(in srgb, var(--danger) 8%, transparent)"
-                label={{ value: 'Significant 0–32', fill: 'var(--danger)', fontSize: 10, position: 'insideTopRight' }}
-              />
-              <Line
-                type="monotone"
-                dataKey="grade_pct"
-                name="Grade display score"
-                stroke="var(--data-blue)"
-                strokeWidth={2}
-                dot={{ fill: 'var(--data-blue)', r: 4, stroke: 'var(--surface)', strokeWidth: 1 }}
-                activeDot={{ r: 6 }}
-              />
+              {trendSegments.map((segment, index) => {
+                const seriesStyle = SERIES_STYLES[index % SERIES_STYLES.length]
+                return (
+                  <Line
+                    key={segment.id}
+                    type="monotone"
+                    dataKey={(point: Record<string, unknown>) => trendValueForSegment(point, segment.id, 'overall_score')}
+                    name={`Deviation score — ${versionLabel(segment.scoringEngineVersion)}`}
+                    stroke={seriesStyle.stroke}
+                    strokeDasharray={seriesStyle.dash}
+                    strokeWidth={2}
+                    dot={{ fill: seriesStyle.stroke, r: 4, stroke: 'var(--surface)', strokeWidth: 1 }}
+                    activeDot={{ r: 6 }}
+                    connectNulls={false}
+                  />
+                )
+              })}
             </LineChart>
           </ResponsiveContainer>
         </div>
         <details className={styles.tableDetails}>
-          <summary className={styles.tableSummary}>View overall grade numeric data</summary>
+          <summary className={styles.tableSummary}>View recorded score data</summary>
           <table className={styles.dataTable}>
             <thead>
               <tr>
                 <th scope="col">Assessment date</th>
-                <th scope="col">Grade display score</th>
+                <th scope="col">Scoring version</th>
+                <th scope="col">Recorded grade</th>
+                <th scope="col">Deviation score</th>
               </tr>
             </thead>
             <tbody>
               {trendData.map((point, index) => (
                 <tr key={`${String(point.date)}-${index}`}>
                   <td>{String(point.date)}</td>
-                  <td>{numericValue(point.grade_pct)?.toFixed(0) ?? '—'} / 100</td>
+                  <td>{versionLabel(point.scoring_engine_version)}</td>
+                  <td>{typeof point.overall_grade === 'string' ? point.overall_grade : '—'}</td>
+                  <td>{numericValue(point.overall_score)?.toFixed(0) ?? '—'} / 100</td>
                 </tr>
               ))}
             </tbody>
@@ -129,7 +139,7 @@ export default function ProgressCharts({ trendData, imbalanceKeys, imbalanceLabe
         <section className={styles.chartCard} aria-labelledby="severity-trend-heading">
           <header className={styles.chartHeader}>
             <h2 id="severity-trend-heading">Finding severity over time</h2>
-            <p>Severity percentage by finding. Lower is better; line labels, dash patterns, points, and numeric data reinforce the color coding.</p>
+            <p>Severity percentage by finding. Lower is better. Lines stop at scoring-version boundaries and missing or unreliable readings. Recorded lines are descriptive only; improvement and regression labels come from Compare after applying measurement tolerance.</p>
           </header>
           <div
             className={`${styles.chartViewport} ${styles.chartViewportTall}`}
@@ -158,25 +168,23 @@ export default function ProgressCharts({ trendData, imbalanceKeys, imbalanceLabe
                   formatter={(value) => imbalanceLabels[value] || value}
                   wrapperStyle={{ fontSize: '11px', color: 'var(--text-secondary)' }}
                 />
-                <ReferenceArea y1={0} y2={33} fill="color-mix(in srgb, var(--maintain) 6%, transparent)" />
-                <ReferenceArea y1={33} y2={66} fill="color-mix(in srgb, var(--warning) 6%, transparent)" />
-                <ReferenceArea y1={66} y2={100} fill="color-mix(in srgb, var(--danger) 6%, transparent)" />
-                {imbalanceKeys.map((key, index) => {
+                {imbalanceKeys.flatMap((key, index) => {
                   const seriesStyle = SERIES_STYLES[index % SERIES_STYLES.length]
-                  return (
+                  return trendSegments.map((segment, segmentIndex) => (
                     <Line
-                      key={key}
+                      key={`${key}-${segment.id}`}
                       type="monotone"
-                      dataKey={key}
+                      dataKey={(point: Record<string, unknown>) => trendValueForSegment(point, segment.id, key)}
                       name={key}
                       stroke={seriesStyle.stroke}
                       strokeDasharray={seriesStyle.dash}
                       strokeWidth={2}
                       dot={{ r: seriesStyle.dotRadius, strokeWidth: 1 }}
                       activeDot={{ r: seriesStyle.dotRadius + 2 }}
-                      connectNulls
+                      connectNulls={false}
+                      legendType={segmentIndex === 0 ? 'line' : 'none'}
                     />
-                  )
+                  ))
                 })}
               </LineChart>
             </ResponsiveContainer>
@@ -187,6 +195,7 @@ export default function ProgressCharts({ trendData, imbalanceKeys, imbalanceLabe
               {trendData.map((point, pointIndex) => (
                 <li className={styles.chartDataRow} key={`${String(point.date)}-${pointIndex}`}>
                   <strong>{String(point.date)}</strong>
+                  <span>Scoring version: {versionLabel(point.scoring_engine_version)}</span>
                   <dl className={styles.chartDataValues}>
                     {imbalanceKeys.map((key) => (
                       <div key={key}>

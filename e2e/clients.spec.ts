@@ -127,6 +127,74 @@ test.describe('client detail empty state', () => {
   })
 })
 
+test.describe('client comparison policy', () => {
+  test('shows all tolerance states and fails closed across scoring versions', async ({ page }) => {
+    const token = randomUUID().slice(0, 8)
+    const client = await createClient(page, 'E2E', `Compare-${token}`)
+    const finding = (key: string, label: string, severity: number, deviation: number) => ({
+      imbalance_key: key,
+      label,
+      severity_pct: severity,
+      zone: 'warning',
+      region: 'head_shoulders',
+      deviation,
+      standard: 0,
+      unit: 'deg',
+    })
+    const assessments = [
+      {
+        id: 'baseline', assessed_at: '2026-01-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        scoring_engine_version: 'v2', status: 'approved',
+        assessment_findings: [
+          finding('same', 'A — unchanged', 50, 5),
+          finding('noise', 'B — tolerance', 50, 5),
+          finding('better', 'C — improved', 50, 8),
+          finding('worse', 'D — regressed', 50, 3),
+        ],
+      },
+      {
+        id: 'same-version', assessed_at: '2026-02-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        scoring_engine_version: 'v2', status: 'approved',
+        assessment_findings: [
+          finding('same', 'A — unchanged', 50, 5),
+          finding('noise', 'B — tolerance', 54, 5.2),
+          finding('better', 'C — improved', 45, 7),
+          finding('worse', 'D — regressed', 55, 4),
+        ],
+      },
+      {
+        id: 'new-version', assessed_at: '2026-03-01T12:00:00Z', overall_grade: 'A', overall_score: 7,
+        scoring_engine_version: 'v3', status: 'approved',
+        assessment_findings: [finding('same', 'A — unchanged', 10, 1)],
+      },
+    ]
+    await page.route(`**/api/clients/${client.id}/assessments?include_findings=true`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assessments }) })
+    })
+
+    await page.goto(`/clients/${client.id}`)
+    await expect(page.getByRole('heading', { name: new RegExp(`Compare-${token}`) })).toBeVisible()
+    await page.getByRole('tab', { name: 'Compare' }).click()
+    await page.getByLabel('Before (baseline)').selectOption('baseline')
+    await page.getByLabel('After (comparison)').selectOption('same-version')
+
+    await expect(page.getByText('Unchanged severity')).toBeVisible()
+    await expect(page.getByText('Within measurement tolerance')).toBeVisible()
+    await expect(page.getByText('Improved — lower severity')).toBeVisible()
+    await expect(page.getByText('Regressed — higher severity')).toBeVisible()
+
+    await page.getByLabel('After (comparison)').selectOption('new-version')
+    await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
+
+    await page.getByRole('tab', { name: 'Progress' }).click()
+    await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
+    await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
+    await expect(page.getByText('v2').first()).toBeVisible()
+    await expect(page.getByText('v3').first()).toBeVisible()
+  })
+})
+
 // Client create via the form UI. createClient() (helpers) hits the API directly,
 // so the create FORM itself was previously uncovered. This guards the shared
 // ClientForm (create mode) + the create-only consent gate after the refactor.

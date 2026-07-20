@@ -17,6 +17,8 @@ import {
   sortAssessmentsChronologically,
 } from './comparison'
 import ComparisonWorkspace, { type ComparisonDeltaRow } from './ComparisonWorkspace'
+import { buildClientComparison } from '@/lib/reports/clientComparison'
+import { segmentTrendHistory } from '@/lib/comparison/trends'
 import styles from './ClientEvidenceCanvas.module.css'
 
 // recharts (+ d3) is heavy and only used on the Progress tab for multi-assessment
@@ -55,15 +57,12 @@ interface Assessment {
   assessed_at: string
   overall_grade: string | null
   overall_score: number | string | null
+  scoring_engine_version: string | null
   status: string
   assessment_findings?: Finding[]
 }
 
 type Tab = 'assessments' | 'progress' | 'compare' | 'info'
-
-const GRADE_TO_PCT: Record<string, number> = {
-  S: 100, A: 83, B: 66, C: 50, D: 33, E: 0,
-}
 
 function formatStatus(status: string) {
   return status
@@ -243,33 +242,70 @@ export default function ClientDetailPage() {
     })
   })
 
-  const trendData = assessments.map((a) => {
-    const point: Record<string, number | string> = {
+  const segmentedTrendHistory = segmentTrendHistory(assessments.map((assessment) => ({
+    ...assessment,
+    assessmentId: assessment.id,
+    scoringEngineVersion: assessment.scoring_engine_version,
+  })))
+  const trendData = segmentedTrendHistory.points.map(({ value: a, segmentId }) => {
+    const point: Record<string, number | string | null> = {
+      assessment_id: a.id,
       date: new Date(a.assessed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      grade_pct: a.overall_grade ? (GRADE_TO_PCT[a.overall_grade] ?? 0) : 0,
+      scoring_engine_version: a.scoring_engine_version,
+      segment_id: segmentId,
+      overall_score: toNum(a.overall_score),
+      overall_grade: a.overall_grade,
     }
     const findingsMap: Record<string, number> = {}
     ;(a.assessment_findings || []).forEach((f) => {
       // severity_pct is NUMERIC → arrives as a string; coerce so the chart plots a
       // number and the tooltip's value.toFixed(1) doesn't throw.
       const sev = toNum(f.severity_pct)
-      if (sev !== null) findingsMap[f.imbalance_key] = sev
+      if (sev !== null && f.zone !== null && f.zone !== 'unreliable') findingsMap[f.imbalance_key] = sev
     })
     imbalanceKeys.forEach((key) => {
       if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
     })
     return point
   })
+  const trendSegments = segmentedTrendHistory.segments.map((segment) => ({
+    id: segment.id,
+    scoringEngineVersion: segment.scoringEngineVersion,
+  }))
 
   // Comparison delta computation
   const baseAssessment = assessments.find((a) => a.id === compareBaseId)
   const targetAssessment = assessments.find((a) => a.id === compareTargetId)
-  type WorkingDeltaRow = ComparisonDeltaRow & {
-    baseSeverity: number | null
-    targetSeverity: number | null
-  }
-
-  const deltaRows: WorkingDeltaRow[] = []
+  const deltaRows: ComparisonDeltaRow[] = []
+  const selectedComparison = baseAssessment && targetAssessment
+    ? buildClientComparison({
+        priorDateStr: fmtDate(baseAssessment.assessed_at),
+        current: {
+          grade: targetAssessment.overall_grade ?? '—',
+          score: targetAssessment.overall_score,
+          scoringEngineVersion: targetAssessment.scoring_engine_version,
+          assessedAt: targetAssessment.assessed_at,
+        },
+        prior: {
+          grade: baseAssessment.overall_grade ?? '—',
+          score: baseAssessment.overall_score,
+          scoringEngineVersion: baseAssessment.scoring_engine_version,
+          assessedAt: baseAssessment.assessed_at,
+        },
+        currentFindings: (targetAssessment.assessment_findings || []).map((finding) => ({
+          key: finding.imbalance_key,
+          severityPct: finding.severity_pct,
+          reliable: finding.zone !== null && finding.zone !== 'unreliable',
+          unit: finding.unit,
+        })),
+        priorFindings: (baseAssessment.assessment_findings || []).map((finding) => ({
+          key: finding.imbalance_key,
+          severityPct: finding.severity_pct,
+          reliable: finding.zone !== null && finding.zone !== 'unreliable',
+          unit: finding.unit,
+        })),
+      })
+    : null
   if (baseAssessment && targetAssessment) {
     const baseMap: Record<string, Finding> = {}
     const targetMap: Record<string, Finding> = {}
@@ -280,46 +316,40 @@ export default function ClientDetailPage() {
       const b = baseMap[key]
       const t = targetMap[key]
       // deviation / severity_pct are NUMERIC → arrive as strings; coerce so the
-      // delta table's toFixed() calls and the severity comparison below are numeric
-      // (a string compare would order "9" after "80").
+      // delta table's toFixed() calls are numeric. Comparison decisions use the raw
+      // values above so the central policy owns all validity and coercion rules.
       const baseDev = toNum(b?.deviation)
       const targetDev = toNum(t?.deviation)
-      const baseSev = toNum(b?.severity_pct)
-      const targetSev = toNum(t?.severity_pct)
-      const unit = b?.unit || t?.unit || 'deg'
-      const delta = targetDev !== null && baseDev !== null ? targetDev - baseDev : null
-      // Improved = severity decreased (lower is better)
-      const improved = targetSev !== null && baseSev !== null
-        ? targetSev < baseSev ? true : targetSev > baseSev ? false : null
-        : null
+      const baseUnit = b?.unit ?? null
+      const targetUnit = t?.unit ?? null
+      const unitsMatch = baseUnit !== null && targetUnit !== null && baseUnit === targetUnit
+      const unit = targetUnit || baseUnit || ''
+      const delta = unitsMatch && targetDev !== null && baseDev !== null ? targetDev - baseDev : null
+      const comparison = selectedComparison?.byKey[key]
+      if (!comparison) return
       deltaRows.push({
         key,
         label: b?.label || t?.label || key,
         baseDeviation: baseDev,
         targetDeviation: targetDev,
-        baseSeverity: baseSev,
-        targetSeverity: targetSev,
+        baseUnit: baseUnit || '',
+        targetUnit: targetUnit || '',
         unit,
         delta,
-        improved,
+        comparison,
       })
     })
-    // Sort by severity change (biggest regression first, then biggest improvement)
-    deltaRows.sort((a, b) => {
-      const aChange = a.targetSeverity !== null && a.baseSeverity !== null
-        ? a.targetSeverity - a.baseSeverity
-        : 0
-      const bChange = b.targetSeverity !== null && b.baseSeverity !== null
-        ? b.targetSeverity - b.baseSeverity
-        : 0
-      return bChange - aChange
-    })
+    // Stable, non-directional order. Raw severity deltas must not create a
+    // second ranking policy outside lib/comparison/policy.ts.
+    deltaRows.sort((left, right) => left.label.localeCompare(right.label) || left.key.localeCompare(right.key))
   }
 
   const comparisonAssessments = assessments.map((assessment) => ({
     id: assessment.id,
     assessedAt: assessment.assessed_at,
     overallGrade: assessment.overall_grade,
+    overallScore: toNum(assessment.overall_score),
+    scoringEngineVersion: assessment.scoring_engine_version,
     status: assessment.status,
   }))
   const latestAssessment = assessments.at(-1)
@@ -544,7 +574,12 @@ export default function ClientDetailPage() {
       {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
       {activeTab === 'progress' && hasMultipleAssessments && (
         <div {...panelProps('progress')}>
-          <ProgressCharts trendData={trendData} imbalanceKeys={imbalanceKeys} imbalanceLabels={imbalanceLabels} />
+          <ProgressCharts
+            trendData={trendData}
+            trendSegments={trendSegments}
+            imbalanceKeys={imbalanceKeys}
+            imbalanceLabels={imbalanceLabels}
+          />
         </div>
       )}
 
@@ -556,6 +591,7 @@ export default function ClientDetailPage() {
             baseId={compareBaseId}
             targetId={compareTargetId}
             deltaRows={deltaRows}
+            overallComparison={selectedComparison?.overall ?? null}
             onBaseChange={handleCompareBaseChange}
             onTargetChange={handleCompareTargetChange}
           />

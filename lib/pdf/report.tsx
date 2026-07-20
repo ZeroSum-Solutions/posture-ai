@@ -9,9 +9,16 @@ import {
   StyleSheet,
 } from '@react-pdf/renderer'
 import { GRADE_DISPLAY_BANDS, getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
+import {
+  ENGINE_VERSION_COMPARISON_COPY,
+  MISSING_VALUE_COMPARISON_COPY,
+  MEASUREMENT_TOLERANCE_COPY,
+  comparisonDecisionText,
+  comparisonTone,
+  type ComparisonDecision,
+} from '@/lib/comparison/policy'
 
 const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational and screening purposes only. Do not substitute for clinical examination by a qualified professional.'
-const ENGINE_VERSION_CAVEAT = 'These screenings used different scoring versions. Comparison values are hidden because scoring changes are not directly comparable.'
 
 const ZONE_COLORS: Record<string, string> = {
   maintain: '#5BD5AC',
@@ -241,9 +248,10 @@ export interface PdfFinding {
   imbalance_key: string
   region: string
   label: string
-  deviation: number
+  deviation: number | null
+  unit: string
   direction: string
-  severity_pct: number
+  severity_pct: number | null
   zone: string
   view_used: string
   confidence: number
@@ -251,6 +259,7 @@ export interface PdfFinding {
   tight_muscles?: string[]
   weak_muscles?: string[]
   delta?: number | null
+  comparison?: ComparisonDecision | null
 }
 
 export interface PdfExercise {
@@ -290,8 +299,14 @@ function Footer() {
 function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   const isUnreliable = f.zone === 'unreliable'
   const zoneColor = ZONE_COLORS[f.zone] || '#949494'
-  const deltaColor = f.delta === undefined || f.delta === null ? '#949494'
-    : f.delta <= 0 ? '#5BD5AC' : '#DA4E24'
+  const comparisonColor = !f.comparison ? '#949494'
+    : comparisonTone(f.comparison.status) === 'positive' ? '#5BD5AC'
+      : comparisonTone(f.comparison.status) === 'negative' ? '#DA4E24'
+        : '#CCCCCC'
+  const unit = f.unit === 'deg' ? '°' : f.unit
+  const comparableMeasurementDelta = f.comparison
+    && f.comparison.reason !== 'different_version'
+    && f.comparison.reason !== 'missing_version'
 
   const tightMuscles = Array.isArray(f.tight_muscles) ? f.tight_muscles : []
   const weakMuscles = Array.isArray(f.weak_muscles) ? f.weak_muscles : []
@@ -310,24 +325,32 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
 
       <View style={styles.findingRow}>
         <Text style={styles.findingDeviation}>
-          {Number(f.deviation).toFixed(1)}° from 0° standard
+          {f.deviation === null ? 'Measurement unavailable' : `${f.deviation.toFixed(1)}${unit} from 0${unit} standard`}
           {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' ? '  —  ' + f.direction : ''}
         </Text>
         {hasDelta && (
-          <Text style={[styles.deltaValue, { color: deltaColor }]}>
-            {f.delta === undefined || f.delta === null ? 'N/A'
-              : (f.delta > 0 ? '+' : '') + Number(f.delta).toFixed(1) + '°'}
-          </Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.deltaValue, { color: '#CCCCCC' }]}>
+              {!comparableMeasurementDelta || f.delta === undefined || f.delta === null ? 'Delta N/A'
+                : `Recorded delta ${(f.delta > 0 ? '+' : '')}${Number(f.delta).toFixed(1)}${unit}`}
+            </Text>
+            <Text style={[styles.deltaValue, { color: comparisonColor }]}>
+              {f.comparison ? comparisonDecisionText(f.comparison, 'finding') : MISSING_VALUE_COMPARISON_COPY}
+            </Text>
+          </View>
         )}
       </View>
 
-      {!isUnreliable && (
+      {!isUnreliable && f.severity_pct !== null && (
         <View>
           <View style={styles.barBackground}>
             <View style={[styles.barFill, { backgroundColor: zoneColor, width: f.severity_pct + '%' as unknown as number }]} />
           </View>
           <Text style={{ fontSize: 7, color: '#949494' }}>Severity: {f.severity_pct}%</Text>
         </View>
+      )}
+      {!isUnreliable && f.severity_pct === null && (
+        <Text style={{ fontSize: 7, color: '#949494' }}>Severity unavailable</Text>
       )}
 
       {f.causes_text ? (
@@ -368,7 +391,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
   const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const showDelta = hasDelta && !engineVersionMismatch
+  const showComparison = hasDelta
 
   // Group findings by region
   const grouped: Record<string, PdfFinding[]> = {}
@@ -461,12 +484,12 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <Text style={{ fontSize: 9, color: '#949494' }}>{clientName} — {dateStr}</Text>
         </View>
 
-        {(showDelta || engineVersionMismatch) && (
+        {showComparison && (
           <View style={{ backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 6, padding: 6, marginBottom: 8 }}>
             <Text style={{ fontSize: 7, color: '#CCCCCC' }}>
               {engineVersionMismatch
-                ? ENGINE_VERSION_CAVEAT
-                : 'Delta column shows change vs prior assessment. Green = improved, Red = worsened.'}
+                ? ENGINE_VERSION_COMPARISON_COPY
+                : `${MEASUREMENT_TOLERANCE_COPY} Recorded measurement deltas are shown separately and never determine the status.`}
             </Text>
           </View>
         )}
@@ -475,7 +498,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <View key={region}>
             <Text style={styles.regionTitle}>{REGION_LABELS[region] ?? region}</Text>
             {grouped[region].map(f => (
-              <FindingCardPdf key={f.id} f={f} hasDelta={showDelta} />
+              <FindingCardPdf key={f.id} f={f} hasDelta={showComparison} />
             ))}
           </View>
         ))}

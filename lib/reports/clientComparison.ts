@@ -1,82 +1,81 @@
 /**
- * Plain-language "since last time" comparison for the CLIENT-facing report.
- * Pure + deterministic so it's unit-tested in isolation; the route feeds it the
- * current vs prior assessment data and hands the result to the PDF.
+ * Report-shaped adapter around the central comparison policy.
  *
- * Engine conventions it relies on (asserted by the tests):
- *   overallScore 0-100, HIGHER = worse  → a decrease is an improvement
- *   severity_pct HIGHER = worse         → a decrease is an improvement
- *   grade rank S > A > B > C > D > E
- *
- * Framing is intentionally non-diagnostic: this describes screening-score
- * movement, not a clinical change.
+ * It retains recorded grades for display, but grades never decide direction.
+ * Every status comes from lib/comparison/policy.ts using persisted scores,
+ * severity percentages, and both persisted scoring-engine versions.
  */
-export type OverallDirection = 'improved' | 'steady' | 'slipped' | 'not_comparable'
-export type AreaDirection = 'improving' | 'steady' | 'attention'
+import {
+  compareOverallScores,
+  compareSeverityPercentages,
+  type ComparisonDecision,
+} from '@/lib/comparison/policy'
 
 export interface ClientComparison {
   priorDateStr: string
   priorGrade: string
   currentGrade: string
-  overall: OverallDirection
-  /** imbalance_key → direction, only for areas present in BOTH screenings. */
-  byKey: Record<string, AreaDirection>
+  overall: ComparisonDecision
+  /** imbalance_key → decision; one-sided or invalid readings fail closed. */
+  byKey: Record<string, ComparisonDecision>
 }
 
 interface FindingSeverity {
   key: string
-  severityPct: number
+  severityPct: unknown
+  reliable?: boolean | null
+  unit?: string | null
 }
 
-const GRADE_RANK: Record<string, number> = { S: 0, A: 1, B: 2, C: 3, D: 4, E: 5, F: 6 }
-// Lower-is-better signals; movements smaller than these read as "about the same"
-// so normal capture-to-capture noise isn't dressed up as real change.
-const SCORE_DEADBAND = 3
-const SEVERITY_DEADBAND = 5
+interface VersionedScore {
+  grade: string
+  score: unknown
+  scoringEngineVersion: string | null
+  assessedAt: string | null
+}
 
 export function buildClientComparison(args: {
   priorDateStr: string
-  current: { grade: string; score: number }
-  prior: { grade: string; score: number }
+  current: VersionedScore
+  prior: VersionedScore
   currentFindings: FindingSeverity[]
   priorFindings: FindingSeverity[]
-}, opts?: { engineVersionMismatch?: boolean }): ClientComparison {
+}): ClientComparison {
   const { priorDateStr, current, prior, currentFindings, priorFindings } = args
-
-  // severityPct is derived from the scoring version's thresholds. Across an
-  // engine boundary it is no more comparable than the overall grade, so fail
-  // closed before producing any client-facing direction labels. The
-  // practitioner report suppresses cross-version degree deltas as well.
-  if (opts?.engineVersionMismatch) {
-    return {
-      priorDateStr,
-      priorGrade: prior.grade,
-      currentGrade: current.grade,
-      overall: 'not_comparable',
-      byKey: {},
-    }
+  const versions = {
+    currentEngineVersion: current.scoringEngineVersion,
+    priorEngineVersion: prior.scoringEngineVersion,
+    currentAssessedAt: current.assessedAt,
+    priorAssessedAt: prior.assessedAt,
   }
 
-  const priorByKey = new Map(priorFindings.map((f) => [f.key, f.severityPct]))
-  const byKey: Record<string, AreaDirection> = {}
-  for (const f of currentFindings) {
-    const before = priorByKey.get(f.key)
-    if (before === undefined) continue // no prior reading for this area — nothing to compare
-    const d = f.severityPct - before
-    byKey[f.key] = d <= -SEVERITY_DEADBAND ? 'improving' : d >= SEVERITY_DEADBAND ? 'attention' : 'steady'
+  const currentByKey = new Map(currentFindings.map((finding) => [finding.key, finding]))
+  const priorByKey = new Map(priorFindings.map((finding) => [finding.key, finding]))
+  const byKey: Record<string, ComparisonDecision> = {}
+  const keys = new Set([...currentByKey.keys(), ...priorByKey.keys()])
+  for (const key of keys) {
+    const finding = currentByKey.get(key)
+    const priorFinding = priorByKey.get(key)
+    byKey[key] = compareSeverityPercentages({
+      current: finding?.severityPct,
+      prior: priorFinding?.severityPct,
+      currentReliable: finding?.reliable,
+      priorReliable: priorFinding?.reliable,
+      currentUnit: finding?.unit,
+      priorUnit: priorFinding?.unit,
+      ...versions,
+    })
   }
 
-  // Overall: a grade change is unambiguous, so it decides direction. Within the
-  // same grade, the (lower-is-better) score breaks the tie against a deadband.
-  let overall: OverallDirection
-  const cr = GRADE_RANK[current.grade]
-  const pr = GRADE_RANK[prior.grade]
-  if (cr !== undefined && pr !== undefined && cr !== pr) {
-    overall = cr < pr ? 'improved' : 'slipped'
-  } else {
-    const d = current.score - prior.score
-    overall = d <= -SCORE_DEADBAND ? 'improved' : d >= SCORE_DEADBAND ? 'slipped' : 'steady'
+  return {
+    priorDateStr,
+    priorGrade: prior.grade,
+    currentGrade: current.grade,
+    overall: compareOverallScores({
+      current: current.score,
+      prior: prior.score,
+      ...versions,
+    }),
+    byKey,
   }
-
-  return { priorDateStr, priorGrade: prior.grade, currentGrade: current.grade, overall, byKey }
 }

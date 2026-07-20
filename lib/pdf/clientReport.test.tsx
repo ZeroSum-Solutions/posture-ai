@@ -7,6 +7,9 @@ import { buildProgramFrom } from '../program/buildProgram'
 import { buildClientComparison } from '../reports/clientComparison'
 import type { ClientComparison } from '../reports/clientComparison'
 import type { Finding } from '../../packages/posture-engine/src/types'
+import { compareOverallScores, compareSeverityPercentages } from '@/lib/comparison/policy'
+
+const VERSION = '2.0.0'
 
 const f = (over: Partial<Finding> & Pick<Finding, 'key' | 'label' | 'region' | 'severityPct' | 'zone'>): Finding => ({
   deviation: 10, standard: 0, unit: 'deg', direction: 'Forward',
@@ -44,8 +47,8 @@ describe('ClientReport renders (smoke)', () => {
   it('renders the progress card with mixed per-area directions', async () => {
     const comparison = buildClientComparison({
       priorDateStr: '03 Jun 2026',
-      current: { grade: 'B', score: 40 },
-      prior: { grade: 'C', score: 60 },
+      current: { grade: 'B', score: 40, scoringEngineVersion: VERSION, assessedAt: '2026-06-28' },
+      prior: { grade: 'C', score: 60, scoringEngineVersion: VERSION, assessedAt: '2026-06-03' },
       currentFindings: [
         { key: 'forward_head_posture', severityPct: 50 },        // improving (down 28)
         { key: 'anterior_pelvic_shift', severityPct: 84 },       // attention (up 20)
@@ -57,22 +60,22 @@ describe('ClientReport renders (smoke)', () => {
         { key: 'anterior_imbalanced_shoulders', severityPct: 52 },
       ],
     })
-    expect(comparison.overall).toBe('improved')
-    expect(comparison.byKey.forward_head_posture).toBe('improving')
-    expect(comparison.byKey.anterior_pelvic_shift).toBe('attention')
+    expect(comparison.overall.status).toBe('improved')
+    expect(comparison.byKey.forward_head_posture.status).toBe('improved')
+    expect(comparison.byKey.anterior_pelvic_shift.status).toBe('regressed')
     const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} />
     expect(await isPdf(el)).toBe(true)
   })
 
-  it('renders a "slipped" comparison (amber framing path)', async () => {
+  it('renders a regressed comparison (amber framing path)', async () => {
     const comparison = buildClientComparison({
       priorDateStr: '03 Jun 2026',
-      current: { grade: 'C', score: 60 },
-      prior: { grade: 'B', score: 40 },
+      current: { grade: 'C', score: 60, scoringEngineVersion: VERSION, assessedAt: '2026-06-28' },
+      prior: { grade: 'B', score: 40, scoringEngineVersion: VERSION, assessedAt: '2026-06-03' },
       currentFindings: [{ key: 'forward_head_posture', severityPct: 90 }],
       priorFindings: [{ key: 'forward_head_posture', severityPct: 60 }],
     })
-    expect(comparison.overall).toBe('slipped')
+    expect(comparison.overall.status).toBe('regressed')
     const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} />
     expect(await isPdf(el)).toBe(true)
   })
@@ -82,8 +85,24 @@ describe('ClientReport renders (smoke)', () => {
       priorDateStr: '03 Jun 2026',
       priorGrade: 'B',
       currentGrade: 'C',
-      overall: 'not_comparable',
-      byKey: { forward_head_posture: 'improving' },
+      overall: compareOverallScores({
+        current: 30,
+        prior: 40,
+        currentEngineVersion: '2.0.0',
+        priorEngineVersion: '1.0.0',
+        currentAssessedAt: '2026-06-28',
+        priorAssessedAt: '2026-06-03',
+      }),
+      byKey: {
+        forward_head_posture: compareSeverityPercentages({
+          current: 30,
+          prior: 50,
+          currentEngineVersion: VERSION,
+          priorEngineVersion: VERSION,
+          currentAssessedAt: '2026-06-28',
+          priorAssessedAt: '2026-06-03',
+        }),
+      },
     }
 
     const tree = ClientReport({
@@ -95,8 +114,8 @@ describe('ClientReport renders (smoke)', () => {
     })
     const text = renderedText(tree)
 
-    expect(text).toContain("different scoring versions")
-    expect(text).not.toContain('improving')
-    expect(text).not.toContain('worth extra focus')
+    expect(text).toContain('different or missing scoring versions')
+    expect(text).not.toContain('Improved — lower severity')
+    expect(text).not.toContain('Regressed — higher severity')
   })
 })

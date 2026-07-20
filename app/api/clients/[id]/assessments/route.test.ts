@@ -53,9 +53,9 @@ describe('GET /api/clients/[id]/assessments', () => {
   })
 
   test('returns 200 with the assessments on success', async () => {
-    tableResult.assessments = { data: [{ id: 'a1' }], error: null }
+    tableResult.assessments = { data: [{ id: 'a1', scoring_engine_version: '2.0.0' }], error: null }
     const res = await GET(req(), { params: params() })
     expect(res.status).toBe(200)
-    expect((await res.json()).assessments).toEqual([{ id: 'a1' }])
+    expect((await res.json()).assessments).toEqual([{ id: 'a1', scoring_engine_version: '2.0.0' }])
   })
 })

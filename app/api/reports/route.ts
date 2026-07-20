@@ -12,6 +12,7 @@ import { ALL_EXERCISES } from '@/content'
 import { isNoRows } from '@/lib/api/query-error'
 import { dbFindingsToEngineFindings, isCapability, type DbFindingRow } from '@/lib/reports/clientProgram'
 import { buildClientComparison, type ClientComparison } from '@/lib/reports/clientComparison'
+import { areEngineVersionsComparable } from '@/lib/comparison/policy'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
@@ -78,7 +79,13 @@ export async function POST(req: NextRequest) {
   // belong to this practitioner AND be approved too — otherwise its data could be
   // exported without review, or leak from another practitioner's records (IDOR).
   // Captured here (after the gate passes) for the client-report progress section.
-  let priorMeta: { grade: string; score: number; dateStr: string } | null = null
+  let priorMeta: {
+    grade: string
+    score: unknown
+    dateStr: string
+    assessedAt: string
+    scoringEngineVersion: string | null
+  } | null = null
   let engineVersionMismatch = false
   if (compared_to_assessment_id) {
     const { data: prior, error: pErr } = await supabase
@@ -105,16 +112,26 @@ export async function POST(req: NextRequest) {
     }
     const currentVersion = assessment.scoring_engine_version ?? null
     const priorVersion = prior.scoring_engine_version ?? null
-    engineVersionMismatch = currentVersion !== priorVersion || priorVersion === null
+    engineVersionMismatch = !areEngineVersionsComparable(currentVersion, priorVersion)
     if (!prior.practitioner_approved) {
       return NextResponse.json(
         { error: 'The comparison assessment must also be reviewed and approved before it can be exported.' },
         { status: 403 },
       )
     }
+    const currentTime = Date.parse(assessment.assessed_at)
+    const priorTime = Date.parse(prior.assessed_at)
+    if (!Number.isFinite(currentTime) || !Number.isFinite(priorTime) || priorTime >= currentTime) {
+      return NextResponse.json(
+        { error: 'The comparison assessment must be earlier than the current assessment.' },
+        { status: 400 },
+      )
+    }
     priorMeta = {
       grade: prior.overall_grade as string,
-      score: Number(prior.overall_score),
+      score: prior.overall_score,
+      assessedAt: prior.assessed_at,
+      scoringEngineVersion: priorVersion,
       dateStr: new Date(prior.assessed_at).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric',
       }),
@@ -170,12 +187,22 @@ export async function POST(req: NextRequest) {
   }
 
   // Build delta map if comparing
-  const deltaMap: Record<string, number> = {}
-  let priorComparisonFindings: Array<{ key: string; severityPct: number }> = []
+  const priorFindingMap = new Map<string, {
+    deviation: unknown
+    severityPct: unknown
+    reliable: boolean
+    unit: string | null
+  }>()
+  let priorComparisonFindings: Array<{
+    key: string
+    severityPct: unknown
+    reliable: boolean
+    unit: string | null
+  }> = []
   if (compared_to_assessment_id) {
     const { data: priorFindings, error: priorFindingsErr } = await supabase
       .from('assessment_findings')
-      .select('imbalance_key, deviation, severity_pct')
+      .select('imbalance_key, deviation, severity_pct, zone, unit')
       .eq('assessment_id', compared_to_assessment_id)
     if (priorFindingsErr) {
       console.error('[api/reports] prior findings load failed:', compared_to_assessment_id, priorFindingsErr.message)
@@ -183,50 +210,86 @@ export async function POST(req: NextRequest) {
     }
     if (priorFindings) {
       for (const pf of priorFindings) {
-        deltaMap[pf.imbalance_key] = pf.deviation
+        priorFindingMap.set(pf.imbalance_key, {
+          deviation: pf.deviation,
+          severityPct: pf.severity_pct,
+          reliable: typeof pf.zone === 'string' && pf.zone !== 'unreliable',
+          unit: typeof pf.unit === 'string' ? pf.unit : null,
+        })
       }
       priorComparisonFindings = priorFindings.map((pf) => ({
-        key: pf.imbalance_key, severityPct: Number(pf.severity_pct),
+        key: pf.imbalance_key,
+        severityPct: pf.severity_pct,
+        reliable: typeof pf.zone === 'string' && pf.zone !== 'unreliable',
+        unit: typeof pf.unit === 'string' ? pf.unit : null,
       }))
     }
   }
 
-  const hasDelta = compared_to_assessment_id ? Object.keys(deltaMap).length > 0 : false
+  const hasDelta = Boolean(compared_to_assessment_id && priorMeta)
 
   // Plain-language "since last time" progress for the CLIENT report only, and
   // only when a valid, approved, same-client prior was selected (all enforced
   // by the gate above). The practitioner PDF keeps its own numeric deltas.
-  const clientComparison: ClientComparison | null =
-    variant === 'client' && priorMeta
+  const canonicalComparison: ClientComparison | null =
+    priorMeta
       ? buildClientComparison({
           priorDateStr: priorMeta.dateStr,
-          current: { grade: assessment.overall_grade, score: Number(assessment.overall_score) },
-          prior: { grade: priorMeta.grade, score: priorMeta.score },
+          current: {
+            grade: assessment.overall_grade,
+            score: assessment.overall_score,
+            scoringEngineVersion: assessment.scoring_engine_version ?? null,
+            assessedAt: assessment.assessed_at,
+          },
+          prior: {
+            grade: priorMeta.grade,
+            score: priorMeta.score,
+            scoringEngineVersion: priorMeta.scoringEngineVersion,
+            assessedAt: priorMeta.assessedAt,
+          },
           currentFindings: (findingsRaw || []).map((f: Record<string, unknown>) => ({
-            key: f.imbalance_key as string, severityPct: Number(f.severity_pct),
+            key: f.imbalance_key as string,
+            severityPct: f.severity_pct,
+            reliable: typeof f.zone === 'string' && f.zone !== 'unreliable',
+            unit: typeof f.unit === 'string' ? f.unit : null,
           })),
           priorFindings: priorComparisonFindings,
-        }, { engineVersionMismatch })
+        })
       : null
+  const clientComparison = variant === 'client' ? canonicalComparison : null
+
+  const finiteNumber = (value: unknown): number | null => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null
+    if (typeof value !== 'string' || value.trim() === '') return null
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
 
   const findings: PdfFinding[] = (findingsRaw || []).map((f: Record<string, unknown>) => {
     const def = defsMap[f.imbalance_key as string]
+    const priorFinding = priorFindingMap.get(f.imbalance_key as string)
+    const currentUnit = typeof f.unit === 'string' ? f.unit : null
+    const currentDeviation = finiteNumber(f.deviation)
+    const priorDeviation = finiteNumber(priorFinding?.deviation)
+    const unitsMatch = currentUnit !== null && currentUnit === priorFinding?.unit
     return {
       id: f.id as string,
       imbalance_key: f.imbalance_key as string,
       region: f.region as string,
       label: f.label as string,
-      deviation: Number(f.deviation),
+      deviation: currentDeviation,
+      unit: currentUnit ?? '',
       direction: f.direction as string,
-      severity_pct: Number(f.severity_pct),
+      severity_pct: finiteNumber(f.severity_pct),
       zone: f.zone as string,
       view_used: f.view_used as string,
       confidence: Number(f.confidence),
       causes_text: def?.causes_text || '',
       tight_muscles: def?.tight_muscles || [],
       weak_muscles: def?.weak_muscles || [],
-      delta: hasDelta && deltaMap[f.imbalance_key as string] !== undefined
-        ? Number(f.deviation) - deltaMap[f.imbalance_key as string]
+      comparison: canonicalComparison?.byKey[f.imbalance_key as string] ?? null,
+      delta: hasDelta && unitsMatch && currentDeviation !== null && priorDeviation !== null
+        ? currentDeviation - priorDeviation
         : null,
     }
   })
@@ -381,7 +444,7 @@ export async function POST(req: NextRequest) {
     report_id: report.id,
     signed_url: signedData.signedUrl,
     storage_path: storagePath,
-    comparison_overall: clientComparison?.overall ?? null,
+    comparison_overall: clientComparison?.overall.status ?? null,
     engine_version_mismatch: engineVersionMismatch,
   })
 }
