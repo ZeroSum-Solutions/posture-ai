@@ -1,0 +1,65 @@
+{
+  "fixture_schema_version": 1,
+  "now": "2026-07-19T23:30:00.000Z",
+  "release_evidence": {
+    "configuration": {
+      "expected_hash": "__MANIFEST_CONFIGURATION_HASH__",
+      "actual_hash": "__MANIFEST_CONFIGURATION_HASH__",
+      "environment": "intended-beta",
+      "test_only_flags": []
+    },
+    "ci": {
+      "run_id": "30000000000",
+      "url": "https://github.com/wiggdevin/posture-ai/actions/runs/30000000000",
+      "commit": "1111111111111111111111111111111111111111",
+      "status": "success",
+      "completed_at": "2026-07-19T22:45:00.000Z"
+    },
+    "rehearsal": {
+      "receipt": "proof/HG-09/intended-beta-rehearsal.json",
+      "commit": "1111111111111111111111111111111111111111",
+      "configuration_hash": "__MANIFEST_CONFIGURATION_HASH__",
+      "completed_at": "2026-07-19T23:00:00.000Z",
+      "test_mode": false,
+      "environment": "intended-beta",
+      "test_flags_off": true,
+      "command": "npm run release:rehearse",
+      "exit_code": 0
+    },
+    "council": [
+      { "seat": "Codex", "verdict": "GO", "resolved": true, "receipt": "proof/HG-09/codex.json" },
+      { "seat": "Fable 5 medium", "verdict": "GO", "resolved": true, "receipt": "proof/HG-09/fable.json" },
+      { "seat": "Kimi K3", "verdict": "GO", "resolved": true, "receipt": "proof/HG-09/kimi.json" }
+    ],
+    "flakes": [
+      {
+        "id": "historical-flake-1",
+        "status": "disposed",
+        "owner": "PR-17",
+        "root_cause": "fixture timing corrected",
+        "receipt": "proof/PR-17/flake-1.json"
+      }
+    ],
+    "repository": {
+      "head_sha": "1111111111111111111111111111111111111111",
+      "expected_sha": "1111111111111111111111111111111111111111",
+      "worktree_clean": true,
+      "changed_files": [],
+      "allowed_changed_files": [],
+      "diff_check_exit_code": 0
+    },
+    "e2e": {
+      "inventory_hash": "__MANIFEST_E2E_HASH__",
+      "projects": "__MANIFEST_E2E_PROJECTS__",
+      "observed_skips": [],
+      "retry_results": []
+    },
+    "owner_approval": {
+      "approved": true,
+      "approved_at": "2026-07-19T23:15:00.000Z",
+      "receipt": "proof/HG-10/owner-approval.json",
+      "commit": "1111111111111111111111111111111111111111",
+      "configuration_hash": "__MANIFEST_CONFIGURATION_HASH__"
+    }
+  }
+}
