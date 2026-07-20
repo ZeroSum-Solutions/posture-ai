@@ -1,5 +1,6 @@
 
 import React from 'react'
+import type { OverallGrade } from '@posture-ai/engine'
 import {
   Document,
   Page,
@@ -7,6 +8,7 @@ import {
   View,
   StyleSheet,
 } from '@react-pdf/renderer'
+import { GRADE_DISPLAY_BANDS, getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 
 const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational and screening purposes only. Do not substitute for clinical examination by a qualified professional.'
 const ENGINE_VERSION_CAVEAT = 'These screenings used different scoring versions. Comparison values are hidden because scoring changes are not directly comparable.'
@@ -24,12 +26,6 @@ const REGION_LABELS: Record<string, string> = {
   spine: 'Spine',
   pelvis: 'Pelvis',
   leg: 'Legs',
-}
-
-function gradeColor(grade: string): string {
-  if (grade === 'S' || grade === 'A') return '#5BD5AC'
-  if (grade === 'B' || grade === 'C') return '#FF8918'
-  return '#DA4E24'
 }
 
 const styles = StyleSheet.create({
@@ -107,28 +103,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     fontFamily: 'Helvetica-Bold',
-  },
-  rankRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  rankItem: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 6,
-    padding: 8,
-    flex: 1,
-    alignItems: 'center',
-  },
-  rankLabel: {
-    fontSize: 8,
-    color: '#949494',
-    marginBottom: 2,
-  },
-  rankValue: {
-    fontSize: 12,
-    fontFamily: 'Helvetica-Bold',
-    color: '#FFFFFF',
   },
   findingCard: {
     backgroundColor: '#060606',
@@ -290,10 +264,8 @@ export interface PdfExercise {
 export interface PdfAssessment {
   id: string
   overall_score: number
-  overall_grade: string
-  overall_percentile: number | null
-  front_rank: number | null
-  side_rank: number | null
+  overall_grade: OverallGrade
+  scoring_engine_version: string | null
   assessed_at: string
   clients: { first_name: string; last_name: string }
 }
@@ -392,7 +364,8 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
 
 export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta, engineVersionMismatch }: Props) {
   const grade = assessment.overall_grade
-  const gradeCol = gradeColor(grade)
+  const gradeCol = getGradeDisplayBand(grade).hexColor
+  const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const showDelta = hasDelta && !engineVersionMismatch
@@ -442,41 +415,32 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
             </View>
           </View>
 
-          {/* Per-view ranks */}
-          <View style={styles.rankRow}>
-            <View style={styles.rankItem}>
-              <Text style={styles.rankLabel}>Front View Rank</Text>
-              <Text style={styles.rankValue}>{assessment.front_rank ?? 'N/A'}</Text>
-            </View>
-            <View style={styles.rankItem}>
-              <Text style={styles.rankLabel}>Side View Rank</Text>
-              <Text style={styles.rankValue}>{assessment.side_rank ?? 'N/A'}</Text>
-            </View>
-          </View>
         </View>
 
-        {/* Grade band reference */}
-        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Grade Reference</Text>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          {[
-            { g: 'S', desc: 'Elite (0–5)' },
-            { g: 'A', desc: 'Excellent (5–15)' },
-            { g: 'B', desc: 'Good (15–50)' },
-            { g: 'C', desc: 'Fair (50–85)' },
-            { g: 'D', desc: 'Poor (85–95)' },
-            { g: 'E', desc: 'Critical (95–100)' },
-          ].map(b => (
-            <View key={b.g} style={{
-              backgroundColor: b.g === grade ? gradeCol + '22' : 'rgba(255,255,255,0.04)',
-              borderRadius: 6, padding: 8, alignItems: 'center',
-              borderWidth: b.g === grade ? 1 : 0, borderColor: gradeCol,
-              minWidth: 60,
-            }}>
-              <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: gradeColor(b.g) }}>{b.g}</Text>
-              <Text style={{ fontSize: 7, color: '#949494', marginTop: 2 }}>{b.desc}</Text>
+        {showCurrentGradeScale ? (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Grade Reference</Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              {GRADE_DISPLAY_BANDS.map(band => (
+                <View key={band.grade} style={{
+                  backgroundColor: band.grade === grade ? gradeCol + '22' : 'rgba(255,255,255,0.04)',
+                  borderRadius: 6, padding: 8, alignItems: 'center',
+                  borderWidth: band.grade === grade ? 1 : 0, borderColor: gradeCol,
+                  minWidth: 60,
+                }}>
+                  <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: band.hexColor }}>{band.grade}</Text>
+                  <Text style={{ fontSize: 7, color: '#949494', marginTop: 2 }}>{band.description} ({band.range})</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        ) : (
+          <View style={{ marginTop: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: 8 }}>
+            <Text style={{ fontSize: 8, color: '#949494', lineHeight: 1.4 }}>
+              Recorded with a different or unknown scoring version; the current grade scale is not applied.
+            </Text>
+          </View>
+        )}
 
         {/* Screening disclaimer note on page 1 */}
         <View style={{ marginTop: 20, backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 8, padding: 10 }}>

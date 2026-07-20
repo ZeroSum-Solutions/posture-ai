@@ -1,4 +1,4 @@
-import { PoseFrame, AssessmentResult, OverallGrade, ViewLabel, Finding } from './types'
+import { PoseFrame, AssessmentResult, ViewLabel, Finding } from './types'
 import { normalizeFrame } from './geometry'
 import { medianFrame, deviationSpread, stabilityFromSigma } from './stability'
 import {
@@ -118,7 +118,9 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
 
   const overallGrade = toGrade(overallScore)
 
-  // Modeled per-view ranks (1-100, lower = worse)
+  // Per-view severity index: rounded arithmetic mean of reliable findings'
+  // severityPct values. Lower is better; null means the view has no reliable
+  // findings. This is not a population statistic.
   const frontFindings = reliable.filter(f => f.viewUsed === 'front')
   const sideFindings = reliable.filter(f => f.viewUsed === 'side')
   const frontScore = frontFindings.length > 0
@@ -128,10 +130,8 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
     ? sideFindings.reduce((a, f) => a + f.severityPct, 0) / sideFindings.length
     : 0
 
-  // Rank: top X% of modeled population (lower number = better rank)
-  // null = no reliable findings for this view (don't fabricate a "best" rank)
-  const frontRank = frontFindings.length > 0 ? Math.max(1, Math.round(frontScore)) : null
-  const sideRank = sideFindings.length > 0 ? Math.max(1, Math.round(sideScore)) : null
+  const frontSeverityIndex = frontFindings.length > 0 ? Math.max(1, Math.round(frontScore)) : null
+  const sideSeverityIndex = sideFindings.length > 0 ? Math.max(1, Math.round(sideScore)) : null
 
   // Capture-level stability: mean of the reliable findings that had a burst.
   // null when every view was single-frame (nothing to average — never faked).
@@ -146,7 +146,8 @@ export function assessPosture(rawFrames: PoseFrame[]): AssessmentResult {
     findings,
     overallScore,
     overallGrade,
-    ranks: { front: frontRank, side: sideRank },
+    viewSeverityIndex: { front: frontSeverityIndex, side: sideSeverityIndex },
+    ranks: { front: frontSeverityIndex, side: sideSeverityIndex },
     generatedAt: new Date().toISOString(),
     engineVersion: ENGINE_VERSION,
     disclaimer: DISCLAIMER,

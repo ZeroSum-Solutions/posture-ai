@@ -92,6 +92,9 @@ export interface AssessmentResult {
   findings: Finding[]
   overallScore: number
   overallGrade: OverallGrade
+  /** Rounded mean severity percentage of reliable findings for each view, floored at 1 when non-empty; lower is better. */
+  viewSeverityIndex: { front: number | null; side: number | null }
+  /** @deprecated Use viewSeverityIndex. Retained temporarily for API compatibility. */
   ranks: { front: number | null; side: number | null }
   generatedAt: string
   engineVersion: string

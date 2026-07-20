@@ -35,6 +35,7 @@ const result: AssessmentResult = {
   findings,
   overallScore: 32,
   overallGrade: 'B',
+  viewSeverityIndex: { front: 30, side: 36 },
   ranks: { front: 30, side: 36 },
   generatedAt: '2026-06-23T00:00:00.000Z',
   engineVersion: 'sample',
@@ -58,7 +59,7 @@ await renderToFile(
 )
 
 console.log('wrote', OUT)
-console.log('grade:', report.gradeHuman)
+console.log('screening summary:', report.screeningSummary)
 for (const p of report.priorities) {
   console.log(`  Priority ${p.rank}: ${p.label} [${p.severityWord}/${p.zone}] — ${p.steps.length} steps: ${p.steps.map((st) => `${st.stepLabel}:${st.slug}`).join(', ')}`)
 }

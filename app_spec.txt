@@ -2,7 +2,7 @@
   <project_name>Posture AI</project_name>
 
   <overview>
-    Posture AI is a markerless, AI-assisted posture and musculoskeletal screening web app for movement professionals. A practitioner captures a client's standing posture from front, side, and back views (webcam OR uploaded photo), and the app computes a clinical battery of posture imbalances — each as an angle deviation from a 0 degree standard plus a risk percentage — then renders a two-page report: an Overall Rating (letter grade S-E + percentile) with annotated front/side skeletal diagrams, and a region-grouped list of body imbalances each showing the deviation, a maintain/warning/danger risk bar, behavioral causes, a schematic tight/weak muscle map, and corrective exercises. It tracks change across assessments and exports a branded PDF. It democratizes the assessment science of a $7,000 clinic posture rig (MotiPhysio) into an accessible browser app.
+    Posture AI is a markerless, AI-assisted posture and musculoskeletal screening web app for movement professionals. A practitioner captures a client's standing posture from front, side, and back views (webcam OR uploaded photo), and the app computes a clinical battery of posture imbalances — each as an angle deviation from a 0 degree standard plus a risk percentage — then renders a two-page report: an Overall Rating (letter grade S-E + 0-100 deviation score, lower is better) with annotated front/side skeletal diagrams, and a region-grouped list of body imbalances each showing the deviation, a maintain/warning/danger risk bar, behavioral causes, a schematic tight/weak muscle map, and corrective exercises. It tracks change across assessments and exports a branded PDF. It democratizes the assessment science of a $7,000 clinic posture rig (MotiPhysio) into an accessible browser app.
 
     CRITICAL BUILD CONSTRAINTS (read carefully):
     1. The clinical scoring engine MUST be a PURE, framework-free TypeScript module (no React, no DOM, no network, no MediaPipe import). It takes detected pose landmarks (plain JSON) and returns assessment results deterministically. This is the heart of the app and must have heavy unit-test (vitest) coverage with hand-authored landmark fixtures. Same input -> identical output, always.
@@ -64,10 +64,10 @@
       - Geometry utilities: angle-between-vectors, angle-from-vertical/horizontal, signed angles, plane projection, midpoint, all unit-tested against known triangles
       - Compute each of the 10 imbalance metrics from the correct view via geometry (see clinical_reference): deviation in degrees from a 0 degree standard plus a direction label
       - Deterministic risk scoring: map each deviation to a severityPct (0-100) and a zone (maintain 0-33 / warning 33-66 / danger 66-100) via a piecewise-linear ramp driven by per-metric tunable threshold constants in a single thresholds config file
-      - Composite scoring: an overallScore (0-100, higher is worse) aggregated from reliable findings, mapped to a letter grade via the band table (S 0-5, A 5-15, B 15-50, C 50-85, D 85-95, E 95-100), a modeled percentile ("Top X%"), and a per-view rank (front and side, "Nth out of 100") derived from a defined, configurable normative model (clearly labeled as modeled, not a real cohort)
+      - Composite scoring: an overallScore (0-100, higher is worse) aggregated from reliable findings and mapped to a letter grade via the engine-owned band table (S 0-3, A 4-7, B 8-20, C 21-55, D 56-87, E 88-100). No population comparison is produced. A per-view severity index is max(1, round(arithmetic mean severity)) over reliable findings for that view (lower is better; null when none are reliable)
       - Confidence gating: each metric's confidence = min visibility of the landmarks it used; if below a reliability floor the metric is flagged reliable:false, zone:"unreliable", and excluded from the overall aggregate. The engine NEVER throws on missing/occluded landmarks — it degrades gracefully
-      - Output contract: AssessmentResult { findings[] each {key,label,region,deviation,standard,unit,direction,severityPct,zone,viewUsed,confidence,reliable,landmarksUsed}, overallScore, overallGrade, overallPercentile, ranks{front,side}, generatedAt, engineVersion, disclaimer, missingViews[] }
-      - Heavy Vitest coverage: for each metric, fixtures at optimal/warning/danger with hand-computable expected deviation, zone, and severityPct (tight epsilon); boundary tests at each band edge; a low-visibility fixture asserting unreliable + exclusion; composite grade/percentile/rank determinism
+      - Output contract: AssessmentResult { findings[] each {key,label,region,deviation,standard,unit,direction,severityPct,zone,viewUsed,confidence,reliable,landmarksUsed}, overallScore, overallGrade, viewSeverityIndex{front,side}, generatedAt, engineVersion, disclaimer, missingViews[] }
+      - Heavy Vitest coverage: for each metric, fixtures at optimal/warning/danger with hand-computable expected deviation, zone, and severityPct (tight epsilon); exact grade-boundary tests; a low-visibility fixture asserting unreliable + exclusion; composite grade and view-severity determinism
     </clinical_scoring_engine>
 
     <capture_pipeline>
@@ -96,13 +96,13 @@
     <assessment_flow>
       - Guided new-assessment wizard: (1) select/confirm client, (2) capture/upload front+side+back, (3) processing, (4) results
       - Submission API: validates practitioner auth, creates an assessment row (status processing), uploads the three images to Storage, writes capture rows with their PoseFrame JSON
-      - Scoring application: run the pure engine on the captured PoseFrames, write one assessment_findings row per imbalance, write the composite grade/percentile/ranks onto the assessment, derive exercise_recommendations deterministically, set status complete
+      - Scoring application: run the pure engine on the captured PoseFrames, write one assessment_findings row per imbalance, write the composite deviation score, grade, and scoring-engine version onto the assessment, derive exercise_recommendations deterministically, set status complete
       - Processing screen polls assessment status and redirects to results on complete (error state with retry on failure)
     </assessment_flow>
 
     <results_report_ui>
-      - Overall Rating panel: large letter-grade ring (S-E) with the "Top X%" percentile on a maintain->warning->danger gradient bar, plus the grade-band reference table (S 0-5, A 5-15, B 15-50, C 50-85, D 85-95, E 95-100)
-      - Annotated skeletal sheet: front and side skeleton template diagrams (SVG) with computed red angle markers + directional arrows for the relevant imbalances, the client's captured photo shown as an inset, and a per-view rank ("Rank Nth out of 100"). A footnote clarifies the skeleton illustration is schematic and not the literal measured angle
+      - Overall Rating panel: large letter-grade ring (S-E) with the 0-100 deviation score on a lower-is-better maintain->warning->danger gradient bar, plus the exact grade-band reference table (S 0-3, A 4-7, B 8-20, C 21-55, D 56-87, E 88-100)
+      - Annotated skeletal sheet: front and side skeleton template diagrams (SVG) with computed red angle markers + directional arrows for the relevant imbalances and the client's captured photo shown as an inset. A footnote clarifies the skeleton illustration is schematic and not the literal measured angle; no population percentile or rank is claimed
       - Region-grouped body-imbalance cards (groups in order: Head/Shoulders, Spine, Pelvis, Leg) — each card shows the imbalance name, deviation vs standard 0 degrees with direction, a maintain/warning/danger risk bar with the severity %, and the "behavior fixes and causes" text
       - Schematic muscle map per imbalance: a front/back body SVG that highlights tight muscle groups in red and weak muscle groups in blue for the selected imbalance, plus named tight/weak muscle lists
       - Recommended corrective exercises per assessment (accordion: name, category, instructions, sets/holds)
@@ -111,7 +111,7 @@
 
     <pdf_report>
       - A two-page, client-ready branded PDF via @react-pdf/renderer rendered client-side:
-        Page 1 = client header + Overall Rating (grade, percentile, band table) + annotated front/side skeletal diagrams + per-view ranks + a notes area.
+        Page 1 = client header + Overall Rating (stored grade, deviation score, current-version band table) + annotated front/side skeletal diagrams + a notes area.
         Page 2 = region-grouped imbalance list, each with deviation, risk bar, causes, tight/weak muscles, and recommended exercises.
       - A non-diagnostic disclaimer on every page footer
       - Before/after delta columns when a prior assessment for the same client exists
@@ -210,7 +210,7 @@
       <assessments>
         - id (PK), client_id (FK), practitioner_id (FK, denormalized for RLS)
         - assessed_at, status (processing|complete|failed), scoring_engine_version
-        - overall_score (numeric), overall_grade (enum S-E), overall_percentile (numeric), front_rank (int), side_rank (int)
+        - overall_score (numeric), overall_grade (enum S-E); legacy nullable overall_percentile/front_rank/side_rank columns are retained only for historical rollback and are not written or exposed
         - assessment_type (default 'static', open for future 'dynamic'), notes, created_at
         - RLS: practitioner_id = auth.uid()
       </assessments>
@@ -278,7 +278,7 @@
       - Mobile-first, dark surfaces. Top app bar + responsive nav (Dashboard, Clients, Exercises, Settings). Persistent non-diagnostic disclaimer in the footer.
     </shell>
     <results_two_page_report>
-      - Page 1: client header; Overall Rating (grade ring + percentile bar + band table); annotated FRONT and SIDE skeletal diagrams with angle markers/arrows + photo inset + per-view rank; notes box.
+      - Page 1: client header; Overall Rating (grade ring + lower-is-better deviation bar + current-version band table); annotated FRONT and SIDE skeletal diagrams with angle markers/arrows + photo inset; notes box.
       - Page 2: region-grouped imbalance cards (Head/Shoulders -> Spine -> Pelvis -> Leg) each with deviation vs 0, maintain/warning/danger risk bar with %, causes text, tight(red)/weak(blue) muscle map, recommended exercises.
     </results_two_page_report>
   </ui_layout>
@@ -339,7 +339,7 @@
         - posture-engine types, landmark name map, and geometry utilities
         - The 10 imbalance metric computations from the correct views
         - Thresholds config -> severityPct + zone; confidence gating
-        - Composite overallScore -> grade (S-E) + modeled percentile + per-view ranks
+        - Composite overallScore -> grade (S-E) + per-view severity indexes; neither is a population percentile or rank
         - assessPosture orchestrator; comprehensive Vitest fixtures and boundary tests
       </tasks>
     </step>
@@ -362,8 +362,8 @@
     <step number="6">
       <title>Results UI: the on-screen two-page report</title>
       <tasks>
-        - Overall Rating panel (grade ring + percentile bar + band table)
-        - Annotated front/side skeletal sheet (SVG markers/arrows + photo inset + per-view rank)
+        - Overall Rating panel (grade ring + lower-is-better deviation bar + current-version band table)
+        - Annotated front/side skeletal sheet (SVG markers/arrows + photo inset, without population-rank claims)
         - Region-grouped imbalance cards (deviation + maintain/warning/danger bar + causes)
         - Schematic tight/weak muscle body-map per imbalance; recommended-exercises accordion
       </tasks>
@@ -380,7 +380,7 @@
     <step number="8">
       <title>Verification</title>
       <tasks>
-        - Playwright e2e using injected landmark fixtures: upload -> grade ring + per-view ranks + imbalance cards + muscle maps + disclaimer render; PDF generates (%PDF)
+        - Playwright e2e using injected landmark fixtures: upload -> grade ring + lower-is-better deviation score + imbalance cards + muscle maps + disclaimer render; PDF generates (%PDF)
         - Ensure vitest engine + RLS suites green; build clean
       </tasks>
     </step>
@@ -397,7 +397,7 @@
       - Data persists in Supabase and is isolated per practitioner by RLS
     </functionality>
     <verifiability>
-      - Vitest green: engine geometry + zones + composite grade/percentile/rank determinism, confidence gating, PDF buffer (%PDF), recommendation derivation, RLS cross-tenant denial
+      - Vitest green: engine geometry + zones + composite deviation-score/grade/view-severity determinism, confidence gating, PDF buffer (%PDF), recommendation derivation, RLS cross-tenant denial
       - Playwright green: the upload->results->PDF flow using injected landmark fixtures (no camera/ML in the deterministic path), with data-testid hooks on the grade, each finding card, muscle-map regions, and the disclaimer
     </verifiability>
     <safety>

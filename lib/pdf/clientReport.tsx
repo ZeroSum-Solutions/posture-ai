@@ -201,7 +201,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
 
         <View style={s.hero}>
           <Text style={s.heroText}>
-            Hi {first} — here&apos;s your posture screening summary. {report.gradeHuman} {positivesLine} {heroPlanLine}
+            Hi {first} — here&apos;s your posture screening summary. {report.screeningSummary} {positivesLine} {heroPlanLine}
           </Text>
           {report.positives.length > 0 ? <Text style={s.positives}>✓ {positivesLine}</Text> : null}
         </View>

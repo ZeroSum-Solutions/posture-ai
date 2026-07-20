@@ -34,6 +34,7 @@ const result: AssessmentResult = {
   findings,
   overallScore: 38,
   overallGrade: 'C',
+  viewSeverityIndex: { front: 36, side: 40 },
   ranks: { front: 36, side: 40 },
   generatedAt: '2026-06-23T00:00:00.000Z',
   engineVersion: 'sample',

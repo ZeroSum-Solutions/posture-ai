@@ -189,8 +189,8 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
     // pelvic_obliquity graduated to LITERATURE_CITED weight (Task 11).
     expect(r.overallScore).toBe(21)
     expect(r.overallGrade).toBe('C')
-    expect(r.ranks.front).toBe(21) // was 18 uncorrected
-    expect(r.ranks.side).toBe(30)  // was 35 uncorrected (was 28 pre-trunk_lean-merge)
+    expect(r.viewSeverityIndex.front).toBe(21) // was 18 uncorrected
+    expect(r.viewSeverityIndex.side).toBe(30)  // was 35 uncorrected (was 28 pre-trunk_lean-merge)
 
     const byKey = Object.fromEntries(r.findings.map(f => [f.key, f]))
     expect(Math.abs(byKey['forward_head_posture'].deviation - 8.7778)).toBeLessThan(EPSILON)        // was 11.63
@@ -204,8 +204,8 @@ describe('aspect-ratio golden values (intentional score shift, spec §6)', () =>
   it('frames WITHOUT aspectRatio keep the historical values (no silent re-scoring)', () => {
     const r = assessPosture(testLandmarksFrames)
     expect(r.overallScore).toBe(22) // 24 before pelvic_obliquity LITERATURE_CITED (Task 11); 25 before validity-weighted (Task 6); 26 before trunk_lean-merge (2.0.0)
-    expect(r.ranks.front).toBe(18)
-    expect(r.ranks.side).toBe(37)
+    expect(r.viewSeverityIndex.front).toBe(18)
+    expect(r.viewSeverityIndex.side).toBe(37)
   })
 
   it('hand value: FHP fixture frame at aspect 0.75 → atan2(0.07·0.75, 0.10) ≈ 27.70°', () => {

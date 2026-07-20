@@ -17,7 +17,7 @@ export async function GET(
 
   const { data: assessment, error } = await supabase
     .from('assessments')
-    .select('id, status, overall_score, overall_grade, overall_percentile, front_rank, side_rank, assessed_at')
+    .select('id, status, overall_score, overall_grade, assessed_at')
     .eq('id', id)
     .eq('practitioner_id', user.id)
     .single()
@@ -37,9 +37,6 @@ export async function GET(
     status: assessment.status,
     overallScore: assessment.overall_score,
     overallGrade: assessment.overall_grade,
-    overallPercentile: assessment.overall_percentile,
-    frontRank: assessment.front_rank,
-    sideRank: assessment.side_rank,
     assessedAt: assessment.assessed_at,
   })
 }

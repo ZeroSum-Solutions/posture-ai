@@ -26,6 +26,16 @@ const findings: Finding[] = [
   f({ key: 'pelvic_obliquity', label: 'Pelvic Obliquity', region: 'pelvis', severityPct: 10, zone: 'maintain' }),
 ]
 
+it('summarizes selected findings neutrally and independently of the letter grade', () => {
+  const gradeS = buildProgramFrom(findings, 'S')
+  const gradeE = buildProgramFrom(findings, 'E')
+
+  expect(gradeS.screeningSummary).toBe('3 corrective focuses were selected from reliable screening findings.')
+  expect(gradeE.screeningSummary).toBe(gradeS.screeningSummary)
+  expect(buildProgramFrom([], 'E').screeningSummary)
+    .toBe('No active corrective focus was selected from reliable screening findings.')
+})
+
 it('exerciseEvidenceForKey returns the best-graded targeted muscle', () => {
   const keyLinks = [
     { muscleSlug: 'pectoralis-minor', confidence: 'high' as const },

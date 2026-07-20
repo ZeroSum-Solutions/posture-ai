@@ -72,16 +72,15 @@ export interface ProgramReport {
   /** All eligible priority keys in natural rank order — lets the coach re-promote. */
   eligibleOrder: string[]
   positives: string[]
-  gradeHuman: string
+  screeningSummary: string
   oneMoreToWatch: string | null
   capability: Capability
 }
 
-function gradeHuman(grade: string): string {
-  if (grade === 'S' || grade === 'A') return 'Looking great — a strong baseline to keep up.'
-  if (grade === 'B') return 'A solid baseline with a few things to work on.'
-  if (grade === 'C') return 'A few clear areas to focus on over the next few weeks.'
-  return 'Several areas worth dedicating some focused time to.'
+function screeningSummary(priorityCount: number): string {
+  if (priorityCount === 0) return 'No active corrective focus was selected from reliable screening findings.'
+  const noun = priorityCount === 1 ? 'focus was' : 'focuses were'
+  return `${priorityCount} corrective ${noun} selected from reliable screening findings.`
 }
 
 function repLevel(ex: ExerciseContent): number {
@@ -279,7 +278,7 @@ export function buildProgram(result: AssessmentResult, capability: Capability = 
  */
 export function buildProgramFrom(
   findings: Finding[],
-  overallGrade: string,
+  _overallGrade: string,
   overrides: ProgramOverrides = {},
 ): ProgramReport {
   const capability = overrides.capability ?? 'standard'
@@ -348,7 +347,7 @@ export function buildProgramFrom(
     monitored,
     eligibleOrder: ranked.map((p) => p.primaryKey),
     positives,
-    gradeHuman: gradeHuman(overallGrade),
+    screeningSummary: screeningSummary(priorities.length),
     oneMoreToWatch: monitored[0]?.label ?? null,
     capability,
   }

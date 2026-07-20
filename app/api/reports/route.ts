@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
   const { data: assessment, error: aErr } = await supabase
     .from('assessments')
     .select(`
-      id, client_id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, assessed_at, practitioner_approved,
+      id, client_id, status, overall_score, overall_grade,
+      assessed_at, practitioner_approved,
       priority_keys, capability, exercise_swaps, scoring_engine_version,
       clients!inner(id, first_name, last_name)
     `)
@@ -263,9 +263,7 @@ export async function POST(req: NextRequest) {
     id: assessment.id,
     overall_score: assessment.overall_score,
     overall_grade: assessment.overall_grade,
-    overall_percentile: assessment.overall_percentile,
-    front_rank: assessment.front_rank,
-    side_rank: assessment.side_rank,
+    scoring_engine_version: assessment.scoring_engine_version,
     assessed_at: assessment.assessed_at,
     clients: { first_name: clientFirst || 'Client', last_name: clientLast || '' },
   }

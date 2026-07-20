@@ -21,6 +21,8 @@ import { generateWorkoutSession } from '@/lib/workout/generateWorkoutSession'
 import { deriveExerciseRecommendations } from '@/lib/exercises'
 import { ALL_EXERCISES } from '@/content'
 import type { ExerciseContent } from '@/content/muscles/types'
+import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
+import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -61,9 +63,6 @@ interface Assessment {
   status: string
   overall_score: number
   overall_grade: OverallGrade
-  overall_percentile: number | null
-  front_rank: number | null
-  side_rank: number | null
   scoring_engine_version: string | null
   tilt_corrected: boolean | null
   level_verified: boolean | null
@@ -76,13 +75,6 @@ interface Assessment {
   clients: { id: string; first_name: string; last_name: string }
 }
 
-// Grade → color mapping
-function gradeColor(grade: OverallGrade): string {
-  if (grade === 'S' || grade === 'A') return 'var(--maintain)'
-  if (grade === 'B' || grade === 'C') return 'var(--warning)'
-  return 'var(--danger)'
-}
-
 // Zone colors
 const ZONE_COLORS: Record<Zone, string> = {
   maintain: 'var(--maintain)',
@@ -90,16 +82,6 @@ const ZONE_COLORS: Record<Zone, string> = {
   danger: 'var(--danger)',
   unreliable: 'var(--text-muted)',
 }
-
-// Band reference table
-const GRADE_BANDS = [
-  { grade: 'S', range: '0–5', desc: 'Elite', color: 'var(--maintain)' },
-  { grade: 'A', range: '5–15', desc: 'Excellent', color: 'var(--maintain)' },
-  { grade: 'B', range: '15–50', desc: 'Good', color: 'var(--warning)' },
-  { grade: 'C', range: '50–85', desc: 'Fair', color: 'var(--warning)' },
-  { grade: 'D', range: '85–95', desc: 'Poor', color: 'var(--danger)' },
-  { grade: 'E', range: '95–100', desc: 'Critical', color: 'var(--danger)' },
-]
 
 const REGION_ORDER: Record<string, number> = { head_shoulders: 0, spine: 1, pelvis: 2, leg: 3 }
 const REGION_LABELS: Record<string, string> = {
@@ -272,9 +254,7 @@ function SkeletalDiagramSection({
   frontCapture: Capture | null
   sideCapture: Capture | null
 }) {
-  // Per the percentile-suppression decision: the engine's per-view "ranks" are a
-  // modeled transform of severity, not a real population statistic — never show
-  // them as a rank. An honest per-view findings count replaces them.
+  // Per-view finding counts are directly supported by the stored screening data.
   function viewFindingsLabel(view: 'front' | 'side'): string {
     const n = findings.filter((f) => f.view_used === view).length
     return n === 0 ? 'No findings marked on this view' : n === 1 ? '1 finding marked' : `${n} findings marked`
@@ -309,71 +289,6 @@ function SkeletalDiagramSection({
         Diagrams are schematic representations only and do not depict literal measurements or anatomical accuracy.
         Markers indicate regions of interest detected during screening.
       </p>
-    </div>
-  )
-}
-
-// ---- Grade Ring Component ----
-function GradeRing({ grade, score }: { grade: OverallGrade; score: number }) {
-  const color = gradeColor(grade)
-  const r = 42
-  const circumference = 2 * Math.PI * r
-  const fillPct = Math.max(0, 100 - score) / 100
-  const dashOffset = circumference * (1 - fillPct)
-
-  return (
-    <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
-      <svg width="100" height="100" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
-        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="10"
-          strokeDasharray={circumference} strokeDashoffset={dashOffset}
-          strokeLinecap="round" transform="rotate(-90 50 50)"/>
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: '2rem', fontWeight: 900, color, lineHeight: 1 }}>{grade}</span>
-      </div>
-    </div>
-  )
-}
-
-function ScoreBar({ score, grade }: { score: number; grade: OverallGrade }) {
-  const color = gradeColor(grade)
-  const positionPct = Math.min(100, Math.max(0, score))
-
-  return (
-    <div>
-      <div style={{ position: 'relative', height: 12, borderRadius: 6, overflow: 'hidden',
-        background: 'linear-gradient(to right, var(--maintain) 0%, var(--maintain) 15%, var(--warning) 50%, var(--danger) 85%, var(--danger) 100%)',
-        marginBottom: 8 }}>
-        <div style={{ position: 'absolute', left: positionPct + '%', top: '50%', transform: 'translate(-50%, -50%)',
-          width: 18, height: 18, borderRadius: '50%', background: color, border: '3px solid var(--background)',
-          boxShadow: `0 0 8px color-mix(in srgb, ${color} 53%, transparent)` }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-        <span style={{ color: 'var(--maintain)' }}>S (Best)</span>
-        <span>Deviation: {score}</span>
-        <span style={{ color: 'var(--danger)' }}>E (Worst)</span>
-      </div>
-    </div>
-  )
-}
-
-function BandTable({ currentGrade }: { currentGrade: OverallGrade }) {
-  return (
-    <div>
-      <h3 style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grade Reference</h3>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {GRADE_BANDS.map(b => (
-          <div key={b.grade} style={{ padding: '6px 10px', borderRadius: 8,
-            background: b.grade === currentGrade ? `color-mix(in srgb, ${b.color} 13%, transparent)` : 'rgba(255,255,255,0.04)',
-            border: '1px solid ' + (b.grade === currentGrade ? b.color : 'rgba(255,255,255,0.08)'),
-            textAlign: 'center', minWidth: 56 }}>
-            <div style={{ fontSize: '1rem', fontWeight: 900, color: b.color }}>{b.grade}</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: 1 }}>{b.range}</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{b.desc}</div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
@@ -934,10 +849,10 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
 
   const grade = assessment.overall_grade
   const score = assessment.overall_score
-  // Percentile intentionally suppressed (O2): `overall_percentile` is a self-labeled
-  // rough linear transform, not a population rank, so we show the grade band instead
-  // of a dishonest "Top X%" until a real normative cohort exists.
-  const gradeDesc = GRADE_BANDS.find(b => b.grade === grade)?.desc ?? 'Screening'
+  const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
+  const gradeDesc = showCurrentGradeScale
+    ? getGradeDisplayBand(grade).description
+    : 'Recorded screening grade'
   const color = gradeColor(grade)
   const isApproved = approved || !!assessment.practitioner_approved
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
@@ -1035,14 +950,16 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
               Posture AI is a <strong>screening tool only</strong> — results are informational and educational, not a substitute for evaluation by a qualified professional.
             </div>
             <div className={styles.ratingSummary}>
-              <GradeRing grade={grade} score={score} />
+              <GradeRing grade={grade} score={score} description={gradeDesc} />
               <div>
-                <strong>{gradeDesc} posture</strong>
+                <strong>{gradeDesc}</strong>
                 <p>Deviation: {score}/100 (lower is better) — Grade <span style={{ color }}>{grade}</span></p>
-                <ScoreBar score={score} grade={grade} />
+                {showCurrentGradeScale
+                  ? <ScoreBar score={score} grade={grade} />
+                  : <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Recorded with a different or unknown scoring version; the current grade scale is not applied.</p>}
               </div>
             </div>
-            <BandTable currentGrade={grade} />
+            {showCurrentGradeScale && <BandTable currentGrade={grade} />}
 
             <div className={styles.sessionSummary}>
               {sessionPreview ? (
@@ -1123,9 +1040,8 @@ export default function AssessmentResultsPage({ params }: { params: Promise<{ id
   )
 }
 
-// The visible payoff of the engine-credibility layer: per-finding within-capture
-// stability + angle uncertainty, capture/level status, and an honest statement of
-// the 2D monocular limits. No population percentile (O2) — nothing here overclaims.
+// Per-finding stability, angle uncertainty, capture/level status, and the
+// 2D monocular limits are shown together here.
 function AccuracyCard({ assessment, findings }: { assessment: Assessment; findings: Finding[] }) {
   const withStability = findings.filter(
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),

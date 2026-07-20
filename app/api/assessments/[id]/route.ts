@@ -21,8 +21,8 @@ export async function GET(
   const { data: assessment, error } = await supabase
     .from('assessments')
     .select(`
-      id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, scoring_engine_version, tilt_corrected, level_verified, capture_stability, assessed_at, notes,
+      id, status, overall_score, overall_grade,
+      scoring_engine_version, tilt_corrected, level_verified, capture_stability, assessed_at, notes,
       priority_keys, capability, exercise_swaps, practitioner_approved, practitioner_approved_at,
       clients!inner(id, first_name, last_name)
     `)

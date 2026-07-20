@@ -58,8 +58,7 @@ function req(body: Record<string, unknown>) {
 
 const approvedAssessment = {
   id: 'a1', client_id: 'c1', status: 'complete',
-  overall_score: 80, overall_grade: 'B', overall_percentile: 60,
-  front_rank: 'B', side_rank: 'B', assessed_at: '2026-01-01T00:00:00Z',
+  overall_score: 14, overall_grade: 'B', assessed_at: '2026-01-01T00:00:00Z',
   practitioner_approved: true, priority_keys: null, capability: null,
   exercise_swaps: null, scoring_engine_version: 'v1',
   clients: { id: 'c1', first_name: 'Jane', last_name: 'Doe' },

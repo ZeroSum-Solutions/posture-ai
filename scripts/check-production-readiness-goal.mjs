@@ -13,7 +13,7 @@ const ALLOWED_OUTCOMES = new Set(['passed', 'not_applicable'])
 const SHA256 = /^[a-f0-9]{64}$/i
 const COMMIT_SHA = /^[a-f0-9]{40}$/i
 const CANONICALIZATION = 'UTF-8 JSON with recursively sorted object keys and preserved array order'
-const SOURCE_INVENTORY_HASH = '99826920ce8e9137d44e098af97e4def4d6293430a1bffc085c0910182d2ba59'
+const SOURCE_INVENTORY_HASH = 'def67834670af0272e5fb89fe7d9564cab2f1bf8ad5cbefedb65947e8a5f2ebf'
 const REQUIRED_COUNCIL_SEATS = ['Codex', 'Fable 5 medium', 'Kimi K3']
 const REQUIRED_CONFIG_COVERAGE = [
   'release_boundary',
