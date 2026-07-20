@@ -14,6 +14,7 @@ import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
 import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hooks'
+import { createSubmissionGuard } from '@/lib/capture/submission-guard'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 
 interface Client {
@@ -26,6 +27,15 @@ interface Client {
 const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
+
+function initialCaptures(): Captures {
+  return {
+    'front': emptySlot(),
+    'side-left': emptySlot(),
+    'side-right': emptySlot(),
+    'back': emptySlot(),
+  }
+}
 
 // ---- Main Wizard ----
 function NewAssessmentWizard() {
@@ -44,22 +54,16 @@ function NewAssessmentWizard() {
   const [checkingConsent, setCheckingConsent] = useState(false)
   const [loadingClients, setLoadingClients] = useState(true)
   const [clientsError, setClientsError] = useState<string | null>(null)
-  const [captures, setCaptures] = useState<Captures>({
-    'front': emptySlot(),
-    'side-left': emptySlot(),
-    'side-right': emptySlot(),
-    'back': emptySlot(),
-  })
+  const [captures, setCaptures] = useState<Captures>(initialCaptures)
   const [uploadError, setUploadError] = useState<string | null>(null)
-
-  // Pose-engine failure state (warming itself is driven lazily by the
-  // capture-runtime state machine at review time, not eagerly here — §11.1).
-  const [modelError, setModelError] = useState(false)
 
   // Assessment API state
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // A synchronous lock closes the pre-render double-click window. Its stable ID
+  // is also the server idempotency key for retries of unchanged capture content.
+  const [submissionGuard] = useState(createSubmissionGuard)
 
   // Expose the production pixel-sampling + scoring functions for out-of-process
   // drivers (T1b calibration, T4b cross-engine spec) under the CLIENT test-mode
@@ -137,6 +141,9 @@ function NewAssessmentWizard() {
         if (data.status === 'complete') {
           router.push('/assessments/' + assessmentId)
         } else if (data.status === 'failed') {
+          // The server confirmed a terminal row. A retry is a new scoring
+          // attempt, not an ambiguous transport replay, so rotate the key.
+          submissionGuard.contentChanged()
           setProcessingError('Scoring failed. Please try again.')
         } else {
           // Still processing — poll again in 2s (bounded)
@@ -154,7 +161,7 @@ function NewAssessmentWizard() {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [step, assessmentId, router])
+  }, [step, assessmentId, router, submissionGuard])
 
   const filteredClients = clientSearch.trim()
     ? clients.filter(c => {
@@ -200,6 +207,26 @@ function NewAssessmentWizard() {
     revokeStaleUrls([slot.rawRepresentativeUrl, slot.displayPreviewUrl, ...(slot.rawBurstUrls ?? [])], keep)
   }
 
+  function chooseClient(client: Client) {
+    if (selectedClient?.id !== client.id) {
+      // A capture belongs to one subject. Switching subjects invalidates every
+      // pending async result, revokes every photo URL, clears the four slots,
+      // and rotates the digest-bound submission identity before capture resumes.
+      for (const slot of REQUIRED_SLOTS) {
+        nextOp(slot)
+        revokeSlotUrls(capturesRef.current[slot], new Set())
+      }
+      setCaptures(initialCaptures())
+      submissionGuard.contentChanged()
+      setAssessmentId(null)
+      setProcessingError(null)
+      setUploadError(null)
+    }
+    setSelectedClient(client)
+    setAgeGateError(null)
+    setShowConsentForm(false)
+  }
+
   // Run detectPose + assessFrameQuality after each capture/upload on the RAW
   // still (never the display channel — design §4.3). `token` ties the result to
   // its capture; a newer capture bumps commitSeq and staleness-invalidates it.
@@ -238,9 +265,24 @@ function NewAssessmentWizard() {
     } catch (err) {
       console.error('[wizard] preflight error:', err)
       if (isStale()) return
-      // On model-load failure, don't block submission — mark idle
-      setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'idle' } }))
-      setModelError(true)
+      // A model failure is a hard validation failure. Keep the capture and reason
+      // so the user can retry without losing the photo, but never submit it unchecked.
+      setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'model_error' } }))
+    }
+  }
+
+  async function retryFailedChecks() {
+    for (const slot of REQUIRED_SLOTS) {
+      const capture = capturesRef.current[slot]
+      if (capture.slotStatus !== 'model_error' || !capture.rawRepresentativeUrl || !capture.source || capture.captureId === null) continue
+      await runPreflight(
+        slot,
+        capture.rawRepresentativeUrl,
+        capture.source,
+        capture.captureRollDeg,
+        capture.captureId,
+        capture.pixelQuality,
+      )
     }
   }
 
@@ -262,6 +304,7 @@ function NewAssessmentWizard() {
       ...prev,
       [slot]: { ...emptySlot(), file, source: 'upload', captureId: op, rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality },
     }))
+    submissionGuard.contentChanged()
     revokeSlotUrls(prevSlot, new Set([rawUrl]))
     setUploadError(null)
     if (!testMode) runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality)
@@ -278,16 +321,18 @@ function NewAssessmentWizard() {
       ...prev,
       [slot]: { ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, rawRepresentativeUrl: rep, rawBurstUrls: burst, displayPreviewUrl: rep, pixelQuality: representativePixelQuality },
     }))
+    submissionGuard.contentChanged()
     revokeSlotUrls(prevSlot, new Set(burst))
     setUploadError(null)
     if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality)
   }
 
-  // Check if submit should be blocked: a required slot has an invalid subject count.
+  // Check if submit should be blocked: every required slot must have completed
+  // authoritative preflight as either valid or a soft-warning capture.
   function hasBlockingSlot(): boolean {
-    return REQUIRED_SLOTS.some(v => isCaptured(captures[v]) && (
-      captures[v].slotStatus === 'no_person' || captures[v].slotStatus === 'multiple_people'
-    ))
+    return REQUIRED_SLOTS.some(v => isCaptured(captures[v])
+      && captures[v].slotStatus !== 'ok'
+      && captures[v].slotStatus !== 'warnings')
   }
 
   async function validateAndProceed() {
@@ -297,10 +342,13 @@ function NewAssessmentWizard() {
         if (!isCaptured(captures[slot])) { setUploadError(`${SLOT_LABEL[slot]} view is required before proceeding.`); return }
       }
       if (hasBlockingSlot()) {
-        setUploadError('Each required view must show exactly one person. Please retake the marked photos.')
+        setUploadError('Every required view must finish its model check and show exactly one person. Retry or retake the marked photos.')
         return
       }
     }
+
+    const attempt = submissionGuard.tryBegin()
+    if (!attempt) return
 
     setUploadError(null)
     setProcessingError(null)
@@ -317,6 +365,7 @@ function NewAssessmentWizard() {
       if (!testMode) {
         frames = []
         const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
+        const { assessFrameQuality } = await import('@/lib/pose/quality')
         const runtime = getCaptureRuntime()
         // Detect + stamp per the pure plan (framePlan.ts). It reads ONLY the raw
         // channel, so both side slots POST as distinct `{view:'side', profileSide}`
@@ -331,6 +380,10 @@ function NewAssessmentWizard() {
               // detected in preflight; re-detecting it here keeps the set uniform).
               for (const url of p.burstUrls) {
                 const detected = await runtime.detect(url, p.view, 'camera')
+                const quality = assessFrameQuality(detected, p.view)
+                if (quality.status === 'no_person' || quality.status === 'multiple_people') {
+                  throw new Error(`${SLOT_LABEL[p.slot]} must show exactly one person. Retake that view.`)
+                }
                 frames.push(stampFrame(detected, p.profileSide, p.roll))
               }
             } else if (p.cachedFrame) {
@@ -339,6 +392,10 @@ function NewAssessmentWizard() {
             } else if (p.fallbackUrl) {
               // Preflight was skipped or failed — detect now.
               const detected = await runtime.detect(p.fallbackUrl, p.view, p.source ?? 'upload')
+              const quality = assessFrameQuality(detected, p.view)
+              if (quality.status === 'no_person' || quality.status === 'multiple_people') {
+                throw new Error(`${SLOT_LABEL[p.slot]} must show exactly one person. Retake that view.`)
+              }
               frames.push(stampFrame(detected, p.profileSide, p.roll))
             }
           }
@@ -352,23 +409,42 @@ function NewAssessmentWizard() {
       const response = await fetch('/api/assessments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, test_mode: testMode, frames }),
+        body: JSON.stringify({ client_id: clientId, test_mode: testMode, frames, submission_id: attempt.submissionId }),
       })
 
       if (!response.ok) {
         const err = await response.json()
         setProcessingError(err.error || 'Failed to create assessment.')
+        submissionGuard.release(attempt)
         setSubmitting(false)
         return
       }
 
       const data = await response.json()
+      if (data.status === 'failed') {
+        setProcessingError(data.error || 'Scoring failed. Please retry this submission.')
+        submissionGuard.release(attempt)
+        // This terminal result is confirmed, not a lost-response ambiguity. A
+        // user retry is a new scoring attempt and therefore needs a fresh key;
+        // transport failures above intentionally retain the old key for replay.
+        submissionGuard.contentChanged()
+        setSubmitting(false)
+        return
+      }
+      if (!submissionGuard.isCurrent(attempt)) return
+      // The transport completed and returned the authoritative assessment id.
+      // The synchronous lock is no longer needed while polling. Preserve the
+      // same key so an ambiguous poll failure can replay this exact row.
+      submissionGuard.release(attempt)
       console.log('[wizard] Assessment created:', data.id, 'status:', data.status)
       setAssessmentId(data.id)
       // Polling useEffect will take over from here
     } catch (err) {
       console.error('[wizard] Fetch error:', err)
-      setProcessingError('Network error. Please try again.')
+      submissionGuard.release(attempt)
+      setProcessingError(err instanceof Error && err.message
+        ? err.message
+        : 'Network or posture-model error. Please try again.')
     }
     setSubmitting(false)
   }
@@ -424,6 +500,7 @@ function NewAssessmentWizard() {
   // Non-test-mode Step 2 is the immersive full-screen camera; it renders as a
   // fixed overlay covering the wizard chrome below.
   const fullScreenCapture = step === 2 && !testMode
+  const modelError = Object.values(captures).some(capture => capture.slotStatus === 'model_error')
 
   return (
     <div className="app-standard-page">
@@ -504,11 +581,7 @@ function NewAssessmentWizard() {
                 {filteredClients.map(c => {
                   const isSelected = selectedClient?.id === c.id
                   return (
-                    <button key={c.id} onClick={() => {
-                      setSelectedClient(c)
-                      setAgeGateError(null)
-                      setShowConsentForm(false)
-                    }} style={{
+                    <button key={c.id} onClick={() => chooseClient(c)} style={{
                       width: '100%', padding: '14px 16px', textAlign: 'left',
                       background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
                       border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
@@ -598,6 +671,7 @@ function NewAssessmentWizard() {
             onProceed={validateAndProceed}
             onExit={() => { void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {}); setStep(1) }}
             modelError={modelError}
+            onRetryFailedChecks={retryFailedChecks}
             submitting={submitting}
             uploadError={uploadError}
           />

@@ -35,6 +35,7 @@ describe('GET /api/health schema readiness', () => {
       'practitioners.id',
       'muscles.slug',
       'assessments.priority_keys',
+      'assessments.submission_id, submission_digest',
       'captures.profile_side',
       'assessment_findings.observations',
     ]))
@@ -42,6 +43,7 @@ describe('GET /api/health schema readiness', () => {
   })
 
   test.each([
+    'assessments.submission_id, submission_digest',
     'captures.profile_side',
     'assessment_findings.observations',
   ])('reports pending_migration when %s is missing', async (probe) => {

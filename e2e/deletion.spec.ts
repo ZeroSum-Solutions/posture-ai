@@ -10,7 +10,7 @@ test.describe('client data deletion', () => {
   test('deleting a client purges assessments and removes it from the list', async ({ page }) => {
     const c = await createClient(page, 'E2E', `Del-${randomUUID().slice(0, 8)}`)
 
-    const a = await page.request.post('/api/assessments', { data: { client_id: c.id, test_mode: true } })
+    const a = await page.request.post('/api/assessments', { data: { client_id: c.id, submission_id: randomUUID(), test_mode: true } })
     expect(a.ok(), `assessment create failed: ${a.status()}`).toBeTruthy()
     const assessmentId = (await a.json()).id as string
 

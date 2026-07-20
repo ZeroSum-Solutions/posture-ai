@@ -4,6 +4,7 @@ import type { Landmark } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
+import type { PoseReadiness } from '@/lib/pose/capture-runtime'
 import { recordLiveTelemetry } from '@/lib/pose/live-telemetry'
 import { shutterGate } from '@/lib/capture/shutter-gate'
 import { sourceToViewport } from '@/lib/capture/overlay-transform'
@@ -38,6 +39,7 @@ interface FullScreenCaptureProps {
   onProceed: () => void
   onExit: () => void
   modelError: boolean
+  onRetryFailedChecks?: () => Promise<void> | void
   submitting: boolean
   uploadError: string | null
 }
@@ -119,6 +121,7 @@ export default function FullScreenCapture({
   onProceed,
   onExit,
   modelError,
+  onRetryFailedChecks,
   submitting,
   uploadError,
 }: FullScreenCaptureProps) {
@@ -155,6 +158,9 @@ export default function FullScreenCapture({
   const [ready, setReady] = useState(false)
   const [cameraFailed, setCameraFailed] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [runtime] = useState(getCaptureRuntime)
+  const [poseReadiness, setPoseReadiness] = useState<PoseReadiness>(() => runtime.readiness())
+  const [retryingModel, setRetryingModel] = useState(false)
 
   const [activeSlot, setActiveSlot] = useState<CaptureSlotKey>('front')
   const [timerOn, setTimerOn] = useState(false)
@@ -166,6 +172,8 @@ export default function FullScreenCapture({
   const [reviewUrl, setReviewUrl] = useState<string | null>(null)
   const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
   const [previewQuality, setPreviewQuality] = useState<FrameQuality | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [reviewAttempt, setReviewAttempt] = useState(0)
   // Most recently committed slot (upload or "Use This Photo"), tracked so its
   // warning caption stays visible immediately after the auto-advance moves
   // `activeSlot` off it — without this, a just-committed warned slot's coaching
@@ -276,6 +284,29 @@ export default function FullScreenCapture({
       void getCaptureRuntime().closeLive()
     }
   }, [releaseWakeLock])
+
+  // Production-visible model lifecycle. The runtime publishes both live-worker
+  // and authoritative IMAGE-scoring transitions through one ordered channel.
+  useEffect(() => runtime.subscribeReadiness(setPoseReadiness), [runtime])
+
+  async function retryPoseModel() {
+    if (retryingModel) return
+    setRetryingModel(true)
+    try {
+      await runtime.retry()
+      await onRetryFailedChecks?.()
+      if (phase === 'review') {
+        setPreviewQuality(null)
+        setPreviewError(null)
+        setReviewAttempt(attempt => attempt + 1)
+      }
+    } catch {
+      // The runtime publishes the typed failure state and message; keep the
+      // retry control available instead of surfacing an unhandled rejection.
+    } finally {
+      if (mountedRef.current) setRetryingModel(false)
+    }
+  }
 
   function retryCamera() {
     setReady(false)
@@ -500,6 +531,7 @@ export default function FullScreenCapture({
     const representative = burstRef.current[0]
     setRollAtCapture(rollAt)
     setPreviewQuality(null)
+    setPreviewError(null)
     setReviewUrl(representative) // representative still (now burst[0])
     setIsCapturing(false)
     setPhase('review')
@@ -582,11 +614,13 @@ export default function FullScreenCapture({
         // synchronous/instant-cached, the ref could still be null at this read.
         if (!cancelled) setPreviewQuality(mergePreflightQuality(assessFrameQuality(frame, view), representativePixelQualityRef.current))
       } catch {
-        // non-fatal: the slot preflight still runs after "Use This Photo"
+        if (!cancelled) {
+          setPreviewError('The posture model could not check this photo. Retry the check or retake the photo.')
+        }
       }
     })()
     return () => { cancelled = true }
-  }, [phase, reviewUrl, activeSlot])
+  }, [phase, reviewUrl, activeSlot, reviewAttempt])
 
   // The next uncaptured slot after `committed` in canonical order — a convenience
   // advance after a capture. Free-order means every slot is selectable directly,
@@ -606,7 +640,8 @@ export default function FullScreenCapture({
   }
 
   function useThisPhoto() {
-    if (!reviewUrl) return
+    const hardFailure = previewQuality?.status === 'no_person' || previewQuality?.status === 'multiple_people'
+    if (!reviewUrl || !previewQuality || previewError || hardFailure) return
     // Commit to the slot that owned the shutter, never the (possibly changed)
     // live `activeSlot` — the burst belongs to captureSlotRef.
     const committed = captureSlotRef.current
@@ -617,6 +652,7 @@ export default function FullScreenCapture({
     representativePixelQualityRef.current = null
     setReviewUrl(null)
     setPreviewQuality(null)
+    setPreviewError(null)
     setRollAtCapture(null)
     setOverrideGate(false)
     // Advance to the next uncaptured slot as a convenience. Analysis is ALWAYS an
@@ -638,6 +674,7 @@ export default function FullScreenCapture({
     discardBurst()
     setReviewUrl(null)
     setPreviewQuality(null)
+    setPreviewError(null)
     setRollAtCapture(null)
     setOverrideGate(false)
     setPhase('live')
@@ -668,12 +705,15 @@ export default function FullScreenCapture({
   }
 
   // ---- derived UI state ----
-  // Ready once front + both sides are present (back optional), independent of
+  // Ready once all four production views are present, independent of
   // capture order — the free-order flow has no terminal "last view" trigger.
   const requiredReady = REQUIRED_SLOTS.every(s => isCaptured(captures[s]))
   // A required slot whose quality preflight is still running — proceeding now
   // would bypass the subject-count block, so gate the Analyze action until it settles.
   const requiredChecking = REQUIRED_SLOTS.some(s => isCaptured(captures[s]) && captures[s].slotStatus === 'checking')
+  const requiredModelFailed = REQUIRED_SLOTS.some(s => isCaptured(captures[s]) && captures[s].slotStatus === 'model_error')
+  const requiredSubjectFailed = REQUIRED_SLOTS.some(s => isCaptured(captures[s])
+    && (captures[s].slotStatus === 'no_person' || captures[s].slotStatus === 'multiple_people'))
   const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
   const multiplePeopleViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'multiple_people')
   const direction = DIRECTION[activeSlot]
@@ -694,6 +734,18 @@ export default function FullScreenCapture({
   const captionPrefix = captionSlot && captionSlot !== activeSlot ? `${SLOT_LABEL[captionSlot]}: ` : ''
 
   const showLiveCamera = (phase === 'live' || phase === 'countdown') && !cameraFailed
+  const reviewHardFailure = previewQuality?.status === 'no_person' || previewQuality?.status === 'multiple_people'
+  const reviewAcceptDisabled = previewQuality === null || previewError !== null || reviewHardFailure
+  const poseModelFailed = poseReadiness.phase === 'failed' || modelError
+  const readinessLabel = modelError && poseReadiness.phase !== 'failed'
+    ? 'Posture model check failed.'
+    : poseReadiness.phase === 'downloading'
+    ? 'Downloading posture model…'
+    : poseReadiness.phase === 'initializing'
+      ? `Initializing posture model${poseReadiness.delegate ? ` (${poseReadiness.delegate.toUpperCase()})` : ''}…`
+      : poseReadiness.phase === 'ready'
+        ? `Posture model ready${poseReadiness.delegate ? ` (${poseReadiness.delegate.toUpperCase()})` : ''}`
+        : poseReadiness.message || 'Posture model failed to start.'
   const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
 
   return (
@@ -808,9 +860,22 @@ export default function FullScreenCapture({
               </div>
             )}
 
-            {modelError && (
-              <div role="status" aria-live="polite" style={{ pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600, background: 'rgba(239,68,68,0.85)', color: '#fff' }}>
-                Pose engine unavailable
+            {started && (
+              <div
+                data-testid="pose-readiness"
+                role={poseModelFailed ? 'alert' : 'status'}
+                aria-live="polite"
+                style={{ pointerEvents: 'auto', borderRadius: '12px', padding: '6px 10px', fontSize: '0.72rem', fontWeight: 600, background: poseModelFailed ? 'rgba(239,68,68,0.9)' : poseReadiness.phase === 'ready' ? 'rgba(16,185,129,0.88)' : 'rgba(0,0,0,0.72)', color: '#fff', maxWidth: '250px', textAlign: 'right' }}
+              >
+                <span>{readinessLabel}</span>
+                {poseModelFailed && (
+                  <button
+                    type="button"
+                    onClick={() => void retryPoseModel()}
+                    disabled={retryingModel}
+                    style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.65)', background: 'transparent', color: '#fff', fontWeight: 700, cursor: retryingModel ? 'not-allowed' : 'pointer' }}
+                  >{retryingModel ? 'Retrying…' : 'Retry Model'}</button>
+                )}
               </div>
             )}
           </div>
@@ -879,7 +944,10 @@ export default function FullScreenCapture({
             {/* Review actions */}
             {phase === 'review' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div role="status" aria-live="polite" aria-atomic="true">
+                <div data-testid="review-quality-status" role="status" aria-live="polite" aria-atomic="true">
+                  {!previewQuality && !previewError && (
+                    <p style={{ color: '#C4C4CC', fontSize: '0.8rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>Checking person and framing…</p>
+                  )}
                   {previewQuality?.status === 'ok' && (
                     <p style={{ color: 'var(--maintain)', fontSize: '0.8rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>Framing looks good</p>
                   )}
@@ -896,13 +964,28 @@ export default function FullScreenCapture({
                       ))}
                     </div>
                   )}
+                  {previewError && (
+                    <div id="review-model-error" role="alert" data-testid="review-model-error" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 8, padding: '8px 12px' }}>
+                      <p style={{ color: 'var(--danger)', fontSize: '0.78rem', textAlign: 'center', margin: 0 }}>{previewError}</p>
+                      <button
+                        type="button"
+                        onClick={() => { setPreviewQuality(null); setPreviewError(null); setReviewAttempt(attempt => attempt + 1) }}
+                        style={{ display: 'block', margin: '8px auto 0', padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.45)', background: 'transparent', color: 'var(--danger)', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}
+                      >Retry Check</button>
+                    </div>
+                  )}
                   {rollAtCapture !== null && Math.abs(rollAtCapture) > 2 && (
                     <p style={{ color: '#FBBF24', fontSize: '0.72rem', textAlign: 'center', margin: 0 }}>Roll {rollAtCapture.toFixed(1)}° — will be corrected</p>
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button data-autofocus="retake" onClick={retakeStill} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 600, cursor: 'pointer', minHeight: '44px' }}>Retake</button>
-                  <button onClick={useThisPhoto} style={{ flex: 2, padding: '14px', borderRadius: '12px', background: 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', minHeight: '44px' }}>Use This Photo</button>
+                  <button
+                    onClick={useThisPhoto}
+                    disabled={reviewAcceptDisabled}
+                    aria-describedby={previewError ? 'review-model-error' : undefined}
+                    style={{ flex: 2, padding: '14px', borderRadius: '12px', background: reviewAcceptDisabled ? 'rgba(0,152,243,0.35)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: reviewAcceptDisabled ? 'not-allowed' : 'pointer', minHeight: '44px' }}
+                  >{!previewQuality && !previewError ? 'Checking Photo…' : 'Use This Photo'}</button>
                 </div>
               </div>
             )}
@@ -913,10 +996,10 @@ export default function FullScreenCapture({
                 const cap = captures[slotKey]
                 const isActive = slotKey === activeSlot
                 const captured = isCaptured(cap)
-                const optional = !REQUIRED_SLOTS.includes(slotKey)
                 const subjectCountBlocked = cap.slotStatus === 'no_person' || cap.slotStatus === 'multiple_people'
+                const modelFailed = cap.slotStatus === 'model_error'
                 const ring = isActive ? 'var(--brand)'
-                  : subjectCountBlocked ? 'var(--danger)'
+                  : subjectCountBlocked || modelFailed ? 'var(--danger)'
                   : cap.slotStatus === 'warnings' ? 'var(--warning)'
                   : captured ? '#10B981'
                   : 'rgba(255,255,255,0.2)'
@@ -926,7 +1009,7 @@ export default function FullScreenCapture({
                     onClick={() => selectSlot(slotKey)}
                     // Locked during a burst so the announced state matches selectSlot's guard.
                     disabled={isCapturing}
-                    aria-label={`${SLOT_LABEL[slotKey]}${optional ? ' (optional)' : ''}${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}${cap.slotStatus === 'warnings' ? ' — quality warning' : ''}`}
+                    aria-label={`${SLOT_LABEL[slotKey]} (required)${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}${cap.slotStatus === 'warnings' ? ' — quality warning' : ''}${modelFailed ? ' — model check failed' : ''}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
                       position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
@@ -941,11 +1024,11 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? '#fff' : '#B4B4BD' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: subjectCountBlocked ? 'var(--danger)' : cap.slotStatus === 'warnings' ? 'var(--warning)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{subjectCountBlocked ? '!' : cap.slotStatus === 'warnings' ? '⚠' : '✓'}</span>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: subjectCountBlocked || modelFailed ? 'var(--danger)' : cap.slotStatus === 'warnings' ? 'var(--warning)' : '#10B981', color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{subjectCountBlocked || modelFailed ? '!' : cap.slotStatus === 'warnings' ? '⚠' : '✓'}</span>
                       )}
                     </div>
                     <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#C7D2FE' : '#C4C4CC', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>
-                    <span style={{ display: 'block', fontSize: '0.6rem', color: '#B4B4BD' }}>{optional ? 'Optional' : 'Required'}</span>
+                    <span style={{ display: 'block', fontSize: '0.6rem', color: '#B4B4BD' }}>Required</span>
                   </button>
                 )
               })}
@@ -979,6 +1062,7 @@ export default function FullScreenCapture({
                 <button
                   data-autofocus="shutter"
                   onClick={onShutter}
+                  disabled={gateBlocked || !ready || isCapturing}
                   aria-disabled={gateBlocked || !ready || isCapturing}
                   aria-label="Capture photo"
                   style={{
@@ -1015,14 +1099,14 @@ export default function FullScreenCapture({
               </button>
             )}
 
-            {/* Proceed (available once Front + both Sides are captured; Back-skip) */}
+            {/* Proceed only after all four required views pass preflight. */}
             {requiredReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
-                disabled={submitting || requiredChecking}
-                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking ? 'not-allowed' : 'pointer', minHeight: '44px' }}
+                disabled={submitting || requiredChecking || requiredModelFailed || requiredSubjectFailed}
+                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking || requiredModelFailed || requiredSubjectFailed ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking || requiredModelFailed || requiredSubjectFailed ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
-                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : isCaptured(captures.back) ? 'Analyze Posture' : 'Skip Back & Analyze Posture'}
+                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : requiredModelFailed ? 'Retry failed photo checks' : requiredSubjectFailed ? 'Retake invalid photos' : 'Analyze Posture'}
               </button>
             )}
           </div>

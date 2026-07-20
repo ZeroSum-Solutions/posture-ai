@@ -176,7 +176,7 @@ Edge cases:
 
 ### Step 2: Upload / Camera capture
 
-**Criterion:** Front and Side views required; Back optional. Upload via file or camera. Photo quality preflight runs (detectPose → assessFrameQuality). Cannot advance if front/side are missing or no-person-detected.
+**Criterion:** Front, Left Side, Right Side, and Back views are required. Upload via file or camera. Photo quality preflight runs (detectPose → assessFrameQuality). Cannot advance if any view is missing, still checking, failed model validation, or does not show exactly one person.
 
 Edge cases:
 - Camera permission denied → user-friendly error with message, fallback to file upload.

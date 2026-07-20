@@ -26,6 +26,9 @@ vi.mock('@/lib/pose/capture-runtime', () => ({
     dispose: vi.fn().mockResolvedValue(undefined),
     frameLive: vi.fn(),
     state: vi.fn(() => 'idle'),
+    readiness: vi.fn(() => ({ phase: 'ready', backend: 'live', delegate: 'gpu', message: null })),
+    subscribeReadiness: vi.fn((listener: (state: { phase: string; backend: string; delegate: string; message: null }) => void) => { listener({ phase: 'ready', backend: 'live', delegate: 'gpu', message: null }); return () => {} }),
+    retry: vi.fn().mockResolvedValue(undefined),
   }),
 }))
 

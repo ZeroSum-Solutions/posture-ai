@@ -11,7 +11,7 @@ test.describe('red-flag pre-session screen', () => {
 
   async function mintSession(page: Page): Promise<{ sessionId: string; assessmentId: string }> {
     const c = await createClient(page, 'E2E', `RedFlag-${randomUUID().slice(0, 8)}`)
-    const assessment = await page.request.post('/api/assessments', { data: { client_id: c.id, test_mode: true } })
+    const assessment = await page.request.post('/api/assessments', { data: { client_id: c.id, submission_id: randomUUID(), test_mode: true } })
     expect(assessment.ok(), `assessment create failed: ${assessment.status()}`).toBeTruthy()
     const assessmentId = (await assessment.json()).id as string
 

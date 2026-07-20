@@ -44,7 +44,7 @@ export default defineConfig({
       name: 'mobile-webkit',
       use: { ...devices['iPhone 14'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
-      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts|pixel-calibration\.spec\.ts/, // model/camera tests run on chromium only; calibration is its own project
+      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts|capture-model-readiness\.spec\.ts|pixel-calibration\.spec\.ts/, // model/camera tests run on chromium only; calibration is its own project
     },
     {
       // T1b: browser-lane pixel-quality calibration — writes (or, under

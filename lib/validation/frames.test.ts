@@ -3,10 +3,23 @@ import { testLandmarksFrames, assessPosture } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from './frames'
 
 const CLIENT_ID = '2f5d3f6a-4b1c-4f6e-9b3a-1c2d3e4f5a6b'
+const SUBMISSION_ID = '6a76a8b9-df1d-4e93-a65b-33419bb01bb4'
+
+const validFrames = () => {
+  const front = testLandmarksFrames.find(f => f.view === 'front')!
+  const side = testLandmarksFrames.find(f => f.view === 'side')!
+  return [
+    { ...front },
+    { ...side, profileSide: 'left' as const },
+    { ...side, profileSide: 'right' as const },
+    { ...front, view: 'back' as const },
+  ]
+}
 
 const validBody = () => ({
   client_id: CLIENT_ID,
-  frames: testLandmarksFrames,
+  submission_id: SUBMISSION_ID,
+  frames: validFrames(),
 })
 
 describe('parseAssessmentPayload', () => {
@@ -15,9 +28,48 @@ describe('parseAssessmentPayload', () => {
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.data.client_id).toBe(CLIENT_ID)
-      expect(r.data.frames?.length).toBe(testLandmarksFrames.length)
+      expect(r.data.submission_id).toBe(SUBMISSION_ID)
+      expect(r.data.frames?.length).toBe(4)
       expect(r.data.useFixture).toBe(false)
     }
+  })
+
+  it('requires a UUID submission_id', () => {
+    const missing = { client_id: CLIENT_ID, frames: validFrames() }
+    expect(parseAssessmentPayload(missing, { testModeEnabled: false }).ok).toBe(false)
+    expect(parseAssessmentPayload({ ...validBody(), submission_id: 'not-a-uuid' }, { testModeEnabled: false }).ok).toBe(false)
+  })
+
+  it.each([
+    ['front', (f: { view: string; profileSide?: string }) => f.view === 'front'],
+    ['side-left', (f: { view: string; profileSide?: string }) => f.view === 'side' && f.profileSide === 'left'],
+    ['side-right', (f: { view: string; profileSide?: string }) => f.view === 'side' && f.profileSide === 'right'],
+    ['back', (f: { view: string; profileSide?: string }) => f.view === 'back'],
+  ])('rejects a non-test payload missing the %s capture group', (_group, matches) => {
+    const body = validBody()
+    const frames = body.frames.filter(frame => !matches(frame))
+    const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/required capture group/i)
+  })
+
+  it('rejects an unnamed legacy side group in a non-test payload', () => {
+    const body = validBody()
+    const frames = body.frames.map(frame => frame.view === 'side' && frame.profileSide === 'left'
+      ? { ...frame, profileSide: undefined }
+      : frame)
+    const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+    expect(r.ok).toBe(false)
+  })
+
+  it('rejects a frame missing the structural landmarks required for its capture group', () => {
+    const body = validBody()
+    const frames = body.frames.map(frame => frame.view === 'front'
+      ? { ...frame, landmarks: { left_shoulder: frame.landmarks.left_shoulder } }
+      : frame)
+    const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/missing structural landmarks/i)
   })
 
   it('rejects a missing client_id', () => {
@@ -64,7 +116,7 @@ describe('parseAssessmentPayload', () => {
 
     it('accepts repeated views as a burst (formerly capped at 3 total)', () => {
       const body = validBody()
-      const frames = [...testLandmarksFrames, ...testLandmarksFrames]
+      const frames = [...validFrames(), ...validFrames()]
       const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
       expect(r.ok).toBe(true)
       if (r.ok) expect(r.data.frames?.length).toBe(frames.length)
@@ -72,7 +124,7 @@ describe('parseAssessmentPayload', () => {
 
     it('accepts a full 5-frame burst per view', () => {
       const body = validBody()
-      const frames = testLandmarksFrames.flatMap(f => Array.from({ length: 5 }, () => ({ ...f })))
+      const frames = validFrames().flatMap(f => Array.from({ length: 5 }, () => ({ ...f })))
       const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
       expect(r.ok).toBe(true)
     })
@@ -87,7 +139,7 @@ describe('parseAssessmentPayload', () => {
 
     it('burst frames round-trip into the engine and produce stability fields', () => {
       const body = validBody()
-      const frames = testLandmarksFrames.flatMap(f => [{ ...f }, { ...f }, { ...f }])
+      const frames = validFrames().flatMap(f => [{ ...f }, { ...f }, { ...f }])
       const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
       expect(r.ok).toBe(true)
       if (!r.ok || !r.data.frames) throw new Error('expected parsed frames')
@@ -108,7 +160,7 @@ describe('parseAssessmentPayload', () => {
   })
 
   it('allows test_mode without frames when the server flag is on', () => {
-    const r = parseAssessmentPayload({ client_id: CLIENT_ID, test_mode: true }, { testModeEnabled: true })
+    const r = parseAssessmentPayload({ client_id: CLIENT_ID, submission_id: SUBMISSION_ID, test_mode: true }, { testModeEnabled: true })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.data.useFixture).toBe(true)
   })
@@ -127,7 +179,9 @@ describe('parseAssessmentPayload', () => {
   describe('capture metadata fields', () => {
     it('accepts captureRollDeg, aspectRatio and source on a frame', () => {
       const body = validBody()
-      const frames = [{ ...body.frames[0], captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' }]
+      const frames = body.frames.map((frame, index) => index === 0
+        ? { ...frame, captureRollDeg: -3.2, aspectRatio: 0.75, source: 'camera' as const }
+        : frame)
       const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
       expect(r.ok).toBe(true)
       if (r.ok) {
@@ -157,8 +211,9 @@ describe('parseAssessmentPayload', () => {
       expect(r.ok).toBe(false)
     })
 
-    it('still accepts frames without any metadata (historical payloads)', () => {
-      const r = parseAssessmentPayload(validBody(), { testModeEnabled: false })
+    it('accepts frames without roll, aspect-ratio, or source metadata', () => {
+      const body = validBody()
+      const r = parseAssessmentPayload(body, { testModeEnabled: false })
       expect(r.ok).toBe(true)
     })
 
@@ -168,7 +223,7 @@ describe('parseAssessmentPayload', () => {
         { captureRollDeg: 45 }, { captureRollDeg: -45 }, { captureRollDeg: 0 },
         { aspectRatio: 0.1 }, { aspectRatio: 10 },
       ]) {
-        const frames = [{ ...body.frames[0], ...patch }]
+        const frames = body.frames.map((frame, index) => index === 0 ? { ...frame, ...patch } : frame)
         const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
         expect(r.ok, JSON.stringify(patch)).toBe(true)
       }
@@ -180,7 +235,7 @@ describe('parseAssessmentPayload', () => {
         { captureRollDeg: 45.001 }, { captureRollDeg: -45.001 },
         { aspectRatio: 0.099 }, { aspectRatio: 10.001 },
       ]) {
-        const frames = [{ ...body.frames[0], ...patch }]
+        const frames = body.frames.map((frame, index) => index === 0 ? { ...frame, ...patch } : frame)
         const r = parseAssessmentPayload({ ...body, frames }, { testModeEnabled: false })
         expect(r.ok, JSON.stringify(patch)).toBe(false)
       }
@@ -232,8 +287,8 @@ describe('parseAssessmentPayload', () => {
     const f = (view: string, extra: Record<string, unknown> = {}) =>
       ({ view, landmarks: { nose: { x: 0.5, y: 0.5 } }, ...extra })
 
-    it('accepts profileSide on a side frame', () => {
-      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames: [f('side', { profileSide: 'left' })] }, { testModeEnabled: false })
+    it('accepts named profiles in a structurally complete four-group payload', () => {
+      const r = parseAssessmentPayload(validBody(), { testModeEnabled: false })
       expect(r.ok).toBe(true)
     })
     it('rejects profileSide on a front frame', () => {
@@ -241,13 +296,8 @@ describe('parseAssessmentPayload', () => {
       expect(r.ok).toBe(false)
     })
     it('accepts 20 frames across four (view, profileSide) groups', () => {
-      const frames = [
-        ...Array.from({ length: 5 }, () => f('front')),
-        ...Array.from({ length: 5 }, () => f('side', { profileSide: 'left' })),
-        ...Array.from({ length: 5 }, () => f('side', { profileSide: 'right' })),
-        ...Array.from({ length: 5 }, () => f('back')),
-      ]
-      const r = parseAssessmentPayload({ client_id: CLIENT_ID, frames }, { testModeEnabled: false })
+      const frames = validFrames().flatMap(frame => Array.from({ length: 5 }, () => ({ ...frame })))
+      const r = parseAssessmentPayload({ client_id: CLIENT_ID, submission_id: SUBMISSION_ID, frames }, { testModeEnabled: false })
       expect(r.ok).toBe(true)
       if (r.ok) expect(r.data.frames?.length).toBe(20)
     })

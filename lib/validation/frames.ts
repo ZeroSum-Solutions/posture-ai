@@ -66,8 +66,40 @@ const frameSchema = z.object({
 // bound below stops a client sending 20 fronts.
 const MAX_BURST_PER_VIEW = 5
 
+export type RequiredCaptureGroup = 'front' | 'side-left' | 'side-right' | 'back'
+
+export const REQUIRED_CAPTURE_GROUPS: readonly RequiredCaptureGroup[] = [
+  'front', 'side-left', 'side-right', 'back',
+]
+
+const BILATERAL_STRUCTURAL_LANDMARKS = [
+  'left_shoulder', 'right_shoulder',
+  'left_hip', 'right_hip',
+  'left_knee', 'right_knee',
+  'left_ankle', 'right_ankle',
+] as const
+
+const STRUCTURAL_LANDMARKS_BY_GROUP: Record<RequiredCaptureGroup, readonly string[]> = {
+  front: BILATERAL_STRUCTURAL_LANDMARKS,
+  back: BILATERAL_STRUCTURAL_LANDMARKS,
+  'side-left': [
+    'left_ear', 'left_shoulder', 'left_hip', 'left_knee', 'left_ankle',
+    'left_heel', 'left_foot_index',
+  ],
+  'side-right': [
+    'right_ear', 'right_shoulder', 'right_hip', 'right_knee', 'right_ankle',
+    'right_heel', 'right_foot_index',
+  ],
+}
+
+function captureGroup(frame: { view: 'front' | 'side' | 'back'; profileSide?: 'left' | 'right' }): RequiredCaptureGroup | null {
+  if (frame.view === 'front' || frame.view === 'back') return frame.view
+  return frame.profileSide ? `side-${frame.profileSide}` : null
+}
+
 const payloadSchema = z.object({
   client_id: z.string().uuid(),
+  submission_id: z.string().uuid(),
   test_mode: z.boolean().optional(),
   frames: z
     .array(frameSchema)
@@ -75,12 +107,32 @@ const payloadSchema = z.object({
     .max(4 * MAX_BURST_PER_VIEW)
     .superRefine((frames, ctx) => {
       const perGroup: Record<string, number> = {}
+      const presentGroups = new Set<RequiredCaptureGroup>()
       let sideUnspecified = false
       let sideNamed = false
-      for (const f of frames) {
+      for (const [index, f] of frames.entries()) {
         const key = `${f.view}:${f.profileSide ?? ''}`
         perGroup[key] = (perGroup[key] ?? 0) + 1
         if (f.view === 'side') { if (f.profileSide) sideNamed = true; else sideUnspecified = true }
+
+        const group = captureGroup(f)
+        if (!group) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'profileSide'],
+            message: 'Every side frame must identify profileSide as left or right',
+          })
+          continue
+        }
+        presentGroups.add(group)
+        const missing = STRUCTURAL_LANDMARKS_BY_GROUP[group].filter(name => !f.landmarks[name])
+        if (missing.length > 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'landmarks'],
+            message: `${group} frame is missing structural landmarks: ${missing.join(', ')}`,
+          })
+        }
       }
       for (const [key, n] of Object.entries(perGroup)) {
         if (n > MAX_BURST_PER_VIEW) {
@@ -97,12 +149,21 @@ const payloadSchema = z.object({
           message: 'Cannot mix unspecified-side and named-side (left/right) side frames',
         })
       }
+      for (const required of REQUIRED_CAPTURE_GROUPS) {
+        if (!presentGroups.has(required)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Missing required capture group: ${required}`,
+          })
+        }
+      }
     })
     .optional(),
 }).strict()
 
 export interface ParsedAssessmentPayload {
   client_id: string
+  submission_id: string
   frames: PoseFrame[] | null
   /** True only when the server-side test flag allows fixture scoring. */
   useFixture: boolean
@@ -126,17 +187,17 @@ export function parseAssessmentPayload(
     }
   }
 
-  const { client_id, test_mode, frames } = parsed.data
+  const { client_id, submission_id, test_mode, frames } = parsed.data
   const hasFrames = Array.isArray(frames) && frames.length > 0
 
   if (hasFrames) {
-    return { ok: true, data: { client_id, frames: frames as PoseFrame[], useFixture: false } }
+    return { ok: true, data: { client_id, submission_id, frames: frames as PoseFrame[], useFixture: false } }
   }
 
   // No frames: only acceptable as fixture scoring, and only when the server
   // explicitly allows test mode. Never silently fall back in production.
   if (test_mode && opts.testModeEnabled) {
-    return { ok: true, data: { client_id, frames: null, useFixture: true } }
+    return { ok: true, data: { client_id, submission_id, frames: null, useFixture: true } }
   }
   if (test_mode && !opts.testModeEnabled) {
     return { ok: false, status: 400, error: 'Test mode is not available' }

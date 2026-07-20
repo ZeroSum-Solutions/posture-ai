@@ -18,6 +18,7 @@ export async function GET() {
       supabase.from('practitioners').select('id').limit(0),
       supabase.from('muscles').select('slug').limit(0),
       supabase.from('assessments').select('priority_keys').limit(1),
+      supabase.from('assessments').select('submission_id, submission_digest').limit(0),
       supabase.from('captures').select('profile_side').limit(0),
       supabase.from('assessment_findings').select('observations').limit(0),
     ])

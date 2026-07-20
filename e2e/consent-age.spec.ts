@@ -15,7 +15,7 @@ test.describe('capture consent + age gate', () => {
   const dob = (ageYears: number) => `${year - ageYears}-06-15`
   const tag = () => randomUUID().slice(0, 8)
   const assess = (page: Page, clientId: string) =>
-    page.request.post('/api/assessments', { data: { client_id: clientId, test_mode: true } })
+    page.request.post('/api/assessments', { data: { client_id: clientId, submission_id: randomUUID(), test_mode: true } })
 
   test('adult with consent can be assessed', async ({ page }) => {
     const c = await createClient(page, 'E2E', `Adult-${tag()}`, { dateOfBirth: dob(30) })

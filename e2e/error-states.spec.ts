@@ -56,7 +56,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
   test('assessment results: prior assessments 500 shows aux error alert', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrPrior-${randomUUID().slice(0, 8)}`)
-    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     const assessmentId = (await res.json()).id as string
 
@@ -71,7 +71,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
   test('report error has role=alert', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrPdf-${randomUUID().slice(0, 8)}`)
-    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     const assessmentId = (await res.json()).id as string
     // Approve so PDF gate doesn't block

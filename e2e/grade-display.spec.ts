@@ -19,7 +19,7 @@ function localService(): SupabaseClient {
 async function createAssessment(page: Page): Promise<string> {
   const client = await createClient(page, 'E2E', `Grade-${randomUUID().slice(0, 8)}`)
   const response = await page.request.post('/api/assessments', {
-    data: { client_id: client.id, test_mode: true },
+    data: { client_id: client.id, submission_id: randomUUID(), test_mode: true },
   })
   expect(response.ok(), `assessment create failed: ${response.status()}`).toBeTruthy()
   return (await response.json()).id as string

@@ -11,7 +11,7 @@ test.describe('workout mint approval gate', () => {
 
   async function createCompleteAssessment(page: Page): Promise<string> {
     const c = await createClient(page, 'E2E', `Mint-${randomUUID().slice(0, 8)}`)
-    const res = await page.request.post('/api/assessments', { data: { client_id: c.id, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: c.id, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     return (await res.json()).id as string
   }

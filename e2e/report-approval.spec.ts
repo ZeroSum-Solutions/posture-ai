@@ -10,7 +10,7 @@ test.describe('report approval gate', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'API-level gate; run once on chromium')
 
   async function createCompleteAssessmentFor(page: Page, clientId: string): Promise<string> {
-    const res = await page.request.post('/api/assessments', { data: { client_id: clientId, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: clientId, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     return (await res.json()).id as string
   }

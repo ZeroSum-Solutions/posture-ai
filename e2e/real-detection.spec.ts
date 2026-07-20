@@ -6,7 +6,7 @@ import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './
 // (MediaPipe WASM in the browser) — no test mode. Chromium-only via project
 // config; generous timeout for the one-time model download.
 test.describe('real pose detection through the wizard', () => {
-  test('upload front+side photos, detect landmarks, score assessment', async ({ page }) => {
+  test('upload all four required photos, detect landmarks, score assessment', async ({ page }) => {
     test.setTimeout(300_000)
 
     // Track requests to known CDN hosts — none should be made for MediaPipe assets
@@ -32,14 +32,13 @@ test.describe('real pose detection through the wizard', () => {
     await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
 
     // Slot order matches the wizard's four free-order slots: front, side-left,
-    // side-right, back. Both sides are required (Slice 2) — the single side
-    // fixture stands in for both profiles.
+    // side-right, back. The single side fixture stands in for both profiles.
     await inputs.nth(0).setInputFiles(path.join(photos, 'front_standing.jpg'))
     await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
     await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
+    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
 
-    // Proceed once front + both sides are captured (label reads "Skip Back &
-    // Analyze Posture" until the optional back view is added — substring match).
+    // Proceed once all four required views pass preflight.
     await page.getByRole('button', { name: 'Analyze Posture' }).click()
 
     // detectPose runs per view at submit (model download + WASM init on first call).
