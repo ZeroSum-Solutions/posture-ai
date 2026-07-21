@@ -72,8 +72,12 @@ test.describe('capture model readiness and recovery', () => {
     await selectClientInWizard(page, `E2E RetryModel${stamp}`)
     await dismissCaptureDisclaimer(page)
 
-    const front = path.join(__dirname, 'fixtures', 'photos', 'front_standing.jpg')
-    await page.locator('input[type="file"]').nth(0).setInputFiles(front)
+    // This scenario owns lifecycle recovery, not full-resolution inference
+    // performance (covered by real-detection.spec.ts and physical HG-04 evidence).
+    // Keep the post-retry inference lightweight so headless SwiftShader stalls do
+    // not turn a successful model reload into a false 10-second product timeout.
+    const recoveryFixture = path.join(__dirname, 'fixtures', 'photos', 'no-person.png')
+    await page.locator('input[type="file"]').nth(0).setInputFiles(recoveryFixture)
     const readiness = page.getByTestId('pose-readiness')
     await expect(readiness).toHaveAttribute('role', 'alert', { timeout: 120_000 })
     await expect(page.getByRole('button', { name: /Front.*model check failed/ })).toBeVisible()
