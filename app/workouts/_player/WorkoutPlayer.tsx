@@ -509,9 +509,9 @@ export function WorkoutPlayer({
                 skipped={skipped}
                 total={total}
                 durationSec={state.elapsedMs > 0 ? Math.round(state.elapsedMs / 1000) : snapshot.estimatedDurationSec}
-                {...(snapshot.version === 2
-                  ? { legalNotice: snapshot.legalNotice }
-                  : { legacyDisclaimer: snapshot.disclaimer })}
+                {...(snapshot.version === 1
+                  ? { legacyDisclaimer: snapshot.disclaimer }
+                  : { legalNotice: snapshot.legalNotice })}
                 allowNotes={allowNotes}
                 submitRating={submitRating}
                 onExit={onExit}
@@ -701,9 +701,9 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
         {snapshot.items.length} movements · about {mins} min
       </p>
       <WorkoutLegalNotice
-        {...(snapshot.version === 2
-          ? { legalNotice: snapshot.legalNotice }
-          : { legacyDisclaimer: snapshot.disclaimer })}
+        {...(snapshot.version === 1
+          ? { legacyDisclaimer: snapshot.disclaimer }
+          : { legalNotice: snapshot.legalNotice })}
       />
       <button
         onClick={onBegin}

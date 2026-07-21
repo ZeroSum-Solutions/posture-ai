@@ -5,6 +5,9 @@ import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildRunUpdate, redFlagBlocksCompletion, type RunRow } from '@/lib/workout/runState'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const ROUTE = 'PATCH /api/workouts/[id]/run'
 
@@ -37,6 +40,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
   const userHash = hashUser(user.id)
 
   const service = createSupabaseServiceClient()

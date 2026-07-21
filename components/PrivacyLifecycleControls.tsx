@@ -35,6 +35,7 @@ export default function PrivacyLifecycleControls({
   onDeleted: (result: { externalStatus: 'complete' | 'pending'; receiptId: string | null }) => void
 }) {
   const [shares, setShares] = useState<Share[]>([])
+  const [shareRotationEnabled, setShareRotationEnabled] = useState(false)
   const [sharesError, setSharesError] = useState<string | null>(null)
   const [busyShare, setBusyShare] = useState<string | null>(null)
   const [newLink, setNewLink] = useState<string | null>(null)
@@ -51,6 +52,7 @@ export default function PrivacyLifecycleControls({
 
   const loadShares = useCallback(async (signal?: AbortSignal) => {
       const inventory: Share[] = []
+      let rotationEnabled = false
       let cursor: number | null = 0
       while (cursor !== null && !signal?.aborted) {
         const response = await fetch(`/api/workouts/shares?client_id=${encodeURIComponent(clientId)}&cursor=${cursor}`, {
@@ -59,9 +61,15 @@ export default function PrivacyLifecycleControls({
         const body = await responseBody(response)
         if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : 'Could not load share links.')
         if (Array.isArray(body.shares)) inventory.push(...body.shares as Share[])
+        // Strict true only. Missing or malformed capability data leaves
+        // rotation hidden while inventory and revocation remain usable.
+        rotationEnabled = rotationEnabled || body.rotation_enabled === true
         cursor = typeof body.next_cursor === 'number' ? body.next_cursor : null
       }
-      if (!signal?.aborted) setShares(inventory)
+      if (!signal?.aborted) {
+        setShares(inventory)
+        setShareRotationEnabled(rotationEnabled)
+      }
   }, [clientId])
 
   useEffect(() => {
@@ -71,6 +79,7 @@ export default function PrivacyLifecycleControls({
     loadShares(controller.signal)
       .catch((error) => {
         if (error instanceof Error && error.name === 'AbortError') return
+        setShareRotationEnabled(false)
         setSharesError('Could not load share-link status. Refresh to try again.')
       })
     return () => controller.abort()
@@ -192,7 +201,9 @@ export default function PrivacyLifecycleControls({
               </span>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" disabled={!hasConsent || busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'POST')}>Rotate</button>
+              {shareRotationEnabled && (
+                <button type="button" disabled={!hasConsent || busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'POST')}>Rotate</button>
+              )}
               <button type="button" disabled={busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'DELETE')}>Revoke</button>
             </div>
           </div>

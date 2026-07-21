@@ -21,13 +21,14 @@ vi.mock('@supabase/ssr', () => ({
   }),
 }))
 
-import { proxy } from './proxy'
+import { config, proxy } from './proxy'
 
 describe('proxy PR-04 admission boundary', () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon'
     process.env.POSTURE_TEST_MODE_ENABLED = '1'
+    delete process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT
     process.env.VERCEL_ENV = 'preview'
     getUser.mockReset().mockImplementation(async () => {
       cookieAdapter.setAll([
@@ -80,6 +81,35 @@ describe('proxy PR-04 admission boundary', () => {
     from.mockReset().mockReturnValue({
       select: () => ({ eq: () => ({ order: legalOrder }) }),
     })
+  })
+
+  test.each([
+    '/muscle-viewer/index.html',
+    '/muscle-viewer/favicon.svg',
+    '/muscle-viewer/model.glb',
+    '/audio/workout-coach-river/a635741e.mp3',
+    '/demos/dead-bug.jpg',
+    '/demos/dead-bug.mp4',
+  ])('denies the direct clinical static path %s before authentication', async (path) => {
+    const response = await proxy(new NextRequest(`http://localhost${path}`))
+
+    expect(response.status).toBe(404)
+    expect(getUser).not.toHaveBeenCalled()
+  })
+
+  test('the matcher cannot bypass clinical gates because of a static-file extension', () => {
+    expect(config.matcher).toContain('/muscle-viewer/:path*')
+    expect(config.matcher).toContain('/audio/workout-coach-river/:path*')
+    expect(config.matcher).toContain('/demos/:path*')
+  })
+
+  test('allows clinical static assets only in the explicit two-flag test fixture', async () => {
+    process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT = '1'
+
+    const response = await proxy(new NextRequest('http://localhost/muscle-viewer/model.glb'))
+
+    expect(response.status).toBe(200)
+    expect(getUser).toHaveBeenCalled()
   })
 
   test('preserves refreshed cookies when redirecting an unauthenticated page request', async () => {

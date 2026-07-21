@@ -6,6 +6,9 @@ import { hashResource, hashUser, logEvent } from '@/lib/log'
 import { enforceRateLimitStrict } from '@/lib/rate-limit'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { generateShareToken } from '@/lib/workout/token'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const NO_STORE = { 'Cache-Control': 'private, no-store, max-age=0' }
 const SHARE_TTL_DAYS = 7
@@ -47,6 +50,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid cursor' }, { status: 400, headers: NO_STORE })
   }
   const service = createSupabaseServiceClient()
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), service)
   const allowed = await enforceRateLimitStrict(service, {
     route: 'workout_share_inventory', userId: auth.user.id, limit: 60, windowSeconds: 60,
   })
@@ -83,15 +87,21 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     shares,
     next_cursor: rows.length > SHARE_PAGE_SIZE ? cursor + SHARE_PAGE_SIZE : null,
+    // Inventory and revocation remain available in assessment-only releases so
+    // practitioners can shut down old links. Rotation is a clinical-workout
+    // action and must fail closed in the UI as well as in POST below.
+    rotation_enabled: clinicalAccess.surfaces.workouts,
   }, { headers: NO_STORE })
 }
 
 export async function POST(req: NextRequest) {
   const auth = await authenticated()
   if (!auth.ok) return auth.response
+  const service = createSupabaseServiceClient()
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), service)
+  if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
   const body = await parsedSession(req)
   if (!body) return NextResponse.json({ error: 'Invalid share request' }, { status: 422, headers: NO_STORE })
-  const service = createSupabaseServiceClient()
   const allowed = await enforceRateLimitStrict(service, { route: 'workout_share_rotate', userId: auth.user.id, limit: 20, windowSeconds: 60 })
   if (!allowed) return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429, headers: NO_STORE })
 

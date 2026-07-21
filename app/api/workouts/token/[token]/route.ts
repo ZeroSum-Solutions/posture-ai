@@ -5,6 +5,9 @@ import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashIp } from '@/lib/log'
 import { hashShareToken } from '@/lib/workout/token'
 import { redactSessionForPublic, type ResolvedSession } from '@/lib/workout/tokenProjection'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const ROUTE = 'GET /api/workouts/token/[token]'
 
@@ -21,8 +24,12 @@ const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' }
  * appends an audit row (workout_share_events) so the PHI link is accountable.
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
   const service = createSupabaseServiceClient()
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), service)
+  if (!clinicalAccess.surfaces.workouts || !clinicalAccess.contentVersion) {
+    return clinicalContentUnavailableResponse(true)
+  }
+  const { token } = await params
   // x-real-ip is platform-managed (non-spoofable on Vercel); rightmost XFF hop
   // is the fallback — see hashIp.
   const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
@@ -49,7 +56,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     return NextResponse.json({ error: 'This session link is not available.' }, { status: 404, headers: NO_STORE })
   }
 
-  const publicSession = redactSessionForPublic(resolved)
+  const publicSession = redactSessionForPublic(resolved, {
+    version: clinicalAccess.contentVersion,
+    inventorySha256: clinicalAccess.inventorySha256,
+  })
   if (!publicSession) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detail: 'workout legal provenance mismatch' })
     return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })

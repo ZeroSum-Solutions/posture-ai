@@ -65,7 +65,18 @@ export interface GovernedSessionSnapshot extends SessionSnapshotBase {
   legalNotice: LegalSnapshot
 }
 
-export type SessionSnapshot = LegacySessionSnapshot | GovernedSessionSnapshot
+export interface ClinicalGovernedSessionSnapshot extends SessionSnapshotBase {
+  version: 3
+  /** Immutable notice resolved when this workout artifact was minted. */
+  legalNotice: LegalSnapshot
+  /** Exact item-hashed HG-03 release used to select and phrase the regimen. */
+  clinicalContent: {
+    version: string
+    inventorySha256: string
+  }
+}
+
+export type SessionSnapshot = LegacySessionSnapshot | GovernedSessionSnapshot | ClinicalGovernedSessionSnapshot
 
 // Session order mirrors the builder's authored arc; interleaving by band means
 // the client warms up globally once instead of once per priority.
@@ -174,21 +185,24 @@ export function generateWorkoutSession(
 }
 
 /**
- * Upgrade a freshly built legacy snapshot at the persistence boundary without
- * changing its playable content. Persisted v1 snapshots remain valid; all newly
- * minted governed artifacts use v2.
+ * Upgrade a freshly built snapshot at the persistence boundary without changing
+ * its playable content. Newly minted artifacts bind both legal provenance and
+ * the exact HG-03-reviewed clinical inventory; older v1/v2 snapshots remain
+ * parseable for controlled migration but are not mintable.
  */
 export function governSessionSnapshot(
   snapshot: SessionSnapshot,
   legalNotice: LegalSnapshot,
-): GovernedSessionSnapshot {
+  clinicalContent: { version: string; inventorySha256: string },
+): ClinicalGovernedSessionSnapshot {
   return {
-    version: 2,
+    version: 3,
     week: snapshot.week,
     capability: snapshot.capability,
     priorities: snapshot.priorities,
     items: snapshot.items,
     estimatedDurationSec: snapshot.estimatedDurationSec,
     legalNotice,
+    clinicalContent,
   }
 }

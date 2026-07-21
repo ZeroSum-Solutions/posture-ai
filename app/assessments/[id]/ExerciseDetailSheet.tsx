@@ -2,10 +2,9 @@
 /**
  * Bottom-sheet exercise detail for the coach-facing program: demo loop (or
  * poster), authored instructions, dose, and muscle roles. Read-only; fetched
- * on open from the exercises KB (RLS: authenticated read).
+ * on open through a practitioner-gated server route.
  */
 import { useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useFocusTrap } from './useFocusTrap'
 
 type Detail = {
@@ -25,23 +24,23 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient()
-    let cancelled = false
-    // One call: exercises row + its exercise_muscles rows via embedded
-    // foreign-table select (FK exercise_muscles.exercise_id → exercises.id).
-    supabase
-      .from('exercises')
-      .select('name, category, instructions, sets, hold_seconds, video_url, poster_url, exercise_muscles(muscle_slug, role)')
-      .eq('slug', slug)
-      .single()
-      .then(({ data, error: err }) => {
-        if (cancelled) return
-        if (err || !data) { setError('Could not load exercise details.'); return }
-        const { exercise_muscles, ...detailRow } = data as Detail & { exercise_muscles: MuscleRole[] }
-        setDetail(detailRow)
-        setMuscles(exercise_muscles ?? [])
-      })
-    return () => { cancelled = true }
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const response = await fetch(`/api/clinical-content/exercises/${encodeURIComponent(slug)}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        const body = await response.json().catch(() => ({})) as { detail?: Detail; muscles?: MuscleRole[] }
+        if (!response.ok || !body.detail) throw new Error('unavailable')
+        setDetail(body.detail)
+        setMuscles(Array.isArray(body.muscles) ? body.muscles : [])
+      } catch (fetchError) {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') return
+        setError('Could not load exercise details.')
+      }
+    })()
+    return () => controller.abort()
   }, [slug])
 
   useEffect(() => {

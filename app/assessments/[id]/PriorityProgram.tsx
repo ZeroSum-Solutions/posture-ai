@@ -3,11 +3,14 @@
  * Coach-facing corrective program: the ordered Top-3 Priority Focuses and the
  * exact 3-week ramp the client receives, plus the override surface (capability
  * dial, per-exercise swap, demote-to-monitor). Presentational — the parent
- * computes the ProgramReport via buildProgramFrom and persists overrides.
+ * receives a server-computed, release-scoped program and persists overrides.
  */
 import { useState } from 'react'
-import type { ProgramReport, ProgramPriority, ProgramStep } from '../../../lib/program/buildProgram'
-import { swapAlternatives } from '../../../lib/program/buildProgram'
+import type {
+  ClinicalProgramPriority,
+  ClinicalProgramReport,
+  ClinicalProgramStep,
+} from '../../../lib/program/clinicalProjection'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
@@ -66,12 +69,11 @@ function SwapControl({
   step,
   onSwap,
 }: {
-  priority: ProgramPriority
-  step: ProgramStep
+  priority: ClinicalProgramPriority
+  step: ClinicalProgramStep
   onSwap: OverrideHandlers['onSwap']
 }) {
-  const otherSlugs = priority.steps.filter((s) => s.baseSlug !== step.baseSlug).map((s) => s.slug)
-  const alts = swapAlternatives(priority.keys, priority.zone, step.category, otherSlugs, priority.screenedKeys)
+  const alts = step.alternatives
   if (alts.length <= 1) return null // nothing to swap to
 
   const swapped = step.slug !== step.baseSlug
@@ -113,7 +115,7 @@ function RampTable({
   onOpenDetail,
   onWhyThis,
 }: {
-  priority: ProgramPriority
+  priority: ClinicalProgramPriority
   onSwap: OverrideHandlers['onSwap']
   onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
@@ -203,7 +205,7 @@ function PriorityCard({
   onOpenDetail,
   onWhyThis,
 }: {
-  priority: ProgramPriority
+  priority: ClinicalProgramPriority
   onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
 } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
@@ -274,7 +276,12 @@ function PriorityCard({
         {principle} <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>— the order is what makes it stick</span>
       </div>
 
-      <RampTable priority={priority} onSwap={onSwap} onOpenDetail={onOpenDetail} onWhyThis={onWhyThis} />
+      <RampTable
+        priority={priority}
+        onSwap={onSwap}
+        onOpenDetail={onOpenDetail}
+        onWhyThis={onWhyThis}
+      />
     </div>
   )
 }
@@ -288,7 +295,7 @@ export default function PriorityProgram({
   onPromote,
   onSwap,
 }: {
-  report: ProgramReport
+  report: ClinicalProgramReport
   unreliable: { label: string }[]
   capability: Capability
   onCapabilityChange: (c: Capability) => void

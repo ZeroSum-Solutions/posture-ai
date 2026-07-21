@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { classifyAuthPath } from '@/lib/auth/public-paths'
 import { practitionerLegalAcceptanceStatus } from '@/lib/auth/requirePractitioner'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
 
 type CookieToSet = {
   name: string
@@ -60,6 +62,7 @@ function jsonWithAuthCookies(
 }
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
   let supabaseResponse = NextResponse.next({ request })
   const refreshedCookies: CookieToSet[] = []
 
@@ -85,7 +88,30 @@ export async function proxy(request: NextRequest) {
     },
   )
 
-  const pathname = request.nextUrl.pathname
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  if (pathname === '/muscle-viewer' || pathname.startsWith('/muscle-viewer/')) {
+    if (!clinicalAccess.surfaces.knowledgeLinks) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+    // The anatomy viewer is practitioner-only. Continue through normal auth,
+    // MFA, admission, and legal gates after both release authorities agree.
+  }
+  if (pathname.startsWith('/audio/workout-coach-river/')) {
+    if (!clinicalAccess.surfaces.workouts) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+    // Token-bound workout players are public, so their reviewed audio remains
+    // public too. The exact source + database release tuple still gates access.
+    return supabaseResponse
+  }
+  if (pathname === '/demos' || pathname.startsWith('/demos/')) {
+    if (!clinicalAccess.surfaces.recommendations) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+    // Exercise demonstrations are practitioner-only until a future token-bound
+    // media projection exists for public workout shares.
+  }
+
   const pathClass = classifyAuthPath(pathname)
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -229,13 +255,14 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // `muscle-viewer` is the embedded 3D anatomy widget (public/muscle-viewer/**): generic,
-  // non-sensitive static assets (CC-BY-SA anatomy + JS) that carry no patient data — the
-  // assessment drives colors in at runtime via postMessage. Excluded from auth like _next/static
-  // so its assets (incl. the ~9 MB GLB) serve statically without a Supabase round-trip each.
+  // Clinical static entry points deliberately pass through the gate above.
+  // A phantom path such as /muscle-viewerX remains on the normal auth path.
   matcher: [
-    // `muscle-viewer(?:$|/)` is segment-anchored so only /muscle-viewer and /muscle-viewer/…
-    // skip the middleware; a phantom path like /muscle-viewerX stays auth-gated.
-    '/((?!_next/static|_next/image|muscle-viewer(?:$|/)|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Explicit entries ensure clinical static files still run through the gate
+    // even when their extension is excluded by the general application matcher.
+    '/muscle-viewer/:path*',
+    '/audio/workout-coach-river/:path*',
+    '/demos/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

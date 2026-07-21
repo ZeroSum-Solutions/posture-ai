@@ -470,7 +470,8 @@ SELECT lives_ok(
       legal_document_effective_at,
       legal_jurisdiction,
       legal_product_scope,
-      legal_provenance_state
+      legal_provenance_state,
+      report_scope
     ) VALUES (
       '30000000-0000-0000-0000-000000000001'::uuid,
       '10000000-0000-0000-0000-000000000001'::uuid,
@@ -480,7 +481,8 @@ SELECT lives_ok(
       clock_timestamp() - interval '1 day',
       'US',
       'us_fitness_wellness_assessment_beta_v1',
-      'governed'
+      'governed',
+      'assessment_only'
     )
   $$,
   'activation continues to allow new governed regulated rows'
@@ -507,14 +509,15 @@ SELECT throws_ok(
       program_snapshot, session_token_hash, expires_at,
       legal_document_id, legal_document_version, legal_document_body_sha256,
       legal_document_effective_at, legal_jurisdiction, legal_product_scope,
-      legal_provenance_state
+      legal_provenance_state, clinical_content_version,
+      clinical_inventory_sha256, clinical_review_receipt_sha256
     ) VALUES (
       '30000000-0000-0000-0000-000000000001'::uuid,
       '20000000-0000-0000-0000-000000000002'::uuid,
       '10000000-0000-0000-0000-000000000001'::uuid,
       1,
       'standard',
-      '{"version":2,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"wrong-id","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"}}'::jsonb,
+      '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"wrong-id","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5"}}'::jsonb,
       repeat('5', 64),
       clock_timestamp() + interval '1 day',
       'screening-notice-test-fixture-v1',
@@ -523,7 +526,10 @@ SELECT throws_ok(
       '2026-07-20T00:00:00Z'::timestamptz,
       'US',
       'us_fitness_wellness_assessment_beta_v1',
-      'governed'
+      'governed',
+      'clinical-content-test-fixture-v1',
+      '2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5',
+      repeat('f', 64)
     )
   $$,
   '55000',
@@ -538,7 +544,8 @@ SELECT lives_ok(
       program_snapshot, session_token_hash, expires_at,
       legal_document_id, legal_document_version, legal_document_body_sha256,
       legal_document_effective_at, legal_jurisdiction, legal_product_scope,
-      legal_provenance_state
+      legal_provenance_state, clinical_content_version,
+      clinical_inventory_sha256, clinical_review_receipt_sha256
     ) VALUES (
       '40000000-0000-0000-0000-000000000001'::uuid,
       '30000000-0000-0000-0000-000000000001'::uuid,
@@ -546,7 +553,7 @@ SELECT lives_ok(
       '10000000-0000-0000-0000-000000000001'::uuid,
       1,
       'standard',
-      '{"version":2,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"}}'::jsonb,
+      '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5"}}'::jsonb,
       repeat('6', 64),
       clock_timestamp() + interval '1 day',
       'screening-notice-test-fixture-v1',
@@ -555,7 +562,10 @@ SELECT lives_ok(
       '2026-07-20T00:00:00Z'::timestamptz,
       'US',
       'us_fitness_wellness_assessment_beta_v1',
-      'governed'
+      'governed',
+      'clinical-content-test-fixture-v1',
+      '2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5',
+      repeat('f', 64)
     )
   $$,
   'governed workout insert accepts an exactly bound embedded notice'

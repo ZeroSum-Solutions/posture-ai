@@ -40,8 +40,19 @@ describe('GET /api/health schema readiness', () => {
       'captures.profile_side',
       'assessment_findings.observations',
       'practitioner_legal_acceptances.legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, accepted_at',
+      'clinical_content_review_receipts.receipt_sha256',
+      'clinical_content_releases.id, inventory_sha256, hg03_receipt_sha256',
+      'clinical_content_release_items.release_id, item_id, item_sha256, review_status',
+      'reports.report_scope, clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256',
+      'workout_sessions.clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256',
     ]))
-    expect((await response.json()).schema).toBe('ready')
+    expect(await response.json()).toMatchObject({
+      schema: 'ready',
+      clinical_content: {
+        status: 'assessment_only',
+        reason: 'hg03_activation_absent',
+      },
+    })
   })
 
   test.each([
@@ -51,6 +62,11 @@ describe('GET /api/health schema readiness', () => {
     'captures.profile_side',
     'assessment_findings.observations',
     'practitioner_legal_acceptances.legal_document_id, legal_document_version, legal_document_body_sha256, legal_document_effective_at, legal_jurisdiction, legal_product_scope, accepted_at',
+    'clinical_content_review_receipts.receipt_sha256',
+    'clinical_content_releases.id, inventory_sha256, hg03_receipt_sha256',
+    'clinical_content_release_items.release_id, item_id, item_sha256, review_status',
+    'reports.report_scope, clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256',
+    'workout_sessions.clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256',
   ])('reports pending_migration when %s is missing', async (probe) => {
     probeResults[probe] = { error: { code: '42703', message: 'column does not exist' } }
 

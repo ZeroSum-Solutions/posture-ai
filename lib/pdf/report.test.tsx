@@ -178,4 +178,31 @@ describe('PostureReportPdf comparisons', () => {
     expect(text).toContain(`Effective ${legalNotice.effectiveAt}`)
     expect(text).toContain('NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY')
   })
+
+  it('keeps assessment-only reports free of unreviewed clinical guidance', () => {
+    const text = renderedText(PostureReportPdf({
+      assessment,
+      findings: findings.map((finding) => ({
+        ...finding,
+        causes_text: '',
+        tight_muscles: [],
+        weak_muscles: [],
+      })),
+      exercises: [],
+      hasDelta: false,
+      legalNotice,
+    }))
+
+    expect(text).toContain('Detailed Findings')
+    expect(text).toContain('Shoulder imbalance')
+    for (const clinicalHeading of [
+      'Behavioral Causes',
+      'Tight',
+      'Weak',
+      'Muscle Guide',
+      'Corrective Exercises',
+    ]) {
+      expect(text).not.toContain(clinicalHeading)
+    }
+  })
 })

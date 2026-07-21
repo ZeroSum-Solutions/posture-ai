@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 const state = vi.hoisted(() => ({
   rpc: vi.fn(),
   insert: vi.fn(),
+  clinicalEnabled: true,
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -17,6 +18,13 @@ vi.mock('@/lib/log', () => ({ hashIp: () => 'f'.repeat(64), logEvent: vi.fn() })
 vi.mock('@/lib/workout/token', () => ({ hashShareToken: () => 'a'.repeat(64) }))
 vi.mock('@/lib/workout/tokenProjection', () => ({
   redactSessionForPublic: () => ({ snapshot: { version: 2 }, clientFirstName: 'Client' }),
+}))
+vi.mock('@/lib/clinical-content/runtime', () => ({
+  clinicalContentAccess: () => ({
+    surfaces: { workouts: state.clinicalEnabled },
+    contentVersion: state.clinicalEnabled ? 'clinical-content-test-fixture-v1' : null,
+    inventorySha256: 'd'.repeat(64),
+  }),
 }))
 
 import { GET } from './route'
@@ -37,6 +45,17 @@ describe('GET /api/workouts/token/[token]', () => {
   beforeEach(() => {
     state.rpc.mockReset().mockResolvedValue({ data: [resolved], error: null })
     state.insert.mockReset().mockResolvedValue({ error: null })
+    state.clinicalEnabled = true
+  })
+
+  test('denies a direct historical token request while assessment-only', async () => {
+    state.clinicalEnabled = false
+
+    const response = await invoke()
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toMatchObject({ code: 'clinical_content_disabled' })
+    expect(state.rpc).not.toHaveBeenCalled()
   })
 
   test('binds the durable access event to the active share generation', async () => {

@@ -28,7 +28,9 @@ connector is OAuth-scoped to a different org — use the Management API
 | `CRON_SECRET` | prod/preview only | Vercel bearer secret for the daily privacy-maintenance route; required or the route returns 503 |
 | `POSTURE_TEST_MODE_ENABLED` | **never in production** | Server gate for fixture scoring; set to `1` only by the e2e runner/CI |
 | `NEXT_PUBLIC_POSE_MODEL` | optional | `lite` (default) or `full` MediaPipe model |
-| `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` | optional, non-prod | Show clinically-unreviewed muscle content with a badge |
+| `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` | **never in production** | Public half of the explicit clinical test fixture; has no effect unless the server-only test flag is also `1` |
+| `CLINICAL_CONTENT_RELEASE_ID` | server-only; absent until HG-03 | Exact approved release ID committed in `content/clinical-review-ledger.json` |
+| `CLINICAL_CONTENT_HG03_RECEIPT_SHA256` | server-only; absent until HG-03 | SHA-256 of the signed licensed-clinician receipt for that exact release |
 
 ## Deploy
 
@@ -137,6 +139,52 @@ Operational response:
 4. Treat `complete` only as application database plus known-object deletion. A
    production launch still requires HG-07/HG-08 proof for orphan inventory and
    backup expiration/restore behavior.
+
+### PR-07 clinical-content governance (HG-03)
+
+The production-safe default is assessment-only. With both clinical activation
+variables absent, the server disables recommendations, programs, workouts, and
+knowledge links; direct API, report, PDF, workout, share, static-asset, and
+historical-download requests also fail closed. `NEXT_PUBLIC_*` state alone can
+never activate clinical content.
+
+Clinical source changes must be inventoried with:
+
+```bash
+npx vite-node --config vitest.config.ts scripts/generate-clinical-content-inventory.ts --write
+npx vite-node --config vitest.config.ts scripts/generate-clinical-content-inventory.ts
+```
+
+The first command deliberately updates the reviewed artifact; the second is the
+read-only CI check. Any item or governed-algorithm change produces a new hash and
+invalidates prior approval for that item/release.
+
+Activation requires all of the following, bound to the same inventory hash:
+
+1. HG-03's licensed clinician signs an itemized receipt and records approved or
+   rejected status for every item in the intended release scope.
+2. The exact release and item hashes are committed to
+   `content/clinical-review-ledger.json`; partial dependency closure never
+   generalizes to unreviewed content.
+3. The receipt, release, items, and activation are inserted through a reviewed
+   forward migration. Browser roles cannot read the governance ledger, no
+   application role may mutate it, and no application role can access the private
+   activation table. A narrow RPC exposes only exact-tuple match/no-match.
+4. The migration and compatible app are deployed, `/api/health` returns
+   `schema: ready` and `clinical_content.status: assessment_only`, and production
+   has test mode off.
+5. Set `CLINICAL_CONTENT_RELEASE_ID` and
+   `CLINICAL_CONTENT_HG03_RECEIPT_SHA256` to the exact committed values, then run
+   `/api/health` again and require `clinical_content.status: active`; any source /
+   database mismatch remains assessment-only. Then run
+   direct-request smoke checks for assessment UI, both PDFs, workout mint/run,
+   public share, exercise detail, muscle detail, and clinical static assets.
+
+Rollback is fail-closed: first unset both clinical activation variables. This
+immediately returns the app to assessment-only and prevents new clinical reports
+or workouts. Existing clinical artifacts remain immutable but are rejected while
+their release is inactive. Migrations remain forward-only; use a compensating
+migration for database changes and never reactivate a rejected or superseded item.
 
 Muscle KB content: edit files under `content/`, then
 `node scripts/generate-content-index.mjs` and regenerate the seed migration via
@@ -261,9 +309,10 @@ cutover time and the one-hour drain completion in the release evidence.
   red/green but cannot hard-block merges. Process rule: never merge red.
 - **GitHub Actions minutes** are account-wide; when exhausted, new runs are
   silently refused (PR checks never appear). Check Settings → Billing.
-- **Clinical review gate**: muscle content ships `reviewed_by = null` and is
-  hidden in production until reviewed (badged in dev/preview). Review then
-  set `reviewed_by`/`reviewed_at` in `content/muscles/*` and regenerate the seed.
+- **Clinical review gate**: the source-controlled HG-03 ledger is intentionally
+  empty, so the beta stays assessment-only. Per-row `reviewed_by` timestamps are
+  not an activation mechanism. Follow the PR-07 procedure above; Kimi/Fable
+  reviews are advisory and cannot replace the licensed-clinician receipt.
 - **Real-device matrix**: docs/plans/2026-06-12-p0-device-spike-findings.md
   carries the iPhone/Android checklist; the captured photos become canonical
   e2e fixtures (same filenames in `e2e/fixtures/photos/`).

@@ -135,17 +135,21 @@ INSERT INTO public.workout_sessions (
   program_snapshot, session_token_hash, expires_at,
   legal_document_id, legal_document_version, legal_document_body_sha256,
   legal_document_effective_at, legal_jurisdiction, legal_product_scope,
-  legal_provenance_state
+  legal_provenance_state, clinical_content_version,
+  clinical_inventory_sha256, clinical_review_receipt_sha256
 ) VALUES (
   '41000000-0000-4000-8000-000000000001',
   '31000000-0000-4000-8000-000000000001',
   '21000000-0000-4000-8000-000000000001',
   '11000000-0000-4000-8000-000000000001',
   1, 'standard',
-  '{"version":2,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}'::jsonb,
+  '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5"}}'::jsonb,
   repeat('d', 64), '2026-07-27T00:00:00Z',
   'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
-  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1', 'governed'
+  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1', 'governed',
+  'clinical-content-test-fixture-v1',
+  '2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5',
+  repeat('f', 64)
 );
 
 SELECT is(
@@ -195,16 +199,18 @@ SELECT is(
 );
 
 SELECT is(
-  public.create_workout_session_governed(
+  public.create_workout_session_clinical_governed(
     '31000000-0000-4000-8000-000000000001',
     '21000000-0000-4000-8000-000000000001',
     '11000000-0000-4000-8000-000000000001',
     1, 'standard',
-    '{"version":2,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}'::jsonb,
+    '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5"}}'::jsonb,
     60, repeat('5', 64), clock_timestamp() + interval '7 days',
     '51000000-0000-4000-8000-000000000006', NULL,
     'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
-    '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1'
+    '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
+    'clinical-content-test-fixture-v1',
+    '2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5'
   )->>'status',
   'consent_unavailable',
   'an approved historical assessment cannot mint a new share after withdrawal'
@@ -265,16 +271,18 @@ VALUES (
   '11000000-0000-4000-8000-000000000001', 'complete', true
 );
 CREATE TEMP TABLE workout_create_result AS
-SELECT public.create_workout_session_governed(
+SELECT public.create_workout_session_clinical_governed(
   '31000000-0000-4000-8000-000000000004',
   '21000000-0000-4000-8000-000000000004',
   '11000000-0000-4000-8000-000000000001',
   1, 'standard',
-  '{"version":2,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}'::jsonb,
+  '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5"}}'::jsonb,
   60, repeat('9', 64), clock_timestamp() + interval '7 days',
   '51000000-0000-4000-8000-000000000004', repeat('a', 64),
   'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
-  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1'
+  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
+  'clinical-content-test-fixture-v1',
+  '2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5'
 ) AS value;
 
 SELECT is(
@@ -314,16 +322,20 @@ INSERT INTO public.workout_sessions (
   program_snapshot, session_token_hash, expires_at,
   legal_document_id, legal_document_version, legal_document_body_sha256,
   legal_document_effective_at, legal_jurisdiction, legal_product_scope,
-  legal_provenance_state
+  legal_provenance_state, clinical_content_version,
+  clinical_inventory_sha256, clinical_review_receipt_sha256
 ) VALUES (
   '41000000-0000-4000-8000-000000000002',
   '31000000-0000-4000-8000-000000000002',
   '21000000-0000-4000-8000-000000000002',
   '11000000-0000-4000-8000-000000000001', 1, 'standard',
-  '{"version":2,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}'::jsonb,
+  '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-1","effectiveAt":"2026-07-19T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5"}}'::jsonb,
   repeat('1', 64), '2026-07-27T00:00:00Z',
   'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
-  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1', 'governed'
+  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1', 'governed',
+  'clinical-content-test-fixture-v1',
+  '2de06b18d57c195506e3ba9c570ea724a0da4254935db82718fbe774eb22ddc5',
+  repeat('f', 64)
 );
 
 INSERT INTO public.privacy_storage_deletion_outbox (
@@ -334,12 +346,13 @@ INSERT INTO public.privacy_storage_deletion_outbox (
   clock_timestamp() + interval '15 minutes'
 );
 CREATE TEMP TABLE report_finalize_result AS
-SELECT public.finalize_report_upload(
+SELECT public.finalize_report_upload_v2(
   '31000000-0000-4000-8000-000000000002',
   '11000000-0000-4000-8000-000000000001',
   '11000000-0000-4000-8000-000000000001/31000000-0000-4000-8000-000000000002/practitioner/fixture.pdf',
   NULL, 'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
-  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1'
+  '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
+  'assessment_only', NULL, NULL
 ) AS value;
 SELECT ok(
   (SELECT value->>'status' FROM report_finalize_result) = 'created'
@@ -355,12 +368,13 @@ SELECT ok(
   'report finalization atomically persists provenance and cancels its cleanup intent'
 );
 SELECT is(
-  public.finalize_report_upload(
+  public.finalize_report_upload_v2(
     '31000000-0000-4000-8000-000000000002',
     '11000000-0000-4000-8000-000000000001',
     '11000000-0000-4000-8000-000000000001/31000000-0000-4000-8000-000000000002/practitioner/missing.pdf',
     NULL, 'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
-    '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1'
+    '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
+    'assessment_only', NULL, NULL
   )->>'status',
   'intent_missing',
   'report finalization refuses an upload that lacks a pre-side-effect cleanup intent'
@@ -469,10 +483,10 @@ VALUES (
   '31000000-0000-4000-8000-000000000003',
   '11000000-0000-4000-8000-000000000001', 'front', NULL
 );
-INSERT INTO public.reports (assessment_id, practitioner_id, storage_path)
+INSERT INTO public.reports (assessment_id, practitioner_id, storage_path, report_scope)
 VALUES (
   '31000000-0000-4000-8000-000000000003',
-  '11000000-0000-4000-8000-000000000001', 'reports/privacy-fixture.pdf'
+  '11000000-0000-4000-8000-000000000001', 'reports/privacy-fixture.pdf', 'assessment_only'
 );
 
 CREATE TEMP TABLE erasure_result AS
@@ -577,10 +591,10 @@ VALUES (
   '21000000-0000-4000-8000-000000000005',
   '11000000-0000-4000-8000-000000000001', 'complete'
 );
-INSERT INTO public.reports (assessment_id, practitioner_id, storage_path)
+INSERT INTO public.reports (assessment_id, practitioner_id, storage_path, report_scope)
 VALUES (
   '31000000-0000-4000-8000-000000000005',
-  '11000000-0000-4000-8000-000000000001', 'reports/legacy-partial.pdf'
+  '11000000-0000-4000-8000-000000000001', 'reports/legacy-partial.pdf', 'assessment_only'
 );
 INSERT INTO public.consent_records (
   client_id, practitioner_id, kind, consent_version, consent_hash,

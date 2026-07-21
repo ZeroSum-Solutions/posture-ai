@@ -11,7 +11,13 @@ import AuthSessionGuard from './AuthSessionGuard'
 import { shouldRenderAppAtmosphere } from './appAtmospherePolicy'
 import LegalNotice from './LegalNotice'
 
-export default function AppShell({ children }: { children: ReactNode }) {
+export default function AppShell({
+  children,
+  clinicalContentEnabled,
+}: {
+  children: ReactNode
+  clinicalContentEnabled: boolean
+}) {
   const pathname = usePathname() ?? ''
   const showAtmosphere = shouldRenderAppAtmosphere(pathname)
 
@@ -20,7 +26,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div className={showAtmosphere ? 'app-shell app-shell--immersive' : 'app-shell'}>
         {showAtmosphere && <AppAtmosphere />}
         <AuthSessionGuard pathname={pathname}>
-          <NavBar />
+          <NavBar clinicalContentEnabled={clinicalContentEnabled} />
           <MotionOrchestrator>{children}</MotionOrchestrator>
         </AuthSessionGuard>
         <footer className="app-footer">

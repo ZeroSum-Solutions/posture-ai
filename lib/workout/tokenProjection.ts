@@ -26,6 +26,8 @@ export interface ResolvedSession {
   legal_jurisdiction: string | null
   legal_product_scope: string | null
   legal_provenance_state: 'legacy_unverified' | 'governed'
+  clinical_content_version: string | null
+  clinical_inventory_sha256: string | null
 }
 
 export interface PublicSession {
@@ -104,37 +106,45 @@ function isBoundGovernedNotice(r: ResolvedSession, value: unknown): value is Leg
   }
 }
 
-function isLegacyProvenance(r: ResolvedSession): boolean {
-  return r.legal_provenance_state === 'legacy_unverified'
-    && r.legal_document_id === null
-    && r.legal_document_version === null
-    && r.legal_document_body_sha256 === null
-    && r.legal_document_effective_at === null
-    && r.legal_jurisdiction === null
-    && r.legal_product_scope === null
+export function isClinicalSnapshotForRelease(
+  value: unknown,
+  release: { version: string; inventorySha256: string },
+): value is Extract<SessionSnapshot, { version: 3 }> {
+  if (!value || typeof value !== 'object') return false
+  const snapshot = value as Record<string, unknown>
+  if (snapshot.version !== 3 || !snapshot.clinicalContent || typeof snapshot.clinicalContent !== 'object') {
+    return false
+  }
+  const clinical = snapshot.clinicalContent as Record<string, unknown>
+  return clinical.version === release.version
+    && clinical.inventorySha256 === release.inventorySha256
 }
 
-export function redactSessionForPublic(r: ResolvedSession): PublicSession | null {
+export function redactSessionForPublic(
+  r: ResolvedSession,
+  expectedRelease: { version: string; inventorySha256: string },
+): PublicSession | null {
   // Explicit field pick, not a pass-through: program_snapshot is a jsonb blob,
   // so a new snapshot field (refactor, migration, spread) must never widen the
   // public surface without being added here on purpose.
-  if (r.program_snapshot.version === 2) {
-    const { week, capability, priorities, items, estimatedDurationSec, legalNotice } = r.program_snapshot
+  if (isClinicalSnapshotForRelease(r.program_snapshot, expectedRelease)) {
+    const { week, capability, priorities, items, estimatedDurationSec, legalNotice, clinicalContent } = r.program_snapshot
     if (!isBoundGovernedNotice(r, legalNotice)) return null
+    if (
+      r.clinical_content_version !== expectedRelease.version
+      || r.clinical_inventory_sha256 !== expectedRelease.inventorySha256
+      || clinicalContent.version !== r.clinical_content_version
+      || clinicalContent.inventorySha256 !== r.clinical_inventory_sha256
+    ) return null
     return {
-      snapshot: { version: 2, week, capability, priorities, items, estimatedDurationSec, legalNotice },
+      snapshot: { version: 3, week, capability, priorities, items, estimatedDurationSec, legalNotice, clinicalContent },
       estimatedDurationSec: r.estimated_duration_sec,
       clientFirstName: r.client_first_name,
       expiresAt: r.expires_at,
     }
   }
 
-  if (!isLegacyProvenance(r)) return null
-  const { week, capability, priorities, items, estimatedDurationSec, disclaimer } = r.program_snapshot
-  return {
-    snapshot: { version: 1, week, capability, priorities, items, estimatedDurationSec, disclaimer },
-    estimatedDurationSec: r.estimated_duration_sec,
-    clientFirstName: r.client_first_name,
-    expiresAt: r.expires_at,
-  }
+  // v1/v2 lack reviewed clinical-content provenance. They remain parseable for
+  // erasure/inventory migration only and can never hydrate a player.
+  return null
 }

@@ -45,6 +45,7 @@ const testSpies = vi.hoisted(() => ({
     void document
     return Buffer.from('%PDF-1.4\n%mock')
   }),
+  clinicalEnabled: { value: true },
 }))
 
 // Per-table result for the authed server client. supabase-js resolves to
@@ -121,6 +122,22 @@ vi.mock('@/lib/legal/runtime', () => ({
 vi.mock('@/lib/legal/policy', () => ({
   snapshotLegalDocument: legalTest.snapshotSpy,
 }))
+vi.mock('@/lib/clinical-content/runtime', () => ({
+  clinicalContentAccess: () => ({
+    mode: testSpies.clinicalEnabled.value ? 'test_fixture' : 'disabled',
+    contentVersion: testSpies.clinicalEnabled.value ? 'clinical-content-test-fixture-v1' : null,
+    inventorySha256: 'd'.repeat(64),
+    surfaces: {
+      recommendations: testSpies.clinicalEnabled.value,
+      programs: testSpies.clinicalEnabled.value,
+      workouts: testSpies.clinicalEnabled.value,
+      knowledgeLinks: testSpies.clinicalEnabled.value,
+    },
+    approvedExerciseSlugs: [],
+    approvedLinkIds: [],
+    approvedReportCopyIds: [],
+  }),
+}))
 vi.mock('@react-pdf/renderer', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@react-pdf/renderer')>()),
   renderToBuffer: testSpies.renderToBuffer,
@@ -164,6 +181,41 @@ describe('POST /api/reports', () => {
     reportsInsert.error = null
     outboxWrite.data = null
     outboxWrite.error = null
+    testSpies.clinicalEnabled.value = true
+  })
+
+  test('denies direct client-program export while assessment-only', async () => {
+    testSpies.clinicalEnabled.value = false
+
+    const res = await POST(req({ assessment_id: 'a1', variant: 'client' }))
+
+    expect(res.status).toBe(404)
+    await expect(res.json()).resolves.toMatchObject({ code: 'clinical_content_disabled' })
+    expect(renderToBufferSpy).not.toHaveBeenCalled()
+    expect(uploadSpy).not.toHaveBeenCalled()
+  })
+
+  test('assessment-only practitioner export contains no recommendation DTOs', async () => {
+    testSpies.clinicalEnabled.value = false
+    serverTables.assessment_findings = { data: [{
+      id: 'f1', imbalance_key: 'forward_head_posture', region: 'head_shoulders', label: 'Forward Head',
+      deviation: 4, unit: 'deg', direction: 'Forward', severity_pct: 20, zone: 'warning',
+      view_used: 'side', confidence: 0.9,
+    }], error: null }
+
+    const res = await POST(req({ assessment_id: 'a1', variant: 'practitioner' }))
+
+    expect(res.status).toBe(200)
+    const document = renderToBufferSpy.mock.calls[0]?.[0] as { props: Record<string, unknown> }
+    expect(document.props.exercises).toEqual([])
+    expect(document.props.findings).toEqual([
+      expect.objectContaining({ causes_text: '', tight_muscles: [], weak_muscles: [] }),
+    ])
+    expect(reportInsertSpy).toHaveBeenCalledWith('finalize_report_upload_v2', expect.objectContaining({
+      p_report_scope: 'assessment_only',
+      p_clinical_content_version: null,
+      p_clinical_inventory_sha256: null,
+    }))
   })
 
   test('returns 500 (and does NOT upload a PDF) when the findings read errors — a failed read must not become a clean "zero issues" report', async () => {
@@ -200,7 +252,7 @@ describe('POST /api/reports', () => {
       expect(res.status).toBe(200)
       const document = renderToBufferSpy.mock.calls[0]?.[0] as { props: Record<string, unknown> }
       expect(document.props.legalNotice).toBe(legalTest.snapshot)
-      expect(reportInsertSpy).toHaveBeenCalledWith('finalize_report_upload', expect.objectContaining({
+      expect(reportInsertSpy).toHaveBeenCalledWith('finalize_report_upload_v2', expect.objectContaining({
         p_document_id: legalTest.snapshot.documentId,
         p_document_version: legalTest.snapshot.version,
         p_document_body_sha256: legalTest.snapshot.bodySha256,

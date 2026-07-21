@@ -3,6 +3,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import type { RunItem } from '@/lib/workout/runState'
 import AuthedPlayer from './player'
+import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import { isClinicalSnapshotForRelease } from '@/lib/workout/tokenProjection'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * In-clinic player entry. Loads the frozen program_snapshot via the practitioner's
@@ -11,6 +15,8 @@ import AuthedPlayer from './player'
  * erased client leaves no residual PHI), and hydrates resume state from the run.
  */
 export default async function WorkoutSessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
+  const clinicalAccess = await serverClinicalContentAccess()
+  if (!clinicalAccess.surfaces.workouts || !clinicalAccess.contentVersion) notFound()
   const { sessionId } = await params
   const supabase = await createSupabaseServerClient()
   const {
@@ -24,6 +30,10 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
     .eq('id', sessionId)
     .maybeSingle()
   if (!session) notFound()
+  if (!isClinicalSnapshotForRelease(session.program_snapshot, {
+    version: clinicalAccess.contentVersion,
+    inventorySha256: clinicalAccess.inventorySha256,
+  })) notFound()
 
   const [{ data: client }, { data: run, error: runErr }] = await Promise.all([
     supabase.from('clients').select('first_name').eq('id', session.client_id).maybeSingle(),

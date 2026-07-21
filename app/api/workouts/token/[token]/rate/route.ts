@@ -5,6 +5,9 @@ import { logEvent, hashIp } from '@/lib/log'
 import { hashShareToken } from '@/lib/workout/token'
 import { validateRating } from '@/lib/workout/rating'
 import type { ResolvedSession } from '@/lib/workout/tokenProjection'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const ROUTE = 'POST /api/workouts/token/[token]/rate'
 
@@ -15,8 +18,10 @@ const ROUTE = 'POST /api/workouts/token/[token]/rate'
  * attaches to the run seeded at mint.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
   const service = createSupabaseServiceClient()
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), service)
+  if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse(true)
+  const { token } = await params
   const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
 
   const allowed = await enforceRateLimit(service, { route: 'workouts_token_rate', userId: ipHash ?? 'anon', limit: 10, windowSeconds: 60 })

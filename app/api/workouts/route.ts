@@ -11,6 +11,9 @@ import { generateShareToken } from '@/lib/workout/token'
 import { governSessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import { snapshotLegalDocument } from '@/lib/legal/policy'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const ROUTE = 'POST /api/workouts'
 const SHARE_TTL_DAYS = 7
@@ -35,6 +38,8 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
   const userHash = hashUser(user.id)
 
   let body: unknown
@@ -91,18 +96,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to load findings.' }, { status: 500 })
   }
 
-  const draftSnapshot = buildSessionFromAssessment(assessment, (findings ?? []) as StoredFinding[], week)
+  const draftSnapshot = buildSessionFromAssessment(
+    assessment,
+    (findings ?? []) as StoredFinding[],
+    week,
+    {
+      approvedExerciseSlugs: clinicalAccess.approvedExerciseSlugs,
+      approvedLinkIds: clinicalAccess.approvedLinkIds,
+      approvedReportCopyIds: clinicalAccess.approvedReportCopyIds,
+    },
+  )
   if (!draftSnapshot) {
     // Empty-session floor — nothing reliable to build a workout from.
     logEvent({ route: ROUTE, outcome: 'client_error', status: 422, userHash, detail: 'no playable session' })
     return NextResponse.json({ error: 'This screening has no reliable findings to build a workout from — re-capture and try again.' }, { status: 422 })
   }
-  const snapshot = governSessionSnapshot(draftSnapshot, legalNotice)
+  const snapshot = governSessionSnapshot(draftSnapshot, legalNotice, {
+    version: clinicalAccess.contentVersion!,
+    inventorySha256: clinicalAccess.inventorySha256,
+  })
 
   const shareToken = share ? generateShareToken() : null
   const expiresAt = share ? new Date(Date.now() + SHARE_TTL_DAYS * 86_400_000).toISOString() : null
 
-  const { data: created, error: createError } = await service.rpc('create_workout_session_governed', {
+  const { data: created, error: createError } = await service.rpc('create_workout_session_clinical_governed', {
     p_assessment_id: assessment_id,
     p_client_id: assessment.client_id,
     p_practitioner_id: user.id,
@@ -120,6 +137,8 @@ export async function POST(req: NextRequest) {
     p_document_effective_at: legalNotice.effectiveAt,
     p_jurisdiction: legalNotice.jurisdiction,
     p_product_scope: legalNotice.productScope,
+    p_clinical_content_version: clinicalAccess.contentVersion,
+    p_clinical_inventory_sha256: clinicalAccess.inventorySha256,
   })
   const createResult = created as { status?: string; session_id?: string } | null
   if (createError || !createResult?.status) {
@@ -131,6 +150,9 @@ export async function POST(req: NextRequest) {
   }
   if (createResult.status === 'consent_unavailable') {
     return NextResponse.json({ error: 'Subject consent is no longer active.' }, { status: 409 })
+  }
+  if (createResult.status === 'clinical_content_unavailable') {
+    return clinicalContentUnavailableResponse()
   }
   if (createResult.status !== 'created' || !createResult.session_id) {
     return NextResponse.json({ error: 'Failed to create session.' }, { status: 422 })
@@ -160,6 +182,8 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
 
   const assessmentId = req.nextUrl.searchParams.get('assessment_id')
   if (!assessmentId || !z.string().uuid().safeParse(assessmentId).success) {

@@ -1,10 +1,16 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { Disclaimer } from '@/components/Disclaimer'
+import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import {
+  approvedClinicalExercises,
+  approvedClinicalLinks,
+  approvedClinicalMuscles,
+  approvedExerciseMuscles,
+} from '@/lib/clinical-content/catalog'
+import { IMBALANCE_COPY } from '@/content/report/imbalance-copy'
 
-const SHOW_UNREVIEWED =
-  process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT === '1' || process.env.NODE_ENV !== 'production'
+export const dynamic = 'force-dynamic'
 
 const REGION_LABELS: Record<string, string> = {
   head_neck: 'Head & Neck',
@@ -38,29 +44,40 @@ interface ExerciseMuscleRow {
 
 export default async function MusclePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = await createSupabaseServerClient()
+  const access = await serverClinicalContentAccess()
+  if (!access.surfaces.knowledgeLinks || !access.approvedMuscleSlugs.includes(slug)) notFound()
+  const muscle = approvedClinicalMuscles(access).find((candidate) => candidate.slug === slug)
+  if (!muscle) notFound()
 
-  const { data: muscle } = await supabase
-    .from('muscles')
-    .select('slug, name, region, anatomy_summary, function_text, screening_notes, reviewed_at')
-    .eq('slug', slug)
-    .single()
-
-  if (!muscle || (!muscle.reviewed_at && !SHOW_UNREVIEWED)) notFound()
-
-  const [{ data: links }, { data: exerciseLinks }] = await Promise.all([
-    supabase
-      .from('muscle_imbalance_links')
-      .select('role, rationale_text, imbalance_definitions(key, label)')
-      .eq('muscle_slug', slug),
-    supabase
-      .from('exercise_muscles')
-      .select('role, progression_level, exercises(id, slug, name, category, instructions, sets, hold_seconds)')
-      .eq('muscle_slug', slug),
-  ])
-
-  const typedLinks = (links ?? []) as unknown as LinkRow[]
-  const typedExercises = (exerciseLinks ?? []) as unknown as ExerciseMuscleRow[]
+  const typedLinks: LinkRow[] = approvedClinicalLinks(access)
+    .filter((entry) => entry.muscle.slug === slug)
+    .map(({ link }) => ({
+      role: link.role,
+      rationale_text: link.rationale,
+      imbalance_definitions: {
+        key: link.imbalanceKey,
+        label: IMBALANCE_COPY[link.imbalanceKey]?.plainLabel ?? link.imbalanceKey,
+      },
+    }))
+  const typedExercises: ExerciseMuscleRow[] = access.surfaces.recommendations
+    ? approvedClinicalExercises(access).flatMap((exercise) =>
+        approvedExerciseMuscles(access, exercise)
+          .filter((link) => link.muscleSlug === slug)
+          .map((link) => ({
+            role: link.role,
+            progression_level: link.progressionLevel,
+            exercises: {
+              id: exercise.slug,
+              slug: exercise.slug,
+              name: exercise.name,
+              category: exercise.category,
+              instructions: exercise.instructions,
+              sets: exercise.sets,
+              hold_seconds: exercise.holdSeconds,
+            },
+          })),
+      )
+    : []
   const tightLinks = typedLinks.filter(l => l.role === 'tight')
   const weakLinks = typedLinks.filter(l => l.role === 'weak')
   const stretches = typedExercises.filter(e => e.role === 'stretch' && e.exercises)
@@ -85,7 +102,7 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
       </Link>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '12px 0 4px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{muscle.name}</h1>
-        {!muscle.reviewed_at && (
+        {access.mode === 'test_fixture' && (
           <span style={{
             fontSize: '0.65rem', padding: '3px 9px', borderRadius: '4px',
             background: 'rgba(255,137,24,0.15)', color: 'var(--warning)', textTransform: 'uppercase',
@@ -100,18 +117,18 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
 
       <div style={card}>
         <h2 style={h2}>Anatomy</h2>
-        <p style={body}>{muscle.anatomy_summary}</p>
+        <p style={body}>{muscle.anatomySummary}</p>
       </div>
 
       <div style={card}>
         <h2 style={h2}>What it does</h2>
-        <p style={body}>{muscle.function_text}</p>
+        <p style={body}>{muscle.functionText}</p>
       </div>
 
-      {muscle.screening_notes && (
+      {muscle.screeningNotes && (
         <div style={card}>
           <h2 style={h2}>In posture screening</h2>
-          <p style={body}>{muscle.screening_notes}</p>
+          <p style={body}>{muscle.screeningNotes}</p>
         </div>
       )}
 

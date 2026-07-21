@@ -24,6 +24,7 @@ const testState = vi.hoisted(() => ({
   workoutInsert: vi.fn(),
   runInsert: vi.fn(),
   rpc: vi.fn(),
+  clinicalEnabled: { value: true },
 }))
 
 const assessmentId = '11111111-1111-4111-8111-111111111111'
@@ -85,6 +86,17 @@ vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceClient: () => ({ from: serviceQuery, rpc: testState.rpc }),
 }))
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
+vi.mock('@/lib/clinical-content/runtime', () => ({
+  clinicalContentAccess: () => ({
+    mode: 'test_fixture',
+    contentVersion: 'clinical-content-test-fixture-v1',
+    inventorySha256: 'd'.repeat(64),
+    surfaces: { recommendations: true, programs: true, workouts: testState.clinicalEnabled.value, knowledgeLinks: true },
+    approvedExerciseSlugs: [],
+    approvedLinkIds: [],
+    approvedReportCopyIds: [],
+  }),
+}))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
 vi.mock('@/lib/log', () => ({
   logEvent: vi.fn(),
@@ -119,6 +131,18 @@ describe('POST /api/workouts', () => {
     testState.runInsert.mockReset()
     testState.rpc.mockReset().mockResolvedValue({ data: { status: 'created', session_id: 'session-1' }, error: null })
     testState.resolution.value = { ok: true, document: { id: 'screening-notice-v1' } }
+    testState.clinicalEnabled.value = true
+  })
+
+  test('denies direct workout minting before reading assessment content when HG-03 is absent', async () => {
+    testState.clinicalEnabled.value = false
+
+    const response = await POST(request({ share: true }))
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toMatchObject({ code: 'clinical_content_disabled' })
+    expect(testState.build).not.toHaveBeenCalled()
+    expect(testState.rpc).not.toHaveBeenCalled()
   })
 
   test('returns a stable 503 without generating or storing when the screening notice is unavailable', async () => {
@@ -144,15 +168,19 @@ describe('POST /api/workouts', () => {
     const response = await POST(request())
 
     expect(response.status).toBe(200)
-    expect(testState.rpc).toHaveBeenCalledWith('create_workout_session_governed', expect.objectContaining({
+    expect(testState.rpc).toHaveBeenCalledWith('create_workout_session_clinical_governed', expect.objectContaining({
       p_program_snapshot: {
-        version: 2,
+        version: 3,
         week: 1,
         capability: 'standard',
         priorities: [],
         items: [],
         estimatedDurationSec: 720,
         legalNotice: testState.legalNotice,
+        clinicalContent: {
+          version: 'clinical-content-test-fixture-v1',
+          inventorySha256: 'd'.repeat(64),
+        },
       },
       p_document_id: testState.legalNotice.documentId,
       p_document_version: testState.legalNotice.version,
@@ -160,6 +188,8 @@ describe('POST /api/workouts', () => {
       p_document_effective_at: testState.legalNotice.effectiveAt,
       p_jurisdiction: testState.legalNotice.jurisdiction,
       p_product_scope: testState.legalNotice.productScope,
+      p_clinical_content_version: 'clinical-content-test-fixture-v1',
+      p_clinical_inventory_sha256: 'd'.repeat(64),
     }))
   })
 

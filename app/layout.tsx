@@ -3,6 +3,11 @@ import { Inter, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
 import { siteOrigin } from '@/lib/site-origin'
+import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+
+// Clinical release activation is runtime authority. Never bake a fixture-enabled
+// navigation shell or gated child page into a build artifact.
+export const dynamic = 'force-dynamic'
 
 const uiFont = Inter({
   subsets: ['latin'],
@@ -36,11 +41,14 @@ export const viewport: Viewport = {
   themeColor: '#000000',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const clinicalAccess = await serverClinicalContentAccess()
+  const clinicalContentEnabled = clinicalAccess.surfaces.recommendations
+    || clinicalAccess.surfaces.knowledgeLinks
   return (
     <html lang="en" className={`${uiFont.variable} ${dataFont.variable}`}>
       <body>
-        <AppShell>{children}</AppShell>
+        <AppShell clinicalContentEnabled={clinicalContentEnabled}>{children}</AppShell>
       </body>
     </html>
   )

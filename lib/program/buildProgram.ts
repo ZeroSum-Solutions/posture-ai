@@ -6,6 +6,7 @@ import { computeDose, freqLabel, type Dose } from './dosage'
 import { IMBALANCE_COPY, BILATERAL_KNEE_COPY, type ImbalanceCopy } from '../../content/report/imbalance-copy'
 import { exerciseEvidenceForKey, type LinkEvidence } from './evidenceWeight'
 import { isCoherentForKey } from './roleCoherence'
+import { clinicalLinkId } from '../clinical-content/policy'
 
 const ZONE_RANK: Record<string, number> = { maintain: 0, warning: 1, danger: 2, unreliable: -1 }
 const CATEGORY_ORDER: Record<string, number> = { mobility: 0, stretch: 1, activation: 2, strengthen: 3 }
@@ -63,6 +64,12 @@ export interface ProgramOverrides {
   activeKeys?: string[] | null
   /** primaryKey → { fromSlug: toSlug } exercise swaps within a priority. */
   swaps?: Record<string, Record<string, string>>
+  /** Exact HG-03-reviewed subset. Omit only for authored/test fixture builds. */
+  clinicalContent?: {
+    approvedExerciseSlugs: readonly string[]
+    approvedLinkIds: readonly string[]
+    approvedReportCopyIds: readonly string[]
+  }
 }
 
 export interface ProgramReport {
@@ -90,11 +97,18 @@ function primaryMuscle(ex: ExerciseContent): string {
   return ex.muscles[0]?.muscleSlug ?? ex.slug
 }
 
-export function linksForKeys(keys: string[]): Array<{ muscleSlug: string; confidence?: LinkEvidence }> {
+export function linksForKeys(
+  keys: string[],
+  approvedLinkIds?: ReadonlySet<string>,
+): Array<{ muscleSlug: string; confidence?: LinkEvidence }> {
   const out: Array<{ muscleSlug: string; confidence?: LinkEvidence }> = []
   for (const m of ALL_MUSCLES) {
     for (const l of m.links) {
-      if (l.scored === false || !keys.includes(l.imbalanceKey)) continue
+      if (
+        l.scored === false
+        || !keys.includes(l.imbalanceKey)
+        || (approvedLinkIds && !approvedLinkIds.has(clinicalLinkId(m.slug, l.imbalanceKey, l.role)))
+      ) continue
       out.push({ muscleSlug: m.slug, confidence: l.confidence })
     }
   }
@@ -131,10 +145,17 @@ function screenedKeysFor(findings: Finding[]): string[] {
  * credit a strengthen exercise regardless of primaryDeviationKeys. Informational
  * items are never coherent, so they are dropped here too.
  */
-function candidatesFor(keys: string[], zone: string, screenedKeys: string[]): ExerciseContent[] {
+function candidatesFor(
+  keys: string[],
+  zone: string,
+  screenedKeys: string[],
+  approvedExerciseSlugs?: ReadonlySet<string>,
+  approvedLinkIds?: ReadonlySet<string>,
+): ExerciseContent[] {
   return ALL_EXERCISES.filter(
     (ex) =>
-      ex.primaryDeviationKeys.some((k) => keys.includes(k) && isCoherentForKey(ex, k)) &&
+      (!approvedExerciseSlugs || approvedExerciseSlugs.has(ex.slug)) &&
+      ex.primaryDeviationKeys.some((k) => keys.includes(k) && isCoherentForKey(ex, k, approvedLinkIds)) &&
       ZONE_RANK[zone] >= ZONE_RANK[ex.minZone] &&
       !isContraindicated(ex, screenedKeys),
   )
@@ -179,12 +200,20 @@ function applySwap(
   priority: SelectedPriority,
   screenedKeys: string[],
   swaps?: Record<string, string>,
+  approvedExerciseSlugs?: ReadonlySet<string>,
+  approvedLinkIds?: ReadonlySet<string>,
 ): ExerciseContent {
   const toSlug = swaps?.[ex.slug]
   if (!toSlug) return ex
   const replacement = bySlug.get(toSlug)
   if (!replacement || replacement.category !== ex.category) return ex
-  const valid = candidatesFor(priority.keys, priority.zone, screenedKeys).some((c) => c.slug === toSlug)
+  const valid = candidatesFor(
+    priority.keys,
+    priority.zone,
+    screenedKeys,
+    approvedExerciseSlugs,
+    approvedLinkIds,
+  ).some((c) => c.slug === toSlug)
   return valid ? replacement : ex
 }
 
@@ -193,13 +222,21 @@ function buildSteps(
   capability: Capability,
   screenedKeys: string[],
   swaps?: Record<string, string>,
+  approvedExerciseSlugs?: ReadonlySet<string>,
+  approvedLinkIds?: ReadonlySet<string>,
 ): ProgramStep[] {
-  const all = applyCapability(candidatesFor(priority.keys, priority.zone, screenedKeys), capability)
+  const all = applyCapability(candidatesFor(
+    priority.keys,
+    priority.zone,
+    screenedKeys,
+    approvedExerciseSlugs,
+    approvedLinkIds,
+  ), capability)
   const integrative = all.filter((ex) => ex.isIntegrative)
   const core = all.filter((ex) => !ex.isIntegrative)
 
   // Session order: Loosen → Lengthen → Wake up → Strengthen, capped per category.
-  const keyLinks = linksForKeys(priority.keys)
+  const keyLinks = linksForKeys(priority.keys, approvedLinkIds)
   core.sort((a, b) => {
     const ca = CATEGORY_ORDER[a.category] ?? 9
     const cb = CATEGORY_ORDER[b.category] ?? 9
@@ -220,7 +257,7 @@ function buildSteps(
 
   // `base` is the auto-selected exercise; `ex` is the effective one after any swap.
   const toStep = (base: ExerciseContent, isIntegrative: boolean): ProgramStep => {
-    const ex = applySwap(base, priority, screenedKeys, swaps)
+    const ex = applySwap(base, priority, screenedKeys, swaps, approvedExerciseSlugs, approvedLinkIds)
     return {
       stepLabel: isIntegrative ? 'Connect' : STEP_LABEL[ex.category] ?? 'Move',
       slug: ex.slug,
@@ -255,9 +292,16 @@ export function swapAlternatives(
   category: string,
   excludeSlugs: string[],
   screenedKeys: string[],
+  clinicalContent?: ProgramOverrides['clinicalContent'],
 ): { slug: string; name: string }[] {
   const exclude = new Set(excludeSlugs)
-  return candidatesFor(keys, zone, screenedKeys)
+  return candidatesFor(
+    keys,
+    zone,
+    screenedKeys,
+    clinicalContent ? new Set(clinicalContent.approvedExerciseSlugs) : undefined,
+    clinicalContent ? new Set(clinicalContent.approvedLinkIds) : undefined,
+  )
     .filter((ex) => ex.category === category && !exclude.has(ex.slug))
     .map((ex) => ({ slug: ex.slug, name: ex.name }))
 }
@@ -282,7 +326,22 @@ export function buildProgramFrom(
   overrides: ProgramOverrides = {},
 ): ProgramReport {
   const capability = overrides.capability ?? 'standard'
-  const ranked = selectPriorities(findings)
+  const approvedCopy = overrides.clinicalContent
+    ? new Set(overrides.clinicalContent.approvedReportCopyIds)
+    : null
+  const ranked = selectPriorities(findings).filter((priority) => {
+    if (!approvedCopy) return true
+    const copyId = priority.isBilateral
+      ? 'report_copy:bilateral-knee'
+      : `report_copy:${priority.primaryKey}`
+    return approvedCopy.has(copyId)
+  })
+  const approvedExerciseSlugs = overrides.clinicalContent
+    ? new Set(overrides.clinicalContent.approvedExerciseSlugs)
+    : undefined
+  const approvedLinkIds = overrides.clinicalContent
+    ? new Set(overrides.clinicalContent.approvedLinkIds)
+    : undefined
   // Computed from the whole finding set, not the active priorities: a contradicting
   // finding vetoes an exercise even when it ranked outside the client's top 3.
   const screenedKeys = screenedKeysFor(findings)
@@ -304,7 +363,14 @@ export function buildProgramFrom(
 
   const priorities: ProgramPriority[] = active.map((p, i) => {
     const copy = p.isBilateral ? BILATERAL_KNEE_COPY : IMBALANCE_COPY[p.primaryKey as keyof typeof IMBALANCE_COPY]
-    const steps = buildSteps(p, capability, screenedKeys, overrides.swaps?.[p.primaryKey])
+    const steps = buildSteps(
+      p,
+      capability,
+      screenedKeys,
+      overrides.swaps?.[p.primaryKey],
+      approvedExerciseSlugs,
+      approvedLinkIds,
+    )
     return {
       rank: i + 1,
       primaryKey: p.primaryKey,

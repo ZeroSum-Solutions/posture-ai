@@ -56,11 +56,18 @@ const activeKeys = ['forward_head_posture', 'anterior_pelvic_shift'] // anterior
 
 const report = buildProgramFrom(findings, result.overallGrade, { capability: 'standard', activeKeys, swaps })
 const unreliable = findings.filter((x) => x.zone === 'unreliable').map((x) => ({ label: x.label }))
+const projectedReport = {
+  ...report,
+  priorities: report.priorities.map((priority) => ({
+    ...priority,
+    steps: priority.steps.map((step) => ({ ...step, alternatives: [{ slug: step.slug, name: step.name }] })),
+  })),
+}
 
 const noop = () => {}
 const body = renderToString(
   createElement(PriorityProgram, {
-    report,
+    report: projectedReport,
     unreliable,
     capability: 'standard',
     onCapabilityChange: noop,

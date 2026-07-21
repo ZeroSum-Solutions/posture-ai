@@ -8,6 +8,7 @@ import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
+import { isCoherentForKey } from '@/lib/program/roleCoherence'
 import { deriveExerciseRecommendations, type ZonedFinding } from '@/lib/exercises'
 import { ALL_EXERCISES } from '@/content'
 import { isNoRows } from '@/lib/api/query-error'
@@ -20,6 +21,9 @@ import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashResource, hashUser } from '@/lib/log'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import { snapshotLegalDocument } from '@/lib/legal/policy'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -27,6 +31,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
 
   const allowed = await enforceRateLimit(createSupabaseServiceClient(), {
     route: 'reports', userId: user.id, limit: 10, windowSeconds: 60,
@@ -44,6 +49,9 @@ export async function POST(req: NextRequest) {
   }
   const { assessment_id, compared_to_assessment_id } = body
   const variant: 'practitioner' | 'client' = body.variant === 'client' ? 'client' : 'practitioner'
+  if (variant === 'client' && !(clinicalAccess.surfaces.programs && clinicalAccess.surfaces.recommendations)) {
+    return clinicalContentUnavailableResponse()
+  }
 
   if (!assessment_id || typeof assessment_id !== 'string') {
     return NextResponse.json({ error: 'assessment_id required' }, { status: 400 })
@@ -185,8 +193,8 @@ export async function POST(req: NextRequest) {
     }
     return []
   }
-  if (keys.length > 0) {
-    const { data: defs } = await supabase
+  if (keys.length > 0 && clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.knowledgeLinks) {
+    const { data: defs } = await createSupabaseServiceClient()
       .from('imbalance_definitions')
       .select('key, causes_text, tight_muscles, weak_muscles')
       .in('key', keys)
@@ -313,16 +321,25 @@ export async function POST(req: NextRequest) {
   // same selector the program builder uses, so the practitioner report cannot recommend an
   // exercise contraindicated by a concurrent finding (nor an informational item, nor one
   // below its own min zone). An unreliable finding recommends nothing.
-  const exercises: PdfExercise[] = deriveExerciseRecommendations(
-    ALL_EXERCISES,
-    (findingsRaw || []) as unknown as ZonedFinding[],
-  ).map((ex) => ({
-    name: ex.name,
-    category: ex.category,
-    instructions: ex.instructions,
-    sets: ex.sets,
-    hold_seconds: ex.holdSeconds,
-  }))
+  const exercises: PdfExercise[] = clinicalAccess.surfaces.recommendations
+    ? deriveExerciseRecommendations(
+        ALL_EXERCISES.filter((exercise) => clinicalAccess.approvedExerciseSlugs.includes(exercise.slug)),
+        (findingsRaw || []) as unknown as ZonedFinding[],
+        {
+          isCoherentForKey: (exercise, key) => isCoherentForKey(
+            exercise,
+            key,
+            new Set(clinicalAccess.approvedLinkIds),
+          ),
+        },
+      ).map((ex) => ({
+        name: ex.name,
+        category: ex.category,
+        instructions: ex.instructions,
+        sets: ex.sets,
+        hold_seconds: ex.holdSeconds,
+      }))
+    : []
 
   // Fetch practitioner
   const { data: practitioner } = await supabase
@@ -363,6 +380,11 @@ export async function POST(req: NextRequest) {
         capability: isCapability(overrides.capability) ? overrides.capability : 'standard',
         activeKeys: Array.isArray(overrides.priority_keys) ? overrides.priority_keys : undefined,
         swaps: overrides.exercise_swaps || undefined,
+        clinicalContent: {
+          approvedExerciseSlugs: clinicalAccess.approvedExerciseSlugs,
+          approvedLinkIds: clinicalAccess.approvedLinkIds,
+          approvedReportCopyIds: clinicalAccess.approvedReportCopyIds,
+        },
       },
     )
     const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-GB', {
@@ -451,8 +473,13 @@ export async function POST(req: NextRequest) {
 
   // Persist the governed report row and cancel the pre-upload intent in one DB
   // transaction. Either both happen, or the intent remains available to retry.
+  const reportScope = variant === 'client'
+    ? 'clinical_client'
+    : clinicalAccess.surfaces.recommendations || clinicalAccess.surfaces.knowledgeLinks
+      ? 'clinical_practitioner'
+      : 'assessment_only'
   const { data: finalizeData, error: reportErr } = await serviceSupabase.rpc(
-    'finalize_report_upload',
+    'finalize_report_upload_v2',
     {
       p_assessment_id: assessment_id,
       p_practitioner_id: user.id,
@@ -467,6 +494,9 @@ export async function POST(req: NextRequest) {
       p_document_effective_at: legalNotice.effectiveAt,
       p_jurisdiction: legalNotice.jurisdiction,
       p_product_scope: legalNotice.productScope,
+      p_report_scope: reportScope,
+      p_clinical_content_version: reportScope === 'assessment_only' ? null : clinicalAccess.contentVersion,
+      p_clinical_inventory_sha256: reportScope === 'assessment_only' ? null : clinicalAccess.inventorySha256,
     },
   )
   const report = finalizeData as { status?: string; report_id?: string } | null

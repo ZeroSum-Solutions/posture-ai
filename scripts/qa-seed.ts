@@ -19,6 +19,7 @@ import { buildFindingRow } from '../lib/findings/buildFindingRow'
 import { stripFaceLandmarks } from '../lib/pose/face-min'
 import { hashConsentToken } from '../lib/consent/token'
 import { LEGAL_DOCUMENT_FIXTURES } from '../content/legal/fixtures'
+import clinicalContentInventory from '../content/clinical-content-inventory.json'
 import { resolveLegalDocument, snapshotLegalDocument } from '../lib/legal/policy'
 import { LEGAL_CONTEXT_BY_KIND, type LegalDocumentKind } from '../lib/legal/types'
 import {
@@ -128,6 +129,8 @@ console.log(`Engine OK — score ${ENGINE_RESULT.overallScore}, grade ${ENGINE_R
 // ─────────────────────────────────────────────────────────────
 const CONSENT_VERSION = '1.0'
 const PRAC_PASSWORD = 'TestPass1234!'
+const CLINICAL_CONTENT_VERSION = 'clinical-content-test-fixture-v1'
+const CLINICAL_REVIEW_RECEIPT_SHA256 = 'f'.repeat(64)
 const PRACTITIONER_DOCUMENT_KINDS = [
   'terms',
   'privacy',
@@ -143,7 +146,7 @@ const EXERCISE_SLUGS = [
   'band-pull-apart', 'butterfly-stretch', 'bent-knee-calf-stretch', 'band-hip-hinge-pull-through',
 ]
 
-function makeSnapshot(week: number, capability: string): object {
+function makeSnapshot(week: number, capability: string, estimatedDurationSec: number): object {
   const exCount = rRange(3, 6)
   const items = Array.from({ length: exCount }, (_, i) => ({
     slug: EXERCISE_SLUGS[i % EXERCISE_SLUGS.length],
@@ -151,7 +154,18 @@ function makeSnapshot(week: number, capability: string): object {
     holdSeconds: rPick([20, 30, 45, 60]),
     name: `Exercise ${i + 1}`,
   }))
-  return { week, capability, items }
+  return {
+    version: 3,
+    week,
+    capability,
+    priorities: [],
+    items,
+    estimatedDurationSec,
+    clinicalContent: {
+      version: CLINICAL_CONTENT_VERSION,
+      inventorySha256: clinicalContentInventory.inventory_sha256,
+    },
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -459,6 +473,7 @@ async function mintWorkoutSession(
     : shareState === 'revoked' ? pastDate(-7).toISOString() // revoked: would have been valid
     : null
 
+  const estimatedDurationSec = rRange(600, 1800)
   const { data: ws, error: wsErr } = await supabase
     .from('workout_sessions')
     .insert({
@@ -467,12 +482,15 @@ async function mintWorkoutSession(
       practitioner_id: practitionerId,
       week,
       capability,
-      program_snapshot: makeSnapshot(week, capability),
+      program_snapshot: makeSnapshot(week, capability, estimatedDurationSec),
       session_token_hash: sessionTokenHash,
       status: completed ? 'completed' : sessionStatus,
-      estimated_duration_sec: rRange(600, 1800),
+      estimated_duration_sec: estimatedDurationSec,
       expires_at: expiresAt,
       revoked_at: null,
+      clinical_content_version: CLINICAL_CONTENT_VERSION,
+      clinical_inventory_sha256: clinicalContentInventory.inventory_sha256,
+      clinical_review_receipt_sha256: CLINICAL_REVIEW_RECEIPT_SHA256,
     })
     .select('id')
     .single()

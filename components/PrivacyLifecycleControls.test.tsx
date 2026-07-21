@@ -15,10 +15,12 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 
 describe('PrivacyLifecycleControls', () => {
   let inventoryGeneration = 1
+  let rotationEnabled = true
   afterEach(() => cleanup())
 
   beforeEach(() => {
     inventoryGeneration = 1
+    rotationEnabled = true
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.startsWith('/api/workouts/shares?')) {
@@ -30,7 +32,7 @@ describe('PrivacyLifecycleControls', () => {
           revoked_at: null,
           share_generation: inventoryGeneration,
           state: 'active',
-        }], next_cursor: null })
+        }], next_cursor: null, rotation_enabled: rotationEnabled })
       }
       if (url === '/api/consent/withdraw') return jsonResponse({ status: 'withdrawn', shares_revoked: 1 })
       if (url === '/api/workouts/shares' && init?.method === 'POST') {
@@ -70,6 +72,35 @@ describe('PrivacyLifecycleControls', () => {
     expect(link).toBeTruthy()
     expect(screen.getByText(/old link no longer works/i)).toBeTruthy()
     expect(screen.getByText(/generation 7/i)).toBeTruthy()
+  })
+
+  test('keeps inventory and revocation visible but hides rotation when clinical workouts are disabled', async () => {
+    rotationEnabled = false
+    render(<PrivacyLifecycleControls clientId={clientId} hasConsent onConsentWithdrawn={vi.fn()} onDeleted={vi.fn()} />)
+
+    expect(await screen.findByText('active')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Rotate' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy()
+  })
+
+  test('fails closed when the inventory response omits the rotation capability', async () => {
+    vi.mocked(fetch).mockImplementationOnce(() => jsonResponse({
+      shares: [{
+        session_id: '30000000-0000-4000-8000-000000000001',
+        assessment_id: '40000000-0000-4000-8000-000000000001',
+        created_at: '2026-07-20T00:00:00Z',
+        expires_at: '2026-07-27T00:00:00Z',
+        revoked_at: null,
+        share_generation: 1,
+        state: 'active',
+      }],
+      next_cursor: null,
+    }))
+    render(<PrivacyLifecycleControls clientId={clientId} hasConsent onConsentWithdrawn={vi.fn()} onDeleted={vi.fn()} />)
+
+    expect(await screen.findByText('active')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Rotate' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy()
   })
 
   test('requires the exact erasure confirmation and surfaces pending cleanup', async () => {

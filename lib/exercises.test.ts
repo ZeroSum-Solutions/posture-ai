@@ -104,6 +104,14 @@ describe('deriveExerciseRecommendations - determinism', () => {
     const resultB = deriveExerciseRecommendations(SEED_EXERCISES, findingsB).map(e => e.slug).sort()
     expect(resultA).toEqual(resultB)
   })
+
+  it('honors a release-scoped relationship check when one is supplied', () => {
+    const result = deriveExerciseRecommendations(SEED_EXERCISES, dangerFindings, {
+      isCoherentForKey: (exercise) => exercise.slug === 'chin-tucks',
+    })
+
+    expect(result.map((exercise) => exercise.slug)).toEqual(['chin-tucks'])
+  })
 })
 
 // Mirrors content/exercises/seated-hamstring-stretch.ts: indicated for trunk_lean,
