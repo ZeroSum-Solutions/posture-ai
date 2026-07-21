@@ -49,6 +49,9 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
   const muscle = approvedClinicalMuscles(access).find((candidate) => candidate.slug === slug)
   if (!muscle) notFound()
 
+  // Report copy is its own reviewed item kind: only render the plain-language
+  // label when this release approved it, otherwise fall back to the raw key.
+  const approvedCopy = new Set(access.approvedReportCopyIds)
   const typedLinks: LinkRow[] = approvedClinicalLinks(access)
     .filter((entry) => entry.muscle.slug === slug)
     .map(({ link }) => ({
@@ -56,7 +59,9 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
       rationale_text: link.rationale,
       imbalance_definitions: {
         key: link.imbalanceKey,
-        label: IMBALANCE_COPY[link.imbalanceKey]?.plainLabel ?? link.imbalanceKey,
+        label: approvedCopy.has(`report_copy:${link.imbalanceKey}`)
+          ? IMBALANCE_COPY[link.imbalanceKey]?.plainLabel ?? link.imbalanceKey
+          : link.imbalanceKey,
       },
     }))
   const typedExercises: ExerciseMuscleRow[] = access.surfaces.recommendations

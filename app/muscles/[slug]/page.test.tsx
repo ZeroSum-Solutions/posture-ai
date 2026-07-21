@@ -40,4 +40,49 @@ describe('muscle detail clinical surface isolation', () => {
     expect(html).not.toContain('Prone Hamstring Curl')
     expect(html).not.toContain('Seated Hamstring Stretch')
   })
+
+  test('falls back to the raw imbalance key when the report copy is not approved', async () => {
+    access.current = {
+      mode: 'approved',
+      reason: 'test',
+      contentVersion: 'knowledge-only-v1',
+      inventorySha256: 'a'.repeat(64),
+      surfaces: { recommendations: false, programs: false, workouts: false, knowledgeLinks: true },
+      approvedItemIds: [],
+      approvedMuscleSlugs: ['hamstrings'],
+      approvedExerciseSlugs: [],
+      approvedLinkIds: ['link:hamstrings:trunk_lean:tight'],
+      approvedExerciseMuscleIds: [],
+      approvedContraindicationIds: [],
+      approvedReportCopyIds: [],
+      approvedAlgorithmIds: [],
+    }
+
+    const html = renderToStaticMarkup(await MusclePage({ params: Promise.resolve({ slug: 'hamstrings' }) }))
+
+    expect(html).not.toContain('Trunk Lean')
+    expect(html).toContain('trunk_lean')
+  })
+
+  test('renders the reviewed report-copy label when it is approved', async () => {
+    access.current = {
+      mode: 'approved',
+      reason: 'test',
+      contentVersion: 'knowledge-only-v1',
+      inventorySha256: 'a'.repeat(64),
+      surfaces: { recommendations: false, programs: false, workouts: false, knowledgeLinks: true },
+      approvedItemIds: [],
+      approvedMuscleSlugs: ['hamstrings'],
+      approvedExerciseSlugs: [],
+      approvedLinkIds: ['link:hamstrings:trunk_lean:tight'],
+      approvedExerciseMuscleIds: [],
+      approvedContraindicationIds: [],
+      approvedReportCopyIds: ['report_copy:trunk_lean'],
+      approvedAlgorithmIds: [],
+    }
+
+    const html = renderToStaticMarkup(await MusclePage({ params: Promise.resolve({ slug: 'hamstrings' }) }))
+
+    expect(html).toContain('Trunk Lean')
+  })
 })

@@ -9,6 +9,7 @@ import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
 import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
 import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 import { approvedClinicalLinks } from '@/lib/clinical-content/catalog'
+import { hasCompleteClinicalSurfaces } from '@/lib/clinical-content/surfaces'
 import { buildClinicalProjection } from '@/lib/program/clinicalProjection'
 import type { StoredFinding } from '@/lib/findings/storedFindingToEngine'
 
@@ -22,10 +23,7 @@ export async function GET(
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
   const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
-  const completeClinicalSurface = clinicalAccess.surfaces.recommendations
-    && clinicalAccess.surfaces.programs
-    && clinicalAccess.surfaces.workouts
-    && clinicalAccess.surfaces.knowledgeLinks
+  const completeClinicalSurface = hasCompleteClinicalSurfaces(clinicalAccess)
 
   const { id } = await params
   const logBase = { userHash: hashUser(user.id), resourceHash: hashResource(id) }
@@ -185,7 +183,9 @@ export async function PATCH(
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
   const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
-  if (!clinicalAccess.surfaces.programs) return clinicalContentUnavailableResponse()
+  // Same predicate as GET and the assessment page: overrides must not be
+  // writable in a partial release where they would be invisible and inert.
+  if (!hasCompleteClinicalSurfaces(clinicalAccess)) return clinicalContentUnavailableResponse()
   const userHash = hashUser(user.id)
 
   const service = createSupabaseServiceClient()
