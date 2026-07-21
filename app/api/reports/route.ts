@@ -17,7 +17,7 @@ import { areEngineVersionsComparable } from '@/lib/comparison/policy'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashResource, hashUser } from '@/lib/log'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import { snapshotLegalDocument } from '@/lib/legal/policy'
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   if (aErr || !assessment) {
     if (aErr && !isNoRows(aErr)) {
-      console.error('[api/reports] assessment load failed:', assessment_id, aErr.message)
+      logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'assessment_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
   // failed read is indistinguishable from a genuinely-empty result. Rendering from
   // silently-empty findings would deliver a clinical PDF showing zero posture issues.
   if (findingsErr) {
-    console.error('[api/reports] findings load failed:', assessment_id, findingsErr.message)
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'findings_load_failed' })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
       .select('imbalance_key, deviation, severity_pct, zone, unit')
       .eq('assessment_id', compared_to_assessment_id)
     if (priorFindingsErr) {
-      console.error('[api/reports] prior findings load failed:', compared_to_assessment_id, priorFindingsErr.message)
+      logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(compared_to_assessment_id), detailCode: 'prior_findings_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     if (priorFindings) {
@@ -397,9 +397,23 @@ export async function POST(req: NextRequest) {
   }
 
   // Upload to Supabase Storage via service role
-  const serviceSupabase = createSupabaseServiceClient()
+  const reportFetch: typeof fetch = (input, init) => {
+    const timeout = AbortSignal.timeout(60_000)
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout
+    return fetch(input, { ...init, signal })
+  }
+  const serviceSupabase = createSupabaseServiceClient({ fetch: reportFetch })
   const pdfSha256 = createHash('sha256').update(Buffer.from(pdfBuffer)).digest('hex')
   const storagePath = `${user.id}/${assessment_id}/${variant}/${pdfSha256}-${randomUUID()}.pdf`
+  const cleanupIntent = {
+    deletion_receipt_id: null,
+    source_code: 'report_insert_compensation',
+    bucket: 'posture-reports',
+    object_path: storagePath,
+    // Long enough for normal rendering/upload/finalization, short enough that a
+    // crashed request does not leave an untracked PDF for long.
+    next_attempt_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+  }
 
   // Ensure bucket exists
   const { error: bucketErr } = await serviceSupabase.storage.createBucket('posture-reports', {
@@ -407,7 +421,17 @@ export async function POST(req: NextRequest) {
     allowedMimeTypes: ['application/pdf'],
   })
   if (bucketErr && !bucketErr.message?.includes('already exists') && !bucketErr.message?.includes('Duplicate')) {
-    console.error('[api/reports] Bucket creation error:', bucketErr.message)
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 0, userHash: hashUser(user.id), detailCode: 'report_bucket_check_failed' })
+  }
+
+  // Persist compensation BEFORE the external side effect. If the process or DB
+  // dies after upload, the scheduled worker already knows the exact object path.
+  const { error: intentError } = await serviceSupabase
+    .from('privacy_storage_deletion_outbox')
+    .insert(cleanupIntent)
+  if (intentError) {
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'report_cleanup_intent_failed' })
+    return NextResponse.json({ error: 'Could not safely prepare report storage. Please retry.' }, { status: 500 })
   }
 
   const { error: uploadErr } = await serviceSupabase.storage
@@ -418,49 +442,48 @@ export async function POST(req: NextRequest) {
     })
 
   if (uploadErr) {
-    console.error('[api/reports] Upload error:', uploadErr.message)
-    return NextResponse.json({ error: 'Failed to upload PDF: ' + uploadErr.message }, { status: 500 })
+    // Provider errors can be commit-ambiguous: the object may exist even though
+    // the response says the upload failed. Retain the intent; deleting a missing
+    // object later is idempotent, while cancelling here could orphan a real PDF.
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'report_upload_failed' })
+    return NextResponse.json({ error: 'Failed to upload PDF.' }, { status: 500 })
   }
 
-  // Insert reports row (service-role: authenticated DB writes on regulated tables
-  // are revoked; practitioner_id is set explicitly below).
-  const { data: report, error: reportErr } = await serviceSupabase
-    .from('reports')
-    .insert({
-      assessment_id,
-      practitioner_id: user.id,
-      storage_path: storagePath,
-      // Record the comparison only when the report actually rendered one: the
-      // practitioner PDF whenever a prior was passed, the client PDF only when a
-      // valid same-client progress comparison was built above.
-      compared_to_assessment_id: variant === 'client'
+  // Persist the governed report row and cancel the pre-upload intent in one DB
+  // transaction. Either both happen, or the intent remains available to retry.
+  const { data: finalizeData, error: reportErr } = await serviceSupabase.rpc(
+    'finalize_report_upload',
+    {
+      p_assessment_id: assessment_id,
+      p_practitioner_id: user.id,
+      p_storage_path: storagePath,
+      // Record the comparison only when the report actually rendered one.
+      p_compared_to_assessment_id: variant === 'client'
         ? (clientComparison ? compared_to_assessment_id : null)
         : (compared_to_assessment_id || null),
-      legal_document_id: legalNotice.documentId,
-      legal_document_version: legalNotice.version,
-      legal_document_body_sha256: legalNotice.bodySha256,
-      legal_document_effective_at: legalNotice.effectiveAt,
-      legal_jurisdiction: legalNotice.jurisdiction,
-      legal_product_scope: legalNotice.productScope,
-      legal_provenance_state: 'governed',
-    })
-    .select('id')
-    .single()
+      p_document_id: legalNotice.documentId,
+      p_document_version: legalNotice.version,
+      p_document_body_sha256: legalNotice.bodySha256,
+      p_document_effective_at: legalNotice.effectiveAt,
+      p_jurisdiction: legalNotice.jurisdiction,
+      p_product_scope: legalNotice.productScope,
+    },
+  )
+  const report = finalizeData as { status?: string; report_id?: string } | null
 
-  if (reportErr || !report) {
-    // The reports row didn't persist — e.g. the client was erased mid-export and
-    // the reports_reject_deleted_client trigger rejected it. Remove the PDF we
-    // just uploaded so no regulated file is orphaned in storage after an erasure.
-    console.error('[api/reports] reports insert failed; removing uploaded PDF:', reportErr?.message)
-    await serviceSupabase.storage.from('posture-reports').remove([storagePath])
+  if (reportErr || report?.status !== 'created' || !report.report_id) {
+    // A lost RPC response is also commit-ambiguous. Never remove synchronously:
+    // if finalization committed, its transaction deleted the intent and the PDF
+    // belongs to a report; otherwise the still-durable intent cleans it later.
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'report_finalize_unconfirmed' })
     return NextResponse.json({ error: 'Failed to record report. Please retry.' }, { status: 500 })
   }
 
   return NextResponse.json({
-    report_id: report.id,
+    report_id: report.report_id,
     // A same-origin download re-checks active AAL2 access on every request.
     // Do not issue a storage capability that could outlive revocation.
-    signed_url: `/api/reports/${encodeURIComponent(report.id)}/download`,
+    signed_url: `/api/reports/${encodeURIComponent(report.report_id)}/download`,
     storage_path: storagePath,
     comparison_overall: clientComparison?.overall.status ?? null,
     engine_version_mismatch: engineVersionMismatch,

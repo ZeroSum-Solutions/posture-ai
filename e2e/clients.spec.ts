@@ -94,7 +94,9 @@ test.describe('erased client is hidden from the clients list', () => {
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toBeVisible()
 
     // Right-to-erasure: tombstone + redact + purge.
-    const del = await page.request.delete(`/api/clients/${victim.id}`, { data: { reason: 'test erasure' } })
+    const del = await page.request.delete(`/api/clients/${victim.id}`, {
+      data: { reason_code: 'practitioner_correction' },
+    })
     expect(del.ok(), `delete failed: ${del.status()}`).toBeTruthy()
 
     // The erased client's row is gone; the keeper still renders.

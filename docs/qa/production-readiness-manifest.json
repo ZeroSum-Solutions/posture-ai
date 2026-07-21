@@ -153,15 +153,15 @@
     {"id":"HG-10","kind":"human","criterion_id":"HG-10.PASS","dependencies":["HG-09"],"maps_to_criterion":"HG-10.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Approve production promotion."}
   ],
   "e2e": {
-    "inventory_id":"playwright-production-readiness-2026-07-19-v2",
+    "inventory_id":"playwright-production-readiness-2026-07-20-v3",
     "source_config":"playwright.config.ts",
     "source_runner":"scripts/run-e2e.mjs",
     "inventory_command":"npx playwright test --list",
     "project_order":["setup","desktop-chromium","mobile-webkit","calibration"],
-    "projects":{"setup":1,"desktop-chromium":69,"mobile-webkit":60,"calibration":1},
-    "expected_total":131,
-    "expected_files":28,
-    "inventory_hash":"4386f5bdbabe04f9b8df3513a287b7c457ea9e81c16eb7902ad7fe5276684d97",
+    "projects":{"setup":1,"desktop-chromium":70,"mobile-webkit":61,"calibration":1},
+    "expected_total":133,
+    "expected_files":29,
+    "inventory_hash":"2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
     "inventory_hash_contract":{"algorithm":"sha256","canonicalization":"UTF-8 JSON with recursively sorted object keys and preserved array order","covered_fields":["inventory_id","source_config","source_runner","inventory_command","project_order","projects","expected_total","expected_files","execution","retry_policy","approved_skips","skip_policy"]},
     "execution":{"fully_parallel":false,"workers":1,"required_local_release_command":"CI=1 npm run test:e2e","ci_server":"next start","local_server":"next dev --turbopack"},
     "retry_policy":{"local_retries":0,"ci_retries":1,"passed_on_retry_is_flaky":true,"release_rule":"PR-17 permits zero retry result without a documented root cause, owner, repair receipt, and independent disposition."},
@@ -169,6 +169,7 @@
       {"key":"skip:a11y:mobile-webkit","source":"e2e/a11y.spec.ts::test.skip(browserName !== chromium)","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Axe budget runs once in Chromium.","owner":"PR-08","expires_on":"2026-08-31"},
       {"key":"skip:consent-age-api:mobile-webkit","source":"e2e/consent-age.spec.ts::capture consent + age gate project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level consent matrix runs once in Chromium.","owner":"PR-06","expires_on":"2026-08-31"},
       {"key":"skip:deletion:mobile-webkit","source":"e2e/deletion.spec.ts::client data deletion project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level deletion gate runs once in Chromium.","owner":"PR-06","expires_on":"2026-08-31"},
+      {"key":"skip:privacy-lifecycle:desktop-chromium","source":"e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard","scope":{"project":"desktop-chromium","condition":"browserName=chromium"},"reason":"Phone lifecycle walkthrough runs once in mobile WebKit.","owner":"PR-06","expires_on":"2026-08-31"},
       {"key":"skip:error-states:mobile-webkit","source":"e2e/error-states.spec.ts::error states project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Mocked error-state suite runs once in Chromium.","owner":"PR-08","expires_on":"2026-08-31"},
       {"key":"skip:gate-integrity:mobile-webkit","source":"e2e/gate-integrity.spec.ts::gate integrity project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Security regression suite runs once in Chromium.","owner":"PR-13","expires_on":"2026-08-31"},
       {"key":"skip:report-approval:mobile-webkit","source":"e2e/report-approval.spec.ts::report approval gate project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level report gate runs once in Chromium.","owner":"PR-07","expires_on":"2026-08-31"},
@@ -247,7 +248,7 @@
     "execution_command":"CI=1 npm run test:e2e",
     "report_format":"playwright-json-report",
     "required_evidence_fields":["inventory_id","inventory_hash","projects","report_format","report_receipt","commit","configuration_hash","status","started_at","completed_at","observed_skips","retry_results"],
-    "required_evidence_values":{"inventory_id":"playwright-production-readiness-2026-07-19-v2","report_format":"playwright-json-report","status":"passed"},
+    "required_evidence_values":{"inventory_id":"playwright-production-readiness-2026-07-20-v3","report_format":"playwright-json-report","status":"passed"},
     "report_artifact_fields":["path","sha256"],
     "report_content_required_fields":["format","command","commit","configuration_hash","inventory_id","inventory_hash","project_order","projects","expected_total","expected_files","status","started_at","completed_at","tests","observed_skips","retry_results"],
     "binding_rules":{"command":"ci_contract.engineering_e2e_only","commit":"state.release_evidence.repository.head_sha","configuration_hash":"manifest.configuration_hash","inventory_id":"e2e.inventory_id","inventory_hash":"e2e.inventory_hash","project_order":"e2e.project_order","projects":"e2e.projects","expected_total":"e2e.expected_total","expected_files":"e2e.expected_files"},
@@ -309,7 +310,7 @@
   "configuration_hash_contract": {
     "algorithm":"sha256",
     "canonicalization":"UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash":"aaab11804aa80be45fc57ea1e82f3f05c49ba9bd5ffd686cad57ac48808760bf",
+    "expected_hash":"bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
     "covered_fields":["release_boundary","release_configuration","intended_beta_rehearsal_contract","owner_approval_contract","executed_playwright_report_contract","not_applicable_completion_contracts","ci_contract","exclusions","audit_findings[*].id","audit_findings[*].severity","audit_findings[*].verdict","audit_findings[*].applicability","audit_findings[*].engineering_task","audit_findings[*].human_provider_gates","audit_findings[*].dependencies","audit_findings[*].release_condition","criteria[*].id","criteria[*].task_id","criteria[*].kind","criteria[*].dependencies","tasks[*].id","tasks[*].kind","tasks[*].criterion_id","tasks[*].dependencies","tasks[*].applicability","e2e.inventory_id","e2e.project_order","e2e.projects","e2e.expected_total","e2e.expected_files","e2e.inventory_hash","e2e.execution","e2e.retry_policy","e2e.approved_skips","e2e.skip_policy"],
     "invalidation_rule":"Any covered-field change regenerates configuration_hash, re-audits affected tasks, renews council review, and repeats HG-09.",
     "launch_match_locations":["manifest.configuration_hash","release_evidence.configuration.expected_hash","release_evidence.configuration.actual_hash","release_evidence.rehearsal.configuration_hash","release_evidence.owner_approval.configuration_hash"],
@@ -321,5 +322,5 @@
     "owner_approval_required":true,
     "owner_approval_task":"HG-10"
   },
-  "configuration_hash":"aaab11804aa80be45fc57ea1e82f3f05c49ba9bd5ffd686cad57ac48808760bf"
+  "configuration_hash":"bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead"
 }

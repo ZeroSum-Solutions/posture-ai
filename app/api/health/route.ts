@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logEvent } from '@/lib/log'
 
 export async function GET() {
   try {
@@ -36,7 +37,7 @@ export async function GET() {
     }
 
     // Log confirmation for server log watchers (satisfies feature test step)
-    console.log('[health] Supabase connection confirmed - database: connected')
+    logEvent({ route: 'GET /api/health', outcome: 'ok', status: 200, detailCode: 'database_connected' })
 
     return NextResponse.json({
       status: 'ok',
@@ -44,10 +45,10 @@ export async function GET() {
       schema: schemaApplied ? 'ready' : 'pending_migration',
       timestamp: new Date().toISOString(),
     })
-  } catch (err) {
+  } catch {
     // Detail goes to the server log only — this is a public endpoint, so the
     // response body must not echo raw DB error text (schema/connection internals).
-    console.error('[health] Database connection error:', err)
+    logEvent({ route: 'GET /api/health', outcome: 'server_error', status: 500, detailCode: 'database_connection_failed' })
     return NextResponse.json({
       status: 'error',
       database: 'disconnected',

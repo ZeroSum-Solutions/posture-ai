@@ -21,6 +21,9 @@ export function publicPaths(nodeEnv: string | undefined = process.env.NODE_ENV):
     '/auth/forgot-password',
     '/auth/update-password',
     '/api/health',
+    // Vercel cron has no practitioner session. This exact machine route performs
+    // its own timing-safe CRON_SECRET authentication before any mutation.
+    '/api/internal/privacy-maintenance',
     // The legal-document catalog is public so signed-out onboarding and remote
     // subject-consent surfaces can render the exact governed snapshot.
     '/api/legal/documents',

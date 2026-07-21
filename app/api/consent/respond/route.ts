@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     p_signed_at: signedAt,
   })
   if (error) {
-    console.error('[api/consent/respond] rpc error:', error.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash: ipHash ?? 'anon', detailCode: 'remote_consent_rpc_failed' })
     return NextResponse.json({ error: 'Failed to record consent.' }, { status: 500 })
   }
 

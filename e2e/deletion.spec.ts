@@ -19,7 +19,9 @@ test.describe('client data deletion', () => {
     expect((before.clients as { id: string }[]).some((x) => x.id === c.id)).toBeTruthy()
 
     // Delete + purge.
-    const del = await page.request.delete(`/api/clients/${c.id}`, { data: { reason: 'test erasure' } })
+    const del = await page.request.delete(`/api/clients/${c.id}`, {
+      data: { reason_code: 'practitioner_correction' },
+    })
     expect(del.ok(), `delete failed: ${del.status()}`).toBeTruthy()
     expect((await del.json()).assessments_purged).toBeGreaterThanOrEqual(1)
 

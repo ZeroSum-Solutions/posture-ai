@@ -23,6 +23,7 @@ const testState = vi.hoisted(() => ({
   snapshot: vi.fn(),
   workoutInsert: vi.fn(),
   runInsert: vi.fn(),
+  rpc: vi.fn(),
 }))
 
 const assessmentId = '11111111-1111-4111-8111-111111111111'
@@ -81,7 +82,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'practitioner-1' } } }) },
   }),
-  createSupabaseServiceClient: () => ({ from: serviceQuery }),
+  createSupabaseServiceClient: () => ({ from: serviceQuery, rpc: testState.rpc }),
 }))
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
@@ -102,11 +103,11 @@ vi.mock('@/lib/legal/policy', () => ({
 
 import { POST } from './route'
 
-function request() {
+function request(overrides: Record<string, unknown> = {}) {
   return new NextRequest('http://localhost/api/workouts', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ assessment_id: assessmentId, week: 1 }),
+    body: JSON.stringify({ assessment_id: assessmentId, week: 1, ...overrides }),
   })
 }
 
@@ -116,6 +117,7 @@ describe('POST /api/workouts', () => {
     testState.snapshot.mockReset().mockReturnValue(testState.legalNotice)
     testState.workoutInsert.mockReset()
     testState.runInsert.mockReset()
+    testState.rpc.mockReset().mockResolvedValue({ data: { status: 'created', session_id: 'session-1' }, error: null })
     testState.resolution.value = { ok: true, document: { id: 'screening-notice-v1' } }
   })
 
@@ -142,8 +144,8 @@ describe('POST /api/workouts', () => {
     const response = await POST(request())
 
     expect(response.status).toBe(200)
-    expect(testState.workoutInsert).toHaveBeenCalledWith(expect.objectContaining({
-      program_snapshot: {
+    expect(testState.rpc).toHaveBeenCalledWith('create_workout_session_governed', expect.objectContaining({
+      p_program_snapshot: {
         version: 2,
         week: 1,
         capability: 'standard',
@@ -152,14 +154,31 @@ describe('POST /api/workouts', () => {
         estimatedDurationSec: 720,
         legalNotice: testState.legalNotice,
       },
-      legal_document_id: testState.legalNotice.documentId,
-      legal_document_version: testState.legalNotice.version,
-      legal_document_body_sha256: testState.legalNotice.bodySha256,
-      legal_document_effective_at: testState.legalNotice.effectiveAt,
-      legal_jurisdiction: testState.legalNotice.jurisdiction,
-      legal_product_scope: testState.legalNotice.productScope,
-      legal_provenance_state: 'governed',
+      p_document_id: testState.legalNotice.documentId,
+      p_document_version: testState.legalNotice.version,
+      p_document_body_sha256: testState.legalNotice.bodySha256,
+      p_document_effective_at: testState.legalNotice.effectiveAt,
+      p_jurisdiction: testState.legalNotice.jurisdiction,
+      p_product_scope: testState.legalNotice.productScope,
     }))
-    expect(testState.runInsert).toHaveBeenCalledOnce()
+  })
+
+  test('does not release a share link when the atomic session transaction fails', async () => {
+    testState.rpc.mockResolvedValueOnce({ data: null, error: { message: 'audit insert failed' } })
+
+    const response = await POST(request({ share: true }))
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({ error: 'Failed to create session.' })
+    expect(testState.rpc).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not mint a session from a historical assessment after consent withdrawal', async () => {
+    testState.rpc.mockResolvedValueOnce({ data: { status: 'consent_unavailable' }, error: null })
+
+    const response = await POST(request({ share: true }))
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({ error: 'Subject consent is no longer active.' })
   })
 })

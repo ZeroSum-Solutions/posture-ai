@@ -21,8 +21,8 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
 
-  console.log('[api/clients] GET: SELECT from clients via .from().select()')
   const { data, error } = await supabase
     .from('clients')
     .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, created_at')
@@ -30,10 +30,10 @@ export async function GET() {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) {
-    console.error('[api/clients] GET error:', error.message)
+    logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_list_failed' })
     return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500 })
   }
-  console.log('[api/clients] GET: returned ' + data.length + ' rows from clients table')
+  logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_loaded' })
   return NextResponse.json({ clients: data, count: data.length })
 }
 
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       || typeof data !== 'object'
       || typeof (data as Record<string, unknown>).id !== 'string'
     ) {
-      console.error('[api/clients] POST enrollment error:', cErr?.message ?? 'missing client result')
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'client_consent_enrollment_failed' })
       return NextResponse.json({ error: 'Failed to create client and record consent.' }, { status: 500 })
     }
     return NextResponse.json({ client: data }, { status: 201 })
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await service.from('clients').insert(row).select().single()
   if (error) {
-    console.error('[api/clients] POST error:', error.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'client_create_failed' })
     return NextResponse.json({ error: 'Failed to create client.' }, { status: 500 })
   }
   return NextResponse.json({ client: data }, { status: 201 })

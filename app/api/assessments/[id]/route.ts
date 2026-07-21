@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashResource, hashUser } from '@/lib/log'
 import { isNoRows } from '@/lib/api/query-error'
 import { dedupeCapturesByViewSide } from '@/lib/captures/dedupeCaptures'
 
@@ -17,6 +17,7 @@ export async function GET(
   if (gate) return gate
 
   const { id } = await params
+  const logBase = { userHash: hashUser(user.id), resourceHash: hashResource(id) }
 
   const { data: assessment, error } = await supabase
     .from('assessments')
@@ -32,7 +33,7 @@ export async function GET(
 
   if (error) {
     if (!isNoRows(error)) {
-      console.error(`[api/assessments/${id}] load failed:`, error.message)
+      logEvent({ route: 'GET /api/assessments/[id]', outcome: 'server_error', status: 500, ...logBase, detailCode: 'assessment_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
@@ -45,7 +46,7 @@ export async function GET(
     .order('region')
   if (findingsErr) {
     // A failed read must not render as a complete assessment with no findings.
-    console.error(`[api/assessments/${id}] findings load failed:`, findingsErr.message)
+    logEvent({ route: 'GET /api/assessments/[id]', outcome: 'server_error', status: 500, ...logBase, detailCode: 'findings_load_failed' })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 

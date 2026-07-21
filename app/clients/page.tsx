@@ -16,6 +16,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [erasureNotice, setErasureNotice] = useState<'complete' | 'pending' | null>(null)
 
   const fetchClients = useCallback(async () => {
     setLoading(true)
@@ -42,8 +43,48 @@ export default function ClientsPage() {
   }, [])
 
   // Fetch-on-mount; loading flag flips synchronously by design. Revisit in P5 polish.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { fetchClients() }, [fetchClients])
+  useEffect(() => {
+    // Existing imperative Supabase loader; it owns loading/error state updates.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchClients()
+    const status = new URLSearchParams(window.location.search).get('erasure')
+    if (status === 'complete') {
+      sessionStorage.removeItem('postureai:pending-erasure-receipt')
+      setErasureNotice('complete')
+    }
+  }, [fetchClients])
+
+  useEffect(() => {
+    const status = new URLSearchParams(window.location.search).get('erasure')
+    const receiptId = sessionStorage.getItem('postureai:pending-erasure-receipt')
+    if (status !== 'pending' || !receiptId) return
+
+    let stopped = false
+    // The query/session receipt is external navigation state synchronized here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setErasureNotice('pending')
+    async function poll() {
+      const response = await fetch('/api/privacy/erasure-status', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ receipt_id: receiptId }),
+      }).catch(() => null)
+      if (stopped || !response?.ok) return
+      const body = await response.json().catch(() => ({})) as { external_deletion_status?: string }
+      if (body.external_deletion_status === 'complete') {
+        sessionStorage.removeItem('postureai:pending-erasure-receipt')
+        setErasureNotice('complete')
+        window.history.replaceState(null, '', '/clients?erasure=complete')
+      }
+    }
+    void poll()
+    const timer = window.setInterval(poll, 5_000)
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+    }
+  }, [])
 
   const filtered = clients.filter(c => {
     if (!search.trim()) return true
@@ -89,6 +130,17 @@ export default function ClientsPage() {
           }}
         />
       </div>
+
+      {erasureNotice === 'complete' && (
+        <p role="status" className="app-panel" style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
+          Client data was erased. No external file cleanup remains.
+        </p>
+      )}
+      {erasureNotice === 'pending' && (
+        <p role="alert" className="app-panel" style={{ padding: '12px 16px', color: 'var(--warning)' }}>
+          Client database data was erased. Stored report cleanup is still pending; this page is checking its retry status automatically.
+        </p>
+      )}
 
       {error && <p style={{ color: 'var(--danger)' }}>Error loading clients: {error}</p>}
 

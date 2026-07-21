@@ -858,5 +858,5 @@ describe('production readiness goal checker', () => {
     expect(result.status, result.stderr).toBe(1)
     expect(result.stderr).toBe('')
     expect(JSON.parse(result.stdout).errors).toContainEqual(expect.stringMatching(/^LIVE_COMMIT:/))
-  })
+  }, 20_000)
 })

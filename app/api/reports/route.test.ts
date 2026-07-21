@@ -28,13 +28,19 @@ const legalTest = vi.hoisted(() => {
 })
 
 const testSpies = vi.hoisted(() => ({
-  upload: vi.fn(async (path: string, body: unknown, options: unknown) => {
+  upload: vi.fn(async (path: string, body: unknown, options: unknown): Promise<{
+    error: { message: string } | null
+  }> => {
     void path
     void body
     void options
     return { error: null }
   }),
+  remove: vi.fn(async () => ({ error: null as { message: string } | null })),
   reportInsert: vi.fn(),
+  outboxInsert: vi.fn(),
+  outboxDelete: vi.fn(),
+  logEvent: vi.fn(),
   renderToBuffer: vi.fn(async (document: unknown) => {
     void document
     return Buffer.from('%PDF-1.4\n%mock')
@@ -45,16 +51,21 @@ const testSpies = vi.hoisted(() => ({
 // { data, error } and does NOT throw on DB errors.
 const serverTables: Record<string, { data: unknown; error: unknown }> = {}
 const serverTableQueues: Record<string, Array<{ data: unknown; error: unknown }>> = {}
-const reportsInsert: { data: unknown; error: unknown } = { data: { id: 'r1' }, error: null }
+const reportsInsert: { data: unknown; error: unknown } = {
+  data: { status: 'created', report_id: 'r1' }, error: null,
+}
+const outboxWrite: { data: unknown; error: unknown } = { data: null, error: null }
 
 function makeQuery(
   result: () => { data: unknown; error: unknown },
   onInsert?: (value: unknown) => void,
+  onDelete?: () => void,
 ): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q: any = {
     select: () => q, eq: () => q, neq: () => q, order: () => q, in: () => q,
     insert: (value: unknown) => { onInsert?.(value); return q },
+    delete: () => { onDelete?.(); return q },
     single: async () => result(),
     maybeSingle: async () => result(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +76,9 @@ function makeQuery(
 
 const uploadSpy = testSpies.upload
 const reportInsertSpy = testSpies.reportInsert
+const outboxInsertSpy = testSpies.outboxInsert
+const outboxDeleteSpy = testSpies.outboxDelete
+const removeSpy = testSpies.remove
 const renderToBufferSpy = testSpies.renderToBuffer
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -80,18 +94,27 @@ vi.mock('@/lib/supabase/server', () => ({
       createBucket: async () => ({ error: null }),
       from: () => ({
         upload: testSpies.upload,
-        remove: async () => ({ error: null }),
+        remove: testSpies.remove,
       }),
     },
     from: (table: string) => makeQuery(
-      () => reportsInsert,
-      table === 'reports' ? testSpies.reportInsert : undefined,
+      () => table === 'privacy_storage_deletion_outbox'
+        ? outboxWrite
+        : { data: null, error: null },
+      table === 'privacy_storage_deletion_outbox' ? testSpies.outboxInsert : undefined,
+      table === 'privacy_storage_deletion_outbox' ? testSpies.outboxDelete : undefined,
     ),
+    rpc: testSpies.reportInsert,
   }),
 }))
 
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
+vi.mock('@/lib/log', () => ({
+  logEvent: testSpies.logEvent,
+  hashUser: () => 'user-hash',
+  hashResource: () => 'resource-hash',
+}))
 vi.mock('@/lib/legal/runtime', () => ({
   resolveRuntimeLegalDocument: () => legalTest.resolution.value,
 }))
@@ -124,7 +147,11 @@ const approvedAssessment = {
 describe('POST /api/reports', () => {
   beforeEach(() => {
     uploadSpy.mockClear()
-    reportInsertSpy.mockClear()
+    removeSpy.mockReset().mockResolvedValue({ error: null })
+    reportInsertSpy.mockReset().mockImplementation(async () => reportsInsert)
+    outboxInsertSpy.mockClear()
+    outboxDeleteSpy.mockClear()
+    testSpies.logEvent.mockClear()
     renderToBufferSpy.mockClear()
     legalTest.snapshotSpy.mockClear()
     legalTest.resolution.value = { ok: true, document: { id: legalTest.snapshot.documentId } } as LegalResolution
@@ -133,6 +160,10 @@ describe('POST /api/reports', () => {
     serverTables.assessment_findings = { data: [], error: null }
     serverTables.imbalance_definitions = { data: [], error: null }
     serverTables.practitioners = { data: { display_name: 'Dr X', practice_name: 'Clinic' }, error: null }
+    reportsInsert.data = { status: 'created', report_id: 'r1' }
+    reportsInsert.error = null
+    outboxWrite.data = null
+    outboxWrite.error = null
   })
 
   test('returns 500 (and does NOT upload a PDF) when the findings read errors — a failed read must not become a clean "zero issues" report', async () => {
@@ -169,14 +200,13 @@ describe('POST /api/reports', () => {
       expect(res.status).toBe(200)
       const document = renderToBufferSpy.mock.calls[0]?.[0] as { props: Record<string, unknown> }
       expect(document.props.legalNotice).toBe(legalTest.snapshot)
-      expect(reportInsertSpy).toHaveBeenCalledWith(expect.objectContaining({
-        legal_document_id: legalTest.snapshot.documentId,
-        legal_document_version: legalTest.snapshot.version,
-        legal_document_body_sha256: legalTest.snapshot.bodySha256,
-        legal_document_effective_at: legalTest.snapshot.effectiveAt,
-        legal_jurisdiction: legalTest.snapshot.jurisdiction,
-        legal_product_scope: legalTest.snapshot.productScope,
-        legal_provenance_state: 'governed',
+      expect(reportInsertSpy).toHaveBeenCalledWith('finalize_report_upload', expect.objectContaining({
+        p_document_id: legalTest.snapshot.documentId,
+        p_document_version: legalTest.snapshot.version,
+        p_document_body_sha256: legalTest.snapshot.bodySha256,
+        p_document_effective_at: legalTest.snapshot.effectiveAt,
+        p_jurisdiction: legalTest.snapshot.jurisdiction,
+        p_product_scope: legalTest.snapshot.productScope,
       }))
       const [storagePath, , options] = uploadSpy.mock.calls[0]!
       const contentHash = createHash('sha256').update(Buffer.from('%PDF-1.4\n%mock')).digest('hex')
@@ -195,6 +225,61 @@ describe('POST /api/reports', () => {
     expect(uploadSpy.mock.calls.every(([, , options]) => (
       options as { upsert?: boolean }
     ).upsert === false)).toBe(true)
+  })
+
+  test('does not upload when the durable cleanup intent cannot be persisted first', async () => {
+    outboxWrite.error = { message: 'database unavailable' }
+
+    const res = await POST(req({ assessment_id: 'a1' }))
+
+    expect(res.status).toBe(500)
+    expect(uploadSpy).not.toHaveBeenCalled()
+    expect(reportInsertSpy).not.toHaveBeenCalled()
+    expect(JSON.stringify(testSpies.logEvent.mock.calls)).not.toContain('database unavailable')
+  })
+
+  test('retains the durable intent when an upload error may be commit-ambiguous', async () => {
+    uploadSpy.mockResolvedValueOnce({ error: { message: 'provider response lost after write' } })
+
+    const res = await POST(req({ assessment_id: 'a1' }))
+
+    expect(res.status).toBe(500)
+    expect(outboxInsertSpy).toHaveBeenCalledOnce()
+    expect(outboxDeleteSpy).not.toHaveBeenCalled()
+    expect(reportInsertSpy).not.toHaveBeenCalled()
+    expect(JSON.stringify(testSpies.logEvent.mock.calls)).not.toContain('response lost')
+  })
+
+  test('retains the pre-upload cleanup intent when finalization cannot be confirmed', async () => {
+    reportsInsert.data = null
+    reportsInsert.error = { message: 'client was erased' }
+
+    const res = await POST(req({ assessment_id: 'a1' }))
+
+    expect(res.status).toBe(500)
+    expect(removeSpy).not.toHaveBeenCalled()
+    expect(outboxInsertSpy).toHaveBeenCalledOnce()
+    expect(outboxDeleteSpy).not.toHaveBeenCalled()
+  })
+
+  test('creates durable cleanup before upload and never logs a raw ambiguous provider failure', async () => {
+    reportsInsert.data = null
+    reportsInsert.error = { message: 'provider included regulated data' }
+
+    const res = await POST(req({ assessment_id: 'a1' }))
+
+    expect(res.status).toBe(500)
+    expect(outboxInsertSpy).toHaveBeenCalledWith(expect.objectContaining({
+      deletion_receipt_id: null,
+      source_code: 'report_insert_compensation',
+      bucket: 'posture-reports',
+      object_path: expect.stringMatching(/^u1\/a1\/practitioner\//),
+      next_attempt_at: expect.any(String),
+    }))
+    expect(outboxInsertSpy.mock.invocationCallOrder[0]).toBeLessThan(uploadSpy.mock.invocationCallOrder[0])
+    expect(outboxDeleteSpy).not.toHaveBeenCalled()
+    expect(removeSpy).not.toHaveBeenCalled()
+    expect(JSON.stringify(testSpies.logEvent.mock.calls)).not.toContain('provider included regulated data')
   })
 
   test('does not throw (returns 200) when an imbalance_definitions muscle list is malformed JSON', async () => {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
@@ -54,14 +55,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })
   }
 
-  // Best-effort audit — never block the client on the write.
-  await service.from('workout_share_events').insert({
+  // Do not release the client-safe projection until its access event is durable.
+  // A retry can safely create a fresh access event after a transient failure.
+  const { error: auditError } = await service.from('workout_share_events').insert({
     workout_session_id: resolved.workout_session_id,
     practitioner_id: resolved.practitioner_id,
     event: 'accessed',
-    actor: 'client',
+    actor: null,
+    actor_code: 'client',
     ip_hash: ipHash,
+    reason_code: null,
+    operation_id: randomUUID(),
+    share_generation: resolved.share_generation ?? 1,
   })
+  if (auditError) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detailCode: 'share_access_audit_failed' })
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })
+  }
 
   logEvent({ route: ROUTE, outcome: 'ok', status: 200 })
   return NextResponse.json(publicSession, { headers: NO_STORE })

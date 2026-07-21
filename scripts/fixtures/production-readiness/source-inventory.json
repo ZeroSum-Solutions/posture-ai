@@ -1285,15 +1285,15 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 69,
-      "mobile-webkit": 60,
+      "desktop-chromium": 70,
+      "mobile-webkit": 61,
       "calibration": 1
     },
-    "expected_total": 131,
-    "expected_files": 28,
-    "test_ids_sha256": "1ba46f6942d8a73c4241b261a092c4ed293680072078dc22466fa0650210fb76"
+    "expected_total": 133,
+    "expected_files": 29,
+    "test_ids_sha256": "459da5638f897da35a4cda7eecf7680548f07e66cc09c60364c514e483de1581"
   },
-  "inventory_hash": "118e0d658df28a951bc8b1358de62ede99d39d4585adc45ca779c913a9152fd5",
+  "inventory_hash": "f4942c999d5d55a51f95259805b5694b0adf02eed14a866bf90b2e5d03772952",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1419,7 +1419,7 @@
       "retry_results"
     ],
     "required_evidence_values": {
-      "inventory_id": "playwright-production-readiness-2026-07-19-v2",
+      "inventory_id": "playwright-production-readiness-2026-07-20-v3",
       "report_format": "playwright-json-report",
       "status": "passed"
     },

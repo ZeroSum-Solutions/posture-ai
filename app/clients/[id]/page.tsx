@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
+import PrivacyLifecycleControls from '@/components/PrivacyLifecycleControls'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import dynamic from 'next/dynamic'
 import { toNum } from './numeric'
@@ -85,7 +86,9 @@ export default function ClientDetailPage() {
   const [compareTargetId, setCompareTargetId] = useState<string>('')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [archiveError, setArchiveError] = useState<string | null>(null)
-  const [consentStatus, setConsentStatus] = useState<'checking' | 'valid' | 'missing' | 'unavailable'>('checking')
+  const [consentStatus, setConsentStatus] = useState<
+    'checking' | 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable'
+  >('checking')
 
   useEffect(() => {
     // Abort a stale load when the client id changes / the page unmounts, so a
@@ -112,9 +115,20 @@ export default function ClientDetailPage() {
           signal: ac.signal,
         })
         if (!consentResponse.ok) throw new Error(`Failed to load consent (${consentResponse.status})`)
-        const consent = await consentResponse.json() as { hasConsent?: boolean }
+        const consent = await consentResponse.json() as {
+          hasConsent?: boolean
+          legalState?: 'current' | 'missing' | 'withdrawn' | 'reconsent_required' | 'legal_unavailable'
+        }
         if (ac.signal.aborted) return
-        setConsentStatus(consent.hasConsent ? 'valid' : 'missing')
+        setConsentStatus(consent.hasConsent && consent.legalState === 'current'
+          ? 'valid'
+          : consent.legalState === 'withdrawn'
+            ? 'withdrawn'
+            : consent.legalState === 'reconsent_required'
+              ? 'reconsent_required'
+              : consent.legalState === 'missing'
+                ? 'missing'
+                : 'unavailable')
       } catch (caught) {
         if ((caught as Error)?.name === 'AbortError') return
         setConsentStatus('unavailable')
@@ -184,6 +198,11 @@ export default function ClientDetailPage() {
     setClient((current) => current
       ? { ...current, consent_recorded_at: new Date().toISOString() }
       : current)
+  }
+
+  function handleConsentWithdrawn() {
+    setConsentStatus('withdrawn')
+    setClient((current) => current ? { ...current, consent_recorded_at: null } : current)
   }
 
   const hasMultipleAssessments = assessments.length >= 2
@@ -411,7 +430,11 @@ export default function ClientDetailPage() {
                   ? <span style={{ color: '#10B981' }}>✓ {consentDate ?? 'recorded'}</span>
                   : consentStatus === 'unavailable'
                     ? <span style={{ color: 'var(--danger)' }}>unavailable</span>
-                  : <span style={{ color: 'var(--warning)' }}>pending</span>}
+                    : consentStatus === 'withdrawn'
+                      ? <span style={{ color: 'var(--warning)' }}>withdrawn</span>
+                      : consentStatus === 'reconsent_required'
+                        ? <span style={{ color: 'var(--warning)' }}>new consent required</span>
+                        : <span style={{ color: 'var(--warning)' }}>not recorded</span>}
             </span>
           </div>
         </div>
@@ -611,7 +634,8 @@ export default function ClientDetailPage() {
 
       {/* Info Tab */}
       {activeTab === 'info' && (
-        <div {...panelProps('info')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+        <div {...panelProps('info')}>
+          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
             {dob && (
@@ -655,8 +679,14 @@ export default function ClientDetailPage() {
                   <div style={{ color: '#10B981', fontSize: '0.875rem' }}>
                     ✓ {client.consent_recorded_at ? new Date(client.consent_recorded_at).toLocaleDateString() : 'Recorded'}
                   </div>
+                ) : consentStatus === 'withdrawn' ? (
+                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Withdrawn</div>
+                ) : consentStatus === 'reconsent_required' ? (
+                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>New consent required</div>
+                ) : consentStatus === 'unavailable' ? (
+                  <div style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>Status unavailable</div>
                 ) : (
-                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Pending</div>
+                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Not recorded</div>
                 )}
               </div>
             )}
@@ -667,6 +697,18 @@ export default function ClientDetailPage() {
               <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{client.notes}</div>
             </div>
           )}
+          </div>
+          <PrivacyLifecycleControls
+            clientId={client.id}
+            hasConsent={consentStatus === 'valid'}
+            onConsentWithdrawn={handleConsentWithdrawn}
+            onDeleted={({ externalStatus, receiptId }) => {
+              if (externalStatus === 'pending' && receiptId) {
+                sessionStorage.setItem('postureai:pending-erasure-receipt', receiptId)
+              }
+              router.push(`/clients?erasure=${externalStatus}`)
+            }}
+          />
         </div>
       )}
     </div>

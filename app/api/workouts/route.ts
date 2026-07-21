@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -101,51 +102,38 @@ export async function POST(req: NextRequest) {
   const shareToken = share ? generateShareToken() : null
   const expiresAt = share ? new Date(Date.now() + SHARE_TTL_DAYS * 86_400_000).toISOString() : null
 
-  const { data: session, error: insertErr } = await service
-    .from('workout_sessions')
-    .insert({
-      assessment_id,
-      client_id: assessment.client_id,
-      practitioner_id: user.id,
-      week,
-      capability: snapshot.capability,
-      program_snapshot: snapshot,
-      estimated_duration_sec: snapshot.estimatedDurationSec,
-      session_token_hash: shareToken?.tokenHash ?? null,
-      expires_at: expiresAt,
-      legal_document_id: legalNotice.documentId,
-      legal_document_version: legalNotice.version,
-      legal_document_body_sha256: legalNotice.bodySha256,
-      legal_document_effective_at: legalNotice.effectiveAt,
-      legal_jurisdiction: legalNotice.jurisdiction,
-      legal_product_scope: legalNotice.productScope,
-      legal_provenance_state: 'governed',
-    })
-    .select('id')
-    .single()
-  if (insertErr || !session) {
-    // The workout_sessions_reject_deleted_client trigger raises here if the
-    // client was tombstoned — surface a clean 409 rather than a 500.
-    const tombstoned = /deleted client/i.test(insertErr?.message ?? '')
-    logEvent({ route: ROUTE, outcome: 'server_error', status: tombstoned ? 409 : 500, userHash, detail: insertErr?.message })
-    return NextResponse.json(
-      { error: tombstoned ? 'Client has been deleted.' : 'Failed to create session.' },
-      { status: tombstoned ? 409 : 500 },
-    )
-  }
-
-  // Start a run so playback state has a row to update immediately. If the seed
-  // fails, roll the session back — a session without its run row would 404 every
-  // PATCH /run and silently lose resume/progress.
-  const { error: runErr } = await service.from('session_runs').insert({
-    workout_session_id: session.id,
-    practitioner_id: user.id,
-    status: 'started',
+  const { data: created, error: createError } = await service.rpc('create_workout_session_governed', {
+    p_assessment_id: assessment_id,
+    p_client_id: assessment.client_id,
+    p_practitioner_id: user.id,
+    p_week: week,
+    p_capability: snapshot.capability,
+    p_program_snapshot: snapshot,
+    p_estimated_duration_sec: snapshot.estimatedDurationSec,
+    p_token_hash: shareToken?.tokenHash ?? null,
+    p_expires_at: expiresAt,
+    p_operation_id: randomUUID(),
+    p_ip_hash: hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')),
+    p_document_id: legalNotice.documentId,
+    p_document_version: legalNotice.version,
+    p_document_body_sha256: legalNotice.bodySha256,
+    p_document_effective_at: legalNotice.effectiveAt,
+    p_jurisdiction: legalNotice.jurisdiction,
+    p_product_scope: legalNotice.productScope,
   })
-  if (runErr) {
-    await service.from('workout_sessions').delete().eq('id', session.id)
-    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: `run seed failed: ${runErr.message}` })
+  const createResult = created as { status?: string; session_id?: string } | null
+  if (createError || !createResult?.status) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'session_transaction_failed' })
     return NextResponse.json({ error: 'Failed to create session.' }, { status: 500 })
+  }
+  if (createResult.status === 'not_found') {
+    return NextResponse.json({ error: 'Assessment or client is no longer available.' }, { status: 409 })
+  }
+  if (createResult.status === 'consent_unavailable') {
+    return NextResponse.json({ error: 'Subject consent is no longer active.' }, { status: 409 })
+  }
+  if (createResult.status !== 'created' || !createResult.session_id) {
+    return NextResponse.json({ error: 'Failed to create session.' }, { status: 422 })
   }
 
   let shareLink: string | undefined
@@ -154,17 +142,10 @@ export async function POST(req: NextRequest) {
     // caller-influenced, and a share link must never point off-site.
     const origin = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin).replace(/\/+$/, '')
     shareLink = `${origin}/s/${shareToken.token}`
-    await service.from('workout_share_events').insert({
-      workout_session_id: session.id,
-      practitioner_id: user.id,
-      event: 'minted',
-      actor: 'practitioner',
-      ip_hash: hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')),
-    })
   }
 
   logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash, assessmentId: assessment_id, durationMs: Date.now() - started })
-  return NextResponse.json({ session_id: session.id, share_link: shareLink })
+  return NextResponse.json({ session_id: createResult.session_id, share_link: shareLink })
 }
 
 /**

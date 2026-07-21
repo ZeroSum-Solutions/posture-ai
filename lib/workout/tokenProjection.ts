@@ -18,6 +18,7 @@ export interface ResolvedSession {
   estimated_duration_sec: number | null
   client_first_name: string | null
   expires_at: string | null
+  share_generation?: number
   legal_document_id: string | null
   legal_document_version: string | null
   legal_document_body_sha256: string | null

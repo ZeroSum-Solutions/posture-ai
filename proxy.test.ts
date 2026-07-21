@@ -97,6 +97,16 @@ describe('proxy PR-04 admission boundary', () => {
     expect(response.cookies.get('sb-session')?.value).toBe('rotated')
   })
 
+  test('lets the secret-authenticated privacy cron reach its own auth boundary without a user session', async () => {
+    getUser.mockResolvedValueOnce({ data: { user: null }, error: null })
+
+    const response = await proxy(new NextRequest('http://localhost/api/internal/privacy-maintenance'))
+
+    expect(response.status).toBe(200)
+    expect(getAuthenticatorAssuranceLevel).not.toHaveBeenCalled()
+    expect(maybeSingle).not.toHaveBeenCalled()
+  })
+
   test('allows only authenticated users into the AAL1 setup corridor', async () => {
     const response = await proxy(new NextRequest('http://localhost/auth/mfa?next=/dashboard'))
 

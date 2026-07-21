@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { isNoRows } from '@/lib/api/query-error'
+import { hashResource, hashUser, logEvent } from '@/lib/log'
 
 export async function GET(
   _req: NextRequest,
@@ -14,6 +15,7 @@ export async function GET(
   if (gate) return gate
 
   const { id } = await params
+  const logBase = { userHash: hashUser(user.id), resourceHash: hashResource(id) }
 
   const { data: assessment, error } = await supabase
     .from('assessments')
@@ -24,14 +26,14 @@ export async function GET(
 
   if (error || !assessment) {
     if (error && !isNoRows(error)) {
-      console.error('[api/assessments/status] load failed:', id, error.message)
+      logEvent({ route: 'GET /api/assessments/[id]/status', outcome: 'server_error', status: 500, ...logBase, detailCode: 'assessment_status_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
-    console.log('[api/assessments/status] not found:', id)
+    logEvent({ route: 'GET /api/assessments/[id]/status', outcome: 'client_error', status: 404, ...logBase, detailCode: 'assessment_not_found' })
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   }
 
-  console.log('[api/assessments/status] id:', id, 'status:', assessment.status)
+  logEvent({ route: 'GET /api/assessments/[id]/status', outcome: 'ok', status: 200, ...logBase, detailCode: 'assessment_status_loaded' })
   return NextResponse.json({
     id: assessment.id,
     status: assessment.status,

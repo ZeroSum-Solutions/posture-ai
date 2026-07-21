@@ -22,6 +22,7 @@ describe('proxy public-path allowlist', () => {
       '/auth/forgot-password',
       '/auth/update-password',
       '/api/health',
+      '/api/internal/privacy-maintenance',
       '/api/legal/documents?kind=terms',
       '/privacy',
       '/terms',
@@ -78,6 +79,7 @@ describe('proxy public-path allowlist', () => {
       '/api/consent/link',
       '/api/legal/accept',
       '/api/dev/create-test-user', // never public in production builds
+      '/api/internal/privacy-maintenance-export',
     ]) {
       expect(isPublicPath(p, prod), `${p} must stay auth-gated`).toBe(false)
     }

@@ -25,6 +25,7 @@ connector is OAuth-scoped to a different org — use the Management API
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | prod/preview/dev | Public anon key (RLS enforced) |
 | `NEXT_PUBLIC_SITE_URL` | prod/preview/dev | Canonical public origin; production must be `https://posture-ai-ivory.vercel.app` |
 | `SUPABASE_SERVICE_ROLE_KEY` | prod/preview only | Server-only; never client-bundled |
+| `CRON_SECRET` | prod/preview only | Vercel bearer secret for the daily privacy-maintenance route; required or the route returns 503 |
 | `POSTURE_TEST_MODE_ENABLED` | **never in production** | Server gate for fixture scoring; set to `1` only by the e2e runner/CI |
 | `NEXT_PUBLIC_POSE_MODEL` | optional | `lite` (default) or `full` MediaPipe model |
 | `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` | optional, non-prod | Show clinically-unreviewed muscle content with a badge |
@@ -105,6 +106,37 @@ After activation, rollback behind PR-05 is forbidden. The INSERT latch blocks ne
 legacy consent tokens, consent records, assessments, reports, and workout sessions;
 historical legacy rows remain readable and may still undergo non-provenance
 lifecycle updates such as approval or erasure redaction.
+
+### PR-06 privacy lifecycle and retention activation
+
+`20260720010000_privacy_lifecycle.sql` makes database erasure transactional and
+queues external report objects for idempotent retry. `vercel.json` calls
+`/api/internal/privacy-maintenance` daily; Vercel supplies `Authorization: Bearer
+$CRON_SECRET`. Missing or incorrect configuration fails closed. Do not invoke the
+route with a secret in a command line or log; use the provider's scheduler or an
+approved secret-bearing client.
+
+The source-of-truth store inventory is
+`docs/qa/privacy-lifecycle-retention-matrix.md`. The retention policy table is
+empty by design and application roles cannot mutate it. After HG-02 approves an
+exact duration, add it through a reviewed migration with the approval reference;
+do not edit the table ad hoc. Until then the scheduled retention pass reports zero
+policies and deletes no retained records. Hosted object inventory, backup/PITR
+coverage, RPO/RTO, and restore/erasure propagation remain HG-07/HG-08 provider
+evidence rather than claims made by this code.
+
+Operational response:
+
+1. A client DELETE response with `external_deletion_status: pending` means the
+   database erasure committed and one or more provider objects remain queued.
+2. Confirm the daily maintenance route is authorized and inspect the minimized
+   receipt/outbox status through the approved operator channel. Do not copy object
+   paths into tickets or logs.
+3. Resolve provider availability and rerun the worker. Leased jobs become eligible
+   again after five minutes; failures use bounded backoff and controlled codes.
+4. Treat `complete` only as application database plus known-object deletion. A
+   production launch still requires HG-07/HG-08 proof for orphan inventory and
+   backup expiration/restore behavior.
 
 Muscle KB content: edit files under `content/`, then
 `node scripts/generate-content-index.mjs` and regenerate the seed migration via
