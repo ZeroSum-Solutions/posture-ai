@@ -1,0 +1,118 @@
+[
+  {
+    "id": "PR-00.PASS",
+    "description": "Release manifest and fail-closed build/launch validators"
+  },
+  {
+    "id": "PR-01.PASS",
+    "description": "Grade, score, and rank presentation truth"
+  },
+  {
+    "id": "PR-02.PASS",
+    "description": "Version-aware measurement-tolerant progress comparisons"
+  },
+  {
+    "id": "PR-03.PASS",
+    "description": "Capture hard-failure and readiness recovery"
+  },
+  {
+    "id": "PR-04.PASS",
+    "description": "Invitation-only AAL2 practitioner admission"
+  },
+  {
+    "id": "PR-05.PASS",
+    "description": "Versioned fail-closed legal document infrastructure"
+  },
+  {
+    "id": "PR-06.PASS",
+    "description": "Consent, sharing, retention, and erasure lifecycles"
+  },
+  {
+    "id": "PR-07.PASS",
+    "description": "Server-enforced clinical-content governance"
+  },
+  {
+    "id": "PR-08.PASS",
+    "description": "Device and accessibility evidence harness"
+  },
+  {
+    "id": "PR-09.PASS",
+    "description": "Bounded data access, performance, and critical-contract ratchet"
+  },
+  {
+    "id": "PR-10.PASS",
+    "description": "Tier B protocol and analysis tooling"
+  },
+  {
+    "id": "PR-11.PASS",
+    "description": "Fail-closed eligible reliability-profile consumption or proven N/A"
+  },
+  {
+    "id": "PR-12.PASS",
+    "description": "Evidence-bound pelvic proxy, weights, and model-default decision"
+  },
+  {
+    "id": "PR-13.PASS",
+    "description": "Sensitive-operation and browser security hardening"
+  },
+  {
+    "id": "PR-14.PASS",
+    "description": "Typed, staged, reversible release engineering"
+  },
+  {
+    "id": "PR-15.PASS",
+    "description": "Observability and recovery tooling"
+  },
+  {
+    "id": "PR-16.PASS",
+    "description": "Historical snapshot and share compatibility"
+  },
+  {
+    "id": "PR-17.PASS",
+    "description": "Engineering release-candidate rehearsal and final audit"
+  },
+  {
+    "id": "HG-00.PASS",
+    "description": "Owner launch-boundary decision receipt"
+  },
+  {
+    "id": "HG-01.PASS",
+    "description": "Live Auth provider receipt"
+  },
+  {
+    "id": "HG-02.PASS",
+    "description": "Counsel-approved legal text"
+  },
+  {
+    "id": "HG-03.PASS",
+    "description": "Licensed-clinician content review or proven assessment-only N/A"
+  },
+  {
+    "id": "HG-04.PASS",
+    "description": "Physical iPhone and Android device matrix"
+  },
+  {
+    "id": "HG-05.PASS",
+    "description": "Human Tier B collection and statistical adjudication"
+  },
+  {
+    "id": "HG-06.PASS",
+    "description": "Live Vercel, Supabase, and GitHub settings receipt"
+  },
+  {
+    "id": "HG-07.PASS",
+    "description": "Live monitoring and backup provider configuration"
+  },
+  {
+    "id": "HG-08.PASS",
+    "description": "Human alert delivery and restore drill"
+  },
+  {
+    "id": "HG-09.PASS",
+    "description": "Intended-beta rehearsal and final council"
+  },
+  {
+    "id": "HG-10.PASS",
+    "description": "Owner production-promotion approval"
+  }
+]

@@ -1,5 +1,5 @@
 import { createHash, generateKeyPairSync, sign } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -27,12 +27,14 @@ const MANIFEST = JSON.parse(readFileSync(join(ROOT, 'docs/qa/production-readines
 const SOURCE_INVENTORY = JSON.parse(readFileSync(join(FIXTURE_DIR, 'source-inventory.json'), 'utf8'))
 const BASE = JSON.parse(readFileSync(join(FIXTURE_DIR, 'base-valid.json'), 'utf8'))
 const FAILURE_CASES = JSON.parse(readFileSync(join(FIXTURE_DIR, 'failure-cases.json'), 'utf8')) as FailureCase[]
+const GOAL_STATE_CRITERIA = JSON.parse(readFileSync(join(FIXTURE_DIR, 'goal-state-criteria.json'), 'utf8')) as JsonObject[]
 const HEAD = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()
 const ANCESTOR_COMMIT = spawnSync('git', ['rev-parse', 'HEAD^'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()
 const PLAYWRIGHT_LIST = spawnSync('npx', ['playwright', 'test', '--list'], { cwd: ROOT, encoding: 'utf8' })
 const HG04_REVIEW_KEY = generateKeyPairSync('ed25519')
 const HG04_REVIEW_FINGERPRINT = createHash('sha256').update(HG04_REVIEW_KEY.publicKey.export({ type: 'spki', format: 'der' })).digest('hex')
 const REBOUND_TASKS = ['PR-00', 'PR-01', 'PR-02', 'PR-03', 'PR-04', 'PR-05', 'PR-06', 'PR-07']
+const CANONICAL_STATE_PATH = resolve(homedir(), '.claude/goal-state/posture-ai-production-readiness/state.json')
 
 function clone<T>(value: T): T {
   return structuredClone(value)
@@ -338,14 +340,15 @@ function validInput({ freezeHuman = false, includeHg04Evidence = true } = {}): J
     proofs,
     release_evidence: releaseEvidence,
   }
-  const canonicalStatePath = resolve(homedir(), '.claude/goal-state/posture-ai-production-readiness/state.json')
-
   const actualSources = {
     files: [...SOURCE_INVENTORY.source_contracts, ...SOURCE_INVENTORY.runtime_source_contracts].map((contract: JsonObject) => {
       const path = String(contract.path).startsWith('~/') ? resolve(homedir(), String(contract.path).slice(2)) : resolve(ROOT, contract.path)
-      return { id: contract.id, path: contract.path, resolved_path: path, is_regular_file: true, is_symlink: false, within_allowed_root: true, content: readFileSync(path, 'utf8') }
+      const content = contract.json_pointer === '/criteria'
+        ? JSON.stringify({ criteria: GOAL_STATE_CRITERIA })
+        : readFileSync(path, 'utf8')
+      return { id: contract.id, path: contract.path, resolved_path: path, is_regular_file: true, is_symlink: false, within_allowed_root: true, content }
     }),
-    validation_state: { requested_path: canonicalStatePath, resolved_path: canonicalStatePath, is_regular_file: true, is_symlink: false, content: JSON.stringify(state) },
+    validation_state: { requested_path: CANONICAL_STATE_PATH, resolved_path: CANONICAL_STATE_PATH, is_regular_file: true, is_symlink: false, content: JSON.stringify(state) },
     playwright: { command: SOURCE_INVENTORY.playwright_inventory.command, exit_code: PLAYWRIGHT_LIST.status, stdout: PLAYWRIGHT_LIST.stdout, stderr: PLAYWRIGHT_LIST.stderr },
   }
 
@@ -1227,15 +1230,20 @@ describe('production readiness goal checker', () => {
     expect(validate('build', failOpen).errors).toContainEqual(expect.stringMatching(/^TASK_NA_PROOF:/))
   })
 
-  it('binds the independent source inventory to the audit and durable goal state', () => {
+  it('binds the independent source inventory to the audit and pinned goal-state criteria', () => {
     const audit = readFileSync(join(ROOT, 'docs/qa/AUDIT.md'), 'utf8')
     const auditIds = [...audit.matchAll(/^\| ((?:PRD|CAP|REL|CLN|LEG|AUTH|SEC|OPS|SCL)-\d{3}) \|/gm)].map(match => match[1])
-    const state = JSON.parse(readFileSync('/Users/zero-suminc./.claude/goal-state/posture-ai-production-readiness/state.json', 'utf8'))
     expect([...new Set(auditIds)].sort()).toEqual([...SOURCE_INVENTORY.audit_row_ids].sort())
-    expect(state.tasks.map(({ id, kind, dependencies, maps_to_criterion }: JsonObject) => ({ id, kind, dependencies, maps_to_criterion }))).toEqual(SOURCE_INVENTORY.tasks.map(({ id, kind, dependencies, maps_to_criterion }: JsonObject) => ({ id, kind, dependencies, maps_to_criterion })))
-    expect(state.tasks.map(({ id, applicability, applicability_reason }: JsonObject) => ({ id, applicability, applicability_reason }))).toEqual(SOURCE_INVENTORY.state_task_contracts)
+    expect(GOAL_STATE_CRITERIA.map(({ id }) => id)).toEqual(SOURCE_INVENTORY.criterion_ids)
     expect(MANIFEST.tasks.map(({ id, applicability }: JsonObject) => ({ id, applicability }))).toEqual(SOURCE_INVENTORY.tasks.map(({ id, applicability }: JsonObject) => ({ id, applicability })))
     expect(computeSourceInventoryHash(SOURCE_INVENTORY)).toBe(SOURCE_INVENTORY.inventory_hash)
+  })
+
+  it.runIf(existsSync(CANONICAL_STATE_PATH))('matches the local durable goal-state task contract', () => {
+    const state = JSON.parse(readFileSync(CANONICAL_STATE_PATH, 'utf8'))
+    expect(state.criteria).toEqual(GOAL_STATE_CRITERIA)
+    expect(state.tasks.map(({ id, kind, dependencies, maps_to_criterion }: JsonObject) => ({ id, kind, dependencies, maps_to_criterion }))).toEqual(SOURCE_INVENTORY.tasks.map(({ id, kind, dependencies, maps_to_criterion }: JsonObject) => ({ id, kind, dependencies, maps_to_criterion })))
+    expect(state.tasks.map(({ id, applicability, applicability_reason }: JsonObject) => ({ id, applicability, applicability_reason }))).toEqual(SOURCE_INVENTORY.state_task_contracts)
   })
 
   it('does not accept release evidence copied into the checked-in manifest', () => {
