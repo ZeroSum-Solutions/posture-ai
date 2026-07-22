@@ -13,7 +13,10 @@ jobs:
   official-performance:
     name: Performance budgets (official)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The frozen 150/300/1000 workload took ~43 minutes to reach browser
+    # measurement on GitHub's runner. Keep the samples/budgets fixed and give
+    # the orchestration enough room to finish camera and receipt validation.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
         with:

@@ -17,12 +17,9 @@ async function fillField(page: Page, label: string | RegExp, value: string) {
   }).toPass({ timeout: 15_000 })
 }
 
-// Client list + search (Required Phase-2 coverage). /clients (app/clients/page.tsx)
-// is a client component that fetches the practitioner's non-archived clients and
-// filters them in-memory by name. The shared practitioner accumulates clients
-// from other specs, so this test asserts only on its OWN two uniquely-tokened
-// clients (never an absolute count) and searches a random token that matches
-// exactly one of them.
+// Client list + bounded server search (Required Phase-2 coverage). The shared
+// practitioner accumulates clients from other specs, so this test asserts only
+// on its own two uniquely-tokened clients and waits for the debounced API result.
 test.describe('client list and search', () => {
   test('lists created clients and filters by name', async ({ page }) => {
     const tokenA = randomUUID().slice(0, 8)
@@ -40,8 +37,13 @@ test.describe('client list and search', () => {
     await expect(rowA).toBeVisible()
     await expect(rowB).toBeVisible()
 
-    // Typing a token unique to client A narrows the in-memory filter to just A.
-    await page.getByPlaceholder('Search clients by name...').fill(tokenA)
+    // The bounded directory contract uses human-name prefix search.
+    const searchResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/clients' && url.searchParams.get('search') === `List-${tokenA}`
+    })
+    await page.getByPlaceholder('Search clients by name...').fill(`List-${tokenA}`)
+    expect((await searchResponse).ok()).toBeTruthy()
     await expect(rowA).toBeVisible()
     await expect(rowB).toHaveCount(0)
 
@@ -184,8 +186,14 @@ test.describe('client comparison policy', () => {
         assessment_findings: [finding('same', 'A — unchanged', 10, 1)],
       },
     ]
-    await page.route(`**/api/clients/${client.id}/assessments?include_findings=true`, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assessments }) })
+    await page.route(`**/api/clients/${client.id}/assessments**`, async (route) => {
+      const url = new URL(route.request().url())
+      if (url.searchParams.get('include_findings') !== 'true') return route.continue()
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ assessments, pagination: { has_more: false, next_cursor: null } }),
+      })
     })
 
     await page.goto(`/clients/${client.id}`)

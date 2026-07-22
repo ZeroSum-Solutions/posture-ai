@@ -54,9 +54,9 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
   })
 
   test('wizard step 1: clients 500 shows error not empty-state', async ({ page }) => {
-    await page.route('**/rest/v1/clients**', route =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server error' }) })
-    )
+    await page.route(/\/api\/clients(?:\?.*)?$/, route => route.request().method() === 'GET'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server error' }) })
+      : route.continue())
     await page.goto('/assessments/new?testMode=1')
     const alert = page.locator('[role="alert"]').filter({ hasText: /could not load your clients/i })
     await expect(alert).toBeVisible({ timeout: 10_000 })
