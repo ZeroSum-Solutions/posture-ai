@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -5,6 +7,8 @@ import {
   derivePr17RequiredCommands,
   deviceEvidenceRuntimeSources,
   parsePlaywrightList,
+  performanceBudgetSources,
+  upsertImmutableEntireFileContract,
 } from './generate-production-readiness-inventory.mjs'
 
 describe('production-readiness inventory generator', () => {
@@ -60,5 +64,31 @@ describe('production-readiness inventory generator', () => {
       { path: 'scripts/check-device-evidence.mjs', id: 'posture-ai-device-evidence-validator-2026-07-21-pr08' },
       { path: 'docs/qa/device-evidence.schema.json', id: 'posture-ai-device-evidence-schema-2026-07-21-pr08' },
     ])
+  })
+
+  it('pins the PR-09 performance contract, strict schema, and read-only validator', () => {
+    expect(performanceBudgetSources()).toEqual([
+      { path: 'docs/qa/performance-budgets.json', id: 'posture-ai-performance-budgets-v6-2026-07-22-pr09', sha256: '13d2331f4fa4fe11fe98b9a98fbb631ac734040ef54a0ef2af6137bc98f46b74' },
+      { path: 'docs/qa/performance-budgets.schema.json', id: 'posture-ai-performance-budgets-schema-v6-2026-07-22-pr09', sha256: '159d652df8b9b070681a5a49aa88d385ea6d6505d8d739311c6fe753fa26aa94' },
+      { path: 'scripts/check-performance-budgets.mjs', id: 'posture-ai-performance-budgets-validator-v7-2026-07-22-pr09', sha256: 'de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a' },
+    ])
+  })
+
+  it('fails a same-ID performance source mutation and accepts only a bumped ID', () => {
+    const path = 'docs/qa/performance-budgets.json'
+    const contracts: Array<Record<string, unknown>> = []
+    const v1Hash = createHash('sha256').update('v1 bytes').digest('hex')
+    const v2Hash = createHash('sha256').update('mutated bytes').digest('hex')
+    upsertImmutableEntireFileContract(contracts, path, 'performance-v1', 'v1 bytes', v1Hash)
+    expect(() => upsertImmutableEntireFileContract(contracts, path, 'performance-v1', 'mutated bytes', v1Hash)).toThrow(/bump.*ID/i)
+    upsertImmutableEntireFileContract(contracts, path, 'performance-v2', 'mutated bytes', v2Hash)
+    expect(contracts).toEqual([expect.objectContaining({ id: 'performance-v2', path })])
+  })
+
+  it('accepts unchanged bytes under the existing immutable performance source ID', () => {
+    const contracts: Array<Record<string, unknown>> = []
+    const hash = createHash('sha256').update('same bytes').digest('hex')
+    upsertImmutableEntireFileContract(contracts, 'docs/qa/performance-budgets.json', 'performance-v1', 'same bytes', hash)
+    expect(() => upsertImmutableEntireFileContract(contracts, 'docs/qa/performance-budgets.json', 'performance-v1', 'same bytes', hash)).not.toThrow()
   })
 })

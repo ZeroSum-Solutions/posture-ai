@@ -1,0 +1,640 @@
+{
+  "$schema": "./performance-budgets.schema.json",
+  "schema_version": 6,
+  "contract_id": "posture-ai-pr09-performance-budgets-2026-07-22-v6",
+  "phase": "pre_baseline",
+  "frozen_on": "2026-07-22",
+  "source": {
+    "path": "docs/plans/2026-07-19-production-readiness-goal-spec.md",
+    "budget_section": "7. Frozen non-functional budgets",
+    "task_section": "PR-09 — Bound data access and prove beta-scale performance"
+  },
+  "change_control": {
+    "baseline_recorded": false,
+    "performance_claimed": false,
+    "budget_change_after_baseline_requires": [
+      "owner_approval",
+      "independent_review_approval"
+    ],
+    "unapproved_loosening_allowed": false
+  },
+  "units": {
+    "records": "count",
+    "payload": "bytes",
+    "duration": "milliseconds",
+    "layout_shift": "unitless_ratio",
+    "javascript": "gzip_bytes",
+    "network": "bits_per_second_and_bytes_per_second",
+    "cpu": "slowdown_factor"
+  },
+  "budgets": {
+    "maximum_page_records": 50,
+    "maximum_response_bytes": 524288,
+    "seeded_api_p95_milliseconds": 750,
+    "lcp_p95_milliseconds": 2500,
+    "inp_p95_milliseconds": 200,
+    "cls_p95_ratio": 0.1,
+    "maximum_initial_application_javascript_gzip_bytes": 358400,
+    "cold_camera_readiness_p95_milliseconds": 20000,
+    "warm_camera_readiness_p95_milliseconds": 5000,
+    "maximum_cursor_duplicates": 0,
+    "maximum_cursor_omissions": 0
+  },
+  "metric_registry": [
+    {
+      "metric_id": "maximum_page_records",
+      "budget_field": "budgets.maximum_page_records",
+      "observed_value_field": "page_record_count",
+      "unit": "count",
+      "aggregation": "maximum",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "page_size_observation_required_fields",
+      "calculation_fields_contract": "maximum_calculation_required_fields",
+      "measurement_profile_id": "api_local_ci",
+      "fixture_policy_id": "single_seeded_fixture"
+    },
+    {
+      "metric_id": "maximum_response_bytes",
+      "budget_field": "budgets.maximum_response_bytes",
+      "observed_value_field": "decoded_response_body_utf8_bytes",
+      "unit": "bytes",
+      "aggregation": "maximum",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "api_response_size_observation_required_fields",
+      "calculation_fields_contract": "maximum_calculation_required_fields",
+      "measurement_profile_id": "api_local_ci",
+      "fixture_policy_id": "single_seeded_fixture"
+    },
+    {
+      "metric_id": "seeded_api_p95_milliseconds",
+      "budget_field": "budgets.seeded_api_p95_milliseconds",
+      "observed_value_field": "duration_milliseconds",
+      "unit": "milliseconds",
+      "aggregation": "nearest_rank_p95",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "api_latency_observation_required_fields",
+      "calculation_fields_contract": "nearest_rank_p95_calculation_required_fields",
+      "measurement_profile_id": "api_local_ci",
+      "fixture_policy_id": "largest_seeded_api_fixture"
+    },
+    {
+      "metric_id": "lcp_p95_milliseconds",
+      "budget_field": "budgets.lcp_p95_milliseconds",
+      "observed_value_field": "lcp_milliseconds",
+      "unit": "milliseconds",
+      "aggregation": "nearest_rank_p95",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "lcp_observation_required_fields",
+      "calculation_fields_contract": "nearest_rank_p95_calculation_required_fields",
+      "measurement_profile_id": "throttled_browser_camera",
+      "fixture_policy_id": "not_applicable"
+    },
+    {
+      "metric_id": "inp_p95_milliseconds",
+      "budget_field": "budgets.inp_p95_milliseconds",
+      "observed_value_field": "inp_milliseconds",
+      "unit": "milliseconds",
+      "aggregation": "nearest_rank_p95",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "inp_observation_required_fields",
+      "calculation_fields_contract": "nearest_rank_p95_calculation_required_fields",
+      "measurement_profile_id": "throttled_browser_camera",
+      "fixture_policy_id": "not_applicable"
+    },
+    {
+      "metric_id": "cls_p95_ratio",
+      "budget_field": "budgets.cls_p95_ratio",
+      "observed_value_field": "cls_ratio",
+      "unit": "unitless_ratio",
+      "aggregation": "nearest_rank_p95",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "cls_observation_required_fields",
+      "calculation_fields_contract": "nearest_rank_p95_calculation_required_fields",
+      "measurement_profile_id": "throttled_browser_camera",
+      "fixture_policy_id": "not_applicable"
+    },
+    {
+      "metric_id": "maximum_initial_application_javascript_gzip_bytes",
+      "budget_field": "budgets.maximum_initial_application_javascript_gzip_bytes",
+      "observed_value_field": "total_included_gzip_bytes",
+      "unit": "gzip_bytes",
+      "aggregation": "maximum",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "initial_javascript_route_required_fields",
+      "calculation_fields_contract": "maximum_calculation_required_fields",
+      "measurement_profile_id": "deterministic_bundle",
+      "fixture_policy_id": "not_applicable"
+    },
+    {
+      "metric_id": "cold_camera_readiness_p95_milliseconds",
+      "budget_field": "budgets.cold_camera_readiness_p95_milliseconds",
+      "observed_value_field": "duration_milliseconds",
+      "unit": "milliseconds",
+      "aggregation": "nearest_rank_p95",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "camera_observation_required_fields",
+      "calculation_fields_contract": "nearest_rank_p95_calculation_required_fields",
+      "measurement_profile_id": "throttled_browser_camera",
+      "fixture_policy_id": "not_applicable"
+    },
+    {
+      "metric_id": "warm_camera_readiness_p95_milliseconds",
+      "budget_field": "budgets.warm_camera_readiness_p95_milliseconds",
+      "observed_value_field": "duration_milliseconds",
+      "unit": "milliseconds",
+      "aggregation": "nearest_rank_p95",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "camera_observation_required_fields",
+      "calculation_fields_contract": "nearest_rank_p95_calculation_required_fields",
+      "measurement_profile_id": "throttled_browser_camera",
+      "fixture_policy_id": "not_applicable"
+    },
+    {
+      "metric_id": "maximum_cursor_duplicates",
+      "budget_field": "budgets.maximum_cursor_duplicates",
+      "observed_value_field": "duplicate_record_count",
+      "unit": "count",
+      "aggregation": "maximum",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "cursor_duplicate_observation_required_fields",
+      "calculation_fields_contract": "maximum_calculation_required_fields",
+      "measurement_profile_id": "api_local_ci",
+      "fixture_policy_id": "single_seeded_fixture"
+    },
+    {
+      "metric_id": "maximum_cursor_omissions",
+      "budget_field": "budgets.maximum_cursor_omissions",
+      "observed_value_field": "omitted_record_count",
+      "unit": "count",
+      "aggregation": "maximum",
+      "comparison_operator": "less_than_or_equal",
+      "receipt_fields_contract": "cursor_omission_observation_required_fields",
+      "calculation_fields_contract": "maximum_calculation_required_fields",
+      "measurement_profile_id": "api_local_ci",
+      "fixture_policy_id": "single_seeded_fixture"
+    }
+  ],
+  "measurement_profiles": [
+    {
+      "profile_id": "api_local_ci",
+      "expected_actual_execution_profile": {
+        "runner_provider": "github_actions",
+        "runner_image": "ubuntu-24.04",
+        "runner_architecture": "x64",
+        "node_major": 22,
+        "database": "local_supabase",
+        "application_mode": "production_next_start",
+        "workers": 1,
+        "measurement_retries": 0,
+        "network_profile": "unthrottled_local_loopback"
+      }
+    },
+    {
+      "profile_id": "throttled_browser_camera",
+      "expected_actual_execution_profile": {
+        "runner_provider": "github_actions",
+        "runner_image": "ubuntu-24.04",
+        "runner_architecture": "x64",
+        "node_major": 22,
+        "database": "local_supabase",
+        "application_mode": "production_next_start",
+        "workers": 1,
+        "measurement_retries": 0,
+        "browser_engine": "chromium",
+        "viewport_width_css_pixels": 1280,
+        "viewport_height_css_pixels": 720,
+        "device_pixel_ratio": 1,
+        "network_profile": "fixed_throttle",
+        "download_bits_per_second": 10000000,
+        "download_bytes_per_second": 1250000,
+        "cpu_slowdown_factor": 4
+      }
+    },
+    {
+      "profile_id": "deterministic_bundle",
+      "expected_actual_execution_profile": {
+        "runner_provider": "github_actions",
+        "runner_image": "ubuntu-24.04",
+        "runner_architecture": "x64",
+        "node_major": 22,
+        "database": "local_supabase",
+        "application_mode": "production_next_start",
+        "workers": 1,
+        "measurement_retries": 0,
+        "browser_engine": "chromium",
+        "viewport_width_css_pixels": 1280,
+        "viewport_height_css_pixels": 720,
+        "device_pixel_ratio": 1,
+        "accounting_mode": "deterministic_gzip",
+        "gzip_level": 9,
+        "gzip_mtime_seconds": 0
+      }
+    }
+  ],
+  "runner": {
+    "provider": "github_actions",
+    "image": "ubuntu-24.04",
+    "architecture": "x64",
+    "node_major": 22,
+    "database": "local_supabase",
+    "application_mode": "production_next_start",
+    "workers": 1,
+    "measurement_retries": 0,
+    "browser": {
+      "engine": "chromium",
+      "viewport_width_css_pixels": 1280,
+      "viewport_height_css_pixels": 720,
+      "device_pixel_ratio": 1
+    },
+    "benchmark_job": {
+      "future_workflow_path": ".github/workflows/performance.yml",
+      "runner_label": "ubuntu-24.04",
+      "architecture": "x64",
+      "node_major": 22,
+      "general_ci_runner_label": "ubuntu-latest",
+      "general_ci_is_benchmark_job": false
+    }
+  },
+  "throttling": {
+    "download_bits_per_second": 10000000,
+    "download_bytes_per_second": 1250000,
+    "cpu_slowdown_factor": 4
+  },
+  "measurement_protocols": {
+    "percentile_method": "nearest_rank",
+    "api": {
+      "warmup_observations_per_target": 5,
+      "measured_observations_per_target": 40
+    },
+    "web_vitals": {
+      "warmup_navigations_per_route": 3,
+      "measured_navigations_per_route": 20
+    },
+    "camera": {
+      "cold_fresh_context_observations": 20,
+      "cold_context_policy": "fresh_browser_context_with_empty_http_cache",
+      "warm_cached_observations": 20,
+      "warm_context_policy": "same_throttling_profile_with_cached_assets"
+    }
+  },
+  "measurement_definitions": {
+    "api_response_body": {
+      "budget_metric_id": "maximum_response_bytes",
+      "observed_value_field": "decoded_response_body_utf8_bytes",
+      "unit": "bytes",
+      "body_definition": "UTF-8 byte length of decoded response-body text",
+      "byte_calculation": "Buffer.byteLength(decoded_response_body_text, 'utf8')",
+      "response_headers_included": false,
+      "response_content_encoding_recorded": true
+    },
+    "web_vitals": {
+      "lcp": {
+        "budget_metric_id": "lcp_p95_milliseconds",
+        "observed_value_field": "lcp_milliseconds",
+        "unit": "milliseconds",
+        "timing_start_event": "navigation_start",
+        "timing_end_event": "largest_contentful_paint"
+      },
+      "inp": {
+        "budget_metric_id": "inp_p95_milliseconds",
+        "observed_value_field": "inp_milliseconds",
+        "unit": "milliseconds",
+        "timing_start_event": "named_interaction_start",
+        "timing_end_event": "next_paint_after_event_processing"
+      },
+      "cls": {
+        "budget_metric_id": "cls_p95_ratio",
+        "observed_value_field": "cls_ratio",
+        "unit": "unitless_ratio",
+        "timing_start_event": "navigation_start",
+        "timing_end_event": "route_hydrated_and_first_interaction_ready"
+      },
+      "inp_trace_rule": "run every named interaction step in order and retain every raw interaction duration",
+      "inp_navigation_sample_rule": "one raw sample represents one measured navigation, contains the complete ordered interaction trace, and records inp_milliseconds as the longest named interaction duration"
+    },
+    "camera_readiness": {
+      "cold": {
+        "budget_metric_id": "cold_camera_readiness_p95_milliseconds",
+        "observed_value_field": "duration_milliseconds",
+        "unit": "milliseconds",
+        "cache_profile": "cold_fresh_context"
+      },
+      "warm": {
+        "budget_metric_id": "warm_camera_readiness_p95_milliseconds",
+        "observed_value_field": "duration_milliseconds",
+        "unit": "milliseconds",
+        "cache_profile": "warm_cached"
+      },
+      "timing_start_event": "assessment_capture_route_navigation_start",
+      "timing_end_event": "pose_runtime_ready_for_first_inference",
+      "readiness_cutoff_rule": "use the first ready-for-inference event; retain failures and timeouts as failed observations"
+    },
+    "initial_application_javascript": {
+      "budget_metric_id": "maximum_initial_application_javascript_gzip_bytes",
+      "observed_value_field": "total_included_gzip_bytes",
+      "unit": "gzip_bytes",
+      "receipt_target_id": "literal route template from targets.initial_application_javascript_routes",
+      "accounting_start_event": "navigation_start",
+      "readiness_cutoff_event": "route_hydrated_and_first_interaction_ready",
+      "accounting_rule": "sum deterministic gzip_bytes for every JavaScript resource required through the readiness cutoff",
+      "gzip_bytes_definition": "byte length after gzip level 9 with mtime 0 of decoded JavaScript resource bytes",
+      "allowed_excluded_url_prefixes": [
+        "/mediapipe/",
+        "/muscle-viewer/"
+      ],
+      "never_excluded_url_prefixes": [
+        "/_next/static/"
+      ],
+      "excluded_resource_receipt_rule": "enumerate every excluded resource URL and its deterministic gzip_bytes"
+    }
+  },
+  "fixtures": {
+    "record_counts": [
+      150,
+      300,
+      1000
+    ],
+    "catalog": [
+      { "fixture_id": "seeded_records_150", "fixture_record_count": 150 },
+      { "fixture_id": "seeded_records_300", "fixture_record_count": 300 },
+      { "fixture_id": "seeded_records_1000", "fixture_record_count": 1000 }
+    ],
+    "policies": [
+      {
+        "fixture_policy_id": "single_seeded_fixture",
+        "allowed_fixture_ids": ["seeded_records_150", "seeded_records_300", "seeded_records_1000"],
+        "one_fixture_per_receipt": true
+      },
+      {
+        "fixture_policy_id": "largest_seeded_api_fixture",
+        "allowed_fixture_ids": ["seeded_records_1000"],
+        "required_fixture_record_count": 1000,
+        "one_fixture_per_receipt": true
+      },
+      {
+        "fixture_policy_id": "not_applicable",
+        "allowed_fixture_ids": [],
+        "required_fixture_record_counts": []
+      }
+    ],
+    "largest_seeded_api_fixture_records": 1000,
+    "cursor_integrity_requires_concurrent_insert_case": true
+  },
+  "targets": {
+    "audited_data_access_paths": [
+      {
+        "target_id": "clients_page_list",
+        "surface": "/clients",
+        "source": "app/clients/page.tsx",
+        "metric_ids": ["maximum_page_records", "maximum_response_bytes", "seeded_api_p95_milliseconds", "maximum_cursor_duplicates", "maximum_cursor_omissions"]
+      },
+      {
+        "target_id": "clients_api_list",
+        "surface": "/api/clients",
+        "source": "app/api/clients/route.ts",
+        "metric_ids": ["maximum_page_records", "maximum_response_bytes", "seeded_api_p95_milliseconds", "maximum_cursor_duplicates", "maximum_cursor_omissions"]
+      },
+      {
+        "target_id": "assessment_client_picker",
+        "surface": "/assessments/new",
+        "source": "app/assessments/new/page.tsx",
+        "metric_ids": ["maximum_page_records", "maximum_response_bytes", "seeded_api_p95_milliseconds", "maximum_cursor_duplicates", "maximum_cursor_omissions"]
+      },
+      {
+        "target_id": "client_assessment_history",
+        "surface": "/api/clients/{client_id}/assessments",
+        "source": "app/api/clients/[id]/assessments/route.ts",
+        "metric_ids": ["maximum_page_records", "maximum_response_bytes", "seeded_api_p95_milliseconds", "maximum_cursor_duplicates", "maximum_cursor_omissions"]
+      }
+    ],
+    "chart_payloads": [
+      {
+        "target_id": "client_progress_chart",
+        "path_template": "/clients/{client_id}",
+        "projection": "progress",
+        "metric_ids": ["maximum_response_bytes", "seeded_api_p95_milliseconds"]
+      },
+      {
+        "target_id": "client_comparison_payload",
+        "path_template": "/clients/{client_id}",
+        "projection": "compare",
+        "metric_ids": ["maximum_response_bytes", "seeded_api_p95_milliseconds"]
+      }
+    ],
+    "web_vitals_journeys": [
+      {
+        "target_id": "client_selection_journey",
+        "path_template": "/clients",
+        "metric_ids": ["lcp_p95_milliseconds", "inp_p95_milliseconds", "cls_p95_ratio"],
+        "inp_interaction_trace_id": "client_selection_search_and_open",
+        "inp_interaction_steps": ["focus_client_search", "type_client_search_query", "activate_client_result"]
+      },
+      {
+        "target_id": "assessment_start_journey",
+        "path_template": "/assessments/new",
+        "metric_ids": ["lcp_p95_milliseconds", "inp_p95_milliseconds", "cls_p95_ratio"],
+        "inp_interaction_trace_id": "assessment_start_select_and_advance",
+        "inp_interaction_steps": ["focus_client_search", "type_client_search_query", "activate_client_result", "activate_next_upload_views"]
+      },
+      {
+        "target_id": "client_history_progress_compare_journey",
+        "path_template": "/clients/{client_id}",
+        "metric_ids": ["lcp_p95_milliseconds", "inp_p95_milliseconds", "cls_p95_ratio"],
+        "inp_interaction_trace_id": "client_history_progress_compare_tabs",
+        "inp_interaction_steps": ["activate_progress_tab", "activate_compare_tab", "select_prior_assessment"]
+      },
+      {
+        "target_id": "assessment_results_journey",
+        "path_template": "/assessments/{assessment_id}",
+        "metric_ids": ["lcp_p95_milliseconds", "inp_p95_milliseconds", "cls_p95_ratio"],
+        "inp_interaction_trace_id": "assessment_results_compare_selection",
+        "inp_interaction_steps": ["open_compare_selector", "select_prior_assessment"]
+      }
+    ],
+    "initial_application_javascript_metric_id": "maximum_initial_application_javascript_gzip_bytes",
+    "initial_application_javascript_routes": [
+      "/dashboard",
+      "/clients",
+      "/clients/new",
+      "/clients/{client_id}",
+      "/clients/{client_id}/edit",
+      "/assessments/new",
+      "/assessments/{assessment_id}",
+      "/settings"
+    ],
+    "query_plan_target_ids": [
+      "clients_page_list",
+      "clients_api_list",
+      "assessment_client_picker",
+      "client_assessment_history"
+    ],
+    "camera_readiness": {
+      "target_id": "assessment_camera_readiness",
+      "path_template": "/assessments/new",
+      "metric_ids": ["cold_camera_readiness_p95_milliseconds", "warm_camera_readiness_p95_milliseconds"],
+      "timing_start_event": "assessment_capture_route_navigation_start",
+      "timing_end_event": "pose_runtime_ready_for_first_inference"
+    }
+  },
+  "receipt_contract": {
+    "required_top_level_fields": [
+      "commit_sha",
+      "budget_file_sha256",
+      "metric_id",
+      "target_id",
+      "raw_samples",
+      "fixture_record_counts",
+      "runner_fingerprint",
+      "measurement_profile_id",
+      "actual_execution_profile"
+    ],
+    "receipt_set_provenance": {
+      "expected_commit_source": "externally_supplied",
+      "expected_commit_required": true,
+      "all_receipts_must_match_expected_commit": true,
+      "mixed_commits_allowed": false
+    },
+    "budget_hash_binding": {
+      "receipt_field": "budget_file_sha256",
+      "hash_algorithm": "sha256",
+      "hash_scope": "canonical_budget_excluding_expected_receipt_hash",
+      "canonicalization": "recursively sorted object keys with preserved array order",
+      "excluded_json_pointer": "/receipt_contract/budget_hash_binding/expected_sha256",
+      "expected_sha256": "fbfa60af7c5f3d3a72e0546de7b751a6b42be07896e0e5f51b4fa1f75059a888"
+    },
+    "maximum_calculation_required_fields": [
+      "aggregation",
+      "calculated_maximum"
+    ],
+    "nearest_rank_p95_calculation_required_fields": [
+      "aggregation",
+      "calculated_nearest_rank",
+      "calculated_p95"
+    ],
+    "runner_fingerprint_required_fields": [
+      "runner_provider",
+      "runner_image",
+      "runner_image_version",
+      "runner_architecture",
+      "cpu_model",
+      "logical_cpu_cores",
+      "memory_bytes",
+      "node_version",
+      "browser_name",
+      "browser_build"
+    ],
+    "page_size_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "fixture_id",
+      "fixture_record_count",
+      "page_record_count"
+    ],
+    "api_response_size_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "fixture_id",
+      "fixture_record_count",
+      "response_content_encoding",
+      "decoded_response_body_utf8_bytes"
+    ],
+    "api_latency_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "fixture_id",
+      "fixture_record_count",
+      "duration_milliseconds"
+    ],
+    "cursor_duplicate_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "fixture_id",
+      "fixture_record_count",
+      "duplicate_record_count",
+      "concurrent_insert_case"
+    ],
+    "cursor_omission_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "fixture_id",
+      "fixture_record_count",
+      "omitted_record_count",
+      "concurrent_insert_case"
+    ],
+    "lcp_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "timing_start_event",
+      "timing_end_event",
+      "lcp_milliseconds"
+    ],
+    "inp_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "interaction_trace_id",
+      "interaction_steps",
+      "timing_start_event",
+      "timing_end_event",
+      "inp_milliseconds"
+    ],
+    "inp_interaction_step_required_fields": [
+      "interaction_step_id",
+      "duration_milliseconds"
+    ],
+    "cls_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "timing_start_event",
+      "timing_end_event",
+      "cls_ratio"
+    ],
+    "camera_observation_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "cache_profile",
+      "timing_start_event",
+      "timing_end_event",
+      "duration_milliseconds",
+      "readiness_outcome"
+    ],
+    "initial_javascript_route_required_fields": [
+      "metric_id",
+      "target_id",
+      "measurement_context_id",
+      "accounting_start_event",
+      "readiness_cutoff_event",
+      "discovery_artifact_sha256",
+      "discovery_inventory_sha256",
+      "included_resource_inventory",
+      "excluded_resource_inventory",
+      "total_included_gzip_bytes"
+    ],
+    "javascript_discovery_binding": {
+      "validation_source": "externally_supplied_per_route_discovery",
+      "artifact_hash_algorithm": "sha256",
+      "inventory_hash_algorithm": "sha256",
+      "inventory_hash_scope": "canonical_target_id_plus_exact_included_and_excluded_resource_inventories",
+      "self_attested_hash_sufficient": false,
+      "minimum_resource_gzip_bytes": 1
+    },
+    "included_javascript_resource_required_fields": [
+      "resource_url",
+      "gzip_bytes"
+    ],
+    "excluded_javascript_resource_required_fields": [
+      "resource_url",
+      "gzip_bytes",
+      "matched_allowed_url_prefix"
+    ],
+    "resource_inventory_rule": "enumerate every included and excluded JavaScript resource; /_next/static/* is always included"
+  }
+}
