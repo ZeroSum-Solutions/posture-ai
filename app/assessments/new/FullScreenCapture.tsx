@@ -351,6 +351,11 @@ export default function FullScreenCapture({
   // and authoritative IMAGE-scoring transitions through one ordered channel.
   useEffect(() => runtime.subscribeReadiness(setPoseReadiness), [runtime])
 
+  useEffect(() => {
+    if (poseReadiness.phase !== 'ready' || typeof performance.mark !== 'function') return
+    performance.mark('pose_runtime_ready_for_first_inference')
+  }, [poseReadiness.phase])
+
   async function retryPoseModel() {
     if (retryingModel) return
     setRetryingModel(true)

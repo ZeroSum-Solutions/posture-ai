@@ -1,6 +1,6 @@
 'use client'
 // This bundle is referenced only after the server verifies an active HG-03 release.
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
@@ -24,6 +24,7 @@ import type {
 import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
+import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import LegalNotice from '@/components/LegalNotice'
 
 type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
@@ -75,6 +76,11 @@ interface Assessment {
   exercise_swaps?: Record<string, Record<string, string>> | null
   practitioner_approved?: boolean | null
   clients: { id: string; first_name: string; last_name: string }
+}
+
+export function canonicalAssessmentTimestamp(value: string): string | null {
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null
 }
 
 // Zone colors
@@ -555,6 +561,10 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   const [approved, setApproved] = useState(false)
   const [approving, setApproving] = useState(false)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>>([])
+  const [nextPriorCursor, setNextPriorCursor] = useState<string | null>(null)
+  const [loadingMorePriors, setLoadingMorePriors] = useState(false)
+  const priorRequestVersion = useRef(0)
+  const loadMorePriorController = useRef<AbortController | null>(null)
   const [compareToId, setCompareToId] = useState<string>('')
   const [auxError, setAuxError] = useState<string | null>(null)
   const [capability, setCapability] = useState<Capability>('standard')
@@ -588,6 +598,8 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
 
   useEffect(() => {
     if (!assessmentId) return
+    const version = ++priorRequestVersion.current
+    loadMorePriorController.current?.abort()
     // Abort a stale in-flight load when the id changes / the page unmounts, so a
     // slower earlier response can't paint the wrong assessment's data.
     const ac = new AbortController()
@@ -619,10 +631,24 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
         setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
-          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true', { signal: ac.signal })
+          const beforeAt = canonicalAssessmentTimestamp(data.assessment.assessed_at)
+          if (!beforeAt) {
+            setAuxError('Some report options could not load (invalid assessment date). Refresh to try again.')
+            return
+          }
+          const priorQuery = new URLSearchParams({
+            exclude: assessmentId,
+            approved_only: 'true',
+            before_at: beforeAt,
+            limit: '50',
+          })
+          const priorRes = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${priorQuery.toString()}`, { signal: ac.signal })
           if (priorRes.ok) {
             const priorData = await priorRes.json()
-            setPriorAssessments(priorData.assessments || [])
+            if (version === priorRequestVersion.current) {
+              setPriorAssessments(sortAssessmentsChronologically(priorData.assessments || []))
+              setNextPriorCursor(priorData.pagination?.has_more ? priorData.pagination.next_cursor ?? null : null)
+            }
           } else {
             setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
           }
@@ -635,8 +661,61 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
       }
     }
     load()
-    return () => ac.abort()
+    return () => {
+      ac.abort()
+      loadMorePriorController.current?.abort()
+    }
   }, [assessmentId, router])
+
+  async function loadMorePriorAssessments() {
+    const clientId = assessment?.clients?.id
+    if (!clientId || !assessmentId || !nextPriorCursor || loadingMorePriors) return
+    const beforeAt = canonicalAssessmentTimestamp(assessment.assessed_at)
+    if (!beforeAt) {
+      setAuxError('Some older report options could not load (invalid assessment date). Refresh to try again.')
+      return
+    }
+    const version = priorRequestVersion.current
+    loadMorePriorController.current?.abort()
+    const controller = new AbortController()
+    loadMorePriorController.current = controller
+    setLoadingMorePriors(true)
+    setAuxError(null)
+    try {
+      const query = new URLSearchParams({
+        exclude: assessmentId,
+        approved_only: 'true',
+        before_at: beforeAt,
+        limit: '50',
+        cursor: nextPriorCursor,
+      })
+      const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${query.toString()}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      if (!response.ok) throw new Error(`Failed to load prior assessments (${response.status})`)
+      const body = await response.json() as {
+        assessments?: Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>
+        pagination?: { has_more?: boolean; next_cursor?: string | null }
+      }
+      if (controller.signal.aborted || version !== priorRequestVersion.current) return
+      setPriorAssessments((current) => {
+        const byId = new Map(current.map((prior) => [prior.id, prior]))
+        for (const prior of body.assessments ?? []) byId.set(prior.id, prior)
+        return sortAssessmentsChronologically([...byId.values()])
+      })
+      setNextPriorCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && version === priorRequestVersion.current) {
+        setAuxError('Some older report options could not load. Try again.')
+      }
+    } finally {
+      if (loadMorePriorController.current === controller) {
+        loadMorePriorController.current = null
+        setLoadingMorePriors(false)
+      }
+    }
+  }
 
   // Practitioner-facing session-run list (with pain-check status). Refetched on
   // mount; a launched session remounts this page on return from the player.
@@ -858,19 +937,23 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
 
   if (loading) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-        <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
+      <div className={`${styles.reviewPage} ${styles.routeStatePage}`} role="status">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 48, height: 48, border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
+          <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
+        </div>
       </div>
     )
   }
 
   if (error || !assessment || !program) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--danger)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
-        <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none' }}>Back to Clients</Link>
+      <div className={`${styles.reviewPage} ${styles.routeStatePage}`}>
+        <div style={{ textAlign: 'center' }}>
+          <p role="alert" style={{ color: 'var(--danger)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
+          <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none' }}>Back to Clients</Link>
+        </div>
       </div>
     )
   }
@@ -967,6 +1050,9 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
           comparisonId={compareToId}
           comparisonOptions={comparisonOptions}
           onComparisonChange={setCompareToId}
+          hasMoreComparisonOptions={nextPriorCursor !== null}
+          isLoadingMoreComparisonOptions={loadingMorePriors}
+          onLoadMoreComparisonOptions={loadMorePriorAssessments}
           isSharing={sharing}
           shareLink={shareLink}
           copied={copied}

@@ -1170,8 +1170,10 @@ describe('performance budget contract', () => {
     expect(JSON.parse(failed.stdout)).toMatchObject({ status: 'FAIL', performance_claimed: false })
   })
 
-  it('exposes an explicit contract-only package command', () => {
+  it('keeps the contract-only command distinct from measured-receipt commands', () => {
     expect(PACKAGE.scripts['performance:budgets:check']).toBe('node scripts/check-performance-budgets.mjs')
-    expect(PACKAGE.scripts['performance:check']).toBeUndefined()
+    expect(PACKAGE.scripts['performance:check']).toBe('node scripts/performance/check-receipts.mjs')
+    expect(PACKAGE.scripts['performance:official']).toBe('node scripts/performance/run-official.mjs')
+    expect(PACKAGE.scripts['performance:local']).toBe('node scripts/performance/run-official.mjs --local')
   })
 })

@@ -1,6 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
@@ -24,6 +23,12 @@ interface Client {
   date_of_birth: string | null
 }
 
+interface ClientPageResponse {
+  clients?: Client[]
+  pagination?: { has_more?: boolean; next_cursor?: string | null }
+  error?: string
+}
+
 const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
@@ -38,7 +43,7 @@ function initialCaptures(): Captures {
 }
 
 // ---- Main Wizard ----
-function NewAssessmentWizard() {
+export function NewAssessmentWizard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClientId = searchParams.get('client_id')
@@ -50,10 +55,13 @@ function NewAssessmentWizard() {
   const [clients, setClients] = useState<Client[]>([])
   const [clientSearch, setClientSearch] = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [selectedClientError, setSelectedClientError] = useState<string | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [showConsentForm, setShowConsentForm] = useState(false)
   const [checkingConsent, setCheckingConsent] = useState(false)
   const [loadingClients, setLoadingClients] = useState(true)
+  const [loadingMoreClients, setLoadingMoreClients] = useState(false)
+  const [nextClientCursor, setNextClientCursor] = useState<string | null>(null)
   const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>(initialCaptures)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -66,6 +74,16 @@ function NewAssessmentWizard() {
   // is also the server idempotency key for retries of unchanged capture content.
   const [submissionGuard] = useState(createSubmissionGuard)
 
+  // Stable browser-performance boundary: entering the real capture step starts
+  // camera readiness. This is deliberately not route navigation because the
+  // route first presents client selection and consent gates.
+  useEffect(() => {
+    if (step !== 2 || testMode || typeof performance.mark !== 'function') return
+    performance.clearMarks?.('assessment_capture_route_navigation_start')
+    performance.clearMarks?.('pose_runtime_ready_for_first_inference')
+    performance.mark('assessment_capture_route_navigation_start')
+  }, [step, testMode])
+
   // Expose the production pixel-sampling + scoring functions for out-of-process
   // drivers (T1b calibration, T4b cross-engine spec) under the CLIENT test-mode
   // gate only — absent entirely in production (T2 §"Test-mode hooks").
@@ -74,36 +92,119 @@ function NewAssessmentWizard() {
     return () => syncPixelQualityTestHooks(false)
   }, [testMode])
 
+  const clientRequestVersion = useRef(0)
+  const loadMoreClientController = useRef<AbortController | null>(null)
+  useEffect(() => () => loadMoreClientController.current?.abort(), [])
+  const fetchClientPage = useCallback(async (input: {
+    search: string
+    cursor?: string | null
+    signal?: AbortSignal
+  }): Promise<ClientPageResponse> => {
+    const query = new URLSearchParams({ limit: '50' })
+    if (input.search) query.set('search', input.search)
+    if (input.cursor) query.set('cursor', input.cursor)
+    const response = await fetch(`/api/clients?${query.toString()}`, {
+      cache: 'no-store',
+      signal: input.signal,
+    })
+    if (response.status === 401) {
+      router.push('/auth/sign-in')
+      throw new Error('Unauthorized')
+    }
+    const body = await response.json().catch(() => ({})) as ClientPageResponse
+    if (!response.ok) throw new Error(body.error || 'Could not load clients.')
+    return body
+  }, [router])
+
   useEffect(() => {
-    async function loadClients() {
-      const supabase = createSupabaseBrowserClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/auth/sign-in'); return }
+    const version = ++clientRequestVersion.current
+    const controller = new AbortController()
+    const normalizedSearch = clientSearch.trim().replace(/\s+/g, ' ')
+    const timer = window.setTimeout(async () => {
       try {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('id, first_name, last_name, date_of_birth')
-          .eq('practitioner_id', user.id)
-          .is('archived_at', null)
-          // Never offer an erased client in the picker — the assessment insert
-          // would be rejected by the reject-deleted-client trigger anyway (QA-001).
-          .is('deleted_at', null)
-          .order('first_name')
-        if (error) throw error
-        const list = data || []
-        setClients(list)
-        if (preselectedClientId) {
-          const pre = list.find(c => c.id === preselectedClientId)
-          if (pre) setSelectedClient(pre)
+        const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
+        if (controller.signal.aborted || clientRequestVersion.current !== version) return
+        setClients(body.clients ?? [])
+        setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+        setClientsError(null)
+      } catch (caught) {
+        if ((caught as Error)?.name === 'AbortError' || clientRequestVersion.current !== version) return
+        setClients([])
+        setNextClientCursor(null)
+        if ((caught as Error)?.message !== 'Unauthorized') {
+          setClientsError('Could not load your clients. Refresh to try again.')
         }
-      } catch {
-        setClientsError('Could not load your clients. Refresh to try again.')
       } finally {
-        setLoadingClients(false)
+        if (!controller.signal.aborted && clientRequestVersion.current === version) setLoadingClients(false)
+      }
+    }, normalizedSearch ? 250 : 0)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [clientSearch, fetchClientPage])
+
+  // A deep-linked client may be on page 2 or page 200. Fetch that exact owned,
+  // active record instead of requiring it to appear in the first directory page.
+  useEffect(() => {
+    if (!preselectedClientId) return
+    const controller = new AbortController()
+    fetch(`/api/clients/${encodeURIComponent(preselectedClientId)}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (response.status === 401) {
+          router.push('/auth/sign-in')
+          return null
+        }
+        if (!response.ok) throw new Error('Preselected client is unavailable')
+        return response.json() as Promise<{ client?: Client }>
+      })
+      .then((body) => {
+        if (!controller.signal.aborted && body?.client) {
+          setSelectedClient(body.client)
+          setSelectedClientError(null)
+        }
+      })
+      .catch((caught) => {
+        if ((caught as Error)?.name !== 'AbortError') {
+          setSelectedClientError('The selected client is unavailable. Choose another active client.')
+        }
+      })
+    return () => controller.abort()
+  }, [preselectedClientId, router])
+
+  async function loadMoreClientOptions() {
+    if (!nextClientCursor || loadingMoreClients) return
+    const version = clientRequestVersion.current
+    loadMoreClientController.current?.abort()
+    const controller = new AbortController()
+    loadMoreClientController.current = controller
+    setLoadingMoreClients(true)
+    try {
+      const body = await fetchClientPage({
+        search: clientSearch.trim().replace(/\s+/g, ' '),
+        cursor: nextClientCursor,
+        signal: controller.signal,
+      })
+      if (clientRequestVersion.current !== version) return
+      setClients((current) => {
+        const seen = new Set(current.map((client) => client.id))
+        return [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
+      })
+      setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && clientRequestVersion.current === version && (caught as Error)?.message !== 'Unauthorized') {
+        setClientsError('Could not load more clients. Try again.')
+      }
+    } finally {
+      if (loadMoreClientController.current === controller) {
+        loadMoreClientController.current = null
+        setLoadingMoreClients(false)
       }
     }
-    loadClients()
-  }, [preselectedClientId, router])
+  }
 
   // Step 3: Poll assessment status and redirect when complete
   useEffect(() => {
@@ -164,13 +265,6 @@ function NewAssessmentWizard() {
     }
   }, [step, assessmentId, router, submissionGuard])
 
-  const filteredClients = clientSearch.trim()
-    ? clients.filter(c => {
-        const q = clientSearch.toLowerCase()
-        return c.first_name.toLowerCase().includes(q) || c.last_name.toLowerCase().includes(q) || (c.first_name + ' ' + c.last_name).toLowerCase().includes(q)
-      })
-    : clients
-
   // Monotonic op token per slot: every capture/upload bumps it, so a still-running
   // async commit for a SUPERSEDED capture — a preflight, or an upload's image
   // normalization — discards its result instead of overwriting the newer one.
@@ -224,6 +318,7 @@ function NewAssessmentWizard() {
       setUploadError(null)
     }
     setSelectedClient(client)
+    setSelectedClientError(null)
     setAgeGateError(null)
     setShowConsentForm(false)
   }
@@ -576,21 +671,47 @@ function NewAssessmentWizard() {
           )}
           <div className="app-panel" style={{ padding: '24px' }}>
             <div className="app-search-shell">
-            <input type="text" placeholder="Search clients by name..." value={clientSearch} onChange={e => setClientSearch(e.target.value)}
+            <input type="text" placeholder="Search clients by name..." aria-label="Search clients by name" value={clientSearch} onChange={e => {
+              loadMoreClientController.current?.abort()
+              loadMoreClientController.current = null
+              setLoadingMoreClients(false)
+              setClientSearch(e.target.value)
+              setLoadingClients(true)
+              setNextClientCursor(null)
+            }}
               style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
             />
             </div>
+            {selectedClient && (
+              <div
+                role="status"
+                data-testid="selected-client-summary"
+                style={{
+                  marginBottom: '16px', padding: '12px 14px', borderRadius: '10px',
+                  background: 'rgba(0,152,243,0.12)', border: '1px solid rgba(0,152,243,0.35)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Selected client
+                </span>
+                <strong>{selectedClient.first_name} {selectedClient.last_name}</strong>
+              </div>
+            )}
+            {selectedClientError && (
+              <p role="alert" style={{ color: 'var(--danger)', margin: '0 0 16px' }}>{selectedClientError}</p>
+            )}
             {loadingClients ? (
               <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : clientsError ? (
               <p role="alert" style={{ color: 'var(--danger)', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
-            ) : filteredClients.length === 0 ? (
+            ) : clients.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
                 {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link></span>}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
-                {filteredClients.map(c => {
+                {clients.map(c => {
                   const isSelected = selectedClient?.id === c.id
                   return (
                     <button key={c.id} onClick={() => chooseClient(c)} style={{
@@ -611,6 +732,21 @@ function NewAssessmentWizard() {
                     </button>
                   )
                 })}
+                {nextClientCursor && (
+                  <button
+                    type="button"
+                    onClick={loadMoreClientOptions}
+                    disabled={loadingMoreClients}
+                    style={{
+                      width: '100%', padding: '12px 16px', borderRadius: '10px', minHeight: '44px',
+                      background: 'rgba(255,255,255,0.05)', color: 'var(--brand)',
+                      border: '1px solid rgba(0,152,243,0.28)', cursor: loadingMoreClients ? 'wait' : 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {loadingMoreClients ? 'Loading…' : 'Load more clients'}
+                  </button>
+                )}
               </div>
             )}
           </div>

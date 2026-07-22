@@ -1,0 +1,50 @@
+name: Performance budgets
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  official-performance:
+    name: Performance budgets (official)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start disposable local Supabase
+        run: npx supabase start -x studio,inbucket,imgproxy,edge-runtime,logflare,vector
+      - name: Install frozen browser engine
+        run: npx playwright install --with-deps chromium
+      - name: Install query-plan client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Measure and validate frozen performance budgets
+        run: npm run performance:official
+      - name: Retain raw measurements and validated receipts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-receipts-${{ github.sha }}
+          path: |
+            test-results/performance/fixture-manifest.json
+            test-results/performance/api-raw.json
+            test-results/performance/web-vitals.raw.json
+            test-results/performance/camera.raw.json
+            test-results/performance/javascript.raw.json
+            test-results/performance/javascript-discovery/
+            test-results/performance/query-plans.json
+            test-results/performance/receipts.json
+            test-results/performance/validation-result.json
+          if-no-files-found: error
+          retention-days: 30

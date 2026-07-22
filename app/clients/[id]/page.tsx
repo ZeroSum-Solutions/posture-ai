@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -77,6 +77,11 @@ export default function ClientDetailPage() {
   const id = params.id as string
   const [client, setClient] = useState<Client | null>(null)
   const [assessments, setAssessments] = useState<Assessment[]>([])
+  const [nextAssessmentCursor, setNextAssessmentCursor] = useState<string | null>(null)
+  const [loadingMoreAssessments, setLoadingMoreAssessments] = useState(false)
+  const assessmentRequestVersion = useRef(0)
+  const loadMoreAssessmentController = useRef<AbortController | null>(null)
+  const [historyPageError, setHistoryPageError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('assessments')
   const [archiving, setArchiving] = useState(false)
@@ -91,6 +96,8 @@ export default function ClientDetailPage() {
   >('checking')
 
   useEffect(() => {
+    const version = ++assessmentRequestVersion.current
+    loadMoreAssessmentController.current?.abort()
     // Abort a stale load when the client id changes / the page unmounts, so a
     // slower earlier response can't show one client's data under another's page.
     const ac = new AbortController()
@@ -135,11 +142,16 @@ export default function ClientDetailPage() {
       }
 
       try {
-        const res = await fetch(`/api/clients/${id}/assessments?include_findings=true`, { signal: ac.signal })
+        const res = await fetch(`/api/clients/${id}/assessments?include_findings=true&limit=50`, { signal: ac.signal })
         if (!res.ok) throw new Error(`Failed to load assessments (${res.status})`)
-        const json = await res.json()
+        const json = await res.json() as {
+          assessments?: Assessment[]
+          pagination?: { has_more?: boolean; next_cursor?: string | null }
+        }
         const list = sortAssessmentsChronologically<Assessment>(json.assessments || [])
+        if (version !== assessmentRequestVersion.current) return
         setAssessments(list)
+        setNextAssessmentCursor(json.pagination?.has_more ? json.pagination.next_cursor ?? null : null)
         // Default compare: earliest vs latest
         if (list.length >= 2) {
           const initial = initialComparison(list)
@@ -154,8 +166,53 @@ export default function ClientDetailPage() {
       }
     }
     load()
-    return () => ac.abort()
+    return () => {
+      ac.abort()
+      loadMoreAssessmentController.current?.abort()
+    }
   }, [id, router])
+
+  async function loadMoreAssessments() {
+    if (!nextAssessmentCursor || loadingMoreAssessments) return
+    const version = assessmentRequestVersion.current
+    loadMoreAssessmentController.current?.abort()
+    const controller = new AbortController()
+    loadMoreAssessmentController.current = controller
+    setLoadingMoreAssessments(true)
+    setHistoryPageError(null)
+    try {
+      const query = new URLSearchParams({
+        include_findings: 'true',
+        limit: '50',
+        cursor: nextAssessmentCursor,
+      })
+      const response = await fetch(`/api/clients/${encodeURIComponent(id)}/assessments?${query.toString()}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      if (!response.ok) throw new Error(`Failed to load assessments (${response.status})`)
+      const body = await response.json() as {
+        assessments?: Assessment[]
+        pagination?: { has_more?: boolean; next_cursor?: string | null }
+      }
+      if (controller.signal.aborted || version !== assessmentRequestVersion.current) return
+      setAssessments((current) => {
+        const byId = new Map(current.map((assessment) => [assessment.id, assessment]))
+        for (const assessment of body.assessments ?? []) byId.set(assessment.id, assessment)
+        return sortAssessmentsChronologically([...byId.values()])
+      })
+      setNextAssessmentCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && version === assessmentRequestVersion.current) {
+        setHistoryPageError('Could not load older assessments. Try again.')
+      }
+    } finally {
+      if (loadMoreAssessmentController.current === controller) {
+        loadMoreAssessmentController.current = null
+        setLoadingMoreAssessments(false)
+      }
+    }
+  }
 
   async function handleArchive() {
     if (!client) return
@@ -177,8 +234,10 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <div className={styles.loadingPanel} role="status">
-        Loading client evidence…
+      <div className={`app-standard-page ${styles.canvas} ${styles.pageLoadingShell}`}>
+        <div className={styles.loadingPanel} role="status">
+          Loading client evidence…
+        </div>
       </div>
     )
   }
@@ -500,16 +559,22 @@ export default function ClientDetailPage() {
         </article>
         <article className={styles.metricCard}>
           <p className={styles.metricLabel}>Assessment count</p>
-          <p className={styles.metricValue}>{assessments.length}</p>
+          <p className={styles.metricValue}>{assessments.length}{nextAssessmentCursor ? '+' : ''}</p>
           <p className={styles.metricSupport}>
-            {assessments.length === 1 ? 'One recorded screening.' : `${assessments.length} recorded screenings.`}
+            {nextAssessmentCursor
+              ? `${assessments.length} screenings loaded; older history is available.`
+              : assessments.length === 1 ? 'One recorded screening.' : `${assessments.length} recorded screenings.`}
           </p>
         </article>
         <article className={styles.metricCard}>
           <p className={styles.metricLabel}>Tracking span</p>
-          <p className={styles.metricValue}>{trackingSpanDays === null ? '—' : `${trackingSpanDays} days`}</p>
+          <p className={styles.metricValue}>{trackingSpanDays === null ? '—' : `${nextAssessmentCursor ? '≥ ' : ''}${trackingSpanDays} days`}</p>
           <p className={styles.metricSupport}>
-            {trackingSpanDays === null ? 'A second assessment starts the timeline.' : 'Elapsed time from first to latest assessment.'}
+            {trackingSpanDays === null
+              ? 'A second assessment starts the timeline.'
+              : nextAssessmentCursor
+                ? 'Loaded span; older assessments can extend it.'
+                : 'Elapsed time from first to latest assessment.'}
           </p>
         </article>
         <article className={styles.metricCard}>
@@ -576,31 +641,48 @@ export default function ClientDetailPage() {
           ) : assessments.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No assessments yet. Click &quot;+ New Assessment&quot; to start.</p>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {[...assessments].reverse().map((a) => {
-                const date = fmtDate(a.assessed_at)
-                return (
-                  <li key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '12px' }}>
-                    <Link href={`/assessments/${a.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
-                      <div>
-                        <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>Assessment — {date}</div>
-                        {a.overall_score !== null && (
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Deviation: {a.overall_score}/100 · lower is better</div>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {a.overall_grade && (
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--brand)', background: 'rgba(0,152,243,0.12)', borderRadius: '6px', padding: '2px 8px' }}>
-                            Grade {a.overall_grade}
-                          </span>
-                        )}
-                        <span style={{ color: 'var(--text-secondary)' }}>›</span>
-                      </div>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
+            <>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {[...assessments].reverse().map((a) => {
+                  const date = fmtDate(a.assessed_at)
+                  return (
+                    <li key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '12px' }}>
+                      <Link href={`/assessments/${a.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+                        <div>
+                          <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>Assessment — {date}</div>
+                          {a.overall_score !== null && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Deviation: {a.overall_score}/100 · lower is better</div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {a.overall_grade && (
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--brand)', background: 'rgba(0,152,243,0.12)', borderRadius: '6px', padding: '2px 8px' }}>
+                              Grade {a.overall_grade}
+                            </span>
+                          )}
+                          <span style={{ color: 'var(--text-secondary)' }}>›</span>
+                        </div>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+              {historyPageError && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>{historyPageError}</p>}
+              {nextAssessmentCursor && (
+                <button
+                  type="button"
+                  onClick={loadMoreAssessments}
+                  disabled={loadingMoreAssessments}
+                  style={{
+                    width: '100%', minHeight: 44, borderRadius: 10,
+                    border: '1px solid rgba(0,152,243,0.28)', background: 'rgba(0,152,243,0.08)',
+                    color: 'var(--brand)', fontWeight: 600, cursor: loadingMoreAssessments ? 'wait' : 'pointer',
+                  }}
+                >
+                  {loadingMoreAssessments ? 'Loading older assessments…' : 'Load older assessments'}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -608,6 +690,11 @@ export default function ClientDetailPage() {
       {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
       {activeTab === 'progress' && hasMultipleAssessments && (
         <div {...panelProps('progress')}>
+          {nextAssessmentCursor && (
+            <p role="status" className={styles.loadingPanel}>
+              Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
+            </p>
+          )}
           <ProgressCharts
             trendData={trendData}
             trendSegments={trendSegments}
@@ -620,6 +707,11 @@ export default function ClientDetailPage() {
       {/* Compare Tab */}
       {activeTab === 'compare' && hasMultipleAssessments && (
         <div {...panelProps('compare')}>
+          {nextAssessmentCursor && (
+            <p role="status" className={styles.loadingPanel}>
+              Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
+            </p>
+          )}
           <ComparisonWorkspace
             assessments={comparisonAssessments}
             baseId={compareBaseId}

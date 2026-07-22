@@ -4,14 +4,28 @@ import { NextRequest } from 'next/server'
 const state = vi.hoisted(() => ({
   user: { id: '10000000-0000-4000-8000-000000000001' } as { id: string } | null,
   rpc: vi.fn(),
+  clientResult: { data: null, error: null } as { data: unknown; error: unknown },
+  clientQueryCalls: [] as Array<{ method: string; args: unknown[] }>,
   drain: vi.fn(),
   logEvent: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
-  createSupabaseServerClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: state.user } }) },
-  }),
+  createSupabaseServerClient: async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const query: any = {}
+    for (const method of ['select', 'eq', 'is']) {
+      query[method] = (...args: unknown[]) => {
+        state.clientQueryCalls.push({ method, args })
+        return query
+      }
+    }
+    query.maybeSingle = async () => state.clientResult
+    return {
+      auth: { getUser: async () => ({ data: { user: state.user } }) },
+      from: () => query,
+    }
+  },
   createSupabaseServiceClient: () => ({ rpc: state.rpc }),
 }))
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
@@ -26,7 +40,7 @@ vi.mock('@/lib/log', () => ({
   logEvent: state.logEvent,
 }))
 
-import { DELETE } from './route'
+import { DELETE, GET } from './route'
 
 const clientId = '20000000-0000-4000-8000-000000000001'
 
@@ -58,6 +72,8 @@ describe('DELETE /api/clients/[id]', () => {
     })
     state.drain.mockReset().mockResolvedValue({ claimed: 0, completed: 0, pending: 0 })
     state.logEvent.mockReset()
+    state.clientResult = { data: null, error: null }
+    state.clientQueryCalls.length = 0
   })
 
   test('rejects free-text erasure reasons before mutation', async () => {
@@ -174,5 +190,54 @@ describe('DELETE /api/clients/[id]', () => {
 
     expect(response.status).toBe(401)
     expect(state.rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/clients/[id]', () => {
+  beforeEach(() => {
+    state.user = { id: '10000000-0000-4000-8000-000000000001' }
+    state.clientResult = {
+      data: {
+        id: clientId,
+        first_name: 'Deep',
+        last_name: 'Link',
+        date_of_birth: '1990-01-01',
+        created_at: '2026-07-22T00:00:00.000Z',
+      },
+      error: null,
+    }
+    state.clientQueryCalls.length = 0
+    state.logEvent.mockReset()
+  })
+
+  test('returns one active owned client for assessment-picker deep links', async () => {
+    const response = await GET(new NextRequest(`http://localhost/api/clients/${clientId}`), {
+      params: Promise.resolve({ id: clientId }),
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toContain('no-store')
+    await expect(response.json()).resolves.toMatchObject({
+      client: { id: clientId, first_name: 'Deep', last_name: 'Link' },
+    })
+    expect(state.clientQueryCalls).toContainEqual({ method: 'eq', args: ['practitioner_id', state.user?.id] })
+    expect(state.clientQueryCalls).toContainEqual({ method: 'is', args: ['archived_at', null] })
+    expect(state.clientQueryCalls).toContainEqual({ method: 'is', args: ['deleted_at', null] })
+  })
+
+  test('returns 404 rather than exposing an absent, archived, deleted, or foreign client', async () => {
+    state.clientResult = { data: null, error: null }
+    const response = await GET(new NextRequest(`http://localhost/api/clients/${clientId}`), {
+      params: Promise.resolve({ id: clientId }),
+    })
+    expect(response.status).toBe(404)
+  })
+
+  test('does not disguise a database failure as not found', async () => {
+    state.clientResult = { data: null, error: { code: '08006', message: 'connection failure' } }
+    const response = await GET(new NextRequest(`http://localhost/api/clients/${clientId}`), {
+      params: Promise.resolve({ id: clientId }),
+    })
+    expect(response.status).toBe(500)
+    expect(JSON.stringify(state.logEvent.mock.calls)).not.toContain('connection failure')
   })
 })

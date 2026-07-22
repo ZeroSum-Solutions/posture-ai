@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import performanceBudget from '../../docs/qa/performance-budgets.json'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -7,6 +8,12 @@ afterEach(() => {
 })
 
 describe('live backend telemetry', () => {
+  it('does not abort before the frozen cold-camera performance budget', async () => {
+    const backend = await import('./live-backend')
+    expect(backend.LIVE_INIT_TIMEOUT_MS).toBeGreaterThan(performanceBudget.budgets.cold_camera_readiness_p95_milliseconds)
+    expect(backend.LIVE_INIT_TIMEOUT_MS).toBeLessThanOrEqual(25_000)
+  })
+
   it('records worker init, inference, round-trip, and close events', async () => {
     class FakeWorker {
       onmessage: ((event: MessageEvent) => void) | null = null

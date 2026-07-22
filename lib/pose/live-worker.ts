@@ -25,7 +25,10 @@ type InMsg = InitMsg | GenerationMsg | FrameMsg | CloseMsg
 
 let landmarker: PoseLandmarker | null = null
 const gate: FrameGateState = { inFlight: false, lastTimestampMs: -Infinity, lastCurrentTime: NaN, generation: 0 }
-const DELEGATE_INIT_TIMEOUT_MS = 5_000
+// The lite model alone needs about 4.6 seconds to cross the frozen 10 Mbps
+// profile before parsing/initialization. Five seconds made every true cold
+// attempt fail before the 20-second end-to-end camera budget could be measured.
+const DELEGATE_INIT_TIMEOUT_MS = 10_000
 
 function createLandmarker(
   vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>,

@@ -18,10 +18,10 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`c2055aecf37a25a7a3e7f51fea397fd76f4a7a9ab7d9e2138a85b05c27824546`.
+`56c023af30be473e9f48b32d0daf558696b390eab1902643cfab47aefb31b0f2`.
 
 Recommendation algorithm SHA-256:
-`ffa2282f49d8dbab3c0aaf1a4b01eebbf6aa79c7d24e0296f130258d3f9a4724`.
+`5146b18704a85e40c12111385ede560b66cb4af5164aabdbedb26283e1dc847b`.
 
 The algorithm item hashes dosage, prioritization, relationship coherence,
 evidence weighting, program construction, server projection, exercise matching,

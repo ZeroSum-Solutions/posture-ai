@@ -20,6 +20,13 @@
   min-height: 120px;
 }
 
+.pageLoadingShell {
+  /* Keep the footer below the viewport while client evidence hydrates. Without
+     this reservation, replacing the short loading card with the full record
+     moves a visible footer by almost one viewport (CLS ~0.95). */
+  min-height: 100svh;
+}
+
 .errorState {
   border-color: color-mix(in srgb, var(--danger) 44%, var(--glass-border));
   color: var(--text-primary);

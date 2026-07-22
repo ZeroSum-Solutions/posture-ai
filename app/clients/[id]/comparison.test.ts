@@ -21,6 +21,20 @@ describe('assessment comparison chronology', () => {
     expect(initialComparison(sorted)).toEqual({ baseId: 'oldest', targetId: 'newest' })
   })
 
+  test('restores chronological order when older keyset pages are appended later', () => {
+    const newestPageAscending = [
+      { id: 'march', assessed_at: '2026-03-01T10:00:00.000Z' },
+      { id: 'april', assessed_at: '2026-04-01T10:00:00.000Z' },
+    ]
+    const olderPageAscending = [
+      { id: 'january', assessed_at: '2026-01-01T10:00:00.000Z' },
+      { id: 'february', assessed_at: '2026-02-01T10:00:00.000Z' },
+    ]
+
+    expect(sortAssessmentsChronologically([...newestPageAscending, ...olderPageAscending]).map((row) => row.id))
+      .toEqual(['january', 'february', 'march', 'april'])
+  })
+
   test('repairs After when Before moves to the same or a later assessment', () => {
     const sorted = sortAssessmentsChronologically(assessments)
 

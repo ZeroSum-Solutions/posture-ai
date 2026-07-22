@@ -25,6 +25,11 @@
     "auth:practitioner": "npx vite-node scripts/practitioner-access.ts",
     "device:evidence:check": "node scripts/check-device-evidence.mjs",
     "performance:budgets:check": "node scripts/check-performance-budgets.mjs",
+    "performance:smoke": "npm run performance:budgets:check && vitest run scripts/performance",
+    "performance:official": "node scripts/performance/run-official.mjs",
+    "performance:local": "node scripts/performance/run-official.mjs --local",
+    "performance:check": "node scripts/performance/check-receipts.mjs",
+    "test:critical-contracts": "node scripts/run-critical-contracts.mjs",
     "readiness:inventory": "node scripts/generate-production-readiness-inventory.mjs",
     "golden": "node scripts/golden-report.mjs"
   },

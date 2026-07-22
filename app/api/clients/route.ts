@@ -10,31 +10,105 @@ import {
 import { snapshotLegalDocument } from '@/lib/legal/policy'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import type { LegalSnapshot } from '@/lib/legal/types'
+import { finalizeKeysetPage, isCanonicalUuid, parseKeysetPageRequest } from '@/lib/pagination/keyset'
 import { NextRequest, NextResponse } from 'next/server'
 
 const SIGNER_RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
 const ROUTE = 'POST /api/clients'
+const CLIENT_LIST_SCOPE = 'clients'
+const NO_STORE = { 'Cache-Control': 'private, no-store, max-age=0' }
 
-export async function GET() {
+interface ClientListRow {
+  id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string | null
+  created_at: string
+}
+
+function parseClientSearch(searchParams: URLSearchParams) {
+  const values = searchParams.getAll('search')
+  if (values.length > 1) return { ok: false as const }
+  const value = (values[0] ?? '')
+    .replace(/[,()%]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+  // The search is passed to a typed SQL function (never PostgREST's raw filter
+  // grammar). Normalize common directory punctuation, and keep a small human-name
+  // alphabet so wildcard characters cannot change prefix-search semantics.
+  if (value.length > 100 || (value && !/^[\p{L}\p{M}\p{N}'’.\p{Pd} ]+$/u.test(value))) {
+    return { ok: false as const }
+  }
+  return { ok: true as const, value }
+}
+
+export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
   const userHash = hashUser(user.id)
 
-  const { data, error } = await supabase
-    .from('clients')
-    .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, created_at')
-    .is('archived_at', null)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+  // One-version compatibility window: the pre-PR-09 API accepted a parameterless
+  // request and returned the complete directory with the legacy field set. Current
+  // callers always send `limit`. Remove this branch with the assessment-history
+  // compatibility path after the window in docs/qa/pr09-performance-runbook.md.
+  if (req.nextUrl.searchParams.size === 0) {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, created_at')
+      .is('archived_at', null)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    if (error) {
+      logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_list_failed' })
+      return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
+    }
+    logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_legacy_compatibility' })
+    return NextResponse.json({ clients: data ?? [], count: data?.length ?? 0 }, { headers: NO_STORE })
+  }
+
+  const parsedSearch = parseClientSearch(req.nextUrl.searchParams)
+  if (!parsedSearch.ok) {
+    return NextResponse.json({ error: 'Invalid search' }, { status: 400, headers: NO_STORE })
+  }
+  const filterKey = `search=${parsedSearch.value.toLocaleLowerCase('en-US')}`
+  const parsedPage = parseKeysetPageRequest(req.nextUrl.searchParams, {
+    scope: CLIENT_LIST_SCOPE,
+    filterKey,
+    isValidId: isCanonicalUuid,
+  })
+  if (!parsedPage.ok) {
+    return NextResponse.json({ error: parsedPage.error }, { status: 400, headers: NO_STORE })
+  }
+  const page = parsedPage.value
+
+  const { data, error } = await supabase.rpc('list_owned_clients_page', {
+    p_search: parsedSearch.value,
+    p_snapshot_at: page.snapshotAt,
+    p_after_at: page.after?.at ?? null,
+    p_after_id: page.after?.id ?? null,
+    p_limit: page.limit + 1,
+  })
   if (error) {
     logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_list_failed' })
-    return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
   }
+  const result = finalizeKeysetPage((data ?? []) as ClientListRow[], {
+    scope: CLIENT_LIST_SCOPE,
+    filterKey,
+    snapshotAt: page.snapshotAt,
+    limit: page.limit,
+    // PostgREST may serialize timestamptz with `+00:00`; bind cursors to one
+    // canonical UTC representation so real rows cannot create invalid cursors.
+    key: (client) => ({ at: new Date(client.created_at).toISOString(), id: client.id }),
+  })
   logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_loaded' })
-  return NextResponse.json({ clients: data, count: data.length })
+  return NextResponse.json(
+    { clients: result.records, count: result.records.length, pagination: result.pagination },
+    { headers: NO_STORE },
+  )
 }
 
 export async function POST(req: NextRequest) {
