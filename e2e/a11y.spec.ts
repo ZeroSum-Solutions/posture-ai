@@ -20,7 +20,7 @@ test.describe('accessibility budget', () => {
     // Axe must inspect the settled surface. On a cold WebKit worker the route
     // entrance can still be near opacity 0 after networkidle, which makes Axe
     // composite otherwise-accessible colors into a false black-on-black result.
-    await expect(page.locator('.app-shell-main')).toHaveCSS('opacity', '1')
+    await expect(page.locator('.app-shell-main')).toHaveCSS('opacity', '1', { timeout: 15_000 })
     const results = await analyzeAndAttachAxe(page, testInfo, name)
     const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
     const detail = serious.map(v =>
@@ -89,6 +89,10 @@ test.describe('accessibility budget', () => {
   test('client CRUD surfaces pass the axe budget', async ({ page }, testInfo) => {
     await page.goto('/clients/new')
     await page.waitForLoadState('networkidle')
+    // Scan the usable create surface, after the required legal document has
+    // hydrated and unlocked the consent form, rather than its transient shell.
+    await expect(page.getByRole('article', { name: 'Consent to Posture Screening' }))
+      .toBeVisible({ timeout: 15_000 })
     await expectNoSeriousViolations(page, testInfo, 'client new')
 
     const stamp = Date.now().toString().slice(-7)
