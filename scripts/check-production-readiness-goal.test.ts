@@ -30,7 +30,7 @@ const FAILURE_CASES = JSON.parse(readFileSync(join(FIXTURE_DIR, 'failure-cases.j
 const GOAL_STATE_CRITERIA = JSON.parse(readFileSync(join(FIXTURE_DIR, 'goal-state-criteria.json'), 'utf8')) as JsonObject[]
 const HEAD = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()
 const ANCESTOR_COMMIT = spawnSync('git', ['rev-parse', 'HEAD^'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()
-const PLAYWRIGHT_LIST = spawnSync('npx', ['playwright', 'test', '--list'], { cwd: ROOT, encoding: 'utf8' })
+const PLAYWRIGHT_LIST = spawnSync('npx', ['playwright', 'test', '--list', '--reporter=list'], { cwd: ROOT, encoding: 'utf8' })
 const HG04_REVIEW_KEY = generateKeyPairSync('ed25519')
 const HG04_REVIEW_FINGERPRINT = createHash('sha256').update(HG04_REVIEW_KEY.publicKey.export({ type: 'spki', format: 'der' })).digest('hex')
 const REBOUND_TASKS = ['PR-00', 'PR-01', 'PR-02', 'PR-03', 'PR-04', 'PR-05', 'PR-06', 'PR-07']
