@@ -12,6 +12,12 @@ type DeviceContract = {
 }
 
 describe('PR-08 release-harness coherence', () => {
+  it('checks out the git history required by the readiness provenance gate', () => {
+    const workflow = read('.github/workflows/ci.yml')
+
+    expect(workflow).toMatch(/jobs:\s+[\s\S]*?checks:[\s\S]*?actions\/checkout@v5\s+with:\s+fetch-depth:\s*0/)
+  })
+
   it('retains sanitized Playwright and Axe receipts on CI success and failure', () => {
     const workflow = read('.github/workflows/ci.yml')
     const config = read('playwright.config.ts')
