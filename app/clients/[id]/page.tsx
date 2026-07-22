@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
@@ -102,65 +101,69 @@ export default function ClientDetailPage() {
     // slower earlier response can't show one client's data under another's page.
     const ac = new AbortController()
     async function load() {
-      const supabase = createSupabaseBrowserClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (ac.signal.aborted) return
-      if (!user) { router.push('/auth/sign-in'); return }
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id)
-        .eq('practitioner_id', user.id)
-        .single()
-      if (ac.signal.aborted) return
-      if (error || !data) { router.push('/clients'); return }
-      setClient(data)
-
       try {
-        const consentResponse = await fetch(`/api/consent?client_id=${encodeURIComponent(id)}`, {
-          cache: 'no-store',
-          signal: ac.signal,
-        })
-        if (!consentResponse.ok) throw new Error(`Failed to load consent (${consentResponse.status})`)
-        const consent = await consentResponse.json() as {
-          hasConsent?: boolean
-          legalState?: 'current' | 'missing' | 'withdrawn' | 'reconsent_required' | 'legal_unavailable'
+        async function getJson<T>(url: string) {
+          const response = await fetch(url, { cache: 'no-store', signal: ac.signal })
+          const body = await response.json().catch(() => ({})) as T
+          return { body, ok: response.ok, status: response.status }
         }
-        if (ac.signal.aborted) return
-        setConsentStatus(consent.hasConsent && consent.legalState === 'current'
+
+        const [clientResult, consentResult, historyResult] = await Promise.allSettled([
+          getJson<{ client?: Client; error?: string }>(`/api/clients/${encodeURIComponent(id)}`),
+          getJson<{
+            hasConsent?: boolean
+            legalState?: 'current' | 'missing' | 'withdrawn' | 'reconsent_required' | 'legal_unavailable'
+          }>(`/api/consent?client_id=${encodeURIComponent(id)}`),
+          getJson<{
+            assessments?: Assessment[]
+            pagination?: { has_more?: boolean; next_cursor?: string | null }
+          }>(`/api/clients/${encodeURIComponent(id)}/assessments?include_findings=true&limit=50`),
+        ])
+        if (ac.signal.aborted || version !== assessmentRequestVersion.current) return
+
+        const isUnauthorized = [clientResult, consentResult, historyResult]
+          .some((result) => result.status === 'fulfilled' && result.value.status === 401)
+        if (isUnauthorized) {
+          router.push('/auth/sign-in')
+          return
+        }
+
+        if (clientResult.status === 'rejected' || !clientResult.value.ok || !clientResult.value.body.client) {
+          router.push('/clients')
+          return
+        }
+        setClient(clientResult.value.body.client)
+
+        const consent = consentResult.status === 'fulfilled' && consentResult.value.ok
+          ? consentResult.value.body
+          : null
+        setConsentStatus(consent?.hasConsent && consent.legalState === 'current'
           ? 'valid'
-          : consent.legalState === 'withdrawn'
+          : consent?.legalState === 'withdrawn'
             ? 'withdrawn'
-            : consent.legalState === 'reconsent_required'
+            : consent?.legalState === 'reconsent_required'
               ? 'reconsent_required'
-              : consent.legalState === 'missing'
+              : consent?.legalState === 'missing'
                 ? 'missing'
                 : 'unavailable')
+
+        if (historyResult.status === 'fulfilled' && historyResult.value.ok) {
+          const json = historyResult.value.body
+          const list = sortAssessmentsChronologically<Assessment>(json.assessments || [])
+          setAssessments(list)
+          setNextAssessmentCursor(json.pagination?.has_more ? json.pagination.next_cursor ?? null : null)
+          // Default compare: earliest vs latest
+          if (list.length >= 2) {
+            const initial = initialComparison(list)
+            setCompareBaseId(initial.baseId)
+            setCompareTargetId(initial.targetId)
+          }
+        } else {
+          setLoadError('Could not load the assessment history for this client. Refresh to try again.')
+        }
       } catch (caught) {
         if ((caught as Error)?.name === 'AbortError') return
-        setConsentStatus('unavailable')
-      }
-
-      try {
-        const res = await fetch(`/api/clients/${id}/assessments?include_findings=true&limit=50`, { signal: ac.signal })
-        if (!res.ok) throw new Error(`Failed to load assessments (${res.status})`)
-        const json = await res.json() as {
-          assessments?: Assessment[]
-          pagination?: { has_more?: boolean; next_cursor?: string | null }
-        }
-        const list = sortAssessmentsChronologically<Assessment>(json.assessments || [])
-        if (version !== assessmentRequestVersion.current) return
-        setAssessments(list)
-        setNextAssessmentCursor(json.pagination?.has_more ? json.pagination.next_cursor ?? null : null)
-        // Default compare: earliest vs latest
-        if (list.length >= 2) {
-          const initial = initialComparison(list)
-          setCompareBaseId(initial.baseId)
-          setCompareTargetId(initial.targetId)
-        }
-      } catch (e) {
-        if ((e as Error)?.name === 'AbortError') return
-        setLoadError('Could not load the assessment history for this client. Refresh to try again.')
+        setLoadError('Could not load this client record. Refresh to try again.')
       } finally {
         if (!ac.signal.aborted) setLoading(false)
       }
@@ -317,54 +320,60 @@ export default function ClientDetailPage() {
     setCompareTargetId(next.targetId)
   }
 
-  // Build chart trend data
+  // Build only the active workspace projection. The 50-assessment payload can
+  // contain hundreds of findings, so computing every hidden tab on each render
+  // turns a simple tab click into a long main-thread task.
   const imbalanceKeys: string[] = []
   const imbalanceLabels: Record<string, string> = {}
-  assessments.forEach((a) => {
-    (a.assessment_findings || []).forEach((f) => {
-      if (!imbalanceKeys.includes(f.imbalance_key)) {
-        imbalanceKeys.push(f.imbalance_key)
-        imbalanceLabels[f.imbalance_key] = f.label || f.imbalance_key
-      }
+  let trendData: Array<Record<string, number | string | null>> = []
+  let trendSegments: Array<{ id: string; scoringEngineVersion: string | null }> = []
+  if (activeTab === 'progress') {
+    assessments.forEach((a) => {
+      (a.assessment_findings || []).forEach((f) => {
+        if (!imbalanceKeys.includes(f.imbalance_key)) {
+          imbalanceKeys.push(f.imbalance_key)
+          imbalanceLabels[f.imbalance_key] = f.label || f.imbalance_key
+        }
+      })
     })
-  })
 
-  const segmentedTrendHistory = segmentTrendHistory(assessments.map((assessment) => ({
-    ...assessment,
-    assessmentId: assessment.id,
-    scoringEngineVersion: assessment.scoring_engine_version,
-  })))
-  const trendData = segmentedTrendHistory.points.map(({ value: a, segmentId }) => {
-    const point: Record<string, number | string | null> = {
-      assessment_id: a.id,
-      date: new Date(a.assessed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      scoring_engine_version: a.scoring_engine_version,
-      segment_id: segmentId,
-      overall_score: toNum(a.overall_score),
-      overall_grade: a.overall_grade,
-    }
-    const findingsMap: Record<string, number> = {}
-    ;(a.assessment_findings || []).forEach((f) => {
-      // severity_pct is NUMERIC → arrives as a string; coerce so the chart plots a
-      // number and the tooltip's value.toFixed(1) doesn't throw.
-      const sev = toNum(f.severity_pct)
-      if (sev !== null && f.zone !== null && f.zone !== 'unreliable') findingsMap[f.imbalance_key] = sev
+    const segmentedTrendHistory = segmentTrendHistory(assessments.map((assessment) => ({
+      ...assessment,
+      assessmentId: assessment.id,
+      scoringEngineVersion: assessment.scoring_engine_version,
+    })))
+    trendData = segmentedTrendHistory.points.map(({ value: a, segmentId }) => {
+      const point: Record<string, number | string | null> = {
+        assessment_id: a.id,
+        date: new Date(a.assessed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        scoring_engine_version: a.scoring_engine_version,
+        segment_id: segmentId,
+        overall_score: toNum(a.overall_score),
+        overall_grade: a.overall_grade,
+      }
+      const findingsMap: Record<string, number> = {}
+      ;(a.assessment_findings || []).forEach((f) => {
+        // severity_pct is NUMERIC → arrives as a string; coerce so the chart plots a
+        // number and the tooltip's value.toFixed(1) doesn't throw.
+        const sev = toNum(f.severity_pct)
+        if (sev !== null && f.zone !== null && f.zone !== 'unreliable') findingsMap[f.imbalance_key] = sev
+      })
+      imbalanceKeys.forEach((key) => {
+        if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
+      })
+      return point
     })
-    imbalanceKeys.forEach((key) => {
-      if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
-    })
-    return point
-  })
-  const trendSegments = segmentedTrendHistory.segments.map((segment) => ({
-    id: segment.id,
-    scoringEngineVersion: segment.scoringEngineVersion,
-  }))
+    trendSegments = segmentedTrendHistory.segments.map((segment) => ({
+      id: segment.id,
+      scoringEngineVersion: segment.scoringEngineVersion,
+    }))
+  }
 
   // Comparison delta computation
-  const baseAssessment = assessments.find((a) => a.id === compareBaseId)
-  const targetAssessment = assessments.find((a) => a.id === compareTargetId)
+  const baseAssessment = activeTab === 'compare' ? assessments.find((a) => a.id === compareBaseId) : undefined
+  const targetAssessment = activeTab === 'compare' ? assessments.find((a) => a.id === compareTargetId) : undefined
   const deltaRows: ComparisonDeltaRow[] = []
-  const selectedComparison = baseAssessment && targetAssessment
+  const selectedComparison: ReturnType<typeof buildClientComparison> | null = baseAssessment && targetAssessment
     ? buildClientComparison({
         priorDateStr: fmtDate(baseAssessment.assessed_at),
         current: {
@@ -431,14 +440,16 @@ export default function ClientDetailPage() {
     deltaRows.sort((left, right) => left.label.localeCompare(right.label) || left.key.localeCompare(right.key))
   }
 
-  const comparisonAssessments = assessments.map((assessment) => ({
-    id: assessment.id,
-    assessedAt: assessment.assessed_at,
-    overallGrade: assessment.overall_grade,
-    overallScore: toNum(assessment.overall_score),
-    scoringEngineVersion: assessment.scoring_engine_version,
-    status: assessment.status,
-  }))
+  const comparisonAssessments = activeTab === 'compare'
+    ? assessments.map((assessment) => ({
+        id: assessment.id,
+        assessedAt: assessment.assessed_at,
+        overallGrade: assessment.overall_grade,
+        overallScore: toNum(assessment.overall_score),
+        scoringEngineVersion: assessment.scoring_engine_version,
+        status: assessment.status,
+      }))
+    : []
   const latestAssessment = assessments.at(-1)
   const latestDeviation = toNum(latestAssessment?.overall_score)
   const trackingSpanDays = assessments.length >= 2

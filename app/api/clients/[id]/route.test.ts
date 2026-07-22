@@ -202,6 +202,11 @@ describe('GET /api/clients/[id]', () => {
         first_name: 'Deep',
         last_name: 'Link',
         date_of_birth: '1990-01-01',
+        sex_at_birth: 'female',
+        height_cm: 168,
+        weight_kg: 64,
+        notes: 'Fixture note',
+        consent_recorded_at: '2026-07-21T00:00:00.000Z',
         created_at: '2026-07-22T00:00:00.000Z',
       },
       error: null,
@@ -210,14 +215,27 @@ describe('GET /api/clients/[id]', () => {
     state.logEvent.mockReset()
   })
 
-  test('returns one active owned client for assessment-picker deep links', async () => {
+  test('returns the complete active owned client needed by picker and detail views', async () => {
     const response = await GET(new NextRequest(`http://localhost/api/clients/${clientId}`), {
       params: Promise.resolve({ id: clientId }),
     })
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toContain('no-store')
     await expect(response.json()).resolves.toMatchObject({
-      client: { id: clientId, first_name: 'Deep', last_name: 'Link' },
+      client: {
+        id: clientId,
+        first_name: 'Deep',
+        last_name: 'Link',
+        sex_at_birth: 'female',
+        height_cm: 168,
+        weight_kg: 64,
+        notes: 'Fixture note',
+        consent_recorded_at: '2026-07-21T00:00:00.000Z',
+      },
+    })
+    expect(state.clientQueryCalls).toContainEqual({
+      method: 'select',
+      args: ['id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, consent_recorded_at, created_at'],
     })
     expect(state.clientQueryCalls).toContainEqual({ method: 'eq', args: ['practitioner_id', state.user?.id] })
     expect(state.clientQueryCalls).toContainEqual({ method: 'is', args: ['archived_at', null] })

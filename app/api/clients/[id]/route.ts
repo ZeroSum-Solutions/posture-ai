@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<Param
 
   const { data, error } = await supabase
     .from('clients')
-    .select('id, first_name, last_name, date_of_birth, created_at')
+    .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, consent_recorded_at, created_at')
     .eq('id', id)
     .eq('practitioner_id', user.id)
     .is('archived_at', null)

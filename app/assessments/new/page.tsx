@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { startTransition, useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
@@ -15,6 +15,7 @@ import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hook
 import { createSubmissionGuard } from '@/lib/capture/submission-guard'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import useLegalDocument from '@/components/useLegalDocument'
+import DebouncedSearchInput from '@/components/DebouncedSearchInput'
 
 interface Client {
   id: string
@@ -124,20 +125,24 @@ export function NewAssessmentWizard() {
       try {
         const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
         if (controller.signal.aborted || clientRequestVersion.current !== version) return
-        setClients(body.clients ?? [])
-        setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
-        setClientsError(null)
+        startTransition(() => {
+          setClients(body.clients ?? [])
+          setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+          setClientsError(null)
+          setLoadingClients(false)
+        })
       } catch (caught) {
         if ((caught as Error)?.name === 'AbortError' || clientRequestVersion.current !== version) return
-        setClients([])
-        setNextClientCursor(null)
-        if ((caught as Error)?.message !== 'Unauthorized') {
-          setClientsError('Could not load your clients. Refresh to try again.')
-        }
-      } finally {
-        if (!controller.signal.aborted && clientRequestVersion.current === version) setLoadingClients(false)
+        startTransition(() => {
+          setClients([])
+          setNextClientCursor(null)
+          if ((caught as Error)?.message !== 'Unauthorized') {
+            setClientsError('Could not load your clients. Refresh to try again.')
+          }
+          setLoadingClients(false)
+        })
       }
-    }, normalizedSearch ? 250 : 0)
+    }, 0)
     return () => {
       window.clearTimeout(timer)
       controller.abort()
@@ -671,11 +676,11 @@ export function NewAssessmentWizard() {
           )}
           <div className="app-panel" style={{ padding: '24px' }}>
             <div className="app-search-shell">
-            <input type="text" placeholder="Search clients by name..." aria-label="Search clients by name" value={clientSearch} onChange={e => {
+            <DebouncedSearchInput placeholder="Search clients by name..." ariaLabel="Search clients by name" onQueryChange={(query) => {
               loadMoreClientController.current?.abort()
               loadMoreClientController.current = null
               setLoadingMoreClients(false)
-              setClientSearch(e.target.value)
+              setClientSearch(query)
               setLoadingClients(true)
               setNextClientCursor(null)
             }}

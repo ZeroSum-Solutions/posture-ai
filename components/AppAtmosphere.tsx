@@ -4,7 +4,9 @@ import { useEffect, useRef } from 'react'
 
 /**
  * A low-cost, non-interactive WebGL field for authenticated application screens.
- * It deliberately stays behind the UI and stops completely for reduced motion.
+ * It renders a stable frame and redraws only after resize. Continuously animating
+ * this canvas forces every translucent surface above it to be recomposited and
+ * makes ordinary input lag on low-power devices.
  */
 export default function AppAtmosphere() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -76,70 +78,69 @@ export default function AppAtmosphere() {
       if (!unit) return null
       context.shaderSource(unit, source)
       context.compileShader(unit)
-      return context.getShaderParameter(unit, context.COMPILE_STATUS) ? unit : null
+      if (context.getShaderParameter(unit, context.COMPILE_STATUS)) return unit
+      context.deleteShader(unit)
+      return null
     }
 
     const vertex = shader(context.VERTEX_SHADER, vertexSource)
     const fragment = shader(context.FRAGMENT_SHADER, fragmentSource)
-    if (!vertex || !fragment) return
+    if (!vertex || !fragment) {
+      if (vertex) context.deleteShader(vertex)
+      if (fragment) context.deleteShader(fragment)
+      return
+    }
     const program = context.createProgram()
-    if (!program) return
+    if (!program) {
+      context.deleteShader(vertex)
+      context.deleteShader(fragment)
+      return
+    }
     context.attachShader(program, vertex)
     context.attachShader(program, fragment)
     context.linkProgram(program)
-    if (!context.getProgramParameter(program, context.LINK_STATUS)) return
+    if (!context.getProgramParameter(program, context.LINK_STATUS)) {
+      context.deleteProgram(program)
+      context.deleteShader(vertex)
+      context.deleteShader(fragment)
+      return
+    }
 
     const buffer = context.createBuffer()
-    if (!buffer) return
+    if (!buffer) {
+      context.deleteProgram(program)
+      context.deleteShader(vertex)
+      context.deleteShader(fragment)
+      return
+    }
     context.bindBuffer(context.ARRAY_BUFFER, buffer)
     context.bufferData(context.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), context.STATIC_DRAW)
 
     const position = context.getAttribLocation(program, 'position')
     const resolution = context.getUniformLocation(program, 'resolution')
     const time = context.getUniformLocation(program, 'time')
-    let frame = 0
-    let lastRender = 0
+    function render() {
+      context.useProgram(program)
+      context.bindBuffer(context.ARRAY_BUFFER, buffer)
+      context.enableVertexAttribArray(position)
+      context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0)
+      context.uniform2f(resolution, surface.width, surface.height)
+      context.uniform1f(time, 0)
+      context.drawArrays(context.TRIANGLE_STRIP, 0, 4)
+    }
 
-    function resize() {
+    function resizeAndRender() {
       const ratio = Math.min(window.devicePixelRatio || 1, 1.5)
       surface.width = Math.round(window.innerWidth * ratio)
       surface.height = Math.round(window.innerHeight * ratio)
       context.viewport(0, 0, surface.width, surface.height)
+      render()
     }
 
-    function render(now: number) {
-      frame = 0
-      if (document.hidden) return
-      if (now - lastRender >= 33) {
-        lastRender = now
-        context.useProgram(program)
-        context.bindBuffer(context.ARRAY_BUFFER, buffer)
-        context.enableVertexAttribArray(position)
-        context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0)
-        context.uniform2f(resolution, surface.width, surface.height)
-        context.uniform1f(time, now / 1000)
-        context.drawArrays(context.TRIANGLE_STRIP, 0, 4)
-      }
-      frame = window.requestAnimationFrame(render)
-    }
-
-    function onVisibilityChange() {
-      if (document.hidden) {
-        if (frame) window.cancelAnimationFrame(frame)
-        frame = 0
-        return
-      }
-      if (!frame) frame = window.requestAnimationFrame(render)
-    }
-
-    resize()
-    window.addEventListener('resize', resize, { passive: true })
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    if (!document.hidden) frame = window.requestAnimationFrame(render)
+    resizeAndRender()
+    window.addEventListener('resize', resizeAndRender, { passive: true })
     return () => {
-      if (frame) window.cancelAnimationFrame(frame)
-      window.removeEventListener('resize', resize)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('resize', resizeAndRender)
       context.deleteBuffer(buffer)
       context.deleteProgram(program)
       context.deleteShader(vertex)

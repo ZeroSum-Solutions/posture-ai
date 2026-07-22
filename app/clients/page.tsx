@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { startTransition, useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import DebouncedSearchInput from '@/components/DebouncedSearchInput'
 
 interface Client {
   id: string
@@ -64,20 +65,23 @@ export default function ClientsPage() {
       try {
         const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
         if (controller.signal.aborted || requestVersion.current !== version) return
-        setClients(body.clients ?? [])
-        setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
-        setError(null)
-      } catch (caught) {
-        if ((caught as Error)?.name === 'AbortError' || requestVersion.current !== version) return
-        setNextCursor(null)
-        if ((caught as Error)?.message !== 'Unauthorized') setError('Could not load clients. Refresh to try again.')
-      } finally {
-        if (!controller.signal.aborted && requestVersion.current === version) {
+        startTransition(() => {
+          setClients(body.clients ?? [])
+          setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+          setError(null)
           setLoading(false)
           setSearching(false)
-        }
+        })
+      } catch (caught) {
+        if ((caught as Error)?.name === 'AbortError' || requestVersion.current !== version) return
+        startTransition(() => {
+          setNextCursor(null)
+          if ((caught as Error)?.message !== 'Unauthorized') setError('Could not load clients. Refresh to try again.')
+          setLoading(false)
+          setSearching(false)
+        })
       }
-    }, normalizedSearch ? 250 : 0)
+    }, 0)
 
     return () => {
       window.clearTimeout(timer)
@@ -135,7 +139,6 @@ export default function ClientsPage() {
 
     let stopped = false
     // The query/session receipt is external navigation state synchronized here.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setErasureNotice('pending')
     async function poll() {
       const response = await fetch('/api/privacy/erasure-status', {
@@ -177,16 +180,14 @@ export default function ClientsPage() {
       </div>
 
       <div className="app-search-shell">
-        <input
-          type="text"
+        <DebouncedSearchInput
           placeholder="Search clients by name..."
-          aria-label="Search clients by name"
-          value={search}
-          onChange={e => {
+          ariaLabel="Search clients by name"
+          onQueryChange={(query) => {
             loadMoreController.current?.abort()
             loadMoreController.current = null
             setLoadingMore(false)
-            setSearch(e.target.value)
+            setSearch(query)
             setSearching(true)
             setError(null)
             setNextCursor(null)
