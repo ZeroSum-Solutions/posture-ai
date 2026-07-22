@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto'
+import { createHash, createPublicKey, verify as verifySignature } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { lstatSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -13,8 +13,15 @@ const ALLOWED_OUTCOMES = new Set(['passed', 'not_applicable'])
 const SHA256 = /^[a-f0-9]{64}$/i
 const COMMIT_SHA = /^[a-f0-9]{40}$/i
 const CANONICALIZATION = 'UTF-8 JSON with recursively sorted object keys and preserved array order'
-const SOURCE_INVENTORY_HASH = 'f4942c999d5d55a51f95259805b5694b0adf02eed14a866bf90b2e5d03772952'
+const SOURCE_INVENTORY_HASH = '70e76a248a293186ef494a025f5b7079c99190306c367640078a8f1c7534624f'
+const DEVICE_CONTRACT_SOURCE_ID = 'posture-ai-device-release-contract-2026-07-21-pr08'
+const DEVICE_CONTRACT_SOURCE_PATH = 'docs/qa/device-release-contract.json'
+const DEVICE_VALIDATOR_SOURCE_ID = 'posture-ai-device-evidence-validator-2026-07-21-pr08'
+const DEVICE_VALIDATOR_SOURCE_PATH = 'scripts/check-device-evidence.mjs'
+const DEVICE_SCHEMA_SOURCE_ID = 'posture-ai-device-evidence-schema-2026-07-21-pr08'
+const DEVICE_SCHEMA_SOURCE_PATH = 'docs/qa/device-evidence.schema.json'
 const REQUIRED_COUNCIL_SEATS = ['Codex', 'Fable 5 medium', 'Kimi K3']
+const PR08_REBOUND_TASKS = ['PR-00', 'PR-01', 'PR-02', 'PR-03', 'PR-04', 'PR-05', 'PR-06', 'PR-07']
 const REQUIRED_CONFIG_COVERAGE = [
   'release_boundary',
   'release_configuration',
@@ -63,9 +70,12 @@ const REQUIRED_E2E_COVERAGE = [
   'expected_files',
   'execution',
   'retry_policy',
+  'axe_receipts',
   'approved_skips',
   'skip_policy',
 ]
+const LEGACY_E2E_COVERAGE = REQUIRED_E2E_COVERAGE.filter(field => field !== 'axe_receipts')
+const PR08_ATOMIC_PROJECTION_PATHS = new Set(REQUIRED_CONFIG_COVERAGE.filter(path => path.startsWith('e2e.')))
 
 export function validateProductionReadiness({ mode, state, manifest, sourceInventory, actualSources, liveRepository, artifacts = {}, now = new Date().toISOString() } = {}) {
   const buildErrors = []
@@ -113,14 +123,19 @@ export function computeSourceInventoryHash(sourceInventory) {
   return sha256(stable(payload))
 }
 
-export function computeManifestConfigurationHash(manifest) {
+export function computeManifestConfigurationHash(manifest, { allowLegacyE2eCoverage = false } = {}) {
   const contract = manifest?.configuration_hash_contract
   const coverage = contract?.covered_fields
   if (contract?.algorithm !== 'sha256' || contract?.canonicalization !== CANONICALIZATION) return null
   if (!exactMembers(coverage, REQUIRED_CONFIG_COVERAGE)) return null
-  const e2eHash = computeE2eInventoryHash(manifest)
-  if (!e2eHash || !Array.isArray(manifest.audit_findings) || !Array.isArray(manifest.criteria) || !Array.isArray(manifest.tasks)) return null
-  const payload = {
+  const payload = manifestConfigurationProjection(manifest, { allowLegacyE2eCoverage })
+  return payload ? sha256(stable(payload)) : null
+}
+
+export function manifestConfigurationProjection(manifest, { allowLegacyE2eCoverage = false } = {}) {
+  const e2eHash = computeE2eInventoryHash(manifest, { allowLegacyCoverage: allowLegacyE2eCoverage })
+  if (!e2eHash || !Array.isArray(manifest?.audit_findings) || !Array.isArray(manifest?.criteria) || !Array.isArray(manifest?.tasks)) return null
+  return {
     release_boundary: manifest.release_boundary,
     release_configuration: manifest.release_configuration,
     intended_beta_rehearsal_contract: manifest.intended_beta_rehearsal_contract,
@@ -145,16 +160,53 @@ export function computeManifestConfigurationHash(manifest) {
       skip_policy: manifest.e2e.skip_policy,
     },
   }
-  return sha256(stable(payload))
 }
 
-function computeE2eInventoryHash(manifest) {
+export function buildPr08ConfigurationDeltaContract(baseManifest, currentManifest, baseCommit) {
+  const oldProjection = manifestConfigurationProjection(baseManifest, { allowLegacyE2eCoverage: true })
+  const newProjection = manifestConfigurationProjection(currentManifest)
+  const oldConfigurationHash = computeManifestConfigurationHash(baseManifest, { allowLegacyE2eCoverage: true })
+  const newConfigurationHash = computeManifestConfigurationHash(currentManifest)
+  if (!oldProjection || !newProjection || !COMMIT_SHA.test(baseCommit ?? '') || !oldConfigurationHash || !newConfigurationHash) return null
+  if (baseManifest.configuration_hash !== oldConfigurationHash || baseManifest.configuration_hash_contract?.expected_hash !== oldConfigurationHash) return null
+  if (currentManifest.configuration_hash !== newConfigurationHash || currentManifest.configuration_hash_contract?.expected_hash !== newConfigurationHash) return null
+  const changes = configurationProjectionChanges(oldProjection, newProjection)
+  return {
+    id: 'PR-08-CONFIGURATION-DELTA-PROJECTION-v1',
+    base_commit: baseCommit,
+    old_configuration_hash: oldConfigurationHash,
+    new_configuration_hash: newConfigurationHash,
+    old_projection_sha256: sha256(stable(oldProjection)),
+    new_projection_sha256: sha256(stable(newProjection)),
+    changed_covered_fields: changes.map(change => change.path),
+    changes_sha256: sha256(stable(changes)),
+    changes,
+  }
+}
+
+function configurationProjectionChanges(oldValue, newValue, path = '') {
+  if (stable(oldValue) === stable(newValue)) return []
+  if (!PR08_ATOMIC_PROJECTION_PATHS.has(path) && isObject(oldValue) && isObject(newValue)) {
+    return [...new Set([...Object.keys(oldValue), ...Object.keys(newValue)])]
+      .sort()
+      .flatMap(key => configurationProjectionChanges(oldValue[key], newValue[key], path ? `${path}.${key}` : key))
+  }
+  return [{ path, old_value: oldValue ?? null, new_value: newValue ?? null }]
+}
+
+function computeE2eInventoryHash(manifest, { allowLegacyCoverage = false } = {}) {
   if (!isObject(manifest?.e2e)) return null
-  const { inventory_id, source_config, source_runner, inventory_command, project_order, projects, expected_total, expected_files, execution, retry_policy, approved_skips, skip_policy } = manifest.e2e
+  const { inventory_id, source_config, source_runner, inventory_command, project_order, projects, expected_total, expected_files, execution, retry_policy, axe_receipts, approved_skips, skip_policy } = manifest.e2e
   const contract = manifest.e2e.inventory_hash_contract
   const coverage = contract?.covered_fields
-  if (contract?.algorithm !== 'sha256' || contract?.canonicalization !== CANONICALIZATION || !exactMembers(coverage, REQUIRED_E2E_COVERAGE) || !nonEmpty(inventory_id) || !nonEmpty(source_config) || !nonEmpty(source_runner) || !nonEmpty(inventory_command) || !Array.isArray(project_order) || !isObject(projects) || !Number.isInteger(expected_total) || !Number.isInteger(expected_files) || !isObject(execution) || !isObject(retry_policy) || !Array.isArray(approved_skips) || !isObject(skip_policy)) return null
-  return sha256(stable({ inventory_id, source_config, source_runner, inventory_command, project_order, projects, expected_total, expected_files, execution, retry_policy, approved_skips, skip_policy }))
+  const usesCurrentCoverage = exactMembers(coverage, REQUIRED_E2E_COVERAGE)
+  const usesLegacyCoverage = allowLegacyCoverage && exactMembers(coverage, LEGACY_E2E_COVERAGE)
+  if (contract?.algorithm !== 'sha256' || contract?.canonicalization !== CANONICALIZATION || (!usesCurrentCoverage && !usesLegacyCoverage) || !nonEmpty(inventory_id) || !nonEmpty(source_config) || !nonEmpty(source_runner) || !nonEmpty(inventory_command) || !Array.isArray(project_order) || !isObject(projects) || !Number.isInteger(expected_total) || !Number.isInteger(expected_files) || !isObject(execution) || !isObject(retry_policy) || (usesCurrentCoverage && !isObject(axe_receipts)) || !Array.isArray(approved_skips) || !isObject(skip_policy)) return null
+  const payload = { inventory_id, source_config, source_runner, inventory_command, project_order, projects, expected_total, expected_files, execution, retry_policy }
+  if (usesCurrentCoverage) payload.axe_receipts = axe_receipts
+  payload.approved_skips = approved_skips
+  payload.skip_policy = skip_policy
+  return sha256(stable(payload))
 }
 
 function validateManifest(manifest, errors) {
@@ -320,7 +372,8 @@ function parsePlaywrightList(stdout) {
   for (const line of stdout.split(/\r?\n/)) {
     const match = line.match(/^\s+\[([^\]]+)\] › (.+?):\d+:\d+ › (.+)$/)
     if (!match) continue
-    const [, project, file, title] = match
+    const [, project, listedFile, title] = match
+    const file = listedFile.includes('/') ? listedFile : `e2e/${listedFile}`
     if (!Object.hasOwn(projects, project)) {
       projects[project] = 0
       projectOrder.push(project)
@@ -516,13 +569,63 @@ function validateProof(task, proof, state, manifest, sourceInventory, artifacts,
   } else {
     validateArtifactRef(review.receipt, artifacts, `${task.id} review receipt`, errors)
     const receipt = readArtifactJson(review.receipt, artifacts)
-    if (!isObject(receipt) || receipt.task_id !== task.id || receipt.verdict !== 'PASS' || receipt.reviewer !== review.reviewer || receipt.independent !== true || receipt.commit !== proof.commit || receipt.configuration_hash !== expectedConfigurationHash(manifest)) errors.push(`PROOF_REVIEW_RECEIPT: ${task.id} independent-review receipt is not bound to its task, reviewer, verdict, commit, and configuration`)
+    const reviewCoreValid = isObject(receipt) && receipt.task_id === task.id && receipt.verdict === 'PASS' && receipt.reviewer === review.reviewer && receipt.independent === true && receipt.commit === proof.commit
+    const reviewConfigurationValid = reviewCoreValid && (receipt.configuration_hash === expectedConfigurationHash(manifest) || validatePr08ConfigurationDelta(task, proof, receipt, state, manifest, sourceInventory, artifacts, errors))
+    if (!reviewCoreValid || !reviewConfigurationValid) errors.push(`PROOF_REVIEW_RECEIPT: ${task.id} independent-review receipt is not bound to its task, reviewer, verdict, commit, and configuration`)
   }
   const rollback = proof.rollback
   if (!isObject(rollback) || !nonEmpty(rollback.notes) || rollback.verified !== true || !isObject(rollback.receipt)) errors.push(`PROOF_ROLLBACK: ${task.id} proof is missing verified rollback notes`)
   else validateArtifactRef(rollback.receipt, artifacts, `${task.id} rollback receipt`, errors)
   if (task.id === 'PR-17') validatePr17Proof(proof, state, sourceInventory, artifacts, errors)
   if (task.outcome === 'not_applicable' && task.applicability === 'applicable') validateSanctionedNotApplicable(task, proof, state, manifest, sourceInventory, artifacts, errors)
+}
+
+function validatePr08ConfigurationDelta(task, proof, originalReviewReceipt, state, manifest, sourceInventory, artifacts, errors) {
+  const delta = proof.configuration_delta_review
+  if (!PR08_REBOUND_TASKS.includes(task.id) || !isObject(delta) || !isObject(delta.receipt)) {
+    errors.push(`PROOF_CONFIGURATION_DELTA: ${task.id} stale review requires the independent PR-08 configuration-delta receipt`)
+    return false
+  }
+  validateArtifactRef(delta.receipt, artifacts, `${task.id} PR-08 configuration-delta review`, errors)
+  const receipt = readArtifactJson(delta.receipt, artifacts)
+  const pinnedProjection = sourceInventory?.pr08_configuration_delta_contract
+  validateArtifactRef(receipt?.projection_receipt, artifacts, `${task.id} PR-08 exact configuration projection`, errors)
+  const projectionArtifact = readArtifactJson(receipt?.projection_receipt, artifacts)
+  const summary = { ...delta }
+  delete summary.receipt
+  const expectedConfiguration = expectedConfigurationHash(manifest)
+  const fields = values(receipt?.changed_covered_fields)
+  const valid = isObject(receipt)
+    && stable(summary) === stable(receipt)
+    && receipt.id === 'PR-08-CONFIGURATION-DELTA-v1'
+    && receipt.task_id === 'PR-08'
+    && receipt.verdict === 'PASS'
+    && nonEmpty(receipt.reviewer)
+    && receipt.reviewer !== originalReviewReceipt.reviewer
+    && receipt.independent === true
+    && receipt.commit === state.commit
+    && isObject(pinnedProjection)
+    && stable(projectionArtifact) === stable(pinnedProjection)
+    && receipt.projection_id === pinnedProjection.id
+    && receipt.base_commit === pinnedProjection.base_commit
+    && SHA256.test(receipt.old_configuration_hash ?? '')
+    && receipt.old_configuration_hash === originalReviewReceipt.configuration_hash
+    && receipt.old_configuration_hash === pinnedProjection.old_configuration_hash
+    && receipt.old_configuration_hash !== expectedConfiguration
+    && receipt.new_configuration_hash === expectedConfiguration
+    && receipt.new_configuration_hash === pinnedProjection.new_configuration_hash
+    && receipt.old_projection_sha256 === pinnedProjection.old_projection_sha256
+    && receipt.new_projection_sha256 === pinnedProjection.new_projection_sha256
+    && receipt.changes_sha256 === pinnedProjection.changes_sha256
+    && exactMembers(receipt.affected_tasks, PR08_REBOUND_TASKS)
+    && exactMembers(receipt.rebound_tasks, PR08_REBOUND_TASKS)
+    && receipt.affected_tasks.includes(task.id)
+    && receipt.rebound_tasks.includes(task.id)
+    && exactMembers(fields, pinnedProjection.changed_covered_fields)
+    && receipt.prior_acceptance_semantics_unchanged === true
+    && receipt.hg04_stays_frozen === true
+  if (!valid) errors.push(`PROOF_CONFIGURATION_DELTA: ${task.id} configuration-delta review is malformed, stale, copied forward, or not bound to the exact base-versus-current covered projection`)
+  return valid
 }
 
 function hasSanctionedNotApplicableContract(task, manifest, sourceInventory) {
@@ -644,13 +747,54 @@ function validateE2eContract(e2e, errors) {
     errors.push('E2E_CONTRACT: E2E project order, counts, total, or file inventory is malformed')
   }
   const skipKeys = new Set()
+  const skipTestIds = new Set()
   for (const skip of values(e2e.approved_skips)) {
-    if (!isObject(skip) || !nonEmpty(skip.key) || skipKeys.has(skip.key) || !nonEmpty(skip.source) || !isObject(skip.scope) || !nonEmpty(skip.owner) || !nonEmpty(skip.expires_on)) {
-      errors.push('E2E_SKIP_CONTRACT: approved skip entries require unique key, source, scope, owner, and expiry')
+    const testIds = values(skip?.test_ids)
+    const expectedFile = String(skip?.key ?? '').startsWith('ignore:') ? skip?.scope?.spec : String(skip?.source ?? '').split('::')[0]
+    const testIdPrefix = `${skip?.scope?.project}::${expectedFile}::`
+    const validTestIds = testIds.length > 0 && nonEmpty(expectedFile) && testIds.every(testId => nonEmpty(testId) && testId.startsWith(testIdPrefix) && testId.length > testIdPrefix.length && !skipTestIds.has(testId)) && new Set(testIds).size === testIds.length
+    if (!isObject(skip) || !nonEmpty(skip.key) || skipKeys.has(skip.key) || !nonEmpty(skip.source) || !isObject(skip.scope) || !nonEmpty(skip.owner) || !nonEmpty(skip.expires_on) || !validTestIds) {
+      errors.push('E2E_SKIP_CONTRACT: approved skip entries require unique key, source, scope, exact test IDs, owner, and expiry')
     }
     if (isObject(skip) && nonEmpty(skip.key)) skipKeys.add(skip.key)
+    for (const testId of testIds) skipTestIds.add(testId)
   }
   if (e2e.skip_policy?.unapproved_skip_or_fixme_allowed !== false) errors.push('E2E_SKIP_CONTRACT: unapproved skip/fixme policy must fail closed')
+  if (!manifestAxeTargets(e2e)) errors.push('E2E_AXE_CONTRACT: Axe receipt targets must be canonical, unique, and total exactly 73')
+}
+
+function manifestAxeTargets(e2e) {
+  const contract = e2e?.axe_receipts
+  if (!isObject(contract) || contract.schema_version !== 'posture-ai-axe-targets-v1' || contract.expected_total !== 73 || !Array.isArray(contract.projects) || !Array.isArray(contract.scans) || !Array.isArray(contract.targets)) return null
+  if (contract.projects.length === 0 || new Set(contract.projects).size !== contract.projects.length || contract.projects.some(project => !nonEmpty(project) || !Object.hasOwn(e2e.projects ?? {}, project))) return null
+  const targets = []
+  for (const project of contract.projects) {
+    for (const scan of contract.scans) {
+      if (!isObject(scan) || !nonEmpty(scan.surface) || !nonEmpty(scan.path) || !isObject(scan.originating_test) || !nonEmpty(scan.originating_test.file) || !nonEmpty(scan.originating_test.title)) return null
+      targets.push({
+        project,
+        surface: scan.surface,
+        path: scan.path,
+        originating_test: { project, file: scan.originating_test.file, title: scan.originating_test.title },
+      })
+    }
+  }
+  for (const target of contract.targets) {
+    if (!isObject(target) || !nonEmpty(target.project) || !Object.hasOwn(e2e.projects ?? {}, target.project) || !nonEmpty(target.surface) || !nonEmpty(target.path) || !isObject(target.originating_test) || target.originating_test.project !== target.project || !nonEmpty(target.originating_test.file) || !nonEmpty(target.originating_test.title)) return null
+    targets.push({
+      project: target.project,
+      surface: target.surface,
+      path: target.path,
+      originating_test: {
+        project: target.originating_test.project,
+        file: target.originating_test.file,
+        title: target.originating_test.title,
+      },
+    })
+  }
+  const ordered = targets.sort((left, right) => stable(left).localeCompare(stable(right)))
+  if (ordered.length !== contract.expected_total || new Set(ordered.map(stable)).size !== ordered.length) return null
+  return ordered
 }
 
 function validateRepositoryAndCi(state, manifest, sourceInventory, liveRepository, artifacts, now, errors) {
@@ -741,6 +885,7 @@ function validateLaunch(state, manifest, sourceInventory, artifacts, now, errors
       const receiptContent = readArtifactJson(receipt, artifacts)
       if (!isObject(receiptContent) || receiptContent.task_id !== task.id || receiptContent.verified !== true || receiptContent.commit !== state.commit) errors.push(`HG_RECEIPT: ${task.id} receipt content is not verified and bound to the release commit`)
     }
+    if (task.id === 'HG-04') validateHg04DeviceEvidence(state, manifest, sourceInventory, artifacts, now, errors)
   }
 
   const evidence = releaseEvidence(state)
@@ -750,6 +895,146 @@ function validateLaunch(state, manifest, sourceInventory, artifacts, now, errors
   validateFlakes(evidence, manifest, sourceInventory, artifacts, now, errors)
   validateRehearsal(evidence.rehearsal, evidence, manifest, sourceInventory, artifacts, now, errors)
   validateOwnerApproval(evidence.owner_approval, evidence, manifest, artifacts, now, errors)
+}
+
+function validateHg04DeviceEvidence(state, manifest, sourceInventory, artifacts, now, errors) {
+  const proof = proofMap(state)['HG-04']
+  const deviceEvidence = proof?.device_evidence
+  if (!isObject(deviceEvidence)) {
+    errors.push('HG04_DEVICE_EVIDENCE: HG-04 requires specialized device validation, independent sampling, and a human transition')
+    return
+  }
+  for (const [field, description] of [
+    ['validator_receipt', 'device validator'],
+    ['independent_review_receipt', 'independent sampling review'],
+    ['human_transition_receipt', 'explicit human transition'],
+  ]) validateArtifactRef(deviceEvidence[field], artifacts, `HG-04 ${description}`, errors)
+
+  const validation = readArtifactJson(deviceEvidence.validator_receipt, artifacts)
+  const reviewPacket = readArtifactJson(deviceEvidence.independent_review_receipt, artifacts)
+  const transition = readArtifactJson(deviceEvidence.human_transition_receipt, artifacts)
+  const configuration = releaseEvidence(state)?.configuration
+  const configurationReceipt = readArtifactJson(configuration?.receipt, artifacts)
+  const expectedConfiguration = expectedConfigurationHash(manifest)
+  const canonicalSources = canonicalDeviceSourceHashes(sourceInventory)
+  if (!canonicalSources) errors.push('HG04_DEVICE_EVIDENCE: device contract, validator, and schema are not independently pinned as entire-file runtime sources')
+  if (!isObject(validation)
+    || validation.task_id !== 'HG-04'
+    || validation.status !== 'PASS'
+    || validation.commit !== state.commit
+    || validation.configuration_hash !== expectedConfiguration
+    || validation.packet_structurally_valid !== true
+    || validation.physical_packet_valid !== true
+    || validation.hg04_launch_eligible !== false
+    || validation.validator_is_necessary_not_sufficient !== true
+    || !Array.isArray(validation.reason_codes)
+    || validation.reason_codes.length !== 0
+    || validation.mode !== 'physical'
+    || validation.fixture !== false
+    || validation.test_mode !== false
+    || !SHA256.test(validation.contract_sha256 ?? '')
+    || validation.contract_sha256 !== canonicalSources?.contract_sha256
+    || validation.validator_sha256 !== canonicalSources?.validator_sha256
+    || validation.schema_sha256 !== canonicalSources?.schema_sha256
+    || !SHA256.test(validation.packet_sha256 ?? '')
+    || !SHA256.test(validation.evidence_root_manifest_sha256 ?? '')
+    || !nonEmpty(validation.operator_id)
+    || !nonEmpty(validation.collection_completed_at)
+    || !Number.isFinite(Date.parse(validation.collection_completed_at))
+    || !validDeterministicSamples(validation.deterministic_samples)) {
+    errors.push('HG04_DEVICE_EVIDENCE: validator receipt is not a physical, release-bound, necessary-not-sufficient HG-04 result')
+  }
+
+  const review = reviewPacket?.receipt
+  const signature = reviewPacket?.signature
+  const approved = configuration?.hg04_approved_reviewer_public_key_fingerprints
+  if (!Array.isArray(approved) || approved.length === 0 || approved.some(hash => !SHA256.test(hash)) || !exactMembers(approved, configurationReceipt?.hg04_approved_reviewer_public_key_fingerprints)) {
+    errors.push('HG04_DEVICE_EVIDENCE: approved reviewer keys are not bound to the release-configuration receipt')
+  }
+  if (!exactMembers(validation?.approved_reviewer_public_key_fingerprints, approved)) errors.push('HG04_DEVICE_EVIDENCE: validator reviewer-key authority is not release-configuration-bound')
+  if (!isObject(review)
+    || review.task_id !== 'HG-04'
+    || review.verdict !== 'PASS'
+    || review.commit !== validation?.commit
+    || review.configuration_hash !== validation?.configuration_hash
+    || review.contract_sha256 !== validation?.contract_sha256
+    || review.packet_sha256 !== validation?.packet_sha256
+    || review.evidence_root_manifest_sha256 !== validation?.evidence_root_manifest_sha256
+    || review.operator_id !== validation?.operator_id
+    || !nonEmpty(review.review_id)
+    || !nonEmpty(review.reviewer_id)
+    || review.reviewer_id === validation?.operator_id
+    || !nonEmpty(review.reviewed_at)
+    || !Number.isFinite(Date.parse(review.reviewed_at))
+    || Date.parse(review.reviewed_at) > Date.parse(now)
+    || Date.parse(review.reviewed_at) <= Date.parse(validation?.collection_completed_at)
+    || !isObject(review.coverage)
+    || review.coverage.all_four_core_recordings !== true
+    || review.coverage.both_device_identity_artifacts !== true
+    || review.coverage.every_exclusion !== true
+    || review.coverage.deterministic_remaining_rows !== true
+    || !Array.isArray(review.sampled_artifact_sha256)
+    || review.sampled_artifact_sha256.length === 0
+    || new Set(review.sampled_artifact_sha256).size !== review.sampled_artifact_sha256.length
+    || review.sampled_artifact_sha256.some(hash => !SHA256.test(hash))
+    || !exactMembers(review.sampled_artifact_sha256, validation?.deterministic_samples?.hashes)
+    || !exactMembers(review.sampled_core_run_ids, validation?.deterministic_samples?.fields?.sampled_core_run_ids)
+    || !exactMembers(review.sampled_device_classes, validation?.deterministic_samples?.fields?.sampled_device_classes)
+    || !exactMembers(review.sampled_exclusion_keys, validation?.deterministic_samples?.fields?.sampled_exclusion_keys)
+    || !exactMembers(review.sampled_remaining_row_keys, validation?.deterministic_samples?.fields?.sampled_remaining_row_keys)) {
+    errors.push('HG04_DEVICE_EVIDENCE: independent review is missing required sampling, independence, or release bindings')
+  }
+  if (!validHg04Signature(review, signature, approved)) errors.push('HG04_DEVICE_EVIDENCE: independent review lacks an approved Ed25519 detached signature')
+  if (!isObject(transition)
+    || transition.task_id !== 'HG-04'
+    || transition.human_owned !== true
+    || transition.from_status !== 'frozen'
+    || transition.to_status !== 'completed'
+    || transition.verified !== true
+    || transition.commit !== state.commit
+    || transition.configuration_hash !== expectedConfiguration
+    || !nonEmpty(transition.transitioned_by)
+    || !nonEmpty(transition.transitioned_at)
+    || !Number.isFinite(Date.parse(transition.transitioned_at))
+    || Date.parse(transition.transitioned_at) <= Date.parse(review?.reviewed_at)
+    || Date.parse(transition.transitioned_at) > Date.parse(now)) {
+    errors.push('HG04_DEVICE_EVIDENCE: explicit human-owned HG-04 completion transition is absent or stale')
+  }
+}
+
+function canonicalDeviceSourceHashes(sourceInventory) {
+  const definitions = [
+    ['contract_sha256', DEVICE_CONTRACT_SOURCE_PATH, DEVICE_CONTRACT_SOURCE_ID],
+    ['validator_sha256', DEVICE_VALIDATOR_SOURCE_PATH, DEVICE_VALIDATOR_SOURCE_ID],
+    ['schema_sha256', DEVICE_SCHEMA_SOURCE_PATH, DEVICE_SCHEMA_SOURCE_ID],
+  ]
+  const result = {}
+  for (const [field, path, id] of definitions) {
+    const matches = values(sourceInventory?.runtime_source_contracts).filter(contract => contract?.path === path)
+    const contract = matches[0]
+    if (matches.length !== 1 || contract.id !== id || contract.hash_algorithm !== 'sha256' || contract.hash_scope !== 'entire_file' || !SHA256.test(contract.sha256 ?? '')) return null
+    result[field] = contract.sha256
+  }
+  return result
+}
+
+function validDeterministicSamples(samples) {
+  if (!isObject(samples) || !exactMembers(Object.keys(samples), ['hashes', 'fields']) || !Array.isArray(samples.hashes) || samples.hashes.length === 0 || samples.hashes.some(hash => !SHA256.test(hash))) return false
+  const fields = samples.fields
+  const required = ['sampled_core_run_ids', 'sampled_device_classes', 'sampled_exclusion_keys', 'sampled_remaining_row_keys']
+  return isObject(fields) && exactMembers(Object.keys(fields), required) && required.every(field => Array.isArray(fields[field]) && fields[field].length > 0 && new Set(fields[field]).size === fields[field].length)
+}
+
+function validHg04Signature(review, signature, approvedFingerprints) {
+  if (!isObject(review) || !isObject(signature) || signature.algorithm !== 'Ed25519' || signature.key_class !== 'production' || !values(approvedFingerprints).includes(signature.public_key_fingerprint)) return false
+  try {
+    const key = createPublicKey(signature.public_key_pem)
+    const fingerprint = sha256(key.export({ type: 'spki', format: 'der' }))
+    return fingerprint === signature.public_key_fingerprint
+      && verifySignature(null, Buffer.from(stable(review)), key, Buffer.from(signature.value_base64 ?? '', 'base64'))
+  } catch {
+    return false
+  }
 }
 
 function validateNotApplicableFinding(finding, state, artifacts, errors) {
@@ -886,6 +1171,7 @@ function validateExecutedPlaywrightReport(actual, evidence, manifest, sourceInve
   const retryResults = []
   const observedFlakes = []
   let malformed = tests.length === 0
+  const approvedSkips = new Map(values(manifest.e2e.approved_skips).filter(isObject).map(skip => [skip.key, skip]))
   for (const test of tests) {
     if (!isObject(test) || !nonEmpty(test.project) || !nonEmpty(test.file) || !nonEmpty(test.title) || !Array.isArray(test.results) || test.results.length === 0) {
       malformed = true
@@ -905,10 +1191,12 @@ function validateExecutedPlaywrightReport(actual, evidence, manifest, sourceInve
     const finalStatus = statuses.at(-1)
     if (!['passed', 'skipped'].includes(finalStatus)) malformed = true
     if (finalStatus === 'skipped') {
-      const annotation = values(test.annotations).find(value => value?.type === 'production-readiness-skip')
+      const annotations = values(test.annotations).filter(value => value?.type === 'production-readiness-skip')
       try {
-        const skip = JSON.parse(annotation?.description)
-        if (!isObject(skip) || !nonEmpty(skip.key) || !nonEmpty(skip.source) || !isObject(skip.scope)) throw new Error('invalid skip annotation')
+        if (annotations.length !== 1) throw new Error('invalid skip annotation count')
+        const skip = JSON.parse(annotations[0]?.description)
+        const approved = approvedSkips.get(skip?.key)
+        if (!isObject(skip) || !exactMembers(Object.keys(skip), ['key', 'source', 'scope']) || !nonEmpty(skip.key) || !nonEmpty(skip.source) || !isObject(skip.scope) || !isObject(approved) || approved.source !== skip.source || stable(approved.scope) !== stable(skip.scope) || !values(approved.test_ids).includes(testId)) throw new Error('invalid skip annotation')
         observedSkips.push({ key: skip.key, source: skip.source, scope: skip.scope })
       } catch {
         malformed = true
@@ -925,6 +1213,32 @@ function validateExecutedPlaywrightReport(actual, evidence, manifest, sourceInve
   const stateSummariesMatch = stable(actual.observed_skips) === stable(observedSkips) && stable(retryProjection(actual.retry_results)) === stable(retryResults)
   const flakeLedgerMatches = stable(values(evidence.flakes).map(flake => ({ id: flake?.id }))) === stable(observedFlakes)
   if (malformed || !inventoryMatches || !reportSummariesMatch || !stateSummariesMatch || !flakeLedgerMatches) errors.push('E2E_REPORT_BINDING: skips, retries, flakes, or test inventory do not derive exactly from the executed Playwright report')
+  validateAxeReportBinding(report, tests, manifest, errors)
+}
+
+function validateAxeReportBinding(report, tests, manifest, errors) {
+  const manifestTargets = manifestAxeTargets(manifest.e2e)
+  const validation = report.axe_receipt_validation
+  if (!manifestTargets || !Array.isArray(report.skip_validation_failures) || report.skip_validation_failures.length !== 0 || !Array.isArray(report.a11y_receipt_failures) || report.a11y_receipt_failures.length !== 0 || !isObject(validation)) {
+    errors.push('E2E_AXE_REPORT_BINDING: Playwright skip and Axe receipt validation must fail closed with empty failure arrays')
+    return
+  }
+  const passedOrigins = new Set(values(tests)
+    .filter(test => isObject(test) && values(test.results).at(-1)?.status === 'passed')
+    .map(test => stable({ project: test.project, file: test.file, title: test.title })))
+  const expectedRunTargets = manifestTargets.filter(target => passedOrigins.has(stable(target.originating_test)))
+  const expectedValidation = {
+    schema_version: manifest.e2e.axe_receipts.schema_version,
+    manifest_expected_total: 73,
+    expected_run_total: expectedRunTargets.length,
+    materialized_total: expectedRunTargets.length,
+    expected_run_targets: expectedRunTargets,
+    materialized_targets: expectedRunTargets,
+    status: 'passed',
+  }
+  if (stable(validation) !== stable(expectedValidation)) {
+    errors.push('E2E_AXE_REPORT_BINDING: Axe validation must exactly match canonical manifest targets materialized by passed report tests')
+  }
 }
 
 function retryProjection(retries) {

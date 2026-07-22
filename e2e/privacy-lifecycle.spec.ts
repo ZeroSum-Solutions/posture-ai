@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from './helpers'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 function localService() {
   const url = process.env.E2E_SUPABASE_URL
@@ -28,7 +29,16 @@ async function createApprovedAssessment(page: Page, clientId: string) {
 }
 
 test.describe('privacy lifecycle user QA', () => {
-  test.skip(({ browserName }) => browserName !== 'webkit', 'Phone lifecycle walkthrough; run once on mobile WebKit')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'webkit',
+    {
+      key: 'skip:privacy-lifecycle:desktop-chromium',
+      source: 'e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard',
+      scope: { project: 'desktop-chromium', condition: 'browserName=chromium' },
+    },
+    'Phone lifecycle walkthrough; run once on mobile WebKit',
+  ))
 
   test('grant → use → rotate/revoke → withdraw, then erase → minimized tombstone', async ({ page }) => {
     const suffix = randomUUID().slice(0, 8)

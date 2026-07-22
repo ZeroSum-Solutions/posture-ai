@@ -10,24 +10,53 @@
     "recorded_on": "2026-07-19"
   },
   "source_contracts": [
-    {"id":"posture-ai-production-readiness-audit-2026-07-19","path":"docs/qa/AUDIT.md","anchor":"production-readiness-re-audit--2026-07-19","hash_algorithm":"sha256","hash_scope":"entire_file","sha256":"a81cf8b49310ce1587ca3e7ec12d99534327927cac6cec31e0238f683c971757"},
-    {"id":"posture-ai-production-readiness-spec-v1","path":"docs/plans/2026-07-19-production-readiness-goal-spec.md","hash_algorithm":"sha256","hash_scope":"entire_file","sha256":"0b4ba1572b64598af8f3480c3b0f63e96de479bf8df7799394ae91ee39dbf4af"},
-    {"id":"posture-ai-production-readiness-decisions-2026-07-19","path":"docs/plans/2026-07-19-production-readiness-decisions.md","hash_algorithm":"sha256","hash_scope":"entire_file","sha256":"9878e76d5a32966a999ff734b33b643ab76d798b2f7b81d5cc9c2d44ef2deb93"},
-    {"id":"posture-ai-production-readiness-goal-criteria-v1","path":"~/.claude/goal-state/posture-ai-production-readiness/state.json","json_pointer":"/criteria","hash_algorithm":"sha256","hash_scope":"canonical-json-sorted-keys-preserved-array-order-with-trailing-newline","verification_command":"jq -cS '.criteria' ~/.claude/goal-state/posture-ai-production-readiness/state.json | shasum -a 256","sha256":"4795fa7dbcaefdf3ece6d3aeba831aa656cb1b029c35cfabcf0b678a6391ca93"}
+    {
+      "id": "posture-ai-production-readiness-audit-2026-07-21-pr08",
+      "path": "docs/qa/AUDIT.md",
+      "anchor": "production-readiness-re-audit--2026-07-19",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "def3e5db1d28602de8785e53ee6f920d6a93c7fde83e1d6cb131a141278846df"
+    },
+    {
+      "id": "posture-ai-production-readiness-spec-v1",
+      "path": "docs/plans/2026-07-19-production-readiness-goal-spec.md",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "0b4ba1572b64598af8f3480c3b0f63e96de479bf8df7799394ae91ee39dbf4af"
+    },
+    {
+      "id": "posture-ai-production-readiness-decisions-2026-07-19",
+      "path": "docs/plans/2026-07-19-production-readiness-decisions.md",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "9878e76d5a32966a999ff734b33b643ab76d798b2f7b81d5cc9c2d44ef2deb93"
+    },
+    {
+      "id": "posture-ai-production-readiness-goal-criteria-v1",
+      "path": "~/.claude/goal-state/posture-ai-production-readiness/state.json",
+      "json_pointer": "/criteria",
+      "hash_algorithm": "sha256",
+      "hash_scope": "canonical-json-sorted-keys-preserved-array-order-with-trailing-newline",
+      "verification_command": "jq -cS '.criteria' ~/.claude/goal-state/posture-ai-production-readiness/state.json | shasum -a 256",
+      "sha256": "4795fa7dbcaefdf3ece6d3aeba831aa656cb1b029c35cfabcf0b678a6391ca93"
+    }
   ],
   "source_identity_contract": {
-    "id_stability":"IDs never change in place; a source-content change creates a new ID/version and regenerates this manifest.",
-    "verification_rule":"Resolve each path, select its declared hash scope, compute sha256, and fail closed on any ID, path, scope, or hash mismatch."
+    "id_stability": "IDs never change in place; a source-content change creates a new ID/version and regenerates this manifest.",
+    "verification_rule": "Resolve each path, select its declared hash scope, compute sha256, and fail closed on any ID, path, scope, or hash mismatch."
   },
   "audit_dependency_derivation_rule": {
-    "algorithm":"For each audit finding, resolve engineering_task to exactly one manifest task and copy that task's frozen dependencies array verbatim, preserving order. Human/provider gates remain separately listed in human_provider_gates and their own prerequisite graphs remain authoritative; they are not flattened into finding dependencies.",
-    "unknown_ids_allowed":false,
-    "transitive_expansion":false
+    "algorithm": "For each audit finding, resolve engineering_task to exactly one manifest task and copy that task's frozen dependencies array verbatim, preserving order. Human/provider gates remain separately listed in human_provider_gates and their own prerequisite graphs remain authoritative; they are not flattened into finding dependencies.",
+    "unknown_ids_allowed": false,
+    "transitive_expansion": false
   },
   "release_boundary": {
     "milestone": "invite-only U.S. practitioner beta",
     "platform": "responsive-web",
-    "jurisdictions": ["US"],
+    "jurisdictions": [
+      "US"
+    ],
     "practitioner_access": "invitation-only",
     "client_population": "consented-adults",
     "fitness_wellness_only": true,
@@ -54,273 +83,2596 @@
     "scope_change_rule": "Any boundary change invalidates configuration_hash, reopens affected applicability, requires renewed council review, and requires a fresh intended-beta rehearsal."
   },
   "exclusions": [
-    {"surface":"Native Expo release","state":"excluded","verdict":"N/A","enforced_by":"PR-00","release_condition":"Native routes and artifacts remain outside beta routing and release notes."},
-    {"surface":"Billing/subscriptions","state":"excluded","verdict":"N/A","enforced_by":"PR-00","release_condition":"No payment, subscription, or paid-launch path is enabled."},
-    {"surface":"Public consumer signup","state":"excluded","verdict":"N/A as a feature; S2 to disable","enforced_by":"PR-04","human_provider_gates":["HG-01"],"release_condition":"Repository and live Auth settings enforce admin-issued invitations with public signup disabled."},
-    {"surface":"Clinical diagnosis/validation claim","state":"excluded","verdict":"N/A","enforced_by":"PR-01","release_condition":"All surfaces remain screening/tracking only and make no diagnostic, causal, population, or clinical-validity claim."}
+    {
+      "surface": "Native Expo release",
+      "state": "excluded",
+      "verdict": "N/A",
+      "enforced_by": "PR-00",
+      "release_condition": "Native routes and artifacts remain outside beta routing and release notes."
+    },
+    {
+      "surface": "Billing/subscriptions",
+      "state": "excluded",
+      "verdict": "N/A",
+      "enforced_by": "PR-00",
+      "release_condition": "No payment, subscription, or paid-launch path is enabled."
+    },
+    {
+      "surface": "Public consumer signup",
+      "state": "excluded",
+      "verdict": "N/A as a feature; S2 to disable",
+      "enforced_by": "PR-04",
+      "human_provider_gates": [
+        "HG-01"
+      ],
+      "release_condition": "Repository and live Auth settings enforce admin-issued invitations with public signup disabled."
+    },
+    {
+      "surface": "Clinical diagnosis/validation claim",
+      "state": "excluded",
+      "verdict": "N/A",
+      "enforced_by": "PR-01",
+      "release_condition": "All surfaces remain screening/tracking only and make no diagnostic, causal, population, or clinical-validity claim."
+    }
   ],
   "audit_findings": [
-    {"id":"PRD-001","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Web results and PDF are in the selected beta."},"engineering_task":"PR-01","human_provider_gates":[],"dependencies":["PR-00"],"status":"pending","outcome":null,"proof":[],"release_condition":"One shared grade projection drives engine tests, web legend, accessible copy, and PDF, with boundary drift tests."},
-    {"id":"PRD-002","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Unsupported rank language is present on selected result surfaces."},"engineering_task":"PR-01","human_provider_gates":[],"dependencies":["PR-00"],"status":"pending","outcome":null,"proof":[],"release_condition":"Remove rank output or define a non-population view severity index; ban elite, critical, percentile, rank, and modeled-population copy."},
-    {"id":"PRD-003","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Tracking and follow-up comparisons are in the selected beta."},"engineering_task":"PR-02","human_provider_gates":[],"dependencies":["PR-01"],"status":"pending","outcome":null,"proof":[],"release_condition":"Every comparison consumer uses one version-aware policy, fails closed across engine versions, and labels fallback tolerance honestly."},
-    {"id":"PRD-004","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"The beta includes longitudinal tracking and directional change claims."},"engineering_task":"PR-11","human_provider_gates":["HG-05"],"dependencies":["PR-10"],"status":"pending","outcome":null,"proof":[],"release_condition":"Keep the labeled fixed fallback until eligible Tier B evidence exists, then consume only validated severity-percentage-point MDC."},
-    {"id":"CAP-001","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Four-view responsive-web capture is in the selected beta."},"engineering_task":"PR-03","human_provider_gates":[],"dependencies":["PR-01"],"status":"pending","outcome":null,"proof":[],"release_condition":"Hard failures disable photo acceptance, preserve corrective reason, and have no-person, multi-person, and recovery tests."},
-    {"id":"CAP-002","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Mobile-web camera cold start is in the selected beta."},"engineering_task":"PR-03","human_provider_gates":["HG-04"],"dependencies":["PR-01"],"status":"pending","outcome":null,"proof":[],"release_condition":"Expose readiness and recovery, test timeout and GPU-to-CPU fallbacks, and pass throttled cold/warm plus physical-device checks."},
-    {"id":"CAP-003","severity":"S2","verdict":"BLOCKED","applicability":{"state":"applicable","reason":"The selected beta must work on physical iPhone and Android browsers."},"engineering_task":"PR-08","human_provider_gates":["HG-04"],"dependencies":["PR-03","PR-04","PR-07"],"status":"pending","outcome":null,"proof":[],"release_condition":"Attach the passing two-device physical permission, orientation, wake-lock, audio, memory, recovery, and accessibility receipt."},
-    {"id":"REL-001","severity":"S3 now / S2 for change claims","verdict":"PROVED","applicability":{"state":"applicable","reason":"Tracking is selected, so reliability math and eligibility guards must remain intact."},"engineering_task":"PR-10","human_provider_gates":["HG-05"],"dependencies":["PR-00","PR-03","PR-08"],"status":"pending","outcome":null,"proof":[],"release_condition":"Retain labeled ICC, SEM, MDC95, provenance, and guard tests; obtain qualifying data before consumer eligibility."},
-    {"id":"REL-002","severity":"S2","verdict":"BLOCKED","applicability":{"state":"applicable","reason":"Directional beta change claims require Tier B evidence."},"engineering_task":"PR-10","human_provider_gates":["HG-05"],"dependencies":["PR-00","PR-03","PR-08"],"status":"pending","outcome":null,"proof":[],"release_condition":"Complete the frozen protocol, clustered uncertainty review, and signed eligibility decision without threshold tuning."},
-    {"id":"REL-003","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Pelvic proxy output remains on the selected assessment surface."},"engineering_task":"PR-12","human_provider_gates":["HG-03","HG-05"],"dependencies":["PR-03","PR-05","PR-07","PR-10"],"status":"pending","outcome":null,"proof":[],"release_condition":"Keep proxy wording and conservative weight unless repeatability and construct review support more; never train to the Moti archive."},
-    {"id":"REL-004","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"The lite/full model default affects selected web capture."},"engineering_task":"PR-12","human_provider_gates":["HG-04","HG-05"],"dependencies":["PR-03","PR-05","PR-07","PR-10"],"status":"pending","outcome":null,"proof":[],"release_condition":"Keep lite as default unless device latency, repeatability, and metric-level delta evidence satisfy the frozen switch rule."},
-    {"id":"CLN-001","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Unreviewed content is currently reachable; assessment-only server disablement must be proven before it can be excluded."},"engineering_task":"PR-07","human_provider_gates":["HG-03"],"dependencies":["PR-00","PR-05"],"conditional_gate_rule":"HG-03 may pass not_applicable only with the HG-00 assessment-only decision and proven server disablement of recommendations, programs, workouts, and knowledge links.","status":"pending","outcome":null,"proof":[],"release_condition":"Obtain itemized licensed review or prove the assessment-only boundary fails closed on every clinical-content endpoint and surface."},
-    {"id":"CLN-002","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Claim restraint applies to every selected UI, PDF, and share surface."},"engineering_task":"PR-07","human_provider_gates":["HG-03"],"dependencies":["PR-00","PR-05"],"status":"pending","outcome":null,"proof":[],"release_condition":"Copy checks enforce screening and proxy language and reject unsupported severity, population, causal, or directional claims."},
-    {"id":"LEG-001","severity":"S2","verdict":"PROVED","applicability":{"state":"applicable","reason":"Privacy, Terms, and consent are required for the selected beta."},"engineering_task":"PR-05","human_provider_gates":["HG-02"],"dependencies":["PR-00"],"status":"pending","outcome":null,"proof":[],"release_condition":"Serve only counsel-approved, versioned legal text with dates, scope, retention, withdrawal, and re-consent semantics."},
-    {"id":"LEG-002","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Consent and sharing lifecycles are in the selected beta."},"engineering_task":"PR-06","human_provider_gates":["HG-02"],"dependencies":["PR-04","PR-05"],"status":"pending","outcome":null,"proof":[],"release_condition":"Implement withdrawal and share inventory, revoke, rotate, audit receipts, and post-revocation tests."},
-    {"id":"LEG-003","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Client erasure is required for the selected beta."},"engineering_task":"PR-06","human_provider_gates":["HG-02"],"dependencies":["PR-04","PR-05"],"status":"pending","outcome":null,"proof":[],"release_condition":"Use controlled reason codes and transaction or outbox semantics with retry, idempotency, and a PII-safe erasure receipt."},
-    {"id":"LEG-004","severity":"S2 if covered entities","verdict":"BLOCKED","applicability":{"state":"not_applicable","reason":"The owner-confirmed cohort is non-HIPAA fitness/wellness and covered entities are prohibited.","reopens_when":"covered_entities_allowed becomes true"},"engineering_task":"PR-15","human_provider_gates":["HG-00","HG-01","HG-02","HG-06","HG-07","HG-08"],"dependencies":["PR-06","PR-14"],"status":"pending","outcome":null,"proof":[],"release_condition":"Remain non-HIPAA, or require BAAs, provider controls, access audit, backup/PITR, MFA, operating controls, and HIPAA counsel approval before launch."},
-    {"id":"AUTH-001","severity":"S2","verdict":"BLOCKED","applicability":{"state":"applicable","reason":"Invitation-only practitioner access is the selected admission model."},"engineering_task":"PR-04","human_provider_gates":["HG-01"],"dependencies":["PR-00"],"status":"pending","outcome":null,"proof":[],"release_condition":"Disable public admission in code and live Auth, enforce admin invitations or allowlist, and attach invited/uninvited provider evidence."},
-    {"id":"AUTH-002","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Practitioner AAL2 is required by the selected beta contract."},"engineering_task":"PR-04","human_provider_gates":["HG-01"],"dependencies":["PR-00"],"status":"pending","outcome":null,"proof":[],"release_condition":"Enforce practitioner MFA server-side and prove enrollment, recovery, and live provider configuration."},
-    {"id":"AUTH-003","severity":"S2 for HIPAA","verdict":"WEAK","applicability":{"state":"not_applicable","reason":"Covered entities are prohibited in the selected non-HIPAA cohort.","reopens_when":"covered_entities_allowed becomes true"},"engineering_task":"PR-13","human_provider_gates":["HG-00","HG-01","HG-06"],"dependencies":["PR-04","PR-06"],"status":"pending","outcome":null,"proof":[],"release_condition":"If HIPAA scope opens, require admin-controlled organization status and a real-database two-tenant authorization matrix."},
-    {"id":"SEC-001","severity":"S2/S3","verdict":"WEAK","applicability":{"state":"applicable","reason":"Public, expensive, and destructive endpoints exist in the selected web surface."},"engineering_task":"PR-13","human_provider_gates":[],"dependencies":["PR-04","PR-06"],"status":"pending","outcome":null,"proof":[],"release_condition":"Use strict or explicitly degraded rate limiting for sensitive endpoints and pass outage and abuse tests."},
-    {"id":"SEC-002","severity":"S3","verdict":"PROVED","applicability":{"state":"applicable","reason":"Browser security hardening applies to the selected web beta."},"engineering_task":"PR-13","human_provider_gates":[],"dependencies":["PR-04","PR-06"],"status":"pending","outcome":null,"proof":[],"release_condition":"Deploy a MediaPipe/Next-compatible nonce or hash CSP through report-only evidence before enforcement."},
-    {"id":"SEC-003","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"The selected beta requires privacy-safe operational monitoring."},"engineering_task":"PR-15","human_provider_gates":["HG-07","HG-08"],"dependencies":["PR-06","PR-14"],"status":"pending","outcome":null,"proof":[],"release_condition":"Provide structured privacy-safe logging, verified monitoring and alert owner, tested delivery, and retention/access rules."},
-    {"id":"OPS-001","severity":"S2","verdict":"BLOCKED","applicability":{"state":"applicable","reason":"Recovery is required for the selected beta."},"engineering_task":"PR-15","human_provider_gates":["HG-07","HG-08"],"dependencies":["PR-06","PR-14"],"status":"pending","outcome":null,"proof":[],"release_condition":"Declare RPO/RTO, verify backup/PITR, restore to an isolated target, and attach timing and integrity evidence."},
-    {"id":"OPS-002","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Release and schema safety apply to the selected beta."},"engineering_task":"PR-14","human_provider_gates":["HG-06"],"dependencies":["PR-04","PR-06"],"status":"pending","outcome":null,"proof":[],"release_condition":"Use isolated staging, migration prepromotion, expand-migrate-contract compatibility, non-ready health 503, and protected promotion."},
-    {"id":"OPS-003","severity":"S2","verdict":"WEAK","applicability":{"state":"applicable","reason":"Repository controls are required for the selected beta release path."},"engineering_task":"PR-14","human_provider_gates":["HG-06"],"dependencies":["PR-04","PR-06"],"status":"pending","outcome":null,"proof":[],"release_condition":"Require CI and review, secret and dependency scanning, branch protection, and a protected promotion policy."},
-    {"id":"SCL-001","severity":"S3","verdict":"PROVED","applicability":{"state":"applicable","reason":"Beta history access must remain bounded at the frozen performance floors."},"engineering_task":"PR-09","human_provider_gates":[],"dependencies":["PR-02"],"status":"pending","outcome":null,"proof":[],"release_condition":"Implement cursor pagination and search and pass bounded 150/300/1000-record performance and traversal integrity receipts."},
-    {"id":"SCL-002","severity":"S3","verdict":"WEAK","applicability":{"state":"applicable","reason":"Workout and share history must remain compatible even while clinical surfaces are disabled."},"engineering_task":"PR-16","human_provider_gates":[],"dependencies":["PR-06","PR-07","PR-14"],"status":"pending","outcome":null,"proof":[],"release_condition":"Validate explicit snapshot/content/engine versions and migrate or safely reject unsupported historical records."},
-    {"id":"SCL-003","severity":"S3","verdict":"WEAK","applicability":{"state":"applicable","reason":"Release evidence ledgers must reconcile for PR-17."},"engineering_task":"PR-17","human_provider_gates":[],"dependencies":["PR-00","PR-01","PR-02","PR-03","PR-04","PR-05","PR-06","PR-07","PR-08","PR-09","PR-10","PR-11","PR-12","PR-13","PR-14","PR-15","PR-16"],"status":"pending","outcome":null,"proof":[],"release_condition":"Reconcile audit, inventory, and bug ledgers and reject duplicate identifiers in CI."}
+    {
+      "id": "PRD-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Web results and PDF are in the selected beta."
+      },
+      "engineering_task": "PR-01",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "One shared grade projection drives engine tests, web legend, accessible copy, and PDF, with boundary drift tests."
+    },
+    {
+      "id": "PRD-002",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Unsupported rank language is present on selected result surfaces."
+      },
+      "engineering_task": "PR-01",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Remove rank output or define a non-population view severity index; ban elite, critical, percentile, rank, and modeled-population copy."
+    },
+    {
+      "id": "PRD-003",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Tracking and follow-up comparisons are in the selected beta."
+      },
+      "engineering_task": "PR-02",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-01"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Every comparison consumer uses one version-aware policy, fails closed across engine versions, and labels fallback tolerance honestly."
+    },
+    {
+      "id": "PRD-004",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The beta includes longitudinal tracking and directional change claims."
+      },
+      "engineering_task": "PR-11",
+      "human_provider_gates": [
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-10"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Keep the labeled fixed fallback until eligible Tier B evidence exists, then consume only validated severity-percentage-point MDC."
+    },
+    {
+      "id": "CAP-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Four-view responsive-web capture is in the selected beta."
+      },
+      "engineering_task": "PR-03",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-01"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Hard failures disable photo acceptance, preserve corrective reason, and have no-person, multi-person, and recovery tests."
+    },
+    {
+      "id": "CAP-002",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Mobile-web camera cold start is in the selected beta."
+      },
+      "engineering_task": "PR-03",
+      "human_provider_gates": [
+        "HG-04"
+      ],
+      "dependencies": [
+        "PR-01"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Expose readiness and recovery, test timeout and GPU-to-CPU fallbacks, and pass throttled cold/warm plus physical-device checks."
+    },
+    {
+      "id": "CAP-003",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The selected beta must work on physical iPhone and Android browsers."
+      },
+      "engineering_task": "PR-08",
+      "human_provider_gates": [
+        "HG-04"
+      ],
+      "dependencies": [
+        "PR-03",
+        "PR-04",
+        "PR-07"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Attach the passing two-device physical permission, orientation, wake-lock, audio, memory, recovery, and accessibility receipt."
+    },
+    {
+      "id": "REL-001",
+      "severity": "S3 now / S2 for change claims",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Tracking is selected, so reliability math and eligibility guards must remain intact."
+      },
+      "engineering_task": "PR-10",
+      "human_provider_gates": [
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Retain labeled ICC, SEM, MDC95, provenance, and guard tests; obtain qualifying data before consumer eligibility."
+    },
+    {
+      "id": "REL-002",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Directional beta change claims require Tier B evidence."
+      },
+      "engineering_task": "PR-10",
+      "human_provider_gates": [
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Complete the frozen protocol, clustered uncertainty review, and signed eligibility decision without threshold tuning."
+    },
+    {
+      "id": "REL-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Pelvic proxy output remains on the selected assessment surface."
+      },
+      "engineering_task": "PR-12",
+      "human_provider_gates": [
+        "HG-03",
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Keep proxy wording and conservative weight unless repeatability and construct review support more; never train to the Moti archive."
+    },
+    {
+      "id": "REL-004",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The lite/full model default affects selected web capture."
+      },
+      "engineering_task": "PR-12",
+      "human_provider_gates": [
+        "HG-04",
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Keep lite as default unless device latency, repeatability, and metric-level delta evidence satisfy the frozen switch rule."
+    },
+    {
+      "id": "CLN-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Unreviewed content is currently reachable; assessment-only server disablement must be proven before it can be excluded."
+      },
+      "engineering_task": "PR-07",
+      "human_provider_gates": [
+        "HG-03"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ],
+      "conditional_gate_rule": "HG-03 may pass not_applicable only with the HG-00 assessment-only decision and proven server disablement of recommendations, programs, workouts, and knowledge links.",
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Obtain itemized licensed review or prove the assessment-only boundary fails closed on every clinical-content endpoint and surface."
+    },
+    {
+      "id": "CLN-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Claim restraint applies to every selected UI, PDF, and share surface."
+      },
+      "engineering_task": "PR-07",
+      "human_provider_gates": [
+        "HG-03"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Copy checks enforce screening and proxy language and reject unsupported severity, population, causal, or directional claims."
+    },
+    {
+      "id": "LEG-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Privacy, Terms, and consent are required for the selected beta."
+      },
+      "engineering_task": "PR-05",
+      "human_provider_gates": [
+        "HG-02"
+      ],
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Serve only counsel-approved, versioned legal text with dates, scope, retention, withdrawal, and re-consent semantics."
+    },
+    {
+      "id": "LEG-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Consent and sharing lifecycles are in the selected beta."
+      },
+      "engineering_task": "PR-06",
+      "human_provider_gates": [
+        "HG-02"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Implement withdrawal and share inventory, revoke, rotate, audit receipts, and post-revocation tests."
+    },
+    {
+      "id": "LEG-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Client erasure is required for the selected beta."
+      },
+      "engineering_task": "PR-06",
+      "human_provider_gates": [
+        "HG-02"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Use controlled reason codes and transaction or outbox semantics with retry, idempotency, and a PII-safe erasure receipt."
+    },
+    {
+      "id": "LEG-004",
+      "severity": "S2 if covered entities",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "not_applicable",
+        "reason": "The owner-confirmed cohort is non-HIPAA fitness/wellness and covered entities are prohibited.",
+        "reopens_when": "covered_entities_allowed becomes true"
+      },
+      "engineering_task": "PR-15",
+      "human_provider_gates": [
+        "HG-00",
+        "HG-01",
+        "HG-02",
+        "HG-06",
+        "HG-07",
+        "HG-08"
+      ],
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Remain non-HIPAA, or require BAAs, provider controls, access audit, backup/PITR, MFA, operating controls, and HIPAA counsel approval before launch."
+    },
+    {
+      "id": "AUTH-001",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Invitation-only practitioner access is the selected admission model."
+      },
+      "engineering_task": "PR-04",
+      "human_provider_gates": [
+        "HG-01"
+      ],
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Disable public admission in code and live Auth, enforce admin invitations or allowlist, and attach invited/uninvited provider evidence."
+    },
+    {
+      "id": "AUTH-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Practitioner AAL2 is required by the selected beta contract."
+      },
+      "engineering_task": "PR-04",
+      "human_provider_gates": [
+        "HG-01"
+      ],
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Enforce practitioner MFA server-side and prove enrollment, recovery, and live provider configuration."
+    },
+    {
+      "id": "AUTH-003",
+      "severity": "S2 for HIPAA",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "not_applicable",
+        "reason": "Covered entities are prohibited in the selected non-HIPAA cohort.",
+        "reopens_when": "covered_entities_allowed becomes true"
+      },
+      "engineering_task": "PR-13",
+      "human_provider_gates": [
+        "HG-00",
+        "HG-01",
+        "HG-06"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "If HIPAA scope opens, require admin-controlled organization status and a real-database two-tenant authorization matrix."
+    },
+    {
+      "id": "SEC-001",
+      "severity": "S2/S3",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Public, expensive, and destructive endpoints exist in the selected web surface."
+      },
+      "engineering_task": "PR-13",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Use strict or explicitly degraded rate limiting for sensitive endpoints and pass outage and abuse tests."
+    },
+    {
+      "id": "SEC-002",
+      "severity": "S3",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Browser security hardening applies to the selected web beta."
+      },
+      "engineering_task": "PR-13",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Deploy a MediaPipe/Next-compatible nonce or hash CSP through report-only evidence before enforcement."
+    },
+    {
+      "id": "SEC-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The selected beta requires privacy-safe operational monitoring."
+      },
+      "engineering_task": "PR-15",
+      "human_provider_gates": [
+        "HG-07",
+        "HG-08"
+      ],
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Provide structured privacy-safe logging, verified monitoring and alert owner, tested delivery, and retention/access rules."
+    },
+    {
+      "id": "OPS-001",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Recovery is required for the selected beta."
+      },
+      "engineering_task": "PR-15",
+      "human_provider_gates": [
+        "HG-07",
+        "HG-08"
+      ],
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Declare RPO/RTO, verify backup/PITR, restore to an isolated target, and attach timing and integrity evidence."
+    },
+    {
+      "id": "OPS-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Release and schema safety apply to the selected beta."
+      },
+      "engineering_task": "PR-14",
+      "human_provider_gates": [
+        "HG-06"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Use isolated staging, migration prepromotion, expand-migrate-contract compatibility, non-ready health 503, and protected promotion."
+    },
+    {
+      "id": "OPS-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Repository controls are required for the selected beta release path."
+      },
+      "engineering_task": "PR-14",
+      "human_provider_gates": [
+        "HG-06"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Require CI and review, secret and dependency scanning, branch protection, and a protected promotion policy."
+    },
+    {
+      "id": "SCL-001",
+      "severity": "S3",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Beta history access must remain bounded at the frozen performance floors."
+      },
+      "engineering_task": "PR-09",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-02"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Implement cursor pagination and search and pass bounded 150/300/1000-record performance and traversal integrity receipts."
+    },
+    {
+      "id": "SCL-002",
+      "severity": "S3",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Workout and share history must remain compatible even while clinical surfaces are disabled."
+      },
+      "engineering_task": "PR-16",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-06",
+        "PR-07",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Validate explicit snapshot/content/engine versions and migrate or safely reject unsupported historical records."
+    },
+    {
+      "id": "SCL-003",
+      "severity": "S3",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Release evidence ledgers must reconcile for PR-17."
+      },
+      "engineering_task": "PR-17",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-00",
+        "PR-01",
+        "PR-02",
+        "PR-03",
+        "PR-04",
+        "PR-05",
+        "PR-06",
+        "PR-07",
+        "PR-08",
+        "PR-09",
+        "PR-10",
+        "PR-11",
+        "PR-12",
+        "PR-13",
+        "PR-14",
+        "PR-15",
+        "PR-16"
+      ],
+      "status": "pending",
+      "outcome": null,
+      "proof": [],
+      "release_condition": "Reconcile audit, inventory, and bug ledgers and reject duplicate identifiers in CI."
+    }
   ],
   "criteria": [
-    {"id":"PR-00.PASS","task_id":"PR-00","kind":"engineering","dependencies":[],"status":"pending","outcome":null},
-    {"id":"PR-01.PASS","task_id":"PR-01","kind":"engineering","dependencies":["PR-00"],"status":"pending","outcome":null},
-    {"id":"PR-02.PASS","task_id":"PR-02","kind":"engineering","dependencies":["PR-01"],"status":"pending","outcome":null},
-    {"id":"PR-03.PASS","task_id":"PR-03","kind":"engineering","dependencies":["PR-01"],"status":"pending","outcome":null},
-    {"id":"PR-04.PASS","task_id":"PR-04","kind":"engineering","dependencies":["PR-00"],"status":"pending","outcome":null},
-    {"id":"PR-05.PASS","task_id":"PR-05","kind":"engineering","dependencies":["PR-00"],"status":"pending","outcome":null},
-    {"id":"PR-06.PASS","task_id":"PR-06","kind":"engineering","dependencies":["PR-04","PR-05"],"status":"pending","outcome":null},
-    {"id":"PR-07.PASS","task_id":"PR-07","kind":"engineering","dependencies":["PR-00","PR-05"],"status":"pending","outcome":null},
-    {"id":"PR-08.PASS","task_id":"PR-08","kind":"engineering","dependencies":["PR-03","PR-04","PR-07"],"status":"pending","outcome":null},
-    {"id":"PR-09.PASS","task_id":"PR-09","kind":"engineering","dependencies":["PR-02"],"status":"pending","outcome":null},
-    {"id":"PR-10.PASS","task_id":"PR-10","kind":"engineering","dependencies":["PR-00","PR-03","PR-08"],"status":"pending","outcome":null},
-    {"id":"PR-11.PASS","task_id":"PR-11","kind":"engineering","dependencies":["PR-10"],"status":"pending","outcome":null},
-    {"id":"PR-12.PASS","task_id":"PR-12","kind":"engineering","dependencies":["PR-03","PR-05","PR-07","PR-10"],"status":"pending","outcome":null},
-    {"id":"PR-13.PASS","task_id":"PR-13","kind":"engineering","dependencies":["PR-04","PR-06"],"status":"pending","outcome":null},
-    {"id":"PR-14.PASS","task_id":"PR-14","kind":"engineering","dependencies":["PR-04","PR-06"],"status":"pending","outcome":null},
-    {"id":"PR-15.PASS","task_id":"PR-15","kind":"engineering","dependencies":["PR-06","PR-14"],"status":"pending","outcome":null},
-    {"id":"PR-16.PASS","task_id":"PR-16","kind":"engineering","dependencies":["PR-06","PR-07","PR-14"],"status":"pending","outcome":null},
-    {"id":"PR-17.PASS","task_id":"PR-17","kind":"engineering","dependencies":["PR-00","PR-01","PR-02","PR-03","PR-04","PR-05","PR-06","PR-07","PR-08","PR-09","PR-10","PR-11","PR-12","PR-13","PR-14","PR-15","PR-16"],"status":"pending","outcome":null},
-    {"id":"HG-00.PASS","task_id":"HG-00","kind":"human","dependencies":["PR-00"],"status":"pending","outcome":null},
-    {"id":"HG-01.PASS","task_id":"HG-01","kind":"provider","dependencies":["PR-04"],"status":"pending","outcome":null},
-    {"id":"HG-02.PASS","task_id":"HG-02","kind":"human","dependencies":["PR-05"],"status":"pending","outcome":null},
-    {"id":"HG-03.PASS","task_id":"HG-03","kind":"human","dependencies":["PR-07"],"status":"pending","outcome":null},
-    {"id":"HG-04.PASS","task_id":"HG-04","kind":"human","dependencies":["PR-03","PR-08"],"status":"pending","outcome":null},
-    {"id":"HG-05.PASS","task_id":"HG-05","kind":"human","dependencies":["PR-08","PR-10","HG-04"],"status":"pending","outcome":null},
-    {"id":"HG-06.PASS","task_id":"HG-06","kind":"provider","dependencies":["PR-04","PR-14"],"status":"pending","outcome":null},
-    {"id":"HG-07.PASS","task_id":"HG-07","kind":"provider","dependencies":["PR-15"],"status":"pending","outcome":null},
-    {"id":"HG-08.PASS","task_id":"HG-08","kind":"human","dependencies":["PR-15","HG-07"],"status":"pending","outcome":null},
-    {"id":"HG-09.PASS","task_id":"HG-09","kind":"human","dependencies":["PR-17","HG-00","HG-01","HG-02","HG-03","HG-04","HG-05","HG-06","HG-07","HG-08"],"status":"pending","outcome":null},
-    {"id":"HG-10.PASS","task_id":"HG-10","kind":"human","dependencies":["HG-09"],"status":"pending","outcome":null}
+    {
+      "id": "PR-00.PASS",
+      "task_id": "PR-00",
+      "kind": "engineering",
+      "dependencies": [],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-01.PASS",
+      "task_id": "PR-01",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-02.PASS",
+      "task_id": "PR-02",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-01"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-03.PASS",
+      "task_id": "PR-03",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-01"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-04.PASS",
+      "task_id": "PR-04",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-05.PASS",
+      "task_id": "PR-05",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-06.PASS",
+      "task_id": "PR-06",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-07.PASS",
+      "task_id": "PR-07",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-08.PASS",
+      "task_id": "PR-08",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-03",
+        "PR-04",
+        "PR-07"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-09.PASS",
+      "task_id": "PR-09",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-02"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-10.PASS",
+      "task_id": "PR-10",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-11.PASS",
+      "task_id": "PR-11",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-10"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-12.PASS",
+      "task_id": "PR-12",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-13.PASS",
+      "task_id": "PR-13",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-14.PASS",
+      "task_id": "PR-14",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-15.PASS",
+      "task_id": "PR-15",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-16.PASS",
+      "task_id": "PR-16",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-06",
+        "PR-07",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "PR-17.PASS",
+      "task_id": "PR-17",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00",
+        "PR-01",
+        "PR-02",
+        "PR-03",
+        "PR-04",
+        "PR-05",
+        "PR-06",
+        "PR-07",
+        "PR-08",
+        "PR-09",
+        "PR-10",
+        "PR-11",
+        "PR-12",
+        "PR-13",
+        "PR-14",
+        "PR-15",
+        "PR-16"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-00.PASS",
+      "task_id": "HG-00",
+      "kind": "human",
+      "dependencies": [
+        "PR-00"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-01.PASS",
+      "task_id": "HG-01",
+      "kind": "provider",
+      "dependencies": [
+        "PR-04"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-02.PASS",
+      "task_id": "HG-02",
+      "kind": "human",
+      "dependencies": [
+        "PR-05"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-03.PASS",
+      "task_id": "HG-03",
+      "kind": "human",
+      "dependencies": [
+        "PR-07"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-04.PASS",
+      "task_id": "HG-04",
+      "kind": "human",
+      "dependencies": [
+        "PR-03",
+        "PR-08"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-05.PASS",
+      "task_id": "HG-05",
+      "kind": "human",
+      "dependencies": [
+        "PR-08",
+        "PR-10",
+        "HG-04"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-06.PASS",
+      "task_id": "HG-06",
+      "kind": "provider",
+      "dependencies": [
+        "PR-04",
+        "PR-14"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-07.PASS",
+      "task_id": "HG-07",
+      "kind": "provider",
+      "dependencies": [
+        "PR-15"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-08.PASS",
+      "task_id": "HG-08",
+      "kind": "human",
+      "dependencies": [
+        "PR-15",
+        "HG-07"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-09.PASS",
+      "task_id": "HG-09",
+      "kind": "human",
+      "dependencies": [
+        "PR-17",
+        "HG-00",
+        "HG-01",
+        "HG-02",
+        "HG-03",
+        "HG-04",
+        "HG-05",
+        "HG-06",
+        "HG-07",
+        "HG-08"
+      ],
+      "status": "pending",
+      "outcome": null
+    },
+    {
+      "id": "HG-10.PASS",
+      "task_id": "HG-10",
+      "kind": "human",
+      "dependencies": [
+        "HG-09"
+      ],
+      "status": "pending",
+      "outcome": null
+    }
   ],
   "tasks": [
-    {"id":"PR-00","kind":"engineering","criterion_id":"PR-00.PASS","dependencies":[],"maps_to_criterion":"PR-00.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Freeze release boundary and install fail-closed goal validators."},
-    {"id":"PR-01","kind":"engineering","criterion_id":"PR-01.PASS","dependencies":["PR-00"],"maps_to_criterion":"PR-01.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.platform"},"responsive-web"]}},"description":"Make scores and grades tell one truth."},
-    {"id":"PR-02","kind":"engineering","criterion_id":"PR-02.PASS","dependencies":["PR-01"],"maps_to_criterion":"PR-02.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.follow_up_comparisons_enabled"},true]}},"description":"Make progress comparisons honest."},
-    {"id":"PR-03","kind":"engineering","criterion_id":"PR-03.PASS","dependencies":["PR-01"],"maps_to_criterion":"PR-03.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.platform"},"responsive-web"]}},"description":"Close capture hard failures and cold-start readiness."},
-    {"id":"PR-04","kind":"engineering","criterion_id":"PR-04.PASS","dependencies":["PR-00"],"maps_to_criterion":"PR-04.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.practitioner_access"},"invitation-only"]}},"description":"Enforce invitation-only practitioner access."},
-    {"id":"PR-05","kind":"engineering","criterion_id":"PR-05.PASS","dependencies":["PR-00"],"maps_to_criterion":"PR-05.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Replace legal scaffolding with governed infrastructure."},
-    {"id":"PR-06","kind":"engineering","criterion_id":"PR-06.PASS","dependencies":["PR-04","PR-05"],"maps_to_criterion":"PR-06.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Complete consent, sharing, retention, and erasure lifecycles."},
-    {"id":"PR-07","kind":"engineering","criterion_id":"PR-07.PASS","dependencies":["PR-00","PR-05"],"maps_to_criterion":"PR-07.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Gate clinical content and recommendations."},
-    {"id":"PR-08","kind":"engineering","criterion_id":"PR-08.PASS","dependencies":["PR-03","PR-04","PR-07"],"maps_to_criterion":"PR-08.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.platform"},"responsive-web"]}},"description":"Build device and accessibility evidence harness."},
-    {"id":"PR-09","kind":"engineering","criterion_id":"PR-09.PASS","dependencies":["PR-02"],"maps_to_criterion":"PR-09.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Bound data access and prove beta-scale performance."},
-    {"id":"PR-10","kind":"engineering","criterion_id":"PR-10.PASS","dependencies":["PR-00","PR-03","PR-08"],"maps_to_criterion":"PR-10.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.follow_up_comparisons_enabled"},true]}},"description":"Freeze and verify Tier B protocol and tooling."},
-    {"id":"PR-11","kind":"engineering","criterion_id":"PR-11.PASS","dependencies":["PR-10"],"maps_to_criterion":"PR-11.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.follow_up_comparisons_enabled"},true]}},"description":"Consume eligible reliability profiles fail closed or prove N/A."},
-    {"id":"PR-12","kind":"engineering","criterion_id":"PR-12.PASS","dependencies":["PR-03","PR-05","PR-07","PR-10"],"maps_to_criterion":"PR-12.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Decide pelvic proxy, weights, and model default from evidence."},
-    {"id":"PR-13","kind":"engineering","criterion_id":"PR-13.PASS","dependencies":["PR-04","PR-06"],"maps_to_criterion":"PR-13.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Harden exposed and sensitive operations."},
-    {"id":"PR-14","kind":"engineering","criterion_id":"PR-14.PASS","dependencies":["PR-04","PR-06"],"maps_to_criterion":"PR-14.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Make releases and schema changes reversible."},
-    {"id":"PR-15","kind":"engineering","criterion_id":"PR-15.PASS","dependencies":["PR-06","PR-14"],"maps_to_criterion":"PR-15.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Prove observability, backup, restore, and incident-response tooling."},
-    {"id":"PR-16","kind":"engineering","criterion_id":"PR-16.PASS","dependencies":["PR-06","PR-07","PR-14"],"maps_to_criterion":"PR-16.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Preserve historical workout and share compatibility."},
-    {"id":"PR-17","kind":"engineering","criterion_id":"PR-17.PASS","dependencies":["PR-00","PR-01","PR-02","PR-03","PR-04","PR-05","PR-06","PR-07","PR-08","PR-09","PR-10","PR-11","PR-12","PR-13","PR-14","PR-15","PR-16"],"maps_to_criterion":"PR-17.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Run engineering release-candidate rehearsal and final audit."},
-    {"id":"HG-00","kind":"human","criterion_id":"HG-00.PASS","dependencies":["PR-00"],"maps_to_criterion":"HG-00.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Verify owner launch-boundary decision receipt."},
-    {"id":"HG-01","kind":"provider","criterion_id":"HG-01.PASS","dependencies":["PR-04"],"maps_to_criterion":"HG-01.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.practitioner_access"},"invitation-only"]}},"description":"Verify live Auth settings."},
-    {"id":"HG-02","kind":"human","criterion_id":"HG-02.PASS","dependencies":["PR-05"],"maps_to_criterion":"HG-02.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Obtain counsel-approved legal versions."},
-    {"id":"HG-03","kind":"human","criterion_id":"HG-03.PASS","dependencies":["PR-07"],"maps_to_criterion":"HG-03.PASS","applicability":{"default_state":"not_applicable","expression":{"any_true":[{"var":"release_boundary.recommendations_enabled"},{"var":"release_boundary.programs_enabled"},{"var":"release_boundary.workouts_enabled"},{"var":"release_boundary.knowledge_links_enabled"}]},"not_applicable_proof":"HG-00 assessment-only decision plus PR-07 server-disable proof"},"description":"Complete clinician content review or prove assessment-only N/A."},
-    {"id":"HG-04","kind":"human","criterion_id":"HG-04.PASS","dependencies":["PR-03","PR-08"],"maps_to_criterion":"HG-04.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.platform"},"responsive-web"]}},"description":"Complete physical iPhone and Android matrix."},
-    {"id":"HG-05","kind":"human","criterion_id":"HG-05.PASS","dependencies":["PR-08","PR-10","HG-04"],"maps_to_criterion":"HG-05.PASS","applicability":{"default_state":"applicable","expression":{"eq":[{"var":"release_boundary.follow_up_comparisons_enabled"},true]}},"description":"Collect and statistically adjudicate the human Tier B dataset."},
-    {"id":"HG-06","kind":"provider","criterion_id":"HG-06.PASS","dependencies":["PR-04","PR-14"],"maps_to_criterion":"HG-06.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Verify live Vercel, Supabase, and GitHub settings."},
-    {"id":"HG-07","kind":"provider","criterion_id":"HG-07.PASS","dependencies":["PR-15"],"maps_to_criterion":"HG-07.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Verify live monitoring and backup provider configuration."},
-    {"id":"HG-08","kind":"human","criterion_id":"HG-08.PASS","dependencies":["PR-15","HG-07"],"maps_to_criterion":"HG-08.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Complete alert-delivery and isolated-restore drills."},
-    {"id":"HG-09","kind":"human","criterion_id":"HG-09.PASS","dependencies":["PR-17","HG-00","HG-01","HG-02","HG-03","HG-04","HG-05","HG-06","HG-07","HG-08"],"maps_to_criterion":"HG-09.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Run intended-beta rehearsal and final council."},
-    {"id":"HG-10","kind":"human","criterion_id":"HG-10.PASS","dependencies":["HG-09"],"maps_to_criterion":"HG-10.PASS","applicability":{"default_state":"applicable","expression":{"constant":true}},"description":"Approve production promotion."}
+    {
+      "id": "PR-00",
+      "kind": "engineering",
+      "criterion_id": "PR-00.PASS",
+      "dependencies": [],
+      "maps_to_criterion": "PR-00.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Freeze release boundary and install fail-closed goal validators."
+    },
+    {
+      "id": "PR-01",
+      "kind": "engineering",
+      "criterion_id": "PR-01.PASS",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "PR-01.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      },
+      "description": "Make scores and grades tell one truth."
+    },
+    {
+      "id": "PR-02",
+      "kind": "engineering",
+      "criterion_id": "PR-02.PASS",
+      "dependencies": [
+        "PR-01"
+      ],
+      "maps_to_criterion": "PR-02.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      },
+      "description": "Make progress comparisons honest."
+    },
+    {
+      "id": "PR-03",
+      "kind": "engineering",
+      "criterion_id": "PR-03.PASS",
+      "dependencies": [
+        "PR-01"
+      ],
+      "maps_to_criterion": "PR-03.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      },
+      "description": "Close capture hard failures and cold-start readiness."
+    },
+    {
+      "id": "PR-04",
+      "kind": "engineering",
+      "criterion_id": "PR-04.PASS",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "PR-04.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.practitioner_access"
+            },
+            "invitation-only"
+          ]
+        }
+      },
+      "description": "Enforce invitation-only practitioner access."
+    },
+    {
+      "id": "PR-05",
+      "kind": "engineering",
+      "criterion_id": "PR-05.PASS",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "PR-05.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Replace legal scaffolding with governed infrastructure."
+    },
+    {
+      "id": "PR-06",
+      "kind": "engineering",
+      "criterion_id": "PR-06.PASS",
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ],
+      "maps_to_criterion": "PR-06.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Complete consent, sharing, retention, and erasure lifecycles."
+    },
+    {
+      "id": "PR-07",
+      "kind": "engineering",
+      "criterion_id": "PR-07.PASS",
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ],
+      "maps_to_criterion": "PR-07.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Gate clinical content and recommendations."
+    },
+    {
+      "id": "PR-08",
+      "kind": "engineering",
+      "criterion_id": "PR-08.PASS",
+      "dependencies": [
+        "PR-03",
+        "PR-04",
+        "PR-07"
+      ],
+      "maps_to_criterion": "PR-08.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      },
+      "description": "Build device and accessibility evidence harness."
+    },
+    {
+      "id": "PR-09",
+      "kind": "engineering",
+      "criterion_id": "PR-09.PASS",
+      "dependencies": [
+        "PR-02"
+      ],
+      "maps_to_criterion": "PR-09.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Bound data access and prove beta-scale performance."
+    },
+    {
+      "id": "PR-10",
+      "kind": "engineering",
+      "criterion_id": "PR-10.PASS",
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ],
+      "maps_to_criterion": "PR-10.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      },
+      "description": "Freeze and verify Tier B protocol and tooling."
+    },
+    {
+      "id": "PR-11",
+      "kind": "engineering",
+      "criterion_id": "PR-11.PASS",
+      "dependencies": [
+        "PR-10"
+      ],
+      "maps_to_criterion": "PR-11.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      },
+      "description": "Consume eligible reliability profiles fail closed or prove N/A."
+    },
+    {
+      "id": "PR-12",
+      "kind": "engineering",
+      "criterion_id": "PR-12.PASS",
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ],
+      "maps_to_criterion": "PR-12.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Decide pelvic proxy, weights, and model default from evidence."
+    },
+    {
+      "id": "PR-13",
+      "kind": "engineering",
+      "criterion_id": "PR-13.PASS",
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "maps_to_criterion": "PR-13.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Harden exposed and sensitive operations."
+    },
+    {
+      "id": "PR-14",
+      "kind": "engineering",
+      "criterion_id": "PR-14.PASS",
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "maps_to_criterion": "PR-14.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Make releases and schema changes reversible."
+    },
+    {
+      "id": "PR-15",
+      "kind": "engineering",
+      "criterion_id": "PR-15.PASS",
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ],
+      "maps_to_criterion": "PR-15.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Prove observability, backup, restore, and incident-response tooling."
+    },
+    {
+      "id": "PR-16",
+      "kind": "engineering",
+      "criterion_id": "PR-16.PASS",
+      "dependencies": [
+        "PR-06",
+        "PR-07",
+        "PR-14"
+      ],
+      "maps_to_criterion": "PR-16.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Preserve historical workout and share compatibility."
+    },
+    {
+      "id": "PR-17",
+      "kind": "engineering",
+      "criterion_id": "PR-17.PASS",
+      "dependencies": [
+        "PR-00",
+        "PR-01",
+        "PR-02",
+        "PR-03",
+        "PR-04",
+        "PR-05",
+        "PR-06",
+        "PR-07",
+        "PR-08",
+        "PR-09",
+        "PR-10",
+        "PR-11",
+        "PR-12",
+        "PR-13",
+        "PR-14",
+        "PR-15",
+        "PR-16"
+      ],
+      "maps_to_criterion": "PR-17.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Run engineering release-candidate rehearsal and final audit."
+    },
+    {
+      "id": "HG-00",
+      "kind": "human",
+      "criterion_id": "HG-00.PASS",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "HG-00.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Verify owner launch-boundary decision receipt."
+    },
+    {
+      "id": "HG-01",
+      "kind": "provider",
+      "criterion_id": "HG-01.PASS",
+      "dependencies": [
+        "PR-04"
+      ],
+      "maps_to_criterion": "HG-01.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.practitioner_access"
+            },
+            "invitation-only"
+          ]
+        }
+      },
+      "description": "Verify live Auth settings."
+    },
+    {
+      "id": "HG-02",
+      "kind": "human",
+      "criterion_id": "HG-02.PASS",
+      "dependencies": [
+        "PR-05"
+      ],
+      "maps_to_criterion": "HG-02.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Obtain counsel-approved legal versions."
+    },
+    {
+      "id": "HG-03",
+      "kind": "human",
+      "criterion_id": "HG-03.PASS",
+      "dependencies": [
+        "PR-07"
+      ],
+      "maps_to_criterion": "HG-03.PASS",
+      "applicability": {
+        "default_state": "not_applicable",
+        "expression": {
+          "any_true": [
+            {
+              "var": "release_boundary.recommendations_enabled"
+            },
+            {
+              "var": "release_boundary.programs_enabled"
+            },
+            {
+              "var": "release_boundary.workouts_enabled"
+            },
+            {
+              "var": "release_boundary.knowledge_links_enabled"
+            }
+          ]
+        },
+        "not_applicable_proof": "HG-00 assessment-only decision plus PR-07 server-disable proof"
+      },
+      "description": "Complete clinician content review or prove assessment-only N/A."
+    },
+    {
+      "id": "HG-04",
+      "kind": "human",
+      "criterion_id": "HG-04.PASS",
+      "dependencies": [
+        "PR-03",
+        "PR-08"
+      ],
+      "maps_to_criterion": "HG-04.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      },
+      "description": "Complete physical iPhone and Android matrix."
+    },
+    {
+      "id": "HG-05",
+      "kind": "human",
+      "criterion_id": "HG-05.PASS",
+      "dependencies": [
+        "PR-08",
+        "PR-10",
+        "HG-04"
+      ],
+      "maps_to_criterion": "HG-05.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      },
+      "description": "Collect and statistically adjudicate the human Tier B dataset."
+    },
+    {
+      "id": "HG-06",
+      "kind": "provider",
+      "criterion_id": "HG-06.PASS",
+      "dependencies": [
+        "PR-04",
+        "PR-14"
+      ],
+      "maps_to_criterion": "HG-06.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Verify live Vercel, Supabase, and GitHub settings."
+    },
+    {
+      "id": "HG-07",
+      "kind": "provider",
+      "criterion_id": "HG-07.PASS",
+      "dependencies": [
+        "PR-15"
+      ],
+      "maps_to_criterion": "HG-07.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Verify live monitoring and backup provider configuration."
+    },
+    {
+      "id": "HG-08",
+      "kind": "human",
+      "criterion_id": "HG-08.PASS",
+      "dependencies": [
+        "PR-15",
+        "HG-07"
+      ],
+      "maps_to_criterion": "HG-08.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Complete alert-delivery and isolated-restore drills."
+    },
+    {
+      "id": "HG-09",
+      "kind": "human",
+      "criterion_id": "HG-09.PASS",
+      "dependencies": [
+        "PR-17",
+        "HG-00",
+        "HG-01",
+        "HG-02",
+        "HG-03",
+        "HG-04",
+        "HG-05",
+        "HG-06",
+        "HG-07",
+        "HG-08"
+      ],
+      "maps_to_criterion": "HG-09.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Run intended-beta rehearsal and final council."
+    },
+    {
+      "id": "HG-10",
+      "kind": "human",
+      "criterion_id": "HG-10.PASS",
+      "dependencies": [
+        "HG-09"
+      ],
+      "maps_to_criterion": "HG-10.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      },
+      "description": "Approve production promotion."
+    }
   ],
   "e2e": {
-    "inventory_id":"playwright-production-readiness-2026-07-20-v3",
-    "source_config":"playwright.config.ts",
-    "source_runner":"scripts/run-e2e.mjs",
-    "inventory_command":"npx playwright test --list",
-    "project_order":["setup","desktop-chromium","mobile-webkit","calibration"],
-    "projects":{"setup":1,"desktop-chromium":70,"mobile-webkit":61,"calibration":1},
-    "expected_total":133,
-    "expected_files":29,
-    "inventory_hash":"2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
-    "inventory_hash_contract":{"algorithm":"sha256","canonicalization":"UTF-8 JSON with recursively sorted object keys and preserved array order","covered_fields":["inventory_id","source_config","source_runner","inventory_command","project_order","projects","expected_total","expected_files","execution","retry_policy","approved_skips","skip_policy"]},
-    "execution":{"fully_parallel":false,"workers":1,"required_local_release_command":"CI=1 npm run test:e2e","ci_server":"next start","local_server":"next dev --turbopack"},
-    "retry_policy":{"local_retries":0,"ci_retries":1,"passed_on_retry_is_flaky":true,"release_rule":"PR-17 permits zero retry result without a documented root cause, owner, repair receipt, and independent disposition."},
-    "approved_skips":[
-      {"key":"skip:a11y:mobile-webkit","source":"e2e/a11y.spec.ts::test.skip(browserName !== chromium)","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Axe budget runs once in Chromium.","owner":"PR-08","expires_on":"2026-08-31"},
-      {"key":"skip:consent-age-api:mobile-webkit","source":"e2e/consent-age.spec.ts::capture consent + age gate project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level consent matrix runs once in Chromium.","owner":"PR-06","expires_on":"2026-08-31"},
-      {"key":"skip:deletion:mobile-webkit","source":"e2e/deletion.spec.ts::client data deletion project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level deletion gate runs once in Chromium.","owner":"PR-06","expires_on":"2026-08-31"},
-      {"key":"skip:privacy-lifecycle:desktop-chromium","source":"e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard","scope":{"project":"desktop-chromium","condition":"browserName=chromium"},"reason":"Phone lifecycle walkthrough runs once in mobile WebKit.","owner":"PR-06","expires_on":"2026-08-31"},
-      {"key":"skip:error-states:mobile-webkit","source":"e2e/error-states.spec.ts::error states project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Mocked error-state suite runs once in Chromium.","owner":"PR-08","expires_on":"2026-08-31"},
-      {"key":"skip:gate-integrity:mobile-webkit","source":"e2e/gate-integrity.spec.ts::gate integrity project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Security regression suite runs once in Chromium.","owner":"PR-13","expires_on":"2026-08-31"},
-      {"key":"skip:report-approval:mobile-webkit","source":"e2e/report-approval.spec.ts::report approval gate project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level report gate runs once in Chromium.","owner":"PR-07","expires_on":"2026-08-31"},
-      {"key":"skip:workout-mint:mobile-webkit","source":"e2e/workout-mint.spec.ts::workout mint approval gate project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"API-level workout gate runs once in Chromium.","owner":"PR-07","expires_on":"2026-08-31"},
-      {"key":"skip:workout-player:mobile-webkit","source":"e2e/workout-player.spec.ts::red-flag pre-session screen project guard","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"Player UI test runs once in Chromium; physical device coverage is HG-04.","owner":"PR-08","expires_on":"2026-08-31"},
-      {"key":"ignore:real-detection:mobile-webkit","source":"playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)","scope":{"project":"mobile-webkit","spec":"e2e/real-detection.spec.ts"},"reason":"MediaPipe model test is assigned to Chromium; physical device closure is HG-04.","owner":"PR-03","expires_on":"2026-08-31"},
-      {"key":"ignore:capture-errors:mobile-webkit","source":"playwright.config.ts::mobile-webkit.testIgnore(capture-errors.spec.ts)","scope":{"project":"mobile-webkit","spec":"e2e/capture-errors.spec.ts"},"reason":"Camera/model error test is assigned to Chromium; physical device closure is HG-04.","owner":"PR-03","expires_on":"2026-08-31"},
-      {"key":"ignore:capture-camera:mobile-webkit","source":"playwright.config.ts::mobile-webkit.testIgnore(capture-camera.spec.ts)","scope":{"project":"mobile-webkit","spec":"e2e/capture-camera.spec.ts"},"reason":"Camera test is assigned to Chromium; physical device closure is HG-04.","owner":"PR-03","expires_on":"2026-08-31"},
-      {"key":"ignore:capture-model-readiness:mobile-webkit","source":"playwright.config.ts::mobile-webkit.testIgnore(capture-model-readiness.spec.ts)","scope":{"project":"mobile-webkit","spec":"e2e/capture-model-readiness.spec.ts"},"reason":"MediaPipe lifecycle and delegate-recovery test is assigned to Chromium; physical device closure is HG-04.","owner":"PR-03","expires_on":"2026-08-31"},
-      {"key":"ignore:pixel-calibration:desktop-chromium","source":"playwright.config.ts::desktop-chromium.testIgnore(pixel-calibration.spec.ts)","scope":{"project":"desktop-chromium","spec":"e2e/pixel-calibration.spec.ts"},"reason":"Calibration has its own project and commands.","owner":"PR-10","expires_on":"2026-08-31"},
-      {"key":"ignore:pixel-calibration:mobile-webkit","source":"playwright.config.ts::mobile-webkit.testIgnore(pixel-calibration.spec.ts)","scope":{"project":"mobile-webkit","spec":"e2e/pixel-calibration.spec.ts"},"reason":"Calibration has its own Chromium project and commands.","owner":"PR-10","expires_on":"2026-08-31"},
-      {"key":"skip:onboarding-acked-fixture:desktop-chromium","source":"e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails","scope":{"project":"desktop-chromium","condition":"shared practitioner already acknowledged"},"reason":"A fresh unacknowledged fixture is unavailable; source-level behavior remains separately reviewed.","owner":"PR-04","expires_on":"2026-08-31"},
-      {"key":"skip:golden-ingest:desktop-ci","source":"e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download","scope":{"project":"desktop-chromium","condition":"CI=true production build"},"reason":"The developer-only route intentionally returns 404 in production builds.","owner":"PR-10","expires_on":"2026-08-31"},
-      {"key":"skip:golden-ingest:mobile-webkit","source":"e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download","scope":{"project":"mobile-webkit","condition":"browserName=webkit"},"reason":"WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.","owner":"PR-10","expires_on":"2026-08-31"},
-      {"key":"skip:consent-recovery:desktop-chromium","source":"e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client","scope":{"project":"desktop-chromium","condition":"browserName=chromium"},"reason":"Phone recovery flow runs once in mobile WebKit.","owner":"PR-06","expires_on":"2026-08-31"},
-      {"key":"skip:pixel-calibration:bare-calibration-project","source":"e2e/pixel-calibration.spec.ts::pixel-quality calibration","scope":{"project":"calibration","condition":"CALIBRATION_CHECK and CALIBRATION_WRITE both absent"},"reason":"Calibration runs only via npm run calibrate or npm run calibrate:check.","owner":"PR-10","expires_on":"2026-08-31"}
+    "inventory_id": "playwright-production-readiness-2026-07-21-v4",
+    "source_config": "playwright.config.ts",
+    "source_runner": "scripts/run-e2e.mjs",
+    "inventory_command": "npx playwright test --list",
+    "project_order": [
+      "setup",
+      "desktop-chromium",
+      "mobile-webkit",
+      "android-chromium-proxy",
+      "calibration"
     ],
-    "skip_policy":{"unapproved_skip_or_fixme_allowed":false,"launch_rule":"Observed skips must match an unexpired allowlist key and PR-17 permits zero unapproved skip."}
+    "projects": {
+      "setup": 1,
+      "desktop-chromium": 76,
+      "mobile-webkit": 68,
+      "android-chromium-proxy": 11,
+      "calibration": 1
+    },
+    "expected_total": 157,
+    "expected_files": 32,
+    "inventory_hash": "0f35acb6be139c153d6f234d8a7dbb7d3d926234ea680ae394b0d7ed203847e7",
+    "inventory_hash_contract": {
+      "algorithm": "sha256",
+      "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
+      "covered_fields": [
+        "inventory_id",
+        "source_config",
+        "source_runner",
+        "inventory_command",
+        "project_order",
+        "projects",
+        "expected_total",
+        "expected_files",
+        "execution",
+        "retry_policy",
+        "axe_receipts",
+        "approved_skips",
+        "skip_policy"
+      ]
+    },
+    "execution": {
+      "fully_parallel": false,
+      "workers": 1,
+      "required_local_release_command": "CI=1 npm run test:e2e",
+      "ci_server": "next start",
+      "local_server": "next dev --turbopack"
+    },
+    "retry_policy": {
+      "local_retries": 0,
+      "ci_retries": 1,
+      "passed_on_retry_is_flaky": true,
+      "release_rule": "PR-17 permits zero retry result without a documented root cause, owner, repair receipt, and independent disposition."
+    },
+    "axe_receipts": {
+      "schema_version": "posture-ai-axe-targets-v1",
+      "projects": [
+        "desktop-chromium",
+        "mobile-webkit",
+        "android-chromium-proxy"
+      ],
+      "scans": [
+        {
+          "surface": "sign-in",
+          "path": "/auth/sign-in",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › auth surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "forgot-password",
+          "path": "/auth/forgot-password",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › auth surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "dashboard",
+          "path": "/dashboard",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "clients",
+          "path": "/clients",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "exercises",
+          "path": "/exercises",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "muscle library",
+          "path": "/muscles",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "muscle detail",
+          "path": "/muscles/suboccipitals",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "privacy",
+          "path": "/privacy",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "terms",
+          "path": "/terms",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "settings",
+          "path": "/settings",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › static surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "phone navigation closed",
+          "path": "/dashboard",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › phone navigation closed and open states pass the axe budget"
+          }
+        },
+        {
+          "surface": "phone navigation open",
+          "path": "/dashboard",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › phone navigation closed and open states pass the axe budget"
+          }
+        },
+        {
+          "surface": "client new",
+          "path": "/clients/new",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › client CRUD surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "client detail",
+          "path": "/clients/:id",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › client CRUD surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "client edit",
+          "path": "/clients/:id/edit",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › client CRUD surfaces pass the axe budget"
+          }
+        },
+        {
+          "surface": "consent",
+          "path": "/consent/:token",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › consent page passes the axe budget"
+          }
+        },
+        {
+          "surface": "live capture screening notice",
+          "path": "/assessments/new",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › non-test upload and live-capture wizard states pass the axe budget"
+          }
+        },
+        {
+          "surface": "live capture upload controls",
+          "path": "/assessments/new",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › non-test upload and live-capture wizard states pass the axe budget"
+          }
+        },
+        {
+          "surface": "wizard step 1",
+          "path": "/assessments/new",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › wizard and results pass the axe budget"
+          }
+        },
+        {
+          "surface": "wizard step 2 (confirm)",
+          "path": "/assessments/new",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › wizard and results pass the axe budget"
+          }
+        },
+        {
+          "surface": "results",
+          "path": "/assessments/:id",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › wizard and results pass the axe budget"
+          }
+        },
+        {
+          "surface": "results PDF ready",
+          "path": "/assessments/:id",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › wizard and results pass the axe budget"
+          }
+        },
+        {
+          "surface": "wizard hard-failure recovery",
+          "path": "/assessments/new",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › wizard hard-failure recovery state passes the axe budget"
+          }
+        },
+        {
+          "surface": "assessment results with prior (compare-select + badges)",
+          "path": "/assessments/:id",
+          "originating_test": {
+            "file": "e2e/a11y.spec.ts",
+            "title": "accessibility budget › assessment results with prior assessment (compare-select + category badges) pass the axe budget"
+          }
+        }
+      ],
+      "targets": [
+        {
+          "project": "desktop-chromium",
+          "surface": "workout hidden chrome",
+          "path": "/workouts/:id",
+          "originating_test": {
+            "project": "desktop-chromium",
+            "file": "e2e/workout-player.spec.ts",
+            "title": "red-flag pre-session screen › flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters"
+          }
+        }
+      ],
+      "expected_total": 73
+    },
+    "approved_skips": [
+      {
+        "key": "skip:consent-age-api:mobile-webkit",
+        "source": "e2e/consent-age.spec.ts::capture consent + age gate project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › adult with consent can be assessed",
+          "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › under-13 is blocked even with consent",
+          "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › minor 13–17 with only self consent is blocked (guardian required)",
+          "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › minor 13–17 with guardian consent is allowed",
+          "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › a client without consent (remote pending) is blocked",
+          "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › remote consent link records consent (single-use) and unlocks capture"
+        ],
+        "reason": "API-level consent matrix runs once in Chromium.",
+        "owner": "PR-06",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:deletion:mobile-webkit",
+        "source": "e2e/deletion.spec.ts::client data deletion project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/deletion.spec.ts::client data deletion › deleting a client purges assessments and removes it from the list"
+        ],
+        "reason": "API-level deletion gate runs once in Chromium.",
+        "owner": "PR-06",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:privacy-lifecycle:desktop-chromium",
+        "source": "e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard",
+        "scope": {
+          "project": "desktop-chromium",
+          "condition": "browserName=chromium"
+        },
+        "test_ids": [
+          "desktop-chromium::e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA › grant → use → rotate/revoke → withdraw, then erase → minimized tombstone"
+        ],
+        "reason": "Phone lifecycle walkthrough runs once in mobile WebKit.",
+        "owner": "PR-06",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:error-states:mobile-webkit",
+        "source": "e2e/error-states.spec.ts::error states project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › client detail: assessments 500 shows alert not empty-state",
+          "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › archive failure: dialog stays interactive and shows error",
+          "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › wizard step 1: clients 500 shows error not empty-state",
+          "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › assessment results: prior assessments 500 shows aux error alert",
+          "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › report error has role=alert",
+          "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › settings: org fetch 500 shows error toast/alert"
+        ],
+        "reason": "Mocked error-state suite runs once in Chromium.",
+        "owner": "PR-08",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:gate-integrity:mobile-webkit",
+        "source": "e2e/gate-integrity.spec.ts::gate integrity project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › onboarding ack failure: stays on /onboarding when PATCH fails",
+          "mobile-webkit::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › password: wrong current password blocks updateUser call"
+        ],
+        "reason": "Security regression suite runs once in Chromium.",
+        "owner": "PR-13",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:report-approval:mobile-webkit",
+        "source": "e2e/report-approval.spec.ts::report approval gate project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › export is blocked until the practitioner approves",
+          "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › a comparison report cannot mix two DIFFERENT clients (PHI boundary)",
+          "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › a cross-version client comparison is flagged not-comparable"
+        ],
+        "reason": "API-level report gate runs once in Chromium.",
+        "owner": "PR-07",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:workout-mint:mobile-webkit",
+        "source": "e2e/workout-mint.spec.ts::workout mint approval gate project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › minting a session is blocked until the practitioner approves",
+          "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › the public token route returns a uniform 404 for an unknown share token",
+          "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › a minted share token resolves to a redacted projection (no internal ids)"
+        ],
+        "reason": "API-level workout gate runs once in Chromium.",
+        "owner": "PR-07",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:workout-player:mobile-webkit",
+        "source": "e2e/workout-player.spec.ts::red-flag pre-session screen project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 1: red-flag question renders before player controls, \"No, I feel okay\" unblocks begin, session starts",
+          "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 2: \"Yes\" shows the stop card and no player timeline appears",
+          "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 3: resuming a session with prior progress re-asks the red-flag question before playback",
+          "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters"
+        ],
+        "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
+        "owner": "PR-08",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:real-detection:mobile-webkit",
+        "source": "playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)",
+        "scope": {
+          "project": "mobile-webkit",
+          "spec": "e2e/real-detection.spec.ts"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/real-detection.spec.ts::real pose detection through the wizard › upload all four required photos, detect landmarks, score assessment"
+        ],
+        "reason": "MediaPipe model test is assigned to Chromium; physical device closure is HG-04.",
+        "owner": "PR-03",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:capture-errors:mobile-webkit",
+        "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-errors.spec.ts)",
+        "scope": {
+          "project": "mobile-webkit",
+          "spec": "e2e/capture-errors.spec.ts"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › camera permission denial exposes fallback and Try Again recovers without reload",
+          "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › camera works without orientation sensors: no gate, no indicator",
+          "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › uploading a non-person image shows no-person state and blocks submit",
+          "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › uploading a blurry photo shows a quality warning and does not block submit"
+        ],
+        "reason": "Camera/model error test is assigned to Chromium; physical device closure is HG-04.",
+        "owner": "PR-03",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:capture-camera:mobile-webkit",
+        "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-camera.spec.ts)",
+        "scope": {
+          "project": "mobile-webkit",
+          "spec": "e2e/capture-camera.spec.ts"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/capture-camera.spec.ts::full-screen camera capture › shutter, review, auto-advance, self-timer and retake work",
+          "mobile-webkit::e2e/capture-camera.spec.ts::full-screen camera capture › capturing all four views via the camera scores an assessment"
+        ],
+        "reason": "Camera test is assigned to Chromium; physical device closure is HG-04.",
+        "owner": "PR-03",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:capture-model-readiness:mobile-webkit",
+        "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-model-readiness.spec.ts)",
+        "scope": {
+          "project": "mobile-webkit",
+          "spec": "e2e/capture-model-readiness.spec.ts"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/capture-model-readiness.spec.ts::capture model readiness and recovery › throttled cold assets expose lifecycle, then a warm check stays ready",
+          "mobile-webkit::e2e/capture-model-readiness.spec.ts::capture model readiness and recovery › both delegate startup failures recover through Retry Model without reload"
+        ],
+        "reason": "MediaPipe lifecycle and delegate-recovery test is assigned to Chromium; physical device closure is HG-04.",
+        "owner": "PR-03",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:pixel-calibration:desktop-chromium",
+        "source": "playwright.config.ts::desktop-chromium.testIgnore(pixel-calibration.spec.ts)",
+        "scope": {
+          "project": "desktop-chromium",
+          "spec": "e2e/pixel-calibration.spec.ts"
+        },
+        "test_ids": [
+          "desktop-chromium::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+        ],
+        "reason": "Calibration has its own project and commands.",
+        "owner": "PR-10",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:device-recovery-real-model:desktop-chromium",
+        "source": "playwright.config.ts::desktop-chromium.testIgnore(device-recovery-real-model.webkit.spec.ts)",
+        "scope": {
+          "project": "desktop-chromium",
+          "spec": "e2e/device-recovery-real-model.webkit.spec.ts"
+        },
+        "test_ids": [
+          "desktop-chromium::e2e/device-recovery-real-model.webkit.spec.ts::WebKit real-model capture hard blocks › blocks analysis when a generated upload contains two people"
+        ],
+        "reason": "The full multi-pose model exceeds the product's fixed 10-second fail-closed deadline on this Chromium runner; the real-model hard-block case is assigned to WebKit while lifecycle recovery remains cross-engine.",
+        "owner": "PR-08",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "ignore:pixel-calibration:mobile-webkit",
+        "source": "playwright.config.ts::mobile-webkit.testIgnore(pixel-calibration.spec.ts)",
+        "scope": {
+          "project": "mobile-webkit",
+          "spec": "e2e/pixel-calibration.spec.ts"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+        ],
+        "reason": "Calibration has its own Chromium project and commands.",
+        "owner": "PR-10",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:onboarding-acked-fixture:desktop-chromium",
+        "source": "e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails",
+        "scope": {
+          "project": "desktop-chromium",
+          "condition": "shared practitioner already acknowledged"
+        },
+        "test_ids": [
+          "desktop-chromium::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › onboarding ack failure: stays on /onboarding when PATCH fails"
+        ],
+        "reason": "A fresh unacknowledged fixture is unavailable; source-level behavior remains separately reviewed.",
+        "owner": "PR-04",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:golden-ingest:desktop-ci",
+        "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+        "scope": {
+          "project": "desktop-chromium",
+          "condition": "CI=true production build"
+        },
+        "test_ids": [
+          "desktop-chromium::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+        ],
+        "reason": "The developer-only route intentionally returns 404 in production builds.",
+        "owner": "PR-10",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:golden-ingest:mobile-webkit",
+        "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+        ],
+        "reason": "WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.",
+        "owner": "PR-10",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:consent-recovery:desktop-chromium",
+        "source": "e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client",
+        "scope": {
+          "project": "desktop-chromium",
+          "condition": "browserName=chromium"
+        },
+        "test_ids": [
+          "desktop-chromium::e2e/consent-age.spec.ts::wizard consent recovery › repairs a legacy consent timestamp and continues with the selected client"
+        ],
+        "reason": "Phone recovery flow runs once in mobile WebKit.",
+        "owner": "PR-06",
+        "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:pixel-calibration:bare-calibration-project",
+        "source": "e2e/pixel-calibration.spec.ts::pixel-quality calibration",
+        "scope": {
+          "project": "calibration",
+          "condition": "CALIBRATION_CHECK and CALIBRATION_WRITE both absent"
+        },
+        "test_ids": [
+          "calibration::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+        ],
+        "reason": "Calibration runs only via npm run calibrate or npm run calibrate:check.",
+        "owner": "PR-10",
+        "expires_on": "2026-08-31"
+      }
+    ],
+    "skip_policy": {
+      "unapproved_skip_or_fixme_allowed": false,
+      "launch_rule": "Observed skips must match an unexpired allowlist key and PR-17 permits zero unapproved skip."
+    }
   },
   "release_configuration": {
-    "configuration_id":"invite-only-us-practitioner-web-nonhipaa-assessment-only-lite-v1",
-    "environment":"intended-beta",
-    "boundary_reference":"release_boundary",
-    "pose_model":"lite",
-    "clinical_content_gate":"HG-03",
-    "test_only_flag_names":["POSTURE_TEST_MODE_ENABLED","NEXT_PUBLIC_POSTURE_TEST_MODE","NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"],
-    "test_only_flags_allowed_at_launch":[],
-    "required_environment_assertions":{
-      "POSTURE_TEST_MODE_ENABLED":"absent",
-      "NEXT_PUBLIC_POSTURE_TEST_MODE":"absent",
-      "NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT":"absent-or-false"
+    "configuration_id": "invite-only-us-practitioner-web-nonhipaa-assessment-only-lite-v1",
+    "environment": "intended-beta",
+    "boundary_reference": "release_boundary",
+    "pose_model": "lite",
+    "clinical_content_gate": "HG-03",
+    "test_only_flag_names": [
+      "POSTURE_TEST_MODE_ENABLED",
+      "NEXT_PUBLIC_POSTURE_TEST_MODE",
+      "NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"
+    ],
+    "test_only_flags_allowed_at_launch": [],
+    "required_environment_assertions": {
+      "POSTURE_TEST_MODE_ENABLED": "absent",
+      "NEXT_PUBLIC_POSTURE_TEST_MODE": "absent",
+      "NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT": "absent-or-false"
     },
-    "clinical_surface_assertions":{
-      "recommendations_enabled":false,
-      "programs_enabled":false,
-      "workouts_enabled":false,
-      "knowledge_links_enabled":false,
-      "activation_requires":"HG-03.PASS"
+    "clinical_surface_assertions": {
+      "recommendations_enabled": false,
+      "programs_enabled": false,
+      "workouts_enabled": false,
+      "knowledge_links_enabled": false,
+      "activation_requires": "HG-03.PASS"
     }
   },
   "intended_beta_rehearsal_contract": {
-    "id":"HG-09-INTENDED-BETA-REHEARSAL-v1",
-    "task_id":"HG-09",
-    "kind":"human",
-    "environment":"intended-beta",
-    "freshness_hours":24,
-    "engineering_e2e_command":"CI=1 npm run test:e2e",
-    "engineering_e2e_is_launch_proof":false,
-    "reason_engineering_e2e_is_not_launch_proof":"The engineering runner builds with fixture scoring and unreviewed-content flags; HG-09 must exercise the intended beta configuration with those flags absent.",
-    "test_mode":false,
-    "required_absent_test_flags":["POSTURE_TEST_MODE_ENABLED","NEXT_PUBLIC_POSTURE_TEST_MODE","NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"],
-    "required_receipt_fields":["id","completed_at","commit","configuration_hash","environment","test_mode","environment_variables","journey_evidence","provider_receipts","legal_version","clinical_gate_state","council_receipts"],
-    "required_journey":"Invite practitioner, enroll MFA, create consented adult client, capture four views without fixtures, inspect results, exercise the selected assessment-only endpoint probes, complete follow-up lifecycle actions, revoke/withdraw/delete, and verify audit/retention behavior.",
-    "required_provider_state":"Intended staging/Auth/release/monitoring/backup configuration from completed applicable HG receipts.",
-    "configuration_hash_must_match":true,
-    "final_council":["Codex","Fable 5 medium","Kimi K3"],
-    "unresolved_no_go_allowed":false
+    "id": "HG-09-INTENDED-BETA-REHEARSAL-v1",
+    "task_id": "HG-09",
+    "kind": "human",
+    "environment": "intended-beta",
+    "freshness_hours": 24,
+    "engineering_e2e_command": "CI=1 npm run test:e2e",
+    "engineering_e2e_is_launch_proof": false,
+    "reason_engineering_e2e_is_not_launch_proof": "The engineering runner builds with fixture scoring and unreviewed-content flags; HG-09 must exercise the intended beta configuration with those flags absent.",
+    "test_mode": false,
+    "required_absent_test_flags": [
+      "POSTURE_TEST_MODE_ENABLED",
+      "NEXT_PUBLIC_POSTURE_TEST_MODE",
+      "NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"
+    ],
+    "required_receipt_fields": [
+      "id",
+      "completed_at",
+      "commit",
+      "configuration_hash",
+      "environment",
+      "test_mode",
+      "environment_variables",
+      "journey_evidence",
+      "provider_receipts",
+      "legal_version",
+      "clinical_gate_state",
+      "council_receipts"
+    ],
+    "required_journey": "Invite practitioner, enroll MFA, create consented adult client, capture four views without fixtures, inspect results, exercise the selected assessment-only endpoint probes, complete follow-up lifecycle actions, revoke/withdraw/delete, and verify audit/retention behavior.",
+    "required_provider_state": "Intended staging/Auth/release/monitoring/backup configuration from completed applicable HG receipts.",
+    "configuration_hash_must_match": true,
+    "final_council": [
+      "Codex",
+      "Fable 5 medium",
+      "Kimi K3"
+    ],
+    "unresolved_no_go_allowed": false
   },
   "owner_approval_contract": {
-    "id":"HG-10-OWNER-PROMOTION-APPROVAL-v1",
-    "task_id":"HG-10",
-    "evidence_path":"state.release_evidence.owner_approval",
-    "required_evidence_fields":["approved","approved_at","receipt","commit","configuration_hash"],
-    "required_evidence_values":{"approved":true},
-    "receipt_artifact_fields":["path","sha256"],
-    "receipt_content_required_fields":["id","task_id","decision","approved_at","approver","commit","ci_run_id","configuration_hash","manifest_hash","final_audit_receipt","rollback_packet_receipt"],
-    "receipt_content_required_values":{"id":"HG-10-OWNER-PROMOTION-APPROVAL-v1","task_id":"HG-10","decision":"approve-production-promotion"},
-    "binding_rules":{"commit":"state.release_evidence.repository.head_sha","ci_run_id":"state.release_evidence.ci.run_id","configuration_hash":"manifest.configuration_hash","manifest_hash":{"algorithm":"sha256","canonicalization":"UTF-8 JSON with recursively sorted object keys and preserved array order","input":"entire manifest object","validator_expression":"sha256(stable(manifest))"}},
-    "artifact_bindings":["final_audit_receipt","rollback_packet_receipt"],
-    "approval_before_hg09_allowed":false
+    "id": "HG-10-OWNER-PROMOTION-APPROVAL-v1",
+    "task_id": "HG-10",
+    "evidence_path": "state.release_evidence.owner_approval",
+    "required_evidence_fields": [
+      "approved",
+      "approved_at",
+      "receipt",
+      "commit",
+      "configuration_hash"
+    ],
+    "required_evidence_values": {
+      "approved": true
+    },
+    "receipt_artifact_fields": [
+      "path",
+      "sha256"
+    ],
+    "receipt_content_required_fields": [
+      "id",
+      "task_id",
+      "decision",
+      "approved_at",
+      "approver",
+      "commit",
+      "ci_run_id",
+      "configuration_hash",
+      "manifest_hash",
+      "final_audit_receipt",
+      "rollback_packet_receipt"
+    ],
+    "receipt_content_required_values": {
+      "id": "HG-10-OWNER-PROMOTION-APPROVAL-v1",
+      "task_id": "HG-10",
+      "decision": "approve-production-promotion"
+    },
+    "binding_rules": {
+      "commit": "state.release_evidence.repository.head_sha",
+      "ci_run_id": "state.release_evidence.ci.run_id",
+      "configuration_hash": "manifest.configuration_hash",
+      "manifest_hash": {
+        "algorithm": "sha256",
+        "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
+        "input": "entire manifest object",
+        "validator_expression": "sha256(stable(manifest))"
+      }
+    },
+    "artifact_bindings": [
+      "final_audit_receipt",
+      "rollback_packet_receipt"
+    ],
+    "approval_before_hg09_allowed": false
   },
   "executed_playwright_report_contract": {
-    "id":"PR-17-PLAYWRIGHT-EXECUTION-REPORT-v1",
-    "task_id":"PR-17",
-    "evidence_path":"state.release_evidence.e2e",
-    "execution_command":"CI=1 npm run test:e2e",
-    "report_format":"playwright-json-report",
-    "required_evidence_fields":["inventory_id","inventory_hash","projects","report_format","report_receipt","commit","configuration_hash","status","started_at","completed_at","observed_skips","retry_results"],
-    "required_evidence_values":{"inventory_id":"playwright-production-readiness-2026-07-20-v3","report_format":"playwright-json-report","status":"passed"},
-    "report_artifact_fields":["path","sha256"],
-    "report_content_required_fields":["format","command","commit","configuration_hash","inventory_id","inventory_hash","project_order","projects","expected_total","expected_files","status","started_at","completed_at","tests","observed_skips","retry_results"],
-    "binding_rules":{"command":"ci_contract.engineering_e2e_only","commit":"state.release_evidence.repository.head_sha","configuration_hash":"manifest.configuration_hash","inventory_id":"e2e.inventory_id","inventory_hash":"e2e.inventory_hash","project_order":"e2e.project_order","projects":"e2e.projects","expected_total":"e2e.expected_total","expected_files":"e2e.expected_files"},
-    "unapproved_skips_allowed":false,
-    "undisposed_retries_allowed":false,
-    "hg09_or_launch_proof":false
+    "id": "PR-17-PLAYWRIGHT-EXECUTION-REPORT-v1",
+    "task_id": "PR-17",
+    "evidence_path": "state.release_evidence.e2e",
+    "execution_command": "CI=1 npm run test:e2e",
+    "report_format": "playwright-json-report",
+    "required_evidence_fields": [
+      "inventory_id",
+      "inventory_hash",
+      "projects",
+      "report_format",
+      "report_receipt",
+      "commit",
+      "configuration_hash",
+      "status",
+      "started_at",
+      "completed_at",
+      "observed_skips",
+      "retry_results"
+    ],
+    "required_evidence_values": {
+      "inventory_id": "playwright-production-readiness-2026-07-21-v4",
+      "report_format": "playwright-json-report",
+      "status": "passed"
+    },
+    "report_artifact_fields": [
+      "path",
+      "sha256"
+    ],
+    "report_content_required_fields": [
+      "format",
+      "command",
+      "commit",
+      "configuration_hash",
+      "inventory_id",
+      "inventory_hash",
+      "project_order",
+      "projects",
+      "expected_total",
+      "expected_files",
+      "status",
+      "started_at",
+      "completed_at",
+      "tests",
+      "observed_skips",
+      "retry_results",
+      "skip_validation_failures",
+      "a11y_receipt_failures",
+      "axe_receipt_validation"
+    ],
+    "binding_rules": {
+      "command": "ci_contract.engineering_e2e_only",
+      "commit": "state.release_evidence.repository.head_sha",
+      "configuration_hash": "manifest.configuration_hash",
+      "inventory_id": "e2e.inventory_id",
+      "inventory_hash": "e2e.inventory_hash",
+      "project_order": "e2e.project_order",
+      "projects": "e2e.projects",
+      "expected_total": "e2e.expected_total",
+      "expected_files": "e2e.expected_files",
+      "skip_validation_failures": "must be an empty array",
+      "a11y_receipt_failures": "must be an empty array",
+      "axe_receipt_validation": "must exactly match the targets derived from e2e.axe_receipts and the passed tests in this report"
+    },
+    "unapproved_skips_allowed": false,
+    "undisposed_retries_allowed": false,
+    "hg09_or_launch_proof": false
   },
   "not_applicable_completion_contracts": {
     "PR-11": {
-      "id":"PR-11-NO-ELIGIBLE-RELIABILITY-PROFILE-v1",
-      "task_id":"PR-11",
-      "task_applicability_must_remain":"applicable",
-      "allowed_completed_outcome":"not_applicable",
-      "condition_expression":{"all":[{"eq":[{"var":"eligible_hg05_profile_count"},0]},{"any":[{"eq":[{"var":"tasks.HG-05.status"},"frozen"]},{"all":[{"eq":[{"var":"tasks.HG-05.status"},"completed"]},{"eq":[{"var":"tasks.HG-05.outcome"},"passed"]}]}]},{"eq":[{"var":"reliability_profile_consumer.consumer_eligible_profile_active"},false]},{"in":[{"var":"reliability_profile_consumer.mode"},["fixed-fallback","disabled"]]}]},
-      "required_task_state":{"status":"completed","outcome":"not_applicable","review_verdict":"PASS"},
-      "required_proof_fields":["profile_inventory_receipt","hg05_state_receipt","exclusion_evidence","consumer_fail_closed_receipt","independent_review"],
-      "hashed_artifact_reference_fields":["path","sha256"],
-      "independent_review_required_values":{"verdict":"PASS","independent":true},
-      "consumer_fail_closed_required_values":{"consumer_eligible_profile_active":false,"allowed_modes":["fixed-fallback","disabled"]},
-      "dependency_unlocks_only_after_proof":true,
-      "reopen_when":"Any eligible engine/model/unit-matched HG-05 reliability profile becomes available or the consumer ceases to fail closed."
+      "id": "PR-11-NO-ELIGIBLE-RELIABILITY-PROFILE-v1",
+      "task_id": "PR-11",
+      "task_applicability_must_remain": "applicable",
+      "allowed_completed_outcome": "not_applicable",
+      "condition_expression": {
+        "all": [
+          {
+            "eq": [
+              {
+                "var": "eligible_hg05_profile_count"
+              },
+              0
+            ]
+          },
+          {
+            "any": [
+              {
+                "eq": [
+                  {
+                    "var": "tasks.HG-05.status"
+                  },
+                  "frozen"
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "eq": [
+                      {
+                        "var": "tasks.HG-05.status"
+                      },
+                      "completed"
+                    ]
+                  },
+                  {
+                    "eq": [
+                      {
+                        "var": "tasks.HG-05.outcome"
+                      },
+                      "passed"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "eq": [
+              {
+                "var": "reliability_profile_consumer.consumer_eligible_profile_active"
+              },
+              false
+            ]
+          },
+          {
+            "in": [
+              {
+                "var": "reliability_profile_consumer.mode"
+              },
+              [
+                "fixed-fallback",
+                "disabled"
+              ]
+            ]
+          }
+        ]
+      },
+      "required_task_state": {
+        "status": "completed",
+        "outcome": "not_applicable",
+        "review_verdict": "PASS"
+      },
+      "required_proof_fields": [
+        "profile_inventory_receipt",
+        "hg05_state_receipt",
+        "exclusion_evidence",
+        "consumer_fail_closed_receipt",
+        "independent_review"
+      ],
+      "hashed_artifact_reference_fields": [
+        "path",
+        "sha256"
+      ],
+      "independent_review_required_values": {
+        "verdict": "PASS",
+        "independent": true
+      },
+      "consumer_fail_closed_required_values": {
+        "consumer_eligible_profile_active": false,
+        "allowed_modes": [
+          "fixed-fallback",
+          "disabled"
+        ]
+      },
+      "dependency_unlocks_only_after_proof": true,
+      "reopen_when": "Any eligible engine/model/unit-matched HG-05 reliability profile becomes available or the consumer ceases to fail closed."
     }
   },
   "proof_contract": {
-    "flat_manifest_pattern":"~/.claude/goal-state/posture-ai-production-readiness/proof/{criterion_id}.txt",
-    "detail_artifact_pattern":"~/.claude/goal-state/posture-ai-production-readiness/proof/{task_id}/",
-    "max_attempts":3,
-    "completed_outcomes":["passed","not_applicable"],
-    "command_receipt_required":true,
-    "independent_review_required":true,
-    "rollback_required":true,
-    "required_task_fields":["id","kind","dependencies","maps_to_criterion","status","outcome","attempts","applicability","applicability_reason","proof_manifest","review_verdict","last_decision"],
-    "required_proof_fields":["task_id","manifest_path","criteria_evidence","commands","review","rollback"],
-    "command_receipt_fields":["command","exit_code","receipt"],
-    "independent_review_fields":["verdict","reviewer","receipt"],
-    "independent_review_passing_verdict":"PASS",
-    "rollback_fields":["notes","verified"],
-    "human_provider_receipt_fields":["path","sha256","verified"],
-    "not_applicable_rule":"Requires a boundary-derived reason, direct exclusion proof, and independent PASS review; it may not be used as a waiver.",
-    "changed_file_rule":"Every proof records commit SHA and changed-file allowlist; the staged set must equal that allowlist before merge."
+    "flat_manifest_pattern": "~/.claude/goal-state/posture-ai-production-readiness/proof/{criterion_id}.txt",
+    "detail_artifact_pattern": "~/.claude/goal-state/posture-ai-production-readiness/proof/{task_id}/",
+    "max_attempts": 3,
+    "completed_outcomes": [
+      "passed",
+      "not_applicable"
+    ],
+    "command_receipt_required": true,
+    "independent_review_required": true,
+    "rollback_required": true,
+    "required_task_fields": [
+      "id",
+      "kind",
+      "dependencies",
+      "maps_to_criterion",
+      "status",
+      "outcome",
+      "attempts",
+      "applicability",
+      "applicability_reason",
+      "proof_manifest",
+      "review_verdict",
+      "last_decision"
+    ],
+    "required_proof_fields": [
+      "task_id",
+      "manifest_path",
+      "criteria_evidence",
+      "commands",
+      "review",
+      "rollback"
+    ],
+    "command_receipt_fields": [
+      "command",
+      "exit_code",
+      "receipt"
+    ],
+    "independent_review_fields": [
+      "verdict",
+      "reviewer",
+      "receipt"
+    ],
+    "independent_review_passing_verdict": "PASS",
+    "rollback_fields": [
+      "notes",
+      "verified"
+    ],
+    "human_provider_receipt_fields": [
+      "path",
+      "sha256",
+      "verified"
+    ],
+    "not_applicable_rule": "Requires a boundary-derived reason, direct exclusion proof, and independent PASS review; it may not be used as a waiver.",
+    "changed_file_rule": "Every proof records commit SHA and changed-file allowlist; the staged set must equal that allowlist before merge."
   },
   "ci_contract": {
-    "global_commands":["npm run lint","npm run typecheck","npx vitest run","npm test -w @posture-ai/engine","npm run golden","npm run calibrate:check","npm run voice:verify","npm run build","CI=1 npm run test:e2e","git diff --check"],
-    "engineering_e2e_only":"CI=1 npm run test:e2e",
-    "engineering_e2e_is_hg09_or_launch_proof":false,
-    "pr17_additional_commands":["npm run test:critical-contracts"],
-    "migration_commands":["npx supabase db reset"],
-    "current_ci_required":true,
-    "max_age_hours":24,
-    "success_status":"success",
-    "maximum_ci_age_hours":24,
-    "required_ci_fields":["run_id","url","commit","status","completed_at"],
-    "required_ci_status":"success",
-    "repository_evidence_fields":["head_sha","expected_sha","worktree_clean","changed_files","allowed_changed_files","diff_check_exit_code"],
-    "pr17_repository_rule":"Run from a committed SHA with an empty porcelain status, matching expected SHA, zero unexpected files, and git diff --check exit 0.",
-    "warning_rule":"Warnings are recorded debt and never silently reported as a zero-warning gate.",
-    "baseline":{"lint_errors":0,"lint_warnings":22,"root_tests":876,"engine_tests":132,"static_pages":37}
+    "global_commands": [
+      "npm run lint",
+      "npm run typecheck",
+      "npm run readiness:inventory",
+      "npx vitest run",
+      "npm test -w @posture-ai/engine",
+      "npm run golden",
+      "npm run calibrate:check",
+      "npm run voice:verify",
+      "npm run build",
+      "CI=1 npm run test:e2e",
+      "git diff --check"
+    ],
+    "engineering_e2e_only": "CI=1 npm run test:e2e",
+    "engineering_e2e_is_hg09_or_launch_proof": false,
+    "pr17_additional_commands": [
+      "npm run test:critical-contracts"
+    ],
+    "migration_commands": [
+      "npx supabase db reset"
+    ],
+    "current_ci_required": true,
+    "max_age_hours": 24,
+    "success_status": "success",
+    "maximum_ci_age_hours": 24,
+    "required_ci_fields": [
+      "run_id",
+      "url",
+      "commit",
+      "status",
+      "completed_at"
+    ],
+    "required_ci_status": "success",
+    "repository_evidence_fields": [
+      "head_sha",
+      "expected_sha",
+      "worktree_clean",
+      "changed_files",
+      "allowed_changed_files",
+      "diff_check_exit_code"
+    ],
+    "pr17_repository_rule": "Run from a committed SHA with an empty porcelain status, matching expected SHA, zero unexpected files, and git diff --check exit 0.",
+    "warning_rule": "Warnings are recorded debt and never silently reported as a zero-warning gate.",
+    "baseline": {
+      "lint_errors": 0,
+      "lint_warnings": 22,
+      "root_tests": 876,
+      "engine_tests": 132,
+      "static_pages": 37
+    }
   },
   "configuration_hash_contract": {
-    "algorithm":"sha256",
-    "canonicalization":"UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash":"bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "covered_fields":["release_boundary","release_configuration","intended_beta_rehearsal_contract","owner_approval_contract","executed_playwright_report_contract","not_applicable_completion_contracts","ci_contract","exclusions","audit_findings[*].id","audit_findings[*].severity","audit_findings[*].verdict","audit_findings[*].applicability","audit_findings[*].engineering_task","audit_findings[*].human_provider_gates","audit_findings[*].dependencies","audit_findings[*].release_condition","criteria[*].id","criteria[*].task_id","criteria[*].kind","criteria[*].dependencies","tasks[*].id","tasks[*].kind","tasks[*].criterion_id","tasks[*].dependencies","tasks[*].applicability","e2e.inventory_id","e2e.project_order","e2e.projects","e2e.expected_total","e2e.expected_files","e2e.inventory_hash","e2e.execution","e2e.retry_policy","e2e.approved_skips","e2e.skip_policy"],
-    "invalidation_rule":"Any covered-field change regenerates configuration_hash, re-audits affected tasks, renews council review, and repeats HG-09.",
-    "launch_match_locations":["manifest.configuration_hash","release_evidence.configuration.expected_hash","release_evidence.configuration.actual_hash","release_evidence.rehearsal.configuration_hash","release_evidence.owner_approval.configuration_hash"],
-    "launch_environment":"intended-beta",
-    "test_only_flag_names":["POSTURE_TEST_MODE_ENABLED","NEXT_PUBLIC_POSTURE_TEST_MODE","NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"],
-    "test_only_flags_allowed_at_launch":[],
-    "fresh_rehearsal_required":true,
-    "maximum_rehearsal_age_hours":24,
-    "owner_approval_required":true,
-    "owner_approval_task":"HG-10"
+    "algorithm": "sha256",
+    "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
+    "expected_hash": "30758a994eea53e9574ad592a81e009885108e87d01c7016d3c8fbd77514435c",
+    "covered_fields": [
+      "release_boundary",
+      "release_configuration",
+      "intended_beta_rehearsal_contract",
+      "owner_approval_contract",
+      "executed_playwright_report_contract",
+      "not_applicable_completion_contracts",
+      "ci_contract",
+      "exclusions",
+      "audit_findings[*].id",
+      "audit_findings[*].severity",
+      "audit_findings[*].verdict",
+      "audit_findings[*].applicability",
+      "audit_findings[*].engineering_task",
+      "audit_findings[*].human_provider_gates",
+      "audit_findings[*].dependencies",
+      "audit_findings[*].release_condition",
+      "criteria[*].id",
+      "criteria[*].task_id",
+      "criteria[*].kind",
+      "criteria[*].dependencies",
+      "tasks[*].id",
+      "tasks[*].kind",
+      "tasks[*].criterion_id",
+      "tasks[*].dependencies",
+      "tasks[*].applicability",
+      "e2e.inventory_id",
+      "e2e.project_order",
+      "e2e.projects",
+      "e2e.expected_total",
+      "e2e.expected_files",
+      "e2e.inventory_hash",
+      "e2e.execution",
+      "e2e.retry_policy",
+      "e2e.approved_skips",
+      "e2e.skip_policy"
+    ],
+    "invalidation_rule": "Any covered-field change regenerates configuration_hash, re-audits affected tasks, renews council review, and repeats HG-09.",
+    "launch_match_locations": [
+      "manifest.configuration_hash",
+      "release_evidence.configuration.expected_hash",
+      "release_evidence.configuration.actual_hash",
+      "release_evidence.rehearsal.configuration_hash",
+      "release_evidence.owner_approval.configuration_hash"
+    ],
+    "launch_environment": "intended-beta",
+    "test_only_flag_names": [
+      "POSTURE_TEST_MODE_ENABLED",
+      "NEXT_PUBLIC_POSTURE_TEST_MODE",
+      "NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"
+    ],
+    "test_only_flags_allowed_at_launch": [],
+    "fresh_rehearsal_required": true,
+    "maximum_rehearsal_age_hours": 24,
+    "owner_approval_required": true,
+    "owner_approval_task": "HG-10"
   },
-  "configuration_hash":"bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead"
+  "configuration_hash": "30758a994eea53e9574ad592a81e009885108e87d01c7016d3c8fbd77514435c"
 }

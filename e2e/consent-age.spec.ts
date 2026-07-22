@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient, currentLegalDocument, legalDocumentSubmission } from './helpers'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 // The authoritative capture gate lives in POST /api/assessments: a valid subject
 // consent + the age policy must hold before anything is persisted/scored
@@ -9,7 +10,16 @@ import { createClient, currentLegalDocument, legalDocumentSubmission } from './h
 // guardian-signed consent). Tested at the API for precision. Chromium only — it's
 // project-agnostic, so running it once avoids doubling assessment rate-limit use.
 test.describe('capture consent + age gate', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'API-level gate; run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:consent-age-api:mobile-webkit',
+      source: 'e2e/consent-age.spec.ts::capture consent + age gate project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'API-level gate; run once on chromium',
+  ))
 
   const year = new Date().getFullYear()
   const dob = (ageYears: number) => `${year - ageYears}-06-15`
@@ -122,7 +132,16 @@ test.describe('capture consent + age gate', () => {
 })
 
 test.describe('wizard consent recovery', () => {
-  test.skip(({ browserName }) => browserName !== 'webkit', 'Phone recovery flow; run once on mobile WebKit')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'webkit',
+    {
+      key: 'skip:consent-recovery:desktop-chromium',
+      source: 'e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client',
+      scope: { project: 'desktop-chromium', condition: 'browserName=chromium' },
+    },
+    'Phone recovery flow; run once on mobile WebKit',
+  ))
 
   test('repairs a legacy consent timestamp and continues with the selected client', async ({ page }) => {
     const suffix = randomUUID().slice(0, 8)

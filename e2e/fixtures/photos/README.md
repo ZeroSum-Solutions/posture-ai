@@ -18,7 +18,7 @@ human subject (generated, not a photo; no license needed). It drives the
 no-person-detection path in `capture-errors.spec.ts` (upload → "No person detected" →
 submit blocked).
 
-**These are interim fixtures.** The canonical clinical fixture set is the three-view
-series captured on a real phone during the P0 device verification run
-(see `docs/plans/2026-06-12-p0-device-spike-findings.md`). When that set lands,
-replace these files and keep the same filenames so specs don't change.
+These licensed stock and synthetic files are the committed automation fixtures.
+Physical-device capture media is governed by
+`docs/qa/device-evidence-checklist.md`, remains in a protected external evidence
+root, and must never replace or be copied into this directory.

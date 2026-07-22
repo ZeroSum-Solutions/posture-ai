@@ -23,6 +23,8 @@
     "voice:verify": "vite-node scripts/generate-workout-voice-pack.ts --verify",
     "qa:seed": "vite-node --config vitest.config.ts scripts/qa-seed.ts",
     "auth:practitioner": "npx vite-node scripts/practitioner-access.ts",
+    "device:evidence:check": "node scripts/check-device-evidence.mjs",
+    "readiness:inventory": "node scripts/generate-production-readiness-inventory.mjs",
     "golden": "node scripts/golden-report.mjs"
   },
   "dependencies": {

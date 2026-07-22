@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { skipForProductionReadiness } from './production-readiness-skip'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 
@@ -166,9 +167,15 @@ function assertWithinTolerance(label: string, committed: number, fresh: number) 
 test.describe('pixel-quality calibration', () => {
   test(
     CHECK_MODE ? 'recomputes from committed fixtures and fails on drift' : 'derives thresholds from committed fixtures and writes calibration.json',
-    async ({ page }) => {
-      test.skip(
+    async ({ page }, testInfo) => {
+      skipForProductionReadiness(
+        testInfo,
         !CHECK_MODE && !WRITE_MODE,
+        {
+          key: 'skip:pixel-calibration:bare-calibration-project',
+          source: 'e2e/pixel-calibration.spec.ts::pixel-quality calibration',
+          scope: { project: 'calibration', condition: 'CALIBRATION_CHECK and CALIBRATION_WRITE both absent' },
+        },
         'calibration runs only via npm run calibrate (write) or calibrate:check (drift gate) — never in the bare e2e sweep',
       )
       test.setTimeout(120_000)

@@ -25,7 +25,22 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  reporter: process.env.CI
+    ? [
+        ['github'],
+        ['html', { open: 'never' }],
+        ['./scripts/playwright-receipt-reporter.mjs', {
+          outputFile: 'test-results/playwright-results.json',
+          a11yOutputDir: 'test-results/a11y-receipts',
+        }],
+      ]
+    : [
+        ['list'],
+        ['./scripts/playwright-receipt-reporter.mjs', {
+          outputFile: 'test-results/playwright-results.json',
+          a11yOutputDir: 'test-results/a11y-receipts',
+        }],
+      ],
   use: {
     baseURL,
     trace: 'retain-on-failure',
@@ -38,13 +53,26 @@ export default defineConfig({
       name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
-      testIgnore: /pixel-calibration\.spec\.ts/, // dedicated `calibration` project only
+      // The real multi-person model case is WebKit-scoped: Chromium's full
+      // landmarker call exceeds the product's fixed 10 s fail-closed deadline
+      // on this runner. Cross-engine lifecycle recovery remains in
+      // device-recovery.spec.ts.
+      testIgnore: /pixel-calibration\.spec\.ts|device-recovery-real-model\.webkit\.spec\.ts/,
     },
     {
       name: 'mobile-webkit',
       use: { ...devices['iPhone 14'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
       testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts|capture-model-readiness\.spec\.ts|pixel-calibration\.spec\.ts/, // model/camera tests run on chromium only; calibration is its own project
+    },
+    {
+      // Browser emulation proxy only: this is Pixel-style mobile Chromium
+      // automation, never physical-Android or HG-04 device evidence. Keep the
+      // project deliberately scoped so it does not duplicate the broad suite.
+      name: 'android-chromium-proxy',
+      testMatch: /(?:a11y|device-accessibility-harness)\.spec\.ts/,
+      use: { ...devices['Pixel 7'], storageState: 'e2e/.auth/user.json' },
+      dependencies: ['setup'],
     },
     {
       // T1b: browser-lane pixel-quality calibration — writes (or, under

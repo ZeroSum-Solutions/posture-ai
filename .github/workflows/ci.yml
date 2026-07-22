@@ -23,6 +23,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run lint:vocab
+      - run: npm run readiness:inventory
       - run: npx vitest run
       - run: npm test -w @posture-ai/engine
       - run: npm run golden
@@ -44,6 +45,16 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Run e2e suite
         run: npm run test:e2e
+      - name: Retain sanitized Playwright and Axe receipts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-accessibility-receipts
+          path: |
+            test-results/playwright-results.json
+            test-results/a11y-receipts/
+          if-no-files-found: error
+          retention-days: 30
       - name: Calibration drift gate
         run: npm run calibrate:check
       - uses: actions/upload-artifact@v4

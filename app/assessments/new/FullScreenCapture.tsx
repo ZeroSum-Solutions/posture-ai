@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Landmark } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
+import { useWakeLock } from '@/lib/capture/use-wake-lock'
 import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
 import type { PoseReadiness } from '@/lib/pose/capture-runtime'
 import { recordLiveTelemetry } from '@/lib/pose/live-telemetry'
@@ -69,6 +70,12 @@ function getErrorMessage(err: unknown): string {
   return 'Could not access the camera. Please try again.'
 }
 
+function screenIsNotPortrait(): boolean {
+  return typeof screen !== 'undefined'
+    && !!screen.orientation
+    && !screen.orientation.type.startsWith('portrait')
+}
+
 /**
  * Encode the current canvas as a JPEG blob object URL. Object URLs keep the
  * ~5-frame×4-slot burst out of React state as strings (base64 data URLs bloat
@@ -133,12 +140,15 @@ export default function FullScreenCapture({
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRefs = useRef<Record<CaptureSlotKey, HTMLInputElement | null>>({ 'front': null, 'side-left': null, 'side-right': null, 'back': null })
   // Guards async work in openStream from touching a torn-down component (e.g. the
   // user leaves while the camera-permission prompt is open).
   const mountedRef = useRef(true)
+  // Invalidates pending getUserMedia calls across visibility/retry/unmount
+  // transitions. A stale permission result must never replace or fail a newer
+  // successful stream.
+  const cameraRequestGenerationRef = useRef(0)
   // The shutter burst (object URLs) awaiting commit; the middle one is the review still.
   const burstRef = useRef<string[]>([])
   // Pixel-quality result for the representative (burst[0]) frame, scored after
@@ -151,6 +161,11 @@ export default function FullScreenCapture({
   const captureSlotRef = useRef<CaptureSlotKey>('front')
   // Monotonic id stamped per shutter; carried onto the committed slot.
   const captureIdRef = useRef(0)
+  // Synchronous ownership guards. React state drives the UI, while these refs
+  // close same-tick races from hidden file inputs / visibility events before a
+  // render can publish the disabled controls.
+  const captureBusyRef = useRef(false)
+  const readyRef = useRef(false)
   // Live-tracking: a generation token (bumped per view/phase change so stale
   // worker results are dropped) + a frame throttle timestamp + the last real
   // inference timestamp (for sample-and-hold freshness).
@@ -192,6 +207,7 @@ export default function FullScreenCapture({
   const liveLandmarks = liveFrame?.landmarks ?? null
 
   const level = useCameraLevel()
+  const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock()
   // "Capture anyway" override — bypasses ALL translation-only gates (§ frozen gate).
   const [overrideGate, setOverrideGate] = useState(false)
 
@@ -213,45 +229,76 @@ export default function FullScreenCapture({
   const gate = shutterGate({ landmarks: liveLandmarks, toViewport: overlayTransform?.toViewport ?? null, rollDeg: roll, overrideActive: overrideGate })
   const gateBlocked = !gate.allowed
 
-  const notPortrait =
-    typeof screen !== 'undefined' && screen.orientation && !screen.orientation.type.startsWith('portrait')
+  const [notPortrait, setNotPortrait] = useState(screenIsNotPortrait)
 
-  // ---- wake lock (best-effort; held for the whole live session) ----
-  const acquireWakeLock = useCallback(async () => {
-    if (typeof navigator === 'undefined' || !('wakeLock' in navigator) || wakeLockRef.current) return
-    try {
-      const sentinel = await (navigator as Navigator & { wakeLock: { request(type: string): Promise<WakeLockSentinel> } }).wakeLock.request('screen')
-      // Unmounted while the request was pending — release instead of leaking it.
-      if (!mountedRef.current) { sentinel.release().catch(() => {}); return }
-      wakeLockRef.current = sentinel
-      sentinel.addEventListener?.('release', () => { wakeLockRef.current = null })
-    } catch {
-      // Wake lock is best-effort — silently ignore failures
-    }
+  const cancelActiveCapture = useCallback((expectedId?: number) => {
+    if (expectedId !== undefined && captureIdRef.current !== expectedId) return false
+    captureIdRef.current += 1
+    captureBusyRef.current = false
+    burstRef.current.forEach(url => URL.revokeObjectURL(url))
+    burstRef.current = []
+    representativePixelQualityRef.current = null
+    setIsCapturing(false)
+    setCountdown(3)
+    setReviewUrl(null)
+    setPreviewQuality(null)
+    setPreviewError(null)
+    setRollAtCapture(null)
+    setPhase('live')
+    return true
   }, [])
 
-  const releaseWakeLock = useCallback(() => {
-    if (wakeLockRef.current) {
-      wakeLockRef.current.release().catch(() => {})
-      wakeLockRef.current = null
+  // Screen orientation is an external browser store. Re-read it on change so
+  // guidance updates without remounting the capture session or resetting its
+  // selected view. `orientationchange` covers older mobile WebKit.
+  useEffect(() => {
+    const update = () => setNotPortrait(screenIsNotPortrait())
+    const orientation = typeof screen !== 'undefined' ? screen.orientation : null
+    orientation?.addEventListener?.('change', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      orientation?.removeEventListener?.('change', update)
+      window.removeEventListener('orientationchange', update)
     }
   }, [])
 
   // ---- camera lifecycle ----
+  const stopCameraStream = useCallback(() => {
+    const stream = streamRef.current
+    if (!stream) return
+    // Clear ownership before stopping tracks so any delayed `ended` event from
+    // this retired stream cannot turn a successful recovery into an error.
+    streamRef.current = null
+    if (videoRef.current?.srcObject === stream) videoRef.current.srcObject = null
+    stream.getTracks().forEach(track => track.stop())
+  }, [])
+
   // No synchronous setState here (the first statement is the getUserMedia await),
   // so this is safe to call directly from the start effect. Phase/reset state is
   // driven by the gesture handlers (dismissDisclaimer / retryCamera).
   const openStream = useCallback(async () => {
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
+    const requestGeneration = ++cameraRequestGenerationRef.current
+    readyRef.current = false
+    stopCameraStream()
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 960 }, aspectRatio: { ideal: 3 / 4 } },
       })
-      // Component was torn down during the (possibly long) permission prompt —
-      // stop the stream we just acquired instead of orphaning the hardware.
-      if (!mountedRef.current) { stream.getTracks().forEach(t => t.stop()); return }
+      // Component was torn down or backgrounded during the (possibly long)
+      // permission prompt — stop the stream instead of orphaning hardware.
+      if (
+        !mountedRef.current
+        || document.visibilityState === 'hidden'
+        || cameraRequestGenerationRef.current !== requestGeneration
+      ) {
+        stream.getTracks().forEach(track => track.stop())
+        return
+      }
       streamRef.current = stream
       stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+        if (streamRef.current !== stream || !mountedRef.current) return
+        readyRef.current = false
+        setReady(false)
         setErrorMsg('Camera disconnected — restart or upload instead.')
         setCameraFailed(true)
       })
@@ -262,14 +309,20 @@ export default function FullScreenCapture({
         // frames as soon as getUserMedia resolves.
         void videoRef.current.play().catch(() => { /* autoplay block is non-fatal */ })
       }
+      readyRef.current = true
       setReady(true)
       void acquireWakeLock()
     } catch (err) {
-      if (!mountedRef.current) return
+      if (
+        !mountedRef.current
+        || document.visibilityState === 'hidden'
+        || cameraRequestGenerationRef.current !== requestGeneration
+      ) return
+      readyRef.current = false
       setErrorMsg(getErrorMessage(err))
       setCameraFailed(true)
     }
-  }, [acquireWakeLock])
+  }, [acquireWakeLock, stopCameraStream])
 
   // Stop the stream + release the wake lock on unmount. Camera start is driven
   // from the gesture handlers (dismissDisclaimer / retryCamera), not an effect,
@@ -278,8 +331,12 @@ export default function FullScreenCapture({
     mountedRef.current = true
     return () => {
       mountedRef.current = false
+      cameraRequestGenerationRef.current += 1
+      captureIdRef.current += 1
+      captureBusyRef.current = false
+      readyRef.current = false
       releaseWakeLock()
-      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
+      stopCameraStream()
       // Revoke any uncommitted burst object URLs (committed ones are owned by the
       // parent's captures state and outlive this overlay).
       burstRef.current.forEach(URL.revokeObjectURL)
@@ -288,7 +345,7 @@ export default function FullScreenCapture({
       // the parent's to dispose after submit) — no worker outlives the overlay.
       void getCaptureRuntime().closeLive()
     }
-  }, [releaseWakeLock])
+  }, [releaseWakeLock, stopCameraStream])
 
   // Production-visible model lifecycle. The runtime publishes both live-worker
   // and authoritative IMAGE-scoring transitions through one ordered channel.
@@ -314,6 +371,7 @@ export default function FullScreenCapture({
   }
 
   function retryCamera() {
+    readyRef.current = false
     setReady(false)
     setCameraFailed(false)
     setErrorMsg(null)
@@ -321,19 +379,25 @@ export default function FullScreenCapture({
     void openStream()
   }
 
-  // Re-acquire the wake lock when the tab becomes visible again; close the live
-  // worker when the tab is hidden so no GPU runtime lingers in the background.
+  // The wake-lock hook owns visible-page reacquisition. This listener owns the
+  // camera + pose runtime: release both while hidden, then reacquire a fresh
+  // stream on restore. React state (including the selected view) stays mounted.
   useEffect(() => {
     function onVisible() {
-      // Hidden: close whichever backend is open (worker while live, IMAGE while
-      // reviewing) so no GPU runtime lingers backgrounded. On restore, the live
-      // tracking loop self-heals (re-enters live) when still framing.
-      if (document.visibilityState === 'hidden') { void getCaptureRuntime().dispose(); return }
-      if (started && !cameraFailed) void acquireWakeLock()
+      if (document.visibilityState === 'hidden') {
+        readyRef.current = false
+        setReady(false)
+        cameraRequestGenerationRef.current += 1
+        if (captureBusyRef.current) cancelActiveCapture()
+        stopCameraStream()
+        void getCaptureRuntime().dispose()
+        return
+      }
+      if (started && !cameraFailed) void openStream()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [started, cameraFailed, acquireWakeLock])
+  }, [started, cameraFailed, cancelActiveCapture, openStream, stopCameraStream])
 
   // Track the on-screen overlay size (for the cover-crop affine + level line).
   useEffect(() => {
@@ -370,7 +434,7 @@ export default function FullScreenCapture({
       if (stopped) return
       const video = videoRef.current
       const now = performance.now()
-      if (video && video.videoWidth > 0 && ready && typeof createImageBitmap === 'function'
+      if (document.visibilityState !== 'hidden' && video && video.videoWidth > 0 && ready && typeof createImageBitmap === 'function'
         && now - lastFrameTsRef.current >= LIVE_FRAME_INTERVAL_MS) {
         lastFrameTsRef.current = now
         recordLiveTelemetry({ type: 'frame-attempt' })
@@ -468,21 +532,31 @@ export default function FullScreenCapture({
   // Grab a short burst of distinct live frames (not one still): a held pose over
   // ~300ms yields the landmark jitter the engine turns into within-capture
   // stability. All frames are stashed; the middle one is shown for review.
-  const capture = useCallback(async () => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return
-    canvas.width = video.videoWidth || 720
-    canvas.height = video.videoHeight || 960
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    // Freeze this capture's identity + commit target at the shutter instant, and
-    // lock the UI so a mid-burst tile tap can neither re-target nor race it.
-    const id = ++captureIdRef.current
-    captureSlotRef.current = activeSlot
+  const capture = useCallback(async (id: number) => {
+    const urls: string[] = []
+    const revokeLocalUrls = () => urls.splice(0).forEach(url => URL.revokeObjectURL(url))
+    const stillOwned = () => mountedRef.current
+      && captureBusyRef.current
+      && captureIdRef.current === id
+      && document.visibilityState === 'visible'
+      && readyRef.current
+      && streamRef.current !== null
+    const abandon = (surfaceError: boolean) => {
+      revokeLocalUrls()
+      if (!mountedRef.current || captureIdRef.current !== id) return
+      cancelActiveCapture(id)
+      if (surfaceError) {
+        setErrorMsg('Capture failed — try again or upload instead.')
+        setCameraFailed(true)
+      }
+    }
+
+    // The click/countdown driver allocates the operation id and freezes the
+    // target slot. Re-check actual browser/camera ownership at the instant the
+    // burst begins; a stale React `ready` render never authorizes capture.
+    if (!stillOwned()) { abandon(false); return }
     setIsCapturing(true)
     const rollAt = level.rollRef.current // roll at the shutter instant
-    const urls: string[] = []
     const midIndex = Math.floor(BURST_SIZE / 2)
     // Pixel sample of the representative middle frame, extracted (cheap GPU
     // drawImage + small getImageData) BEFORE that frame's toBlob encode — kept
@@ -490,50 +564,53 @@ export default function FullScreenCapture({
     // index — the loop below may skip failed encodes; r3 Sol-1).
     let midSample: PixelSample | null = null
     let representativeUrl: string | null = null
-    // Discard partial work: revoke every object URL grabbed so far + unlock.
-    const bail = () => { urls.forEach(URL.revokeObjectURL); if (mountedRef.current) { setIsCapturing(false); setPhase('live') } }
-    for (let i = 0; i < BURST_SIZE; i++) {
-      // Superseded (retake/unmount) or tilted into the red zone (>5°) partway
-      // through — discard the partial burst rather than feeding the engine frames
-      // the shutter itself would have blocked (unless the user overrode the gate).
-      if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
-      if (!overrideGate && Math.abs(level.rollRef.current ?? 0) > 5) { bail(); return }
-      ctx.drawImage(video, 0, 0)
-      if (i === midIndex) midSample = samplePixelsFromSource(canvas, canvas.width, canvas.height)
-      const url = await canvasToObjectURL(canvas)
-      if (url) {
-        urls.push(url)
-        if (i === midIndex) representativeUrl = url
+    try {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      if (!video || !canvas) throw new Error('Capture surface unavailable')
+      canvas.width = video.videoWidth || 720
+      canvas.height = video.videoHeight || 960
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Capture context unavailable')
+
+      for (let i = 0; i < BURST_SIZE; i++) {
+        // Visibility/camera loss or a newer operation invalidates every partial
+        // frame. The post-encode check catches backgrounding while toBlob waits.
+        if (!stillOwned()) { abandon(false); return }
+        if (!overrideGate && Math.abs(level.rollRef.current ?? 0) > 5) { abandon(false); return }
+        ctx.drawImage(video, 0, 0)
+        if (i === midIndex) midSample = samplePixelsFromSource(canvas, canvas.width, canvas.height)
+        const url = await canvasToObjectURL(canvas)
+        if (url) {
+          urls.push(url)
+          if (i === midIndex) representativeUrl = url
+        }
+        if (!stillOwned()) { abandon(false); return }
+        if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
       }
-      if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
-    }
-    if (!mountedRef.current || captureIdRef.current !== id) { bail(); return }
-    // Every encode failed: there is no frame to review — bail to the live view
-    // and surface the existing camera-error screen instead of handing the
-    // review phase an undefined burst[0]/reviewUrl.
-    if (urls.length === 0) {
-      bail()
-      if (mountedRef.current) {
-        setErrorMsg('Capture failed — try again or upload instead.')
-        setCameraFailed(true)
+      if (!stillOwned()) { abandon(false); return }
+      if (urls.length === 0) throw new Error('Every capture encode failed')
+
+      // Put the reviewed (representative) frame first so the preview thumbnail AND
+      // the quality preflight — both of which the parent runs on burst[0] — judge
+      // exactly the frame the user reviews and approves. The engine medians every
+      // frame at submit, so array order is irrelevant to within-capture stability.
+      // Prefer the exact sampled middle frame by URL; if its encode failed, fall
+      // back to the existing middle-of-successful-frames ordering and drop the
+      // sample (no matching burst[0] frame to report against — fail open).
+      if (representativeUrl) {
+        burstRef.current = [representativeUrl, ...urls.filter(u => u !== representativeUrl)]
+      } else {
+        const mid = Math.floor(urls.length / 2)
+        burstRef.current = [urls[mid], ...urls.slice(0, mid), ...urls.slice(mid + 1)]
+        midSample = null
       }
+    } catch {
+      abandon(true)
       return
     }
-    // Put the reviewed (representative) frame first so the preview thumbnail AND
-    // the quality preflight — both of which the parent runs on burst[0] — judge
-    // exactly the frame the user reviews and approves. The engine medians every
-    // frame at submit, so array order is irrelevant to within-capture stability.
-    // Prefer the exact sampled middle frame by URL; if its encode failed, fall
-    // back to the existing middle-of-successful-frames ordering and drop the
-    // sample (no matching burst[0] frame to report against — fail open).
-    if (representativeUrl) {
-      burstRef.current = [representativeUrl, ...urls.filter(u => u !== representativeUrl)]
-    } else {
-      const mid = Math.floor(urls.length / 2)
-      burstRef.current = [urls[mid], ...urls.slice(0, mid), ...urls.slice(mid + 1)]
-      midSample = null
-    }
     const representative = burstRef.current[0]
+    captureBusyRef.current = false
     setRollAtCapture(rollAt)
     setPreviewQuality(null)
     setPreviewError(null)
@@ -568,7 +645,7 @@ export default function FullScreenCapture({
         representativePixelQualityRef.current = null
       }
     }
-  }, [level.rollRef, overrideGate, activeSlot])
+  }, [cancelActiveCapture, level.rollRef, overrideGate])
 
   function startCountdown() {
     void acquireWakeLock()
@@ -577,25 +654,39 @@ export default function FullScreenCapture({
   }
 
   function onShutter() {
-    if (gateBlocked || !ready || isCapturing) return
+    if (
+      gateBlocked
+      || !readyRef.current
+      || document.visibilityState !== 'visible'
+      || captureBusyRef.current
+    ) return
+    const id = ++captureIdRef.current
+    captureSlotRef.current = activeSlot
+    captureBusyRef.current = true
     if (timerOn) startCountdown()
-    else void capture()
+    else void capture(id)
   }
 
   // Countdown driver — re-checks the shutter gate at the capture instant.
   useEffect(() => {
     if (phase !== 'countdown') return
     if (countdown <= 0) {
-      if (gateBlocked) {
-        const abort = setTimeout(() => { setPhase('live'); setCountdown(3) }, 0)
+      const id = captureIdRef.current
+      if (
+        gateBlocked
+        || !captureBusyRef.current
+        || !readyRef.current
+        || document.visibilityState !== 'visible'
+      ) {
+        const abort = setTimeout(() => { cancelActiveCapture(id) }, 0)
         return () => clearTimeout(abort)
       }
-      void capture()
+      void capture(id)
       return
     }
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [phase, countdown, capture, gateBlocked])
+  }, [phase, countdown, capture, cancelActiveCapture, gateBlocked])
 
   // Best-effort framing feedback on the captured still, so the user can retake
   // before committing. The wizard's preflight remains authoritative.
@@ -686,10 +777,9 @@ export default function FullScreenCapture({
   }
 
   function selectSlot(slot: CaptureSlotKey) {
-    // Free order: any slot is selectable at any time — EXCEPT mid-burst, where a
-    // switch would race the in-flight capture (the burst is locked until it
-    // resolves). Switching away from an unreviewed shot discards it.
-    if (isCapturing) return
+    // Freeze navigation from shutter click through countdown + burst. The ref
+    // also blocks same-tick/programmatic races before disabled state renders.
+    if (captureBusyRef.current) return
     // A new view must earn its own "capture anyway" — override never carries over.
     setOverrideGate(false)
     setActiveSlot(slot)
@@ -697,12 +787,14 @@ export default function FullScreenCapture({
   }
 
   function triggerUpload() {
+    if (captureBusyRef.current) return
     fileInputRefs.current[activeSlot]?.click()
   }
 
   // Uploading a slot commits it and advances to the next uncaptured slot, so the
   // upload-only path (no camera) still walks through every required slot.
   function handleUpload(slot: CaptureSlotKey, file: File) {
+    if (captureBusyRef.current) return
     onFileUpload(slot, file)
     setLastCommittedSlot(slot)
     const next = nextUncapturedAfter(slot)
@@ -721,6 +813,8 @@ export default function FullScreenCapture({
     && (captures[s].slotStatus === 'no_person' || captures[s].slotStatus === 'multiple_people'))
   const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
   const multiplePeopleViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'multiple_people')
+  const captureLocked = phase === 'countdown' || isCapturing
+  const analyzeBlocked = submitting || captureLocked || requiredChecking || requiredModelFailed || requiredSubjectFailed
   const direction = DIRECTION[activeSlot]
 
   // Committed-slot warning caption (soft coaching copy for the upload path,
@@ -768,6 +862,7 @@ export default function FullScreenCapture({
           key={slot}
           ref={el => { fileInputRefs.current[slot] = el }}
           type="file"
+          disabled={captureLocked}
           accept="image/jpeg,image/png"
           style={{ display: 'none' }}
           aria-label={`Upload ${SLOT_LABEL[slot]} photo`}
@@ -1007,13 +1102,13 @@ export default function FullScreenCapture({
                   <button
                     key={slotKey}
                     onClick={() => selectSlot(slotKey)}
-                    // Locked during a burst so the announced state matches selectSlot's guard.
-                    disabled={isCapturing}
+                    // Locked from timed-shutter click through burst completion.
+                    disabled={captureLocked}
                     aria-label={`${SLOT_LABEL[slotKey]} (required)${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}${cap.slotStatus === 'warnings' ? ' — quality warning' : ''}${modelFailed ? ' — model check failed' : ''}`}
                     aria-current={isActive ? 'step' : undefined}
                     style={{
                       position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
-                      padding: 0, cursor: isCapturing ? 'default' : 'pointer', opacity: isCapturing && !isActive ? 0.6 : 1,
+                      padding: 0, cursor: captureLocked ? 'default' : 'pointer', opacity: captureLocked && !isActive ? 0.6 : 1,
                     }}
                   >
                     <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ring}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1057,32 +1152,33 @@ export default function FullScreenCapture({
             {showLiveCamera && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '8px' }}>
                 <div style={{ justifySelf: 'start' }}>
-                  <button onClick={triggerUpload} style={{ background: 'none', border: 'none', color: '#C4C4CC', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer', padding: '8px', minHeight: '44px' }}>Upload photo instead</button>
+                  <button onClick={triggerUpload} disabled={captureLocked} style={{ background: 'none', border: 'none', color: '#C4C4CC', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'underline', cursor: captureLocked ? 'not-allowed' : 'pointer', padding: '8px', minHeight: '44px' }}>Upload photo instead</button>
                 </div>
                 <button
                   data-autofocus="shutter"
                   onClick={onShutter}
-                  disabled={gateBlocked || !ready || isCapturing}
-                  aria-disabled={gateBlocked || !ready || isCapturing}
+                  disabled={gateBlocked || !ready || captureLocked}
+                  aria-disabled={gateBlocked || !ready || captureLocked}
                   aria-label="Capture photo"
                   style={{
                     justifySelf: 'center', width: '72px', height: '72px', borderRadius: '50%',
-                    background: gateBlocked || !ready || isCapturing ? 'rgba(255,255,255,0.25)' : '#fff',
+                    background: gateBlocked || !ready || captureLocked ? 'rgba(255,255,255,0.25)' : '#fff',
                     border: '4px solid rgba(255,255,255,0.55)', boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
-                    cursor: gateBlocked || !ready || isCapturing ? 'not-allowed' : 'pointer',
+                    cursor: gateBlocked || !ready || captureLocked ? 'not-allowed' : 'pointer',
                   }}
                   aria-describedby={gateBlocked ? 'tilt-blocked-banner' : undefined}
                 />
                 <div style={{ justifySelf: 'end' }}>
                   <button
-                    onClick={() => setTimerOn(t => !t)}
+                    onClick={() => { if (!captureBusyRef.current) setTimerOn(t => !t) }}
+                    disabled={captureLocked}
                     aria-label="Self-timer"
                     aria-pressed={timerOn}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', borderRadius: '999px', minHeight: '44px',
                       background: timerOn ? 'rgba(0,152,243,0.25)' : 'rgba(255,255,255,0.08)',
                       border: `1px solid ${timerOn ? 'rgba(0,152,243,0.6)' : 'rgba(255,255,255,0.15)'}`,
-                      color: timerOn ? '#C7D2FE' : '#C4C4CC', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                      color: timerOn ? '#C7D2FE' : '#C4C4CC', fontSize: '0.78rem', fontWeight: 700, cursor: captureLocked ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="2" /><path d="M12 13V9M9 2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -1094,7 +1190,7 @@ export default function FullScreenCapture({
 
             {/* Upload fallback when the camera failed */}
             {cameraFailed && (
-              <button onClick={triggerUpload} style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}>
+              <button onClick={triggerUpload} disabled={captureLocked} style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, cursor: captureLocked ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
                 Use File Upload Instead — {SLOT_LABEL[activeSlot]}
               </button>
             )}
@@ -1103,10 +1199,10 @@ export default function FullScreenCapture({
             {requiredReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
-                disabled={submitting || requiredChecking || requiredModelFailed || requiredSubjectFailed}
-                style={{ padding: '14px', borderRadius: '12px', background: submitting || requiredChecking || requiredModelFailed || requiredSubjectFailed ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: submitting || requiredChecking || requiredModelFailed || requiredSubjectFailed ? 'not-allowed' : 'pointer', minHeight: '44px' }}
+                disabled={analyzeBlocked}
+                style={{ padding: '14px', borderRadius: '12px', background: analyzeBlocked ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: analyzeBlocked ? 'not-allowed' : 'pointer', minHeight: '44px' }}
               >
-                {submitting ? 'Submitting…' : requiredChecking ? 'Checking photos…' : requiredModelFailed ? 'Retry failed photo checks' : requiredSubjectFailed ? 'Retake invalid photos' : 'Analyze Posture'}
+                {submitting ? 'Submitting…' : captureLocked ? 'Capturing photo…' : requiredChecking ? 'Checking photos…' : requiredModelFailed ? 'Retry failed photo checks' : requiredSubjectFailed ? 'Retake invalid photos' : 'Analyze Posture'}
               </button>
             )}
           </div>

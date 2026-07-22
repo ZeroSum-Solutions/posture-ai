@@ -1,13 +1,23 @@
 import { test, expect, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
+import { analyzeAndAttachAxe } from './axe-receipt'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 // Red-flag pre-session safety screen — UI/player flows.
 // These tests verify the gate renders before player controls and that both
 // answer paths (clear / stop) behave correctly.
 test.describe('red-flag pre-session screen', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'Player UI test; run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:workout-player:mobile-webkit',
+      source: 'e2e/workout-player.spec.ts::red-flag pre-session screen project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'Player UI test; run once on chromium',
+  ))
 
   async function mintSession(page: Page): Promise<{ sessionId: string; assessmentId: string }> {
     const c = await createClient(page, 'E2E', `RedFlag-${randomUUID().slice(0, 8)}`)
@@ -108,7 +118,7 @@ test.describe('red-flag pre-session screen', () => {
     await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
   })
 
-  test('flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters', async ({ page }) => {
+  test('flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 })
     const { sessionId } = await mintSession(page)
     await page.goto(`/workouts/${sessionId}`)
@@ -135,7 +145,7 @@ test.describe('red-flag pre-session screen', () => {
     await expect(mute).toHaveAttribute('tabindex', '-1')
     await expect(captions).toHaveAttribute('tabindex', '-1')
 
-    const axe = await new AxeBuilder({ page }).analyze()
+    const axe = await analyzeAndAttachAxe(page, testInfo, 'workout hidden chrome')
     const serious = axe.violations.filter((violation) =>
       violation.impact === 'serious' || violation.impact === 'critical',
     )

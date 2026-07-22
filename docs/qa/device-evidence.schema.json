@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posture-ai.local/schemas/device-evidence-v1.json",
+  "title": "Posture AI device evidence packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "packet", "independent_review"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "packet": { "$ref": "#/$defs/packet" },
+    "independent_review": { "$ref": "#/$defs/independentReview" }
+  },
+  "$defs": {
+    "packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packet_id", "task_id", "contract_id", "contract_sha256", "mode", "fixture", "test_mode", "operator_id", "release", "evidence_root_manifest_sha256", "runs", "matrix", "evidence"],
+      "properties": {
+        "packet_id": { "type": "string", "minLength": 1 },
+        "task_id": { "const": "HG-04" },
+        "contract_id": { "type": "string", "minLength": 1 },
+        "contract_sha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "enum": ["fixture", "physical"] },
+        "fixture": { "type": "boolean" },
+        "test_mode": { "type": "boolean" },
+        "operator_id": { "type": "string", "minLength": 1 },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commit", "configuration_hash"],
+          "properties": {
+            "commit": { "type": "string", "pattern": "^[a-fA-F0-9]{40}$" },
+            "configuration_hash": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "evidence_root_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "runs": { "type": "array", "items": { "$ref": "#/$defs/run" } },
+        "matrix": { "type": "array", "items": { "$ref": "#/$defs/matrixRow" } },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "device_class", "challenge_nonce", "started_at", "ended_at", "cache_profile", "device", "identity_evidence_id", "core_recording_evidence_id", "journey"],
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "device_class": { "enum": ["iphone_safari", "android_chrome"] },
+        "challenge_nonce": { "type": "string", "minLength": 16 },
+        "started_at": { "type": "string", "format": "date-time" },
+        "ended_at": { "type": "string", "format": "date-time" },
+        "cache_profile": { "enum": ["cold", "warm"] },
+        "device": { "$ref": "#/$defs/device" },
+        "identity_evidence_id": { "type": "string", "minLength": 1 },
+        "core_recording_evidence_id": { "type": "string", "minLength": 1 },
+        "journey": { "type": "array", "items": { "$ref": "#/$defs/journeyStep" } }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "os_version", "browser_name", "browser_version", "browser_build", "physical_device", "emulated", "desktop", "ram_gb", "mid_or_low_tier"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "os_version": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)*$" },
+        "browser_name": { "enum": ["Safari", "Chrome"] },
+        "browser_version": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)*$" },
+        "browser_build": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)*$" },
+        "physical_device": { "type": "boolean" },
+        "emulated": { "type": "boolean" },
+        "desktop": { "type": "boolean" },
+        "ram_gb": { "type": ["integer", "null"] },
+        "mid_or_low_tier": { "type": ["boolean", "null"] }
+      }
+    },
+    "journeyStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "captured_at", "evidence_id"],
+      "properties": {
+        "step": { "type": "string", "minLength": 1 },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "invitation_only": { "type": "boolean" },
+        "aal": { "const": "AAL2" },
+        "consent_valid": { "type": "boolean" },
+        "views": { "type": "array", "items": { "enum": ["front", "left", "right", "back"] } },
+        "replaced_view": { "enum": ["front", "left", "right", "back"] },
+        "score_completed": { "type": "boolean" },
+        "assessment_only": { "type": "boolean" },
+        "markings_visible": { "type": "boolean" },
+        "pdf_requested": { "type": "boolean" },
+        "pdf_opened_or_downloaded": { "type": "boolean" }
+      }
+    },
+    "matrixRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_class", "row_id", "status", "run_id", "evidence_id", "reviewer_notes"],
+      "properties": {
+        "device_class": { "enum": ["iphone_safari", "android_chrome"] },
+        "row_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["passed", "not_applicable"] },
+        "run_id": { "type": "string", "minLength": 1 },
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "reviewer_notes": { "type": "string", "minLength": 1 },
+        "applicability_proof": { "$ref": "#/$defs/applicabilityProof" },
+        "measurements": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "accepted_photos": { "type": "integer", "minimum": 0 },
+            "duration_seconds": { "type": "integer", "minimum": 0 },
+            "leaks": { "type": "integer", "minimum": 0 },
+            "hangs": { "type": "integer", "minimum": 0 },
+            "context_loss_crashes": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "applicabilityProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "evidence_id"],
+      "properties": {
+        "kind": { "enum": ["unsupported_capability_probe", "release_configuration_disabled"] },
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "configuration_hash": { "$ref": "#/$defs/sha256" },
+        "configuration_field": { "const": "workout_surface_enabled" },
+        "configuration_value": { "const": false },
+        "capability": { "const": "wake_lock" },
+        "supported": { "const": false }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "relative_path", "media_type", "byte_length", "sha256", "captured_at", "source_run_id", "source_row"],
+      "properties": {
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "relative_path": { "type": "string", "minLength": 1 },
+        "media_type": { "type": "string", "minLength": 1 },
+        "byte_length": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "source_run_id": { "type": "string", "minLength": 1 },
+        "source_row": { "type": "string", "minLength": 1 }
+      }
+    },
+    "independentReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt", "signature"],
+      "properties": {
+        "receipt": { "$ref": "#/$defs/reviewReceipt" },
+        "signature": { "$ref": "#/$defs/signature" }
+      }
+    },
+    "reviewReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "task_id", "reviewer_id", "operator_id", "packet_sha256", "contract_sha256", "commit", "configuration_hash", "sampled_artifact_sha256", "sampled_core_run_ids", "sampled_device_classes", "sampled_exclusion_keys", "sampled_remaining_row_keys", "reviewed_at", "verdict"],
+      "properties": {
+        "review_id": { "type": "string", "minLength": 1 },
+        "task_id": { "const": "HG-04" },
+        "reviewer_id": { "type": "string", "minLength": 1 },
+        "operator_id": { "type": "string", "minLength": 1 },
+        "packet_sha256": { "$ref": "#/$defs/sha256" },
+        "contract_sha256": { "$ref": "#/$defs/sha256" },
+        "commit": { "type": "string", "pattern": "^[a-fA-F0-9]{40}$" },
+        "configuration_hash": { "$ref": "#/$defs/sha256" },
+        "sampled_artifact_sha256": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/sha256" } },
+        "sampled_core_run_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "sampled_device_classes": { "type": "array", "minItems": 1, "items": { "enum": ["iphone_safari", "android_chrome"] } },
+        "sampled_exclusion_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "sampled_remaining_row_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "verdict": { "const": "PASS" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_class", "public_key_pem", "public_key_fingerprint", "value_base64"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "key_class": { "enum": ["test", "production"] },
+        "public_key_pem": { "type": "string", "minLength": 1 },
+        "public_key_fingerprint": { "$ref": "#/$defs/sha256" },
+        "value_base64": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+  }
+}

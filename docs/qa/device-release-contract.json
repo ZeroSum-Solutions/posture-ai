@@ -1,0 +1,243 @@
+{
+  "contract_id": "posture-ai-device-release-v1",
+  "schema_version": 1,
+  "published_at": "2026-07-21",
+  "release_binding": {
+    "commit_format": "40-character-git-sha",
+    "configuration_hash_format": "sha256",
+    "required_runs_per_class": 2,
+    "required_cache_profiles_per_class": [
+      "cold",
+      "warm"
+    ]
+  },
+  "supported_device_classes": {
+    "iphone_safari": {
+      "physical_device_required": true,
+      "minimum_os_major": 17,
+      "browser_name": "Safari",
+      "required_identity_fields": [
+        "model",
+        "os_version",
+        "browser_name",
+        "browser_version",
+        "browser_build",
+        "physical_device"
+      ]
+    },
+    "android_chrome": {
+      "physical_device_required": true,
+      "minimum_os_major": 11,
+      "chrome_min_major": 150,
+      "browser_name": "Chrome",
+      "ram_gb_min": 4,
+      "ram_gb_max": 6,
+      "flagship_only_forbidden": true,
+      "required_identity_fields": [
+        "model",
+        "ram_gb",
+        "os_version",
+        "browser_name",
+        "browser_version",
+        "browser_build",
+        "physical_device",
+        "mid_or_low_tier"
+      ],
+      "browser_floor_source": {
+        "publisher": "Chromium Dashboard",
+        "url": "https://chromiumdash.appspot.com/releases?platform=Android",
+        "retrieved_on": "2026-07-21"
+      }
+    }
+  },
+  "core_journey": [
+    "practitioner_sign_in",
+    "valid_consent",
+    "four_view_capture",
+    "retake",
+    "score_completion",
+    "assessment_results",
+    "pdf_open_or_download"
+  ],
+  "required_views": [
+    "front",
+    "left",
+    "right",
+    "back"
+  ],
+  "matrix_rows": [
+    {
+      "id": "portrait_landscape",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "Controls remain usable and state is preserved across both orientations."
+    },
+    {
+      "id": "camera_permission_recovery",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "Denial is visible and regrant recovers without a page reload."
+    },
+    {
+      "id": "no_person_block",
+      "classification": "required",
+      "verification": "threshold",
+      "thresholds": {
+        "accepted_photos_max": 0
+      },
+      "requirements": "No-person input blocks photo acceptance."
+    },
+    {
+      "id": "multiple_person_block",
+      "classification": "required",
+      "verification": "threshold",
+      "thresholds": {
+        "accepted_photos_max": 0
+      },
+      "requirements": "Multiple-person input blocks photo acceptance."
+    },
+    {
+      "id": "model_load_recovery",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "Cold and warm load plus delegate and worker recovery are reviewed."
+    },
+    {
+      "id": "background_foreground_recovery",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "Background cleanup and foreground restart are reviewed."
+    },
+    {
+      "id": "sustained_session",
+      "classification": "required",
+      "verification": "threshold",
+      "thresholds": {
+        "minimum_duration_seconds": 300,
+        "leaks_max": 0,
+        "hangs_max": 0,
+        "context_loss_crashes_max": 0
+      },
+      "requirements": "A four-view and retake session remains bounded without a leak, hang, or context-loss crash."
+    },
+    {
+      "id": "keyboard_traversal",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "All keyboard-capable release surfaces have usable focus order and controls."
+    },
+    {
+      "id": "screen_reader",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "VoiceOver is reviewed on iPhone and TalkBack on Android, including spoken labels and order."
+    },
+    {
+      "id": "reduced_motion",
+      "classification": "required",
+      "verification": "manual_review",
+      "requirements": "Reduced-motion behavior remains usable."
+    },
+    {
+      "id": "wake_lock",
+      "classification": "capability_optional",
+      "verification": "manual_review",
+      "allowed_not_applicable_proofs": [
+        "unsupported_capability_probe"
+      ],
+      "capability_gate": {
+        "capability": "wake_lock"
+      },
+      "requirements": "Acquire, lose, reacquire, and clean up wake lock when the capability exists."
+    },
+    {
+      "id": "workout_audio",
+      "classification": "configuration_optional",
+      "verification": "manual_review",
+      "allowed_not_applicable_proofs": [
+        "release_configuration_disabled"
+      ],
+      "configuration_gate": {
+        "configuration_field": "workout_surface_enabled",
+        "disabled_value": false
+      },
+      "requirements": "Exercise primary audio, mute, fallback, and interruption behavior only when workout is enabled."
+    }
+  ],
+  "evidence": {
+    "relative_paths_only": true,
+    "reject_symlinks": true,
+    "reject_zero_bytes": true,
+    "hash_algorithm": "sha256",
+    "allowed_media_types": [
+      "application/json",
+      "application/pdf",
+      "application/octet-stream",
+      "image/jpeg",
+      "image/png",
+      "text/plain",
+      "video/mp4",
+      "video/webm"
+    ],
+    "physical_media_types_by_source": {
+      "core_journey_recording": [
+        "video/mp4",
+        "video/webm"
+      ],
+      "device_identity": [
+        "application/json",
+        "image/jpeg",
+        "image/png"
+      ],
+      "matrix_row": [
+        "application/json",
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "video/mp4",
+        "video/webm"
+      ]
+    },
+    "fixture_media_types": [
+      "application/json",
+      "text/plain"
+    ],
+    "forbidden_subject_fields": [
+      "client_name",
+      "client_email",
+      "client_id",
+      "landmarks",
+      "posture_photo",
+      "subject_name"
+    ]
+  },
+  "reviewer_sampling": {
+    "required_groups": [
+      "all_core_run_recordings",
+      "both_device_identity_artifacts",
+      "every_exclusion",
+      "all_sustained_session_rows",
+      "deterministic_remaining_matrix_rows"
+    ],
+    "remaining_rows_algorithm": "sha256(contract_sha256|packet_id|device_class|row_id), first byte modulo 2 equals 0",
+    "minimum_remaining_rows_per_class": 1
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "signed_payload": "UTF-8 JSON with recursively sorted object keys and preserved array order",
+    "approved_reviewer_public_key_fingerprints": [],
+    "fixture_test_key_fingerprints": [
+      "a0f63724f4794be0328c233e08def729b9ff004a8daf2e4597e5d6a1939b36fc"
+    ],
+    "test_keys_launch_eligible": false,
+    "operator_must_differ_from_reviewer": true
+  },
+  "validator_semantics": {
+    "read_only": true,
+    "necessary_not_sufficient": true,
+    "can_update_goal_state": false,
+    "hg04_launch_eligible_always_false": true,
+    "fixture_can_be_structurally_valid": true,
+    "fixture_can_be_physical_packet_valid": false
+  }
+}

@@ -193,13 +193,53 @@ Never hand-edit generated seeds. The content contract test
 (`content/content.test.ts`) and UI vocabulary sweep (`lib/ui-vocabulary.test.ts`)
 gate regressions in CI.
 
+## PR-08 device and accessibility evidence
+
+The canonical physical-device collection procedure is
+`docs/qa/device-evidence-checklist.md`, mechanically checked against
+`docs/qa/device-release-contract.json`. It supersedes the older Slice-3 and device-spike
+checklists while retaining their live-worker telemetry rows.
+
+Playwright mobile projects and the repository dummy packet prove only automation and
+validator mechanics. They never satisfy HG-04. Before a human can complete HG-04, require
+two physical runs on each supported device class, a structurally and physically valid
+packet, a separate approved Ed25519-signed independent sample review, and an explicit
+human-owned transition. Keep raw device media in the protected external evidence root;
+only sanitized hashes and receipts belong in the proof root.
+
+The physical validation command is:
+
+```bash
+npm run device:evidence:check -- \
+  --contract docs/qa/device-release-contract.json \
+  --receipt /protected/proof-root/device-receipt.json \
+  --evidence-root /protected/raw-device-evidence \
+  --release-configuration-receipt /protected/proof-root/release-configuration.json \
+  --expected-commit <40-character-release-sha> \
+  --expected-configuration-hash <sha256>
+```
+
+`release-configuration.json` must contain exactly `commit`, `configuration_hash`, and a nonempty `hg04_approved_reviewer_public_key_fingerprints` array. Those values are the production reviewer-key authority and must bind the same release; repository fixture keys are never accepted in physical mode.
+
+The safe repository-fixture check is:
+
+```bash
+npm run device:evidence:check -- \
+  --contract docs/qa/device-release-contract.json \
+  --receipt scripts/fixtures/device-evidence/complete/receipt.json \
+  --evidence-root scripts/fixtures/device-evidence/complete/artifacts \
+  --fixture
+```
+
+Expected fixture semantics: structural true, physical false, launch false.
+
 ## Tests
 
 | Suite | Command | Notes |
 |---|---|---|
 | Unit + content + vocab | `npx vitest run` | includes engine workspace, content contract, UI vocab lint |
 | Engine only | `npm test -w @posture-ai/engine` | |
-| e2e | `npm run test:e2e` | needs `npx supabase start`; mobile WebKit + desktop Chromium; `E2E_PORT=` to avoid clashes |
+| e2e | `npm run test:e2e` | needs `npx supabase start`; desktop Chromium + mobile WebKit + Android Chromium proxy; `E2E_PORT=` to avoid clashes |
 | a11y budget | part of e2e (`e2e/a11y.spec.ts`) | zero serious/critical axe violations |
 
 ## Security posture
@@ -313,9 +353,11 @@ cutover time and the one-hour drain completion in the release evidence.
   empty, so the beta stays assessment-only. Per-row `reviewed_by` timestamps are
   not an activation mechanism. Follow the PR-07 procedure above; Kimi/Fable
   reviews are advisory and cannot replace the licensed-clinician receipt.
-- **Real-device matrix**: docs/plans/2026-06-12-p0-device-spike-findings.md
-  carries the iPhone/Android checklist; the captured photos become canonical
-  e2e fixtures (same filenames in `e2e/fixtures/photos/`).
+- **Real-device matrix**: `docs/qa/device-release-contract.json` and
+  `docs/qa/device-evidence-checklist.md` are the canonical iPhone/Android
+  contract and collection procedure. Raw physical photos/video remain in the
+  protected external evidence root and never become committed E2E fixtures;
+  Git contains only non-sensitive metadata, hashes, and review receipts.
 - **Threshold provenance / deferred clinical metrics**: engine thresholds carry
   boundary-level provenance (`packages/posture-engine/src/thresholds.ts`). Only
   `knee_extension_back_knee` is literature-cited (recurvatum: Loudon 1998 >5°,

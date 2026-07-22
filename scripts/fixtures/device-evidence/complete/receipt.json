@@ -1,0 +1,923 @@
+{
+  "schema_version": 1,
+  "packet": {
+    "packet_id": "fixture-device-packet-v1",
+    "task_id": "HG-04",
+    "contract_id": "posture-ai-device-release-v1",
+    "contract_sha256": "a4b720cd81e31139e8f78782b0b2ba189692ec21e634e2ad7c966cdf786c1ee9",
+    "mode": "fixture",
+    "fixture": true,
+    "test_mode": true,
+    "operator_id": "fixture-operator",
+    "release": {
+      "commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
+      "configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead"
+    },
+    "evidence_root_manifest_sha256": "29195c05c922f8356e1690ea69760db1148d5cef826f45a2b5a9b7cdfd65e475",
+    "runs": [
+      {
+        "run_id": "fixture-iphone-cold",
+        "device_class": "iphone_safari",
+        "challenge_nonce": "fixture-challenge-1-unique",
+        "started_at": "2026-07-21T10:00:00.000Z",
+        "ended_at": "2026-07-21T10:10:00.000Z",
+        "cache_profile": "cold",
+        "device": {
+          "model": "Fixture iPhone",
+          "os_version": "17.6",
+          "browser_version": "17.6",
+          "browser_build": "17.6.0",
+          "physical_device": false,
+          "emulated": true,
+          "desktop": false,
+          "ram_gb": null,
+          "mid_or_low_tier": null,
+          "browser_name": "Safari"
+        },
+        "identity_evidence_id": "iphone-identity",
+        "core_recording_evidence_id": "iphone-cold-core",
+        "journey": [
+          {
+            "step": "practitioner_sign_in",
+            "captured_at": "2026-07-21T10:01:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "invitation_only": true,
+            "aal": "AAL2"
+          },
+          {
+            "step": "valid_consent",
+            "captured_at": "2026-07-21T10:02:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "consent_valid": true
+          },
+          {
+            "step": "four_view_capture",
+            "captured_at": "2026-07-21T10:03:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "views": [
+              "front",
+              "left",
+              "right",
+              "back"
+            ]
+          },
+          {
+            "step": "retake",
+            "captured_at": "2026-07-21T10:04:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "replaced_view": "front"
+          },
+          {
+            "step": "score_completion",
+            "captured_at": "2026-07-21T10:05:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "score_completed": true
+          },
+          {
+            "step": "assessment_results",
+            "captured_at": "2026-07-21T10:06:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "assessment_only": true,
+            "markings_visible": true
+          },
+          {
+            "step": "pdf_open_or_download",
+            "captured_at": "2026-07-21T10:07:00.000Z",
+            "evidence_id": "iphone-cold-core",
+            "pdf_requested": true,
+            "pdf_opened_or_downloaded": true
+          }
+        ]
+      },
+      {
+        "run_id": "fixture-iphone-warm",
+        "device_class": "iphone_safari",
+        "challenge_nonce": "fixture-challenge-2-unique",
+        "started_at": "2026-07-21T11:00:00.000Z",
+        "ended_at": "2026-07-21T11:10:00.000Z",
+        "cache_profile": "warm",
+        "device": {
+          "model": "Fixture iPhone",
+          "os_version": "17.6",
+          "browser_version": "17.6",
+          "browser_build": "17.6.0",
+          "physical_device": false,
+          "emulated": true,
+          "desktop": false,
+          "ram_gb": null,
+          "mid_or_low_tier": null,
+          "browser_name": "Safari"
+        },
+        "identity_evidence_id": "iphone-identity",
+        "core_recording_evidence_id": "iphone-warm-core",
+        "journey": [
+          {
+            "step": "practitioner_sign_in",
+            "captured_at": "2026-07-21T11:01:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "invitation_only": true,
+            "aal": "AAL2"
+          },
+          {
+            "step": "valid_consent",
+            "captured_at": "2026-07-21T11:02:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "consent_valid": true
+          },
+          {
+            "step": "four_view_capture",
+            "captured_at": "2026-07-21T11:03:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "views": [
+              "front",
+              "left",
+              "right",
+              "back"
+            ]
+          },
+          {
+            "step": "retake",
+            "captured_at": "2026-07-21T11:04:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "replaced_view": "front"
+          },
+          {
+            "step": "score_completion",
+            "captured_at": "2026-07-21T11:05:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "score_completed": true
+          },
+          {
+            "step": "assessment_results",
+            "captured_at": "2026-07-21T11:06:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "assessment_only": true,
+            "markings_visible": true
+          },
+          {
+            "step": "pdf_open_or_download",
+            "captured_at": "2026-07-21T11:07:00.000Z",
+            "evidence_id": "iphone-warm-core",
+            "pdf_requested": true,
+            "pdf_opened_or_downloaded": true
+          }
+        ]
+      },
+      {
+        "run_id": "fixture-android-cold",
+        "device_class": "android_chrome",
+        "challenge_nonce": "fixture-challenge-3-unique",
+        "started_at": "2026-07-21T12:00:00.000Z",
+        "ended_at": "2026-07-21T12:10:00.000Z",
+        "cache_profile": "cold",
+        "device": {
+          "model": "Fixture Android 4GB",
+          "os_version": "11.0",
+          "browser_version": "150.0.0.0",
+          "browser_build": "150.0.7339.0",
+          "physical_device": false,
+          "emulated": true,
+          "desktop": false,
+          "ram_gb": 4,
+          "mid_or_low_tier": true,
+          "browser_name": "Chrome"
+        },
+        "identity_evidence_id": "android-identity",
+        "core_recording_evidence_id": "android-cold-core",
+        "journey": [
+          {
+            "step": "practitioner_sign_in",
+            "captured_at": "2026-07-21T12:01:00.000Z",
+            "evidence_id": "android-cold-core",
+            "invitation_only": true,
+            "aal": "AAL2"
+          },
+          {
+            "step": "valid_consent",
+            "captured_at": "2026-07-21T12:02:00.000Z",
+            "evidence_id": "android-cold-core",
+            "consent_valid": true
+          },
+          {
+            "step": "four_view_capture",
+            "captured_at": "2026-07-21T12:03:00.000Z",
+            "evidence_id": "android-cold-core",
+            "views": [
+              "front",
+              "left",
+              "right",
+              "back"
+            ]
+          },
+          {
+            "step": "retake",
+            "captured_at": "2026-07-21T12:04:00.000Z",
+            "evidence_id": "android-cold-core",
+            "replaced_view": "front"
+          },
+          {
+            "step": "score_completion",
+            "captured_at": "2026-07-21T12:05:00.000Z",
+            "evidence_id": "android-cold-core",
+            "score_completed": true
+          },
+          {
+            "step": "assessment_results",
+            "captured_at": "2026-07-21T12:06:00.000Z",
+            "evidence_id": "android-cold-core",
+            "assessment_only": true,
+            "markings_visible": true
+          },
+          {
+            "step": "pdf_open_or_download",
+            "captured_at": "2026-07-21T12:07:00.000Z",
+            "evidence_id": "android-cold-core",
+            "pdf_requested": true,
+            "pdf_opened_or_downloaded": true
+          }
+        ]
+      },
+      {
+        "run_id": "fixture-android-warm",
+        "device_class": "android_chrome",
+        "challenge_nonce": "fixture-challenge-4-unique",
+        "started_at": "2026-07-21T13:00:00.000Z",
+        "ended_at": "2026-07-21T13:10:00.000Z",
+        "cache_profile": "warm",
+        "device": {
+          "model": "Fixture Android 4GB",
+          "os_version": "11.0",
+          "browser_version": "150.0.0.0",
+          "browser_build": "150.0.7339.0",
+          "physical_device": false,
+          "emulated": true,
+          "desktop": false,
+          "ram_gb": 4,
+          "mid_or_low_tier": true,
+          "browser_name": "Chrome"
+        },
+        "identity_evidence_id": "android-identity",
+        "core_recording_evidence_id": "android-warm-core",
+        "journey": [
+          {
+            "step": "practitioner_sign_in",
+            "captured_at": "2026-07-21T13:01:00.000Z",
+            "evidence_id": "android-warm-core",
+            "invitation_only": true,
+            "aal": "AAL2"
+          },
+          {
+            "step": "valid_consent",
+            "captured_at": "2026-07-21T13:02:00.000Z",
+            "evidence_id": "android-warm-core",
+            "consent_valid": true
+          },
+          {
+            "step": "four_view_capture",
+            "captured_at": "2026-07-21T13:03:00.000Z",
+            "evidence_id": "android-warm-core",
+            "views": [
+              "front",
+              "left",
+              "right",
+              "back"
+            ]
+          },
+          {
+            "step": "retake",
+            "captured_at": "2026-07-21T13:04:00.000Z",
+            "evidence_id": "android-warm-core",
+            "replaced_view": "front"
+          },
+          {
+            "step": "score_completion",
+            "captured_at": "2026-07-21T13:05:00.000Z",
+            "evidence_id": "android-warm-core",
+            "score_completed": true
+          },
+          {
+            "step": "assessment_results",
+            "captured_at": "2026-07-21T13:06:00.000Z",
+            "evidence_id": "android-warm-core",
+            "assessment_only": true,
+            "markings_visible": true
+          },
+          {
+            "step": "pdf_open_or_download",
+            "captured_at": "2026-07-21T13:07:00.000Z",
+            "evidence_id": "android-warm-core",
+            "pdf_requested": true,
+            "pdf_opened_or_downloaded": true
+          }
+        ]
+      }
+    ],
+    "matrix": [
+      {
+        "device_class": "iphone_safari",
+        "row_id": "portrait_landscape",
+        "status": "passed",
+        "run_id": "fixture-iphone-cold",
+        "evidence_id": "iphone-portrait-landscape",
+        "reviewer_notes": "DUMMY fixture review for portrait_landscape; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "camera_permission_recovery",
+        "status": "passed",
+        "run_id": "fixture-iphone-cold",
+        "evidence_id": "iphone-camera-permission-recovery",
+        "reviewer_notes": "DUMMY fixture review for camera_permission_recovery; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "no_person_block",
+        "status": "passed",
+        "run_id": "fixture-iphone-cold",
+        "evidence_id": "iphone-no-person-block",
+        "reviewer_notes": "DUMMY fixture review for no_person_block; not physical evidence.",
+        "measurements": {
+          "accepted_photos": 0
+        }
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "multiple_person_block",
+        "status": "passed",
+        "run_id": "fixture-iphone-cold",
+        "evidence_id": "iphone-multiple-person-block",
+        "reviewer_notes": "DUMMY fixture review for multiple_person_block; not physical evidence.",
+        "measurements": {
+          "accepted_photos": 0
+        }
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "model_load_recovery",
+        "status": "passed",
+        "run_id": "fixture-iphone-cold",
+        "evidence_id": "iphone-model-load-recovery",
+        "reviewer_notes": "DUMMY fixture review for model_load_recovery; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "background_foreground_recovery",
+        "status": "passed",
+        "run_id": "fixture-iphone-cold",
+        "evidence_id": "iphone-background-foreground-recovery",
+        "reviewer_notes": "DUMMY fixture review for background_foreground_recovery; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "sustained_session",
+        "status": "passed",
+        "run_id": "fixture-iphone-warm",
+        "evidence_id": "iphone-sustained-session",
+        "reviewer_notes": "DUMMY fixture review for sustained_session; not physical evidence.",
+        "measurements": {
+          "duration_seconds": 300,
+          "leaks": 0,
+          "hangs": 0,
+          "context_loss_crashes": 0
+        }
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "keyboard_traversal",
+        "status": "passed",
+        "run_id": "fixture-iphone-warm",
+        "evidence_id": "iphone-keyboard-traversal",
+        "reviewer_notes": "DUMMY fixture review for keyboard_traversal; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "screen_reader",
+        "status": "passed",
+        "run_id": "fixture-iphone-warm",
+        "evidence_id": "iphone-screen-reader",
+        "reviewer_notes": "DUMMY fixture review for screen_reader; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "reduced_motion",
+        "status": "passed",
+        "run_id": "fixture-iphone-warm",
+        "evidence_id": "iphone-reduced-motion",
+        "reviewer_notes": "DUMMY fixture review for reduced_motion; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "wake_lock",
+        "status": "passed",
+        "run_id": "fixture-iphone-warm",
+        "evidence_id": "iphone-wake-lock",
+        "reviewer_notes": "DUMMY fixture review for wake_lock; not physical evidence."
+      },
+      {
+        "device_class": "iphone_safari",
+        "row_id": "workout_audio",
+        "status": "not_applicable",
+        "run_id": "fixture-iphone-warm",
+        "evidence_id": "iphone-workout-audio",
+        "reviewer_notes": "DUMMY fixture review for workout_audio; not physical evidence.",
+        "applicability_proof": {
+          "kind": "release_configuration_disabled",
+          "evidence_id": "iphone-workout-audio",
+          "configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+          "configuration_field": "workout_surface_enabled",
+          "configuration_value": false
+        }
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "portrait_landscape",
+        "status": "passed",
+        "run_id": "fixture-android-cold",
+        "evidence_id": "android-portrait-landscape",
+        "reviewer_notes": "DUMMY fixture review for portrait_landscape; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "camera_permission_recovery",
+        "status": "passed",
+        "run_id": "fixture-android-cold",
+        "evidence_id": "android-camera-permission-recovery",
+        "reviewer_notes": "DUMMY fixture review for camera_permission_recovery; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "no_person_block",
+        "status": "passed",
+        "run_id": "fixture-android-cold",
+        "evidence_id": "android-no-person-block",
+        "reviewer_notes": "DUMMY fixture review for no_person_block; not physical evidence.",
+        "measurements": {
+          "accepted_photos": 0
+        }
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "multiple_person_block",
+        "status": "passed",
+        "run_id": "fixture-android-cold",
+        "evidence_id": "android-multiple-person-block",
+        "reviewer_notes": "DUMMY fixture review for multiple_person_block; not physical evidence.",
+        "measurements": {
+          "accepted_photos": 0
+        }
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "model_load_recovery",
+        "status": "passed",
+        "run_id": "fixture-android-cold",
+        "evidence_id": "android-model-load-recovery",
+        "reviewer_notes": "DUMMY fixture review for model_load_recovery; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "background_foreground_recovery",
+        "status": "passed",
+        "run_id": "fixture-android-cold",
+        "evidence_id": "android-background-foreground-recovery",
+        "reviewer_notes": "DUMMY fixture review for background_foreground_recovery; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "sustained_session",
+        "status": "passed",
+        "run_id": "fixture-android-warm",
+        "evidence_id": "android-sustained-session",
+        "reviewer_notes": "DUMMY fixture review for sustained_session; not physical evidence.",
+        "measurements": {
+          "duration_seconds": 300,
+          "leaks": 0,
+          "hangs": 0,
+          "context_loss_crashes": 0
+        }
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "keyboard_traversal",
+        "status": "passed",
+        "run_id": "fixture-android-warm",
+        "evidence_id": "android-keyboard-traversal",
+        "reviewer_notes": "DUMMY fixture review for keyboard_traversal; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "screen_reader",
+        "status": "passed",
+        "run_id": "fixture-android-warm",
+        "evidence_id": "android-screen-reader",
+        "reviewer_notes": "DUMMY fixture review for screen_reader; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "reduced_motion",
+        "status": "passed",
+        "run_id": "fixture-android-warm",
+        "evidence_id": "android-reduced-motion",
+        "reviewer_notes": "DUMMY fixture review for reduced_motion; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "wake_lock",
+        "status": "passed",
+        "run_id": "fixture-android-warm",
+        "evidence_id": "android-wake-lock",
+        "reviewer_notes": "DUMMY fixture review for wake_lock; not physical evidence."
+      },
+      {
+        "device_class": "android_chrome",
+        "row_id": "workout_audio",
+        "status": "not_applicable",
+        "run_id": "fixture-android-warm",
+        "evidence_id": "android-workout-audio",
+        "reviewer_notes": "DUMMY fixture review for workout_audio; not physical evidence.",
+        "applicability_proof": {
+          "kind": "release_configuration_disabled",
+          "evidence_id": "android-workout-audio",
+          "configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+          "configuration_field": "workout_surface_enabled",
+          "configuration_value": false
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "android-background-foreground-recovery",
+        "relative_path": "android-background-foreground-recovery.txt",
+        "media_type": "text/plain",
+        "byte_length": 113,
+        "sha256": "684c91d0d6ca21ffce0abf01f6f98879ee46ce45c7cde0e4fe3e62619dfd68d4",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "background_foreground_recovery"
+      },
+      {
+        "evidence_id": "android-camera-permission-recovery",
+        "relative_path": "android-camera-permission-recovery.txt",
+        "media_type": "text/plain",
+        "byte_length": 109,
+        "sha256": "7c6131a689e533a5ae6766d4f8f9b3057b5d631499bf1dbd3f62763b5fbee82d",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "camera_permission_recovery"
+      },
+      {
+        "evidence_id": "android-cold-core",
+        "relative_path": "android-cold-core.txt",
+        "media_type": "text/plain",
+        "byte_length": 92,
+        "sha256": "a6aec36494faeefd92e80e76e25195a78bc0421de8370faa316a9a961f2d80ea",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "core_journey_recording"
+      },
+      {
+        "evidence_id": "android-identity",
+        "relative_path": "android-identity.txt",
+        "media_type": "application/json",
+        "byte_length": 259,
+        "sha256": "fa272cf32f7397e563fd70e21bf0e4d1a96dde0623a942bfc5e64964657610f9",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "device_identity"
+      },
+      {
+        "evidence_id": "android-keyboard-traversal",
+        "relative_path": "android-keyboard-traversal.txt",
+        "media_type": "text/plain",
+        "byte_length": 101,
+        "sha256": "65f23487f4d47bb4e889eca00e70bdf6b99effacf0f8417d83ae64dfc10b3b7e",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "keyboard_traversal"
+      },
+      {
+        "evidence_id": "android-model-load-recovery",
+        "relative_path": "android-model-load-recovery.txt",
+        "media_type": "text/plain",
+        "byte_length": 102,
+        "sha256": "35e155940e66678e4ba42453ef214dc9f51fd15d64476929c854728c9087863d",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "model_load_recovery"
+      },
+      {
+        "evidence_id": "android-multiple-person-block",
+        "relative_path": "android-multiple-person-block.txt",
+        "media_type": "text/plain",
+        "byte_length": 104,
+        "sha256": "f0f14dbba5d2a9efb418cee6f5c1d31cbbba1c7f0f8c675067f3ec90b9d91496",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "multiple_person_block"
+      },
+      {
+        "evidence_id": "android-no-person-block",
+        "relative_path": "android-no-person-block.txt",
+        "media_type": "text/plain",
+        "byte_length": 98,
+        "sha256": "84a10742a9090140cbd28c31c17a4bdaa118ffa823160f39cb446c0388d13d4d",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "no_person_block"
+      },
+      {
+        "evidence_id": "android-portrait-landscape",
+        "relative_path": "android-portrait-landscape.txt",
+        "media_type": "text/plain",
+        "byte_length": 101,
+        "sha256": "c58869bf062e17637f693c01c14515d7e151500bbabf427d9cbd714d1d8eac7b",
+        "captured_at": "2026-07-21T12:01:00.000Z",
+        "source_run_id": "fixture-android-cold",
+        "source_row": "portrait_landscape"
+      },
+      {
+        "evidence_id": "android-reduced-motion",
+        "relative_path": "android-reduced-motion.txt",
+        "media_type": "text/plain",
+        "byte_length": 97,
+        "sha256": "fa2b7fe3c26bca2f1e05dc25adf22009e9cd63ae9a0ebedb9640942b384601c2",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "reduced_motion"
+      },
+      {
+        "evidence_id": "android-screen-reader",
+        "relative_path": "android-screen-reader.txt",
+        "media_type": "text/plain",
+        "byte_length": 96,
+        "sha256": "420ebd778aa607883da8e6a326e238184d2e83c110c4f072d1b980730a8a68bd",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "screen_reader"
+      },
+      {
+        "evidence_id": "android-sustained-session",
+        "relative_path": "android-sustained-session.txt",
+        "media_type": "text/plain",
+        "byte_length": 100,
+        "sha256": "5fbd1655108246504cdc07d86ca0afb071f0773fb3985c96dde6577c727d817b",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "sustained_session"
+      },
+      {
+        "evidence_id": "android-wake-lock",
+        "relative_path": "android-wake-lock.txt",
+        "media_type": "text/plain",
+        "byte_length": 92,
+        "sha256": "96ad58618889046223dd1661a1417c10d3c0a8e4390540055bc621b3bb1481c2",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "wake_lock"
+      },
+      {
+        "evidence_id": "android-warm-core",
+        "relative_path": "android-warm-core.txt",
+        "media_type": "text/plain",
+        "byte_length": 92,
+        "sha256": "4a704a69e3b1ddb7a25f1ae53b371d682fbe541e4c6a52b3507beb3d1156ec27",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "core_journey_recording"
+      },
+      {
+        "evidence_id": "android-workout-audio",
+        "relative_path": "android-workout-audio.txt",
+        "media_type": "application/json",
+        "byte_length": 230,
+        "sha256": "5950cd4797c4a6a979836e2c4d89ed0c47ee6bd4d493b9956182983c3b543c54",
+        "captured_at": "2026-07-21T13:01:00.000Z",
+        "source_run_id": "fixture-android-warm",
+        "source_row": "workout_audio"
+      },
+      {
+        "evidence_id": "iphone-background-foreground-recovery",
+        "relative_path": "iphone-background-foreground-recovery.txt",
+        "media_type": "text/plain",
+        "byte_length": 112,
+        "sha256": "b354a34bba3ac4faca590fdc416b6336e4e6966f4c8df17f5d62f08d8c82989f",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "background_foreground_recovery"
+      },
+      {
+        "evidence_id": "iphone-camera-permission-recovery",
+        "relative_path": "iphone-camera-permission-recovery.txt",
+        "media_type": "text/plain",
+        "byte_length": 108,
+        "sha256": "8640b97c6df70f5e13ca0d34e5a7b08f0e727c39996063becd6d447967a81efb",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "camera_permission_recovery"
+      },
+      {
+        "evidence_id": "iphone-cold-core",
+        "relative_path": "iphone-cold-core.txt",
+        "media_type": "text/plain",
+        "byte_length": 91,
+        "sha256": "b7660db70ec6bd28eb20bf235f49742e11e2deb18dd12bc4005841c7206ce3bb",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "core_journey_recording"
+      },
+      {
+        "evidence_id": "iphone-identity",
+        "relative_path": "iphone-identity.txt",
+        "media_type": "application/json",
+        "byte_length": 245,
+        "sha256": "24357e282a6399f0c6cbef13dcdb33b0ea736dc432055207962e5c76d64b06fb",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "device_identity"
+      },
+      {
+        "evidence_id": "iphone-keyboard-traversal",
+        "relative_path": "iphone-keyboard-traversal.txt",
+        "media_type": "text/plain",
+        "byte_length": 100,
+        "sha256": "7c5c6cd8b9718c7430c759ea53a95df2b503e9bdb5b04159e176708a8ece8060",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "keyboard_traversal"
+      },
+      {
+        "evidence_id": "iphone-model-load-recovery",
+        "relative_path": "iphone-model-load-recovery.txt",
+        "media_type": "text/plain",
+        "byte_length": 101,
+        "sha256": "e73e32f3c29a066440d0f1cf1adf8b33bbffb62cfc662c5375bb64fb4a96e1b4",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "model_load_recovery"
+      },
+      {
+        "evidence_id": "iphone-multiple-person-block",
+        "relative_path": "iphone-multiple-person-block.txt",
+        "media_type": "text/plain",
+        "byte_length": 103,
+        "sha256": "336020445b802ede3daacddae6597ffdbd37aacf2b36ccac977733247595194a",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "multiple_person_block"
+      },
+      {
+        "evidence_id": "iphone-no-person-block",
+        "relative_path": "iphone-no-person-block.txt",
+        "media_type": "text/plain",
+        "byte_length": 97,
+        "sha256": "10ac896f36c61281bae6557f118332f0b41968805f8ae9657090f0742c8520ae",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "no_person_block"
+      },
+      {
+        "evidence_id": "iphone-portrait-landscape",
+        "relative_path": "iphone-portrait-landscape.txt",
+        "media_type": "text/plain",
+        "byte_length": 100,
+        "sha256": "00479e934b6f78e68024b094e0e228e82cb66ef6dd9b175c60b2db9b23d872ae",
+        "captured_at": "2026-07-21T10:01:00.000Z",
+        "source_run_id": "fixture-iphone-cold",
+        "source_row": "portrait_landscape"
+      },
+      {
+        "evidence_id": "iphone-reduced-motion",
+        "relative_path": "iphone-reduced-motion.txt",
+        "media_type": "text/plain",
+        "byte_length": 96,
+        "sha256": "14812ba8e6db868b4b80815faf5980b3bd95768f06687aff8cfd90e15d8feb37",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "reduced_motion"
+      },
+      {
+        "evidence_id": "iphone-screen-reader",
+        "relative_path": "iphone-screen-reader.txt",
+        "media_type": "text/plain",
+        "byte_length": 95,
+        "sha256": "acd087455dd77e03cec8eb39e015c117369a0b6ac2c704fe1d4e191bd5164874",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "screen_reader"
+      },
+      {
+        "evidence_id": "iphone-sustained-session",
+        "relative_path": "iphone-sustained-session.txt",
+        "media_type": "text/plain",
+        "byte_length": 99,
+        "sha256": "a51b469c78624530ec3e2946d4eb042dfc7dd032d7640d977da78d25fa8fe210",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "sustained_session"
+      },
+      {
+        "evidence_id": "iphone-wake-lock",
+        "relative_path": "iphone-wake-lock.txt",
+        "media_type": "text/plain",
+        "byte_length": 91,
+        "sha256": "384eaa7b064f1bf1a25abcb3b8fb14a083e0b137fcba0b4629900c95f61918b8",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "wake_lock"
+      },
+      {
+        "evidence_id": "iphone-warm-core",
+        "relative_path": "iphone-warm-core.txt",
+        "media_type": "text/plain",
+        "byte_length": 91,
+        "sha256": "f8d88b93537e8b24dc40f9497c049c11e1b9e050cfaf3944f08c41dc0359ef64",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "core_journey_recording"
+      },
+      {
+        "evidence_id": "iphone-workout-audio",
+        "relative_path": "iphone-workout-audio.txt",
+        "media_type": "application/json",
+        "byte_length": 228,
+        "sha256": "2d92b938d932432cc070169112c9dab68e38ff1d92f0417fe68b4a2bd2f3faa3",
+        "captured_at": "2026-07-21T11:01:00.000Z",
+        "source_run_id": "fixture-iphone-warm",
+        "source_row": "workout_audio"
+      }
+    ]
+  },
+  "independent_review": {
+    "receipt": {
+      "review_id": "fixture-independent-review-v1",
+      "task_id": "HG-04",
+      "reviewer_id": "fixture-independent-reviewer",
+      "operator_id": "fixture-operator",
+      "packet_sha256": "9aed7158f6165a3b49512366f3128bcc6a477ada2c8ce68b2a115b398efb5e70",
+      "contract_sha256": "a4b720cd81e31139e8f78782b0b2ba189692ec21e634e2ad7c966cdf786c1ee9",
+      "commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
+      "configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+      "sampled_artifact_sha256": [
+        "b7660db70ec6bd28eb20bf235f49742e11e2deb18dd12bc4005841c7206ce3bb",
+        "f8d88b93537e8b24dc40f9497c049c11e1b9e050cfaf3944f08c41dc0359ef64",
+        "a6aec36494faeefd92e80e76e25195a78bc0421de8370faa316a9a961f2d80ea",
+        "4a704a69e3b1ddb7a25f1ae53b371d682fbe541e4c6a52b3507beb3d1156ec27",
+        "24357e282a6399f0c6cbef13dcdb33b0ea736dc432055207962e5c76d64b06fb",
+        "fa272cf32f7397e563fd70e21bf0e4d1a96dde0623a942bfc5e64964657610f9",
+        "2d92b938d932432cc070169112c9dab68e38ff1d92f0417fe68b4a2bd2f3faa3",
+        "5950cd4797c4a6a979836e2c4d89ed0c47ee6bd4d493b9956182983c3b543c54",
+        "7c5c6cd8b9718c7430c759ea53a95df2b503e9bdb5b04159e176708a8ece8060",
+        "00479e934b6f78e68024b094e0e228e82cb66ef6dd9b175c60b2db9b23d872ae",
+        "acd087455dd77e03cec8eb39e015c117369a0b6ac2c704fe1d4e191bd5164874",
+        "a51b469c78624530ec3e2946d4eb042dfc7dd032d7640d977da78d25fa8fe210",
+        "384eaa7b064f1bf1a25abcb3b8fb14a083e0b137fcba0b4629900c95f61918b8",
+        "7c6131a689e533a5ae6766d4f8f9b3057b5d631499bf1dbd3f62763b5fbee82d",
+        "65f23487f4d47bb4e889eca00e70bdf6b99effacf0f8417d83ae64dfc10b3b7e",
+        "35e155940e66678e4ba42453ef214dc9f51fd15d64476929c854728c9087863d",
+        "f0f14dbba5d2a9efb418cee6f5c1d31cbbba1c7f0f8c675067f3ec90b9d91496",
+        "84a10742a9090140cbd28c31c17a4bdaa118ffa823160f39cb446c0388d13d4d",
+        "c58869bf062e17637f693c01c14515d7e151500bbabf427d9cbd714d1d8eac7b",
+        "5fbd1655108246504cdc07d86ca0afb071f0773fb3985c96dde6577c727d817b",
+        "96ad58618889046223dd1661a1417c10d3c0a8e4390540055bc621b3bb1481c2"
+      ],
+      "sampled_core_run_ids": [
+        "fixture-iphone-cold",
+        "fixture-iphone-warm",
+        "fixture-android-cold",
+        "fixture-android-warm"
+      ],
+      "sampled_device_classes": [
+        "iphone_safari",
+        "android_chrome"
+      ],
+      "sampled_exclusion_keys": [
+        "iphone_safari:workout_audio",
+        "android_chrome:workout_audio"
+      ],
+      "sampled_remaining_row_keys": [
+        "iphone_safari:keyboard_traversal",
+        "iphone_safari:portrait_landscape",
+        "iphone_safari:screen_reader",
+        "iphone_safari:sustained_session",
+        "iphone_safari:wake_lock",
+        "android_chrome:camera_permission_recovery",
+        "android_chrome:keyboard_traversal",
+        "android_chrome:model_load_recovery",
+        "android_chrome:multiple_person_block",
+        "android_chrome:no_person_block",
+        "android_chrome:portrait_landscape",
+        "android_chrome:sustained_session",
+        "android_chrome:wake_lock"
+      ],
+      "reviewed_at": "2026-07-21T15:00:00.000Z",
+      "verdict": "PASS"
+    },
+    "signature": {
+      "algorithm": "Ed25519",
+      "key_class": "test",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEANAyI2kH8x+uDZslyEZGgJy7Mh5NenF4ThAG9xUpBc2s=\n-----END PUBLIC KEY-----\n",
+      "public_key_fingerprint": "a0f63724f4794be0328c233e08def729b9ff004a8daf2e4597e5d6a1939b36fc",
+      "value_base64": "dZ8Bovwz7st37KN1VYI2noStco+fERWl/CYMTll+/tlehLC3wJnl8IN4vgJRfCwVdMoHaHeNBuAPO5bfrgkpBg=="
+    }
+  }
+}

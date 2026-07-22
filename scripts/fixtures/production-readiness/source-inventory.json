@@ -11,12 +11,12 @@
   },
   "source_contracts": [
     {
-      "id": "posture-ai-production-readiness-audit-2026-07-19",
+      "id": "posture-ai-production-readiness-audit-2026-07-21-pr08",
       "path": "docs/qa/AUDIT.md",
       "anchor": "production-readiness-re-audit--2026-07-19",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "a81cf8b49310ce1587ca3e7ec12d99534327927cac6cec31e0238f683c971757"
+      "sha256": "def3e5db1d28602de8785e53ee6f920d6a93c7fde83e1d6cb131a141278846df"
     },
     {
       "id": "posture-ai-production-readiness-spec-v1",
@@ -44,11 +44,11 @@
   ],
   "runtime_source_contracts": [
     {
-      "id": "posture-ai-playwright-config-2026-07-19-pr03",
+      "id": "posture-ai-playwright-config-2026-07-21-pr08",
       "path": "playwright.config.ts",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "0db125faece171a9ffb0fbce7688a896ae2e8a0c1dd97c11dfb2b3d852e3317e"
+      "sha256": "b38a92ca21d638ed504b1d7f2ca1ae09a92166c142236a1304538f973abd4492"
     },
     {
       "id": "posture-ai-e2e-runner-2026-07-19-pr04",
@@ -56,6 +56,41 @@
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
       "sha256": "2052852de4eb6dcbbfe0c141843d33fc3e3efdf9e41650ffedb6e737265085eb"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-device-release-contract-2026-07-21-pr08",
+      "path": "docs/qa/device-release-contract.json",
+      "sha256": "a4b720cd81e31139e8f78782b0b2ba189692ec21e634e2ad7c966cdf786c1ee9"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-playwright-receipt-reporter-2026-07-21-pr08",
+      "path": "scripts/playwright-receipt-reporter.mjs",
+      "sha256": "af9a1aacec4f97189ce8540f2279a79415a66e4cedd700d165dd1b4940a8f25a"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-playwright-receipt-sanitizer-2026-07-21-pr08",
+      "path": "scripts/playwright-receipt-sanitize.cjs",
+      "sha256": "ce311e2d0013af07b3832b41413b5da5fddbc67627cf18109686300d108765e4"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-device-evidence-validator-2026-07-21-pr08",
+      "path": "scripts/check-device-evidence.mjs",
+      "sha256": "f55146e786bbf3878d89322290bfd54692e602744baa60ddd681889f45d196e6"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-device-evidence-schema-2026-07-21-pr08",
+      "path": "docs/qa/device-evidence.schema.json",
+      "sha256": "751ca882dece175f687a4b04e5f6bb8e9c1dd51ec014c158868e077c135c2734"
     }
   ],
   "source_identity_contract": {
@@ -1252,6 +1287,7 @@
   "pr17_required_commands": [
     "npm run lint",
     "npm run typecheck",
+    "npm run readiness:inventory",
     "npx vitest run",
     "npm test -w @posture-ai/engine",
     "npm run golden",
@@ -1281,23 +1317,26 @@
       "setup",
       "desktop-chromium",
       "mobile-webkit",
+      "android-chromium-proxy",
       "calibration"
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 70,
-      "mobile-webkit": 61,
+      "desktop-chromium": 76,
+      "mobile-webkit": 68,
+      "android-chromium-proxy": 11,
       "calibration": 1
     },
-    "expected_total": 133,
-    "expected_files": 29,
-    "test_ids_sha256": "459da5638f897da35a4cda7eecf7680548f07e66cc09c60364c514e483de1581"
+    "expected_total": 157,
+    "expected_files": 32,
+    "test_ids_sha256": "702d1ab601125d089be3f7066d9dac8e04e7451e975f7059b700d294f80ddbc7"
   },
-  "inventory_hash": "f4942c999d5d55a51f95259805b5694b0adf02eed14a866bf90b2e5d03772952",
+  "inventory_hash": "70e76a248a293186ef494a025f5b7079c99190306c367640078a8f1c7534624f",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
       "npm run typecheck",
+      "npm run readiness:inventory",
       "npx vitest run",
       "npm test -w @posture-ai/engine",
       "npm run golden",
@@ -1419,7 +1458,7 @@
       "retry_results"
     ],
     "required_evidence_values": {
-      "inventory_id": "playwright-production-readiness-2026-07-20-v3",
+      "inventory_id": "playwright-production-readiness-2026-07-21-v4",
       "report_format": "playwright-json-report",
       "status": "passed"
     },
@@ -1443,7 +1482,10 @@
       "completed_at",
       "tests",
       "observed_skips",
-      "retry_results"
+      "retry_results",
+      "skip_validation_failures",
+      "a11y_receipt_failures",
+      "axe_receipt_validation"
     ],
     "binding_rules": {
       "command": "ci_contract.engineering_e2e_only",
@@ -1454,7 +1496,10 @@
       "project_order": "e2e.project_order",
       "projects": "e2e.projects",
       "expected_total": "e2e.expected_total",
-      "expected_files": "e2e.expected_files"
+      "expected_files": "e2e.expected_files",
+      "skip_validation_failures": "must be an empty array",
+      "a11y_receipt_failures": "must be an empty array",
+      "axe_receipt_validation": "must exactly match the targets derived from e2e.axe_receipts and the passed tests in this report"
     },
     "unapproved_skips_allowed": false,
     "undisposed_retries_allowed": false,
@@ -1706,5 +1751,703 @@
       "applicability": "applicable",
       "applicability_reason": "Explicit product-owner production promotion approval is the final launch gate."
     }
-  ]
+  ],
+  "pr08_configuration_delta_contract": {
+    "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
+    "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
+    "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+    "new_configuration_hash": "30758a994eea53e9574ad592a81e009885108e87d01c7016d3c8fbd77514435c",
+    "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+    "new_projection_sha256": "30758a994eea53e9574ad592a81e009885108e87d01c7016d3c8fbd77514435c",
+    "changed_covered_fields": [
+      "ci_contract.global_commands",
+      "e2e.approved_skips",
+      "e2e.expected_files",
+      "e2e.expected_total",
+      "e2e.inventory_hash",
+      "e2e.inventory_id",
+      "e2e.project_order",
+      "e2e.projects",
+      "executed_playwright_report_contract.binding_rules.a11y_receipt_failures",
+      "executed_playwright_report_contract.binding_rules.axe_receipt_validation",
+      "executed_playwright_report_contract.binding_rules.skip_validation_failures",
+      "executed_playwright_report_contract.report_content_required_fields",
+      "executed_playwright_report_contract.required_evidence_values.inventory_id"
+    ],
+    "changes_sha256": "7ce242ba352a138cc4adf578c126dc37927e5a3d87649114d49a0aaca8f4fae9",
+    "changes": [
+      {
+        "path": "ci_contract.global_commands",
+        "old_value": [
+          "npm run lint",
+          "npm run typecheck",
+          "npx vitest run",
+          "npm test -w @posture-ai/engine",
+          "npm run golden",
+          "npm run calibrate:check",
+          "npm run voice:verify",
+          "npm run build",
+          "CI=1 npm run test:e2e",
+          "git diff --check"
+        ],
+        "new_value": [
+          "npm run lint",
+          "npm run typecheck",
+          "npm run readiness:inventory",
+          "npx vitest run",
+          "npm test -w @posture-ai/engine",
+          "npm run golden",
+          "npm run calibrate:check",
+          "npm run voice:verify",
+          "npm run build",
+          "CI=1 npm run test:e2e",
+          "git diff --check"
+        ]
+      },
+      {
+        "path": "e2e.approved_skips",
+        "old_value": [
+          {
+            "key": "skip:a11y:mobile-webkit",
+            "source": "e2e/a11y.spec.ts::test.skip(browserName !== chromium)",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Axe budget runs once in Chromium.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:consent-age-api:mobile-webkit",
+            "source": "e2e/consent-age.spec.ts::capture consent + age gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level consent matrix runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:deletion:mobile-webkit",
+            "source": "e2e/deletion.spec.ts::client data deletion project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level deletion gate runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:privacy-lifecycle:desktop-chromium",
+            "source": "e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "reason": "Phone lifecycle walkthrough runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:error-states:mobile-webkit",
+            "source": "e2e/error-states.spec.ts::error states project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Mocked error-state suite runs once in Chromium.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:gate-integrity:mobile-webkit",
+            "source": "e2e/gate-integrity.spec.ts::gate integrity project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Security regression suite runs once in Chromium.",
+            "owner": "PR-13",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:report-approval:mobile-webkit",
+            "source": "e2e/report-approval.spec.ts::report approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level report gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-mint:mobile-webkit",
+            "source": "e2e/workout-mint.spec.ts::workout mint approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level workout gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-player:mobile-webkit",
+            "source": "e2e/workout-player.spec.ts::red-flag pre-session screen project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:real-detection:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/real-detection.spec.ts"
+            },
+            "reason": "MediaPipe model test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-errors:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-errors.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-errors.spec.ts"
+            },
+            "reason": "Camera/model error test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-camera:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-camera.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-camera.spec.ts"
+            },
+            "reason": "Camera test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-model-readiness:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-model-readiness.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-model-readiness.spec.ts"
+            },
+            "reason": "MediaPipe lifecycle and delegate-recovery test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:desktop-chromium",
+            "source": "playwright.config.ts::desktop-chromium.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "desktop-chromium",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "reason": "Calibration has its own project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "reason": "Calibration has its own Chromium project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:onboarding-acked-fixture:desktop-chromium",
+            "source": "e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "shared practitioner already acknowledged"
+            },
+            "reason": "A fresh unacknowledged fixture is unavailable; source-level behavior remains separately reviewed.",
+            "owner": "PR-04",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:desktop-ci",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "CI=true production build"
+            },
+            "reason": "The developer-only route intentionally returns 404 in production builds.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:mobile-webkit",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:consent-recovery:desktop-chromium",
+            "source": "e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "reason": "Phone recovery flow runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:pixel-calibration:bare-calibration-project",
+            "source": "e2e/pixel-calibration.spec.ts::pixel-quality calibration",
+            "scope": {
+              "project": "calibration",
+              "condition": "CALIBRATION_CHECK and CALIBRATION_WRITE both absent"
+            },
+            "reason": "Calibration runs only via npm run calibrate or npm run calibrate:check.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          }
+        ],
+        "new_value": [
+          {
+            "key": "skip:consent-age-api:mobile-webkit",
+            "source": "e2e/consent-age.spec.ts::capture consent + age gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › adult with consent can be assessed",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › under-13 is blocked even with consent",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › minor 13–17 with only self consent is blocked (guardian required)",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › minor 13–17 with guardian consent is allowed",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › a client without consent (remote pending) is blocked",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › remote consent link records consent (single-use) and unlocks capture"
+            ],
+            "reason": "API-level consent matrix runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:deletion:mobile-webkit",
+            "source": "e2e/deletion.spec.ts::client data deletion project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/deletion.spec.ts::client data deletion › deleting a client purges assessments and removes it from the list"
+            ],
+            "reason": "API-level deletion gate runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:privacy-lifecycle:desktop-chromium",
+            "source": "e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA › grant → use → rotate/revoke → withdraw, then erase → minimized tombstone"
+            ],
+            "reason": "Phone lifecycle walkthrough runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:error-states:mobile-webkit",
+            "source": "e2e/error-states.spec.ts::error states project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › client detail: assessments 500 shows alert not empty-state",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › archive failure: dialog stays interactive and shows error",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › wizard step 1: clients 500 shows error not empty-state",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › assessment results: prior assessments 500 shows aux error alert",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › report error has role=alert",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › settings: org fetch 500 shows error toast/alert"
+            ],
+            "reason": "Mocked error-state suite runs once in Chromium.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:gate-integrity:mobile-webkit",
+            "source": "e2e/gate-integrity.spec.ts::gate integrity project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › onboarding ack failure: stays on /onboarding when PATCH fails",
+              "mobile-webkit::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › password: wrong current password blocks updateUser call"
+            ],
+            "reason": "Security regression suite runs once in Chromium.",
+            "owner": "PR-13",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:report-approval:mobile-webkit",
+            "source": "e2e/report-approval.spec.ts::report approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › export is blocked until the practitioner approves",
+              "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › a comparison report cannot mix two DIFFERENT clients (PHI boundary)",
+              "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › a cross-version client comparison is flagged not-comparable"
+            ],
+            "reason": "API-level report gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-mint:mobile-webkit",
+            "source": "e2e/workout-mint.spec.ts::workout mint approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › minting a session is blocked until the practitioner approves",
+              "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › the public token route returns a uniform 404 for an unknown share token",
+              "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › a minted share token resolves to a redacted projection (no internal ids)"
+            ],
+            "reason": "API-level workout gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-player:mobile-webkit",
+            "source": "e2e/workout-player.spec.ts::red-flag pre-session screen project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 1: red-flag question renders before player controls, \"No, I feel okay\" unblocks begin, session starts",
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 2: \"Yes\" shows the stop card and no player timeline appears",
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 3: resuming a session with prior progress re-asks the red-flag question before playback",
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters"
+            ],
+            "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:real-detection:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/real-detection.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/real-detection.spec.ts::real pose detection through the wizard › upload all four required photos, detect landmarks, score assessment"
+            ],
+            "reason": "MediaPipe model test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-errors:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-errors.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-errors.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › camera permission denial exposes fallback and Try Again recovers without reload",
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › camera works without orientation sensors: no gate, no indicator",
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › uploading a non-person image shows no-person state and blocks submit",
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › uploading a blurry photo shows a quality warning and does not block submit"
+            ],
+            "reason": "Camera/model error test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-camera:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-camera.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-camera.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/capture-camera.spec.ts::full-screen camera capture › shutter, review, auto-advance, self-timer and retake work",
+              "mobile-webkit::e2e/capture-camera.spec.ts::full-screen camera capture › capturing all four views via the camera scores an assessment"
+            ],
+            "reason": "Camera test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-model-readiness:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-model-readiness.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-model-readiness.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/capture-model-readiness.spec.ts::capture model readiness and recovery › throttled cold assets expose lifecycle, then a warm check stays ready",
+              "mobile-webkit::e2e/capture-model-readiness.spec.ts::capture model readiness and recovery › both delegate startup failures recover through Retry Model without reload"
+            ],
+            "reason": "MediaPipe lifecycle and delegate-recovery test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:desktop-chromium",
+            "source": "playwright.config.ts::desktop-chromium.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "desktop-chromium",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+            ],
+            "reason": "Calibration has its own project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:device-recovery-real-model:desktop-chromium",
+            "source": "playwright.config.ts::desktop-chromium.testIgnore(device-recovery-real-model.webkit.spec.ts)",
+            "scope": {
+              "project": "desktop-chromium",
+              "spec": "e2e/device-recovery-real-model.webkit.spec.ts"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/device-recovery-real-model.webkit.spec.ts::WebKit real-model capture hard blocks › blocks analysis when a generated upload contains two people"
+            ],
+            "reason": "The full multi-pose model exceeds the product's fixed 10-second fail-closed deadline on this Chromium runner; the real-model hard-block case is assigned to WebKit while lifecycle recovery remains cross-engine.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+            ],
+            "reason": "Calibration has its own Chromium project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:onboarding-acked-fixture:desktop-chromium",
+            "source": "e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "shared practitioner already acknowledged"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › onboarding ack failure: stays on /onboarding when PATCH fails"
+            ],
+            "reason": "A fresh unacknowledged fixture is unavailable; source-level behavior remains separately reviewed.",
+            "owner": "PR-04",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:desktop-ci",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "CI=true production build"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+            ],
+            "reason": "The developer-only route intentionally returns 404 in production builds.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:mobile-webkit",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+            ],
+            "reason": "WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:consent-recovery:desktop-chromium",
+            "source": "e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/consent-age.spec.ts::wizard consent recovery › repairs a legacy consent timestamp and continues with the selected client"
+            ],
+            "reason": "Phone recovery flow runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:pixel-calibration:bare-calibration-project",
+            "source": "e2e/pixel-calibration.spec.ts::pixel-quality calibration",
+            "scope": {
+              "project": "calibration",
+              "condition": "CALIBRATION_CHECK and CALIBRATION_WRITE both absent"
+            },
+            "test_ids": [
+              "calibration::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+            ],
+            "reason": "Calibration runs only via npm run calibrate or npm run calibrate:check.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          }
+        ]
+      },
+      {
+        "path": "e2e.expected_files",
+        "old_value": 29,
+        "new_value": 32
+      },
+      {
+        "path": "e2e.expected_total",
+        "old_value": 133,
+        "new_value": 157
+      },
+      {
+        "path": "e2e.inventory_hash",
+        "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
+        "new_value": "0f35acb6be139c153d6f234d8a7dbb7d3d926234ea680ae394b0d7ed203847e7"
+      },
+      {
+        "path": "e2e.inventory_id",
+        "old_value": "playwright-production-readiness-2026-07-20-v3",
+        "new_value": "playwright-production-readiness-2026-07-21-v4"
+      },
+      {
+        "path": "e2e.project_order",
+        "old_value": [
+          "setup",
+          "desktop-chromium",
+          "mobile-webkit",
+          "calibration"
+        ],
+        "new_value": [
+          "setup",
+          "desktop-chromium",
+          "mobile-webkit",
+          "android-chromium-proxy",
+          "calibration"
+        ]
+      },
+      {
+        "path": "e2e.projects",
+        "old_value": {
+          "setup": 1,
+          "desktop-chromium": 70,
+          "mobile-webkit": 61,
+          "calibration": 1
+        },
+        "new_value": {
+          "setup": 1,
+          "desktop-chromium": 76,
+          "mobile-webkit": 68,
+          "android-chromium-proxy": 11,
+          "calibration": 1
+        }
+      },
+      {
+        "path": "executed_playwright_report_contract.binding_rules.a11y_receipt_failures",
+        "old_value": null,
+        "new_value": "must be an empty array"
+      },
+      {
+        "path": "executed_playwright_report_contract.binding_rules.axe_receipt_validation",
+        "old_value": null,
+        "new_value": "must exactly match the targets derived from e2e.axe_receipts and the passed tests in this report"
+      },
+      {
+        "path": "executed_playwright_report_contract.binding_rules.skip_validation_failures",
+        "old_value": null,
+        "new_value": "must be an empty array"
+      },
+      {
+        "path": "executed_playwright_report_contract.report_content_required_fields",
+        "old_value": [
+          "format",
+          "command",
+          "commit",
+          "configuration_hash",
+          "inventory_id",
+          "inventory_hash",
+          "project_order",
+          "projects",
+          "expected_total",
+          "expected_files",
+          "status",
+          "started_at",
+          "completed_at",
+          "tests",
+          "observed_skips",
+          "retry_results"
+        ],
+        "new_value": [
+          "format",
+          "command",
+          "commit",
+          "configuration_hash",
+          "inventory_id",
+          "inventory_hash",
+          "project_order",
+          "projects",
+          "expected_total",
+          "expected_files",
+          "status",
+          "started_at",
+          "completed_at",
+          "tests",
+          "observed_skips",
+          "retry_results",
+          "skip_validation_failures",
+          "a11y_receipt_failures",
+          "axe_receipt_validation"
+        ]
+      },
+      {
+        "path": "executed_playwright_report_contract.required_evidence_values.inventory_id",
+        "old_value": "playwright-production-readiness-2026-07-20-v3",
+        "new_value": "playwright-production-readiness-2026-07-21-v4"
+      }
+    ]
+  }
 }

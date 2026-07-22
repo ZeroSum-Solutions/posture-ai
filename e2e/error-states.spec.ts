@@ -1,9 +1,19 @@
 import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 test.describe('error states (regression: silent-swallow fixes)', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:error-states:mobile-webkit',
+      source: 'e2e/error-states.spec.ts::error states project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'run once on chromium',
+  ))
 
   test('client detail: assessments 500 shows alert not empty-state', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrAssess-${randomUUID().slice(0, 8)}`)

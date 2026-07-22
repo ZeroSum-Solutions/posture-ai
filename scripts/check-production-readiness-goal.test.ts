@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, generateKeyPairSync, sign } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -30,6 +30,9 @@ const FAILURE_CASES = JSON.parse(readFileSync(join(FIXTURE_DIR, 'failure-cases.j
 const HEAD = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()
 const ANCESTOR_COMMIT = spawnSync('git', ['rev-parse', 'HEAD^'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()
 const PLAYWRIGHT_LIST = spawnSync('npx', ['playwright', 'test', '--list'], { cwd: ROOT, encoding: 'utf8' })
+const HG04_REVIEW_KEY = generateKeyPairSync('ed25519')
+const HG04_REVIEW_FINGERPRINT = createHash('sha256').update(HG04_REVIEW_KEY.publicKey.export({ type: 'spki', format: 'der' })).digest('hex')
+const REBOUND_TASKS = ['PR-00', 'PR-01', 'PR-02', 'PR-03', 'PR-04', 'PR-05', 'PR-06', 'PR-07']
 
 function clone<T>(value: T): T {
   return structuredClone(value)
@@ -59,7 +62,7 @@ function taskApplicability(task: JsonObject, boundary: JsonObject): 'applicable'
   return applies ? 'applicable' : task.applicability.default_state
 }
 
-function validInput({ freezeHuman = false } = {}): JsonObject {
+function validInput({ freezeHuman = false, includeHg04Evidence = true } = {}): JsonObject {
   const manifest = clone(MANIFEST)
   const artifacts: JsonObject = {}
   const ref = (path: string, explicitContent?: string, extra: JsonObject = {}) => {
@@ -142,8 +145,14 @@ function validInput({ freezeHuman = false } = {}): JsonObject {
     environment_variables: {
       NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT: false,
     },
+    hg04_approved_reviewer_public_key_fingerprints: [HG04_REVIEW_FINGERPRINT],
     receipt: ref('proof/HG-09/configuration.json'),
   }
+  replaceArtifactContent({ artifacts }, releaseEvidence.configuration.receipt, JSON.stringify({
+    commit,
+    configuration_hash: configHash,
+    hg04_approved_reviewer_public_key_fingerprints: [HG04_REVIEW_FINGERPRINT],
+  }))
   releaseEvidence.ci.commit = commit
   releaseEvidence.ci.receipt = ref('proof/PR-17/ci.json', JSON.stringify(releaseEvidence.ci))
   releaseEvidence.repository.head_sha = commit
@@ -227,6 +236,92 @@ function validInput({ freezeHuman = false } = {}): JsonObject {
     })),
   }
 
+  const hg04Proof = proofs['HG-04']
+  if (includeHg04Evidence && hg04Proof !== null && typeof hg04Proof === 'object' && !Array.isArray(hg04Proof)) {
+    const deviceContract = SOURCE_INVENTORY.runtime_source_contracts.find((row: JsonObject) => row.path === 'docs/qa/device-release-contract.json')
+    const deviceValidator = SOURCE_INVENTORY.runtime_source_contracts.find((row: JsonObject) => row.path === 'scripts/check-device-evidence.mjs')
+    const deviceSchema = SOURCE_INVENTORY.runtime_source_contracts.find((row: JsonObject) => row.path === 'docs/qa/device-evidence.schema.json')
+    const deterministicSamples = {
+      hashes: ['4'.repeat(64)],
+      fields: {
+        sampled_core_run_ids: ['iphone-cold', 'iphone-warm', 'android-cold', 'android-warm'],
+        sampled_device_classes: ['iphone_safari', 'android_chrome'],
+        sampled_exclusion_keys: ['iphone_safari:workout_audio', 'android_chrome:workout_audio'],
+        sampled_remaining_row_keys: ['iphone_safari:screen_reader', 'android_chrome:screen_reader'],
+      },
+    }
+    const validation = {
+      task_id: 'HG-04',
+      status: 'PASS',
+      commit,
+      configuration_hash: configHash,
+      contract_sha256: deviceContract?.sha256,
+      validator_sha256: deviceValidator?.sha256,
+      schema_sha256: deviceSchema?.sha256,
+      packet_sha256: '2'.repeat(64),
+      evidence_root_manifest_sha256: '3'.repeat(64),
+      packet_structurally_valid: true,
+      physical_packet_valid: true,
+      hg04_launch_eligible: false,
+      validator_is_necessary_not_sufficient: true,
+      reason_codes: [],
+      mode: 'physical',
+      fixture: false,
+      test_mode: false,
+      operator_id: 'device-operator',
+      approved_reviewer_public_key_fingerprints: [HG04_REVIEW_FINGERPRINT],
+      deterministic_samples: deterministicSamples,
+      collection_completed_at: '2026-07-19T23:00:00.000Z',
+    }
+    const review = {
+      task_id: 'HG-04',
+      verdict: 'PASS',
+      review_id: 'hg04-independent-review',
+      reviewer_id: 'independent-device-reviewer',
+      operator_id: validation.operator_id,
+      commit,
+      configuration_hash: configHash,
+      contract_sha256: validation.contract_sha256,
+      packet_sha256: validation.packet_sha256,
+      evidence_root_manifest_sha256: validation.evidence_root_manifest_sha256,
+      reviewed_at: '2026-07-19T23:10:00.000Z',
+      sampled_artifact_sha256: deterministicSamples.hashes,
+      ...deterministicSamples.fields,
+      coverage: {
+        all_four_core_recordings: true,
+        both_device_identity_artifacts: true,
+        every_exclusion: true,
+        deterministic_remaining_rows: true,
+      },
+    }
+    const reviewPacket = {
+      receipt: review,
+      signature: {
+        algorithm: 'Ed25519',
+        key_class: 'production',
+        public_key_pem: HG04_REVIEW_KEY.publicKey.export({ type: 'spki', format: 'pem' }),
+        public_key_fingerprint: HG04_REVIEW_FINGERPRINT,
+        value_base64: sign(null, Buffer.from(stableJson(review)), HG04_REVIEW_KEY.privateKey).toString('base64'),
+      },
+    }
+    const transition = {
+      task_id: 'HG-04',
+      human_owned: true,
+      from_status: 'frozen',
+      to_status: 'completed',
+      verified: true,
+      transitioned_by: 'release-owner',
+      transitioned_at: '2026-07-19T23:20:00.000Z',
+      commit,
+      configuration_hash: configHash,
+    }
+    hg04Proof.device_evidence = {
+      validator_receipt: ref('proof/HG-04/device-validation.json', JSON.stringify(validation)),
+      independent_review_receipt: ref('proof/HG-04/independent-sampling-review.json', JSON.stringify(reviewPacket)),
+      human_transition_receipt: ref('proof/HG-04/human-transition.json', JSON.stringify(transition)),
+    }
+  }
+
   const frozen = tasks.filter((task: JsonObject) => task.status === 'frozen').map((task: JsonObject) => ({
     ...SOURCE_INVENTORY.frozen_gate_contracts.find((contract: JsonObject) => contract.task_id === task.id),
   }))
@@ -307,6 +402,21 @@ function addArtifact(input: JsonObject, path: string, content: string): JsonObje
   return { path, sha256 }
 }
 
+function mutateExecutedPlaywrightReport(input: JsonObject, mutate: (report: JsonObject) => void): void {
+  const reference = input.state.release_evidence.e2e.report_receipt
+  const report = JSON.parse(input.artifacts[reference.path].content)
+  mutate(report)
+  replaceArtifactContent(input, reference, JSON.stringify(report))
+}
+
+function mutateSignedHg04Review(input: JsonObject, mutate: (receipt: JsonObject) => void): void {
+  const reference = input.state.proofs['HG-04'].device_evidence.independent_review_receipt
+  const packet = JSON.parse(input.artifacts[reference.path].content)
+  mutate(packet.receipt)
+  packet.signature.value_base64 = sign(null, Buffer.from(stableJson(packet.receipt)), HG04_REVIEW_KEY.privateKey).toString('base64')
+  replaceArtifactContent(input, reference, JSON.stringify(packet))
+}
+
 function setTaskCommit(input: JsonObject, taskId: string, commit: string): void {
   const task = input.state.tasks.find((row: JsonObject) => row.id === taskId)
   const proof = input.state.proofs[taskId]
@@ -360,8 +470,18 @@ function applyPr11NotApplicable(input: JsonObject, { consumerActive = false, inc
 function executedPlaywrightReport(input: JsonObject): JsonObject {
   const rows = String(PLAYWRIGHT_LIST.stdout).split(/\r?\n/).flatMap(line => {
     const match = line.match(/^\s+\[([^\]]+)\] › (.+?):\d+:\d+ › (.+)$/)
-    return match ? [{ project: match[1], file: match[2], title: match[3] }] : []
+    return match ? [{ project: match[1], file: match[2].includes('/') ? match[2] : `e2e/${match[2]}`, title: match[3] }] : []
   })
+  const expectedAxeTargets = input.manifest.e2e.axe_receipts.projects.flatMap((project: string) => (
+    input.manifest.e2e.axe_receipts.scans.map((scan: JsonObject) => ({
+      project,
+      surface: scan.surface,
+      path: scan.path,
+      originating_test: { project, file: scan.originating_test.file, title: scan.originating_test.title },
+    }))
+  )).concat(input.manifest.e2e.axe_receipts.targets).sort((left: JsonObject, right: JsonObject) => (
+    stableJson(left).localeCompare(stableJson(right))
+  ))
   return {
     format: input.manifest.executed_playwright_report_contract.report_format,
     command: input.manifest.ci_contract.engineering_e2e_only,
@@ -379,6 +499,17 @@ function executedPlaywrightReport(input: JsonObject): JsonObject {
     tests: rows.map(row => ({ ...row, annotations: [], results: [{ retry: 0, status: 'passed' }] })),
     observed_skips: [],
     retry_results: [],
+    skip_validation_failures: [],
+    a11y_receipt_failures: [],
+    axe_receipt_validation: {
+      schema_version: input.manifest.e2e.axe_receipts.schema_version,
+      manifest_expected_total: input.manifest.e2e.axe_receipts.expected_total,
+      expected_run_total: expectedAxeTargets.length,
+      materialized_total: expectedAxeTargets.length,
+      expected_run_targets: expectedAxeTargets,
+      materialized_targets: expectedAxeTargets,
+      status: 'passed',
+    },
   }
 }
 
@@ -391,7 +522,7 @@ function stableJson(value: DynamicJson): string {
 function coordinatedE2eHash(e2e: JsonObject): string {
   const payload = Object.fromEntries([
     'inventory_id', 'source_config', 'source_runner', 'inventory_command', 'project_order', 'projects',
-    'expected_total', 'expected_files', 'execution', 'retry_policy', 'approved_skips', 'skip_policy',
+    'expected_total', 'expected_files', 'execution', 'retry_policy', 'axe_receipts', 'approved_skips', 'skip_policy',
   ].map(key => [key, e2e[key]]))
   return createHash('sha256').update(stableJson(payload)).digest('hex')
 }
@@ -404,6 +535,40 @@ function rebindConfigurationHash(input: JsonObject): void {
   input.state.release_evidence.configuration.actual_hash = hash
   input.state.release_evidence.rehearsal.configuration_hash = hash
   input.state.release_evidence.owner_approval.configuration_hash = hash
+}
+
+function applyConfigurationDeltaReview(input: JsonObject, oldConfigurationHash?: string): void {
+  const projection = input.sourceInventory.pr08_configuration_delta_contract
+  oldConfigurationHash ??= projection.old_configuration_hash
+  for (const taskId of REBOUND_TASKS) {
+    const reviewReference = input.state.proofs[taskId].review.receipt
+    const originalReview = JSON.parse(input.artifacts[reviewReference.path].content)
+    originalReview.configuration_hash = oldConfigurationHash
+    replaceArtifactContent(input, reviewReference, JSON.stringify(originalReview))
+  }
+  const receipt = {
+    id: 'PR-08-CONFIGURATION-DELTA-v1',
+    task_id: 'PR-08',
+    verdict: 'PASS',
+    reviewer: 'independent-configuration-delta-reviewer',
+    independent: true,
+    commit: input.state.commit,
+    projection_id: projection.id,
+    projection_receipt: addArtifact(input, 'proof/PR-08/configuration-delta-projection.json', JSON.stringify(projection)),
+    base_commit: projection.base_commit,
+    old_configuration_hash: oldConfigurationHash,
+    new_configuration_hash: input.manifest.configuration_hash,
+    old_projection_sha256: projection.old_projection_sha256,
+    new_projection_sha256: projection.new_projection_sha256,
+    changes_sha256: projection.changes_sha256,
+    affected_tasks: REBOUND_TASKS,
+    rebound_tasks: REBOUND_TASKS,
+    changed_covered_fields: projection.changed_covered_fields,
+    prior_acceptance_semantics_unchanged: true,
+    hg04_stays_frozen: true,
+  }
+  const reference = addArtifact(input, 'proof/PR-08/configuration-delta-review.json', JSON.stringify(receipt))
+  for (const taskId of REBOUND_TASKS) input.state.proofs[taskId].configuration_delta_review = { ...receipt, receipt: reference }
 }
 
 function materializeArtifacts(input: JsonObject) {
@@ -490,8 +655,9 @@ describe('production readiness goal checker', () => {
     const acceptedObserved = { key: skip.key, source: skip.source, scope: clone(skip.scope) }
     const acceptedReportRef = accepted.state.release_evidence.e2e.report_receipt
     const acceptedReport = JSON.parse(accepted.artifacts[acceptedReportRef.path].content)
-    acceptedReport.tests[0].annotations = [{ type: 'production-readiness-skip', description: JSON.stringify(acceptedObserved) }]
-    acceptedReport.tests[0].results = [{ retry: 0, status: 'skipped' }]
+    const acceptedTest = acceptedReport.tests.find((test: JsonObject) => `${test.project}::${test.file}::${test.title}` === skip.test_ids[0])
+    acceptedTest.annotations = [{ type: 'production-readiness-skip', description: JSON.stringify(acceptedObserved) }]
+    acceptedTest.results = [{ retry: 0, status: 'skipped' }]
     acceptedReport.observed_skips = [acceptedObserved]
     accepted.state.release_evidence.e2e.observed_skips = [acceptedObserved]
     replaceArtifactContent(accepted, acceptedReportRef, JSON.stringify(acceptedReport))
@@ -501,12 +667,63 @@ describe('production readiness goal checker', () => {
     const mismatchedObserved = { key: skip.key, source: `${skip.source} altered`, scope: clone(skip.scope) }
     const mismatchedReportRef = mismatched.state.release_evidence.e2e.report_receipt
     const mismatchedReport = JSON.parse(mismatched.artifacts[mismatchedReportRef.path].content)
-    mismatchedReport.tests[0].annotations = [{ type: 'production-readiness-skip', description: JSON.stringify(mismatchedObserved) }]
-    mismatchedReport.tests[0].results = [{ retry: 0, status: 'skipped' }]
+    const mismatchedTest = mismatchedReport.tests.find((test: JsonObject) => `${test.project}::${test.file}::${test.title}` === skip.test_ids[0])
+    mismatchedTest.annotations = [{ type: 'production-readiness-skip', description: JSON.stringify(mismatchedObserved) }]
+    mismatchedTest.results = [{ retry: 0, status: 'skipped' }]
     mismatchedReport.observed_skips = [mismatchedObserved]
     mismatched.state.release_evidence.e2e.observed_skips = [mismatchedObserved]
     replaceArtifactContent(mismatched, mismatchedReportRef, JSON.stringify(mismatchedReport))
     expect(validate('launch', mismatched).errors).toContainEqual(expect.stringMatching(/^E2E_SKIP:/))
+  })
+
+  it('rejects an approved skip contract that omits exact test IDs', () => {
+    const input = validInput()
+    delete input.manifest.e2e.approved_skips[0].test_ids
+    expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^E2E_SKIP_CONTRACT:/))
+  })
+
+  it('rejects a skip test ID moved to a different project or file', () => {
+    const input = validInput()
+    input.manifest.e2e.approved_skips[0].test_ids[0] = 'desktop-chromium::e2e/unrelated.spec.ts::borrowed title'
+    expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^E2E_SKIP_CONTRACT:/))
+  })
+
+  it('rejects duplicate canonical Axe target keys', () => {
+    const input = validInput()
+    input.manifest.e2e.axe_receipts.targets.push(clone(input.manifest.e2e.axe_receipts.targets[0]))
+    input.manifest.e2e.axe_receipts.expected_total += 1
+    expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^E2E_AXE_CONTRACT:/))
+  })
+
+  it('rejects reuse of an approved skip annotation on another test title', () => {
+    const input = validInput()
+    const skip = input.manifest.e2e.approved_skips[0]
+    const annotation = { key: skip.key, source: skip.source, scope: clone(skip.scope) }
+    mutateExecutedPlaywrightReport(input, report => {
+      const test = report.tests.find((row: JsonObject) => row.project === skip.scope.project && !skip.test_ids.includes(`${row.project}::${row.file}::${row.title}`))
+      test.annotations = [{ type: 'production-readiness-skip', description: JSON.stringify(annotation) }]
+      test.results = [{ retry: 0, status: 'skipped' }]
+      report.observed_skips = [annotation]
+    })
+    input.state.release_evidence.e2e.observed_skips = [annotation]
+    expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_REPORT_BINDING:/))
+  })
+
+  it('rejects duplicate production-readiness annotations on one skipped test', () => {
+    const input = validInput()
+    const skip = input.manifest.e2e.approved_skips[0]
+    const annotation = { key: skip.key, source: skip.source, scope: clone(skip.scope) }
+    mutateExecutedPlaywrightReport(input, report => {
+      const test = report.tests.find((row: JsonObject) => `${row.project}::${row.file}::${row.title}` === skip.test_ids[0])
+      test.annotations = [
+        { type: 'production-readiness-skip', description: JSON.stringify(annotation) },
+        { type: 'production-readiness-skip', description: JSON.stringify(annotation) },
+      ]
+      test.results = [{ retry: 0, status: 'skipped' }]
+      report.observed_skips = [annotation]
+    })
+    input.state.release_evidence.e2e.observed_skips = [annotation]
+    expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_REPORT_BINDING:/))
   })
 
   it('binds E2E evidence to the hashed Playwright JSON/list inventory', () => {
@@ -594,6 +811,59 @@ describe('production readiness goal checker', () => {
     expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^PROOF_COMMIT:/))
   })
 
+  it('accepts an independent PR-08 configuration-delta review without copying old PASS receipts forward', () => {
+    const input = validInput()
+    applyConfigurationDeltaReview(input)
+
+    expect(validate('build', input).errors.filter((error: string) => error.startsWith('PROOF_REVIEW_RECEIPT:') || error.startsWith('PROOF_CONFIGURATION_DELTA:'))).toEqual([])
+  })
+
+  it('rejects a stale PR-00 review when the PR-08 configuration-delta receipt is missing', () => {
+    const input = validInput()
+    const reference = input.state.proofs['PR-00'].review.receipt
+    const receipt = JSON.parse(input.artifacts[reference.path].content)
+    receipt.configuration_hash = 'a'.repeat(64)
+    replaceArtifactContent(input, reference, JSON.stringify(receipt))
+
+    expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^PROOF_CONFIGURATION_DELTA:/))
+  })
+
+  it.each([
+    ['summary mismatch', (receipt: JsonObject) => { receipt.verdict = 'FAIL' }],
+    ['wrong affected tasks', (receipt: JsonObject) => { receipt.affected_tasks = REBOUND_TASKS.slice(0, -1) }],
+    ['omitted covered change', (receipt: JsonObject) => { receipt.changed_covered_fields = receipt.changed_covered_fields.slice(1) }],
+    ['extra covered change', (receipt: JsonObject) => { receipt.changed_covered_fields = [...receipt.changed_covered_fields, 'release_boundary'] }],
+    ['tampered new projection hash', (receipt: JsonObject) => { receipt.new_projection_sha256 = 'f'.repeat(64) }],
+    ['copied original reviewer', (receipt: JsonObject) => { receipt.reviewer = 'independent-reviewer' }],
+    ['wrong original configuration hash', (receipt: JsonObject) => { receipt.old_configuration_hash = 'b'.repeat(64) }],
+  ])('rejects a configuration-delta review with %s', (_name, mutate) => {
+    const input = validInput()
+    applyConfigurationDeltaReview(input)
+    const reference = input.state.proofs['PR-00'].configuration_delta_review.receipt
+    const receipt = JSON.parse(input.artifacts[reference.path].content)
+    mutate(receipt)
+    replaceArtifactContent(input, reference, JSON.stringify(receipt))
+    if (_name !== 'summary mismatch') {
+      for (const taskId of REBOUND_TASKS) input.state.proofs[taskId].configuration_delta_review = { ...receipt, receipt: reference }
+    }
+
+    expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^PROOF_CONFIGURATION_DELTA:/))
+  })
+
+  it('rejects a configuration-delta review whose bound projection artifact is value-tampered', () => {
+    const input = validInput()
+    applyConfigurationDeltaReview(input)
+    const deltaReference = input.state.proofs['PR-00'].configuration_delta_review.receipt
+    const delta = JSON.parse(input.artifacts[deltaReference.path].content)
+    const projection = JSON.parse(input.artifacts[delta.projection_receipt.path].content)
+    projection.changes[0].new_value = 'tampered'
+    replaceArtifactContent(input, delta.projection_receipt, JSON.stringify(projection))
+    replaceArtifactContent(input, deltaReference, JSON.stringify(delta))
+    for (const taskId of REBOUND_TASKS) input.state.proofs[taskId].configuration_delta_review = { ...delta, receipt: deltaReference }
+
+    expect(validate('build', input).errors).toContainEqual(expect.stringMatching(/^PROOF_CONFIGURATION_DELTA:/))
+  })
+
   it('accepts completed tasks on distinct real commits reachable from the release HEAD', () => {
     const input = validInput()
     setTaskCommit(input, 'PR-00', ANCESTOR_COMMIT)
@@ -644,6 +914,116 @@ describe('production readiness goal checker', () => {
     const input = validInput()
     input.state.proofs['HG-00'].receipt.verified = false
     expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^HG_RECEIPT:/))
+  })
+
+  it('rejects the generic verified receipt bypass for HG-04', () => {
+    const input = validInput({ includeHg04Evidence: false })
+
+    expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^HG04_DEVICE_EVIDENCE:/))
+  })
+
+  it('rejects fixture, sufficient-by-itself, unsigned, self-reviewed, stale, unapproved, or non-human HG-04 evidence', () => {
+    const cases: Array<[string, (input: JsonObject) => void]> = [
+      ['fixture validation', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.validator_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.mode = 'fixture'; content.fixture = true; content.test_mode = true; content.physical_packet_valid = false
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['validator claiming launch authority', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.validator_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.hg04_launch_eligible = true
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['validator source hash mismatch', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.validator_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.validator_sha256 = 'f'.repeat(64)
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['schema source hash mismatch', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.validator_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.schema_sha256 = 'f'.repeat(64)
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['validator reviewer authority mismatch', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.validator_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.approved_reviewer_public_key_fingerprints = ['f'.repeat(64)]
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['unsigned review', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.independent_review_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.signature.value_base64 = ''
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['operator reviewing own packet', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.independent_review_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.receipt.reviewer_id = content.receipt.operator_id
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['blank review id with a valid signature', input => {
+        mutateSignedHg04Review(input, receipt => { receipt.review_id = '   ' })
+      }],
+      ['blank reviewer id with a valid signature', input => {
+        mutateSignedHg04Review(input, receipt => { receipt.reviewer_id = '   ' })
+      }],
+      ['incomplete deterministic sample set with a valid signature', input => {
+        mutateSignedHg04Review(input, receipt => { receipt.sampled_remaining_row_keys = receipt.sampled_remaining_row_keys.slice(1) })
+      }],
+      ['review before collection completion with a valid signature', input => {
+        mutateSignedHg04Review(input, receipt => { receipt.reviewed_at = '2026-07-19T23:00:00.000Z' })
+      }],
+      ['review in the future with a valid signature', input => {
+        mutateSignedHg04Review(input, receipt => { receipt.reviewed_at = '2026-07-19T23:31:00.000Z' })
+      }],
+      ['stale review packet binding', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.independent_review_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.receipt.packet_sha256 = 'f'.repeat(64)
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['unapproved reviewer key', input => {
+        input.state.release_evidence.configuration.hg04_approved_reviewer_public_key_fingerprints = []
+        const reference = input.state.release_evidence.configuration.receipt
+        replaceArtifactContent(input, reference, JSON.stringify({ commit: input.state.commit, configuration_hash: input.manifest.configuration_hash, hg04_approved_reviewer_public_key_fingerprints: [] }))
+      }],
+      ['missing human-owned transition', input => {
+        const reference = input.state.proofs['HG-04'].device_evidence.human_transition_receipt
+        const content = JSON.parse(input.artifacts[reference.path].content)
+        content.human_owned = false
+        replaceArtifactContent(input, reference, JSON.stringify(content))
+      }],
+      ['transition not strictly after review', input => {
+        const transitionReference = input.state.proofs['HG-04'].device_evidence.human_transition_receipt
+        const transition = JSON.parse(input.artifacts[transitionReference.path].content)
+        transition.transitioned_at = '2026-07-19T23:10:00.000Z'
+        replaceArtifactContent(input, transitionReference, JSON.stringify(transition))
+      }],
+    ]
+    for (const [, mutate] of cases) {
+      const input = validInput()
+      mutate(input)
+      expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^HG04_DEVICE_EVIDENCE:/))
+    }
+  })
+
+  it('rejects internally consistent HG-04 evidence bound to a non-canonical device contract', () => {
+    const input = validInput()
+    const proof = input.state.proofs['HG-04'].device_evidence
+    const validation = JSON.parse(input.artifacts[proof.validator_receipt.path].content)
+    validation.contract_sha256 = 'f'.repeat(64)
+    replaceArtifactContent(input, proof.validator_receipt, JSON.stringify(validation))
+    const reviewPacket = JSON.parse(input.artifacts[proof.independent_review_receipt.path].content)
+    reviewPacket.receipt.contract_sha256 = validation.contract_sha256
+    reviewPacket.signature.value_base64 = sign(null, Buffer.from(stableJson(reviewPacket.receipt)), HG04_REVIEW_KEY.privateKey).toString('base64')
+    replaceArtifactContent(input, proof.independent_review_receipt, JSON.stringify(reviewPacket))
+
+    expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^HG04_DEVICE_EVIDENCE:/))
   })
 
   it('rejects council receipts bound to a stale commit and configuration', () => {
@@ -769,6 +1149,46 @@ describe('production readiness goal checker', () => {
     input.state.release_evidence.e2e.report_receipt = addArtifact(input, 'proof/PR-17/playwright-report.json', JSON.stringify(report))
     expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_REPORT_BINDING:/))
   })
+
+  it.each([
+    ['skip_validation_failures', [{ reason_code: 'skip_annotation_missing' }]],
+    ['a11y_receipt_failures', [{ reason_code: 'axe_receipt_missing' }]],
+  ])('rejects a nonempty %s array even when the report claims success', (field, value) => {
+    const input = validInput()
+    mutateExecutedPlaywrightReport(input, report => { report[field] = value })
+    expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_AXE_REPORT_BINDING:/))
+  })
+
+  it.each(['skip_validation_failures', 'a11y_receipt_failures', 'axe_receipt_validation'])(
+    'rejects omission of required Playwright report field %s',
+    field => {
+      const input = validInput()
+      mutateExecutedPlaywrightReport(input, report => { delete report[field] })
+      expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_REPORT_BINDING:/))
+    },
+  )
+
+  it.each([
+    ['manifest_expected_total', 72],
+    ['expected_run_total', 72],
+    ['materialized_total', 72],
+    ['status', 'failed'],
+  ])('rejects Axe validation tampering of %s', (field, value) => {
+    const input = validInput()
+    mutateExecutedPlaywrightReport(input, report => { report.axe_receipt_validation[field] = value })
+    expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_AXE_REPORT_BINDING:/))
+  })
+
+  it.each(['expected_run_targets', 'materialized_targets'])(
+    'rejects omission or substitution in the exact Axe %s set',
+    field => {
+      const input = validInput()
+      mutateExecutedPlaywrightReport(input, report => {
+        report.axe_receipt_validation[field] = report.axe_receipt_validation[field].slice(1)
+      })
+      expect(validate('launch', input).errors).toContainEqual(expect.stringMatching(/^E2E_AXE_REPORT_BINDING:/))
+    },
+  )
 
   it('rejects an unrelated generic independent-review receipt', () => {
     const input = validInput()
