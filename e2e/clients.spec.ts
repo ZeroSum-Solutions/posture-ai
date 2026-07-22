@@ -2,11 +2,12 @@ import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
 
-// On a cold `next dev` server (as on CI) a route compiles on-demand and a
-// controlled input can discard a value typed before React hydrates the freshly
-// loaded page. Re-fill until the value sticks so a fresh-goto form fill is
-// deterministic regardless of hydration timing (this does not loosen any
-// assertion — it still requires the exact value to be present).
+// On a cold local `next dev` server a route compiles on-demand, and slower
+// production workers can expose the same hydration race: a controlled input can
+// discard a value typed before React hydrates the freshly loaded page. Re-fill
+// until the value sticks so a fresh-goto form fill is deterministic regardless
+// of hydration timing (this does not loosen any assertion — it still requires
+// the exact value to be present).
 async function fillField(page: Page, label: string | RegExp, value: string) {
   const field = page.getByLabel(label)
   await expect(field).toBeVisible()
@@ -94,7 +95,9 @@ test.describe('erased client is hidden from the clients list', () => {
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toBeVisible()
 
     // Right-to-erasure: tombstone + redact + purge.
-    const del = await page.request.delete(`/api/clients/${victim.id}`, { data: { reason: 'test erasure' } })
+    const del = await page.request.delete(`/api/clients/${victim.id}`, {
+      data: { reason_code: 'practitioner_correction' },
+    })
     expect(del.ok(), `delete failed: ${del.status()}`).toBeTruthy()
 
     // The erased client's row is gone; the keeper still renders.
@@ -124,6 +127,87 @@ test.describe('client detail empty state', () => {
     await expect(page.getByRole('tab', { name: 'Info' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: 'Compare' })).toHaveCount(0)
+
+    // A consent-status outage must fail closed without stranding the entire client
+    // page on its loading screen. The profile/history remain usable, while consent
+    // is explicitly unavailable and no signing form is offered from uncertain state.
+    await page.route('**/api/consent?client_id=*', route => route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Consent terms are temporarily unavailable.' }),
+    }))
+    await page.reload()
+    await expect(page.getByRole('heading', { name: new RegExp(`Empty-${token}`) })).toBeVisible()
+    await expect(page.getByText('unavailable', { exact: true })).toBeVisible()
+    await expect(page.getByRole('form', { name: 'Record in-person consent' })).toHaveCount(0)
+  })
+})
+
+test.describe('client comparison policy', () => {
+  test('shows all tolerance states and fails closed across scoring versions', async ({ page }) => {
+    const token = randomUUID().slice(0, 8)
+    const client = await createClient(page, 'E2E', `Compare-${token}`)
+    const finding = (key: string, label: string, severity: number, deviation: number) => ({
+      imbalance_key: key,
+      label,
+      severity_pct: severity,
+      zone: 'warning',
+      region: 'head_shoulders',
+      deviation,
+      standard: 0,
+      unit: 'deg',
+    })
+    const assessments = [
+      {
+        id: 'baseline', assessed_at: '2026-01-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        scoring_engine_version: 'v2', status: 'approved',
+        assessment_findings: [
+          finding('same', 'A — unchanged', 50, 5),
+          finding('noise', 'B — tolerance', 50, 5),
+          finding('better', 'C — improved', 50, 8),
+          finding('worse', 'D — regressed', 50, 3),
+        ],
+      },
+      {
+        id: 'same-version', assessed_at: '2026-02-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        scoring_engine_version: 'v2', status: 'approved',
+        assessment_findings: [
+          finding('same', 'A — unchanged', 50, 5),
+          finding('noise', 'B — tolerance', 54, 5.2),
+          finding('better', 'C — improved', 45, 7),
+          finding('worse', 'D — regressed', 55, 4),
+        ],
+      },
+      {
+        id: 'new-version', assessed_at: '2026-03-01T12:00:00Z', overall_grade: 'A', overall_score: 7,
+        scoring_engine_version: 'v3', status: 'approved',
+        assessment_findings: [finding('same', 'A — unchanged', 10, 1)],
+      },
+    ]
+    await page.route(`**/api/clients/${client.id}/assessments?include_findings=true`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assessments }) })
+    })
+
+    await page.goto(`/clients/${client.id}`)
+    await expect(page.getByRole('heading', { name: new RegExp(`Compare-${token}`) })).toBeVisible()
+    await page.getByRole('tab', { name: 'Compare' }).click()
+    await page.getByLabel('Before (baseline)').selectOption('baseline')
+    await page.getByLabel('After (comparison)').selectOption('same-version')
+
+    await expect(page.getByText('Unchanged severity')).toBeVisible()
+    await expect(page.getByText('Within measurement tolerance')).toBeVisible()
+    await expect(page.getByText('Improved — lower severity')).toBeVisible()
+    await expect(page.getByText('Regressed — higher severity')).toBeVisible()
+
+    await page.getByLabel('After (comparison)').selectOption('new-version')
+    await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
+
+    await page.getByRole('tab', { name: 'Progress' }).click()
+    await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
+    await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
+    await expect(page.getByText('v2').first()).toBeVisible()
+    await expect(page.getByText('v3').first()).toBeVisible()
   })
 })
 
@@ -134,6 +218,11 @@ test.describe('client create form', () => {
   test('creates a client via the form and enforces the consent gate', async ({ page }) => {
     const token = randomUUID().slice(0, 8)
     await page.goto('/clients/new')
+    // The legal document is fetched by the hydrated client component. Waiting
+    // for it proves the controlled form is mounted before typing, so a cold
+    // WebKit hydration pass cannot replace the first field's value.
+    await expect(page.getByRole('article', { name: 'Consent to Posture Screening' }))
+      .toBeVisible({ timeout: 15_000 })
 
     await fillField(page, 'First Name', 'E2E')
     await fillField(page, 'Last Name', `Form-${token}`)

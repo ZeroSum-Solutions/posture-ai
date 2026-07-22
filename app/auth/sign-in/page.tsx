@@ -1,7 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
 
@@ -10,37 +9,38 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const router = useRouter()
+
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('reason')
+    const messages: Record<string, string> = {
+      invite_invalid: 'This invitation link is invalid, expired, or has already been used.',
+      recovery_invalid: 'This password-recovery link is invalid, expired, or has already been used.',
+      access_revoked: 'Practitioner access has been revoked. Contact your beta administrator.',
+      access_unavailable: 'Practitioner access could not be verified. Please try again.',
+      access_review_required: 'This existing practitioner account requires administrator approval before it can be used.',
+      access_denied: 'This account does not have practitioner access.',
+      session_stale: 'This session was ended during account recovery. Sign in again to continue.',
+      signed_out: 'You have been signed out on this device.',
+    }
+    const message = reason ? messages[reason] : null
+    if (!message) return
+    const timer = window.setTimeout(() => setError(message), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
     setLoading(false)
     if (error) {
       setError(error.message)
     } else {
-      router.push('/dashboard')
-      router.refresh()
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    setError(null)
-    setGoogleLoading(true)
-    const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/auth/callback',
-      },
-    })
-    setGoogleLoading(false)
-    if (error) {
-      setError(error.message)
+      // A password login is AAL1 even when a verified factor exists. Hard
+      // navigate to the only pre-AAL2 corridor; proxy blocks the dashboard.
+      window.location.assign('/auth/mfa?next=/dashboard')
     }
   }
 
@@ -56,7 +56,7 @@ export default function SignInPage() {
   }
 
   return (
-    <AuthFrame title="Welcome back" description="Sign in to continue to your practitioner workspace.">
+    <AuthFrame title="Welcome back" description="Sign in with the email address tied to your practitioner invitation.">
         {error && (
           <div
             role="alert"
@@ -74,52 +74,6 @@ export default function SignInPage() {
             {error}
           </div>
         )}
-
-        {/* Google OAuth Button */}
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          disabled={googleLoading || loading}
-          aria-label="Continue with Google"
-          style={{
-            width: '100%',
-            padding: '11px',
-            background: 'transparent',
-            color: 'var(--text-primary)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '8px',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            cursor: (googleLoading || loading) ? 'not-allowed' : 'pointer',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            opacity: (googleLoading || loading) ? 0.6 : 1,
-          }}
-        >
-          {!googleLoading && (
-            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-              <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-            </svg>
-          )}
-          {googleLoading ? 'Redirecting...' : 'Continue with Google'}
-        </button>
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '16px',
-        }}>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>or</span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-        </div>
 
         <form onSubmit={handleSubmit} noValidate>
           <div style={{ marginBottom: '16px' }}>
@@ -167,26 +121,26 @@ export default function SignInPage() {
           </div>
           <button
             type="submit"
-            disabled={loading || googleLoading}
+            disabled={loading}
             style={{
               width: '100%',
               padding: '11px',
-              background: (loading || googleLoading) ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
+              background: loading ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
               fontWeight: 600,
               fontSize: '0.95rem',
-              cursor: (loading || googleLoading) ? 'not-allowed' : 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               marginBottom: '16px',
             }}
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
           <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            No account yet?{' '}
+            Practitioner access is invitation-only.{' '}
             <Link href="/auth/sign-up" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
-              Create one
+              Learn how invitations work
             </Link>
           </p>
         </form>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { CONSENT_TEXT } from '@/lib/consent/text'
+import LegalDocumentView from './LegalDocumentView'
+import useLegalDocument from './useLegalDocument'
 
 type SignerRelationship = 'self' | 'parent' | 'legal_guardian' | 'other'
 
@@ -21,6 +22,7 @@ export default function InPersonConsentForm({
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const legal = useLegalDocument('subject_consent')
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -33,6 +35,10 @@ export default function InPersonConsentForm({
       setError('Confirm that the signer has read and agreed to the consent terms.')
       return
     }
+    if (!legal.document) {
+      setError(legal.error ?? 'Consent terms are unavailable. Acceptance is disabled.')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -43,6 +49,9 @@ export default function InPersonConsentForm({
           client_id: clientId,
           signer_name: signerName.trim(),
           signer_relationship: relationship,
+          legal_document_id: legal.document.documentId,
+          legal_document_version: legal.document.version,
+          legal_document_body_sha256: legal.document.bodySha256,
         }),
       })
       const body = await response.json().catch(() => ({}))
@@ -85,22 +94,15 @@ export default function InPersonConsentForm({
         The client, parent, or legal guardian can review and sign on this device. The camera remains locked until this is complete.
       </p>
 
-      <details style={{ marginBottom: 14, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-        <summary style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--brand)' }}>
-          Read consent terms
-        </summary>
-        <pre style={{
-          margin: '8px 0 0',
-          padding: 12,
-          whiteSpace: 'pre-wrap',
-          fontFamily: 'inherit',
-          lineHeight: 1.5,
-          borderRadius: 8,
-          background: 'rgba(0,0,0,0.16)',
-        }}>
-          {CONSENT_TEXT}
-        </pre>
-      </details>
+      <div style={{ marginBottom: 14 }}>
+        {legal.isLoading && <p role="status" aria-live="polite">Loading consent terms…</p>}
+        {legal.error && (
+          <p role="alert" aria-live="assertive" style={{ color: 'var(--danger)' }}>
+            {legal.error}
+          </p>
+        )}
+        {legal.document && <LegalDocumentView document={legal.document} headingLevel={4} compact />}
+      </div>
 
       <label htmlFor={`signer_relationship_${clientId}`} style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
         Who is giving consent?
@@ -134,6 +136,7 @@ export default function InPersonConsentForm({
           id={`consent_confirm_${clientId}`}
           type="checkbox"
           checked={confirmed}
+          disabled={!legal.document}
           onChange={(event) => setConfirmed(event.target.checked)}
           style={{ width: 20, height: 20, marginTop: 1, flexShrink: 0 }}
         />
@@ -144,7 +147,7 @@ export default function InPersonConsentForm({
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || !legal.document}
         style={{
           width: '100%',
           minHeight: 44,
@@ -152,11 +155,11 @@ export default function InPersonConsentForm({
           padding: '11px 16px',
           border: 'none',
           borderRadius: 8,
-          background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
+          background: submitting || !legal.document ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
           color: '#fff',
           fontSize: '0.9rem',
           fontWeight: 700,
-          cursor: submitting ? 'not-allowed' : 'pointer',
+          cursor: submitting || !legal.document ? 'not-allowed' : 'pointer',
         }}
       >
         {submitting ? 'Recording…' : submitLabel}

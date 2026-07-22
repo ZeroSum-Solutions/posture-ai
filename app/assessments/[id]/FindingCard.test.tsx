@@ -9,7 +9,7 @@ vi.mock('./PriorityProgram', () => ({ default: () => null }))
 vi.mock('./WhyThisSheet', () => ({ default: () => null }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }))
 
-import { FindingCard } from './page'
+import { FindingCard } from './ClinicalAssessmentResults'
 
 afterEach(cleanup)
 

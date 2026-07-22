@@ -1,10 +1,30 @@
 import { test, expect } from '@playwright/test'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 test.describe('gate integrity (regression: security fixes)', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:gate-integrity:mobile-webkit',
+      source: 'e2e/gate-integrity.spec.ts::gate integrity project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'run once on chromium',
+  ))
 
-  test.skip('onboarding ack failure: stays on /onboarding when PATCH fails', async ({ page }) => {
-    // The shared test account (testpractitioner@postureai.test) is already acked
+  test('onboarding ack failure: stays on /onboarding when PATCH fails', async ({}, testInfo) => {
+    skipForProductionReadiness(
+      testInfo,
+      true,
+      {
+        key: 'skip:onboarding-acked-fixture:desktop-chromium',
+        source: 'e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails',
+        scope: { project: 'desktop-chromium', condition: 'shared practitioner already acknowledged' },
+      },
+      'Shared practitioner already acknowledged; fresh unacknowledged fixture unavailable',
+    )
+    // The shared invited test practitioner is already acked
     // (non_diagnostic_ack_at is set in the DB), so the server-side middleware
     // redirects /onboarding → /dashboard on direct navigation for this user.
     // Testing the full onboarding flow requires a fresh unacked account, which is

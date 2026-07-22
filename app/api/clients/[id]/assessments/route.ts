@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
+import { hashResource, hashUser, logEvent } from '@/lib/log'
 
 export async function GET(
   req: NextRequest,
@@ -55,7 +56,14 @@ export async function GET(
     // A DB/RLS/network failure must not be masked as "no assessments" — that would
     // render the empty state (and drop the comparison picker's options) for a client
     // with real history. Surface it so the consumer's `if (!res.ok)` path fires.
-    console.error('[api/clients/assessments] load failed:', clientId, error.message)
+    logEvent({
+      route: 'GET /api/clients/[id]/assessments',
+      outcome: 'server_error',
+      status: 500,
+      userHash: hashUser(user.id),
+      resourceHash: hashResource(clientId),
+      detailCode: 'assessment_history_load_failed',
+    })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 

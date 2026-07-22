@@ -1,9 +1,13 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashIp } from '@/lib/log'
 import { hashShareToken } from '@/lib/workout/token'
 import { redactSessionForPublic, type ResolvedSession } from '@/lib/workout/tokenProjection'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const ROUTE = 'GET /api/workouts/token/[token]'
 
@@ -20,8 +24,12 @@ const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' }
  * appends an audit row (workout_share_events) so the PHI link is accountable.
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
   const service = createSupabaseServiceClient()
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), service)
+  if (!clinicalAccess.surfaces.workouts || !clinicalAccess.contentVersion) {
+    return clinicalContentUnavailableResponse(true)
+  }
+  const { token } = await params
   // x-real-ip is platform-managed (non-spoofable on Vercel); rightmost XFF hop
   // is the fallback — see hashIp.
   const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
@@ -48,15 +56,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     return NextResponse.json({ error: 'This session link is not available.' }, { status: 404, headers: NO_STORE })
   }
 
-  // Best-effort audit — never block the client on the write.
-  await service.from('workout_share_events').insert({
+  const publicSession = redactSessionForPublic(resolved, {
+    version: clinicalAccess.contentVersion,
+    inventorySha256: clinicalAccess.inventorySha256,
+  })
+  if (!publicSession) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detail: 'workout legal provenance mismatch' })
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })
+  }
+
+  // Do not release the client-safe projection until its access event is durable.
+  // A retry can safely create a fresh access event after a transient failure.
+  const { error: auditError } = await service.from('workout_share_events').insert({
     workout_session_id: resolved.workout_session_id,
     practitioner_id: resolved.practitioner_id,
     event: 'accessed',
-    actor: 'client',
+    actor: null,
+    actor_code: 'client',
     ip_hash: ipHash,
+    reason_code: null,
+    operation_id: randomUUID(),
+    share_generation: resolved.share_generation ?? 1,
   })
+  if (auditError) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, detailCode: 'share_access_audit_failed' })
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500, headers: NO_STORE })
+  }
 
   logEvent({ route: ROUTE, outcome: 'ok', status: 200 })
-  return NextResponse.json(redactSessionForPublic(resolved), { headers: NO_STORE })
+  return NextResponse.json(publicSession, { headers: NO_STORE })
 }

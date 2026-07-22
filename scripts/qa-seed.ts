@@ -18,6 +18,14 @@ import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import { buildFindingRow } from '../lib/findings/buildFindingRow'
 import { stripFaceLandmarks } from '../lib/pose/face-min'
 import { hashConsentToken } from '../lib/consent/token'
+import { LEGAL_DOCUMENT_FIXTURES } from '../content/legal/fixtures'
+import clinicalContentInventory from '../content/clinical-content-inventory.json'
+import { resolveLegalDocument, snapshotLegalDocument } from '../lib/legal/policy'
+import { LEGAL_CONTEXT_BY_KIND, type LegalDocumentKind } from '../lib/legal/types'
+import {
+  activateLocalPractitionerAal2,
+  provisionLocalInvitedPractitioner,
+} from '../e2e/helpers/practitioner-auth'
 
 // ─────────────────────────────────────────────────────────────
 // Config — local demo keys (public, same on every dev machine)
@@ -27,6 +35,10 @@ const SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
   '.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0' +
   '.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
+const ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
+  '.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5Nn0' +
+  '.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
 const DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 
 if (!SUPABASE_URL.includes('127.0.0.1') && !SUPABASE_URL.includes('localhost')) {
@@ -117,12 +129,24 @@ console.log(`Engine OK — score ${ENGINE_RESULT.overallScore}, grade ${ENGINE_R
 // ─────────────────────────────────────────────────────────────
 const CONSENT_VERSION = '1.0'
 const PRAC_PASSWORD = 'TestPass1234!'
+const CLINICAL_CONTENT_VERSION = 'clinical-content-test-fixture-v1'
+const CLINICAL_REVIEW_RECEIPT_SHA256 = 'f'.repeat(64)
+const PRACTITIONER_DOCUMENT_KINDS = [
+  'terms',
+  'privacy',
+  'screening_notice',
+] as const satisfies readonly LegalDocumentKind[]
+const qaPractitionerCredentials: Array<{
+  email: string
+  password: string
+  totp_secret: string
+}> = []
 const EXERCISE_SLUGS = [
   'cervical-retraction', 'chin-tuck', 'cat-cow', 'bird-dog', 'childs-pose-reach',
   'band-pull-apart', 'butterfly-stretch', 'bent-knee-calf-stretch', 'band-hip-hinge-pull-through',
 ]
 
-function makeSnapshot(week: number, capability: string): object {
+function makeSnapshot(week: number, capability: string, estimatedDurationSec: number): object {
   const exCount = rRange(3, 6)
   const items = Array.from({ length: exCount }, (_, i) => ({
     slug: EXERCISE_SLUGS[i % EXERCISE_SLUGS.length],
@@ -130,7 +154,18 @@ function makeSnapshot(week: number, capability: string): object {
     holdSeconds: rPick([20, 30, 45, 60]),
     name: `Exercise ${i + 1}`,
   }))
-  return { week, capability, items }
+  return {
+    version: 3,
+    week,
+    capability,
+    priorities: [],
+    items,
+    estimatedDurationSec,
+    clinicalContent: {
+      version: CLINICAL_CONTENT_VERSION,
+      inventorySha256: clinicalContentInventory.inventory_sha256,
+    },
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -161,7 +196,24 @@ async function cleanup() {
   `)
   console.log('  App tables truncated')
 
-  // Now delete QA auth users directly via SQL (no auth-layer caching delay)
+  // Remove only the disposable QA invitation audit rows before Auth deletion.
+  // Accepted invitations intentionally retain their user binding, so Auth's
+  // ON DELETE SET NULL cannot satisfy the invitation shape constraint by itself.
+  await runSql(`
+    DELETE FROM private.practitioner_access_events
+     WHERE invitation_id IN (
+       SELECT id FROM private.practitioner_invitations
+        WHERE email_normalized LIKE 'qa+%@example.test'
+     )
+  `)
+  const deletedInvitations = await runSql(
+    `DELETE FROM private.practitioner_invitations
+      WHERE email_normalized LIKE 'qa+%@example.test'
+      RETURNING email_normalized`
+  )
+  console.log(`  Deleted ${deletedInvitations.rowCount} QA invitation(s)`)
+
+  // Now delete QA auth users directly via SQL (no auth-layer caching delay).
   const deleted = await runSql(
     `DELETE FROM auth.users WHERE email LIKE 'qa+%@example.test' RETURNING email`
   )
@@ -171,15 +223,60 @@ async function cleanup() {
 // ─────────────────────────────────────────────────────────────
 // Practitioner creation
 // ─────────────────────────────────────────────────────────────
+async function seedQaLegalAcceptances(practitionerId: string) {
+  const acceptedAt = new Date().toISOString()
+  const rows = PRACTITIONER_DOCUMENT_KINDS.map((kind) => {
+    const resolution = resolveLegalDocument({
+      documents: LEGAL_DOCUMENT_FIXTURES,
+      kind,
+      context: LEGAL_CONTEXT_BY_KIND[kind],
+      at: new Date(),
+      allowFixtures: true,
+    })
+    if (!resolution.ok) throw new Error(`QA legal document unavailable: ${kind}`)
+    const document = snapshotLegalDocument(resolution.document)
+    return {
+      practitioner_id: practitionerId,
+      legal_document_id: document.documentId,
+      legal_document_version: document.version,
+      legal_document_body_sha256: document.bodySha256,
+      legal_document_effective_at: document.effectiveAt,
+      legal_jurisdiction: document.jurisdiction,
+      legal_product_scope: document.productScope,
+      acceptance_context: 'local_qa_seed_v1',
+      acceptance_method: 'automated_test_fixture',
+      accepted_at: acceptedAt,
+    }
+  })
+  const { error } = await supabase
+    .from('practitioner_legal_acceptances')
+    .upsert(rows, {
+      onConflict: 'practitioner_id,legal_document_id,legal_document_version,legal_document_body_sha256,legal_document_effective_at,legal_jurisdiction,legal_product_scope,acceptance_context',
+      ignoreDuplicates: true,
+    })
+  if (error) throw new Error(`QA legal acceptance seed failed: ${error.message}`)
+}
+
 async function createPractitioner(email: string, displayName: string): Promise<string> {
-  const { data, error } = await supabase.auth.admin.createUser({
+  const user = await provisionLocalInvitedPractitioner({
+    admin: supabase,
+    supabaseUrl: SUPABASE_URL,
     email,
     password: PRAC_PASSWORD,
-    email_confirm: true,
-    user_metadata: { full_name: displayName },
+    displayName,
   })
-  if (error || !data.user) throw new Error(`createUser ${email}: ${error?.message}`)
-  const userId = data.user.id
+
+  const fixtureClient = createClient(SUPABASE_URL, ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const { error: signInError } = await fixtureClient.auth.signInWithPassword({
+    email,
+    password: PRAC_PASSWORD,
+  })
+  if (signInError) throw new Error(`QA practitioner sign-in failed: ${signInError.message}`)
+  const totpSecret = await activateLocalPractitionerAal2(fixtureClient)
+  await fixtureClient.auth.signOut({ scope: 'global' })
+  const userId = user.id
 
   // Set non_diagnostic_ack_at so they're past onboarding
   const { error: updErr } = await supabase
@@ -187,6 +284,9 @@ async function createPractitioner(email: string, displayName: string): Promise<s
     .update({ non_diagnostic_ack_at: pastDate(60).toISOString(), display_name: displayName })
     .eq('id', userId)
   if (updErr) throw new Error(`practitioners update ${email}: ${updErr.message}`)
+
+  await seedQaLegalAcceptances(userId)
+  qaPractitionerCredentials.push({ email, password: PRAC_PASSWORD, totp_secret: totpSecret })
 
   console.log(`  Created practitioner ${email} → ${userId}`)
   return userId
@@ -211,9 +311,6 @@ async function createAssessment(
       assessment_type: 'static',
       overall_score: ENGINE_RESULT.overallScore,
       overall_grade: ENGINE_RESULT.overallGrade,
-      overall_percentile: null,
-      front_rank: ENGINE_RESULT.ranks.front,
-      side_rank: ENGINE_RESULT.ranks.side,
       scoring_engine_version: ENGINE_RESULT.engineVersion,
       tilt_corrected: ENGINE_RESULT.tiltCorrected,
       level_verified: ENGINE_RESULT.levelVerified,
@@ -366,14 +463,17 @@ async function mintWorkoutSession(
     sessionTokenHash = sha256hex(rawShareToken)
   }
 
-  const sessionStatus = shareState === 'revoked' ? 'revoked' : 'active'
-  const revokedAt = shareState === 'revoked' ? pastDate(1).toISOString() : null
+  // Revoked fixtures are first minted as live credentials and then revoked
+  // below. Directly inserting an already-revoked credential would bypass the
+  // monotonic share lifecycle that production enforces.
+  const sessionStatus = 'active'
   const expiresAt =
     shareState === 'active' ? pastDate(-14).toISOString()  // active: 14 days from now
     : shareState === 'expired' ? pastDate(2).toISOString() // expired: 2 days ago
     : shareState === 'revoked' ? pastDate(-7).toISOString() // revoked: would have been valid
     : null
 
+  const estimatedDurationSec = rRange(600, 1800)
   const { data: ws, error: wsErr } = await supabase
     .from('workout_sessions')
     .insert({
@@ -382,12 +482,15 @@ async function mintWorkoutSession(
       practitioner_id: practitionerId,
       week,
       capability,
-      program_snapshot: makeSnapshot(week, capability),
+      program_snapshot: makeSnapshot(week, capability, estimatedDurationSec),
       session_token_hash: sessionTokenHash,
       status: completed ? 'completed' : sessionStatus,
-      estimated_duration_sec: rRange(600, 1800),
+      estimated_duration_sec: estimatedDurationSec,
       expires_at: expiresAt,
-      revoked_at: revokedAt,
+      revoked_at: null,
+      clinical_content_version: CLINICAL_CONTENT_VERSION,
+      clinical_inventory_sha256: clinicalContentInventory.inventory_sha256,
+      clinical_review_receipt_sha256: CLINICAL_REVIEW_RECEIPT_SHA256,
     })
     .select('id')
     .single()
@@ -407,14 +510,32 @@ async function mintWorkoutSession(
       workout_session_id: sessionId,
       practitioner_id: practitionerId,
       event: 'minted',
-      actor: practitionerId,
+      actor: null,
+      actor_code: 'practitioner',
+      reason_code: 'practitioner_action',
+      operation_id: sessionId,
+      share_generation: 1,
     })
     if (shareState === 'revoked') {
+      const { error: revokeError } = await supabase
+        .from('workout_sessions')
+        .update({
+          session_token_hash: null,
+          expires_at: null,
+          status: 'revoked',
+          revoked_at: pastDate(1).toISOString(),
+        })
+        .eq('id', sessionId)
+      if (revokeError) throw new Error(`workout_session revoke: ${revokeError.message}`)
       await supabase.from('workout_share_events').insert({
         workout_session_id: sessionId,
         practitioner_id: practitionerId,
         event: 'revoked',
-        actor: practitionerId,
+        actor: null,
+        actor_code: 'practitioner',
+        reason_code: 'practitioner_action',
+        operation_id: assessmentId,
+        share_generation: 1,
       })
     }
   }
@@ -467,22 +588,18 @@ async function mintWorkoutSession(
 async function tombstoneClient(
   clientId: string,
   practitionerId: string,
-  assessmentCount: number,
-  captureCount: number
 ) {
   const deletedAt = pastDate(rRange(1, 10))
-  await runSql(
-    `UPDATE clients SET deleted_at=$1, deletion_reason='QA tombstone seed' WHERE id=$2`,
-    [deletedAt, clientId]
-  )
-  await supabase.from('client_deletion_log').insert({
-    original_client_id: clientId,
-    practitioner_id: practitionerId,
-    deleted_at: deletedAt.toISOString(),
-    reason: 'QA tombstone seed',
-    assessments_purged: assessmentCount,
-    captures_purged: captureCount,
+  const { data, error } = await supabase.rpc('erase_client_transactional', {
+    p_client_id: clientId,
+    p_practitioner_id: practitionerId,
+    p_reason_code: 'practitioner_correction',
+    p_erased_at: deletedAt.toISOString(),
   })
+  const status = (data as { status?: string } | null)?.status
+  if (error || status !== 'database_erased') {
+    throw new Error(`QA client erasure failed: ${error?.message ?? status ?? 'unknown'}`)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -581,7 +698,7 @@ async function seedClients(
 
     // Tombstone (must happen AFTER assessments are created, due to trigger)
     if (spec.tombstone && assessmentIds.length > 0) {
-      await tombstoneClient(clientId, practitionerId, assessmentIds.length, assessmentIds.length * STRIPPED_FRAMES.length)
+      await tombstoneClient(clientId, practitionerId)
     }
   }
 
@@ -791,6 +908,9 @@ async function main() {
   `)
 
   console.table(counts.rows[0])
+
+  console.log('\nLocal QA practitioner credentials (disposable fixtures only):')
+  console.table(qaPractitionerCredentials)
 
   await pool.end()
   console.log('\nDone.')

@@ -1,5 +1,6 @@
 
 import React from 'react'
+import type { OverallGrade } from '@posture-ai/engine'
 import {
   Document,
   Page,
@@ -7,9 +8,16 @@ import {
   View,
   StyleSheet,
 } from '@react-pdf/renderer'
-
-const DISCLAIMER = 'SCREENING ONLY — Not a medical diagnosis. For educational and screening purposes only. Do not substitute for clinical examination by a qualified professional.'
-const ENGINE_VERSION_CAVEAT = 'These screenings used different scoring versions. Comparison values are hidden because scoring changes are not directly comparable.'
+import { GRADE_DISPLAY_BANDS, getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
+import {
+  ENGINE_VERSION_COMPARISON_COPY,
+  MISSING_VALUE_COMPARISON_COPY,
+  MEASUREMENT_TOLERANCE_COPY,
+  comparisonDecisionText,
+  comparisonTone,
+  type ComparisonDecision,
+} from '@/lib/comparison/policy'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 const ZONE_COLORS: Record<string, string> = {
   maintain: '#5BD5AC',
@@ -24,12 +32,6 @@ const REGION_LABELS: Record<string, string> = {
   spine: 'Spine',
   pelvis: 'Pelvis',
   leg: 'Legs',
-}
-
-function gradeColor(grade: string): string {
-  if (grade === 'S' || grade === 'A') return '#5BD5AC'
-  if (grade === 'B' || grade === 'C') return '#FF8918'
-  return '#DA4E24'
 }
 
 const styles = StyleSheet.create({
@@ -107,28 +109,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     fontFamily: 'Helvetica-Bold',
-  },
-  rankRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  rankItem: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 6,
-    padding: 8,
-    flex: 1,
-    alignItems: 'center',
-  },
-  rankLabel: {
-    fontSize: 8,
-    color: '#949494',
-    marginBottom: 2,
-  },
-  rankValue: {
-    fontSize: 12,
-    fontFamily: 'Helvetica-Bold',
-    color: '#FFFFFF',
   },
   findingCard: {
     backgroundColor: '#060606',
@@ -267,9 +247,10 @@ export interface PdfFinding {
   imbalance_key: string
   region: string
   label: string
-  deviation: number
+  deviation: number | null
+  unit: string
   direction: string
-  severity_pct: number
+  severity_pct: number | null
   zone: string
   view_used: string
   confidence: number
@@ -277,6 +258,7 @@ export interface PdfFinding {
   tight_muscles?: string[]
   weak_muscles?: string[]
   delta?: number | null
+  comparison?: ComparisonDecision | null
 }
 
 export interface PdfExercise {
@@ -290,10 +272,8 @@ export interface PdfExercise {
 export interface PdfAssessment {
   id: string
   overall_score: number
-  overall_grade: string
-  overall_percentile: number | null
-  front_rank: number | null
-  side_rank: number | null
+  overall_grade: OverallGrade
+  scoring_engine_version: string | null
   assessed_at: string
   clients: { first_name: string; last_name: string }
 }
@@ -305,12 +285,17 @@ interface Props {
   practitioner?: { display_name?: string; practice_name?: string }
   hasDelta: boolean
   engineVersionMismatch?: boolean
+  legalNotice: LegalSnapshot
 }
 
-function Footer() {
+function Footer({ legalNotice }: { legalNotice: LegalSnapshot }) {
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>{DISCLAIMER}</Text>
+      {legalNotice.isFixture ? (
+        <Text style={[styles.footerText, { color: '#FF8918', fontFamily: 'Helvetica-Bold' }]}>NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY</Text>
+      ) : null}
+      <Text style={styles.footerText}>{legalNotice.text}</Text>
+      <Text style={styles.footerText}>{`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}</Text>
     </View>
   )
 }
@@ -318,8 +303,14 @@ function Footer() {
 function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   const isUnreliable = f.zone === 'unreliable'
   const zoneColor = ZONE_COLORS[f.zone] || '#949494'
-  const deltaColor = f.delta === undefined || f.delta === null ? '#949494'
-    : f.delta <= 0 ? '#5BD5AC' : '#DA4E24'
+  const comparisonColor = !f.comparison ? '#949494'
+    : comparisonTone(f.comparison.status) === 'positive' ? '#5BD5AC'
+      : comparisonTone(f.comparison.status) === 'negative' ? '#DA4E24'
+        : '#CCCCCC'
+  const unit = f.unit === 'deg' ? '°' : f.unit
+  const comparableMeasurementDelta = f.comparison
+    && f.comparison.reason !== 'different_version'
+    && f.comparison.reason !== 'missing_version'
 
   const tightMuscles = Array.isArray(f.tight_muscles) ? f.tight_muscles : []
   const weakMuscles = Array.isArray(f.weak_muscles) ? f.weak_muscles : []
@@ -338,24 +329,32 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
 
       <View style={styles.findingRow}>
         <Text style={styles.findingDeviation}>
-          {Number(f.deviation).toFixed(1)}° from 0° standard
+          {f.deviation === null ? 'Measurement unavailable' : `${f.deviation.toFixed(1)}${unit} from 0${unit} standard`}
           {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' ? '  —  ' + f.direction : ''}
         </Text>
         {hasDelta && (
-          <Text style={[styles.deltaValue, { color: deltaColor }]}>
-            {f.delta === undefined || f.delta === null ? 'N/A'
-              : (f.delta > 0 ? '+' : '') + Number(f.delta).toFixed(1) + '°'}
-          </Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.deltaValue, { color: '#CCCCCC' }]}>
+              {!comparableMeasurementDelta || f.delta === undefined || f.delta === null ? 'Delta N/A'
+                : `Recorded delta ${(f.delta > 0 ? '+' : '')}${Number(f.delta).toFixed(1)}${unit}`}
+            </Text>
+            <Text style={[styles.deltaValue, { color: comparisonColor }]}>
+              {f.comparison ? comparisonDecisionText(f.comparison, 'finding') : MISSING_VALUE_COMPARISON_COPY}
+            </Text>
+          </View>
         )}
       </View>
 
-      {!isUnreliable && (
+      {!isUnreliable && f.severity_pct !== null && (
         <View>
           <View style={styles.barBackground}>
             <View style={[styles.barFill, { backgroundColor: zoneColor, width: f.severity_pct + '%' as unknown as number }]} />
           </View>
           <Text style={{ fontSize: 7, color: '#949494' }}>Severity: {f.severity_pct}%</Text>
         </View>
+      )}
+      {!isUnreliable && f.severity_pct === null && (
+        <Text style={{ fontSize: 7, color: '#949494' }}>Severity unavailable</Text>
       )}
 
       {f.causes_text ? (
@@ -390,12 +389,13 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
   )
 }
 
-export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta, engineVersionMismatch }: Props) {
+export function PostureReportPdf({ assessment, findings, exercises, practitioner, hasDelta, engineVersionMismatch, legalNotice }: Props) {
   const grade = assessment.overall_grade
-  const gradeCol = gradeColor(grade)
+  const gradeCol = getGradeDisplayBand(grade).hexColor
+  const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
   const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const showDelta = hasDelta && !engineVersionMismatch
+  const showComparison = hasDelta
 
   // Group findings by region
   const grouped: Record<string, PdfFinding[]> = {}
@@ -409,7 +409,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
     <Document>
       {/* Page 1: Summary */}
       <Page size="A4" style={styles.page}>
-        <Footer />
+        <Footer legalNotice={legalNotice} />
 
         {/* Header */}
         <View style={styles.header}>
@@ -442,54 +442,45 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
             </View>
           </View>
 
-          {/* Per-view ranks */}
-          <View style={styles.rankRow}>
-            <View style={styles.rankItem}>
-              <Text style={styles.rankLabel}>Front View Rank</Text>
-              <Text style={styles.rankValue}>{assessment.front_rank ?? 'N/A'}</Text>
-            </View>
-            <View style={styles.rankItem}>
-              <Text style={styles.rankLabel}>Side View Rank</Text>
-              <Text style={styles.rankValue}>{assessment.side_rank ?? 'N/A'}</Text>
-            </View>
-          </View>
         </View>
 
-        {/* Grade band reference */}
-        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Grade Reference</Text>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          {[
-            { g: 'S', desc: 'Elite (0–5)' },
-            { g: 'A', desc: 'Excellent (5–15)' },
-            { g: 'B', desc: 'Good (15–50)' },
-            { g: 'C', desc: 'Fair (50–85)' },
-            { g: 'D', desc: 'Poor (85–95)' },
-            { g: 'E', desc: 'Critical (95–100)' },
-          ].map(b => (
-            <View key={b.g} style={{
-              backgroundColor: b.g === grade ? gradeCol + '22' : 'rgba(255,255,255,0.04)',
-              borderRadius: 6, padding: 8, alignItems: 'center',
-              borderWidth: b.g === grade ? 1 : 0, borderColor: gradeCol,
-              minWidth: 60,
-            }}>
-              <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: gradeColor(b.g) }}>{b.g}</Text>
-              <Text style={{ fontSize: 7, color: '#949494', marginTop: 2 }}>{b.desc}</Text>
+        {showCurrentGradeScale ? (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Grade Reference</Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              {GRADE_DISPLAY_BANDS.map(band => (
+                <View key={band.grade} style={{
+                  backgroundColor: band.grade === grade ? gradeCol + '22' : 'rgba(255,255,255,0.04)',
+                  borderRadius: 6, padding: 8, alignItems: 'center',
+                  borderWidth: band.grade === grade ? 1 : 0, borderColor: gradeCol,
+                  minWidth: 60,
+                }}>
+                  <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: band.hexColor }}>{band.grade}</Text>
+                  <Text style={{ fontSize: 7, color: '#949494', marginTop: 2 }}>{band.description} ({band.range})</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        ) : (
+          <View style={{ marginTop: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: 8 }}>
+            <Text style={{ fontSize: 8, color: '#949494', lineHeight: 1.4 }}>
+              Recorded with a different or unknown scoring version; the current grade scale is not applied.
+            </Text>
+          </View>
+        )}
 
         {/* Screening disclaimer note on page 1 */}
         <View style={{ marginTop: 20, backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 8, padding: 10 }}>
-          <Text style={{ fontSize: 8, color: '#CCCCCC', lineHeight: 1.5 }}>
-            <Text style={{ color: '#0098F3', fontFamily: 'Helvetica-Bold' }}>Screening Only. </Text>
-            This report is produced by an AI-assisted posture screening tool. Results are for educational purposes only and require interpretation by a qualified health professional. Not a substitute for clinical examination.
+          <Text style={{ fontSize: 8, color: '#CCCCCC', lineHeight: 1.5 }}>{legalNotice.text}</Text>
+          <Text style={{ fontSize: 7, color: '#949494', marginTop: 4 }}>
+            {`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}
           </Text>
         </View>
       </Page>
 
       {/* Page 2: Detailed Findings */}
       <Page size="A4" style={styles.page}>
-        <Footer />
+        <Footer legalNotice={legalNotice} />
 
         {/* Header */}
         <View style={[styles.header, { marginBottom: 10 }]}>
@@ -497,12 +488,12 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <Text style={{ fontSize: 9, color: '#949494' }}>{clientName} — {dateStr}</Text>
         </View>
 
-        {(showDelta || engineVersionMismatch) && (
+        {showComparison && (
           <View style={{ backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 6, padding: 6, marginBottom: 8 }}>
             <Text style={{ fontSize: 7, color: '#CCCCCC' }}>
               {engineVersionMismatch
-                ? ENGINE_VERSION_CAVEAT
-                : 'Delta column shows change vs prior assessment. Green = improved, Red = worsened.'}
+                ? ENGINE_VERSION_COMPARISON_COPY
+                : `${MEASUREMENT_TOLERANCE_COPY} Recorded measurement deltas are shown separately and never determine the status.`}
             </Text>
           </View>
         )}
@@ -511,7 +502,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
           <View key={region}>
             <Text style={styles.regionTitle}>{REGION_LABELS[region] ?? region}</Text>
             {grouped[region].map(f => (
-              <FindingCardPdf key={f.id} f={f} hasDelta={showDelta} />
+              <FindingCardPdf key={f.id} f={f} hasDelta={showComparison} />
             ))}
           </View>
         ))}

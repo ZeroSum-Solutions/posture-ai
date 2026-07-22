@@ -13,7 +13,7 @@ export type ViewKey = 'front' | 'side' | 'back'
 export type CaptureSlotKey = 'front' | 'side-left' | 'side-right' | 'back'
 
 // Per-slot quality state
-export type SlotStatus = 'idle' | 'checking' | 'ok' | 'no_person' | 'multiple_people' | 'warnings'
+export type SlotStatus = 'idle' | 'checking' | 'ok' | 'no_person' | 'multiple_people' | 'warnings' | 'model_error'
 
 export interface CaptureSlot {
   file: File | null
@@ -64,8 +64,8 @@ export type Captures = Record<CaptureSlotKey, CaptureSlot>
 /** Canonical slot iteration/display order. */
 export const SLOT_ORDER: CaptureSlotKey[] = ['front', 'side-left', 'side-right', 'back']
 
-/** Slots that must be captured before analysis; back is optional. */
-export const REQUIRED_SLOTS: CaptureSlotKey[] = ['front', 'side-left', 'side-right']
+/** Production beta capture contract: every directional view is required. */
+export const REQUIRED_SLOTS: CaptureSlotKey[] = ['front', 'side-left', 'side-right', 'back']
 
 export const SLOT_LABEL: Record<CaptureSlotKey, string> = {
   'front': 'Front',

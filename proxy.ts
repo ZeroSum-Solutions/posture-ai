@@ -1,14 +1,70 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-// The allowlist + matcher live in lib/auth/public-paths.ts so the auth boundary
-// is unit-tested (public-paths.test.ts) — edit the list THERE.
-import { isPublicPath } from '@/lib/auth/public-paths'
+import { classifyAuthPath } from '@/lib/auth/public-paths'
+import { practitionerLegalAcceptanceStatus } from '@/lib/auth/requirePractitioner'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
 
-// Routes that require auth but not disclaimer acknowledgement
-const ONBOARDING_PATHS = ['/onboarding']
+type CookieToSet = {
+  name: string
+  value: string
+  options?: Record<string, unknown>
+}
+
+type PractitionerAccessState = {
+  access_status: string
+  role: string
+  session_is_current: boolean
+}
+
+const isOnboardingPath = (pathname: string) =>
+  pathname === '/onboarding' || pathname.startsWith('/onboarding/')
+
+const isLegalAcceptanceCorridor = (pathname: string) =>
+  isOnboardingPath(pathname) || pathname === '/api/legal/accept'
+
+const isApiPath = (pathname: string) =>
+  pathname === '/api' || pathname.startsWith('/api/')
+
+function requestedPath(request: NextRequest): string {
+  return `${request.nextUrl.pathname}${request.nextUrl.search}`
+}
+
+function applyAuthCookies(response: NextResponse, cookiesToSet: readonly CookieToSet[]): NextResponse {
+  for (const { name, value, options } of cookiesToSet) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    response.cookies.set(name, value, options as any)
+  }
+  return response
+}
+
+function redirectWithAuthCookies(
+  request: NextRequest,
+  pathname: string,
+  cookiesToSet: readonly CookieToSet[],
+  search?: Record<string, string>,
+): NextResponse {
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  url.search = ''
+  for (const [key, value] of Object.entries(search ?? {})) {
+    url.searchParams.set(key, value)
+  }
+  return applyAuthCookies(NextResponse.redirect(url), cookiesToSet)
+}
+
+function jsonWithAuthCookies(
+  body: Record<string, unknown>,
+  status: number,
+  cookiesToSet: readonly CookieToSet[],
+): NextResponse {
+  return applyAuthCookies(NextResponse.json(body, { status }), cookiesToSet)
+}
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
   let supabaseResponse = NextResponse.next({ request })
+  const refreshedCookies: CookieToSet[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,59 +72,197 @@ export async function proxy(request: NextRequest) {
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        setAll(cookiesToSet: CookieToSet[]) {
+          for (const cookie of cookiesToSet) {
+            const existing = refreshedCookies.findIndex(({ name }) => name === cookie.name)
+            if (existing === -1) refreshedCookies.push(cookie)
+            else refreshedCookies[existing] = cookie
+            request.cookies.set(cookie.name, cookie.value)
+          }
+          // Recreate the pass-through response with the refreshed request cookies
+          // and then mirror them to the browser response below.
           supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            supabaseResponse.cookies.set(name, value, options as any)
-          )
+          applyAuthCookies(supabaseResponse, refreshedCookies)
         },
       },
-    }
+    },
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const pathname = request.nextUrl.pathname
-
-  // Allow public paths
-  if (isPublicPath(pathname)) return supabaseResponse
-
-  // Redirect unauthenticated users to sign-in
-  if (!user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/sign-in'
-    return NextResponse.redirect(url)
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  if (pathname === '/muscle-viewer' || pathname.startsWith('/muscle-viewer/')) {
+    if (!clinicalAccess.surfaces.knowledgeLinks) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+    // The anatomy viewer is practitioner-only. Continue through normal auth,
+    // MFA, admission, and legal gates after both release authorities agree.
+  }
+  if (pathname.startsWith('/audio/workout-coach-river/')) {
+    if (!clinicalAccess.surfaces.workouts) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+    // Token-bound workout players are public, so their reviewed audio remains
+    // public too. The exact source + database release tuple still gates access.
+    return supabaseResponse
+  }
+  if (pathname === '/demos' || pathname.startsWith('/demos/')) {
+    if (!clinicalAccess.surfaces.recommendations) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+    // Exercise demonstrations are practitioner-only until a future token-bound
+    // media projection exists for public workout shares.
   }
 
-  // Allow onboarding path (so user can acknowledge disclaimer)
-  const isOnboarding = ONBOARDING_PATHS.some(p => pathname.startsWith(p))
-  if (isOnboarding) return supabaseResponse
+  const pathClass = classifyAuthPath(pathname)
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-  // Check disclaimer acknowledgement for all other protected routes
-  const { data: practitioner } = await supabase
-    .from('practitioners')
-    .select('non_diagnostic_ack_at')
-    .eq('id', user.id)
-    .single()
+  // Public token/legal/sign-in surfaces remain reachable even when no Auth
+  // session exists. getUser still runs first so an expiring cookie can rotate.
+  if (pathClass === 'public') return supabaseResponse
 
-  if (!practitioner?.non_diagnostic_ack_at) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/onboarding'
-    return NextResponse.redirect(url)
+  if (userError || !user) {
+    if (isApiPath(pathname)) {
+      return jsonWithAuthCookies(
+        { error: 'Unauthorized', code: 'unauthorized' },
+        401,
+        refreshedCookies,
+      )
+    }
+    return redirectWithAuthCookies(
+      request,
+      '/auth/sign-in',
+      refreshedCookies,
+      { next: requestedPath(request) },
+    )
+  }
+
+  // The narrow setup/recovery corridor is intentionally available to an
+  // authenticated AAL1 user before a practitioner row is active. Its endpoints
+  // independently bind invitations and verify AAL2 before activation.
+  if (pathClass === 'aal1-corridor') return supabaseResponse
+
+  const { data: assurance, error: assuranceError } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (assuranceError || assurance?.currentLevel !== 'aal2') {
+    if (isApiPath(pathname)) {
+      return jsonWithAuthCookies(
+        { error: 'Multi-factor authentication is required.', code: 'mfa_required' },
+        403,
+        refreshedCookies,
+      )
+    }
+    return redirectWithAuthCookies(
+      request,
+      '/auth/mfa',
+      refreshedCookies,
+      { next: requestedPath(request) },
+    )
+  }
+
+  // The normal practitioners policy hides invited/recovery/revoked rows by
+  // design. This no-argument definer RPC returns only auth.uid()'s own admission
+  // state, so middleware can route those states without weakening table RLS.
+  const { data: practitionerRow, error: practitionerError } = await supabase
+    .rpc('current_practitioner_access_state')
+    .maybeSingle()
+  const practitioner = practitionerRow as PractitionerAccessState | null
+
+  const admitted =
+    !practitionerError &&
+    practitioner?.access_status === 'active' &&
+    practitioner?.role === 'practitioner' &&
+    practitioner?.session_is_current === true
+
+  if (!admitted) {
+    const status = practitioner?.access_status
+    const accessRevoked = status === 'revoked' || status === 'suspended'
+    const mayCompleteAdmission = status === 'invited' || status === 'recovery_pending'
+    const sessionStale = status === 'active' && practitioner?.session_is_current === false
+    if (accessRevoked || (!practitionerError && !mayCompleteAdmission)) {
+      // Clear this browser's cookie immediately. Database status remains the
+      // authoritative revocation check because issued JWTs can outlive signout.
+      await supabase.auth.signOut({ scope: 'local' })
+    }
+
+    if (isApiPath(pathname)) {
+      return jsonWithAuthCookies(
+        { error: 'Practitioner access required.', code: 'practitioner_access_required' },
+        403,
+        refreshedCookies,
+      )
+    }
+
+    if (!practitionerError && mayCompleteAdmission) {
+      // An AAL2 invite/recovery session may still need its atomic activation RPC.
+      return redirectWithAuthCookies(
+        request,
+        '/auth/mfa',
+        refreshedCookies,
+        { next: requestedPath(request) },
+      )
+    }
+
+    return redirectWithAuthCookies(
+      request,
+      '/auth/sign-in',
+      refreshedCookies,
+      {
+        reason: accessRevoked
+          ? 'access_revoked'
+          : sessionStale
+            ? 'session_stale'
+          : status === 'review_required'
+            ? 'access_review_required'
+            : practitionerError
+              ? 'access_unavailable'
+              : 'access_denied',
+      },
+    )
+  }
+
+  // This is the only protected corridor before governed acceptance. The API
+  // independently repeats admission and verifies the exact submitted snapshots.
+  if (isLegalAcceptanceCorridor(pathname)) return supabaseResponse
+
+  const legalStatus = await practitionerLegalAcceptanceStatus(supabase, user.id)
+  if (legalStatus === 'unavailable') {
+    if (isApiPath(pathname)) {
+      return jsonWithAuthCookies(
+        { error: 'Legal documents are temporarily unavailable.', code: 'legal_unavailable' },
+        503,
+        refreshedCookies,
+      )
+    }
+    return redirectWithAuthCookies(
+      request,
+      '/onboarding',
+      refreshedCookies,
+      { reason: 'legal_unavailable' },
+    )
+  }
+
+  if (legalStatus === 'required') {
+    if (isApiPath(pathname)) {
+      return jsonWithAuthCookies(
+        { error: 'Legal acceptance required.', code: 'legal_acceptance_required' },
+        403,
+        refreshedCookies,
+      )
+    }
+    return redirectWithAuthCookies(request, '/onboarding', refreshedCookies)
   }
 
   return supabaseResponse
 }
 
 export const config = {
-  // `muscle-viewer` is the embedded 3D anatomy widget (public/muscle-viewer/**): generic,
-  // non-sensitive static assets (CC-BY-SA anatomy + JS) that carry no patient data — the
-  // assessment drives colors in at runtime via postMessage. Excluded from auth like _next/static
-  // so its assets (incl. the ~9 MB GLB) serve statically without a Supabase round-trip each.
+  // Clinical static entry points deliberately pass through the gate above.
+  // A phantom path such as /muscle-viewerX remains on the normal auth path.
   matcher: [
-    // `muscle-viewer(?:$|/)` is segment-anchored so only /muscle-viewer and /muscle-viewer/…
-    // skip the middleware; a phantom path like /muscle-viewerX stays auth-gated.
-    '/((?!_next/static|_next/image|muscle-viewer(?:$|/)|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Explicit entries ensure clinical static files still run through the gate
+    // even when their extension is excluded by the general application matcher.
+    '/muscle-viewer/:path*',
+    '/audio/workout-coach-river/:path*',
+    '/demos/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

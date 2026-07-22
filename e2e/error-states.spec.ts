@@ -1,9 +1,19 @@
 import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 test.describe('error states (regression: silent-swallow fixes)', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:error-states:mobile-webkit',
+      source: 'e2e/error-states.spec.ts::error states project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'run once on chromium',
+  ))
 
   test('client detail: assessments 500 shows alert not empty-state', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrAssess-${randomUUID().slice(0, 8)}`)
@@ -56,7 +66,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
   test('assessment results: prior assessments 500 shows aux error alert', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrPrior-${randomUUID().slice(0, 8)}`)
-    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     const assessmentId = (await res.json()).id as string
 
@@ -71,7 +81,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
   test('report error has role=alert', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrPdf-${randomUUID().slice(0, 8)}`)
-    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: client.id, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     const assessmentId = (await res.json()).id as string
     // Approve so PDF gate doesn't block

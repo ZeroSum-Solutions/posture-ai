@@ -14,7 +14,7 @@ for (const m of ALL_MUSCLES) {
   lines.push(
     `INSERT INTO muscles (slug, name, region, anatomy_summary, function_text, screening_notes, reviewed_by, reviewed_at) VALUES (` +
       [q(m.slug), q(m.name), q(m.region), q(m.anatomySummary), q(m.functionText), q(m.screeningNotes), q(m.reviewedBy), m.reviewedAt ? q(m.reviewedAt) : 'NULL'].join(', ') +
-      `)\nON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, region = EXCLUDED.region, anatomy_summary = EXCLUDED.anatomy_summary, function_text = EXCLUDED.function_text, screening_notes = EXCLUDED.screening_notes, updated_at = now();`
+      `)\nON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, region = EXCLUDED.region, anatomy_summary = EXCLUDED.anatomy_summary, function_text = EXCLUDED.function_text, screening_notes = EXCLUDED.screening_notes, reviewed_by = EXCLUDED.reviewed_by, reviewed_at = EXCLUDED.reviewed_at, updated_at = now();`
   )
 }
 lines.push('')

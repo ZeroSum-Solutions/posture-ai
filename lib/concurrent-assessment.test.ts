@@ -3,18 +3,19 @@ import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 
 // ---------------------------------------------------------------------------
-// Feature #41: Concurrent assessment submissions are handled without data corruption
+// Feature #41: Distinct concurrent assessment submissions do not cross-contaminate
 // ---------------------------------------------------------------------------
 // This test verifies that:
 // 1. The posture scoring engine is pure/stateless (safe to call concurrently)
-// 2. Assessment IDs generated per-request never collide
+// 2. Intentionally distinct submissions generate distinct assessment IDs
 // 3. Findings are always correctly associated with their own assessment_id
 // 4. No shared mutable state exists in the handler logic
 // ---------------------------------------------------------------------------
 
 /**
- * Simulates the core business logic of POST /api/assessments (without HTTP layer).
- * Mirrors app/api/assessments/route.ts exactly.
+ * Models the downstream scoring/write isolation of POST /api/assessments without
+ * its HTTP, validation, or submission-id replay layer. Same-key idempotency and
+ * payload-conflict behavior are covered by app/api/assessments/route.test.ts.
  */
 async function simulateAssessmentHandler(opts: {
   clientId: string
@@ -103,7 +104,7 @@ class MockDb {
 const CLIENT_ID = 'client-test-uuid-001'
 const PRACTITIONER_ID = 'practitioner-test-uuid-001'
 
-describe('Feature #41: Concurrent assessment submissions', () => {
+describe('Feature #41: Distinct concurrent assessment submissions', () => {
   it('posture engine is pure — concurrent calls return identical deterministic results', async () => {
     const frames = testLandmarksFrames as PoseFrame[]
 
@@ -128,7 +129,8 @@ describe('Feature #41: Concurrent assessment submissions', () => {
     const db = new MockDb()
     const frames = testLandmarksFrames as PoseFrame[]
 
-    // Fire two concurrent assessments for the SAME client
+    // Fire two intentionally distinct submissions for the SAME client. In the
+    // route these carry different submission_id values.
     const [result1, result2] = await Promise.all([
       simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames }),
       simulateAssessmentHandler({ clientId: CLIENT_ID, practitionerId: PRACTITIONER_ID, db, frames }),

@@ -1,5 +1,5 @@
-import { describe, test, expect } from 'vitest'
-import { hashIp } from './log'
+import { describe, test, expect, vi } from 'vitest'
+import { hashIp, hashResource, logEvent } from './log'
 
 describe('hashIp', () => {
   test('returns null when the header is absent', () => {
@@ -25,5 +25,33 @@ describe('hashIp', () => {
 
   test('trims whitespace around the hop', () => {
     expect(hashIp('6.6.6.6,   198.51.100.9  ')).toBe(hashIp('198.51.100.9'))
+  })
+})
+
+describe('logEvent privacy boundary', () => {
+  test('never emits a raw resource identifier or provider/application detail', () => {
+    const output = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const resourceId = 'client-identifier-that-must-not-be-logged'
+    const providerDetail = 'provider error containing Jane Doe'
+
+    logEvent({
+      route: 'POST /api/test',
+      outcome: 'server_error',
+      status: 500,
+      assessmentId: resourceId,
+      detail: providerDetail,
+      detailCode: 'controlled_failure',
+    })
+
+    const line = String(output.mock.calls[0]?.[0])
+    expect(line).toContain(hashResource(resourceId))
+    expect(line).toContain('controlled_failure')
+    expect(line).not.toContain(resourceId)
+    expect(line).not.toContain(providerDetail)
+    expect(JSON.parse(line)).toMatchObject({
+      resourceHash: hashResource(resourceId),
+      detailCode: 'controlled_failure',
+    })
+    output.mockRestore()
   })
 })

@@ -6,19 +6,25 @@ import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import BrandMark from '@/components/BrandMark'
 
-const links = [
+const baseLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/clients', label: 'Clients' },
-  { href: '/exercises', label: 'Exercises' },
-  { href: '/muscles', label: 'Muscles' },
   { href: '/settings', label: 'Settings' },
 ]
 
-export default function NavBar() {
+const clinicalLinks = [
+  { href: '/exercises', label: 'Exercises' },
+  { href: '/muscles', label: 'Muscles' },
+]
+
+export default function NavBar({ clinicalContentEnabled }: { clinicalContentEnabled: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const links = clinicalContentEnabled
+    ? [...baseLinks.slice(0, 2), ...clinicalLinks, ...baseLinks.slice(2)]
+    : baseLinks
 
   const isAuthPage = pathname?.startsWith('/auth') || pathname?.startsWith('/onboarding')
   const isPublicDocument = pathname === '/privacy' || pathname === '/terms' || pathname?.startsWith('/consent/') || pathname?.startsWith('/s/')

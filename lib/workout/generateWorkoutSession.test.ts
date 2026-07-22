@@ -3,6 +3,24 @@ import type { Finding } from '../../packages/posture-engine/src/types'
 import { buildProgramFrom } from '../program/buildProgram'
 import { generateWorkoutSession, type SessionSnapshot } from './generateWorkoutSession'
 import { ALL_EXERCISES } from '../../content'
+import type { LegalSnapshot } from '../legal/types'
+
+const legalNotice: LegalSnapshot = {
+  schemaVersion: 1,
+  documentId: 'screening-notice-v1',
+  kind: 'screening_notice',
+  version: '2026-07-20',
+  title: 'Screening Notice',
+  effectiveAt: '2026-07-20T00:00:00.000Z',
+  jurisdiction: 'US',
+  locale: 'en-US',
+  productScope: 'us_fitness_wellness_assessment_beta_v1',
+  audience: 'subject',
+  bodySha256: 'd'.repeat(64),
+  text: 'Exact governed workout notice.',
+  sections: [{ id: 'notice', heading: null, paragraphs: ['Exact governed workout notice.'] }],
+  isFixture: true,
+}
 
 // Synthetic reliable findings that produce two real priorities through the
 // actual selectPriorities → buildProgramFrom pipeline (no mocked report).
@@ -114,6 +132,15 @@ describe('generateWorkoutSession', () => {
     const b = generateWorkoutSession(r, { week: 2 })
     expect(a).toEqual(b)
     expect(JSON.stringify(r)).toBe(frozen)
+  })
+
+  it('mints a governed v2 snapshot carrying the exact legal snapshot when supplied', () => {
+    const snap = generateWorkoutSession(report(), { week: 1, legalNotice })!
+
+    expect(snap.version).toBe(2)
+    expect(snap).not.toHaveProperty('disclaimer')
+    expect(snap).toHaveProperty('legalNotice', legalNotice)
+    expect((snap as { legalNotice: LegalSnapshot }).legalNotice).toBe(legalNotice)
   })
 
   it('golden snapshot — week 1 session from the canonical two-priority report', () => {

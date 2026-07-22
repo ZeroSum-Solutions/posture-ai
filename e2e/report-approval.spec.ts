@@ -2,15 +2,25 @@ import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from './helpers'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 // Professional-review gate: a report cannot be exported until a practitioner
 // reviews and approves the assessment (exercises are suggestions, not an
 // auto-generated prescription). Tested at the API; chromium only.
 test.describe('report approval gate', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'API-level gate; run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:report-approval:mobile-webkit',
+      source: 'e2e/report-approval.spec.ts::report approval gate project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'API-level gate; run once on chromium',
+  ))
 
   async function createCompleteAssessmentFor(page: Page, clientId: string): Promise<string> {
-    const res = await page.request.post('/api/assessments', { data: { client_id: clientId, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: clientId, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     return (await res.json()).id as string
   }

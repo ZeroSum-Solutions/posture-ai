@@ -1,7 +1,9 @@
 # End-to-end tests (Playwright)
 
 E2E suite for posture-ai. Runs against `next dev` backed by the **local Supabase
-stack**, across two projects: `desktop-chromium` and `mobile-webkit`.
+stack**. Release-surface coverage uses desktop Chromium and mobile WebKit, plus a
+narrow Android Chromium browser-emulation proxy. The proxy is never physical-device
+or HG-04 evidence.
 
 ## Prerequisites
 
@@ -17,10 +19,11 @@ clear message if the stack is down.
 ## Running
 
 ```bash
-npm run test:e2e                              # full suite, both projects
+npm run test:e2e                              # full suite, every configured project
 npm run test:e2e -- e2e/muscle-kb.spec.ts     # one spec
 npm run test:e2e -- --project=desktop-chromium
 npm run test:e2e -- --project=mobile-webkit
+npm run test:e2e -- --project=android-chromium-proxy
 npm run test:e2e -- --headed --debug          # debug a failure
 
 # Reproduce CI locally (clean stack + retries:1 + HTML reporter + fresh server):
@@ -40,14 +43,16 @@ or run without test mode — kill it (`lsof -ti tcp:3100 | xargs kill`) or set `
 
 | Project | Device | Runs |
 |---|---|---|
-| `setup` | — | `auth.setup.ts` → authenticated session (`e2e/.auth/user.json`); a dependency of both projects |
+| `setup` | — | `auth.setup.ts` → authenticated session (`e2e/.auth/user.json`); a dependency of browser projects |
 | `desktop-chromium` | Desktop Chrome | all specs |
-| `mobile-webkit` | iPhone 14 | all specs **except** `real-detection` + `capture-errors` (camera/model tests; `testIgnore`) |
+| `mobile-webkit` | iPhone 14 | broad suite; camera/model and calibration specs remain assigned to Chromium lanes through manifest-owned `testIgnore` rules |
+| `android-chromium-proxy` | Pixel 7 browser emulation | only `a11y` + `device-accessibility-harness`; device-independent proxy, never HG-04 evidence |
 
-Intentional, legitimate skips (do **not** remove to force green): `a11y.spec.ts`
-`test.skip`s off non-chromium; `mobile-webkit` `testIgnore`s `real-detection` /
-`capture-errors`. "Green on both projects" = the chromium superset **plus** the
-mobile-webkit subset, not an identical run.
+`a11y.spec.ts` runs on all three release-surface browser projects. Intentional,
+manifest-owned skips and ignores remain for project-specific API/model/calibration
+work; never remove or add one merely to force green. "Green" means each project's
+declared scope passes, not that emulation substitutes for the physical matrix in
+`docs/qa/device-evidence-checklist.md`.
 
 ## Specs
 
@@ -64,7 +69,18 @@ mobile-webkit subset, not an identical run.
 | `wizard-nav.spec.ts` | wizard back-navigation; abandon mid-wizard | both |
 | `real-detection.spec.ts` | real photo upload → MediaPipe → score; no-CDN assertion | chromium |
 | `capture-errors.spec.ts` | camera permission denied; no-orientation-sensor; no-person upload | chromium |
-| `a11y.spec.ts` | zero serious/critical axe violations | chromium |
+| `a11y.spec.ts` | zero serious/critical Axe violations; sanitized all-severity JSON receipts | desktop Chromium + mobile WebKit + Android Chromium proxy |
+| `device-accessibility-harness.spec.ts` | phone keyboard/focus, route state, and reduced-motion proxy | desktop Chromium + mobile WebKit + Android Chromium proxy |
+| `device-recovery.spec.ts` | visibility/orientation recovery and bounded lifecycle proxy | configured browser lanes; device-independent only |
+
+## PR-08 evidence boundary
+
+CI retains sanitized Playwright and Axe JSON receipts on both success and failure.
+They prove the browser harness execution and accessibility budget only. They contain no
+posture frames and are labeled `physical_device_evidence:false`. Physical permission,
+camera, sustained-session, VoiceOver/TalkBack, wake-lock, and device-identity evidence
+must be collected under `docs/qa/device-evidence-checklist.md`; only its separately
+validated and independently reviewed physical packet can support HG-04.
 
 ## Test mode
 

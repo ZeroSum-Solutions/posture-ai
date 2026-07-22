@@ -23,6 +23,7 @@ import { emptySlot } from '../types'
 import type { Captures } from '../types'
 import { assessPixelQuality } from '@/lib/capture/pixel-quality'
 import type { PixelSample } from '@/lib/capture/pixel-quality'
+import { SCREENING_NOTICE_SNAPSHOT } from '@/components/legal-test-fixture'
 
 vi.mock('@/lib/pose/capture-runtime', () => ({
   getCaptureRuntime: () => ({
@@ -32,6 +33,9 @@ vi.mock('@/lib/pose/capture-runtime', () => ({
     dispose: vi.fn().mockResolvedValue(undefined),
     frameLive: vi.fn(),
     state: vi.fn(() => 'idle'),
+    readiness: vi.fn(() => ({ phase: 'ready', backend: 'live', delegate: 'gpu', message: null })),
+    subscribeReadiness: vi.fn((listener: (state: { phase: string; backend: string; delegate: string; message: null }) => void) => { listener({ phase: 'ready', backend: 'live', delegate: 'gpu', message: null }); return () => {} }),
+    retry: vi.fn().mockResolvedValue(undefined),
   }),
 }))
 
@@ -125,6 +129,7 @@ async function mountReady(captures: Captures) {
   const onCameraCapture = vi.fn()
   render(
     <FullScreenCapture
+      screeningNotice={SCREENING_NOTICE_SNAPSHOT}
       captures={captures}
       onCameraCapture={onCameraCapture}
       onFileUpload={vi.fn()}
@@ -178,7 +183,7 @@ describe('FullScreenCapture — pixel-quality merge + a11y (T3)', () => {
     // (The warning renders as "• {text}" across two text nodes, so assert on
     // the status region's textContent rather than an exact getByText match.)
     await waitFor(() => {
-      const region = document.querySelector('[role="status"]')
+      const region = screen.getByTestId('review-quality-status')
       expect(region?.textContent).toContain(EXPECTED_PQ.warnings[0])
     }, { timeout: 2000 })
     // Not yet committed — proves the warning is visible BEFORE "Use This Photo".

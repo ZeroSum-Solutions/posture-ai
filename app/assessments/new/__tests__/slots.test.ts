@@ -6,9 +6,8 @@ describe('capture slot model', () => {
     expect(SLOT_ORDER).toEqual(['front', 'side-left', 'side-right', 'back'])
   })
 
-  it('requires front + both sides; back is optional', () => {
-    expect(REQUIRED_SLOTS).toEqual(['front', 'side-left', 'side-right'])
-    expect(REQUIRED_SLOTS).not.toContain('back')
+  it('requires all four production capture views', () => {
+    expect(REQUIRED_SLOTS).toEqual(['front', 'side-left', 'side-right', 'back'])
   })
 
   it('maps each side slot to the side view carrying its laterality', () => {

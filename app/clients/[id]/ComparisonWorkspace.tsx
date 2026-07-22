@@ -1,10 +1,19 @@
 'use client'
+import {
+  MEASUREMENT_TOLERANCE_COPY,
+  comparisonDecisionText,
+  comparisonStatusText,
+  comparisonTone,
+  type ComparisonDecision,
+} from '@/lib/comparison/policy'
 import styles from './ClientEvidenceCanvas.module.css'
 
 export type ComparisonAssessment = {
   id: string
   assessedAt: string
   overallGrade: string | null
+  overallScore: number | null
+  scoringEngineVersion: string | null
   status: string
 }
 
@@ -13,9 +22,11 @@ export type ComparisonDeltaRow = {
   label: string
   baseDeviation: number | null
   targetDeviation: number | null
+  baseUnit: string
+  targetUnit: string
   unit: string
   delta: number | null
-  improved: boolean | null
+  comparison: ComparisonDecision
 }
 
 export type ComparisonWorkspaceProps = {
@@ -23,17 +34,9 @@ export type ComparisonWorkspaceProps = {
   baseId: string
   targetId: string
   deltaRows: readonly ComparisonDeltaRow[]
+  overallComparison: ComparisonDecision | null
   onBaseChange: (assessmentId: string) => void
   onTargetChange: (assessmentId: string) => void
-}
-
-const GRADE_ORDER: Record<string, number> = {
-  S: 6,
-  A: 5,
-  B: 4,
-  C: 3,
-  D: 2,
-  E: 1,
 }
 
 function formatDate(iso: string) {
@@ -62,6 +65,7 @@ export default function ComparisonWorkspace({
   baseId,
   targetId,
   deltaRows,
+  overallComparison,
   onBaseChange,
   onTargetChange,
 }: ComparisonWorkspaceProps) {
@@ -75,18 +79,12 @@ export default function ComparisonWorkspace({
     ? []
     : chronologicalAssessments.filter((assessment) => Date.parse(assessment.assessedAt) > baseTime)
   const targetAssessment = chronologicalAssessments.find((assessment) => assessment.id === targetId)
-  const baseGradeOrder = baseAssessment?.overallGrade ? GRADE_ORDER[baseAssessment.overallGrade] : null
-  const targetGradeOrder = targetAssessment?.overallGrade ? GRADE_ORDER[targetAssessment.overallGrade] : null
-  const gradeDirection = baseGradeOrder !== null && targetGradeOrder !== null
-    ? targetGradeOrder > baseGradeOrder
-      ? 'Improved'
-      : targetGradeOrder < baseGradeOrder
-        ? 'Regressed'
-        : 'No change'
-        : 'Grade unavailable'
-  const directionClass = gradeDirection === 'Improved'
+  const overallStatus = overallComparison?.status ?? 'not_comparable'
+  const overallTone = comparisonTone(overallStatus)
+  const overallLabel = comparisonStatusText(overallStatus, 'overall')
+  const directionClass = overallTone === 'positive'
     ? styles.directionImproved
-    : gradeDirection === 'Regressed'
+    : overallTone === 'negative'
       ? styles.directionRegressed
       : styles.directionNeutral
 
@@ -148,8 +146,12 @@ export default function ComparisonWorkspace({
           </article>
           <article className={styles.transitionCard}>
             <h3 className={styles.cardHeading}>Change summary</h3>
-            <p className={`${styles.directionBadge} ${directionClass}`}>{gradeDirection}</p>
-            <p className={styles.transitionNote}>Lower severity indicates improvement.</p>
+            <p className={`${styles.directionBadge} ${directionClass}`}>{overallLabel}</p>
+            <p className={styles.transitionNote}>
+              {overallComparison?.status === 'not_comparable'
+                ? comparisonDecisionText(overallComparison, 'overall')
+                : MEASUREMENT_TOLERANCE_COPY}
+            </p>
           </article>
           <article className={styles.assessmentCard}>
             <h3 className={styles.cardHeading}>After assessment</h3>
@@ -164,7 +166,7 @@ export default function ComparisonWorkspace({
       {deltaRows.length > 0 && (
         <section className={styles.evidencePanel} aria-labelledby="comparison-evidence-heading">
           <h3 className={styles.evidenceHeading} id="comparison-evidence-heading">Finding comparison</h3>
-          <p className={styles.evidenceIntro}>Measurements are shown as recorded. Status follows severity change, where lower is better.</p>
+          <p className={styles.evidenceIntro}>Measurements are shown as recorded. Status comes from severity percentage points, where lower is better. Raw measurement deltas never set the status.</p>
           <ul className={styles.evidenceList} aria-label="Finding comparison evidence">
             {deltaRows.map((row) => (
               <li className={styles.evidenceRow} id={`finding-${row.key}`} key={row.key}>
@@ -172,11 +174,11 @@ export default function ComparisonWorkspace({
                 <dl className={styles.evidenceData}>
                   <div>
                     <dt>Before</dt>
-                    <dd>{formatMeasurement(row.baseDeviation, row.unit)}</dd>
+                    <dd>{formatMeasurement(row.baseDeviation, row.baseUnit)}</dd>
                   </div>
                   <div>
                     <dt>After</dt>
-                    <dd>{formatMeasurement(row.targetDeviation, row.unit)}</dd>
+                    <dd>{formatMeasurement(row.targetDeviation, row.targetUnit)}</dd>
                   </div>
                   <div>
                     <dt>Delta</dt>
@@ -185,17 +187,13 @@ export default function ComparisonWorkspace({
                   <div>
                     <dt>Status</dt>
                     <dd className={`${styles.rowStatus} ${
-                      row.improved === true
+                      comparisonTone(row.comparison.status) === 'positive'
                         ? styles.rowImproved
-                        : row.improved === false
+                        : comparisonTone(row.comparison.status) === 'negative'
                           ? styles.rowRegressed
                           : styles.rowNeutral
                     }`}>
-                      {row.improved === true
-                        ? 'Improved — lower severity'
-                        : row.improved === false
-                          ? 'Regressed — higher severity'
-                          : 'No severity change'}
+                      {comparisonDecisionText(row.comparison, 'finding')}
                     </dd>
                   </div>
                 </dl>

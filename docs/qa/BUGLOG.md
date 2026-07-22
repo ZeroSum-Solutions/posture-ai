@@ -50,7 +50,13 @@ ADDITIONAL read-path leaks found this pass (same root cause, same branch):
 Full fix scope = add `.is('deleted_at', null)` to: clients list (page.tsx:30), dashboard count (dashboard/page.tsx), dashboard recent-activity query, and the wizard client-select query. Audit whether `clients/[id]/assessments` (AUDIT Area 4) needs it too. One branch, one regression test per read path.
 
 ## QA-002 — Muscle Guide + all muscle detail pages + results muscle links dead-end in production build
-severity: S3 · status: open · found: PASS-01 · item: KB-01, RES-02
+severity: S3 · status: FIXED (PR-07 clinical-content governance) · found: PASS-01 · item: KB-01, RES-02
+PR-07 FIX: assessment-only mode now removes clinical knowledge links and the
+Muscle Guide navigation at the server boundary, while direct list/detail requests
+return 404. An activated release exposes only exact HG-03-approved muscle/link
+dependencies, so results cannot create links to an unapproved detail route. The
+old per-row `reviewed_at` production switch described below is no longer the
+runtime authority.
 PASS-05 update: the current branch now renders a truthful "reviewed guide is being
 prepared" empty state, resolving the misleading empty-search copy. The results-page
 muscle chips still link unconditionally to detail routes that 404 when every entry is

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
+import { practitionerAdmission } from '@/lib/auth/requirePractitioner'
 
 // Self-serve organization compliance settings: the HIPAA covered-entity flag and
 // Business Associate Agreement status that drive `practitionerGate`'s BAA gate.
 //
-// Deliberately does NOT call practitionerGate: that gate 403s a covered-entity
-// practitioner whose BAA is unsigned, which would lock them out of the very
-// screen they need to record the BAA. We require only an authenticated
-// practitioner row here.
+// Deliberately uses the core practitioner admission check instead of the complete
+// practitionerGate: AAL2 + active-account admission still applies, but the BAA
+// check does not. Otherwise an unsigned covered entity would be locked out of the
+// very screen it needs to record the BAA.
 //
 // Org writes use the service-role client because `organizations` has no write
 // RLS policy. There is no IDOR surface: the target org id is always derived from
@@ -34,25 +34,6 @@ const patchSchema = z
 const ORG_FIELDS = 'id, name, is_covered_entity, baa_status, baa_signed_at'
 const ROUTE = 'PATCH /api/settings/organization'
 
-type PractitionerRow = {
-  id: string
-  organization_id: string | null
-  practice_name: string | null
-  display_name: string | null
-}
-
-async function loadPractitioner(
-  supabase: SupabaseClient,
-  userId: string,
-): Promise<PractitionerRow | null> {
-  const { data } = await supabase
-    .from('practitioners')
-    .select('id, organization_id, practice_name, display_name')
-    .eq('id', userId)
-    .maybeSingle()
-  return (data as PractitionerRow) ?? null
-}
-
 export async function GET() {
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -60,10 +41,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const prac = await loadPractitioner(supabase, user.id)
-  if (!prac) {
-    return NextResponse.json({ error: 'Practitioner access required.' }, { status: 403 })
-  }
+  const admission = await practitionerAdmission(supabase, user.id)
+  if (admission.response) return admission.response
+  const prac = admission.practitioner
   if (!prac.organization_id) {
     return NextResponse.json({ organization: null })
   }
@@ -87,10 +67,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const prac = await loadPractitioner(supabase, user.id)
-  if (!prac) {
-    return NextResponse.json({ error: 'Practitioner access required.' }, { status: 403 })
-  }
+  const admission = await practitionerAdmission(supabase, user.id)
+  if (admission.response) return admission.response
+  const prac = admission.practitioner
   const userHash = hashUser(user.id)
 
   const service = createSupabaseServiceClient()

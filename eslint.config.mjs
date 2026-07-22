@@ -16,4 +16,12 @@ export default [
       '.claude/**',
     ],
   },
+  {
+    files: ['app/api/**/*.{ts,tsx}'],
+    rules: {
+      // API logs may contain regulated identifiers or provider error text.
+      // Routes must use lib/log.ts, which hashes IDs and accepts controlled codes.
+      'no-console': 'error',
+    },
+  },
 ]

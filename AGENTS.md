@@ -1,5 +1,16 @@
 # Agent instructions — posture-ai
 
+## External model routing
+
+- **Kimi K3 is approved for this project** through the prepaid Moonshot lane documented in
+  `~/AGENTS.md`. Invoke it from the repository with `kimi-k3 --oneshot "<self-contained task>"`.
+- Kimi K3 is external to Codex. Do **not** pass `Kimi K3` or `kimi-k3` as the `model` value
+  for Codex's built-in collaboration/subagent tools; those selectors only accept their
+  explicitly listed Codex models.
+- Long Kimi reviews can spend several minutes in provider-side synthesis. The wrapper emits
+  progress heartbeats while preserving the final answer on stdout; a quiet interval is not
+  by itself an authentication failure.
+
 ## `docs/evidence/**` is opt-in
 
 That directory holds the literature reviews backing the engine's degree thresholds and the

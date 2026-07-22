@@ -1,0 +1,1 @@
+{"device_class":"android_chrome","model":"Fixture Android 4GB","os_version":"11.0","browser_name":"Chrome","browser_version":"150.0.0.0","browser_build":"150.0.7339.0","physical_device":false,"emulated":true,"desktop":false,"ram_gb":4,"mid_or_low_tier":true}

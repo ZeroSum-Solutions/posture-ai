@@ -1,17 +1,27 @@
 import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 // Human-in-the-loop gate for the guided workout player: a session may only be
 // minted from an APPROVED assessment (mirror of the report-export gate). Also
 // covers the public share-token surface returning a uniform 404 for a bad token.
 // API-level; chromium only.
 test.describe('workout mint approval gate', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'API-level gate; run once on chromium')
+  test.beforeEach(({ browserName }, testInfo) => skipForProductionReadiness(
+    testInfo,
+    browserName !== 'chromium',
+    {
+      key: 'skip:workout-mint:mobile-webkit',
+      source: 'e2e/workout-mint.spec.ts::workout mint approval gate project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'API-level gate; run once on chromium',
+  ))
 
   async function createCompleteAssessment(page: Page): Promise<string> {
     const c = await createClient(page, 'E2E', `Mint-${randomUUID().slice(0, 8)}`)
-    const res = await page.request.post('/api/assessments', { data: { client_id: c.id, test_mode: true } })
+    const res = await page.request.post('/api/assessments', { data: { client_id: c.id, submission_id: randomUUID(), test_mode: true } })
     expect(res.ok(), `assessment create failed: ${res.status()}`).toBeTruthy()
     return (await res.json()).id as string
   }

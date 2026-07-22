@@ -11,8 +11,9 @@ describe('testLandmarksFrames (slice 1 canonical snapshot)', () => {
     // is near-zero in this fixture. Was 24 (Task 6 validity-weighted), 25 at
     // trunk_lean-merge, 26 before. No overallPercentile emitted.
     expect(result.overallScore).toBe(22)
-    expect(result.ranks.front).toBe(18)
-    expect(result.ranks.side).toBe(37)
+    expect(result.viewSeverityIndex.front).toBe(18)
+    expect(result.viewSeverityIndex.side).toBe(37)
+    expect(result.ranks).toEqual(result.viewSeverityIndex)
     expect(result.findings).toHaveLength(9)
     expect(result.disclaimer).toContain('SCREENING ONLY')
   })

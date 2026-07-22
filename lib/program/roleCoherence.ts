@@ -1,5 +1,6 @@
 import { ALL_MUSCLES } from '../../content'
 import type { ExerciseContent } from '../../content/muscles/types'
+import { clinicalLinkId } from '../clinical-content/policy'
 
 export interface ScoredSet {
   tight: Set<string>
@@ -36,9 +37,28 @@ export const SCORED_SETS: Map<string, ScoredSet> = (() => {
  * runtime so a tight link can never credit a strengthen exercise (or vice
  * versa). Informational items are never coherent — they are never programmed.
  */
-export function isCoherentForKey(ex: ExerciseContent, key: string): boolean {
+export function isCoherentForKey(
+  ex: ExerciseContent,
+  key: string,
+  approvedLinkIds?: ReadonlySet<string>,
+): boolean {
   if (ex.category === 'informational') return false
-  const s = SCORED_SETS.get(key)
+  const s = approvedLinkIds
+    ? (() => {
+        const scoped: ScoredSet = { tight: new Set(), weak: new Set() }
+        for (const muscle of ALL_MUSCLES) {
+          for (const link of muscle.links) {
+            if (
+              link.imbalanceKey !== key
+              || link.scored === false
+              || !approvedLinkIds.has(clinicalLinkId(muscle.slug, link.imbalanceKey, link.role))
+            ) continue
+            scoped[link.role].add(muscle.slug)
+          }
+        }
+        return scoped
+      })()
+    : SCORED_SETS.get(key)
   if (!s) return false
   const hitsTight = ex.muscles.some((m) => m.role === 'stretch' && s.tight.has(m.muscleSlug))
   const hitsWeak = ex.muscles.some((m) => m.role === 'strengthen' && s.weak.has(m.muscleSlug))

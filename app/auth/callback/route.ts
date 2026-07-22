@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { safeNextPath } from '@/lib/auth/safe-next'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const next = safeNextPath(searchParams.get('next'))
 
@@ -26,8 +26,11 @@ export async function GET(request: NextRequest) {
     )
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      return new NextResponse(null, { status: 307, headers: { Location: next } })
     }
   }
-  return NextResponse.redirect(`${origin}/auth/sign-in?error=callback_failed`)
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: '/auth/sign-in?error=callback_failed' },
+  })
 }

@@ -13,39 +13,156 @@ import {
   assertPoseOnlyModel,
   mapLandmarks,
 } from './pose-model'
+import {
+  readinessMessage,
+  type PoseBackendStartResult,
+  type PoseDelegate,
+  type PoseFailureCode,
+  type PoseReadiness,
+  type PoseReadinessListener,
+} from './pose-readiness'
 
 /** Client-only detector metadata used by capture preflight, never sent to the API. */
 export interface DetectedPoseFrame extends PoseFrame {
   detectedPoseCount: number
 }
 
-let landmarkerPromise: Promise<PoseLandmarker> | null = null
+export const IMAGE_INIT_TIMEOUT_MS = 15_000
+export const IMAGE_DETECT_TIMEOUT_MS = 10_000
 
-async function getLandmarker(): Promise<PoseLandmarker> {
+interface ResidentLandmarker {
+  landmarker: PoseLandmarker
+  delegate: PoseDelegate
+}
+
+class PoseOperationError extends Error {
+  constructor(
+    message: string,
+    readonly code: PoseFailureCode,
+  ) {
+    super(message)
+    this.name = 'PoseOperationError'
+  }
+}
+
+let landmarkerPromise: Promise<ResidentLandmarker> | null = null
+// A GPU instance that throws during inference is treated as context-lost. Keep
+// subsequent clean constructions on CPU for the rest of this capture-runtime
+// lifecycle; `resetLandmarkerDelegatePreference` is the explicit fresh-start
+// boundary (called by CaptureRuntime.dispose).
+let preferCpuForRecovery = false
+let readiness = readinessMessage('downloading', 'image', null, 'Preparing the pose model.')
+const readinessListeners = new Set<PoseReadinessListener>()
+
+export function imageReadiness(): PoseReadiness {
+  return readiness
+}
+
+export function subscribeImageReadiness(listener: PoseReadinessListener): () => void {
+  readinessListeners.add(listener)
+  listener(readiness)
+  return () => readinessListeners.delete(listener)
+}
+
+function publishReadiness(next: PoseReadiness) {
+  readiness = next
+  readinessListeners.forEach(listener => listener(next))
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function timeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  message: string,
+  code: PoseFailureCode = 'timeout',
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new PoseOperationError(message, code)), timeoutMs)
+    operation.then(
+      value => { clearTimeout(timer); resolve(value) },
+      error => { clearTimeout(timer); reject(error) },
+    )
+  })
+}
+
+async function createWithDeadline(
+  vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>,
+  delegate: 'GPU' | 'CPU',
+): Promise<PoseLandmarker> {
+  const creation = PoseLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+    runningMode: 'IMAGE',
+    numPoses: 2,
+  })
+  try {
+    return await timeout(
+      creation,
+      IMAGE_INIT_TIMEOUT_MS,
+      `${delegate} pose-model initialization timed out.`,
+    )
+  } catch (error) {
+    // MediaPipe's constructor has no AbortSignal. If a timed-out constructor
+    // eventually resolves, close that abandoned instance immediately; it is
+    // never promoted to the resident singleton.
+    if (error instanceof PoseOperationError && error.code === 'timeout') {
+      void creation.then(late => late.close(), () => {})
+    }
+    throw error
+  }
+}
+
+async function getLandmarker(): Promise<ResidentLandmarker> {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
       assertPoseOnlyModel(MODEL_URL)
-      const vision = await FilesetResolver.forVisionTasks(WASM_URL)
-      let lm: PoseLandmarker
-      try {
-        lm = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-          runningMode: 'IMAGE',
-          numPoses: 2,
-        })
-      } catch {
-        // Fall back to CPU when the WebGL/GPU delegate is unavailable.
-        lm = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
-          runningMode: 'IMAGE',
-          numPoses: 2,
-        })
+      publishReadiness(readinessMessage('downloading', 'image', null, 'Downloading pose runtime.'))
+      const vision = await timeout(
+        FilesetResolver.forVisionTasks(WASM_URL),
+        IMAGE_INIT_TIMEOUT_MS,
+        'Pose runtime download timed out.',
+      )
+      if (preferCpuForRecovery) {
+        publishReadiness(readinessMessage('initializing', 'image', 'cpu', 'Recovering pose detection on CPU.'))
+        try {
+          const landmarker = await createWithDeadline(vision, 'CPU')
+          publishReadiness(readinessMessage('ready', 'image', 'cpu'))
+          console.info(`[pose] pose-only model loaded — no face geometry computed (variant: ${modelVariant}, delegate: cpu-recovery)`)
+          return { landmarker, delegate: 'cpu' as const }
+        } catch (cpuError) {
+          throw new PoseOperationError(
+            `CPU pose-model recovery failed after a GPU runtime error: ${errorMessage(cpuError)}`,
+            'cpu_recovery_failed',
+          )
+        }
       }
-      // Auditable affirmation: pose-only model loaded, no face geometry path.
-      console.info(`[pose] pose-only model loaded — no face geometry computed (variant: ${modelVariant})`)
-      return lm
+      publishReadiness(readinessMessage('initializing', 'image', 'gpu', 'Initializing GPU pose model.'))
+      try {
+        const landmarker = await createWithDeadline(vision, 'GPU')
+        publishReadiness(readinessMessage('ready', 'image', 'gpu'))
+        console.info(`[pose] pose-only model loaded — no face geometry computed (variant: ${modelVariant}, delegate: gpu)`)
+        return { landmarker, delegate: 'gpu' as const }
+      } catch (gpuError) {
+        publishReadiness(readinessMessage('initializing', 'image', 'cpu', 'GPU unavailable. Initializing CPU pose model.'))
+        try {
+          const landmarker = await createWithDeadline(vision, 'CPU')
+          publishReadiness(readinessMessage('ready', 'image', 'cpu'))
+          console.info(`[pose] pose-only model loaded — no face geometry computed (variant: ${modelVariant}, delegate: cpu)`)
+          return { landmarker, delegate: 'cpu' as const }
+        } catch (cpuError) {
+          const message = `Pose model could not start on GPU or CPU. GPU: ${errorMessage(gpuError)} CPU: ${errorMessage(cpuError)}`
+          throw new PoseOperationError(message, 'gpu_and_cpu_failed')
+        }
+      }
     })().catch((err) => {
       landmarkerPromise = null // allow retry on next attempt
+      const code = err instanceof PoseOperationError ? err.code : 'gpu_and_cpu_failed'
+      publishReadiness(readinessMessage('failed', 'image', null, errorMessage(err)))
+      if (code === 'timeout') {
+        throw new PoseOperationError(errorMessage(err), 'timeout')
+      }
       throw err
     })
   }
@@ -66,10 +183,17 @@ function loadImage(src: string): Promise<HTMLImageElement> {
  * Call this before scoring to hide the ~5 s Chromium cold-start. Returns a
  * promise so the capture-runtime owner can await residency before transitioning.
  */
-export function warmUpLandmarker(): Promise<void> {
-  return getLandmarker().then(() => undefined).catch(() => {
-    // Warm-up is best-effort; errors surface when detectPose is actually called.
-  })
+export async function warmUpLandmarker(): Promise<PoseBackendStartResult> {
+  try {
+    const { delegate } = await getLandmarker()
+    return { ok: true, delegate }
+  } catch (error) {
+    return {
+      ok: false,
+      code: error instanceof PoseOperationError ? error.code : 'gpu_and_cpu_failed',
+      message: errorMessage(error),
+    }
+  }
 }
 
 /**
@@ -86,11 +210,17 @@ export async function closeLandmarker(): Promise<void> {
   // window; the runtime serializes transitions, so no detect races in here.
   landmarkerPromise = null
   try {
-    const lm = await pending
-    lm.close()
+    const { landmarker } = await pending
+    landmarker.close()
   } catch {
     // Never warmed successfully / already torn down — nothing to close.
   }
+}
+
+/** Explicit fresh-lifecycle boundary. Routine IMAGE↔LIVE transitions must not
+ * clear CPU recovery, or a context-lost GPU would be retried on every view. */
+export function resetLandmarkerDelegatePreference(): void {
+  preferCpuForRecovery = false
 }
 
 /**
@@ -131,18 +261,50 @@ async function detectPoseUncached(
   view: ViewLabel,
   source?: 'camera' | 'upload'
 ): Promise<DetectedPoseFrame> {
-  const landmarker = await getLandmarker()
-  const img = await loadImage(src)
-  const result = landmarker.detect(img)
-  const landmarks = mapLandmarks(result.landmarks?.[0])
-  const frame: DetectedPoseFrame = {
-    view,
-    landmarks,
-    detectedPoseCount: result.landmarks?.length ?? 0,
+  const { landmarker, delegate } = await getLandmarker()
+  let detectInvoked = false
+  try {
+    const { img, result } = await timeout(
+      loadImage(src).then(async img => {
+        detectInvoked = true
+        const startedAt = performance.now()
+        const result = await Promise.resolve(landmarker.detect(img))
+        const elapsedMs = performance.now() - startedAt
+        // MediaPipe IMAGE detection is synchronous and has no cancellation API:
+        // a timer cannot preempt it while the main thread is blocked. The outer
+        // deadline covers asynchronous stalls; this elapsed check fails closed
+        // immediately after an over-budget synchronous call returns.
+        if (elapsedMs > IMAGE_DETECT_TIMEOUT_MS) {
+          throw new PoseOperationError('Pose detection timed out.', 'detect_timeout')
+        }
+        return { img, result }
+      }),
+      IMAGE_DETECT_TIMEOUT_MS,
+      'Pose detection timed out.',
+      'detect_timeout',
+    )
+    const landmarks = mapLandmarks(result.landmarks?.[0])
+    const frame: DetectedPoseFrame = {
+      view,
+      landmarks,
+      detectedPoseCount: result.landmarks?.length ?? 0,
+    }
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      frame.aspectRatio = img.naturalWidth / img.naturalHeight
+    }
+    if (source) frame.source = source
+    publishReadiness(readinessMessage('ready', 'image', delegate))
+    return frame
+  } catch (error) {
+    if (delegate === 'gpu' && detectInvoked) preferCpuForRecovery = true
+    const code = error instanceof PoseOperationError ? error.code : 'detect_failed'
+    const failure = error instanceof PoseOperationError
+      ? error
+      : new PoseOperationError(`Pose detection failed: ${errorMessage(error)}`, code)
+    publishReadiness(readinessMessage('failed', 'image', delegate, failure.message))
+    // A detector that timed out or threw is not trusted for another frame. Drop
+    // it so retry constructs a clean backend without a page reload.
+    await closeLandmarker()
+    throw failure
   }
-  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-    frame.aspectRatio = img.naturalWidth / img.naturalHeight
-  }
-  if (source) frame.source = source
-  return frame
 }

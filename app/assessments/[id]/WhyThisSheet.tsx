@@ -8,7 +8,6 @@
  *   WhyThisSheet  — fetching wrapper; mirrors ExerciseDetailSheet structure.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useFocusTrap } from './useFocusTrap'
 
 // ─── Evidence badge ───────────────────────────────────────────────────────────
@@ -103,15 +102,6 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
 
 // ─── WhyThisSheet (fetching wrapper) ─────────────────────────────────────────
 
-interface MuscleRow {
-  role: 'tight' | 'weak'
-  muscle_slug: string
-  link_evidence: 'high' | 'medium' | 'low' | null
-  scored: boolean | null
-  // Supabase embedded FK: typed as array in the inferred shape
-  muscles: { name: string } | { name: string }[]
-}
-
 export interface WhyThisSheetProps {
   exerciseName: string
   findingKey: string
@@ -132,36 +122,24 @@ export default function WhyThisSheet({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient()
-    let cancelled = false
-    supabase
-      .from('muscle_imbalance_links')
-      .select('role, muscle_slug, link_evidence, scored, muscles(name)')
-      .eq('imbalance_key', findingKey)
-      .then(({ data, error: err }) => {
-        if (cancelled) return
-        if (err || !data) {
-          setError('Could not load supporting detail.')
-          setLoading(false)
-          return
-        }
-        const rows = (data as unknown as MuscleRow[])
-          .filter((r) => r.scored !== false)
-          .map((r) => {
-            const muscleObj = Array.isArray(r.muscles) ? r.muscles[0] : r.muscles
-            return {
-              slug: r.muscle_slug,
-              name: muscleObj?.name ?? r.muscle_slug,
-              role: r.role,
-              confidence: r.link_evidence ?? undefined,
-            }
-          })
-        setMuscles(rows)
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const response = await fetch(`/api/clinical-content/findings/${encodeURIComponent(findingKey)}/muscles`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        const body = await response.json().catch(() => ({})) as { muscles?: WhyThisBodyMuscle[] }
+        if (!response.ok || !Array.isArray(body.muscles)) throw new Error('unavailable')
+        setMuscles(body.muscles)
         setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+      } catch (fetchError) {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') return
+        setError('Could not load supporting detail.')
+        setLoading(false)
+      }
+    })()
+    return () => controller.abort()
   }, [findingKey])
 
   const dialogRef = useFocusTrap<HTMLDivElement>()

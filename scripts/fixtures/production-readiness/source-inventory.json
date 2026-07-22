@@ -1,0 +1,2453 @@
+{
+  "schema_version": 3,
+  "manifest_id": "posture-ai-production-readiness",
+  "source": {
+    "audited_commit": "0d3f84bdd6d7edbe8784b3ff73cf9704292bb33d",
+    "audit": "docs/qa/AUDIT.md#production-readiness-re-audit--2026-07-19",
+    "goal_spec": "docs/plans/2026-07-19-production-readiness-goal-spec.md",
+    "decision_record": "docs/plans/2026-07-19-production-readiness-decisions.md",
+    "goal_state": "~/.claude/goal-state/posture-ai-production-readiness/state.json",
+    "recorded_on": "2026-07-19"
+  },
+  "source_contracts": [
+    {
+      "id": "posture-ai-production-readiness-audit-2026-07-21-pr08",
+      "path": "docs/qa/AUDIT.md",
+      "anchor": "production-readiness-re-audit--2026-07-19",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "def3e5db1d28602de8785e53ee6f920d6a93c7fde83e1d6cb131a141278846df"
+    },
+    {
+      "id": "posture-ai-production-readiness-spec-v1",
+      "path": "docs/plans/2026-07-19-production-readiness-goal-spec.md",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "0b4ba1572b64598af8f3480c3b0f63e96de479bf8df7799394ae91ee39dbf4af"
+    },
+    {
+      "id": "posture-ai-production-readiness-decisions-2026-07-19",
+      "path": "docs/plans/2026-07-19-production-readiness-decisions.md",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "9878e76d5a32966a999ff734b33b643ab76d798b2f7b81d5cc9c2d44ef2deb93"
+    },
+    {
+      "id": "posture-ai-production-readiness-goal-criteria-v1",
+      "path": "~/.claude/goal-state/posture-ai-production-readiness/state.json",
+      "json_pointer": "/criteria",
+      "hash_algorithm": "sha256",
+      "hash_scope": "canonical-json-sorted-keys-preserved-array-order-with-trailing-newline",
+      "verification_command": "jq -cS '.criteria' ~/.claude/goal-state/posture-ai-production-readiness/state.json | shasum -a 256",
+      "sha256": "4795fa7dbcaefdf3ece6d3aeba831aa656cb1b029c35cfabcf0b678a6391ca93"
+    }
+  ],
+  "runtime_source_contracts": [
+    {
+      "id": "posture-ai-playwright-config-2026-07-21-pr08",
+      "path": "playwright.config.ts",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "b38a92ca21d638ed504b1d7f2ca1ae09a92166c142236a1304538f973abd4492"
+    },
+    {
+      "id": "posture-ai-e2e-runner-2026-07-19-pr04",
+      "path": "scripts/run-e2e.mjs",
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "sha256": "2052852de4eb6dcbbfe0c141843d33fc3e3efdf9e41650ffedb6e737265085eb"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-device-release-contract-2026-07-21-pr08",
+      "path": "docs/qa/device-release-contract.json",
+      "sha256": "a4b720cd81e31139e8f78782b0b2ba189692ec21e634e2ad7c966cdf786c1ee9"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-playwright-receipt-reporter-2026-07-21-pr08",
+      "path": "scripts/playwright-receipt-reporter.mjs",
+      "sha256": "af9a1aacec4f97189ce8540f2279a79415a66e4cedd700d165dd1b4940a8f25a"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-playwright-receipt-sanitizer-2026-07-21-pr08",
+      "path": "scripts/playwright-receipt-sanitize.cjs",
+      "sha256": "ce311e2d0013af07b3832b41413b5da5fddbc67627cf18109686300d108765e4"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-device-evidence-validator-2026-07-21-pr08",
+      "path": "scripts/check-device-evidence.mjs",
+      "sha256": "f55146e786bbf3878d89322290bfd54692e602744baa60ddd681889f45d196e6"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-device-evidence-schema-2026-07-21-pr08",
+      "path": "docs/qa/device-evidence.schema.json",
+      "sha256": "751ca882dece175f687a4b04e5f6bb8e9c1dd51ec014c158868e077c135c2734"
+    }
+  ],
+  "source_identity_contract": {
+    "id_stability": "IDs never change in place; a source-content change creates a new ID/version and regenerates this manifest.",
+    "verification_rule": "Resolve each path, select its declared hash scope, compute sha256, and fail closed on any ID, path, scope, or hash mismatch."
+  },
+  "repository_identity": {
+    "remote_url": "git@github.com:wiggdevin/posture-ai.git",
+    "audited_commit": "0d3f84bdd6d7edbe8784b3ff73cf9704292bb33d"
+  },
+  "audit_row_ids": [
+    "PRD-001",
+    "PRD-002",
+    "PRD-003",
+    "PRD-004",
+    "CAP-001",
+    "CAP-002",
+    "CAP-003",
+    "REL-001",
+    "REL-002",
+    "REL-003",
+    "REL-004",
+    "CLN-001",
+    "CLN-002",
+    "LEG-001",
+    "LEG-002",
+    "LEG-003",
+    "LEG-004",
+    "AUTH-001",
+    "AUTH-002",
+    "AUTH-003",
+    "SEC-001",
+    "SEC-002",
+    "SEC-003",
+    "OPS-001",
+    "OPS-002",
+    "OPS-003",
+    "SCL-001",
+    "SCL-002",
+    "SCL-003"
+  ],
+  "audit_contracts": [
+    {
+      "id": "PRD-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Web results and PDF are in the selected beta."
+      },
+      "engineering_task": "PR-01",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-00"
+      ]
+    },
+    {
+      "id": "PRD-002",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Unsupported rank language is present on selected result surfaces."
+      },
+      "engineering_task": "PR-01",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-00"
+      ]
+    },
+    {
+      "id": "PRD-003",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Tracking and follow-up comparisons are in the selected beta."
+      },
+      "engineering_task": "PR-02",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "id": "PRD-004",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The beta includes longitudinal tracking and directional change claims."
+      },
+      "engineering_task": "PR-11",
+      "human_provider_gates": [
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-10"
+      ]
+    },
+    {
+      "id": "CAP-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Four-view responsive-web capture is in the selected beta."
+      },
+      "engineering_task": "PR-03",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "id": "CAP-002",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Mobile-web camera cold start is in the selected beta."
+      },
+      "engineering_task": "PR-03",
+      "human_provider_gates": [
+        "HG-04"
+      ],
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "id": "CAP-003",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The selected beta must work on physical iPhone and Android browsers."
+      },
+      "engineering_task": "PR-08",
+      "human_provider_gates": [
+        "HG-04"
+      ],
+      "dependencies": [
+        "PR-03",
+        "PR-04",
+        "PR-07"
+      ]
+    },
+    {
+      "id": "REL-001",
+      "severity": "S3 now / S2 for change claims",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Tracking is selected, so reliability math and eligibility guards must remain intact."
+      },
+      "engineering_task": "PR-10",
+      "human_provider_gates": [
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ]
+    },
+    {
+      "id": "REL-002",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Directional beta change claims require Tier B evidence."
+      },
+      "engineering_task": "PR-10",
+      "human_provider_gates": [
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ]
+    },
+    {
+      "id": "REL-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Pelvic proxy output remains on the selected assessment surface."
+      },
+      "engineering_task": "PR-12",
+      "human_provider_gates": [
+        "HG-03",
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ]
+    },
+    {
+      "id": "REL-004",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The lite/full model default affects selected web capture."
+      },
+      "engineering_task": "PR-12",
+      "human_provider_gates": [
+        "HG-04",
+        "HG-05"
+      ],
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ]
+    },
+    {
+      "id": "CLN-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Unreviewed content is currently reachable; assessment-only server disablement must be proven before it can be excluded."
+      },
+      "engineering_task": "PR-07",
+      "human_provider_gates": [
+        "HG-03"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ]
+    },
+    {
+      "id": "CLN-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Claim restraint applies to every selected UI, PDF, and share surface."
+      },
+      "engineering_task": "PR-07",
+      "human_provider_gates": [
+        "HG-03"
+      ],
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ]
+    },
+    {
+      "id": "LEG-001",
+      "severity": "S2",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Privacy, Terms, and consent are required for the selected beta."
+      },
+      "engineering_task": "PR-05",
+      "human_provider_gates": [
+        "HG-02"
+      ],
+      "dependencies": [
+        "PR-00"
+      ]
+    },
+    {
+      "id": "LEG-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Consent and sharing lifecycles are in the selected beta."
+      },
+      "engineering_task": "PR-06",
+      "human_provider_gates": [
+        "HG-02"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ]
+    },
+    {
+      "id": "LEG-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Client erasure is required for the selected beta."
+      },
+      "engineering_task": "PR-06",
+      "human_provider_gates": [
+        "HG-02"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ]
+    },
+    {
+      "id": "LEG-004",
+      "severity": "S2 if covered entities",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "not_applicable",
+        "reason": "The owner-confirmed cohort is non-HIPAA fitness/wellness and covered entities are prohibited.",
+        "reopens_when": "covered_entities_allowed becomes true"
+      },
+      "engineering_task": "PR-15",
+      "human_provider_gates": [
+        "HG-00",
+        "HG-01",
+        "HG-02",
+        "HG-06",
+        "HG-07",
+        "HG-08"
+      ],
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ]
+    },
+    {
+      "id": "AUTH-001",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Invitation-only practitioner access is the selected admission model."
+      },
+      "engineering_task": "PR-04",
+      "human_provider_gates": [
+        "HG-01"
+      ],
+      "dependencies": [
+        "PR-00"
+      ]
+    },
+    {
+      "id": "AUTH-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Practitioner AAL2 is required by the selected beta contract."
+      },
+      "engineering_task": "PR-04",
+      "human_provider_gates": [
+        "HG-01"
+      ],
+      "dependencies": [
+        "PR-00"
+      ]
+    },
+    {
+      "id": "AUTH-003",
+      "severity": "S2 for HIPAA",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "not_applicable",
+        "reason": "Covered entities are prohibited in the selected non-HIPAA cohort.",
+        "reopens_when": "covered_entities_allowed becomes true"
+      },
+      "engineering_task": "PR-13",
+      "human_provider_gates": [
+        "HG-00",
+        "HG-01",
+        "HG-06"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ]
+    },
+    {
+      "id": "SEC-001",
+      "severity": "S2/S3",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Public, expensive, and destructive endpoints exist in the selected web surface."
+      },
+      "engineering_task": "PR-13",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ]
+    },
+    {
+      "id": "SEC-002",
+      "severity": "S3",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Browser security hardening applies to the selected web beta."
+      },
+      "engineering_task": "PR-13",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ]
+    },
+    {
+      "id": "SEC-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "The selected beta requires privacy-safe operational monitoring."
+      },
+      "engineering_task": "PR-15",
+      "human_provider_gates": [
+        "HG-07",
+        "HG-08"
+      ],
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ]
+    },
+    {
+      "id": "OPS-001",
+      "severity": "S2",
+      "verdict": "BLOCKED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Recovery is required for the selected beta."
+      },
+      "engineering_task": "PR-15",
+      "human_provider_gates": [
+        "HG-07",
+        "HG-08"
+      ],
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ]
+    },
+    {
+      "id": "OPS-002",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Release and schema safety apply to the selected beta."
+      },
+      "engineering_task": "PR-14",
+      "human_provider_gates": [
+        "HG-06"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ]
+    },
+    {
+      "id": "OPS-003",
+      "severity": "S2",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Repository controls are required for the selected beta release path."
+      },
+      "engineering_task": "PR-14",
+      "human_provider_gates": [
+        "HG-06"
+      ],
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ]
+    },
+    {
+      "id": "SCL-001",
+      "severity": "S3",
+      "verdict": "PROVED",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Beta history access must remain bounded at the frozen performance floors."
+      },
+      "engineering_task": "PR-09",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-02"
+      ]
+    },
+    {
+      "id": "SCL-002",
+      "severity": "S3",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Workout and share history must remain compatible even while clinical surfaces are disabled."
+      },
+      "engineering_task": "PR-16",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-06",
+        "PR-07",
+        "PR-14"
+      ]
+    },
+    {
+      "id": "SCL-003",
+      "severity": "S3",
+      "verdict": "WEAK",
+      "applicability": {
+        "state": "applicable",
+        "reason": "Release evidence ledgers must reconcile for PR-17."
+      },
+      "engineering_task": "PR-17",
+      "human_provider_gates": [],
+      "dependencies": [
+        "PR-00",
+        "PR-01",
+        "PR-02",
+        "PR-03",
+        "PR-04",
+        "PR-05",
+        "PR-06",
+        "PR-07",
+        "PR-08",
+        "PR-09",
+        "PR-10",
+        "PR-11",
+        "PR-12",
+        "PR-13",
+        "PR-14",
+        "PR-15",
+        "PR-16"
+      ]
+    }
+  ],
+  "criterion_ids": [
+    "PR-00.PASS",
+    "PR-01.PASS",
+    "PR-02.PASS",
+    "PR-03.PASS",
+    "PR-04.PASS",
+    "PR-05.PASS",
+    "PR-06.PASS",
+    "PR-07.PASS",
+    "PR-08.PASS",
+    "PR-09.PASS",
+    "PR-10.PASS",
+    "PR-11.PASS",
+    "PR-12.PASS",
+    "PR-13.PASS",
+    "PR-14.PASS",
+    "PR-15.PASS",
+    "PR-16.PASS",
+    "PR-17.PASS",
+    "HG-00.PASS",
+    "HG-01.PASS",
+    "HG-02.PASS",
+    "HG-03.PASS",
+    "HG-04.PASS",
+    "HG-05.PASS",
+    "HG-06.PASS",
+    "HG-07.PASS",
+    "HG-08.PASS",
+    "HG-09.PASS",
+    "HG-10.PASS"
+  ],
+  "tasks": [
+    {
+      "id": "PR-00",
+      "kind": "engineering",
+      "dependencies": [],
+      "maps_to_criterion": "PR-00.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-01",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "PR-01.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-02",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-01"
+      ],
+      "maps_to_criterion": "PR-02.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-03",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-01"
+      ],
+      "maps_to_criterion": "PR-03.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-04",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "PR-04.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.practitioner_access"
+            },
+            "invitation-only"
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-05",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "PR-05.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-06",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-04",
+        "PR-05"
+      ],
+      "maps_to_criterion": "PR-06.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-07",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00",
+        "PR-05"
+      ],
+      "maps_to_criterion": "PR-07.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-08",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-03",
+        "PR-04",
+        "PR-07"
+      ],
+      "maps_to_criterion": "PR-08.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-09",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-02"
+      ],
+      "maps_to_criterion": "PR-09.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-10",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00",
+        "PR-03",
+        "PR-08"
+      ],
+      "maps_to_criterion": "PR-10.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-11",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-10"
+      ],
+      "maps_to_criterion": "PR-11.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      }
+    },
+    {
+      "id": "PR-12",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-03",
+        "PR-05",
+        "PR-07",
+        "PR-10"
+      ],
+      "maps_to_criterion": "PR-12.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-13",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "maps_to_criterion": "PR-13.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-14",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-04",
+        "PR-06"
+      ],
+      "maps_to_criterion": "PR-14.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-15",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-06",
+        "PR-14"
+      ],
+      "maps_to_criterion": "PR-15.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-16",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-06",
+        "PR-07",
+        "PR-14"
+      ],
+      "maps_to_criterion": "PR-16.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "PR-17",
+      "kind": "engineering",
+      "dependencies": [
+        "PR-00",
+        "PR-01",
+        "PR-02",
+        "PR-03",
+        "PR-04",
+        "PR-05",
+        "PR-06",
+        "PR-07",
+        "PR-08",
+        "PR-09",
+        "PR-10",
+        "PR-11",
+        "PR-12",
+        "PR-13",
+        "PR-14",
+        "PR-15",
+        "PR-16"
+      ],
+      "maps_to_criterion": "PR-17.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-00",
+      "kind": "human",
+      "dependencies": [
+        "PR-00"
+      ],
+      "maps_to_criterion": "HG-00.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-01",
+      "kind": "provider",
+      "dependencies": [
+        "PR-04"
+      ],
+      "maps_to_criterion": "HG-01.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.practitioner_access"
+            },
+            "invitation-only"
+          ]
+        }
+      }
+    },
+    {
+      "id": "HG-02",
+      "kind": "human",
+      "dependencies": [
+        "PR-05"
+      ],
+      "maps_to_criterion": "HG-02.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-03",
+      "kind": "human",
+      "dependencies": [
+        "PR-07"
+      ],
+      "maps_to_criterion": "HG-03.PASS",
+      "applicability": {
+        "default_state": "not_applicable",
+        "expression": {
+          "any_true": [
+            {
+              "var": "release_boundary.recommendations_enabled"
+            },
+            {
+              "var": "release_boundary.programs_enabled"
+            },
+            {
+              "var": "release_boundary.workouts_enabled"
+            },
+            {
+              "var": "release_boundary.knowledge_links_enabled"
+            }
+          ]
+        },
+        "not_applicable_proof": "HG-00 assessment-only decision plus PR-07 server-disable proof"
+      }
+    },
+    {
+      "id": "HG-04",
+      "kind": "human",
+      "dependencies": [
+        "PR-03",
+        "PR-08"
+      ],
+      "maps_to_criterion": "HG-04.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.platform"
+            },
+            "responsive-web"
+          ]
+        }
+      }
+    },
+    {
+      "id": "HG-05",
+      "kind": "human",
+      "dependencies": [
+        "PR-08",
+        "PR-10",
+        "HG-04"
+      ],
+      "maps_to_criterion": "HG-05.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "eq": [
+            {
+              "var": "release_boundary.follow_up_comparisons_enabled"
+            },
+            true
+          ]
+        }
+      }
+    },
+    {
+      "id": "HG-06",
+      "kind": "provider",
+      "dependencies": [
+        "PR-04",
+        "PR-14"
+      ],
+      "maps_to_criterion": "HG-06.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-07",
+      "kind": "provider",
+      "dependencies": [
+        "PR-15"
+      ],
+      "maps_to_criterion": "HG-07.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-08",
+      "kind": "human",
+      "dependencies": [
+        "PR-15",
+        "HG-07"
+      ],
+      "maps_to_criterion": "HG-08.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-09",
+      "kind": "human",
+      "dependencies": [
+        "PR-17",
+        "HG-00",
+        "HG-01",
+        "HG-02",
+        "HG-03",
+        "HG-04",
+        "HG-05",
+        "HG-06",
+        "HG-07",
+        "HG-08"
+      ],
+      "maps_to_criterion": "HG-09.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    },
+    {
+      "id": "HG-10",
+      "kind": "human",
+      "dependencies": [
+        "HG-09"
+      ],
+      "maps_to_criterion": "HG-10.PASS",
+      "applicability": {
+        "default_state": "applicable",
+        "expression": {
+          "constant": true
+        }
+      }
+    }
+  ],
+  "frozen_gate_contracts": [
+    {
+      "task_id": "HG-00",
+      "owner": "Product owner",
+      "dependencies": [
+        "PR-00"
+      ],
+      "acceptance_criteria": "Dated and manifest-linked launch-boundary decision receipt."
+    },
+    {
+      "task_id": "HG-01",
+      "owner": "Auth account owner",
+      "dependencies": [
+        "PR-04"
+      ],
+      "acceptance_criteria": "Redacted live Auth settings plus invited/uninvited and AAL2 receipts."
+    },
+    {
+      "task_id": "HG-02",
+      "owner": "Counsel and product owner",
+      "dependencies": [
+        "PR-05"
+      ],
+      "acceptance_criteria": "Counsel-approved versioned Privacy, Terms, Consent, retention, withdrawal, and re-consent receipt."
+    },
+    {
+      "task_id": "HG-03",
+      "owner": "Licensed clinician",
+      "dependencies": [
+        "PR-07"
+      ],
+      "acceptance_criteria": "Signed itemized content review or proven assessment-only not-applicable decision."
+    },
+    {
+      "task_id": "HG-04",
+      "owner": "QA owner",
+      "dependencies": [
+        "PR-03",
+        "PR-08"
+      ],
+      "acceptance_criteria": "Two complete core-path passes on supported iPhone Safari and Android Chrome with evidence."
+    },
+    {
+      "task_id": "HG-05",
+      "owner": "Collection owner and statistical reviewer",
+      "dependencies": [
+        "PR-08",
+        "PR-10",
+        "HG-04"
+      ],
+      "acceptance_criteria": "Minimum 144-photo frozen-protocol dataset with signed ICC/SEM/MDC95 eligibility decisions."
+    },
+    {
+      "task_id": "HG-06",
+      "owner": "Vercel, Supabase, and GitHub account owners",
+      "dependencies": [
+        "PR-04",
+        "PR-14"
+      ],
+      "acceptance_criteria": "Redacted live staging, environment, protected-main, scanner, migration-health, and promotion receipts."
+    },
+    {
+      "task_id": "HG-07",
+      "owner": "Operations provider owner",
+      "dependencies": [
+        "PR-15"
+      ],
+      "acceptance_criteria": "Redacted monitoring, alert-route, backup/PITR, storage, retention, and access configuration receipt."
+    },
+    {
+      "task_id": "HG-08",
+      "owner": "Operations owner",
+      "dependencies": [
+        "PR-15",
+        "HG-07"
+      ],
+      "acceptance_criteria": "Synthetic alert delivery and isolated restore meet RPO/RTO with integrity evidence."
+    },
+    {
+      "task_id": "HG-09",
+      "owner": "QA owner and final council",
+      "dependencies": [
+        "PR-17",
+        "HG-00",
+        "HG-01",
+        "HG-02",
+        "HG-03",
+        "HG-04",
+        "HG-05",
+        "HG-06",
+        "HG-07",
+        "HG-08"
+      ],
+      "acceptance_criteria": "Fresh intended-beta configuration rehearsal plus Codex, Fable 5 medium, and Kimi K3 GO verdicts."
+    },
+    {
+      "task_id": "HG-10",
+      "owner": "Product owner",
+      "dependencies": [
+        "HG-09"
+      ],
+      "acceptance_criteria": "Explicit dated promotion approval tied to commit, CI, manifest/configuration hashes, audit, and rollback packet."
+    }
+  ],
+  "pr17_required_commands": [
+    "npm run lint",
+    "npm run typecheck",
+    "npm run readiness:inventory",
+    "npx vitest run",
+    "npm test -w @posture-ai/engine",
+    "npm run golden",
+    "npm run calibrate:check",
+    "npm run voice:verify",
+    "npm run build",
+    "CI=1 npm run test:e2e",
+    "git diff --check",
+    "npm run test:critical-contracts"
+  ],
+  "hg09_rehearsal_contract": {
+    "id": "HG-09-INTENDED-BETA-REHEARSAL-v1",
+    "command": "npm run release:rehearse",
+    "environment": "intended-beta",
+    "test_mode": false,
+    "required_absent_test_flags": [
+      "POSTURE_TEST_MODE_ENABLED",
+      "NEXT_PUBLIC_POSTURE_TEST_MODE",
+      "NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT"
+    ],
+    "required_journey": "Invite practitioner, enroll MFA, create consented adult client, capture four views without fixtures, inspect results, exercise the selected assessment-only endpoint probes, complete follow-up lifecycle actions, revoke/withdraw/delete, and verify audit/retention behavior.",
+    "freshness_hours": 24
+  },
+  "playwright_inventory": {
+    "command": "npx playwright test --list",
+    "project_order": [
+      "setup",
+      "desktop-chromium",
+      "mobile-webkit",
+      "android-chromium-proxy",
+      "calibration"
+    ],
+    "projects": {
+      "setup": 1,
+      "desktop-chromium": 79,
+      "mobile-webkit": 71,
+      "android-chromium-proxy": 11,
+      "calibration": 1
+    },
+    "expected_total": 163,
+    "expected_files": 32,
+    "test_ids_sha256": "ae77a606ccde7c9f70bce5226c87b3a98b0da918e3a8706b9a70a2bd911cdf29"
+  },
+  "inventory_hash": "da26fb44640172a1394e8e761fdd49c27eed86b2172ab3a6e84d4badf036df06",
+  "ci_contract": {
+    "global_commands": [
+      "npm run lint",
+      "npm run typecheck",
+      "npm run readiness:inventory",
+      "npx vitest run",
+      "npm test -w @posture-ai/engine",
+      "npm run golden",
+      "npm run calibrate:check",
+      "npm run voice:verify",
+      "npm run build",
+      "CI=1 npm run test:e2e",
+      "git diff --check"
+    ],
+    "engineering_e2e_only": "CI=1 npm run test:e2e",
+    "engineering_e2e_is_hg09_or_launch_proof": false,
+    "pr17_additional_commands": [
+      "npm run test:critical-contracts"
+    ],
+    "migration_commands": [
+      "npx supabase db reset"
+    ],
+    "current_ci_required": true,
+    "max_age_hours": 24,
+    "success_status": "success",
+    "maximum_ci_age_hours": 24,
+    "required_ci_fields": [
+      "run_id",
+      "url",
+      "commit",
+      "status",
+      "completed_at"
+    ],
+    "required_ci_status": "success",
+    "repository_evidence_fields": [
+      "head_sha",
+      "expected_sha",
+      "worktree_clean",
+      "changed_files",
+      "allowed_changed_files",
+      "diff_check_exit_code"
+    ],
+    "pr17_repository_rule": "Run from a committed SHA with an empty porcelain status, matching expected SHA, zero unexpected files, and git diff --check exit 0.",
+    "warning_rule": "Warnings are recorded debt and never silently reported as a zero-warning gate.",
+    "baseline": {
+      "lint_errors": 0,
+      "lint_warnings": 22,
+      "root_tests": 876,
+      "engine_tests": 132,
+      "static_pages": 37
+    }
+  },
+  "owner_approval_contract": {
+    "id": "HG-10-OWNER-PROMOTION-APPROVAL-v1",
+    "task_id": "HG-10",
+    "evidence_path": "state.release_evidence.owner_approval",
+    "required_evidence_fields": [
+      "approved",
+      "approved_at",
+      "receipt",
+      "commit",
+      "configuration_hash"
+    ],
+    "required_evidence_values": {
+      "approved": true
+    },
+    "receipt_artifact_fields": [
+      "path",
+      "sha256"
+    ],
+    "receipt_content_required_fields": [
+      "id",
+      "task_id",
+      "decision",
+      "approved_at",
+      "approver",
+      "commit",
+      "ci_run_id",
+      "configuration_hash",
+      "manifest_hash",
+      "final_audit_receipt",
+      "rollback_packet_receipt"
+    ],
+    "receipt_content_required_values": {
+      "id": "HG-10-OWNER-PROMOTION-APPROVAL-v1",
+      "task_id": "HG-10",
+      "decision": "approve-production-promotion"
+    },
+    "binding_rules": {
+      "commit": "state.release_evidence.repository.head_sha",
+      "ci_run_id": "state.release_evidence.ci.run_id",
+      "configuration_hash": "manifest.configuration_hash",
+      "manifest_hash": {
+        "algorithm": "sha256",
+        "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
+        "input": "entire manifest object",
+        "validator_expression": "sha256(stable(manifest))"
+      }
+    },
+    "artifact_bindings": [
+      "final_audit_receipt",
+      "rollback_packet_receipt"
+    ],
+    "approval_before_hg09_allowed": false
+  },
+  "executed_playwright_report_contract": {
+    "id": "PR-17-PLAYWRIGHT-EXECUTION-REPORT-v1",
+    "task_id": "PR-17",
+    "evidence_path": "state.release_evidence.e2e",
+    "execution_command": "CI=1 npm run test:e2e",
+    "report_format": "playwright-json-report",
+    "required_evidence_fields": [
+      "inventory_id",
+      "inventory_hash",
+      "projects",
+      "report_format",
+      "report_receipt",
+      "commit",
+      "configuration_hash",
+      "status",
+      "started_at",
+      "completed_at",
+      "observed_skips",
+      "retry_results"
+    ],
+    "required_evidence_values": {
+      "inventory_id": "playwright-production-readiness-2026-07-21-v4",
+      "report_format": "playwright-json-report",
+      "status": "passed"
+    },
+    "report_artifact_fields": [
+      "path",
+      "sha256"
+    ],
+    "report_content_required_fields": [
+      "format",
+      "command",
+      "commit",
+      "configuration_hash",
+      "inventory_id",
+      "inventory_hash",
+      "project_order",
+      "projects",
+      "expected_total",
+      "expected_files",
+      "status",
+      "started_at",
+      "completed_at",
+      "tests",
+      "observed_skips",
+      "retry_results",
+      "skip_validation_failures",
+      "a11y_receipt_failures",
+      "axe_receipt_validation"
+    ],
+    "binding_rules": {
+      "command": "ci_contract.engineering_e2e_only",
+      "commit": "state.release_evidence.repository.head_sha",
+      "configuration_hash": "manifest.configuration_hash",
+      "inventory_id": "e2e.inventory_id",
+      "inventory_hash": "e2e.inventory_hash",
+      "project_order": "e2e.project_order",
+      "projects": "e2e.projects",
+      "expected_total": "e2e.expected_total",
+      "expected_files": "e2e.expected_files",
+      "skip_validation_failures": "must be an empty array",
+      "a11y_receipt_failures": "must be an empty array",
+      "axe_receipt_validation": "must exactly match the targets derived from e2e.axe_receipts and the passed tests in this report"
+    },
+    "unapproved_skips_allowed": false,
+    "undisposed_retries_allowed": false,
+    "hg09_or_launch_proof": false
+  },
+  "not_applicable_completion_contracts": {
+    "PR-11": {
+      "id": "PR-11-NO-ELIGIBLE-RELIABILITY-PROFILE-v1",
+      "task_id": "PR-11",
+      "task_applicability_must_remain": "applicable",
+      "allowed_completed_outcome": "not_applicable",
+      "condition_expression": {
+        "all": [
+          {
+            "eq": [
+              {
+                "var": "eligible_hg05_profile_count"
+              },
+              0
+            ]
+          },
+          {
+            "any": [
+              {
+                "eq": [
+                  {
+                    "var": "tasks.HG-05.status"
+                  },
+                  "frozen"
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "eq": [
+                      {
+                        "var": "tasks.HG-05.status"
+                      },
+                      "completed"
+                    ]
+                  },
+                  {
+                    "eq": [
+                      {
+                        "var": "tasks.HG-05.outcome"
+                      },
+                      "passed"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "eq": [
+              {
+                "var": "reliability_profile_consumer.consumer_eligible_profile_active"
+              },
+              false
+            ]
+          },
+          {
+            "in": [
+              {
+                "var": "reliability_profile_consumer.mode"
+              },
+              [
+                "fixed-fallback",
+                "disabled"
+              ]
+            ]
+          }
+        ]
+      },
+      "required_task_state": {
+        "status": "completed",
+        "outcome": "not_applicable",
+        "review_verdict": "PASS"
+      },
+      "required_proof_fields": [
+        "profile_inventory_receipt",
+        "hg05_state_receipt",
+        "exclusion_evidence",
+        "consumer_fail_closed_receipt",
+        "independent_review"
+      ],
+      "hashed_artifact_reference_fields": [
+        "path",
+        "sha256"
+      ],
+      "independent_review_required_values": {
+        "verdict": "PASS",
+        "independent": true
+      },
+      "consumer_fail_closed_required_values": {
+        "consumer_eligible_profile_active": false,
+        "allowed_modes": [
+          "fixed-fallback",
+          "disabled"
+        ]
+      },
+      "dependency_unlocks_only_after_proof": true,
+      "reopen_when": "Any eligible engine/model/unit-matched HG-05 reliability profile becomes available or the consumer ceases to fail closed."
+    }
+  },
+  "state_task_contracts": [
+    {
+      "id": "PR-00",
+      "applicability": "applicable",
+      "applicability_reason": "Always required to freeze the release boundary and install completion validators."
+    },
+    {
+      "id": "PR-01",
+      "applicability": "applicable",
+      "applicability_reason": "Responsive-web beta results must present one consistent scoring contract."
+    },
+    {
+      "id": "PR-02",
+      "applicability": "applicable",
+      "applicability_reason": "Follow-up comparisons are enabled in the frozen beta boundary."
+    },
+    {
+      "id": "PR-03",
+      "applicability": "applicable",
+      "applicability_reason": "Responsive-web capture hard failures and readiness are release-critical."
+    },
+    {
+      "id": "PR-04",
+      "applicability": "applicable",
+      "applicability_reason": "The frozen practitioner boundary is invitation-only."
+    },
+    {
+      "id": "PR-05",
+      "applicability": "applicable",
+      "applicability_reason": "Governed legal text is required for the consented-adult beta."
+    },
+    {
+      "id": "PR-06",
+      "applicability": "applicable",
+      "applicability_reason": "Consent, sharing, retention, withdrawal, and erasure lifecycles are required."
+    },
+    {
+      "id": "PR-07",
+      "applicability": "applicable",
+      "applicability_reason": "Clinical content must be enforced fail-closed even while assessment-only."
+    },
+    {
+      "id": "PR-08",
+      "applicability": "applicable",
+      "applicability_reason": "Responsive-web device and accessibility release evidence is required."
+    },
+    {
+      "id": "PR-09",
+      "applicability": "applicable",
+      "applicability_reason": "Data-access and beta-scale performance bounds apply to this release."
+    },
+    {
+      "id": "PR-10",
+      "applicability": "applicable",
+      "applicability_reason": "Enabled follow-up comparisons require frozen reliability tooling."
+    },
+    {
+      "id": "PR-11",
+      "applicability": "applicable",
+      "applicability_reason": "Enabled follow-up comparisons require fail-closed reliability profiles."
+    },
+    {
+      "id": "PR-12",
+      "applicability": "applicable",
+      "applicability_reason": "Metric proxy, weights, and model defaults require an evidence-bound decision."
+    },
+    {
+      "id": "PR-13",
+      "applicability": "applicable",
+      "applicability_reason": "Exposed and sensitive operations must be hardened for the beta."
+    },
+    {
+      "id": "PR-14",
+      "applicability": "applicable",
+      "applicability_reason": "Release and schema rollback controls are required."
+    },
+    {
+      "id": "PR-15",
+      "applicability": "applicable",
+      "applicability_reason": "Observability, backup, restore, and incident-response tooling is required."
+    },
+    {
+      "id": "PR-16",
+      "applicability": "applicable",
+      "applicability_reason": "Historical workout and share compatibility must be preserved."
+    },
+    {
+      "id": "PR-17",
+      "applicability": "applicable",
+      "applicability_reason": "The final engineering rehearsal and audit is always required."
+    },
+    {
+      "id": "HG-00",
+      "applicability": "applicable",
+      "applicability_reason": "The product owner must confirm the frozen beta boundary before launch."
+    },
+    {
+      "id": "HG-01",
+      "applicability": "applicable",
+      "applicability_reason": "Invitation-only access requires live Auth provider evidence before launch."
+    },
+    {
+      "id": "HG-02",
+      "applicability": "applicable",
+      "applicability_reason": "Counsel and owner approval of governed legal versions is required before launch."
+    },
+    {
+      "id": "HG-03",
+      "applicability": "not_applicable",
+      "applicability_reason": "The frozen beta is assessment-only with recommendations, programs, workouts, and knowledge links server-disabled."
+    },
+    {
+      "id": "HG-04",
+      "applicability": "applicable",
+      "applicability_reason": "Responsive-web launch requires physical iPhone Safari and Android Chrome receipts."
+    },
+    {
+      "id": "HG-05",
+      "applicability": "applicable",
+      "applicability_reason": "Enabled follow-up comparisons require the Tier B reliability collection gate."
+    },
+    {
+      "id": "HG-06",
+      "applicability": "applicable",
+      "applicability_reason": "Live release-provider configuration evidence is required before launch."
+    },
+    {
+      "id": "HG-07",
+      "applicability": "applicable",
+      "applicability_reason": "Live monitoring and backup provider evidence is required before launch."
+    },
+    {
+      "id": "HG-08",
+      "applicability": "applicable",
+      "applicability_reason": "Human alert-delivery and restore drills are required before launch."
+    },
+    {
+      "id": "HG-09",
+      "applicability": "applicable",
+      "applicability_reason": "The intended-beta rehearsal and final three-seat council are required before launch."
+    },
+    {
+      "id": "HG-10",
+      "applicability": "applicable",
+      "applicability_reason": "Explicit product-owner production promotion approval is the final launch gate."
+    }
+  ],
+  "pr08_configuration_delta_contract": {
+    "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
+    "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
+    "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+    "new_configuration_hash": "1b93b928512683c0c37f41bc47ae9cd16e9d6e065f1d695ceb7e6b148f2e0b79",
+    "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
+    "new_projection_sha256": "1b93b928512683c0c37f41bc47ae9cd16e9d6e065f1d695ceb7e6b148f2e0b79",
+    "changed_covered_fields": [
+      "ci_contract.global_commands",
+      "e2e.approved_skips",
+      "e2e.expected_files",
+      "e2e.expected_total",
+      "e2e.inventory_hash",
+      "e2e.inventory_id",
+      "e2e.project_order",
+      "e2e.projects",
+      "executed_playwright_report_contract.binding_rules.a11y_receipt_failures",
+      "executed_playwright_report_contract.binding_rules.axe_receipt_validation",
+      "executed_playwright_report_contract.binding_rules.skip_validation_failures",
+      "executed_playwright_report_contract.report_content_required_fields",
+      "executed_playwright_report_contract.required_evidence_values.inventory_id"
+    ],
+    "changes_sha256": "e11797cb30da6d812c82888b25521d256cf1ba613571d0c2948043e9396004e8",
+    "changes": [
+      {
+        "path": "ci_contract.global_commands",
+        "old_value": [
+          "npm run lint",
+          "npm run typecheck",
+          "npx vitest run",
+          "npm test -w @posture-ai/engine",
+          "npm run golden",
+          "npm run calibrate:check",
+          "npm run voice:verify",
+          "npm run build",
+          "CI=1 npm run test:e2e",
+          "git diff --check"
+        ],
+        "new_value": [
+          "npm run lint",
+          "npm run typecheck",
+          "npm run readiness:inventory",
+          "npx vitest run",
+          "npm test -w @posture-ai/engine",
+          "npm run golden",
+          "npm run calibrate:check",
+          "npm run voice:verify",
+          "npm run build",
+          "CI=1 npm run test:e2e",
+          "git diff --check"
+        ]
+      },
+      {
+        "path": "e2e.approved_skips",
+        "old_value": [
+          {
+            "key": "skip:a11y:mobile-webkit",
+            "source": "e2e/a11y.spec.ts::test.skip(browserName !== chromium)",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Axe budget runs once in Chromium.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:consent-age-api:mobile-webkit",
+            "source": "e2e/consent-age.spec.ts::capture consent + age gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level consent matrix runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:deletion:mobile-webkit",
+            "source": "e2e/deletion.spec.ts::client data deletion project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level deletion gate runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:privacy-lifecycle:desktop-chromium",
+            "source": "e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "reason": "Phone lifecycle walkthrough runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:error-states:mobile-webkit",
+            "source": "e2e/error-states.spec.ts::error states project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Mocked error-state suite runs once in Chromium.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:gate-integrity:mobile-webkit",
+            "source": "e2e/gate-integrity.spec.ts::gate integrity project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Security regression suite runs once in Chromium.",
+            "owner": "PR-13",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:report-approval:mobile-webkit",
+            "source": "e2e/report-approval.spec.ts::report approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level report gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-mint:mobile-webkit",
+            "source": "e2e/workout-mint.spec.ts::workout mint approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "API-level workout gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-player:mobile-webkit",
+            "source": "e2e/workout-player.spec.ts::red-flag pre-session screen project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:real-detection:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/real-detection.spec.ts"
+            },
+            "reason": "MediaPipe model test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-errors:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-errors.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-errors.spec.ts"
+            },
+            "reason": "Camera/model error test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-camera:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-camera.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-camera.spec.ts"
+            },
+            "reason": "Camera test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-model-readiness:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-model-readiness.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-model-readiness.spec.ts"
+            },
+            "reason": "MediaPipe lifecycle and delegate-recovery test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:desktop-chromium",
+            "source": "playwright.config.ts::desktop-chromium.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "desktop-chromium",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "reason": "Calibration has its own project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "reason": "Calibration has its own Chromium project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:onboarding-acked-fixture:desktop-chromium",
+            "source": "e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "shared practitioner already acknowledged"
+            },
+            "reason": "A fresh unacknowledged fixture is unavailable; source-level behavior remains separately reviewed.",
+            "owner": "PR-04",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:desktop-ci",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "CI=true production build"
+            },
+            "reason": "The developer-only route intentionally returns 404 in production builds.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:mobile-webkit",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "reason": "WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:consent-recovery:desktop-chromium",
+            "source": "e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "reason": "Phone recovery flow runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:pixel-calibration:bare-calibration-project",
+            "source": "e2e/pixel-calibration.spec.ts::pixel-quality calibration",
+            "scope": {
+              "project": "calibration",
+              "condition": "CALIBRATION_CHECK and CALIBRATION_WRITE both absent"
+            },
+            "reason": "Calibration runs only via npm run calibrate or npm run calibrate:check.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          }
+        ],
+        "new_value": [
+          {
+            "key": "skip:consent-age-api:mobile-webkit",
+            "source": "e2e/consent-age.spec.ts::capture consent + age gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › adult with consent can be assessed",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › under-13 is blocked even with consent",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › minor 13–17 with only self consent is blocked (guardian required)",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › minor 13–17 with guardian consent is allowed",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › a client without consent (remote pending) is blocked",
+              "mobile-webkit::e2e/consent-age.spec.ts::capture consent + age gate › remote consent link records consent (single-use) and unlocks capture"
+            ],
+            "reason": "API-level consent matrix runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:deletion:mobile-webkit",
+            "source": "e2e/deletion.spec.ts::client data deletion project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/deletion.spec.ts::client data deletion › deleting a client purges assessments and removes it from the list"
+            ],
+            "reason": "API-level deletion gate runs once in Chromium.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:privacy-lifecycle:desktop-chromium",
+            "source": "e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA project guard",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/privacy-lifecycle.spec.ts::privacy lifecycle user QA › grant → use → rotate/revoke → withdraw, then erase → minimized tombstone"
+            ],
+            "reason": "Phone lifecycle walkthrough runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:error-states:mobile-webkit",
+            "source": "e2e/error-states.spec.ts::error states project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › client detail: assessments 500 shows alert not empty-state",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › archive failure: dialog stays interactive and shows error",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › wizard step 1: clients 500 shows error not empty-state",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › assessment results: prior assessments 500 shows aux error alert",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › report error has role=alert",
+              "mobile-webkit::e2e/error-states.spec.ts::error states (regression: silent-swallow fixes) › settings: org fetch 500 shows error toast/alert"
+            ],
+            "reason": "Mocked error-state suite runs once in Chromium.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:gate-integrity:mobile-webkit",
+            "source": "e2e/gate-integrity.spec.ts::gate integrity project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › onboarding ack failure: stays on /onboarding when PATCH fails",
+              "mobile-webkit::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › password: wrong current password blocks updateUser call"
+            ],
+            "reason": "Security regression suite runs once in Chromium.",
+            "owner": "PR-13",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:report-approval:mobile-webkit",
+            "source": "e2e/report-approval.spec.ts::report approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › export is blocked until the practitioner approves",
+              "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › a comparison report cannot mix two DIFFERENT clients (PHI boundary)",
+              "mobile-webkit::e2e/report-approval.spec.ts::report approval gate › a cross-version client comparison is flagged not-comparable"
+            ],
+            "reason": "API-level report gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-mint:mobile-webkit",
+            "source": "e2e/workout-mint.spec.ts::workout mint approval gate project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › minting a session is blocked until the practitioner approves",
+              "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › the public token route returns a uniform 404 for an unknown share token",
+              "mobile-webkit::e2e/workout-mint.spec.ts::workout mint approval gate › a minted share token resolves to a redacted projection (no internal ids)"
+            ],
+            "reason": "API-level workout gate runs once in Chromium.",
+            "owner": "PR-07",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:workout-player:mobile-webkit",
+            "source": "e2e/workout-player.spec.ts::red-flag pre-session screen project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 1: red-flag question renders before player controls, \"No, I feel okay\" unblocks begin, session starts",
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 2: \"Yes\" shows the stop card and no player timeline appears",
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 3: resuming a session with prior progress re-asks the red-flag question before playback",
+              "mobile-webkit::e2e/workout-player.spec.ts::red-flag pre-session screen › flow 4: hidden workout chrome leaves the tab order and returns before keyboard focus enters"
+            ],
+            "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:real-detection:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/real-detection.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/real-detection.spec.ts::real pose detection through the wizard › upload all four required photos, detect landmarks, score assessment"
+            ],
+            "reason": "MediaPipe model test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-errors:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-errors.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-errors.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › camera permission denial exposes fallback and Try Again recovers without reload",
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › camera works without orientation sensors: no gate, no indicator",
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › uploading a non-person image shows no-person state and blocks submit",
+              "mobile-webkit::e2e/capture-errors.spec.ts::camera error handling and quality preflight › uploading a blurry photo shows a quality warning and does not block submit"
+            ],
+            "reason": "Camera/model error test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-camera:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-camera.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-camera.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/capture-camera.spec.ts::full-screen camera capture › shutter, review, auto-advance, self-timer and retake work",
+              "mobile-webkit::e2e/capture-camera.spec.ts::full-screen camera capture › capturing all four views via the camera scores an assessment"
+            ],
+            "reason": "Camera test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:capture-model-readiness:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(capture-model-readiness.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/capture-model-readiness.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/capture-model-readiness.spec.ts::capture model readiness and recovery › throttled cold assets expose lifecycle, then a warm check stays ready",
+              "mobile-webkit::e2e/capture-model-readiness.spec.ts::capture model readiness and recovery › both delegate startup failures recover through Retry Model without reload"
+            ],
+            "reason": "MediaPipe lifecycle and delegate-recovery test is assigned to Chromium; physical device closure is HG-04.",
+            "owner": "PR-03",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:desktop-chromium",
+            "source": "playwright.config.ts::desktop-chromium.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "desktop-chromium",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+            ],
+            "reason": "Calibration has its own project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:device-recovery-real-model:desktop-chromium",
+            "source": "playwright.config.ts::desktop-chromium.testIgnore(device-recovery-real-model.webkit.spec.ts)",
+            "scope": {
+              "project": "desktop-chromium",
+              "spec": "e2e/device-recovery-real-model.webkit.spec.ts"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/device-recovery-real-model.webkit.spec.ts::WebKit real-model capture hard blocks › blocks analysis when a generated upload contains two people"
+            ],
+            "reason": "The full multi-pose model exceeds the product's fixed 10-second fail-closed deadline on this Chromium runner; the real-model hard-block case is assigned to WebKit while lifecycle recovery remains cross-engine.",
+            "owner": "PR-08",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "ignore:pixel-calibration:mobile-webkit",
+            "source": "playwright.config.ts::mobile-webkit.testIgnore(pixel-calibration.spec.ts)",
+            "scope": {
+              "project": "mobile-webkit",
+              "spec": "e2e/pixel-calibration.spec.ts"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+            ],
+            "reason": "Calibration has its own Chromium project and commands.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:onboarding-acked-fixture:desktop-chromium",
+            "source": "e2e/gate-integrity.spec.ts::onboarding ack failure: stays on /onboarding when PATCH fails",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "shared practitioner already acknowledged"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/gate-integrity.spec.ts::gate integrity (regression: security fixes) › onboarding ack failure: stays on /onboarding when PATCH fails"
+            ],
+            "reason": "A fresh unacknowledged fixture is unavailable; source-level behavior remains separately reviewed.",
+            "owner": "PR-04",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:desktop-ci",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "CI=true production build"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+            ],
+            "reason": "The developer-only route intentionally returns 404 in production builds.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:golden-ingest:mobile-webkit",
+            "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+            ],
+            "reason": "WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:consent-recovery:desktop-chromium",
+            "source": "e2e/consent-age.spec.ts::repairs a legacy consent timestamp and continues with the selected client",
+            "scope": {
+              "project": "desktop-chromium",
+              "condition": "browserName=chromium"
+            },
+            "test_ids": [
+              "desktop-chromium::e2e/consent-age.spec.ts::wizard consent recovery › repairs a legacy consent timestamp and continues with the selected client"
+            ],
+            "reason": "Phone recovery flow runs once in mobile WebKit.",
+            "owner": "PR-06",
+            "expires_on": "2026-08-31"
+          },
+          {
+            "key": "skip:pixel-calibration:bare-calibration-project",
+            "source": "e2e/pixel-calibration.spec.ts::pixel-quality calibration",
+            "scope": {
+              "project": "calibration",
+              "condition": "CALIBRATION_CHECK and CALIBRATION_WRITE both absent"
+            },
+            "test_ids": [
+              "calibration::e2e/pixel-calibration.spec.ts::pixel-quality calibration › derives thresholds from committed fixtures and writes calibration.json"
+            ],
+            "reason": "Calibration runs only via npm run calibrate or npm run calibrate:check.",
+            "owner": "PR-10",
+            "expires_on": "2026-08-31"
+          }
+        ]
+      },
+      {
+        "path": "e2e.expected_files",
+        "old_value": 29,
+        "new_value": 32
+      },
+      {
+        "path": "e2e.expected_total",
+        "old_value": 133,
+        "new_value": 163
+      },
+      {
+        "path": "e2e.inventory_hash",
+        "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
+        "new_value": "974c693855ecc2f4edb5aaec6911499bfe707acc70c8194a3093907468d44a40"
+      },
+      {
+        "path": "e2e.inventory_id",
+        "old_value": "playwright-production-readiness-2026-07-20-v3",
+        "new_value": "playwright-production-readiness-2026-07-21-v4"
+      },
+      {
+        "path": "e2e.project_order",
+        "old_value": [
+          "setup",
+          "desktop-chromium",
+          "mobile-webkit",
+          "calibration"
+        ],
+        "new_value": [
+          "setup",
+          "desktop-chromium",
+          "mobile-webkit",
+          "android-chromium-proxy",
+          "calibration"
+        ]
+      },
+      {
+        "path": "e2e.projects",
+        "old_value": {
+          "setup": 1,
+          "desktop-chromium": 70,
+          "mobile-webkit": 61,
+          "calibration": 1
+        },
+        "new_value": {
+          "setup": 1,
+          "desktop-chromium": 79,
+          "mobile-webkit": 71,
+          "android-chromium-proxy": 11,
+          "calibration": 1
+        }
+      },
+      {
+        "path": "executed_playwright_report_contract.binding_rules.a11y_receipt_failures",
+        "old_value": null,
+        "new_value": "must be an empty array"
+      },
+      {
+        "path": "executed_playwright_report_contract.binding_rules.axe_receipt_validation",
+        "old_value": null,
+        "new_value": "must exactly match the targets derived from e2e.axe_receipts and the passed tests in this report"
+      },
+      {
+        "path": "executed_playwright_report_contract.binding_rules.skip_validation_failures",
+        "old_value": null,
+        "new_value": "must be an empty array"
+      },
+      {
+        "path": "executed_playwright_report_contract.report_content_required_fields",
+        "old_value": [
+          "format",
+          "command",
+          "commit",
+          "configuration_hash",
+          "inventory_id",
+          "inventory_hash",
+          "project_order",
+          "projects",
+          "expected_total",
+          "expected_files",
+          "status",
+          "started_at",
+          "completed_at",
+          "tests",
+          "observed_skips",
+          "retry_results"
+        ],
+        "new_value": [
+          "format",
+          "command",
+          "commit",
+          "configuration_hash",
+          "inventory_id",
+          "inventory_hash",
+          "project_order",
+          "projects",
+          "expected_total",
+          "expected_files",
+          "status",
+          "started_at",
+          "completed_at",
+          "tests",
+          "observed_skips",
+          "retry_results",
+          "skip_validation_failures",
+          "a11y_receipt_failures",
+          "axe_receipt_validation"
+        ]
+      },
+      {
+        "path": "executed_playwright_report_contract.required_evidence_values.inventory_id",
+        "old_value": "playwright-production-readiness-2026-07-20-v3",
+        "new_value": "playwright-production-readiness-2026-07-21-v4"
+      }
+    ]
+  }
+}

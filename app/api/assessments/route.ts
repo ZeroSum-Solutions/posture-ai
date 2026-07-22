@@ -5,10 +5,12 @@ import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
+import { consentLegalProvenance } from '@/lib/consent/policy'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { buildFindingRow } from '@/lib/findings/buildFindingRow'
 import { buildCaptureRow } from '@/lib/captures/buildCaptureRow'
+import { assessmentSubmissionDigest } from '@/lib/assessments/submission'
 
 const ROUTE = 'POST /api/assessments'
 const TEST_MODE_ENABLED = process.env.POSTURE_TEST_MODE_ENABLED === '1'
@@ -52,7 +54,8 @@ export async function POST(req: NextRequest) {
       logEvent({ route: ROUTE, outcome: 'client_error', status: parsed.status, userHash, detail: parsed.error })
       return NextResponse.json({ error: parsed.error }, { status: parsed.status })
     }
-    const { client_id, useFixture } = parsed.data
+    const { client_id, submission_id, useFixture } = parsed.data
+    const submissionDigest = assessmentSubmissionDigest(parsed.data)
 
     const service = createSupabaseServiceClient()
 
@@ -80,11 +83,60 @@ export async function POST(req: NextRequest) {
     // must be satisfied before any capture is persisted/scored. (BIPA pre-capture
     // consent; COPPA/minor: under-13 blocked, 13–17 needs guardian consent.)
     const consent = await getConsentStatus(service, client_id)
+    if (consent.legalState === 'legal_unavailable') {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 503, userHash, detail: 'subject consent legal document unavailable' })
+      return NextResponse.json(
+        { error: 'Consent terms are temporarily unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
+    }
+    if (consent.legalState === 'reconsent_required') {
+      logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: 'subject reconsent required' })
+      return NextResponse.json(
+        { error: 'The subject must review and sign the current consent terms before screening.', code: 'reconsent_required' },
+        { status: 403 },
+      )
+    }
     const eligibility = captureEligibility(client.date_of_birth, consent)
     if (!eligibility.ok) {
       logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: eligibility.reason ?? 'capture blocked' })
       return NextResponse.json({ error: eligibility.reason }, { status: 403 })
     }
+    if (!consent.document || consent.legalState !== 'current') {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 503, userHash, detail: 'governed subject consent provenance unavailable' })
+      return NextResponse.json(
+        { error: 'Consent evidence is temporarily unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
+    }
+
+    const findExistingSubmission = () => service
+      .from('assessments')
+      .select('id, status, submission_digest')
+      .eq('practitioner_id', user.id)
+      .eq('submission_id', submission_id)
+      .maybeSingle()
+
+    const replayResponse = (existing: { id: string; status: string; submission_digest: string | null }) => {
+      if (existing.submission_digest !== submissionDigest) {
+        logEvent({ route: ROUTE, outcome: 'client_error', status: 409, userHash, assessmentId: existing.id, detail: 'submission_id payload mismatch' })
+        return NextResponse.json(
+          { error: 'submission_id was already used for a different assessment payload' },
+          { status: 409 },
+        )
+      }
+      logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash, assessmentId: existing.id, detail: 'idempotent replay' })
+      return NextResponse.json({ id: existing.id, status: existing.status, replayed: true })
+    }
+
+    // Fast replay path. The unique index remains the authority for simultaneous
+    // requests that both pass this read before either insert commits.
+    const { data: existing, error: existingErr } = await findExistingSubmission()
+    if (existingErr) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: existingErr.message })
+      return NextResponse.json({ error: 'Failed to check assessment submission' }, { status: 500 })
+    }
+    if (existing) return replayResponse(existing)
 
     // Create assessment with status=processing
     const { data: assessment, error: insertErr } = await service
@@ -92,11 +144,22 @@ export async function POST(req: NextRequest) {
       .insert({
         client_id,
         practitioner_id: user.id,
+        submission_id,
+        submission_digest: submissionDigest,
         status: 'processing',
         assessment_type: 'static',
+        ...consentLegalProvenance(consent.document),
       })
       .select('id')
       .single()
+    if (insertErr?.code === '23505') {
+      // Concurrent same-key requests race at the unique index. Resolve the row
+      // that won and apply the same digest check as the fast replay path.
+      const { data: racedExisting, error: racedExistingErr } = await findExistingSubmission()
+      if (!racedExistingErr && racedExisting) return replayResponse(racedExisting)
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: racedExistingErr?.message ?? 'submission conflict row not found' })
+      return NextResponse.json({ error: 'Failed to resolve assessment submission' }, { status: 500 })
+    }
     if (insertErr || !assessment) {
       logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: insertErr?.message })
       return NextResponse.json({ error: 'Failed to create assessment' }, { status: 500 })
@@ -139,9 +202,6 @@ export async function POST(req: NextRequest) {
           status: 'complete',
           overall_score: result.overallScore,
           overall_grade: result.overallGrade,
-          overall_percentile: null,
-          front_rank: result.ranks.front,
-          side_rank: result.ranks.side,
           scoring_engine_version: result.engineVersion,
           tilt_corrected: result.tiltCorrected,
           level_verified: result.levelVerified,

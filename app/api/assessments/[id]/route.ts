@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashResource, hashUser } from '@/lib/log'
 import { isNoRows } from '@/lib/api/query-error'
 import { dedupeCapturesByViewSide } from '@/lib/captures/dedupeCaptures'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
+import { approvedClinicalLinks } from '@/lib/clinical-content/catalog'
+import { hasCompleteClinicalSurfaces } from '@/lib/clinical-content/surfaces'
+import { buildClinicalProjection } from '@/lib/program/clinicalProjection'
+import type { StoredFinding } from '@/lib/findings/storedFindingToEngine'
 
 export async function GET(
   _req: NextRequest,
@@ -15,14 +22,17 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  const completeClinicalSurface = hasCompleteClinicalSurfaces(clinicalAccess)
 
   const { id } = await params
+  const logBase = { userHash: hashUser(user.id), resourceHash: hashResource(id) }
 
   const { data: assessment, error } = await supabase
     .from('assessments')
     .select(`
-      id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, scoring_engine_version, tilt_corrected, level_verified, capture_stability, assessed_at, notes,
+      id, status, overall_score, overall_grade,
+      scoring_engine_version, tilt_corrected, level_verified, capture_stability, assessed_at, notes,
       priority_keys, capability, exercise_swaps, practitioner_approved, practitioner_approved_at,
       clients!inner(id, first_name, last_name)
     `)
@@ -32,7 +42,7 @@ export async function GET(
 
   if (error) {
     if (!isNoRows(error)) {
-      console.error(`[api/assessments/${id}] load failed:`, error.message)
+      logEvent({ route: 'GET /api/assessments/[id]', outcome: 'server_error', status: 500, ...logBase, detailCode: 'assessment_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
@@ -45,7 +55,7 @@ export async function GET(
     .order('region')
   if (findingsErr) {
     // A failed read must not render as a complete assessment with no findings.
-    console.error(`[api/assessments/${id}] findings load failed:`, findingsErr.message)
+    logEvent({ route: 'GET /api/assessments/[id]', outcome: 'server_error', status: 500, ...logBase, detailCode: 'findings_load_failed' })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
@@ -55,13 +65,10 @@ export async function GET(
 
   // These three reads are independent (defs + links key off `keys`, captures off
   // `id`) — run them together instead of three serial round trips.
-  const [defsRes, linkRes, capturesRes] = await Promise.all([
-    keys.length > 0
-      ? supabase.from('imbalance_definitions').select('key, causes_text, tight_muscles, weak_muscles').in('key', keys)
+  const [defsRes, capturesRes] = await Promise.all([
+    keys.length > 0 && clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
+      ? service.from('imbalance_definitions').select('key, causes_text, tight_muscles, weak_muscles').in('key', keys)
       : Promise.resolve({ data: [] as { key: string; causes_text: string; tight_muscles: unknown; weak_muscles: unknown }[] }),
-    keys.length > 0
-      ? supabase.from('muscle_imbalance_links').select('imbalance_key, role, muscle_slug, link_evidence, scored, muscles(name)').in('imbalance_key', keys)
-      : Promise.resolve({ data: [] as unknown[] }),
     service.from('captures').select('id, view, profile_side, storage_path, source, pose_frame').eq('assessment_id', id),
   ])
 
@@ -77,17 +84,23 @@ export async function GET(
   // Normalized muscle links (knowledge base). Empty until the muscle KB is
   // seeded; the UI falls back to the legacy JSONB strings in that case.
   const linkMap: Record<string, { tight: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }[]; weak: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }[] }> = {}
-  for (const row of (linkRes.data ?? []) as unknown as {
-    imbalance_key: string; role: 'tight' | 'weak'; muscle_slug: string
-    link_evidence: 'high' | 'medium' | 'low' | null; scored: boolean; muscles: { name: string } | null
-  }[]) {
-    if (row.scored === false) continue // display-only links stay off the colored map
-    const entry = (linkMap[row.imbalance_key] ??= { tight: [], weak: [] })
-    entry[row.role].push({ slug: row.muscle_slug, name: row.muscles?.name ?? row.muscle_slug, confidence: row.link_evidence ?? undefined })
+  for (const { muscle, link } of completeClinicalSurface
+    ? approvedClinicalLinks(clinicalAccess)
+    : []) {
+    if (link.scored === false || !keys.includes(link.imbalanceKey)) continue
+    const entry = (linkMap[link.imbalanceKey] ??= { tight: [], weak: [] })
+    entry[link.role].push({
+      slug: muscle.slug,
+      name: muscle.name,
+      confidence: link.confidence,
+    })
   }
 
   const enrichedFindings = (findings || []).map((f: Record<string, unknown>) => ({
     ...f,
+    explanation: clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
+      ? f.explanation ?? null
+      : null,
     causes_text: defMap[f.imbalance_key as string]?.causes_text || '',
     tight_muscles: defMap[f.imbalance_key as string]?.tight_muscles || [],
     weak_muscles: defMap[f.imbalance_key as string]?.weak_muscles || [],
@@ -104,26 +117,46 @@ export async function GET(
   // captures into one indistinguishable `side` row.
   const perViewCaptures = dedupeCapturesByViewSide(rawCaptures || [])
 
-  // Generate signed URLs in parallel — one round trip per view was serial.
-  const captures = await Promise.all(
-    perViewCaptures.map(async (cap) => {
-      let signed_url: string | null = null
-      if (cap.storage_path) {
-        const { data: urlData } = await service.storage
-          .from('posture-captures')
-          .createSignedUrl(cap.storage_path, 3600)
-        signed_url = urlData?.signedUrl ?? null
-      }
-      const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
-      return {
-        id: cap.id, view: cap.view, profile_side: cap.profile_side ?? null,
-        signed_url, source: cap.source,
-        capture_roll_deg: typeof roll === 'number' ? roll : null,
-      }
-    }),
-  )
+  // Keep regulated images behind a same-origin admission check. A storage
+  // signed URL remains usable until its TTL even after practitioner revocation;
+  // this endpoint path re-checks active AAL2 access on every image request.
+  const captures = perViewCaptures.map((cap) => {
+    const roll = (cap.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
+    return {
+      id: cap.id, view: cap.view, profile_side: cap.profile_side ?? null,
+      signed_url: cap.storage_path ? `/api/captures/${encodeURIComponent(cap.id)}/image` : null,
+      source: cap.source,
+      capture_roll_deg: typeof roll === 'number' ? roll : null,
+    }
+  })
 
-  return NextResponse.json({ assessment, findings: enrichedFindings, captures })
+  const safeAssessment = completeClinicalSurface
+    ? assessment
+    : { ...assessment, priority_keys: null, capability: null, exercise_swaps: null }
+  const clinicalProjection = completeClinicalSurface
+    ? buildClinicalProjection(
+        assessment,
+        (findings ?? []) as StoredFinding[],
+        {
+          approvedExerciseSlugs: clinicalAccess.approvedExerciseSlugs,
+          approvedLinkIds: clinicalAccess.approvedLinkIds,
+          approvedReportCopyIds: clinicalAccess.approvedReportCopyIds,
+        },
+      )
+    : null
+
+  return NextResponse.json({
+    assessment: safeAssessment,
+    findings: enrichedFindings,
+    captures,
+    clinical_content: {
+      enabled: completeClinicalSurface,
+      surfaces: clinicalAccess.surfaces,
+      mode: clinicalAccess.mode,
+      version: completeClinicalSurface ? clinicalAccess.contentVersion : null,
+      projection: clinicalProjection,
+    },
+  })
 }
 
 const CAPABILITIES = new Set(['regression', 'standard', 'progression'])
@@ -149,6 +182,10 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  // Same predicate as GET and the assessment page: overrides must not be
+  // writable in a partial release where they would be invisible and inert.
+  if (!hasCompleteClinicalSurfaces(clinicalAccess)) return clinicalContentUnavailableResponse()
   const userHash = hashUser(user.id)
 
   const service = createSupabaseServiceClient()

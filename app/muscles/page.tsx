@@ -1,23 +1,24 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { Disclaimer } from '@/components/Disclaimer'
 import { MuscleLibrary } from './MuscleLibrary'
+import { notFound } from 'next/navigation'
+import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import { approvedClinicalMuscles } from '@/lib/clinical-content/catalog'
 
 export const metadata = { title: 'Muscle Guide — Posture AI' }
-
-// Reviewed-content gate: production hides entries pending clinical review;
-// dev/preview show them with a badge so the library is usable during build-out.
-const SHOW_UNREVIEWED =
-  process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT === '1' || process.env.NODE_ENV !== 'production'
+export const dynamic = 'force-dynamic'
 
 export default async function MusclesPage() {
-  const supabase = await createSupabaseServerClient()
-  let query = supabase
-    .from('muscles')
-    .select('slug, name, region, function_text, reviewed_at')
-    .order('region')
-    .order('name')
-  if (!SHOW_UNREVIEWED) query = query.not('reviewed_at', 'is', null)
-  const { data: muscles, error } = await query
+  const access = await serverClinicalContentAccess()
+  if (!access.surfaces.knowledgeLinks) notFound()
+  const muscles = approvedClinicalMuscles(access)
+    .map((muscle) => ({
+      slug: muscle.slug,
+      name: muscle.name,
+      region: muscle.region,
+      function_text: muscle.functionText,
+      reviewed_at: access.mode === 'approved' ? 'hg03-approved' : muscle.reviewedAt,
+    }))
+    .sort((a, b) => a.region.localeCompare(b.region) || a.name.localeCompare(b.name))
 
   return (
     <div className="app-standard-page">
@@ -28,11 +29,7 @@ export default async function MusclesPage() {
         ten postural screening measures.
       </p>
       <Disclaimer compact />
-      {error ? (
-        <p style={{ color: 'var(--danger)' }}>Could not load the muscle guide: {error.message}</p>
-      ) : (
-        <MuscleLibrary muscles={muscles ?? []} />
-      )}
+      <MuscleLibrary muscles={muscles} />
     </div>
   )
 }

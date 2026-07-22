@@ -3,6 +3,7 @@ import type { Capability } from '../program/selectPriorities'
 import { toEngineFinding, type StoredFinding } from '../findings/storedFindingToEngine'
 import { generateWorkoutSession, type SessionSnapshot } from './generateWorkoutSession'
 import type { Week } from '../program/dosage'
+import type { ProgramOverrides } from '../program/buildProgram'
 
 /** The stored-assessment fields the session builder reads (coach overrides + grade). */
 export interface AssessmentForSession {
@@ -26,6 +27,7 @@ export function buildSessionFromAssessment(
   assessment: AssessmentForSession,
   findings: StoredFinding[],
   week: Week,
+  clinicalContent?: ProgramOverrides['clinicalContent'],
 ): SessionSnapshot | null {
   const capability: Capability = CAPABILITIES.has(assessment.capability as Capability)
     ? (assessment.capability as Capability)
@@ -35,6 +37,7 @@ export function buildSessionFromAssessment(
     capability,
     activeKeys: assessment.priority_keys ?? null,
     swaps: assessment.exercise_swaps ?? undefined,
+    clinicalContent,
   })
 
   return generateWorkoutSession(report, { week })

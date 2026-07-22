@@ -1,8 +1,10 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
-import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { enforceRateLimit, enforceRateLimitStrict } from '@/lib/rate-limit'
+import { logEvent, hashResource, hashUser } from '@/lib/log'
+import { drainStorageDeletionOutbox } from '@/lib/privacy/storageDeletion'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
 interface Params { id: string }
 
@@ -86,8 +88,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
     return NextResponse.json({ error: 'This client has been deleted and can no longer be edited.' }, { status: 409 })
   }
 
-  // Log field NAMES only — the values are client PII and must not be at rest in logs.
-  console.log('[api/clients/[id]] PATCH: updating client', id, Object.keys(updates))
+  const clientHash = hashResource(id)
   const { data, error } = await service
     .from('clients')
     .update(updates)
@@ -98,20 +99,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<Para
     .single()
 
   if (error) {
-    console.error('[api/clients/[id]] PATCH error:', error.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, resourceHash: clientHash, detailCode: 'client_update_failed' })
     return NextResponse.json({ error: 'Failed to update client.' }, { status: 500 })
   }
   if (!data) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
-  console.log('[api/clients/[id]] PATCH: success, archived_at=', data.archived_at)
+  logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash, resourceHash: clientHash, detailCode: 'client_updated' })
   return NextResponse.json({ client: data })
 }
 
-// Right-to-erasure: permanently purge a client's screening data (landmarks,
-// findings, exercise recommendations, and generated report PDFs), redact the
-// client + consent-signer PII in place, and leave a PII-free deletion-log
-// tombstone for audit. The immutable consent EVENT (version/hash/timestamp/
-// relationship) is retained as proof, with the signer name redacted.
+const erasureSchema = z.object({
+  reason_code: z.enum([
+    'subject_request',
+    'guardian_request',
+    'duplicate_record',
+    'practitioner_correction',
+  ]),
+}).strict()
+
+// Right-to-erasure has two explicit phases. The database phase is a single RPC
+// transaction (redaction, relational purge, receipt, and outbox enqueue). The
+// storage phase is retried from the durable outbox and may remain visibly pending
+// without rolling back or misrepresenting the completed database erasure.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<Params> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
@@ -121,96 +130,78 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<Par
   if (gate) return gate
   const userHash = hashUser(user.id)
 
-  const { data: owned } = await supabase
-    .from('clients').select('id').eq('id', id).eq('practitioner_id', user.id).maybeSingle()
-  if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-
-  let reason: string | null = null
-  try { const b = await req.json(); reason = typeof b?.reason === 'string' ? b.reason : null } catch { /* no body */ }
+  if (!z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+  }
+  let body: unknown
+  try { body = await req.json() } catch {
+    return NextResponse.json({ error: 'A controlled erasure reason is required.' }, { status: 422 })
+  }
+  const parsed = erasureSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'A controlled erasure reason is required.' }, { status: 422 })
+  }
 
   const service = createSupabaseServiceClient()
 
   // Erasure is a heavy multi-table purge — rate-limit it so an accidental or
   // malicious burst can't hammer the storage/DB layer.
-  const allowed = await enforceRateLimit(service, { route: 'clients_delete', userId: user.id, limit: 10, windowSeconds: 60 })
+  const allowed = await enforceRateLimitStrict(service, { route: 'clients_delete', userId: user.id, limit: 10, windowSeconds: 60 })
   if (!allowed) {
     logEvent({ route: 'DELETE /api/clients/[id]', outcome: 'rate_limited', status: 429, userHash })
     return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
   }
 
-  // Right-to-erasure must be FAIL-CLOSED: if any purge/redaction step errors we
-  // return 500 and do NOT claim success, so the practitioner retries instead of
-  // believing data was erased while remnants remain. Order matters — remove report
-  // files BEFORE the cascade delete (their paths live on the rows we're deleting) —
-  // and every write is scoped by practitioner_id since service-role bypasses RLS.
-  const fail = (where: string, e?: { message?: string } | null) => {
-    console.error(`[api/clients/[id]] DELETE failed ${where}:`, e?.message)
-    return NextResponse.json(
-      { error: `Erasure incomplete (${where}); nothing further was changed — please retry.` },
-      { status: 500 },
-    )
-  }
-
-  // Tombstone the client FIRST: redact PII + set deleted_at. Once this commits,
-  // the assessments_reject_deleted_client trigger blocks any NEW assessment for
-  // this client and the consent RPCs refuse it, so the data enumerated below
-  // can't grow under us, and any consent inserted in the lock race is still caught
-  // by the redaction here.
-  const { error: clErr } = await service.from('clients').update({
-    first_name: 'REDACTED',
-    last_name: 'REDACTED',
-    date_of_birth: null,
-    sex_at_birth: null,
-    height_cm: null,
-    weight_kg: null,
-    notes: null,
-    deleted_at: new Date().toISOString(),
-    deletion_reason: reason,
-  }).eq('id', id).eq('practitioner_id', user.id)
-  if (clErr) return fail('redacting client', clErr)
-
-  // Remove consent links, then redact the immutable consent events (signer PII).
-  const { error: tErr } = await service.from('consent_tokens').delete().eq('client_id', id).eq('practitioner_id', user.id)
-  if (tErr) return fail('removing consent links', tErr)
-  const { error: cErr } = await service.from('consent_records').update({ signer_name: 'REDACTED' }).eq('client_id', id).eq('practitioner_id', user.id)
-  if (cErr) return fail('redacting consent records', cErr)
-
-  // Enumerate the now-frozen assessment set to purge report files, then delete by
-  // client_id (cascades captures, findings, recommendations, reports) so nothing
-  // created up to this point is missed.
-  const { data: assessments, error: aErr } = await service
-    .from('assessments').select('id').eq('client_id', id).eq('practitioner_id', user.id)
-  if (aErr) return fail('enumerating assessments', aErr)
-  const assessmentIds = (assessments ?? []).map((a) => a.id)
-
-  let capturesPurged = 0
-  if (assessmentIds.length > 0) {
-    const { count, error: capErr } = await service
-      .from('captures').select('id', { count: 'exact', head: true }).in('assessment_id', assessmentIds)
-    if (capErr) return fail('counting captures', capErr)
-    capturesPurged = count ?? 0
-
-    const { data: reports, error: rErr } = await service
-      .from('reports').select('storage_path').in('assessment_id', assessmentIds)
-    if (rErr) return fail('listing report files', rErr)
-    const reportPaths = (reports ?? []).map((r) => r.storage_path).filter((p): p is string => !!p)
-    if (reportPaths.length > 0) {
-      const { error: remErr } = await service.storage.from('posture-reports').remove(reportPaths)
-      if (remErr) return fail('purging report files', remErr)
-    }
-
-    const { error: delErr } = await service.from('assessments').delete().eq('client_id', id).eq('practitioner_id', user.id)
-    if (delErr) return fail('deleting assessments', delErr)
-  }
-
-  const { error: logErr } = await service.from('client_deletion_log').insert({
-    original_client_id: id,
-    practitioner_id: user.id,
-    reason,
-    assessments_purged: assessmentIds.length,
-    captures_purged: capturesPurged,
+  const erasedAt = new Date().toISOString()
+  const { data, error } = await service.rpc('erase_client_transactional', {
+    p_client_id: id,
+    p_practitioner_id: user.id,
+    p_reason_code: parsed.data.reason_code,
+    p_erased_at: erasedAt,
   })
-  if (logErr) return fail('writing deletion log', logErr)
+  const result = data as {
+    status?: string
+    receipt_id?: string | null
+    assessments_purged?: number
+    captures_purged?: number
+    storage_objects_enqueued?: number
+    external_deletion_status?: 'pending' | 'complete'
+  } | null
+  if (error || !result?.status) {
+    logEvent({ route: 'DELETE /api/clients/[id]', outcome: 'server_error', status: 500, userHash, resourceHash: hashResource(id), detailCode: 'erasure_rpc_failed' })
+    return NextResponse.json({ error: 'Could not complete database erasure. No erasure was committed.' }, { status: 500 })
+  }
+  if (result.status === 'not_found') return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+  if (result.status === 'practitioner_unavailable') return NextResponse.json({ error: 'Access unavailable' }, { status: 403 })
+  if (result.status === 'invalid_input') return NextResponse.json({ error: 'Invalid erasure request' }, { status: 422 })
+  if (!['database_erased', 'already_erased'].includes(result.status)) {
+    return NextResponse.json({ error: 'Could not complete database erasure.' }, { status: 500 })
+  }
 
-  return NextResponse.json({ ok: true, assessments_purged: assessmentIds.length, captures_purged: capturesPurged })
+  let externalStatus = result.external_deletion_status ?? 'complete'
+  if (externalStatus === 'pending' && result.receipt_id) {
+    const drained = await drainStorageDeletionOutbox(service, { receiptId: result.receipt_id })
+    // The receipt is the authority. A replay may claim only the final due job
+    // while earlier jobs are already complete, so comparing this drain's claim
+    // count with the lifetime enqueue count would incorrectly remain pending.
+    externalStatus = drained.receiptStatus ?? 'pending'
+  }
+
+  logEvent({
+    route: 'DELETE /api/clients/[id]',
+    outcome: 'ok',
+    status: externalStatus === 'complete' ? 200 : 202,
+    userHash,
+    resourceHash: hashResource(id),
+    detailCode: externalStatus === 'complete' ? 'erasure_complete' : 'external_deletion_pending',
+  })
+  return NextResponse.json({
+    ok: true,
+    status: result.status === 'already_erased' ? 'already_erased' : 'erased',
+    receipt_id: result.receipt_id,
+    assessments_purged: result.assessments_purged ?? 0,
+    captures_purged: result.captures_purged ?? 0,
+    storage_objects_enqueued: result.storage_objects_enqueued ?? 0,
+    external_deletion_status: externalStatus,
+  }, { status: externalStatus === 'complete' ? 200 : 202 })
 }

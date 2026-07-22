@@ -8,14 +8,19 @@ import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './
 // ignores this file (testIgnore pattern).
 
 test.describe('camera error handling and quality preflight', () => {
-  test('camera permission denied shows copy, upload fallback, and advances on upload', async ({ page }) => {
-    // Override getUserMedia to immediately reject with NotAllowedError so this
-    // runs without OS permission dialogs. Uses the authenticated page fixture so
-    // createClient's API call carries the practitioner session.
+  test('camera permission denial exposes fallback and Try Again recovers without reload', async ({ page }) => {
+    // First call rejects like an OS permission denial; the next returns a canvas
+    // stream, proving the in-place recovery path without a page reload.
     await page.addInitScript(() => {
+      let attempts = 0
+      const canvas = document.createElement('canvas')
+      canvas.width = 2
+      canvas.height = 2
+      const stream = (canvas as HTMLCanvasElement & { captureStream(): MediaStream }).captureStream()
       Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
         value: async function () {
-          throw new DOMException('Permission denied', 'NotAllowedError')
+          if (attempts++ === 0) throw new DOMException('Permission denied', 'NotAllowedError')
+          return stream
         },
         writable: true,
         configurable: true,
@@ -43,11 +48,10 @@ test.describe('camera error handling and quality preflight', () => {
     await expect(page.getByRole('button', { name: /Use File Upload Instead — Front/ })).toBeVisible()
     await expect(page.locator('input[type="file"]').first()).toBeAttached()
 
-    // …and uploading Front advances the fallback to the Left Side slot, so the
-    // upload-only path walks through the required slots instead of dead-ending.
-    await page.locator('input[type="file"]').nth(0)
-      .setInputFiles(path.join(__dirname, 'fixtures', 'photos', 'front_standing.jpg'))
-    await expect(page.getByRole('button', { name: /Use File Upload Instead — Left Side/ })).toBeVisible({ timeout: 10_000 })
+    // Granting permission and retrying recovers the same capture session.
+    await page.getByRole('button', { name: 'Try Again' }).click()
+    await expect(page.getByRole('button', { name: 'Capture photo' })).toBeEnabled({ timeout: 10_000 })
+    await expect(page.getByTestId('camera-error-msg')).toHaveCount(0)
   })
 
   test('camera works without orientation sensors: no gate, no indicator', async ({ page }) => {
@@ -108,23 +112,21 @@ test.describe('camera error handling and quality preflight', () => {
     const noPersonBadge = page.getByText('No person detected — retake')
     await expect(noPersonBadge).toBeVisible({ timeout: 90_000 })
 
-    // Fill BOTH side slots (indices 1 = left, 2 = right) with a valid photo so the
+    // Fill both side slots and Back (indices 1, 2, 3) with valid photos so the
     // required slots are all present and the Analyze action gates only on the
     // front slot's no_person (otherwise it blocks earlier on a missing required slot).
     const photos = path.join(__dirname, 'fixtures', 'photos')
     await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
     await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
+    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
 
     // Only the front slot stays no_person (the sides complete as ok or warnings)
     await expect(page.locator('text=No person detected — retake')).toHaveCount(1, { timeout: 90_000 })
 
-    // Now try to submit — the front slot (no_person) blocks it. Back is optional
-    // and uncaptured, so the action reads "Skip Back & Analyze Posture".
-    await page.getByRole('button', { name: 'Skip Back & Analyze Posture' }).click()
-
-    // Should see the upload error about retaking
-    const errorBanner = page.getByText(/person detected|retake/i).first()
-    await expect(errorBanner).toBeVisible({ timeout: 5_000 })
+    // All four slots are present, but the front hard failure keeps analysis
+    // natively disabled and retains the corrective reason.
+    await expect(page.getByRole('button', { name: 'Retake invalid photos' })).toBeDisabled()
+    await expect(page.getByText(/No person detected.*Front/i)).toBeVisible()
 
     // Still on the capture screen — not redirected to processing
     await expect(page.getByTestId('fullscreen-capture')).toBeVisible()
@@ -150,6 +152,7 @@ test.describe('camera error handling and quality preflight', () => {
     await inputs.nth(0).setInputFiles(path.join(photos, 'front_standing_blurry.jpg'))
     await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
     await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
+    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
 
     // Wait for all three preflights to settle: the Front tile's accessible name
     // gains the "— quality warning" suffix (page.tsx runPreflight → slotStatus
@@ -176,9 +179,8 @@ test.describe('camera error handling and quality preflight', () => {
     // gaussian blur keeps enough structure for landmark detection).
     await expect(page.getByText('No person detected — retake')).toHaveCount(0)
 
-    // (c) Warnings are soft — submit is not blocked. Back is optional and
-    // uncaptured, so the action reads "Skip Back & Analyze Posture".
-    await page.getByRole('button', { name: 'Skip Back & Analyze Posture' }).click()
+    // (c) Warnings are soft — once all four required views pass, submit is enabled.
+    await page.getByRole('button', { name: 'Analyze Posture' }).click()
 
     // The capture overlay disappears and processing begins (Step 3).
     await expect(page.getByTestId('fullscreen-capture')).not.toBeVisible()

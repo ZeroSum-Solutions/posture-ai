@@ -7,6 +7,8 @@ import { renderToFile } from '@react-pdf/renderer'
 import { ClientReport } from '../lib/pdf/clientReport'
 import { buildProgram } from '../lib/program/buildProgram'
 import type { AssessmentResult, Finding } from '../packages/posture-engine/src/types'
+import { resolveRuntimeLegalDocument } from '../lib/legal/runtime'
+import { snapshotLegalDocument } from '../lib/legal/policy'
 
 const f = (over: Partial<Finding> & Pick<Finding, 'key' | 'label' | 'region' | 'deviation' | 'direction' | 'severityPct' | 'zone'>): Finding => ({
   standard: 0,
@@ -35,6 +37,7 @@ const result: AssessmentResult = {
   findings,
   overallScore: 32,
   overallGrade: 'B',
+  viewSeverityIndex: { front: 30, side: 36 },
   ranks: { front: 30, side: 36 },
   generatedAt: '2026-06-23T00:00:00.000Z',
   engineVersion: 'sample',
@@ -45,6 +48,13 @@ const result: AssessmentResult = {
 }
 
 const report = buildProgram(result, 'standard')
+const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
+if (!legalResolution.ok) {
+  throw new Error(
+    `Screening notice unavailable (${legalResolution.code}). Run sample generation only with an approved document or authorized non-production fixture mode.`,
+  )
+}
+const legalNotice = snapshotLegalDocument(legalResolution.document)
 const OUT = process.env.OUT ?? '/private/tmp/claude-501/-Users-zero-suminc-/b0721cc5-ba3c-4cf7-a546-5a18fdc23825/scratchpad/client-report.pdf'
 
 await renderToFile(
@@ -53,12 +63,13 @@ await renderToFile(
     practitioner: 'Apex Movement Co. · SAMPLE',
     dateStr: '23 Jun 2026',
     report,
+    legalNotice,
   }),
   OUT,
 )
 
 console.log('wrote', OUT)
-console.log('grade:', report.gradeHuman)
+console.log('screening summary:', report.screeningSummary)
 for (const p of report.priorities) {
   console.log(`  Priority ${p.rank}: ${p.label} [${p.severityWord}/${p.zone}] — ${p.steps.length} steps: ${p.steps.map((st) => `${st.stepLabel}:${st.slug}`).join(', ')}`)
 }

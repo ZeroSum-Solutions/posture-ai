@@ -31,6 +31,11 @@ export interface ZonedFinding {
   zone: string
 }
 
+export interface RecommendationOptions<E extends RecommendableExercise> {
+  /** Optional release-scoped role/link check supplied by the clinical caller. */
+  isCoherentForKey?: (exercise: E, imbalanceKey: string) => boolean
+}
+
 /**
  * The client's finding keys that can veto an exercise: reliable, and in an actionable
  * zone. `maintain` is a negative screen (measured within normal range) and `unreliable`
@@ -44,6 +49,7 @@ function screenedKeysFor(findings: ZonedFinding[]): string[] {
 export function deriveExerciseRecommendations<E extends RecommendableExercise, F extends ZonedFinding>(
   exercises: E[],
   findings: F[],
+  options: RecommendationOptions<E> = {},
 ): E[] {
   const reliableFindings = findings.filter(f => f.zone !== 'unreliable')
   const screenedKeys = screenedKeysFor(findings)
@@ -51,7 +57,9 @@ export function deriveExerciseRecommendations<E extends RecommendableExercise, F
     ex.category !== 'informational' &&
     ex.primaryDeviationKeys.some(key => {
       const finding = reliableFindings.find(f => f.imbalance_key === key)
-      return finding && zoneAtOrAbove(finding.zone, ex.minZone)
+      return finding
+        && zoneAtOrAbove(finding.zone, ex.minZone)
+        && (options.isCoherentForKey?.(ex, key) ?? true)
     }) &&
     !(ex.contraindicatedDeviationKeys ?? []).some(k => screenedKeys.includes(k))
   )

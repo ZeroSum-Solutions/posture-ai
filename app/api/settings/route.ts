@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest) {
     .single()
 
   if (error) {
-    console.error('[api/settings] PATCH error:', error.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'settings_update_failed' })
     return NextResponse.json({ error: 'Failed to save settings.' }, { status: 500 })
   }
 
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     })
 
   if (uploadError) {
-    console.error('[api/settings] logo upload error:', uploadError.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_upload_failed' })
     return NextResponse.json({ error: 'Failed to upload logo.' }, { status: 500 })
   }
 
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     .update({ logo_storage_path: path, updated_at: new Date().toISOString() })
     .eq('id', user.id)
   if (pathErr) {
-    console.error('[api/settings] logo path save error:', pathErr.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_save_failed' })
     return NextResponse.json({ error: 'Failed to save logo.' }, { status: 500 })
   }
 

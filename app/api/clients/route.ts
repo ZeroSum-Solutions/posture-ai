@@ -2,7 +2,14 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
-import { CONSENT_VERSION, hashConsent } from '@/lib/consent/policy'
+import {
+  hashConsent,
+  matchesConsentDocument,
+  type SubmittedConsentDocument,
+} from '@/lib/consent/policy'
+import { snapshotLegalDocument } from '@/lib/legal/policy'
+import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
+import type { LegalSnapshot } from '@/lib/legal/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 const SIGNER_RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
@@ -14,8 +21,8 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const userHash = hashUser(user.id)
 
-  console.log('[api/clients] GET: SELECT from clients via .from().select()')
   const { data, error } = await supabase
     .from('clients')
     .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, created_at')
@@ -23,10 +30,10 @@ export async function GET() {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) {
-    console.error('[api/clients] GET error:', error.message)
+    logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_list_failed' })
     return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500 })
   }
-  console.log('[api/clients] GET: returned ' + data.length + ' rows from clients table')
+  logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_loaded' })
   return NextResponse.json({ clients: data, count: data.length })
 }
 
@@ -55,7 +62,7 @@ export async function POST(req: NextRequest) {
     first_name?: string; last_name?: string; date_of_birth?: string
     sex_at_birth?: string; height_cm?: number; weight_kg?: number
     notes?: string; consent_mode?: string; signer_name?: string; signer_relationship?: string
-  }
+  } & SubmittedConsentDocument
   if (!first_name || !last_name) return NextResponse.json({ error: 'first_name and last_name are required' }, { status: 400 })
 
   // Validate the optional demographics the same way PATCH /api/clients/[id] does, so
@@ -81,6 +88,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Subject consent is required: provide a signer name and relationship, or choose remote consent.' }, { status: 400 })
   }
 
+  let consentDocument: LegalSnapshot | null = null
+  if (!remote) {
+    const resolution = resolveRuntimeLegalDocument({ kind: 'subject_consent' })
+    if (!resolution.ok) {
+      return NextResponse.json(
+        { error: 'Consent terms are temporarily unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
+    }
+    consentDocument = snapshotLegalDocument(resolution.document)
+    if (!matchesConsentDocument(consentDocument, body)) {
+      return NextResponse.json(
+        { error: 'The consent terms changed. Review the current terms and try again.', code: 'superseded' },
+        { status: 409 },
+      )
+    }
+  }
+
   const row: Record<string, unknown> = { practitioner_id: user.id, first_name, last_name }
   if (date_of_birth) row.date_of_birth = date_of_birth
   if (sex_at_birth) row.sex_at_birth = sex_at_birth
@@ -93,38 +118,50 @@ export async function POST(req: NextRequest) {
   // (regulatory_hardening_v2), so the API is the sole writer and the gates above
   // are the real enforcement. Ownership is set/scoped on every write since
   // service-role bypasses RLS.
-  const { data, error } = await service.from('clients').insert(row).select().single()
-  if (error) {
-    console.error('[api/clients] POST error:', error.message)
-    return NextResponse.json({ error: 'Failed to create client.' }, { status: 500 })
-  }
-
-  if (!remote) {
+  if (!remote && consentDocument) {
     const signedAt = new Date().toISOString()
     const consentHash = hashConsent({
-      consentVersion: CONSENT_VERSION,
+      document: consentDocument,
       signerName: signer_name as string,
       signerRelationship: signer_relationship as string,
       signedAt,
     })
-    // Atomic via the same locked RPC as /api/consent: consent insert + client
-    // stamp in one transaction, with the client row locked + deleted-checked. This
-    // also closes the window between the client insert above and the consent write.
-    const { data: cResult, error: cErr } = await service.rpc('record_inperson_consent', {
-      p_client_id: data.id,
+    const { data, error: cErr } = await service.rpc('create_client_with_inperson_consent_governed', {
       p_practitioner_id: user.id,
-      p_consent_version: CONSENT_VERSION,
+      p_first_name: first_name,
+      p_last_name: last_name,
+      p_date_of_birth: date_of_birth || null,
+      p_sex_at_birth: sex_at_birth || null,
+      p_height_cm: height_cm ?? null,
+      p_weight_kg: weight_kg ?? null,
+      p_notes: notes || null,
+      p_document_id: consentDocument.documentId,
+      p_document_version: consentDocument.version,
+      p_document_body_sha256: consentDocument.bodySha256,
+      p_document_effective_at: consentDocument.effectiveAt,
+      p_jurisdiction: consentDocument.jurisdiction,
+      p_product_scope: consentDocument.productScope,
       p_signer_name: signer_name as string,
       p_signer_relationship: signer_relationship,
       p_consent_hash: consentHash,
       p_signed_at: signedAt,
     })
-    if (cErr || cResult !== 'ok') {
-      console.error('[api/clients] POST consent error:', cErr?.message ?? cResult)
-      return NextResponse.json({ error: 'Client created but consent could not be recorded. Record consent before screening.', client: data }, { status: 201 })
+    if (
+      cErr
+      || !data
+      || typeof data !== 'object'
+      || typeof (data as Record<string, unknown>).id !== 'string'
+    ) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'client_consent_enrollment_failed' })
+      return NextResponse.json({ error: 'Failed to create client and record consent.' }, { status: 500 })
     }
-    ;(data as Record<string, unknown>).consent_recorded_at = signedAt
+    return NextResponse.json({ client: data }, { status: 201 })
   }
 
+  const { data, error } = await service.from('clients').insert(row).select().single()
+  if (error) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'client_create_failed' })
+    return NextResponse.json({ error: 'Failed to create client.' }, { status: 500 })
+  }
   return NextResponse.json({ client: data }, { status: 201 })
 }

@@ -7,9 +7,17 @@ import type { ReactNode } from 'react'
 import AppAtmosphere from './AppAtmosphere'
 import NavBar from './NavBar'
 import MotionOrchestrator from './MotionOrchestrator'
+import AuthSessionGuard from './AuthSessionGuard'
 import { shouldRenderAppAtmosphere } from './appAtmospherePolicy'
+import LegalNotice from './LegalNotice'
 
-export default function AppShell({ children }: { children: ReactNode }) {
+export default function AppShell({
+  children,
+  clinicalContentEnabled,
+}: {
+  children: ReactNode
+  clinicalContentEnabled: boolean
+}) {
   const pathname = usePathname() ?? ''
   const showAtmosphere = shouldRenderAppAtmosphere(pathname)
 
@@ -17,10 +25,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <MotionConfig reducedMotion="user">
       <div className={showAtmosphere ? 'app-shell app-shell--immersive' : 'app-shell'}>
         {showAtmosphere && <AppAtmosphere />}
-        <NavBar />
-        <MotionOrchestrator>{children}</MotionOrchestrator>
+        <AuthSessionGuard pathname={pathname}>
+          <NavBar clinicalContentEnabled={clinicalContentEnabled} />
+          <MotionOrchestrator>{children}</MotionOrchestrator>
+        </AuthSessionGuard>
         <footer className="app-footer">
-          <div>Screening only — not a medical diagnosis. Consult a qualified healthcare professional before making any clinical decisions.</div>
+          <LegalNotice kind="screening_notice" compact />
           <div className="app-footer-links">
             <Link href="/privacy">Privacy Policy</Link>
             <span aria-hidden="true">·</span>

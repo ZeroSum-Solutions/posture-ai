@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimitStrict } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashResource, hashUser } from '@/lib/log'
 
 const ROUTE = 'PATCH /api/assessments/[id]/approve'
 
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .select('id')
 
   if (error) {
-    console.error(`[api/assessments/${id}/approve] update failed:`, error.message)
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, resourceHash: hashResource(id), detailCode: 'assessment_approval_failed' })
     return NextResponse.json({ error: 'Failed to update approval.' }, { status: 500 })
   }
   // 0 rows = wrong id or not this practitioner's assessment — don't report success.

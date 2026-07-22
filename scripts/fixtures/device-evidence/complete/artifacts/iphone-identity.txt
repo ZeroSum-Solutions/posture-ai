@@ -1,0 +1,1 @@
+{"device_class":"iphone_safari","model":"Fixture iPhone","os_version":"17.6","browser_name":"Safari","browser_version":"17.6","browser_build":"17.6.0","physical_device":false,"emulated":true,"desktop":false,"ram_gb":null,"mid_or_low_tier":null}

@@ -1,0 +1,1 @@
+{"device_class":"android_chrome","run_id":"fixture-android-warm","configuration_hash":"bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead","configuration_field":"workout_surface_enabled","configuration_value":false}

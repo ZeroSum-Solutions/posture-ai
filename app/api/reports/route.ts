@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash, randomUUID } from 'node:crypto'
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -7,15 +8,22 @@ import { PostureReportPdf } from '@/lib/pdf/report'
 import type { PdfFinding, PdfAssessment, PdfExercise } from '@/lib/pdf/report'
 import { ClientReport } from '@/lib/pdf/clientReport'
 import { buildProgramFrom } from '@/lib/program/buildProgram'
+import { isCoherentForKey } from '@/lib/program/roleCoherence'
 import { deriveExerciseRecommendations, type ZonedFinding } from '@/lib/exercises'
 import { ALL_EXERCISES } from '@/content'
 import { isNoRows } from '@/lib/api/query-error'
 import { dbFindingsToEngineFindings, isCapability, type DbFindingRow } from '@/lib/reports/clientProgram'
 import { buildClientComparison, type ClientComparison } from '@/lib/reports/clientComparison'
+import { areEngineVersionsComparable } from '@/lib/comparison/policy'
 import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { logEvent, hashUser } from '@/lib/log'
+import { logEvent, hashResource, hashUser } from '@/lib/log'
+import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
+import { snapshotLegalDocument } from '@/lib/legal/policy'
+import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
+import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -23,6 +31,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
 
   const allowed = await enforceRateLimit(createSupabaseServiceClient(), {
     route: 'reports', userId: user.id, limit: 10, windowSeconds: 60,
@@ -40,6 +49,9 @@ export async function POST(req: NextRequest) {
   }
   const { assessment_id, compared_to_assessment_id } = body
   const variant: 'practitioner' | 'client' = body.variant === 'client' ? 'client' : 'practitioner'
+  if (variant === 'client' && !(clinicalAccess.surfaces.programs && clinicalAccess.surfaces.recommendations)) {
+    return clinicalContentUnavailableResponse()
+  }
 
   if (!assessment_id || typeof assessment_id !== 'string') {
     return NextResponse.json({ error: 'assessment_id required' }, { status: 400 })
@@ -49,8 +61,8 @@ export async function POST(req: NextRequest) {
   const { data: assessment, error: aErr } = await supabase
     .from('assessments')
     .select(`
-      id, client_id, status, overall_score, overall_grade, overall_percentile,
-      front_rank, side_rank, assessed_at, practitioner_approved,
+      id, client_id, status, overall_score, overall_grade,
+      assessed_at, practitioner_approved,
       priority_keys, capability, exercise_swaps, scoring_engine_version,
       clients!inner(id, first_name, last_name)
     `)
@@ -60,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   if (aErr || !assessment) {
     if (aErr && !isNoRows(aErr)) {
-      console.error('[api/reports] assessment load failed:', assessment_id, aErr.message)
+      logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'assessment_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
@@ -74,11 +86,29 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // A generated report is a new governed artifact. Resolve and freeze the
+  // applicable notice before doing any rendering or storage work so production
+  // fails closed when no approved legal document is available.
+  const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
+  if (!legalResolution.ok) {
+    return NextResponse.json(
+      { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
+      { status: 503 },
+    )
+  }
+  const legalNotice = snapshotLegalDocument(legalResolution.document)
+
   // A comparison assessment's findings also get exported (deltas), so it must
   // belong to this practitioner AND be approved too — otherwise its data could be
   // exported without review, or leak from another practitioner's records (IDOR).
   // Captured here (after the gate passes) for the client-report progress section.
-  let priorMeta: { grade: string; score: number; dateStr: string } | null = null
+  let priorMeta: {
+    grade: string
+    score: unknown
+    dateStr: string
+    assessedAt: string
+    scoringEngineVersion: string | null
+  } | null = null
   let engineVersionMismatch = false
   if (compared_to_assessment_id) {
     const { data: prior, error: pErr } = await supabase
@@ -105,16 +135,26 @@ export async function POST(req: NextRequest) {
     }
     const currentVersion = assessment.scoring_engine_version ?? null
     const priorVersion = prior.scoring_engine_version ?? null
-    engineVersionMismatch = currentVersion !== priorVersion || priorVersion === null
+    engineVersionMismatch = !areEngineVersionsComparable(currentVersion, priorVersion)
     if (!prior.practitioner_approved) {
       return NextResponse.json(
         { error: 'The comparison assessment must also be reviewed and approved before it can be exported.' },
         { status: 403 },
       )
     }
+    const currentTime = Date.parse(assessment.assessed_at)
+    const priorTime = Date.parse(prior.assessed_at)
+    if (!Number.isFinite(currentTime) || !Number.isFinite(priorTime) || priorTime >= currentTime) {
+      return NextResponse.json(
+        { error: 'The comparison assessment must be earlier than the current assessment.' },
+        { status: 400 },
+      )
+    }
     priorMeta = {
       grade: prior.overall_grade as string,
-      score: Number(prior.overall_score),
+      score: prior.overall_score,
+      assessedAt: prior.assessed_at,
+      scoringEngineVersion: priorVersion,
       dateStr: new Date(prior.assessed_at).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric',
       }),
@@ -132,7 +172,7 @@ export async function POST(req: NextRequest) {
   // failed read is indistinguishable from a genuinely-empty result. Rendering from
   // silently-empty findings would deliver a clinical PDF showing zero posture issues.
   if (findingsErr) {
-    console.error('[api/reports] findings load failed:', assessment_id, findingsErr.message)
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'findings_load_failed' })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
@@ -153,8 +193,8 @@ export async function POST(req: NextRequest) {
     }
     return []
   }
-  if (keys.length > 0) {
-    const { data: defs } = await supabase
+  if (keys.length > 0 && clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.knowledgeLinks) {
+    const { data: defs } = await createSupabaseServiceClient()
       .from('imbalance_definitions')
       .select('key, causes_text, tight_muscles, weak_muscles')
       .in('key', keys)
@@ -170,63 +210,109 @@ export async function POST(req: NextRequest) {
   }
 
   // Build delta map if comparing
-  const deltaMap: Record<string, number> = {}
-  let priorComparisonFindings: Array<{ key: string; severityPct: number }> = []
+  const priorFindingMap = new Map<string, {
+    deviation: unknown
+    severityPct: unknown
+    reliable: boolean
+    unit: string | null
+  }>()
+  let priorComparisonFindings: Array<{
+    key: string
+    severityPct: unknown
+    reliable: boolean
+    unit: string | null
+  }> = []
   if (compared_to_assessment_id) {
     const { data: priorFindings, error: priorFindingsErr } = await supabase
       .from('assessment_findings')
-      .select('imbalance_key, deviation, severity_pct')
+      .select('imbalance_key, deviation, severity_pct, zone, unit')
       .eq('assessment_id', compared_to_assessment_id)
     if (priorFindingsErr) {
-      console.error('[api/reports] prior findings load failed:', compared_to_assessment_id, priorFindingsErr.message)
+      logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(compared_to_assessment_id), detailCode: 'prior_findings_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
     if (priorFindings) {
       for (const pf of priorFindings) {
-        deltaMap[pf.imbalance_key] = pf.deviation
+        priorFindingMap.set(pf.imbalance_key, {
+          deviation: pf.deviation,
+          severityPct: pf.severity_pct,
+          reliable: typeof pf.zone === 'string' && pf.zone !== 'unreliable',
+          unit: typeof pf.unit === 'string' ? pf.unit : null,
+        })
       }
       priorComparisonFindings = priorFindings.map((pf) => ({
-        key: pf.imbalance_key, severityPct: Number(pf.severity_pct),
+        key: pf.imbalance_key,
+        severityPct: pf.severity_pct,
+        reliable: typeof pf.zone === 'string' && pf.zone !== 'unreliable',
+        unit: typeof pf.unit === 'string' ? pf.unit : null,
       }))
     }
   }
 
-  const hasDelta = compared_to_assessment_id ? Object.keys(deltaMap).length > 0 : false
+  const hasDelta = Boolean(compared_to_assessment_id && priorMeta)
 
   // Plain-language "since last time" progress for the CLIENT report only, and
   // only when a valid, approved, same-client prior was selected (all enforced
   // by the gate above). The practitioner PDF keeps its own numeric deltas.
-  const clientComparison: ClientComparison | null =
-    variant === 'client' && priorMeta
+  const canonicalComparison: ClientComparison | null =
+    priorMeta
       ? buildClientComparison({
           priorDateStr: priorMeta.dateStr,
-          current: { grade: assessment.overall_grade, score: Number(assessment.overall_score) },
-          prior: { grade: priorMeta.grade, score: priorMeta.score },
+          current: {
+            grade: assessment.overall_grade,
+            score: assessment.overall_score,
+            scoringEngineVersion: assessment.scoring_engine_version ?? null,
+            assessedAt: assessment.assessed_at,
+          },
+          prior: {
+            grade: priorMeta.grade,
+            score: priorMeta.score,
+            scoringEngineVersion: priorMeta.scoringEngineVersion,
+            assessedAt: priorMeta.assessedAt,
+          },
           currentFindings: (findingsRaw || []).map((f: Record<string, unknown>) => ({
-            key: f.imbalance_key as string, severityPct: Number(f.severity_pct),
+            key: f.imbalance_key as string,
+            severityPct: f.severity_pct,
+            reliable: typeof f.zone === 'string' && f.zone !== 'unreliable',
+            unit: typeof f.unit === 'string' ? f.unit : null,
           })),
           priorFindings: priorComparisonFindings,
-        }, { engineVersionMismatch })
+        })
       : null
+  const clientComparison = variant === 'client' ? canonicalComparison : null
+
+  const finiteNumber = (value: unknown): number | null => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null
+    if (typeof value !== 'string' || value.trim() === '') return null
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
 
   const findings: PdfFinding[] = (findingsRaw || []).map((f: Record<string, unknown>) => {
     const def = defsMap[f.imbalance_key as string]
+    const priorFinding = priorFindingMap.get(f.imbalance_key as string)
+    const currentUnit = typeof f.unit === 'string' ? f.unit : null
+    const currentDeviation = finiteNumber(f.deviation)
+    const priorDeviation = finiteNumber(priorFinding?.deviation)
+    const unitsMatch = currentUnit !== null && currentUnit === priorFinding?.unit
     return {
       id: f.id as string,
       imbalance_key: f.imbalance_key as string,
       region: f.region as string,
       label: f.label as string,
-      deviation: Number(f.deviation),
+      deviation: currentDeviation,
+      unit: currentUnit ?? '',
       direction: f.direction as string,
-      severity_pct: Number(f.severity_pct),
+      severity_pct: finiteNumber(f.severity_pct),
       zone: f.zone as string,
       view_used: f.view_used as string,
       confidence: Number(f.confidence),
       causes_text: def?.causes_text || '',
       tight_muscles: def?.tight_muscles || [],
       weak_muscles: def?.weak_muscles || [],
-      delta: hasDelta && deltaMap[f.imbalance_key as string] !== undefined
-        ? Number(f.deviation) - deltaMap[f.imbalance_key as string]
+      comparison: canonicalComparison?.byKey[f.imbalance_key as string] ?? null,
+      delta: hasDelta && unitsMatch && currentDeviation !== null && priorDeviation !== null
+        ? currentDeviation - priorDeviation
         : null,
     }
   })
@@ -235,16 +321,25 @@ export async function POST(req: NextRequest) {
   // same selector the program builder uses, so the practitioner report cannot recommend an
   // exercise contraindicated by a concurrent finding (nor an informational item, nor one
   // below its own min zone). An unreliable finding recommends nothing.
-  const exercises: PdfExercise[] = deriveExerciseRecommendations(
-    ALL_EXERCISES,
-    (findingsRaw || []) as unknown as ZonedFinding[],
-  ).map((ex) => ({
-    name: ex.name,
-    category: ex.category,
-    instructions: ex.instructions,
-    sets: ex.sets,
-    hold_seconds: ex.holdSeconds,
-  }))
+  const exercises: PdfExercise[] = clinicalAccess.surfaces.recommendations
+    ? deriveExerciseRecommendations(
+        ALL_EXERCISES.filter((exercise) => clinicalAccess.approvedExerciseSlugs.includes(exercise.slug)),
+        (findingsRaw || []) as unknown as ZonedFinding[],
+        {
+          isCoherentForKey: (exercise, key) => isCoherentForKey(
+            exercise,
+            key,
+            new Set(clinicalAccess.approvedLinkIds),
+          ),
+        },
+      ).map((ex) => ({
+        name: ex.name,
+        category: ex.category,
+        instructions: ex.instructions,
+        sets: ex.sets,
+        hold_seconds: ex.holdSeconds,
+      }))
+    : []
 
   // Fetch practitioner
   const { data: practitioner } = await supabase
@@ -263,9 +358,7 @@ export async function POST(req: NextRequest) {
     id: assessment.id,
     overall_score: assessment.overall_score,
     overall_grade: assessment.overall_grade,
-    overall_percentile: assessment.overall_percentile,
-    front_rank: assessment.front_rank,
-    side_rank: assessment.side_rank,
+    scoring_engine_version: assessment.scoring_engine_version,
     assessed_at: assessment.assessed_at,
     clients: { first_name: clientFirst || 'Client', last_name: clientLast || '' },
   }
@@ -287,6 +380,11 @@ export async function POST(req: NextRequest) {
         capability: isCapability(overrides.capability) ? overrides.capability : 'standard',
         activeKeys: Array.isArray(overrides.priority_keys) ? overrides.priority_keys : undefined,
         swaps: overrides.exercise_swaps || undefined,
+        clinicalContent: {
+          approvedExerciseSlugs: clinicalAccess.approvedExerciseSlugs,
+          approvedLinkIds: clinicalAccess.approvedLinkIds,
+          approvedReportCopyIds: clinicalAccess.approvedReportCopyIds,
+        },
       },
     )
     const dateStr = new Date(assessment.assessed_at).toLocaleDateString('en-GB', {
@@ -298,6 +396,7 @@ export async function POST(req: NextRequest) {
       dateStr,
       report: program,
       comparison: clientComparison,
+      legalNotice,
     }) as unknown as ReactElement<DocumentProps>
   } else {
     docElement = React.createElement(PostureReportPdf, {
@@ -307,6 +406,7 @@ export async function POST(req: NextRequest) {
       practitioner: practitioner || undefined,
       hasDelta,
       engineVersionMismatch,
+      legalNotice,
     }) as unknown as ReactElement<DocumentProps>
   }
 
@@ -319,8 +419,23 @@ export async function POST(req: NextRequest) {
   }
 
   // Upload to Supabase Storage via service role
-  const serviceSupabase = createSupabaseServiceClient()
-  const storagePath = `${user.id}/${assessment_id}/${variant === 'client' ? 'report-client.pdf' : 'report.pdf'}`
+  const reportFetch: typeof fetch = (input, init) => {
+    const timeout = AbortSignal.timeout(60_000)
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout
+    return fetch(input, { ...init, signal })
+  }
+  const serviceSupabase = createSupabaseServiceClient({ fetch: reportFetch })
+  const pdfSha256 = createHash('sha256').update(Buffer.from(pdfBuffer)).digest('hex')
+  const storagePath = `${user.id}/${assessment_id}/${variant}/${pdfSha256}-${randomUUID()}.pdf`
+  const cleanupIntent = {
+    deletion_receipt_id: null,
+    source_code: 'report_insert_compensation',
+    bucket: 'posture-reports',
+    object_path: storagePath,
+    // Long enough for normal rendering/upload/finalization, short enough that a
+    // crashed request does not leave an untracked PDF for long.
+    next_attempt_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+  }
 
   // Ensure bucket exists
   const { error: bucketErr } = await serviceSupabase.storage.createBucket('posture-reports', {
@@ -328,62 +443,79 @@ export async function POST(req: NextRequest) {
     allowedMimeTypes: ['application/pdf'],
   })
   if (bucketErr && !bucketErr.message?.includes('already exists') && !bucketErr.message?.includes('Duplicate')) {
-    console.error('[api/reports] Bucket creation error:', bucketErr.message)
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 0, userHash: hashUser(user.id), detailCode: 'report_bucket_check_failed' })
+  }
+
+  // Persist compensation BEFORE the external side effect. If the process or DB
+  // dies after upload, the scheduled worker already knows the exact object path.
+  const { error: intentError } = await serviceSupabase
+    .from('privacy_storage_deletion_outbox')
+    .insert(cleanupIntent)
+  if (intentError) {
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'report_cleanup_intent_failed' })
+    return NextResponse.json({ error: 'Could not safely prepare report storage. Please retry.' }, { status: 500 })
   }
 
   const { error: uploadErr } = await serviceSupabase.storage
     .from('posture-reports')
     .upload(storagePath, pdfBuffer, {
       contentType: 'application/pdf',
-      upsert: true,
+      upsert: false,
     })
 
   if (uploadErr) {
-    console.error('[api/reports] Upload error:', uploadErr.message)
-    return NextResponse.json({ error: 'Failed to upload PDF: ' + uploadErr.message }, { status: 500 })
+    // Provider errors can be commit-ambiguous: the object may exist even though
+    // the response says the upload failed. Retain the intent; deleting a missing
+    // object later is idempotent, while cancelling here could orphan a real PDF.
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'report_upload_failed' })
+    return NextResponse.json({ error: 'Failed to upload PDF.' }, { status: 500 })
   }
 
-  // Get signed URL (1 hour)
-  const { data: signedData, error: signErr } = await serviceSupabase.storage
-    .from('posture-reports')
-    .createSignedUrl(storagePath, 3600)
-
-  if (signErr || !signedData) {
-    return NextResponse.json({ error: 'Failed to create signed URL' }, { status: 500 })
-  }
-
-  // Insert reports row (service-role: authenticated DB writes on regulated tables
-  // are revoked; practitioner_id is set explicitly below).
-  const { data: report, error: reportErr } = await serviceSupabase
-    .from('reports')
-    .insert({
-      assessment_id,
-      practitioner_id: user.id,
-      storage_path: storagePath,
-      // Record the comparison only when the report actually rendered one: the
-      // practitioner PDF whenever a prior was passed, the client PDF only when a
-      // valid same-client progress comparison was built above.
-      compared_to_assessment_id: variant === 'client'
+  // Persist the governed report row and cancel the pre-upload intent in one DB
+  // transaction. Either both happen, or the intent remains available to retry.
+  const reportScope = variant === 'client'
+    ? 'clinical_client'
+    : clinicalAccess.surfaces.recommendations || clinicalAccess.surfaces.knowledgeLinks
+      ? 'clinical_practitioner'
+      : 'assessment_only'
+  const { data: finalizeData, error: reportErr } = await serviceSupabase.rpc(
+    'finalize_report_upload_v2',
+    {
+      p_assessment_id: assessment_id,
+      p_practitioner_id: user.id,
+      p_storage_path: storagePath,
+      // Record the comparison only when the report actually rendered one.
+      p_compared_to_assessment_id: variant === 'client'
         ? (clientComparison ? compared_to_assessment_id : null)
         : (compared_to_assessment_id || null),
-    })
-    .select('id')
-    .single()
+      p_document_id: legalNotice.documentId,
+      p_document_version: legalNotice.version,
+      p_document_body_sha256: legalNotice.bodySha256,
+      p_document_effective_at: legalNotice.effectiveAt,
+      p_jurisdiction: legalNotice.jurisdiction,
+      p_product_scope: legalNotice.productScope,
+      p_report_scope: reportScope,
+      p_clinical_content_version: reportScope === 'assessment_only' ? null : clinicalAccess.contentVersion,
+      p_clinical_inventory_sha256: reportScope === 'assessment_only' ? null : clinicalAccess.inventorySha256,
+    },
+  )
+  const report = finalizeData as { status?: string; report_id?: string } | null
 
-  if (reportErr || !report) {
-    // The reports row didn't persist — e.g. the client was erased mid-export and
-    // the reports_reject_deleted_client trigger rejected it. Remove the PDF we
-    // just uploaded so no regulated file is orphaned in storage after an erasure.
-    console.error('[api/reports] reports insert failed; removing uploaded PDF:', reportErr?.message)
-    await serviceSupabase.storage.from('posture-reports').remove([storagePath])
+  if (reportErr || report?.status !== 'created' || !report.report_id) {
+    // A lost RPC response is also commit-ambiguous. Never remove synchronously:
+    // if finalization committed, its transaction deleted the intent and the PDF
+    // belongs to a report; otherwise the still-durable intent cleans it later.
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'report_finalize_unconfirmed' })
     return NextResponse.json({ error: 'Failed to record report. Please retry.' }, { status: 500 })
   }
 
   return NextResponse.json({
-    report_id: report.id,
-    signed_url: signedData.signedUrl,
+    report_id: report.report_id,
+    // A same-origin download re-checks active AAL2 access on every request.
+    // Do not issue a storage capability that could outlive revocation.
+    signed_url: `/api/reports/${encodeURIComponent(report.report_id)}/download`,
     storage_path: storagePath,
-    comparison_overall: clientComparison?.overall ?? null,
+    comparison_overall: clientComparison?.overall.status ?? null,
     engine_version_mismatch: engineVersionMismatch,
   })
 }

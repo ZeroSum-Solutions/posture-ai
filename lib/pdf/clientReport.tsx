@@ -3,12 +3,15 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { ProgramReport, ProgramStep } from '../program/buildProgram'
 import { renderDose } from '../program/dosage'
 import { clientSummaryMode } from '../reports/clientProgram'
-import type { ClientComparison, OverallDirection, AreaDirection } from '../reports/clientComparison'
-
-const DISCLAIMER =
-  'SCREENING ONLY — Not a medical assessment. For educational and screening purposes only. This does not replace evaluation by a qualified professional.'
-const ENGINE_VERSION_CAVEAT =
-  "These screenings used different scoring versions, so the grade change isn't directly comparable."
+import type { ClientComparison } from '../reports/clientComparison'
+import {
+  MEASUREMENT_TOLERANCE_COPY,
+  comparisonDecisionText,
+  comparisonStatusText,
+  comparisonTone,
+  type ComparisonStatus,
+} from '@/lib/comparison/policy'
+import type { LegalSnapshot } from '@/lib/legal/types'
 
 // Dark palette (matches the app design tokens) with high-contrast text.
 // Solid hex throughout — react-pdf mis-renders rgba() border/background colors.
@@ -39,17 +42,13 @@ const STEP_COLOR: Record<string, string> = {
   Connect: '#0098F3',
 }
 
-// Encouraging, non-diagnostic phrasing for the "since last time" progress card.
-// Colours stay green/amber (never red) — a slip is framed as motivating, not alarming.
-const OVERALL_COPY: Record<Exclude<OverallDirection, 'not_comparable'>, { word: string; color: string }> = {
-  improved: { word: 'trending in the right direction', color: C.green },
-  steady: { word: 'holding steady', color: C.sub },
-  slipped: { word: 'some ground to make back — keep at it', color: C.amber },
-}
-const AREA_COPY: Record<AreaDirection, { word: string; color: string }> = {
-  improving: { word: 'improving', color: C.green },
-  steady: { word: 'about the same', color: C.sub },
-  attention: { word: 'worth extra focus', color: C.amber },
+function comparisonColor(status: ComparisonStatus): string {
+  const tone = comparisonTone(status)
+  if (tone === 'positive') return C.green
+  // Audience-specific presentation only: the client report keeps the existing
+  // non-alarming amber tone. The shared status/reason words are unchanged.
+  if (tone === 'negative') return C.amber
+  return C.sub
 }
 
 const s = StyleSheet.create({
@@ -126,10 +125,14 @@ function Header({ clientName, practitioner, dateStr }: { clientName: string; pra
   )
 }
 
-function Footer() {
+function Footer({ legalNotice }: { legalNotice: LegalSnapshot }) {
   return (
     <View style={s.footer} fixed>
-      <Text style={s.footerText}>{DISCLAIMER}</Text>
+      {legalNotice.isFixture ? (
+        <Text style={[s.footerText, { color: C.amber, fontFamily: 'Helvetica-Bold' }]}>NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY</Text>
+      ) : null}
+      <Text style={s.footerText}>{legalNotice.text}</Text>
+      <Text style={s.footerText}>{`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}</Text>
     </View>
   )
 }
@@ -177,9 +180,10 @@ export interface ClientReportProps {
   report: ProgramReport
   /** Optional "since last time" progress vs an approved, same-client prior screening. */
   comparison?: ClientComparison | null
+  legalNotice: LegalSnapshot
 }
 
-export function ClientReport({ clientName, practitioner, dateStr, report, comparison }: ClientReportProps) {
+export function ClientReport({ clientName, practitioner, dateStr, report, comparison, legalNotice }: ClientReportProps) {
   const first = clientName.split(' ')[0]
   const mode = clientSummaryMode(report)
   const positivesLine =
@@ -201,35 +205,37 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
 
         <View style={s.hero}>
           <Text style={s.heroText}>
-            Hi {first} — here&apos;s your posture screening summary. {report.gradeHuman} {positivesLine} {heroPlanLine}
+            Hi {first} — here&apos;s your posture screening summary. {report.screeningSummary} {positivesLine} {heroPlanLine}
           </Text>
           {report.positives.length > 0 ? <Text style={s.positives}>✓ {positivesLine}</Text> : null}
         </View>
 
         {comparison ? (
-          <View style={[s.progress, { borderLeftColor: comparison.overall === 'not_comparable' ? C.sub : OVERALL_COPY[comparison.overall].color }]}>
+          <View style={[s.progress, { borderLeftColor: comparisonColor(comparison.overall.status) }]}>
             <Text style={s.progressTitle}>Since your last screening</Text>
-            {comparison.overall === 'not_comparable' ? (
+            {comparison.overall.status === 'not_comparable' ? (
               <Text style={s.progressOverall}>
                 <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
-                {ENGINE_VERSION_CAVEAT}
+                {comparisonDecisionText(comparison.overall, 'overall')}
               </Text>
             ) : (
-              <Text style={s.progressOverall}>
-                <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
-                Grade {comparison.priorGrade} → {comparison.currentGrade} ·{' '}
-                <Text style={{ color: OVERALL_COPY[comparison.overall].color, fontFamily: 'Helvetica-Bold' }}>
-                  {OVERALL_COPY[comparison.overall].word}
-                </Text>.
-              </Text>
+              <View>
+                <Text style={s.progressOverall}>
+                  <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
+                  Recorded grades (reference only): prior {comparison.priorGrade}; current {comparison.currentGrade}.{' '}
+                  <Text style={{ color: comparisonColor(comparison.overall.status), fontFamily: 'Helvetica-Bold' }}>
+                    {comparisonStatusText(comparison.overall.status, 'overall')}
+                  </Text>.
+                </Text>
+                <Text style={{ fontSize: 7.5, color: C.faint, marginTop: 4 }}>{MEASUREMENT_TOLERANCE_COPY}</Text>
+              </View>
             )}
-            {comparison.overall !== 'not_comparable' && report.priorities.map((p) => {
+            {comparison.overall.status !== 'not_comparable' && report.priorities.map((p) => {
               const dir = comparison.byKey[p.primaryKey]
               if (!dir) return null
-              const a = AREA_COPY[dir]
               return (
                 <Text style={s.progressArea} key={p.primaryKey}>
-                  • {p.label}: <Text style={{ color: a.color, fontFamily: 'Helvetica-Bold' }}>{a.word}</Text>
+                  • {p.label}: <Text style={{ color: comparisonColor(dir.status), fontFamily: 'Helvetica-Bold' }}>{comparisonDecisionText(dir, 'finding')}</Text>
                 </Text>
               )
             })}
@@ -274,7 +280,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
             </Text>
           </View>
         )}
-        <Footer />
+        <Footer legalNotice={legalNotice} />
       </Page>
 
       {/* PER-PRIORITY plan + 3-week ramp */}
@@ -303,7 +309,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
             Aim for ~15 minutes a day. If a week felt hard, repeat the same numbers before moving up — the path
             is a suggestion, not a rule.
           </Text>
-          <Footer />
+          <Footer legalNotice={legalNotice} />
         </Page>
       ))}
 
@@ -333,7 +339,7 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
           <Text style={s.safety}>• See a qualified professional if you have ongoing pain, numbness, tingling, dizziness, or a recent injury.</Text>
           <Text style={s.safety}>• This plan is general guidance from a posture screening, not a personalized medical assessment.</Text>
         </View>
-        <Footer />
+        <Footer legalNotice={legalNotice} />
       </Page>
     </Document>
   )

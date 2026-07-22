@@ -163,6 +163,54 @@
   line-height: 1.55;
 }
 
+.versionKey {
+  display: grid;
+  gap: 8px;
+  margin-block-start: 16px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.versionKey > strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.versionKey ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.versionKey li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.versionSwatch {
+  width: 18px;
+  border-block-start: 2px solid var(--data-blue);
+}
+
+.versionSwatch[data-series-index='1'] {
+  border-color: var(--brand-warm);
+  border-block-start-style: dashed;
+}
+
+.versionSwatch[data-series-index='2'] {
+  border-color: var(--maintain);
+  border-block-start-style: dotted;
+}
+
+.versionSwatch[data-series-index='3'] {
+  border-color: var(--text-secondary);
+  border-block-start-style: dashed;
+}
+
 .selectorGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next'
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://posture-ai.vercel.app'
+import { siteOrigin } from '@/lib/site-origin'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -21,6 +20,6 @@ export default function robots(): MetadataRoute.Robots {
         '/s/', // shared report links — never index
       ],
     },
-    sitemap: `${siteUrl}/sitemap.xml`,
+    sitemap: `${siteOrigin}/sitemap.xml`,
   }
 }
