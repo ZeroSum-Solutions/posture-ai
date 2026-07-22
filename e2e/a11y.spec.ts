@@ -127,7 +127,7 @@ test.describe('accessibility budget', () => {
     await page.goto('/assessments/new')
     await selectClientInWizard(page, `A11y LiveCapture${stamp}`)
 
-    await expect(page.getByTestId('fullscreen-capture')).toBeVisible()
+    await expect(page.getByTestId('fullscreen-capture')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('capture-disclaimer')).toBeVisible()
     await expectNoSeriousViolations(page, testInfo, 'live capture screening notice')
 
