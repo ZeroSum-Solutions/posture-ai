@@ -11,10 +11,9 @@ type GradeCase = {
   description: string
 }
 
-// Keep each browser test below the default 30-second budget without weakening
-// the boundary matrix. The previous single test performed 19 database writes
-// and full route loads, so it timed out at a different valid case on each CI
-// attempt even though every completed assertion passed.
+// Keep the boundary matrix split into bounded groups. Each case performs a
+// database write plus a full route load, so give each group an explicit 60s
+// ceiling on saturated CI runners without changing or retrying any assertion.
 const GRADE_CASE_GROUPS: ReadonlyArray<{ label: string; cases: readonly GradeCase[] }> = [
   {
     label: 'S and A',
@@ -117,6 +116,7 @@ async function expectStoredGradeCases(
 test.describe('grade display contract', () => {
   for (const group of GRADE_CASE_GROUPS) {
     test(`${group.label} grade boundaries agree with the current display contract`, async ({ page }) => {
+      test.setTimeout(60_000)
       const service = localService()
       const assessmentId = await createAssessment(page)
       await expectStoredGradeCases(page, service, assessmentId, group.cases)

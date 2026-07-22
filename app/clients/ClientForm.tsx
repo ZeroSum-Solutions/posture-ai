@@ -433,7 +433,7 @@ export default function ClientForm({
             style={{
             flex: 2, padding: '3px',
             background: loading || (mode === 'create' && !legal.document) ? 'rgba(0,152,243,0.3)' : undefined,
-            color: loading || (mode === 'create' && !legal.document) ? '#6B7280' : '#fff',
+            color: loading || (mode === 'create' && !legal.document) ? 'var(--text-muted)' : '#fff',
             border: 'none', borderRadius: '8px', fontWeight: 600,
             fontSize: '0.95rem', cursor: loading || (mode === 'create' && !legal.document) ? 'not-allowed' : 'pointer',
             minWidth: '120px',

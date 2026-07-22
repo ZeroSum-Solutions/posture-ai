@@ -42,7 +42,20 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Start local Supabase (applies migrations)
-        run: npx supabase start -x studio,inbucket,imgproxy,edge-runtime,logflare,vector
+        shell: bash
+        run: |
+          attempt=1
+          until npx supabase start -x studio,inbucket,imgproxy,edge-runtime,logflare,vector; do
+            if (( attempt >= 3 )); then
+              echo "Supabase failed to start after ${attempt} attempts." >&2
+              exit 1
+            fi
+
+            wait_seconds=$((attempt * 15))
+            echo "Supabase start attempt ${attempt} failed; retrying in ${wait_seconds}s." >&2
+            sleep "${wait_seconds}"
+            attempt=$((attempt + 1))
+          done
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Run e2e suite
