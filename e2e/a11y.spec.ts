@@ -35,7 +35,6 @@ test.describe('accessibility budget', () => {
       ['/auth/forgot-password', 'forgot-password'],
     ] as const) {
       await page.goto(path)
-      await page.waitForLoadState('networkidle')
       await expectNoSeriousViolations(page, testInfo, name)
     }
   })
