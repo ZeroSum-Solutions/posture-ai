@@ -134,6 +134,11 @@ test.describe('accessibility budget', () => {
   })
 
   test('wizard and results pass the axe budget', async ({ page }, testInfo) => {
+    // This single journey includes client creation, assessment generation, four
+    // full axe-core scans, approval, PDF generation, and a real PDF download.
+    // Cold CI workers can complete every assertion but exceed Playwright's
+    // generic 30s test ceiling while the final Axe scan is serializing results.
+    test.setTimeout(120_000)
     // The shared E2E server intentionally enables the local clinical fixture.
     // This proves the generic results/PDF surface; the flags-off assessment-only
     // rehearsal remains PR-17/HG-09 and is not implied by this browser run.
@@ -154,7 +159,9 @@ test.describe('accessibility budget', () => {
 
     await page.getByRole('button', { name: 'Approve report' }).click()
     const pdfButton = page.getByRole('button', { name: 'Practitioner PDF' })
-    await expect(pdfButton).toBeEnabled()
+    // Approval is a real PATCH; allow the cold route to finish before asserting
+    // that the dependent export action has unlocked.
+    await expect(pdfButton).toBeEnabled({ timeout: 30_000 })
     await pdfButton.click()
     const openPdf = page.getByRole('link', { name: 'Download practitioner PDF' })
     await expect(openPdf).toBeVisible({ timeout: 30_000 })

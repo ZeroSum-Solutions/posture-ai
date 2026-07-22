@@ -2,11 +2,12 @@ import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient } from './helpers'
 
-// On a cold `next dev` server (as on CI) a route compiles on-demand and a
-// controlled input can discard a value typed before React hydrates the freshly
-// loaded page. Re-fill until the value sticks so a fresh-goto form fill is
-// deterministic regardless of hydration timing (this does not loosen any
-// assertion — it still requires the exact value to be present).
+// On a cold local `next dev` server a route compiles on-demand, and slower
+// production workers can expose the same hydration race: a controlled input can
+// discard a value typed before React hydrates the freshly loaded page. Re-fill
+// until the value sticks so a fresh-goto form fill is deterministic regardless
+// of hydration timing (this does not loosen any assertion — it still requires
+// the exact value to be present).
 async function fillField(page: Page, label: string | RegExp, value: string) {
   const field = page.getByLabel(label)
   await expect(field).toBeVisible()
@@ -217,6 +218,11 @@ test.describe('client create form', () => {
   test('creates a client via the form and enforces the consent gate', async ({ page }) => {
     const token = randomUUID().slice(0, 8)
     await page.goto('/clients/new')
+    // The legal document is fetched by the hydrated client component. Waiting
+    // for it proves the controlled form is mounted before typing, so a cold
+    // WebKit hydration pass cannot replace the first field's value.
+    await expect(page.getByRole('article', { name: 'Consent to Posture Screening' }))
+      .toBeVisible({ timeout: 15_000 })
 
     await fillField(page, 'First Name', 'E2E')
     await fillField(page, 'Last Name', `Form-${token}`)
