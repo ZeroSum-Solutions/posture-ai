@@ -53,7 +53,15 @@ test.describe('WebKit real-model capture hard blocks', () => {
     const inputs = page.locator('input[type="file"]')
     await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
     await inputs.nth(0).setInputFiles(await generatedTwoPersonFixture())
-    await expect(page.getByRole('alert', { name: 'More than one person detected' })).toContainText('use one full-body photo for Front', { timeout: 90_000 })
+
+    const multiplePeopleAlert = page.getByRole('alert', { name: 'More than one person detected' })
+    const retryModel = page.getByRole('button', { name: 'Retry Model' })
+    // A cold GPU pass can legitimately hit the fixed 10-second fail-closed
+    // product deadline on the shared CI worker. Exercise the user-visible fresh
+    // backend recovery instead of depending on Playwright's whole-test retry.
+    await expect(multiplePeopleAlert.or(retryModel).first()).toBeVisible({ timeout: 90_000 })
+    if (await retryModel.isVisible()) await retryModel.click()
+    await expect(multiplePeopleAlert).toContainText('use one full-body photo for Front', { timeout: 90_000 })
 
     const photos = path.join(__dirname, 'fixtures', 'photos')
     await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))

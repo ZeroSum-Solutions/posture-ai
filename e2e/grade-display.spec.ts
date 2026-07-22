@@ -4,6 +4,54 @@ import { createClient as createSupabaseClient, type SupabaseClient } from '@supa
 import { ENGINE_VERSION, type OverallGrade } from '@posture-ai/engine'
 import { createClient } from './helpers'
 
+type GradeCase = {
+  score: number
+  grade: OverallGrade
+  range: string
+  description: string
+}
+
+// Keep each browser test below the default 30-second budget without weakening
+// the boundary matrix. The previous single test performed 19 database writes
+// and full route loads, so it timed out at a different valid case on each CI
+// attempt even though every completed assertion passed.
+const GRADE_CASE_GROUPS: ReadonlyArray<{ label: string; cases: readonly GradeCase[] }> = [
+  {
+    label: 'S and A',
+    cases: [
+      { score: 0, grade: 'S', range: '0–3', description: 'Minimal deviation' },
+      { score: 2, grade: 'S', range: '0–3', description: 'Minimal deviation' },
+      { score: 3, grade: 'S', range: '0–3', description: 'Minimal deviation' },
+      { score: 4, grade: 'A', range: '4–7', description: 'Low deviation' },
+      { score: 6, grade: 'A', range: '4–7', description: 'Low deviation' },
+      { score: 7, grade: 'A', range: '4–7', description: 'Low deviation' },
+    ],
+  },
+  {
+    label: 'B and C',
+    cases: [
+      { score: 8, grade: 'B', range: '8–20', description: 'Mild deviation' },
+      { score: 14, grade: 'B', range: '8–20', description: 'Mild deviation' },
+      { score: 19, grade: 'B', range: '8–20', description: 'Mild deviation' },
+      { score: 20, grade: 'B', range: '8–20', description: 'Mild deviation' },
+      { score: 21, grade: 'C', range: '21–55', description: 'Moderate deviation' },
+      { score: 54, grade: 'C', range: '21–55', description: 'Moderate deviation' },
+      { score: 55, grade: 'C', range: '21–55', description: 'Moderate deviation' },
+    ],
+  },
+  {
+    label: 'D and E',
+    cases: [
+      { score: 56, grade: 'D', range: '56–87', description: 'High deviation' },
+      { score: 86, grade: 'D', range: '56–87', description: 'High deviation' },
+      { score: 87, grade: 'D', range: '56–87', description: 'High deviation' },
+      { score: 88, grade: 'E', range: '88–100', description: 'Very high deviation' },
+      { score: 99, grade: 'E', range: '88–100', description: 'Very high deviation' },
+      { score: 100, grade: 'E', range: '88–100', description: 'Very high deviation' },
+    ],
+  },
+]
+
 function localService(): SupabaseClient {
   const supabaseUrl = process.env.E2E_SUPABASE_URL
   if (!supabaseUrl?.startsWith('http://127.0.0.1')) {
@@ -47,45 +95,37 @@ async function setStoredGrade(
   expect(data?.id).toBe(assessmentId)
 }
 
+async function expectStoredGradeCases(
+  page: Page,
+  service: SupabaseClient,
+  assessmentId: string,
+  cases: readonly GradeCase[],
+): Promise<void> {
+  for (const fixture of cases) {
+    await setStoredGrade(service, assessmentId, fixture.score, fixture.grade)
+    await page.goto(`/assessments/${assessmentId}`)
+    await expect(page.getByRole('img', {
+      name: `Grade ${fixture.grade}: ${fixture.description}; deviation ${fixture.score} out of 100, lower is better`,
+    })).toBeVisible()
+    const selectedBand = page.locator('[aria-current="true"]')
+    await expect(selectedBand).toContainText(fixture.grade)
+    await expect(selectedBand).toContainText(fixture.range)
+    await expect(selectedBand).toContainText(fixture.description)
+  }
+}
+
 test.describe('grade display contract', () => {
-  test('score 14 and every grade transition agree in responsive web and PDF export', async ({ page }) => {
+  for (const group of GRADE_CASE_GROUPS) {
+    test(`${group.label} grade boundaries agree with the current display contract`, async ({ page }) => {
+      const service = localService()
+      const assessmentId = await createAssessment(page)
+      await expectStoredGradeCases(page, service, assessmentId, group.cases)
+    })
+  }
+
+  test('score 14 agrees in responsive web and PDF export', async ({ page }) => {
     const service = localService()
     const assessmentId = await createAssessment(page)
-
-    const cases: Array<{ score: number; grade: OverallGrade; range: string; description: string }> = [
-      { score: 0, grade: 'S', range: '0–3', description: 'Minimal deviation' },
-      { score: 2, grade: 'S', range: '0–3', description: 'Minimal deviation' },
-      { score: 3, grade: 'S', range: '0–3', description: 'Minimal deviation' },
-      { score: 4, grade: 'A', range: '4–7', description: 'Low deviation' },
-      { score: 6, grade: 'A', range: '4–7', description: 'Low deviation' },
-      { score: 7, grade: 'A', range: '4–7', description: 'Low deviation' },
-      { score: 8, grade: 'B', range: '8–20', description: 'Mild deviation' },
-      { score: 14, grade: 'B', range: '8–20', description: 'Mild deviation' },
-      { score: 19, grade: 'B', range: '8–20', description: 'Mild deviation' },
-      { score: 20, grade: 'B', range: '8–20', description: 'Mild deviation' },
-      { score: 21, grade: 'C', range: '21–55', description: 'Moderate deviation' },
-      { score: 54, grade: 'C', range: '21–55', description: 'Moderate deviation' },
-      { score: 55, grade: 'C', range: '21–55', description: 'Moderate deviation' },
-      { score: 56, grade: 'D', range: '56–87', description: 'High deviation' },
-      { score: 86, grade: 'D', range: '56–87', description: 'High deviation' },
-      { score: 87, grade: 'D', range: '56–87', description: 'High deviation' },
-      { score: 88, grade: 'E', range: '88–100', description: 'Very high deviation' },
-      { score: 99, grade: 'E', range: '88–100', description: 'Very high deviation' },
-      { score: 100, grade: 'E', range: '88–100', description: 'Very high deviation' },
-    ]
-
-    for (const fixture of cases) {
-      await setStoredGrade(service, assessmentId, fixture.score, fixture.grade)
-      await page.goto(`/assessments/${assessmentId}`)
-      await expect(page.getByRole('img', {
-        name: `Grade ${fixture.grade}: ${fixture.description}; deviation ${fixture.score} out of 100, lower is better`,
-      })).toBeVisible()
-      const selectedBand = page.locator('[aria-current="true"]')
-      await expect(selectedBand).toContainText(fixture.grade)
-      await expect(selectedBand).toContainText(fixture.range)
-      await expect(selectedBand).toContainText(fixture.description)
-    }
-
     await setStoredGrade(service, assessmentId, 14, 'B')
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 })

@@ -17,6 +17,10 @@ const DENY_CAMERA_PERMISSION = () => {
 // iPhone-like WebKit, and the explicitly proxy-labeled Android Chromium project.
 test.describe('accessibility budget', () => {
   async function expectNoSeriousViolations(page: Page, testInfo: TestInfo, name: string) {
+    // Axe must inspect the settled surface. On a cold WebKit worker the route
+    // entrance can still be near opacity 0 after networkidle, which makes Axe
+    // composite otherwise-accessible colors into a false black-on-black result.
+    await expect(page.locator('.app-shell-main')).toHaveCSS('opacity', '1')
     const results = await analyzeAndAttachAxe(page, testInfo, name)
     const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
     const detail = serious.map(v =>
