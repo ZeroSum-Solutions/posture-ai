@@ -33,6 +33,7 @@ interface ClientPageResponse {
 const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
+const CONSENT_WORK_AFTER_FEEDBACK_MS = 250
 
 function initialCaptures(): Captures {
   return {
@@ -49,11 +50,10 @@ function afterBusyStatePaint(): Promise<void> {
   }
   return new Promise((resolve) => {
     window.requestAnimationFrame(() => {
-      // A task queued from the animation frame runs after the browser has had
-      // the opportunity to present the button's local busy state. The consent
-      // request and capture overlay therefore cannot be coalesced into the
-      // initiating click's first paint on a throttled device.
-      window.setTimeout(resolve, 0)
+      // A zero-delay task can still be coalesced ahead of presentation on a
+      // throttled browser. Preserve a bounded feedback window so consent I/O
+      // and the capture overlay cannot be charged to the initiating click.
+      window.setTimeout(resolve, CONSENT_WORK_AFTER_FEEDBACK_MS)
     })
   })
 }
@@ -430,7 +430,7 @@ export function NewAssessmentWizard() {
     preselectedClientController.current?.abort()
     preselectedClientController.current = null
     invalidateConsentForSelection(client.id)
-    if (selectedClient?.id !== client.id) {
+    if (selectedClient && selectedClient.id !== client.id) {
       // A capture belongs to one subject. Switching subjects invalidates every
       // pending async result, revokes every photo URL, clears the four slots,
       // and rotates the digest-bound submission identity before capture resumes.
@@ -833,7 +833,17 @@ export function NewAssessmentWizard() {
               Test mode active — fixture landmarks will be used instead of MediaPipe.
             </div>
           )}
-          <div className="app-panel" style={{ padding: '24px' }}>
+          <div
+            className="app-panel"
+            style={{
+              padding: '24px',
+              // This interactive list repaints on selection. Sampling the full
+              // page through a large live blur made the paint dominate INP on
+              // older devices; the existing layered background remains.
+              WebkitBackdropFilter: 'none',
+              backdropFilter: 'none',
+            }}
+          >
             <div className="app-search-shell">
             <DebouncedSearchInput placeholder="Search clients by name..." ariaLabel="Search clients by name" onQueryChange={(query) => {
               loadMoreClientController.current?.abort()
@@ -846,22 +856,22 @@ export function NewAssessmentWizard() {
               style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
             />
             </div>
-            {selectedClient && (
-              <div
-                role="status"
-                data-testid="selected-client-summary"
-                style={{
-                  marginBottom: '16px', padding: '12px 14px', borderRadius: '10px',
-                  background: 'rgba(0,152,243,0.12)', border: '1px solid rgba(0,152,243,0.35)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Selected client
-                </span>
-                <strong>{selectedClient.first_name} {selectedClient.last_name}</strong>
-              </div>
-            )}
+            <div
+              role="status"
+              aria-hidden={selectedClient ? undefined : true}
+              data-testid="selected-client-summary"
+              style={{
+                minHeight: '64px', boxSizing: 'border-box',
+                marginBottom: '16px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(0,152,243,0.12)', border: '1px solid rgba(0,152,243,0.35)',
+                color: 'var(--text-primary)', visibility: selectedClient ? 'visible' : 'hidden',
+              }}
+            >
+              <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Selected client
+              </span>
+              <strong>{selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}` : 'No client selected'}</strong>
+            </div>
             {selectedClientError && (
               <p role="alert" style={{ color: 'var(--danger)', margin: '0 0 16px' }}>{selectedClientError}</p>
             )}
@@ -882,7 +892,7 @@ export function NewAssessmentWizard() {
                       width: '100%', padding: '14px 16px', textAlign: 'left',
                       background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
                       border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
-                      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', transition: 'all 0.15s ease', minHeight: '44px',
+                      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', minHeight: '44px',
                     }}>
                       <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
                         {c.first_name} {c.last_name}

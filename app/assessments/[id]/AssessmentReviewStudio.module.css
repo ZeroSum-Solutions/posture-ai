@@ -86,8 +86,12 @@
 .sectionNav {
   border: 1px solid var(--glass-border);
   background: var(--glass-fill);
-  -webkit-backdrop-filter: blur(28px) saturate(145%);
-  backdrop-filter: blur(28px) saturate(145%);
+  /*
+   * These panels sit over the full assessment canvas. Re-sampling that canvas
+   * through a live blur whenever the sticky native select focused made paint,
+   * rather than input handling, dominate throttled INP. The opaque glass fill
+   * preserves the hierarchy without the compositor-wide repaint.
+   */
 }
 
 .dockSummary,

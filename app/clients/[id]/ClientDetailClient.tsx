@@ -1,5 +1,5 @@
 'use client'
-import { memo, useCallback, useState, useEffect, useMemo, useRef } from 'react'
+import { memo, startTransition, useCallback, useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
@@ -76,24 +76,17 @@ export interface ClientDetailInitialData {
 
 type Tab = 'assessments' | 'progress' | 'compare' | 'info'
 const INITIAL_HISTORY_PAGE_SIZE = 20
+const DEFERRED_WORKSPACE_MOUNT_MS = 300
 
 function scheduleAfterPresentedFrame(callback: () => void): () => void {
   if (typeof window === 'undefined') return () => {}
-  if (typeof window.requestAnimationFrame !== 'function') {
-    const timer = window.setTimeout(callback, 0)
-    return () => window.clearTimeout(timer)
-  }
-  let secondFrame: number | null = null
-  const firstFrame = window.requestAnimationFrame(() => {
-    // The first frame presents the lightweight active panel. Mount expensive
-    // charts/comparison evidence in the following frame so the tab click's INP
-    // is not forced to wait for that work.
-    secondFrame = window.requestAnimationFrame(callback)
-  })
-  return () => {
-    window.cancelAnimationFrame(firstFrame)
-    if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
-  }
+  // A pair of animation frames does not guarantee that Chromium presents
+  // between them when the main thread is CPU-throttled. Keep expensive charts
+  // and comparison tables in a later task so the lightweight selected tab can
+  // paint first. The effect cleanup cancels work for a tab the user already
+  // left, avoiding cross-interaction contention.
+  const timer = window.setTimeout(callback, DEFERRED_WORKSPACE_MOUNT_MS)
+  return () => window.clearTimeout(timer)
 }
 
 function formatStatus(status: string) {
@@ -286,11 +279,13 @@ function ClientDetailRoute({
   useEffect(() => {
     if (renderedTabs.has(activeTab)) return
     return scheduleAfterPresentedFrame(() => {
-      setRenderedTabs((current) => {
-        if (current.has(activeTab)) return current
-        const next = new Set(current)
-        next.add(activeTab)
-        return next
+      startTransition(() => {
+        setRenderedTabs((current) => {
+          if (current.has(activeTab)) return current
+          const next = new Set(current)
+          next.add(activeTab)
+          return next
+        })
       })
     })
   }, [activeTab, renderedTabs])

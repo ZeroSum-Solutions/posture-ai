@@ -157,6 +157,7 @@ describe('new assessment paginated client picker', () => {
     fireEvent.click(next)
 
     expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(0)
     await waitFor(() => {
       expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
     })

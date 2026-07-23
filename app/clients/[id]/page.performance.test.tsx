@@ -106,12 +106,6 @@ describe('client detail progressive rendering', () => {
   })
 
   it('presents a lightweight tab before mounting and retaining expensive workspaces', async () => {
-    const frameQueue: FrameRequestCallback[] = []
-    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
-      frameQueue.push(callback)
-      return frameQueue.length
-    }))
-    vi.stubGlobal('cancelAnimationFrame', vi.fn())
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/clients/client-1') {
@@ -130,6 +124,7 @@ describe('client detail progressive rendering', () => {
 
     render(<ClientDetailPage />)
     const progress = await screen.findByRole('tab', { name: 'Progress' })
+    vi.useFakeTimers()
     expect(screen.queryByTestId('progress-charts')).toBeNull()
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
 
@@ -138,25 +133,29 @@ describe('client detail progressive rendering', () => {
     expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
     expect(screen.queryByTestId('progress-charts')).toBeNull()
-    act(() => frameQueue.shift()?.(performance.now()))
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-    act(() => frameQueue.shift()?.(performance.now()))
-    const charts = screen.getByTestId('progress-charts')
-    const progressRenderCount = workspaceRenders.progress.mock.calls.length
 
+    // Match the measured journey: switching again before the deferred mount
+    // cancels the abandoned workspace instead of making it contend with the
+    // second tab interaction.
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain('Preparing comparison')
+    act(() => vi.advanceTimersByTime(299))
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
-    act(() => frameQueue.shift()?.(performance.now()))
-    act(() => frameQueue.shift()?.(performance.now()))
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    act(() => vi.advanceTimersByTime(1))
     const comparison = screen.getByTestId('comparison-workspace')
     const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
 
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
-    expect(screen.getByTestId('progress-charts')).toBe(charts)
+    expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
+    act(() => vi.advanceTimersByTime(300))
+    const charts = screen.getByTestId('progress-charts')
+    const progressRenderCount = workspaceRenders.progress.mock.calls.length
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
+    expect(screen.getByTestId('progress-charts')).toBe(charts)
     expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
     expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
   })
