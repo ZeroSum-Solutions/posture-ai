@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from './helpers'
 
 // On a cold local `next dev` server a route compiles on-demand, and slower
@@ -146,6 +147,18 @@ test.describe('client detail empty state', () => {
 })
 
 test.describe('client comparison policy', () => {
+  function localService(): SupabaseClient {
+    const supabaseUrl = process.env.E2E_SUPABASE_URL
+    if (!supabaseUrl?.startsWith('http://127.0.0.1')) {
+      throw new Error('Client comparison E2E requires local Supabase at 127.0.0.1')
+    }
+    const serviceKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) throw new Error('E2E_SUPABASE_SERVICE_ROLE_KEY is required')
+    return createSupabaseClient(supabaseUrl, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  }
+
   test('shows all tolerance states and fails closed across scoring versions', async ({ page }) => {
     const token = randomUUID().slice(0, 8)
     const client = await createClient(page, 'E2E', `Compare-${token}`)
@@ -159,9 +172,9 @@ test.describe('client comparison policy', () => {
       standard: 0,
       unit: 'deg',
     })
-    const assessments = [
+    const fixtures = [
       {
-        id: 'baseline', assessed_at: '2026-01-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        assessed_at: '2026-01-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
         scoring_engine_version: 'v2', status: 'approved',
         assessment_findings: [
           finding('same', 'A — unchanged', 50, 5),
@@ -171,7 +184,7 @@ test.describe('client comparison policy', () => {
         ],
       },
       {
-        id: 'same-version', assessed_at: '2026-02-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        assessed_at: '2026-02-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
         scoring_engine_version: 'v2', status: 'approved',
         assessment_findings: [
           finding('same', 'A — unchanged', 50, 5),
@@ -181,33 +194,64 @@ test.describe('client comparison policy', () => {
         ],
       },
       {
-        id: 'new-version', assessed_at: '2026-03-01T12:00:00Z', overall_grade: 'A', overall_score: 7,
+        assessed_at: '2026-03-01T12:00:00Z', overall_grade: 'A', overall_score: 7,
         scoring_engine_version: 'v3', status: 'approved',
         assessment_findings: [finding('same', 'A — unchanged', 10, 1)],
       },
     ]
-    await page.route(`**/api/clients/${client.id}/assessments**`, async (route) => {
-      const url = new URL(route.request().url())
-      if (url.searchParams.get('include_findings') !== 'true') return route.continue()
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ assessments, pagination: { has_more: false, next_cursor: null } }),
+    const service = localService()
+    const assessmentIds: string[] = []
+    for (const fixture of fixtures) {
+      const response = await page.request.post('/api/assessments', {
+        data: { client_id: client.id, submission_id: randomUUID(), test_mode: true },
       })
-    })
+      expect(response.ok(), `assessment creation failed: ${response.status()}`).toBeTruthy()
+      const assessmentId = (await response.json()).id as string
+      assessmentIds.push(assessmentId)
+
+      const { data: assessment, error: assessmentError } = await service
+        .from('assessments')
+        .update({
+          assessed_at: fixture.assessed_at,
+          overall_grade: fixture.overall_grade,
+          overall_score: fixture.overall_score,
+          scoring_engine_version: fixture.scoring_engine_version,
+        })
+        .eq('id', assessmentId)
+        .select('id, practitioner_id')
+        .single()
+      expect(assessmentError?.message).toBeUndefined()
+      expect(assessment?.id).toBe(assessmentId)
+
+      const { error: deleteError } = await service
+        .from('assessment_findings')
+        .delete()
+        .eq('assessment_id', assessmentId)
+      expect(deleteError?.message).toBeUndefined()
+
+      const { error: findingsError } = await service
+        .from('assessment_findings')
+        .insert(fixture.assessment_findings.map((entry) => ({
+          assessment_id: assessmentId,
+          practitioner_id: assessment!.practitioner_id,
+          ...entry,
+        })))
+      expect(findingsError?.message).toBeUndefined()
+    }
+    const [baselineId, sameVersionId, newVersionId] = assessmentIds as [string, string, string]
 
     await page.goto(`/clients/${client.id}`)
     await expect(page.getByRole('heading', { name: new RegExp(`Compare-${token}`) })).toBeVisible()
     await page.getByRole('tab', { name: 'Compare' }).click()
-    await page.getByLabel('Before (baseline)').selectOption('baseline')
-    await page.getByLabel('After (comparison)').selectOption('same-version')
+    await page.getByLabel('Before (baseline)').selectOption(baselineId)
+    await page.getByLabel('After (comparison)').selectOption(sameVersionId)
 
     await expect(page.getByText('Unchanged severity')).toBeVisible()
     await expect(page.getByText('Within measurement tolerance')).toBeVisible()
     await expect(page.getByText('Improved — lower severity')).toBeVisible()
     await expect(page.getByText('Regressed — higher severity')).toBeVisible()
 
-    await page.getByLabel('After (comparison)').selectOption('new-version')
+    await page.getByLabel('After (comparison)').selectOption(newVersionId)
     await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
 

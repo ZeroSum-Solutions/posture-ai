@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
+import pg from 'pg'
 import { createClient } from './helpers'
 import { skipForProductionReadiness } from './production-readiness-skip'
 
@@ -17,15 +18,58 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
   test('client detail: assessments 500 shows alert not empty-state', async ({ page }) => {
     const client = await createClient(page, 'E2E', `ErrAssess-${randomUUID().slice(0, 8)}`)
-    await page.route(`**/api/clients/${client.id}/assessments**`, route =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server error' }) })
-    )
-    await page.goto(`/clients/${client.id}`)
-    // Wait for the error to appear (the assessments fetch is async after client loads)
-    const alert = page.locator('[role="alert"]').filter({ hasText: /could not load/i })
-    await expect(alert).toBeVisible({ timeout: 10_000 })
-    // Must NOT show the "No assessments yet" empty state
-    await expect(page.getByText(/No assessments yet/)).toHaveCount(0)
+    const assessmentResponse = await page.request.post('/api/assessments', {
+      data: { client_id: client.id, submission_id: randomUUID(), test_mode: true },
+    })
+    expect(
+      assessmentResponse.ok(),
+      `assessment creation failed: ${assessmentResponse.status()}`,
+    ).toBeTruthy()
+    const dbUrl = process.env.E2E_SUPABASE_DB_URL
+    if (!dbUrl) throw new Error('E2E_SUPABASE_DB_URL is required')
+    const connection = new pg.Client({ connectionString: dbUrl })
+    await connection.connect()
+    try {
+      // Client history is now loaded by the server component, so a browser
+      // route mock cannot exercise its failure path. Inject a target-scoped,
+      // local-database read failure and restore the canonical RLS policy in the
+      // finally block. The client fallback request encounters the same real
+      // PostgREST error and must render the honest error state.
+      await connection.query(`
+        CREATE OR REPLACE FUNCTION public.e2e_fail_assessment_history(target uuid, expected uuid)
+        RETURNS boolean
+        LANGUAGE plpgsql
+        VOLATILE
+        SET search_path = ''
+        AS $$
+        BEGIN
+          IF target = expected THEN
+            RAISE EXCEPTION 'forced local E2E assessment-history failure';
+          END IF;
+          RETURN true;
+        END;
+        $$;
+      `)
+      await connection.query(`
+        ALTER POLICY assessments_own ON public.assessments
+        USING (
+          practitioner_id = (SELECT auth.uid())
+          AND public.e2e_fail_assessment_history(client_id, '${client.id}'::uuid)
+        );
+      `)
+
+      await page.goto(`/clients/${client.id}`)
+      const alert = page.locator('[role="alert"]').filter({ hasText: /could not load/i })
+      await expect(alert).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByText(/No assessments yet/)).toHaveCount(0)
+    } finally {
+      await connection.query(`
+        ALTER POLICY assessments_own ON public.assessments
+        USING (practitioner_id = (SELECT auth.uid()));
+      `)
+      await connection.query('DROP FUNCTION IF EXISTS public.e2e_fail_assessment_history(uuid, uuid);')
+      await connection.end()
+    }
   })
 
   test('archive failure: dialog stays interactive and shows error', async ({ page }) => {
