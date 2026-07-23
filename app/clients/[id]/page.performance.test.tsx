@@ -34,7 +34,7 @@ vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
 vi.mock('@/components/RemoteConsentButton', () => ({ default: () => null }))
 vi.mock('@/components/PrivacyLifecycleControls', () => ({ default: () => null }))
 
-import ClientDetailPage from './page'
+import ClientDetailPage from './ClientDetailClient'
 
 function response(body: unknown, status = 200) {
   return {
@@ -66,6 +66,7 @@ afterEach(() => {
   navigation.id = 'client-1'
   navigation.router.push.mockReset()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -104,7 +105,13 @@ describe('client detail progressive rendering', () => {
     ))).toBe(true)
   })
 
-  it('prepares and retains expensive workspaces before tab interactions', async () => {
+  it('presents a lightweight tab before mounting and retaining expensive workspaces', async () => {
+    const frameQueue: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      frameQueue.push(callback)
+      return frameQueue.length
+    }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/clients/client-1') {
@@ -123,23 +130,74 @@ describe('client detail progressive rendering', () => {
 
     render(<ClientDetailPage />)
     const progress = await screen.findByRole('tab', { name: 'Progress' })
-    const charts = screen.getByTestId('progress-charts')
-    const comparison = screen.getByTestId('comparison-workspace')
-    expect(charts.closest('[role="tabpanel"]')).toHaveProperty('hidden', true)
-    expect(comparison.closest('[role="tabpanel"]')).toHaveProperty('hidden', true)
-    const progressRenderCount = workspaceRenders.progress.mock.calls.length
-    const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
 
     act(() => fireEvent.click(progress))
 
     expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
-    expect(screen.getByTestId('progress-charts')).toBe(charts)
+    expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    act(() => frameQueue.shift()?.(performance.now()))
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    act(() => frameQueue.shift()?.(performance.now()))
+    const charts = screen.getByTestId('progress-charts')
+    const progressRenderCount = workspaceRenders.progress.mock.calls.length
 
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain('Preparing comparison')
+    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
+    act(() => frameQueue.shift()?.(performance.now()))
+    act(() => frameQueue.shift()?.(performance.now()))
+    const comparison = screen.getByTestId('comparison-workspace')
+    const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
+
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
+    expect(screen.getByTestId('progress-charts')).toBe(charts)
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
     expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
     expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
+  })
+
+  it('uses server-seeded identity and history without repeating those requests after hydration', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/consent?')) {
+        return Promise.resolve(response({ hasConsent: true, legalState: 'current' }))
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <ClientDetailPage
+        initialData={{
+          client: {
+            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+            consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
+          },
+          assessments: [
+            { ...assessments[0], assessed_at: '2026-07-01T23:30:00-07:00' },
+            { ...assessments[1], assessed_at: '2026-07-02T23:30:00-07:00' },
+          ],
+          pagination: {
+            has_more: false,
+            next_cursor: null,
+            snapshot_at: '2026-07-03T00:00:00.000Z',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Progress' })).toBeTruthy()
+    expect(screen.getByText('Assessment — Jul 2, 2026')).toBeTruthy()
+    expect(screen.getByText('Assessment — Jul 3, 2026')).toBeTruthy()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/consent?client_id=client-1')
   })
 
   it('merges older pages by id, advances the cursor, and clears it at the end', async () => {

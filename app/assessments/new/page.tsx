@@ -43,6 +43,21 @@ function initialCaptures(): Captures {
   }
 }
 
+function afterBusyStatePaint(): Promise<void> {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      // A task queued from the animation frame runs after the browser has had
+      // the opportunity to present the button's local busy state. The consent
+      // request and capture overlay therefore cannot be coalesced into the
+      // initiating click's first paint on a throttled device.
+      window.setTimeout(resolve, 0)
+    })
+  })
+}
+
 function ConsentAdvanceButton({
   disabled,
   testMode,
@@ -78,6 +93,7 @@ function ConsentAdvanceButton({
     checkingLock.current = true
     setChecking(true)
     try {
+      await afterBusyStatePaint()
       await onProceed()
     } finally {
       checkingLock.current = false

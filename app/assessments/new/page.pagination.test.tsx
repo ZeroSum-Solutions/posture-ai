@@ -157,7 +157,9 @@ describe('new assessment paginated client picker', () => {
     fireEvent.click(next)
 
     expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
+    })
 
     await act(async () => {
       resolveConsent(new Response(JSON.stringify({ captureAllowed: false, reason: 'Consent required.' }), { status: 200 }))
@@ -188,6 +190,9 @@ describe('new assessment paginated client picker', () => {
 
     fireEvent.click(next)
     expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
+    })
     fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
     expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)

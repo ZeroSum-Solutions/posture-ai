@@ -33,4 +33,32 @@ describe('DebouncedSearchInput', () => {
     expect(onQueryChange).toHaveBeenCalledOnce()
     expect(onQueryChange).toHaveBeenCalledWith('Performance')
   })
+
+  it('does not emit when typing settles back to the last emitted query', () => {
+    vi.useFakeTimers()
+    const onQueryChange = vi.fn()
+    render(
+      <DebouncedSearchInput
+        ariaLabel="Search clients by name"
+        placeholder="Search clients by name..."
+        onQueryChange={onQueryChange}
+      />,
+    )
+
+    const input = screen.getByRole('textbox', { name: 'Search clients by name' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'P' } })
+    fireEvent.change(input, { target: { value: '' } })
+    act(() => vi.advanceTimersByTime(250))
+
+    expect(input.value).toBe('')
+    expect(onQueryChange).not.toHaveBeenCalled()
+
+    fireEvent.change(input, { target: { value: 'Performance' } })
+    act(() => vi.advanceTimersByTime(250))
+    expect(onQueryChange).toHaveBeenCalledOnce()
+    fireEvent.change(input, { target: { value: 'Performance plus' } })
+    fireEvent.change(input, { target: { value: 'Performance' } })
+    act(() => vi.advanceTimersByTime(250))
+    expect(onQueryChange).toHaveBeenCalledOnce()
+  })
 })

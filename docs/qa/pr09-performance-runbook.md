@@ -14,6 +14,19 @@ The client-list and assessment-history endpoints keep one deployed-version compa
 
 Remove both compatibility branches only after the release team deploys one app version containing PR-09 and the supported client fleet moves to that version. The removal change must delete both legacy route branches and their compatibility tests, then rerun the critical contracts and official performance workflow.
 
+## Server-rendered evidence dates
+
+The seeded client-detail response renders recorded assessment, consent, and
+record-creation calendar dates in UTC on both the server and browser. The exact
+timestamps remain unchanged in the underlying records. This explicit projection
+prevents a server/browser time-zone difference from changing evidence text
+during hydration or showing the same stored timestamp as two calendar dates.
+
+Do not replace this with the browser's implicit local time zone. If practitioner-
+local calendar dates become a product requirement, first add a governed
+organization/practitioner time-zone source and bind both server and browser
+formatting to that value.
+
 ## Index rollback
 
 The indexes are additive. Do not remove them because a single query plan changes. First confirm a sustained write-cost, lock, storage, or planner regression in production telemetry and capture the affected query plan.

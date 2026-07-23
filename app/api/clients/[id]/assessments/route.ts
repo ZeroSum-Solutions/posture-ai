@@ -3,13 +3,16 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { hashResource, hashUser, logEvent } from '@/lib/log'
 import {
+  CLIENT_ASSESSMENT_LIST_SCOPE,
+  clientAssessmentHistoryFilterKey,
+} from '@/lib/clients/assessment-history'
+import {
   finalizeKeysetPage,
   isCanonicalIsoTimestamp,
   isCanonicalUuid,
   parseKeysetPageRequest,
 } from '@/lib/pagination/keyset'
 
-const ASSESSMENT_LIST_SCOPE = 'client-assessments'
 const NO_STORE = { 'Cache-Control': 'private, no-store, max-age=0' }
 
 function singleParam(searchParams: URLSearchParams, key: string) {
@@ -60,16 +63,16 @@ export async function GET(
   if (!boundedRequest && req.nextUrl.searchParams.has('cursor')) {
     return NextResponse.json({ error: 'A cursor requires an explicit limit' }, { status: 400, headers: NO_STORE })
   }
-  const filterKey = [
-    `client=${clientId}`,
-    `exclude=${excludeId ?? ''}`,
-    `findings=${includeFindings}`,
-    `approved=${approvedOnly}`,
-    `before=${beforeAt ?? ''}`,
-  ].join('&')
+  const filterKey = clientAssessmentHistoryFilterKey({
+    clientId,
+    excludeId,
+    includeFindings,
+    approvedOnly,
+    beforeAt,
+  })
   const parsedPage = boundedRequest
     ? parseKeysetPageRequest(req.nextUrl.searchParams, {
-        scope: ASSESSMENT_LIST_SCOPE,
+        scope: CLIENT_ASSESSMENT_LIST_SCOPE,
         filterKey,
         isValidId: isCanonicalUuid,
       })
@@ -164,7 +167,7 @@ export async function GET(
   }
 
   const result = finalizeKeysetPage((assessments ?? []) as unknown as Array<{ id: string; assessed_at: string }>, {
-    scope: ASSESSMENT_LIST_SCOPE,
+    scope: CLIENT_ASSESSMENT_LIST_SCOPE,
     filterKey,
     snapshotAt: page.snapshotAt,
     limit: page.limit,
