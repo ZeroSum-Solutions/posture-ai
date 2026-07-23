@@ -66,6 +66,8 @@ export function NewAssessmentWizard() {
   const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>(initialCaptures)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const checkingConsentLock = useRef(false)
+  const checkingConsentTimer = useRef<number | null>(null)
 
   // Assessment API state
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
@@ -96,6 +98,9 @@ export function NewAssessmentWizard() {
   const clientRequestVersion = useRef(0)
   const loadMoreClientController = useRef<AbortController | null>(null)
   useEffect(() => () => loadMoreClientController.current?.abort(), [])
+  useEffect(() => () => {
+    if (checkingConsentTimer.current !== null) window.clearTimeout(checkingConsentTimer.current)
+  }, [])
   const fetchClientPage = useCallback(async (input: {
     search: string
     cursor?: string | null
@@ -563,12 +568,19 @@ export function NewAssessmentWizard() {
   // the final gate; this stops biometric data from ever being captured for an
   // unconsented subject.
   async function proceedToCapture() {
-    if (!selectedClient || checkingConsent) return
+    if (!selectedClient || checkingConsentLock.current) return
     const band = ageBand(selectedClient.date_of_birth)
     if (band === 'under_13') { setShowConsentForm(false); setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
     if (band === 'unknown') { setShowConsentForm(false); setAgeGateError('Add a date of birth for this client before screening.'); return }
     setAgeGateError(null)
-    setCheckingConsent(true)
+    // Close the duplicate-click window synchronously without rerendering the
+    // full client picker in the click's first paint. Show busy feedback only if
+    // the authoritative consent check lasts long enough to be perceptible.
+    checkingConsentLock.current = true
+    checkingConsentTimer.current = window.setTimeout(() => {
+      checkingConsentTimer.current = null
+      setCheckingConsent(true)
+    }, 300)
     try {
       if (!screeningNotice.document) {
         throw new Error(screeningNotice.error || 'The required screening notice is still loading.')
@@ -595,6 +607,11 @@ export function NewAssessmentWizard() {
         ? caught.message
         : 'Could not verify consent. Refresh and try again.')
     } finally {
+      if (checkingConsentTimer.current !== null) {
+        window.clearTimeout(checkingConsentTimer.current)
+        checkingConsentTimer.current = null
+      }
+      checkingConsentLock.current = false
       setCheckingConsent(false)
     }
   }

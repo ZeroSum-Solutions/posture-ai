@@ -18,10 +18,16 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`56c023af30be473e9f48b32d0daf558696b390eab1902643cfab47aefb31b0f2`.
+`de8bea28f37bf307485263535b12f94de724a9e8d32bd4880f0d41ceae4277ea`.
 
 Recommendation algorithm SHA-256:
-`5146b18704a85e40c12111385ede560b66cb4af5164aabdbedb26283e1dc847b`.
+`56c7ababe062d08cb80569d59fcc06e931f41ad871ccabb56278fdbc73193f63`.
+
+PR-09 regenerated this hash because the governed source list deliberately includes
+`ClinicalAssessmentResults.tsx`. Its change only releases the already-authoritative
+primary review before optional comparison history arrives; it does not alter measured
+findings, scoring, recommendation inputs, clinical copy, or release eligibility. The
+hash change still invalidates any prior approval and does not itself approve content.
 
 The algorithm item hashes dosage, prioritization, relationship coherence,
 evidence weighting, program construction, server projection, exercise matching,

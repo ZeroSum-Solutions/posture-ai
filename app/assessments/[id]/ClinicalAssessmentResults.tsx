@@ -629,6 +629,11 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
         const cap = data.assessment?.capability
         if (cap === 'regression' || cap === 'standard' || cap === 'progression') setCapability(cap)
         setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
+        // The primary review is complete at this point. Paint it while the
+        // optional prior-report picker continues loading; ReviewDock exposes
+        // that selector only after prior options arrive, so comparisons remain
+        // unavailable until their authoritative data is ready.
+        setLoading(false)
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
           const beforeAt = canonicalAssessmentTimestamp(data.assessment.assessed_at)

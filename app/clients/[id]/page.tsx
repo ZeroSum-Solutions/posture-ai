@@ -82,7 +82,9 @@ export default function ClientDetailPage() {
   const loadMoreAssessmentController = useRef<AbortController | null>(null)
   const [historyPageError, setHistoryPageError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [historyLoadedForId, setHistoryLoadedForId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('assessments')
+  const [workspaceReady, setWorkspaceReady] = useState<Tab>('assessments')
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   // Compare selectors: older = "before", newer = "after"
@@ -108,8 +110,8 @@ export default function ClientDetailPage() {
           return { body, ok: response.ok, status: response.status }
         }
 
-        const [clientResult, consentResult, historyResult] = await Promise.allSettled([
-          getJson<{ client?: Client; error?: string }>(`/api/clients/${encodeURIComponent(id)}`),
+        const clientPromise = getJson<{ client?: Client; error?: string }>(`/api/clients/${encodeURIComponent(id)}`)
+        const secondaryPromise = Promise.allSettled([
           getJson<{
             hasConsent?: boolean
             legalState?: 'current' | 'missing' | 'withdrawn' | 'reconsent_required' | 'legal_unavailable'
@@ -119,20 +121,31 @@ export default function ClientDetailPage() {
             pagination?: { has_more?: boolean; next_cursor?: string | null }
           }>(`/api/clients/${encodeURIComponent(id)}/assessments?include_findings=true&limit=50`),
         ])
-        if (ac.signal.aborted || version !== assessmentRequestVersion.current) return
 
-        const isUnauthorized = [clientResult, consentResult, historyResult]
+        const clientResult = await clientPromise
+        if (ac.signal.aborted || version !== assessmentRequestVersion.current) return
+        if (clientResult.status === 401) {
+          router.push('/auth/sign-in')
+          return
+        }
+        if (!clientResult.ok || !clientResult.body.client) {
+          router.push('/clients')
+          return
+        }
+        // Paint the owned client record as soon as its small identity request
+        // completes. Consent and the larger history request were already started
+        // in parallel and fill their own sections without holding back the page.
+        setClient(clientResult.body.client)
+        setLoading(false)
+
+        const [consentResult, historyResult] = await secondaryPromise
+        if (ac.signal.aborted || version !== assessmentRequestVersion.current) return
+        const isUnauthorized = [consentResult, historyResult]
           .some((result) => result.status === 'fulfilled' && result.value.status === 401)
         if (isUnauthorized) {
           router.push('/auth/sign-in')
           return
         }
-
-        if (clientResult.status === 'rejected' || !clientResult.value.ok || !clientResult.value.body.client) {
-          router.push('/clients')
-          return
-        }
-        setClient(clientResult.value.body.client)
 
         const consent = consentResult.status === 'fulfilled' && consentResult.value.ok
           ? consentResult.value.body
@@ -165,7 +178,10 @@ export default function ClientDetailPage() {
         if ((caught as Error)?.name === 'AbortError') return
         setLoadError('Could not load this client record. Refresh to try again.')
       } finally {
-        if (!ac.signal.aborted) setLoading(false)
+        if (!ac.signal.aborted) {
+          setLoading(false)
+          setHistoryLoadedForId(id)
+        }
       }
     }
     load()
@@ -174,6 +190,13 @@ export default function ClientDetailPage() {
       loadMoreAssessmentController.current?.abort()
     }
   }, [id, router])
+
+  useEffect(() => {
+    if (activeTab !== 'progress' && activeTab !== 'compare') return
+    if (workspaceReady === activeTab) return
+    const timer = window.setTimeout(() => setWorkspaceReady(activeTab), 250)
+    return () => window.clearTimeout(timer)
+  }, [activeTab, workspaceReady])
 
   async function loadMoreAssessments() {
     if (!nextAssessmentCursor || loadingMoreAssessments) return
@@ -235,7 +258,7 @@ export default function ClientDetailPage() {
     }
   }
 
-  if (loading) {
+  if (loading || (client !== null && client.id !== id)) {
     return (
       <div className={`app-standard-page ${styles.canvas} ${styles.pageLoadingShell}`}>
         <div className={styles.loadingPanel} role="status">
@@ -272,6 +295,18 @@ export default function ClientDetailPage() {
     ? ['assessments', 'progress', 'compare', 'info']
     : ['assessments', 'info']
 
+  function activateTab(tab: Tab) {
+    if (tab === activeTab) return
+    setActiveTab(tab)
+    if (tab !== 'progress' && tab !== 'compare') {
+      setWorkspaceReady(tab)
+      return
+    }
+    // Paint the selected panel immediately, then let the effect-owned timer
+    // build its chart/comparison projection after the interaction frame.
+    setWorkspaceReady('assessments')
+  }
+
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
     const currentIndex = availableTabs.indexOf(tab)
     let nextIndex: number | null = null
@@ -283,7 +318,7 @@ export default function ClientDetailPage() {
 
     event.preventDefault()
     const nextTab = availableTabs[nextIndex]
-    setActiveTab(nextTab)
+    activateTab(nextTab)
     document.getElementById(`client-tab-${nextTab}`)?.focus()
   }
 
@@ -294,7 +329,7 @@ export default function ClientDetailPage() {
       'aria-controls': `client-panel-${tab}`,
       'aria-selected': activeTab === tab,
       tabIndex: activeTab === tab ? 0 : -1,
-      onClick: () => setActiveTab(tab),
+      onClick: () => activateTab(tab),
       onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(event, tab),
     } as const
   }
@@ -327,7 +362,7 @@ export default function ClientDetailPage() {
   const imbalanceLabels: Record<string, string> = {}
   let trendData: Array<Record<string, number | string | null>> = []
   let trendSegments: Array<{ id: string; scoringEngineVersion: string | null }> = []
-  if (activeTab === 'progress') {
+  if (activeTab === 'progress' && workspaceReady === 'progress') {
     assessments.forEach((a) => {
       (a.assessment_findings || []).forEach((f) => {
         if (!imbalanceKeys.includes(f.imbalance_key)) {
@@ -370,8 +405,9 @@ export default function ClientDetailPage() {
   }
 
   // Comparison delta computation
-  const baseAssessment = activeTab === 'compare' ? assessments.find((a) => a.id === compareBaseId) : undefined
-  const targetAssessment = activeTab === 'compare' ? assessments.find((a) => a.id === compareTargetId) : undefined
+  const comparisonReady = activeTab === 'compare' && workspaceReady === 'compare'
+  const baseAssessment = comparisonReady ? assessments.find((a) => a.id === compareBaseId) : undefined
+  const targetAssessment = comparisonReady ? assessments.find((a) => a.id === compareTargetId) : undefined
   const deltaRows: ComparisonDeltaRow[] = []
   const selectedComparison: ReturnType<typeof buildClientComparison> | null = baseAssessment && targetAssessment
     ? buildClientComparison({
@@ -440,7 +476,7 @@ export default function ClientDetailPage() {
     deltaRows.sort((left, right) => left.label.localeCompare(right.label) || left.key.localeCompare(right.key))
   }
 
-  const comparisonAssessments = activeTab === 'compare'
+  const comparisonAssessments = comparisonReady
     ? assessments.map((assessment) => ({
         id: assessment.id,
         assessedAt: assessment.assessed_at,
@@ -647,7 +683,9 @@ export default function ClientDetailPage() {
       {activeTab === 'assessments' && (
         <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
-          {loadError ? (
+          {historyLoadedForId !== id ? (
+            <p role="status" className={styles.loadingPanel}>Loading assessment history…</p>
+          ) : loadError ? (
             <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>{loadError}</p>
           ) : assessments.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No assessments yet. Click &quot;+ New Assessment&quot; to start.</p>
@@ -701,37 +739,49 @@ export default function ClientDetailPage() {
       {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
       {activeTab === 'progress' && hasMultipleAssessments && (
         <div {...panelProps('progress')}>
-          {nextAssessmentCursor && (
-            <p role="status" className={styles.loadingPanel}>
-              Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
-            </p>
+          {workspaceReady !== 'progress' ? (
+            <p role="status" className={styles.loadingPanel}>Preparing progress charts…</p>
+          ) : (
+            <>
+              {nextAssessmentCursor && (
+                <p role="status" className={styles.loadingPanel}>
+                  Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
+                </p>
+              )}
+              <ProgressCharts
+                trendData={trendData}
+                trendSegments={trendSegments}
+                imbalanceKeys={imbalanceKeys}
+                imbalanceLabels={imbalanceLabels}
+              />
+            </>
           )}
-          <ProgressCharts
-            trendData={trendData}
-            trendSegments={trendSegments}
-            imbalanceKeys={imbalanceKeys}
-            imbalanceLabels={imbalanceLabels}
-          />
         </div>
       )}
 
       {/* Compare Tab */}
       {activeTab === 'compare' && hasMultipleAssessments && (
         <div {...panelProps('compare')}>
-          {nextAssessmentCursor && (
-            <p role="status" className={styles.loadingPanel}>
-              Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
-            </p>
+          {workspaceReady !== 'compare' ? (
+            <p role="status" className={styles.loadingPanel}>Preparing comparison…</p>
+          ) : (
+            <>
+              {nextAssessmentCursor && (
+                <p role="status" className={styles.loadingPanel}>
+                  Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
+                </p>
+              )}
+              <ComparisonWorkspace
+                assessments={comparisonAssessments}
+                baseId={compareBaseId}
+                targetId={compareTargetId}
+                deltaRows={deltaRows}
+                overallComparison={selectedComparison?.overall ?? null}
+                onBaseChange={handleCompareBaseChange}
+                onTargetChange={handleCompareTargetChange}
+              />
+            </>
           )}
-          <ComparisonWorkspace
-            assessments={comparisonAssessments}
-            baseId={compareBaseId}
-            targetId={compareTargetId}
-            deltaRows={deltaRows}
-            overallComparison={selectedComparison?.overall ?? null}
-            onBaseChange={handleCompareBaseChange}
-            onTargetChange={handleCompareTargetChange}
-          />
         </div>
       )}
 

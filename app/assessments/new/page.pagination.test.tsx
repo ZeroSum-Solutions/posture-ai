@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routerPush = vi.fn()
@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('./FullScreenCapture', () => ({ default: () => null }))
 vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
-vi.mock('@/components/useLegalDocument', () => ({ default: () => ({ status: 'ready' }) }))
+vi.mock('@/components/useLegalDocument', () => ({ default: () => ({ status: 'ready', document: {}, error: null }) }))
 vi.mock('@/lib/pose/capture-runtime', () => ({ getCaptureRuntime: () => ({ dispose: vi.fn() }) }))
 
 import { NewAssessmentWizard } from './page'
@@ -43,6 +43,7 @@ describe('new assessment paginated client picker', () => {
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -91,5 +92,42 @@ describe('new assessment paginated client picker', () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('search=Another'))).toBe(true))
     await screen.findByText('Another One')
     await waitFor(() => expect((screen.getByRole('button', { name: 'Load more clients' }) as HTMLButtonElement).disabled).toBe(false))
+  })
+
+  it('locks duplicate consent checks without rerendering the picker in the first interaction frame', async () => {
+    let resolveConsent!: (response: Response) => void
+    const consentResponse = new Promise<Response>((resolve) => { resolveConsent = resolve })
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return Promise.resolve(new Response(JSON.stringify({ client: deepClient }), { status: 200 }))
+      }
+      if (url.startsWith('/api/consent?')) return consentResponse
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [pageClient], pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<NewAssessmentWizard />)
+    const next = await screen.findByRole('button', { name: 'Next: Upload Views' })
+    await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false))
+
+    vi.useFakeTimers()
+    fireEvent.click(next)
+    fireEvent.click(next)
+
+    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
+    act(() => vi.advanceTimersByTime(299))
+    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
+    act(() => vi.advanceTimersByTime(1))
+    expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
+
+    await act(async () => {
+      resolveConsent(new Response(JSON.stringify({ captureAllowed: false, reason: 'Consent required.' }), { status: 200 }))
+      await Promise.resolve()
+    })
+    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
   })
 })
