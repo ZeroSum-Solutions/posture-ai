@@ -8,8 +8,9 @@ import ReviewDock from './ReviewDock'
 import styles from './AssessmentReviewStudio.module.css'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
-import { hasAnyMuscle, type MuscleLink } from './muscleMap'
+import { hasAnyMuscle } from './muscleMap'
 import { saveOverridePatch } from './saveOverride'
+import type { AssessmentResultsPayload } from './loadAssessmentResults'
 import {
   createOverrideQueue,
   type OverridePatch,
@@ -27,56 +28,10 @@ import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import LegalNotice from '@/components/LegalNotice'
 
-type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
-type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
-
-interface Finding {
-  id: string
-  imbalance_key: string
-  region: string
-  label: string
-  deviation: number
-  direction: string
-  severity_pct: number
-  zone: Zone
-  view_used: string
-  confidence: number
-  stability_score?: number | null
-  uncertainty_deg?: number | null
-  borderline?: boolean | null
-  metric_validity?: string | null
-  explanation?: string | null
-  causes_text?: string
-  tight_muscles?: string[]
-  weak_muscles?: string[]
-  tight_muscle_links?: MuscleLink[]
-  weak_muscle_links?: MuscleLink[]
-}
-
-interface Capture {
-  id: string
-  view: string
-  profile_side: 'left' | 'right' | null
-  signed_url: string | null
-  source: string
-  capture_roll_deg: number | null
-}
-interface Assessment {
-  id: string
-  status: string
-  overall_score: number
-  overall_grade: OverallGrade
-  scoring_engine_version: string | null
-  tilt_corrected: boolean | null
-  level_verified: boolean | null
-  capture_stability?: number | null
-  assessed_at: string
-  priority_keys?: string[] | null
-  capability?: string | null
-  exercise_swaps?: Record<string, Record<string, string>> | null
-  practitioner_approved?: boolean | null
-  clients: { id: string; first_name: string; last_name: string }
-}
+type Finding = AssessmentResultsPayload['findings'][number]
+type Capture = AssessmentResultsPayload['captures'][number]
+type Assessment = AssessmentResultsPayload['assessment']
+type Zone = Finding['zone']
 
 export function canonicalAssessmentTimestamp(value: string): string | null {
   const timestamp = Date.parse(value)
@@ -546,14 +501,38 @@ function ExercisesSection({ exercises }: { exercises: ClinicalExerciseProjection
 }
 
 // ---- Main Results Page ----
-export default function ClinicalAssessmentResults({ params }: { params: Promise<{ id: string }> }) {
+export default function ClinicalAssessmentResults({
+  params,
+  initialAssessmentId,
+  initialData,
+}: {
+  params: Promise<{ id: string }>
+  initialAssessmentId?: string
+  initialData?: AssessmentResultsPayload
+}) {
   const router = useRouter()
-  const [assessment, setAssessment] = useState<Assessment | null>(null)
-  const [findings, setFindings] = useState<Finding[]>([])
-  const [captures, setCaptures] = useState<Capture[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [assessmentId, setAssessmentId] = useState<string>('')
+  const initialProjection = initialData?.clinical_content.enabled === true
+    ? initialData.clinical_content.projection
+    : null
+  const hasInitialReport = Boolean(initialData && initialProjection?.program)
+  const initialCapability = initialData?.assessment.capability
+  const [assessment, setAssessment] = useState<Assessment | null>(
+    hasInitialReport ? initialData!.assessment : null,
+  )
+  const [findings, setFindings] = useState<Finding[]>(
+    hasInitialReport ? initialData!.findings : [],
+  )
+  const [captures, setCaptures] = useState<Capture[]>(
+    hasInitialReport ? initialData!.captures : [],
+  )
+  const [loading, setLoading] = useState(!initialData)
+  const [error, setError] = useState<string | null>(
+    initialData && !hasInitialReport
+      ? 'Clinical content is not available for this release.'
+      : null,
+  )
+  const [resolvedAssessmentId, setResolvedAssessmentId] = useState<string>('')
+  const assessmentId = initialAssessmentId ?? resolvedAssessmentId
   const [pdfLoading, setPdfLoading] = useState<'practitioner' | 'client' | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfKind, setPdfKind] = useState<'practitioner' | 'client'>('practitioner')
@@ -567,8 +546,16 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   const loadMorePriorController = useRef<AbortController | null>(null)
   const [compareToId, setCompareToId] = useState<string>('')
   const [auxError, setAuxError] = useState<string | null>(null)
-  const [capability, setCapability] = useState<Capability>('standard')
-  const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
+  const [capability, setCapability] = useState<Capability>(
+    initialCapability === 'regression' || initialCapability === 'progression'
+      ? initialCapability
+      : 'standard',
+  )
+  const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>(
+    initialData?.assessment.exercise_swaps && typeof initialData.assessment.exercise_swaps === 'object'
+      ? initialData.assessment.exercise_swaps
+      : {},
+  )
   const [launching, setLaunching] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
@@ -578,9 +565,15 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   const [overrideError, setOverrideError] = useState<string | null>(null)
   const [overrideSaveState, setOverrideSaveState] = useState<OverrideSaveState>('idle')
   const [runList, setRunList] = useState<Array<{ session_id: string; created_at: string; status: string; red_flag_acknowledged: boolean | null; completed_at: string | null }>>([])
-  const [program, setProgram] = useState<ClinicalProgramReport | null>(null)
-  const [exercises, setExercises] = useState<ClinicalExerciseProjection[]>([])
-  const [sessionPreview, setSessionPreview] = useState<ClinicalProjection['sessionPreview']>(null)
+  const [program, setProgram] = useState<ClinicalProgramReport | null>(
+    initialProjection?.program ?? null,
+  )
+  const [exercises, setExercises] = useState<ClinicalExerciseProjection[]>(
+    initialProjection?.exercises ?? [],
+  )
+  const [sessionPreview, setSessionPreview] = useState<ClinicalProjection['sessionPreview']>(
+    initialProjection?.sessionPreview ?? null,
+  )
 
   const overrideQueue = useMemo(() => assessmentId ? createOverrideQueue(
     (patch) => saveOverridePatch(assessmentId, patch),
@@ -593,26 +586,38 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   ) : null, [assessmentId])
 
   useEffect(() => {
-    params.then(p => setAssessmentId(p.id))
-  }, [params])
+    if (initialAssessmentId) return
+    params.then(p => setResolvedAssessmentId(p.id))
+  }, [initialAssessmentId, params])
 
   useEffect(() => {
     if (!assessmentId) return
     const version = ++priorRequestVersion.current
     loadMorePriorController.current?.abort()
+    loadMorePriorController.current = null
     // Abort a stale in-flight load when the id changes / the page unmounts, so a
     // slower earlier response can't paint the wrong assessment's data.
     const ac = new AbortController()
     async function load() {
+      setPriorAssessments([])
+      setNextPriorCursor(null)
+      setCompareToId('')
+      setAuxError(null)
+      setLoadingMorePriors(false)
       try {
-        const r = await fetch('/api/assessments/' + assessmentId, { signal: ac.signal })
-        if (!r.ok) {
-          if (r.status === 401) { router.push('/auth/sign-in'); return }
-          setError('Assessment not found.')
-          setLoading(false)
-          return
+        let data: AssessmentResultsPayload
+        if (initialData && assessmentId === initialAssessmentId) {
+          data = initialData
+        } else {
+          const r = await fetch('/api/assessments/' + assessmentId, { signal: ac.signal })
+          if (!r.ok) {
+            if (r.status === 401) { router.push('/auth/sign-in'); return }
+            setError('Assessment not found.')
+            setLoading(false)
+            return
+          }
+          data = await r.json() as AssessmentResultsPayload
         }
-        const data = await r.json()
         const projection = data.clinical_content?.projection as ClinicalProjection | null | undefined
         if (data.clinical_content?.enabled !== true || !projection?.program) {
           setError('Clinical content is not available for this release.')
@@ -647,15 +652,22 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
             before_at: beforeAt,
             limit: '50',
           })
-          const priorRes = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${priorQuery.toString()}`, { signal: ac.signal })
-          if (priorRes.ok) {
-            const priorData = await priorRes.json()
-            if (version === priorRequestVersion.current) {
-              setPriorAssessments(sortAssessmentsChronologically(priorData.assessments || []))
-              setNextPriorCursor(priorData.pagination?.has_more ? priorData.pagination.next_cursor ?? null : null)
+          try {
+            const priorRes = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${priorQuery.toString()}`, { signal: ac.signal })
+            if (priorRes.ok) {
+              const priorData = await priorRes.json()
+              if (version === priorRequestVersion.current) {
+                setPriorAssessments(sortAssessmentsChronologically(priorData.assessments || []))
+                setNextPriorCursor(priorData.pagination?.has_more ? priorData.pagination.next_cursor ?? null : null)
+              }
+            } else if (version === priorRequestVersion.current) {
+              setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
             }
-          } else {
-            setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
+          } catch (priorError) {
+            if ((priorError as Error)?.name === 'AbortError') return
+            if (version === priorRequestVersion.current) {
+              setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
+            }
           }
         }
       } catch (e) {
@@ -670,7 +682,7 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
       ac.abort()
       loadMorePriorController.current?.abort()
     }
-  }, [assessmentId, router])
+  }, [assessmentId, initialAssessmentId, initialData, router])
 
   async function loadMorePriorAssessments() {
     const clientId = assessment?.clients?.id

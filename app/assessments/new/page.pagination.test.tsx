@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,10 +10,44 @@ vi.mock('next/navigation', () => ({
   useRouter: () => router,
   useSearchParams: () => new URLSearchParams('client_id=20000000-0000-4000-8000-000000000002'),
 }))
-vi.mock('./FullScreenCapture', () => ({ default: () => null }))
+vi.mock('./FullScreenCapture', () => ({
+  default: ({
+    captures,
+    onCameraCapture,
+    onExit,
+  }: {
+    captures: { front: { rawRepresentativeUrl: string | null; slotStatus: string } }
+    onCameraCapture: (slot: 'front', burst: string[], roll: null, pixelQuality: null) => void
+    onExit: () => void
+  }) => (
+    <div data-testid="capture-step">
+      <span data-testid="front-capture">{captures.front.rawRepresentativeUrl ?? 'empty'}</span>
+      <span data-testid="front-capture-status">{captures.front.slotStatus}</span>
+      <button type="button" onClick={() => onCameraCapture('front', ['fixture:manual-front'], null, null)}>
+        Record front fixture
+      </button>
+      <button type="button" onClick={onExit}>Exit capture</button>
+    </div>
+  ),
+}))
 vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
 vi.mock('@/components/useLegalDocument', () => ({ default: () => ({ status: 'ready', document: {}, error: null }) }))
-vi.mock('@/lib/pose/capture-runtime', () => ({ getCaptureRuntime: () => ({ dispose: vi.fn() }) }))
+vi.mock('@/lib/pose/capture-runtime', () => ({
+  getCaptureRuntime: () => ({
+    detect: vi.fn(async () => ({
+      view: 'front',
+      source: 'camera',
+      detectedPoseCount: 1,
+      landmarks: {
+        left_shoulder: { x: 0.4, y: 0.3, visibility: 1 },
+        left_hip: { x: 0.4, y: 0.5, visibility: 1 },
+        left_knee: { x: 0.4, y: 0.7, visibility: 1 },
+        left_ankle: { x: 0.4, y: 0.9, visibility: 1 },
+      },
+    })),
+    dispose: vi.fn(),
+  }),
+}))
 
 import { NewAssessmentWizard } from './page'
 
@@ -94,7 +129,44 @@ describe('new assessment paginated client picker', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Load more clients' }) as HTMLButtonElement).disabled).toBe(false))
   })
 
-  it('locks duplicate consent checks without rerendering the picker in the first interaction frame', async () => {
+  it('clears denied consent progress under StrictMode while locking duplicate checks', async () => {
+    let resolveConsent!: (response: Response) => void
+    const consentResponse = new Promise<Response>((resolve) => { resolveConsent = resolve })
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return Promise.resolve(new Response(JSON.stringify({ client: deepClient }), { status: 200 }))
+      }
+      if (url.startsWith('/api/consent?')) return consentResponse
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [pageClient], pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <StrictMode>
+        <NewAssessmentWizard />
+      </StrictMode>,
+    )
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    const next = screen.getByRole('button', { name: 'Next: Upload Views' })
+    expect((next as HTMLButtonElement).disabled).toBe(false)
+
+    fireEvent.click(next)
+    fireEvent.click(next)
+
+    expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
+
+    await act(async () => {
+      resolveConsent(new Response(JSON.stringify({ captureAllowed: false, reason: 'Consent required.' }), { status: 200 }))
+      await Promise.resolve()
+    })
+    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
+  })
+
+  it('does not apply an allowed consent response after the selected client changes', async () => {
     let resolveConsent!: (response: Response) => void
     const consentResponse = new Promise<Response>((resolve) => { resolveConsent = resolve })
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
@@ -110,24 +182,58 @@ describe('new assessment paginated client picker', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<NewAssessmentWizard />)
-    const next = await screen.findByRole('button', { name: 'Next: Upload Views' })
-    await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    const next = screen.getByRole('button', { name: 'Next: Upload Views' })
+    expect((next as HTMLButtonElement).disabled).toBe(false)
 
-    vi.useFakeTimers()
     fireEvent.click(next)
-    fireEvent.click(next)
-
-    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
-    act(() => vi.advanceTimersByTime(299))
-    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
-    act(() => vi.advanceTimersByTime(1))
     expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
+    expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
+    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
 
     await act(async () => {
-      resolveConsent(new Response(JSON.stringify({ captureAllowed: false, reason: 'Consent required.' }), { status: 200 }))
+      resolveConsent(new Response(JSON.stringify({ captureAllowed: true }), { status: 200 }))
       await Promise.resolve()
     })
-    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
+
+    expect(screen.getByRole('heading', { name: 'Step 1: Select Client' })).toBeTruthy()
+    expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
+  })
+
+  it('does not let a late deep-link preselection replace a manually captured subject', async () => {
+    let resolveDeepLink!: (response: Response) => void
+    const deepLinkResponse = new Promise<Response>((resolve) => { resolveDeepLink = resolve })
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === `/api/clients/${deepClient.id}`) return deepLinkResponse
+      if (url === `/api/consent?client_id=${pageClient.id}`) {
+        return Promise.resolve(new Response(JSON.stringify({ captureAllowed: true }), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [pageClient], pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<NewAssessmentWizard />)
+    fireEvent.click(await screen.findByRole('button', { name: /Page One/ }))
+    expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    await screen.findByTestId('capture-step')
+    fireEvent.click(screen.getByRole('button', { name: 'Record front fixture' }))
+    expect(screen.getByTestId('front-capture').textContent).toBe('fixture:manual-front')
+    await waitFor(() => expect(screen.getByTestId('front-capture-status').textContent).toBe('ok'))
+
+    await act(async () => {
+      resolveDeepLink(new Response(JSON.stringify({ client: deepClient }), { status: 200 }))
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId('front-capture').textContent).toBe('fixture:manual-front')
+    fireEvent.click(screen.getByRole('button', { name: 'Exit capture' }))
+    expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
   })
 })

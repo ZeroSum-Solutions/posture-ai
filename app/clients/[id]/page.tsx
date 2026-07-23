@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { memo, useCallback, useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
@@ -20,12 +20,15 @@ import { buildClientComparison } from '@/lib/reports/clientComparison'
 import { segmentTrendHistory } from '@/lib/comparison/trends'
 import styles from './ClientEvidenceCanvas.module.css'
 
-// recharts (+ d3) is heavy and only used on the Progress tab for multi-assessment
-// clients; load it in its own chunk so it isn't shipped on every client-detail visit.
+// recharts (+ d3) is heavy and only used for multi-assessment clients. Keep it
+// in its own chunk, then begin loading it when bounded history confirms it is
+// needed so the first Progress click only reveals retained content.
 const ProgressCharts = dynamic(() => import('./ProgressCharts'), {
   ssr: false,
   loading: () => <div className={styles.loadingPanel} role="status">Loading progress charts…</div>,
 })
+const RetainedProgressCharts = memo(ProgressCharts)
+const RetainedComparisonWorkspace = memo(ComparisonWorkspace)
 
 interface Client {
   id: string
@@ -62,6 +65,7 @@ interface Assessment {
 }
 
 type Tab = 'assessments' | 'progress' | 'compare' | 'info'
+const INITIAL_HISTORY_PAGE_SIZE = 20
 
 function formatStatus(status: string) {
   return status
@@ -72,8 +76,17 @@ function formatStatus(status: string) {
 
 export default function ClientDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const id = params.id as string
+  // A route id is the ownership boundary for every state value below. Keying
+  // the stateful record makes React discard the previous client's identity,
+  // history, cursors, comparison selections, consent, and errors in the same
+  // render that observes a new id. Same-id renders (including pagination) keep
+  // the existing instance and its retained workspaces.
+  return <ClientDetailRoute key={id} id={id} />
+}
+
+function ClientDetailRoute({ id }: { id: string }) {
+  const router = useRouter()
   const [client, setClient] = useState<Client | null>(null)
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [nextAssessmentCursor, setNextAssessmentCursor] = useState<string | null>(null)
@@ -84,7 +97,6 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [historyLoadedForId, setHistoryLoadedForId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('assessments')
-  const [workspaceReady, setWorkspaceReady] = useState<Tab>('assessments')
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   // Compare selectors: older = "before", newer = "after"
@@ -119,7 +131,7 @@ export default function ClientDetailPage() {
           getJson<{
             assessments?: Assessment[]
             pagination?: { has_more?: boolean; next_cursor?: string | null }
-          }>(`/api/clients/${encodeURIComponent(id)}/assessments?include_findings=true&limit=50`),
+          }>(`/api/clients/${encodeURIComponent(id)}/assessments?include_findings=true&limit=${INITIAL_HISTORY_PAGE_SIZE}`),
         ])
 
         const clientResult = await clientPromise
@@ -191,12 +203,167 @@ export default function ClientDetailPage() {
     }
   }, [id, router])
 
-  useEffect(() => {
-    if (activeTab !== 'progress' && activeTab !== 'compare') return
-    if (workspaceReady === activeTab) return
-    const timer = window.setTimeout(() => setWorkspaceReady(activeTab), 250)
-    return () => window.clearTimeout(timer)
-  }, [activeTab, workspaceReady])
+  const {
+    imbalanceKeys,
+    imbalanceLabels,
+    trendData,
+    trendSegments,
+  } = useMemo(() => {
+    const keys: string[] = []
+    const labels: Record<string, string> = {}
+    assessments.forEach((assessment) => {
+      ;(assessment.assessment_findings || []).forEach((finding) => {
+        if (!keys.includes(finding.imbalance_key)) {
+          keys.push(finding.imbalance_key)
+          labels[finding.imbalance_key] = finding.label || finding.imbalance_key
+        }
+      })
+    })
+
+    const segmentedTrendHistory = segmentTrendHistory(assessments.map((assessment) => ({
+      ...assessment,
+      assessmentId: assessment.id,
+      scoringEngineVersion: assessment.scoring_engine_version,
+    })))
+    const data = segmentedTrendHistory.points.map(({ value: assessment, segmentId }) => {
+      const point: Record<string, number | string | null> = {
+        assessment_id: assessment.id,
+        date: new Date(assessment.assessed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        scoring_engine_version: assessment.scoring_engine_version,
+        segment_id: segmentId,
+        overall_score: toNum(assessment.overall_score),
+        overall_grade: assessment.overall_grade,
+      }
+      const findingsMap: Record<string, number> = {}
+      ;(assessment.assessment_findings || []).forEach((finding) => {
+        // severity_pct is NUMERIC and therefore may arrive as a string.
+        const severity = toNum(finding.severity_pct)
+        if (severity !== null && finding.zone !== null && finding.zone !== 'unreliable') {
+          findingsMap[finding.imbalance_key] = severity
+        }
+      })
+      keys.forEach((key) => {
+        if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
+      })
+      return point
+    })
+
+    return {
+      imbalanceKeys: keys,
+      imbalanceLabels: labels,
+      trendData: data,
+      trendSegments: segmentedTrendHistory.segments.map((segment) => ({
+        id: segment.id,
+        scoringEngineVersion: segment.scoringEngineVersion,
+      })),
+    }
+  }, [assessments])
+
+  const {
+    deltaRows,
+    selectedComparison,
+    comparisonAssessments,
+  } = useMemo(() => {
+    const baseAssessment = assessments.find((assessment) => assessment.id === compareBaseId)
+    const targetAssessment = assessments.find((assessment) => assessment.id === compareTargetId)
+    const comparison = baseAssessment && targetAssessment
+      ? buildClientComparison({
+          priorDateStr: new Date(baseAssessment.assessed_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          current: {
+            grade: targetAssessment.overall_grade ?? '—',
+            score: targetAssessment.overall_score,
+            scoringEngineVersion: targetAssessment.scoring_engine_version,
+            assessedAt: targetAssessment.assessed_at,
+          },
+          prior: {
+            grade: baseAssessment.overall_grade ?? '—',
+            score: baseAssessment.overall_score,
+            scoringEngineVersion: baseAssessment.scoring_engine_version,
+            assessedAt: baseAssessment.assessed_at,
+          },
+          currentFindings: (targetAssessment.assessment_findings || []).map((finding) => ({
+            key: finding.imbalance_key,
+            severityPct: finding.severity_pct,
+            reliable: finding.zone !== null && finding.zone !== 'unreliable',
+            unit: finding.unit,
+          })),
+          priorFindings: (baseAssessment.assessment_findings || []).map((finding) => ({
+            key: finding.imbalance_key,
+            severityPct: finding.severity_pct,
+            reliable: finding.zone !== null && finding.zone !== 'unreliable',
+            unit: finding.unit,
+          })),
+        })
+      : null
+    const rows: ComparisonDeltaRow[] = []
+
+    if (baseAssessment && targetAssessment) {
+      const baseMap: Record<string, Finding> = {}
+      const targetMap: Record<string, Finding> = {}
+      ;(baseAssessment.assessment_findings || []).forEach((finding) => {
+        baseMap[finding.imbalance_key] = finding
+      })
+      ;(targetAssessment.assessment_findings || []).forEach((finding) => {
+        targetMap[finding.imbalance_key] = finding
+      })
+      const allKeys = Array.from(new Set([...Object.keys(baseMap), ...Object.keys(targetMap)]))
+      allKeys.forEach((key) => {
+        const baseFinding = baseMap[key]
+        const targetFinding = targetMap[key]
+        const baseDeviation = toNum(baseFinding?.deviation)
+        const targetDeviation = toNum(targetFinding?.deviation)
+        const baseUnit = baseFinding?.unit ?? null
+        const targetUnit = targetFinding?.unit ?? null
+        const unitsMatch = baseUnit !== null && targetUnit !== null && baseUnit === targetUnit
+        const rowComparison = comparison?.byKey[key]
+        if (!rowComparison) return
+        rows.push({
+          key,
+          label: baseFinding?.label || targetFinding?.label || key,
+          baseDeviation,
+          targetDeviation,
+          baseUnit: baseUnit || '',
+          targetUnit: targetUnit || '',
+          unit: targetUnit || baseUnit || '',
+          delta: unitsMatch && targetDeviation !== null && baseDeviation !== null
+            ? targetDeviation - baseDeviation
+            : null,
+          comparison: rowComparison,
+        })
+      })
+      // Stable, non-directional order. The shared comparison policy owns meaning.
+      rows.sort((left, right) => left.label.localeCompare(right.label) || left.key.localeCompare(right.key))
+    }
+
+    return {
+      deltaRows: rows,
+      selectedComparison: comparison,
+      comparisonAssessments: assessments.map((assessment) => ({
+        id: assessment.id,
+        assessedAt: assessment.assessed_at,
+        overallGrade: assessment.overall_grade,
+        overallScore: toNum(assessment.overall_score),
+        scoringEngineVersion: assessment.scoring_engine_version,
+        status: assessment.status,
+      })),
+    }
+  }, [assessments, compareBaseId, compareTargetId])
+
+  const handleCompareBaseChange = useCallback((nextBaseId: string) => {
+    const next = selectComparisonBase(assessments, compareTargetId, nextBaseId)
+    setCompareBaseId(next.baseId)
+    setCompareTargetId(next.targetId)
+  }, [assessments, compareTargetId])
+
+  const handleCompareTargetChange = useCallback((nextTargetId: string) => {
+    const next = selectComparisonTarget(assessments, compareBaseId, nextTargetId)
+    setCompareBaseId(next.baseId)
+    setCompareTargetId(next.targetId)
+  }, [assessments, compareBaseId])
 
   async function loadMoreAssessments() {
     if (!nextAssessmentCursor || loadingMoreAssessments) return
@@ -298,13 +465,6 @@ export default function ClientDetailPage() {
   function activateTab(tab: Tab) {
     if (tab === activeTab) return
     setActiveTab(tab)
-    if (tab !== 'progress' && tab !== 'compare') {
-      setWorkspaceReady(tab)
-      return
-    }
-    // Paint the selected panel immediately, then let the effect-owned timer
-    // build its chart/comparison projection after the interaction frame.
-    setWorkspaceReady('assessments')
   }
 
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
@@ -340,152 +500,10 @@ export default function ClientDetailPage() {
       role: 'tabpanel',
       'aria-labelledby': `client-tab-${tab}`,
       tabIndex: 0,
+      hidden: activeTab !== tab,
     } as const
   }
 
-  function handleCompareBaseChange(nextBaseId: string) {
-    const next = selectComparisonBase(assessments, compareTargetId, nextBaseId)
-    setCompareBaseId(next.baseId)
-    setCompareTargetId(next.targetId)
-  }
-
-  function handleCompareTargetChange(nextTargetId: string) {
-    const next = selectComparisonTarget(assessments, compareBaseId, nextTargetId)
-    setCompareBaseId(next.baseId)
-    setCompareTargetId(next.targetId)
-  }
-
-  // Build only the active workspace projection. The 50-assessment payload can
-  // contain hundreds of findings, so computing every hidden tab on each render
-  // turns a simple tab click into a long main-thread task.
-  const imbalanceKeys: string[] = []
-  const imbalanceLabels: Record<string, string> = {}
-  let trendData: Array<Record<string, number | string | null>> = []
-  let trendSegments: Array<{ id: string; scoringEngineVersion: string | null }> = []
-  if (activeTab === 'progress' && workspaceReady === 'progress') {
-    assessments.forEach((a) => {
-      (a.assessment_findings || []).forEach((f) => {
-        if (!imbalanceKeys.includes(f.imbalance_key)) {
-          imbalanceKeys.push(f.imbalance_key)
-          imbalanceLabels[f.imbalance_key] = f.label || f.imbalance_key
-        }
-      })
-    })
-
-    const segmentedTrendHistory = segmentTrendHistory(assessments.map((assessment) => ({
-      ...assessment,
-      assessmentId: assessment.id,
-      scoringEngineVersion: assessment.scoring_engine_version,
-    })))
-    trendData = segmentedTrendHistory.points.map(({ value: a, segmentId }) => {
-      const point: Record<string, number | string | null> = {
-        assessment_id: a.id,
-        date: new Date(a.assessed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        scoring_engine_version: a.scoring_engine_version,
-        segment_id: segmentId,
-        overall_score: toNum(a.overall_score),
-        overall_grade: a.overall_grade,
-      }
-      const findingsMap: Record<string, number> = {}
-      ;(a.assessment_findings || []).forEach((f) => {
-        // severity_pct is NUMERIC → arrives as a string; coerce so the chart plots a
-        // number and the tooltip's value.toFixed(1) doesn't throw.
-        const sev = toNum(f.severity_pct)
-        if (sev !== null && f.zone !== null && f.zone !== 'unreliable') findingsMap[f.imbalance_key] = sev
-      })
-      imbalanceKeys.forEach((key) => {
-        if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
-      })
-      return point
-    })
-    trendSegments = segmentedTrendHistory.segments.map((segment) => ({
-      id: segment.id,
-      scoringEngineVersion: segment.scoringEngineVersion,
-    }))
-  }
-
-  // Comparison delta computation
-  const comparisonReady = activeTab === 'compare' && workspaceReady === 'compare'
-  const baseAssessment = comparisonReady ? assessments.find((a) => a.id === compareBaseId) : undefined
-  const targetAssessment = comparisonReady ? assessments.find((a) => a.id === compareTargetId) : undefined
-  const deltaRows: ComparisonDeltaRow[] = []
-  const selectedComparison: ReturnType<typeof buildClientComparison> | null = baseAssessment && targetAssessment
-    ? buildClientComparison({
-        priorDateStr: fmtDate(baseAssessment.assessed_at),
-        current: {
-          grade: targetAssessment.overall_grade ?? '—',
-          score: targetAssessment.overall_score,
-          scoringEngineVersion: targetAssessment.scoring_engine_version,
-          assessedAt: targetAssessment.assessed_at,
-        },
-        prior: {
-          grade: baseAssessment.overall_grade ?? '—',
-          score: baseAssessment.overall_score,
-          scoringEngineVersion: baseAssessment.scoring_engine_version,
-          assessedAt: baseAssessment.assessed_at,
-        },
-        currentFindings: (targetAssessment.assessment_findings || []).map((finding) => ({
-          key: finding.imbalance_key,
-          severityPct: finding.severity_pct,
-          reliable: finding.zone !== null && finding.zone !== 'unreliable',
-          unit: finding.unit,
-        })),
-        priorFindings: (baseAssessment.assessment_findings || []).map((finding) => ({
-          key: finding.imbalance_key,
-          severityPct: finding.severity_pct,
-          reliable: finding.zone !== null && finding.zone !== 'unreliable',
-          unit: finding.unit,
-        })),
-      })
-    : null
-  if (baseAssessment && targetAssessment) {
-    const baseMap: Record<string, Finding> = {}
-    const targetMap: Record<string, Finding> = {}
-    ;(baseAssessment.assessment_findings || []).forEach((f) => { baseMap[f.imbalance_key] = f })
-    ;(targetAssessment.assessment_findings || []).forEach((f) => { targetMap[f.imbalance_key] = f })
-    const allKeys = Array.from(new Set([...Object.keys(baseMap), ...Object.keys(targetMap)]))
-    allKeys.forEach((key) => {
-      const b = baseMap[key]
-      const t = targetMap[key]
-      // deviation / severity_pct are NUMERIC → arrive as strings; coerce so the
-      // delta table's toFixed() calls are numeric. Comparison decisions use the raw
-      // values above so the central policy owns all validity and coercion rules.
-      const baseDev = toNum(b?.deviation)
-      const targetDev = toNum(t?.deviation)
-      const baseUnit = b?.unit ?? null
-      const targetUnit = t?.unit ?? null
-      const unitsMatch = baseUnit !== null && targetUnit !== null && baseUnit === targetUnit
-      const unit = targetUnit || baseUnit || ''
-      const delta = unitsMatch && targetDev !== null && baseDev !== null ? targetDev - baseDev : null
-      const comparison = selectedComparison?.byKey[key]
-      if (!comparison) return
-      deltaRows.push({
-        key,
-        label: b?.label || t?.label || key,
-        baseDeviation: baseDev,
-        targetDeviation: targetDev,
-        baseUnit: baseUnit || '',
-        targetUnit: targetUnit || '',
-        unit,
-        delta,
-        comparison,
-      })
-    })
-    // Stable, non-directional order. Raw severity deltas must not create a
-    // second ranking policy outside lib/comparison/policy.ts.
-    deltaRows.sort((left, right) => left.label.localeCompare(right.label) || left.key.localeCompare(right.key))
-  }
-
-  const comparisonAssessments = comparisonReady
-    ? assessments.map((assessment) => ({
-        id: assessment.id,
-        assessedAt: assessment.assessed_at,
-        overallGrade: assessment.overall_grade,
-        overallScore: toNum(assessment.overall_score),
-        scoringEngineVersion: assessment.scoring_engine_version,
-        status: assessment.status,
-      }))
-    : []
   const latestAssessment = assessments.at(-1)
   const latestDeviation = toNum(latestAssessment?.overall_score)
   const trackingSpanDays = assessments.length >= 2
@@ -680,8 +698,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Assessments Tab */}
-      {activeTab === 'assessments' && (
-        <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+      <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
           {historyLoadedForId !== id ? (
             <p role="status" className={styles.loadingPanel}>Loading assessment history…</p>
@@ -733,61 +750,47 @@ export default function ClientDetailPage() {
               )}
             </>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
-      {activeTab === 'progress' && hasMultipleAssessments && (
+      {hasMultipleAssessments && (
         <div {...panelProps('progress')}>
-          {workspaceReady !== 'progress' ? (
-            <p role="status" className={styles.loadingPanel}>Preparing progress charts…</p>
-          ) : (
-            <>
-              {nextAssessmentCursor && (
-                <p role="status" className={styles.loadingPanel}>
-                  Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
-                </p>
-              )}
-              <ProgressCharts
-                trendData={trendData}
-                trendSegments={trendSegments}
-                imbalanceKeys={imbalanceKeys}
-                imbalanceLabels={imbalanceLabels}
-              />
-            </>
+          {nextAssessmentCursor && (
+            <p role="status" className={styles.loadingPanel}>
+              Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
+            </p>
           )}
+          <RetainedProgressCharts
+            trendData={trendData}
+            trendSegments={trendSegments}
+            imbalanceKeys={imbalanceKeys}
+            imbalanceLabels={imbalanceLabels}
+          />
         </div>
       )}
 
       {/* Compare Tab */}
-      {activeTab === 'compare' && hasMultipleAssessments && (
+      {hasMultipleAssessments && (
         <div {...panelProps('compare')}>
-          {workspaceReady !== 'compare' ? (
-            <p role="status" className={styles.loadingPanel}>Preparing comparison…</p>
-          ) : (
-            <>
-              {nextAssessmentCursor && (
-                <p role="status" className={styles.loadingPanel}>
-                  Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
-                </p>
-              )}
-              <ComparisonWorkspace
-                assessments={comparisonAssessments}
-                baseId={compareBaseId}
-                targetId={compareTargetId}
-                deltaRows={deltaRows}
-                overallComparison={selectedComparison?.overall ?? null}
-                onBaseChange={handleCompareBaseChange}
-                onTargetChange={handleCompareTargetChange}
-              />
-            </>
+          {nextAssessmentCursor && (
+            <p role="status" className={styles.loadingPanel}>
+              Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
+            </p>
           )}
+          <RetainedComparisonWorkspace
+            assessments={comparisonAssessments}
+            baseId={compareBaseId}
+            targetId={compareTargetId}
+            deltaRows={deltaRows}
+            overallComparison={selectedComparison?.overall ?? null}
+            onBaseChange={handleCompareBaseChange}
+            onTargetChange={handleCompareTargetChange}
+          />
         </div>
       )}
 
       {/* Info Tab */}
-      {activeTab === 'info' && (
-        <div {...panelProps('info')}>
+      <div {...panelProps('info')}>
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
@@ -862,8 +865,7 @@ export default function ClientDetailPage() {
               router.push(`/clients?erasure=${externalStatus}`)
             }}
           />
-        </div>
-      )}
+      </div>
     </div>
   )
 }

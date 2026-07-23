@@ -1,21 +1,34 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+const workspaceRenders = vi.hoisted(() => ({
+  progress: vi.fn(),
+  comparison: vi.fn(),
+}))
+
+const navigation = vi.hoisted(() => ({
+  id: 'client-1',
+  router: { push: vi.fn() },
+}))
+
 vi.mock('next/navigation', () => {
-  const router = { push: vi.fn() }
   return {
-    useParams: () => ({ id: 'client-1' }),
-    useRouter: () => router,
+    useParams: () => ({ id: navigation.id }),
+    useRouter: () => navigation.router,
   }
 })
 vi.mock('next/dynamic', () => ({
   default: () => function ProgressChartsStub() {
+    workspaceRenders.progress()
     return <div data-testid="progress-charts">Progress charts loaded</div>
   },
 }))
 vi.mock('./ComparisonWorkspace', () => ({
-  default: () => <div data-testid="comparison-workspace">Comparison loaded</div>,
+  default: () => {
+    workspaceRenders.comparison()
+    return <div data-testid="comparison-workspace">Comparison loaded</div>
+  },
 }))
 vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
 vi.mock('@/components/RemoteConsentButton', () => ({ default: () => null }))
@@ -50,6 +63,8 @@ const assessments = [
 
 afterEach(() => {
   cleanup()
+  navigation.id = 'client-1'
+  navigation.router.push.mockReset()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -84,9 +99,12 @@ describe('client detail progressive rendering', () => {
 
     expect(await screen.findByRole('tab', { name: 'Progress' })).toBeTruthy()
     expect(paintedBeforeSecondaryData).toBe(true)
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => (
+      String(input) === '/api/clients/client-1/assessments?include_findings=true&limit=20'
+    ))).toBe(true)
   })
 
-  it('paints tab feedback before building the expensive workspace', async () => {
+  it('prepares and retains expensive workspaces before tab interactions', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/clients/client-1') {
@@ -105,20 +123,167 @@ describe('client detail progressive rendering', () => {
 
     render(<ClientDetailPage />)
     const progress = await screen.findByRole('tab', { name: 'Progress' })
-    vi.useFakeTimers()
+    const charts = screen.getByTestId('progress-charts')
+    const comparison = screen.getByTestId('comparison-workspace')
+    expect(charts.closest('[role="tabpanel"]')).toHaveProperty('hidden', true)
+    expect(comparison.closest('[role="tabpanel"]')).toHaveProperty('hidden', true)
+    const progressRenderCount = workspaceRenders.progress.mock.calls.length
+    const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
+
     act(() => fireEvent.click(progress))
 
     expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
-    expect(screen.getByText('Preparing progress charts…')).toBeTruthy()
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    expect(screen.getByTestId('progress-charts')).toBe(charts)
 
-    act(() => vi.advanceTimersByTime(249))
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-    act(() => vi.advanceTimersByTime(1))
-    expect(screen.getByTestId('progress-charts')).toBeTruthy()
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
+    expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
+    expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
+    expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
+    expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
+  })
 
-    act(() => fireEvent.click(progress))
-    expect(screen.getByTestId('progress-charts')).toBeTruthy()
-    expect(screen.queryByText('Preparing progress charts…')).toBeNull()
+  it('merges older pages by id, advances the cursor, and clears it at the end', async () => {
+    const duplicateUpdate = {
+      ...assessments[1],
+      overall_grade: 'S',
+      overall_score: 5,
+    }
+    const olderAssessment = {
+      ...assessments[0],
+      id: 'assessment-0',
+      assessed_at: '2026-06-30T00:00:00.000Z',
+      overall_grade: 'C',
+      overall_score: 24,
+    }
+    const newerAssessment = {
+      ...assessments[1],
+      id: 'assessment-3',
+      assessed_at: '2026-07-03T00:00:00.000Z',
+      overall_grade: 'A',
+      overall_score: 8,
+    }
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/clients/client-1') {
+        return Promise.resolve(response({
+          client: {
+            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+            consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
+          },
+        }))
+      }
+      if (url.startsWith('/api/consent?')) {
+        return Promise.resolve(response({ hasConsent: true, legalState: 'current' }))
+      }
+      if (url.includes('cursor=cursor-one')) {
+        return Promise.resolve(response({
+          assessments: [olderAssessment, duplicateUpdate],
+          pagination: { has_more: true, next_cursor: 'cursor-two' },
+        }))
+      }
+      if (url.includes('cursor=cursor-two')) {
+        return Promise.resolve(response({
+          assessments: [newerAssessment],
+          pagination: { has_more: false, next_cursor: null },
+        }))
+      }
+      if (url.includes('/assessments?')) {
+        return Promise.resolve(response({
+          assessments,
+          pagination: { has_more: true, next_cursor: 'cursor-one' },
+        }))
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ClientDetailPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load older assessments' }))
+
+    await waitFor(() => expect(screen.getAllByText('Grade S')).toHaveLength(2))
+    expect(screen.getAllByText(/^Assessment — /)).toHaveLength(3)
+    expect(screen.getByText('3+')).toBeTruthy()
+    expect(fetchMock.mock.calls.some(([input]) => (
+      String(input).includes('include_findings=true&limit=50&cursor=cursor-one')
+    ))).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load older assessments' }))
+
+    await waitFor(() => expect(screen.getAllByText(/^Assessment — /)).toHaveLength(4))
+    expect(screen.getByText('4')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Load older assessments' })).toBeNull()
+    expect(fetchMock.mock.calls.some(([input]) => (
+      String(input).includes('include_findings=true&limit=50&cursor=cursor-two')
+    ))).toBe(true)
+  })
+
+  it('clears the previous client while replacement history is pending and after it fails', async () => {
+    const replacementClient = deferred<Response>()
+    const replacementHistory = deferred<Response>()
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/clients/client-1') {
+        return Promise.resolve(response({
+          client: {
+            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+            consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
+          },
+        }))
+      }
+      if (url === '/api/clients/client-2') return replacementClient.promise
+      if (url === '/api/clients/client-1/assessments?include_findings=true&limit=20') {
+        return Promise.resolve(response({ assessments, pagination: { has_more: true, next_cursor: 'client-1-cursor' } }))
+      }
+      if (url === '/api/clients/client-2/assessments?include_findings=true&limit=20') {
+        return replacementHistory.promise
+      }
+      if (url.startsWith('/api/consent?')) {
+        return Promise.resolve(response({ hasConsent: true, legalState: 'current' }))
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const view = render(<ClientDetailPage />)
+    expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy()
+    expect(await screen.findByRole('tab', { name: 'Progress' })).toBeTruthy()
+    expect(screen.getByText('2+')).toBeTruthy()
+
+    navigation.id = 'client-2'
+    view.rerender(<ClientDetailPage />)
+
+    expect(screen.queryByRole('heading', { name: 'Ada Lovelace' })).toBeNull()
+    expect(screen.getByRole('status').textContent).toContain('Loading client evidence')
+
+    await act(async () => {
+      replacementClient.resolve(response({
+        client: {
+          id: 'client-2', first_name: 'Grace', last_name: 'Hopper', date_of_birth: '1985-01-01',
+          sex_at_birth: 'female', height_cm: 168, weight_kg: 62, notes: null,
+          consent_recorded_at: '2026-07-02T00:00:00.000Z', created_at: '2026-06-02T00:00:00.000Z',
+        },
+      }))
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Grace Hopper' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Progress' })).toBeNull()
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
+    expect(screen.queryByText('2+')).toBeNull()
+    expect(screen.getByRole('status').textContent).toContain('Loading assessment history')
+
+    await act(async () => {
+      replacementHistory.resolve(response({ error: 'unavailable' }, 503))
+      await Promise.resolve()
+    })
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Could not load the assessment history for this client.',
+    )
+    expect(screen.queryByRole('tab', { name: 'Progress' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Load older assessments' })).toBeNull()
   })
 })

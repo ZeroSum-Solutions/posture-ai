@@ -43,6 +43,66 @@ function initialCaptures(): Captures {
   }
 }
 
+function ConsentAdvanceButton({
+  disabled,
+  testMode,
+  onTestAdvance,
+  onProceed,
+}: {
+  disabled: boolean
+  testMode: boolean
+  onTestAdvance: () => void
+  onProceed: () => Promise<void>
+}) {
+  const [checking, setChecking] = useState(false)
+  const checkingLock = useRef(false)
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  async function handleClick() {
+    if (disabled || checkingLock.current) return
+    if (testMode) {
+      onTestAdvance()
+      return
+    }
+
+    // Keep this feedback local so the browser can paint it without reconciling
+    // the client search and picker. The parent still owns the authoritative
+    // age/consent gates and its own synchronous duplicate-request lock.
+    checkingLock.current = true
+    setChecking(true)
+    try {
+      await onProceed()
+    } finally {
+      checkingLock.current = false
+      if (mounted.current) setChecking(false)
+    }
+  }
+
+  const unavailable = disabled || checking
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={unavailable}
+      style={{
+        padding: '12px 28px', borderRadius: '10px',
+        background: unavailable ? 'rgba(0,152,243,0.25)' : 'var(--brand-strong)',
+        color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
+        cursor: unavailable ? 'not-allowed' : 'pointer', minHeight: '44px',
+      }}
+    >
+      {checking ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
+    </button>
+  )
+}
+
 // ---- Main Wizard ----
 export function NewAssessmentWizard() {
   const router = useRouter()
@@ -59,7 +119,6 @@ export function NewAssessmentWizard() {
   const [selectedClientError, setSelectedClientError] = useState<string | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [showConsentForm, setShowConsentForm] = useState(false)
-  const [checkingConsent, setCheckingConsent] = useState(false)
   const [loadingClients, setLoadingClients] = useState(true)
   const [loadingMoreClients, setLoadingMoreClients] = useState(false)
   const [nextClientCursor, setNextClientCursor] = useState<string | null>(null)
@@ -67,7 +126,12 @@ export function NewAssessmentWizard() {
   const [captures, setCaptures] = useState<Captures>(initialCaptures)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const checkingConsentLock = useRef(false)
-  const checkingConsentTimer = useRef<number | null>(null)
+  const selectedClientRef = useRef<Client | null>(null)
+  const clientSelectionVersion = useRef(0)
+  const captureSelectionLocked = useRef(false)
+  const preselectedClientController = useRef<AbortController | null>(null)
+  const consentRequestVersion = useRef(0)
+  const consentRequestController = useRef<AbortController | null>(null)
 
   // Assessment API state
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
@@ -97,9 +161,19 @@ export function NewAssessmentWizard() {
 
   const clientRequestVersion = useRef(0)
   const loadMoreClientController = useRef<AbortController | null>(null)
-  useEffect(() => () => loadMoreClientController.current?.abort(), [])
+  const invalidateConsentForSelection = useCallback((nextClientId: string) => {
+    if (selectedClientRef.current?.id === nextClientId) return
+    consentRequestVersion.current += 1
+    consentRequestController.current?.abort()
+    consentRequestController.current = null
+    checkingConsentLock.current = false
+  }, [])
   useEffect(() => () => {
-    if (checkingConsentTimer.current !== null) window.clearTimeout(checkingConsentTimer.current)
+    loadMoreClientController.current?.abort()
+    consentRequestVersion.current += 1
+    consentRequestController.current?.abort()
+    consentRequestController.current = null
+    checkingConsentLock.current = false
   }, [])
   const fetchClientPage = useCallback(async (input: {
     search: string
@@ -159,6 +233,15 @@ export function NewAssessmentWizard() {
   useEffect(() => {
     if (!preselectedClientId) return
     const controller = new AbortController()
+    const selectionVersionAtRequest = clientSelectionVersion.current
+    preselectedClientController.current?.abort()
+    preselectedClientController.current = controller
+    const selectionIsStale = () => (
+      controller.signal.aborted
+      || captureSelectionLocked.current
+      || clientSelectionVersion.current !== selectionVersionAtRequest
+      || selectedClientRef.current !== null
+    )
     fetch(`/api/clients/${encodeURIComponent(preselectedClientId)}`, {
       cache: 'no-store',
       signal: controller.signal,
@@ -172,18 +255,31 @@ export function NewAssessmentWizard() {
         return response.json() as Promise<{ client?: Client }>
       })
       .then((body) => {
-        if (!controller.signal.aborted && body?.client) {
+        if (body?.client && !selectionIsStale()) {
+          clientSelectionVersion.current += 1
+          invalidateConsentForSelection(body.client.id)
+          selectedClientRef.current = body.client
           setSelectedClient(body.client)
           setSelectedClientError(null)
         }
       })
       .catch((caught) => {
-        if ((caught as Error)?.name !== 'AbortError') {
+        if ((caught as Error)?.name !== 'AbortError' && !selectionIsStale()) {
           setSelectedClientError('The selected client is unavailable. Choose another active client.')
         }
       })
-    return () => controller.abort()
-  }, [preselectedClientId, router])
+      .finally(() => {
+        if (preselectedClientController.current === controller) {
+          preselectedClientController.current = null
+        }
+      })
+    return () => {
+      controller.abort()
+      if (preselectedClientController.current === controller) {
+        preselectedClientController.current = null
+      }
+    }
+  }, [preselectedClientId, router, invalidateConsentForSelection])
 
   async function loadMoreClientOptions() {
     if (!nextClientCursor || loadingMoreClients) return
@@ -313,6 +409,11 @@ export function NewAssessmentWizard() {
   }
 
   function chooseClient(client: Client) {
+    if (captureSelectionLocked.current) return
+    clientSelectionVersion.current += 1
+    preselectedClientController.current?.abort()
+    preselectedClientController.current = null
+    invalidateConsentForSelection(client.id)
     if (selectedClient?.id !== client.id) {
       // A capture belongs to one subject. Switching subjects invalidates every
       // pending async result, revokes every photo URL, clears the four slots,
@@ -327,6 +428,7 @@ export function NewAssessmentWizard() {
       setProcessingError(null)
       setUploadError(null)
     }
+    selectedClientRef.current = client
     setSelectedClient(client)
     setSelectedClientError(null)
     setAgeGateError(null)
@@ -558,7 +660,20 @@ export function NewAssessmentWizard() {
   function handleRetry() {
     setProcessingError(null)
     setAssessmentId(null)
+    advanceToCapture()
+  }
+
+  function advanceToCapture() {
+    captureSelectionLocked.current = true
+    clientSelectionVersion.current += 1
+    preselectedClientController.current?.abort()
+    preselectedClientController.current = null
     setStep(2)
+  }
+
+  function returnToSelection() {
+    captureSelectionLocked.current = false
+    setStep(1)
   }
 
   // Gate the camera on BIPA/subject consent, not just age. Biometric capture must
@@ -568,31 +683,43 @@ export function NewAssessmentWizard() {
   // the final gate; this stops biometric data from ever being captured for an
   // unconsented subject.
   async function proceedToCapture() {
-    if (!selectedClient || checkingConsentLock.current) return
-    const band = ageBand(selectedClient.date_of_birth)
+    if (
+      !selectedClient
+      || selectedClientRef.current?.id !== selectedClient.id
+      || checkingConsentLock.current
+    ) return
+    const consentClient = selectedClient
+    const band = ageBand(consentClient.date_of_birth)
     if (band === 'under_13') { setShowConsentForm(false); setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
     if (band === 'unknown') { setShowConsentForm(false); setAgeGateError('Add a date of birth for this client before screening.'); return }
     setAgeGateError(null)
-    // Close the duplicate-click window synchronously without rerendering the
-    // full client picker in the click's first paint. Show busy feedback only if
-    // the authoritative consent check lasts long enough to be perceptible.
+    // Close the duplicate-click window synchronously. The isolated button owns
+    // its lightweight busy paint; this parent remains the authoritative gate.
+    const requestVersion = ++consentRequestVersion.current
+    const controller = new AbortController()
+    consentRequestController.current?.abort()
+    consentRequestController.current = controller
     checkingConsentLock.current = true
-    checkingConsentTimer.current = window.setTimeout(() => {
-      checkingConsentTimer.current = null
-      setCheckingConsent(true)
-    }, 300)
+    const isCurrentSelection = () => (
+      !controller.signal.aborted
+      && consentRequestVersion.current === requestVersion
+      && selectedClientRef.current?.id === consentClient.id
+    )
     try {
       if (!screeningNotice.document) {
         throw new Error(screeningNotice.error || 'The required screening notice is still loading.')
       }
-      const response = await fetch(`/api/consent?client_id=${encodeURIComponent(selectedClient.id)}`, {
+      const response = await fetch(`/api/consent?client_id=${encodeURIComponent(consentClient.id)}`, {
         cache: 'no-store',
+        signal: controller.signal,
       })
+      if (!isCurrentSelection()) return
       const decision = await response.json().catch(() => ({})) as {
         captureAllowed?: boolean
         reason?: string | null
         error?: string
       }
+      if (!isCurrentSelection()) return
       if (!response.ok) throw new Error(decision.error || 'Could not verify consent.')
       if (!decision.captureAllowed) {
         setShowConsentForm(true)
@@ -600,19 +727,18 @@ export function NewAssessmentWizard() {
         return
       }
       setShowConsentForm(false)
-      setStep(2)
+      advanceToCapture()
     } catch (caught) {
+      if ((caught as Error)?.name === 'AbortError' || !isCurrentSelection()) return
       setShowConsentForm(false)
       setAgeGateError(caught instanceof Error && caught.message
         ? caught.message
         : 'Could not verify consent. Refresh and try again.')
     } finally {
-      if (checkingConsentTimer.current !== null) {
-        window.clearTimeout(checkingConsentTimer.current)
-        checkingConsentTimer.current = null
+      if (consentRequestVersion.current === requestVersion) {
+        consentRequestController.current = null
+        checkingConsentLock.current = false
       }
-      checkingConsentLock.current = false
-      setCheckingConsent(false)
     }
   }
 
@@ -795,16 +921,13 @@ export function NewAssessmentWizard() {
             />
           )}
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => { if (testMode) { setStep(2) } else { proceedToCapture() } }}
-              disabled={!selectedClient || checkingConsent}
-              style={{
-                padding: '12px 28px', borderRadius: '10px',
-                background: selectedClient && !checkingConsent ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
-                color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
-                cursor: selectedClient && !checkingConsent ? 'pointer' : 'not-allowed', minHeight: '44px',
-              }}>
-              {checkingConsent ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
-            </button>
+            <ConsentAdvanceButton
+              key={selectedClient?.id ?? 'no-client'}
+              disabled={!selectedClient}
+              testMode={testMode}
+              onTestAdvance={advanceToCapture}
+              onProceed={proceedToCapture}
+            />
           </div>
         </div>
       )}
@@ -827,7 +950,7 @@ export function NewAssessmentWizard() {
               </div>
             </div>
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
+              <button onClick={returnToSelection} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
               <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
                 {submitting ? 'Submitting...' : 'Run Test Analysis'}
               </button>
@@ -840,7 +963,7 @@ export function NewAssessmentWizard() {
             onCameraCapture={handleCameraCapture}
             onFileUpload={handleFileUpload}
             onProceed={validateAndProceed}
-            onExit={() => { void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {}); setStep(1) }}
+            onExit={() => { void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {}); returnToSelection() }}
             modelError={modelError}
             onRetryFailedChecks={retryFailedChecks}
             submitting={submitting}
