@@ -87,7 +87,20 @@ export async function GET(req: NextRequest) {
   if (!parsedPage.ok) {
     return NextResponse.json({ error: parsedPage.error }, { status: 400, headers: NO_STORE })
   }
-  const page = parsedPage.value
+  let page = parsedPage.value
+  if (!page.after) {
+    const { data: preciseSnapshot, error: snapshotError } = await supabase.rpc('current_keyset_snapshot')
+    if (snapshotError || typeof preciseSnapshot !== 'string') {
+      logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_snapshot_failed' })
+      return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
+    }
+    try {
+      page = { ...page, snapshotAt: canonicalizeKeysetTimestamp(preciseSnapshot) }
+    } catch {
+      logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_snapshot_invalid' })
+      return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
+    }
+  }
 
   const { data, error } = await supabase.rpc('list_owned_clients_page', {
     p_search: parsedSearch.value,

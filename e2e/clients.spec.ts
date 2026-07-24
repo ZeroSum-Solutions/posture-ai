@@ -84,7 +84,13 @@ test.describe('client archive', () => {
     await page.waitForURL(/\/clients$/, { timeout: 15_000 })
     await page.getByPlaceholder('Search clients by name...').fill(`Keep-${keepToken}`)
     await expect(page.getByRole('link', { name: new RegExp(`Keep-${keepToken}`) })).toBeVisible()
+    const archivedSearch = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/clients' && url.searchParams.get('search') === `Archive-${archiveToken}`
+    })
     await page.getByPlaceholder('Search clients by name...').fill(`Archive-${archiveToken}`)
+    expect((await archivedSearch).ok()).toBeTruthy()
+    await expect(page.getByRole('heading', { name: 'No matching clients' })).toBeVisible()
     await expect(page.getByRole('link', { name: new RegExp(`Archive-${archiveToken}`) })).toHaveCount(0)
   })
 })
@@ -119,7 +125,13 @@ test.describe('erased client is hidden from the clients list', () => {
     await page.goto('/clients')
     await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    const erasedSearch = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/clients' && url.searchParams.get('search') === `Erase-${token}`
+    })
     await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
+    expect((await erasedSearch).ok()).toBeTruthy()
+    await expect(page.getByRole('heading', { name: 'No matching clients' })).toBeVisible()
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toHaveCount(0)
   })
 })

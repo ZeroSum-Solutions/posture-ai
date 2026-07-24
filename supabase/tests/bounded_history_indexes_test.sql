@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(11);
+SELECT plan(14);
 
 SELECT ok(
   to_regclass('public.clients_active_practitioner_created_id_idx') IS NOT NULL,
@@ -59,6 +59,33 @@ SELECT is(
 );
 
 SELECT ok(
+  to_regprocedure('public.current_keyset_snapshot()') IS NOT NULL,
+  'database-precision keyset snapshot function exists'
+);
+
+SELECT ok(
+  NOT (SELECT prosecdef FROM pg_proc
+       WHERE oid = 'public.current_keyset_snapshot()'::regprocedure)
+  AND (SELECT provolatile = 'v' FROM pg_proc
+       WHERE oid = 'public.current_keyset_snapshot()'::regprocedure),
+  'keyset snapshot is a volatile security-invoker database clock read'
+);
+
+SELECT ok(
+  has_function_privilege(
+    'authenticated',
+    'public.current_keyset_snapshot()',
+    'EXECUTE'
+  )
+  AND NOT has_function_privilege(
+    'anon',
+    'public.current_keyset_snapshot()',
+    'EXECUTE'
+  ),
+  'only authenticated callers can read a keyset snapshot'
+);
+
+SELECT ok(
   to_regprocedure('public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer)') IS NOT NULL,
   'typed bounded client-search function exists'
 );
@@ -96,7 +123,17 @@ SET LOCAL session_replication_role = origin;
 INSERT INTO public.clients (id, practitioner_id, first_name, last_name, created_at)
 VALUES
   ('22000000-0000-4000-8000-000000000001', '12000000-0000-4000-8000-000000000001', 'Owned', 'Alpha', '2026-07-20T00:00:00Z'),
+  ('22000000-0000-4000-8000-000000000003', '12000000-0000-4000-8000-000000000001', 'Archived', 'Alpha', '2026-07-20T00:00:00Z'),
+  ('22000000-0000-4000-8000-000000000004', '12000000-0000-4000-8000-000000000001', 'Deleted', 'Alpha', '2026-07-20T00:00:00Z'),
   ('22000000-0000-4000-8000-000000000002', '12000000-0000-4000-8000-000000000002', 'Owned', 'Beta', '2026-07-20T00:00:00Z');
+
+UPDATE public.clients
+SET archived_at = '2026-07-20T01:00:00Z'
+WHERE id = '22000000-0000-4000-8000-000000000003';
+
+UPDATE public.clients
+SET deleted_at = '2026-07-20T01:00:00Z'
+WHERE id = '22000000-0000-4000-8000-000000000004';
 
 SELECT set_config('request.jwt.claim.sub', '12000000-0000-4000-8000-000000000001', true);
 SELECT set_config(

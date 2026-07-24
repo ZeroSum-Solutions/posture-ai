@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 // a query resolves to { data, error } (it does NOT throw on DB errors).
 const tableResult: Record<string, { data: unknown; error: unknown }> = {}
 const queryCalls: Record<string, Array<{ method: string; args: unknown[] }>> = {}
+const rpcSpy = vi.fn()
 
 function makeQuery(table: string) {
   const result = () => tableResult[table] ?? { data: null, error: null }
@@ -37,6 +38,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     from: (t: string) => makeQuery(t),
+    rpc: rpcSpy,
   }),
 }))
 
@@ -54,6 +56,8 @@ const assessmentId = (index: number) => `10000000-0000-4000-8000-${String(index)
 describe('GET /api/clients/[id]/assessments', () => {
   beforeEach(() => {
     for (const key of Object.keys(queryCalls)) delete queryCalls[key]
+    rpcSpy.mockReset()
+    rpcSpy.mockResolvedValue({ data: '2026-07-22T12:00:00.123789+00:00', error: null })
     tableResult.clients = { data: { id: 'c1' }, error: null }
     tableResult.assessments = { data: [], error: null }
   })
@@ -125,6 +129,37 @@ describe('GET /api/clients/[id]/assessments', () => {
       { method: 'order', args: ['id', { ascending: false }] },
     ])
     expect(queryCalls.assessments).toContainEqual({ method: 'limit', args: [51] })
+  })
+
+  test('uses a database-precision first-page snapshot so microsecond rows are not omitted', async () => {
+    tableResult.assessments = {
+      data: [{
+        id: assessmentId(0),
+        assessed_at: '2026-07-22T12:00:00.123456+00:00',
+      }],
+      error: null,
+    }
+
+    const res = await GET(req('?limit=50'), { params: params() })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(rpcSpy).toHaveBeenCalledWith('current_keyset_snapshot')
+    expect(queryCalls.assessments).toContainEqual({
+      method: 'lte',
+      args: ['assessed_at', '2026-07-22T12:00:00.123789Z'],
+    })
+    expect(body.pagination.snapshot_at).toBe('2026-07-22T12:00:00.123789Z')
+    expect(body.assessments).toHaveLength(1)
+  })
+
+  test('fails closed when the database snapshot cannot be read', async () => {
+    rpcSpy.mockResolvedValue({ data: null, error: { message: 'clock unavailable' } })
+
+    const res = await GET(req('?limit=50'), { params: params() })
+
+    expect(res.status).toBe(500)
+    expect(queryCalls.assessments).toBeUndefined()
   })
 
   test('preserves PostgREST microseconds in the next-page assessment boundary', async () => {

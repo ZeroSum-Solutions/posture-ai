@@ -1,6 +1,21 @@
 -- Typed, bounded client-directory search. Keeping the human-entered search text
 -- as an RPC argument avoids interpolating it into PostgREST's logical-filter
 -- grammar. SECURITY INVOKER preserves the caller's RLS and grants.
+CREATE OR REPLACE FUNCTION public.current_keyset_snapshot()
+RETURNS timestamptz
+LANGUAGE sql
+VOLATILE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT pg_catalog.clock_timestamp()
+$$;
+
+REVOKE ALL ON FUNCTION public.current_keyset_snapshot()
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.current_keyset_snapshot()
+  TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.list_owned_clients_page(
   p_search text,
   p_snapshot_at timestamptz,

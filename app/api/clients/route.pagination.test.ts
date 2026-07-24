@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server'
 
 let queryResult: { data: unknown; error: unknown } = { data: [], error: null }
 let legacyQueryResult: { data: unknown; error: unknown } = { data: [], error: null }
+let snapshotResult: { data: unknown; error: unknown } = {
+  data: '2026-07-22T12:00:00.123789+00:00',
+  error: null,
+}
 const fromSpy = vi.fn()
 const rpcSpy = vi.fn()
 
@@ -42,9 +46,12 @@ describe('GET /api/clients pagination', () => {
   beforeEach(() => {
     queryResult = { data: [], error: null }
     legacyQueryResult = { data: [], error: null }
+    snapshotResult = { data: '2026-07-22T12:00:00.123789+00:00', error: null }
     fromSpy.mockReset()
     rpcSpy.mockReset()
-    rpcSpy.mockImplementation(async () => queryResult)
+    rpcSpy.mockImplementation(async (name: string) => (
+      name === 'current_keyset_snapshot' ? snapshotResult : queryResult
+    ))
     const legacyQuery = {
       select: vi.fn(),
       is: vi.fn(),
@@ -109,6 +116,35 @@ describe('GET /api/clients pagination', () => {
       date_of_birth: null,
       created_at: expect.any(String),
     })
+  })
+
+  it('uses a database-precision first-page snapshot so microsecond rows are not omitted', async () => {
+    queryResult = {
+      data: [client(0, '2026-07-22T12:00:00.123456+00:00')],
+      error: null,
+    }
+
+    const response = await get('?limit=50')
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(rpcSpy).toHaveBeenNthCalledWith(1, 'current_keyset_snapshot')
+    expect(rpcSpy).toHaveBeenNthCalledWith(2, 'list_owned_clients_page', expect.objectContaining({
+      p_snapshot_at: '2026-07-22T12:00:00.123789Z',
+    }))
+    expect(body.pagination.snapshot_at).toBe('2026-07-22T12:00:00.123789Z')
+    expect(body.clients).toHaveLength(1)
+  })
+
+  it('fails closed when the database snapshot cannot be read', async () => {
+    snapshotResult = { data: null, error: { message: 'clock unavailable' } }
+
+    const response = await get('?limit=50')
+
+    expect(response.status).toBe(500)
+    expect(rpcSpy).toHaveBeenCalledTimes(1)
+    expect(rpcSpy).toHaveBeenCalledWith('current_keyset_snapshot')
+    expect(rpcSpy).not.toHaveBeenCalledWith('list_owned_clients_page', expect.anything())
   })
 
   it('preserves PostgREST microseconds in the next-page client boundary', async () => {

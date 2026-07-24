@@ -81,7 +81,7 @@ export async function GET(
   if (parsedPage && !parsedPage.ok) {
     return NextResponse.json({ error: parsedPage.error }, { status: 400, headers: NO_STORE })
   }
-  const page = parsedPage?.ok ? parsedPage.value : null
+  let page = parsedPage?.ok ? parsedPage.value : null
 
   // Verify client belongs to this practitioner
   const { data: client, error: clientError } = await supabase
@@ -105,6 +105,34 @@ export async function GET(
 
   if (!client) {
     return NextResponse.json({ error: 'Client not found' }, { status: 404, headers: NO_STORE })
+  }
+
+  if (page && !page.after) {
+    const { data: preciseSnapshot, error: snapshotError } = await supabase.rpc('current_keyset_snapshot')
+    if (snapshotError || typeof preciseSnapshot !== 'string') {
+      logEvent({
+        route: 'GET /api/clients/[id]/assessments',
+        outcome: 'server_error',
+        status: 500,
+        userHash: hashUser(user.id),
+        resourceHash: hashResource(clientId),
+        detailCode: 'assessment_snapshot_failed',
+      })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
+    }
+    try {
+      page = { ...page, snapshotAt: canonicalizeKeysetTimestamp(preciseSnapshot) }
+    } catch {
+      logEvent({
+        route: 'GET /api/clients/[id]/assessments',
+        outcome: 'server_error',
+        status: 500,
+        userHash: hashUser(user.id),
+        resourceHash: hashResource(clientId),
+        detailCode: 'assessment_snapshot_invalid',
+      })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
+    }
   }
 
   let query = supabase
