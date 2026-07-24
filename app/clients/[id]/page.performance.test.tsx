@@ -122,16 +122,13 @@ describe('client detail progressive rendering', () => {
       throw new Error(`Unexpected URL: ${url}`)
     }))
 
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const height = this.id === 'client-panel-assessments' ? 1200 : 120
-      return {
-        x: 0, y: 0, width: 900, height, top: 0, right: 900,
-        bottom: height, left: 0, toJSON: () => ({}),
-      } as DOMRect
+    const forcedLayoutSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.id === 'client-panel-assessments' ? 1200 : 120
     })
     render(<ClientDetailPage />)
     const progress = await screen.findByRole('tab', { name: 'Progress' })
-    expect(screen.getByTestId('client-workspace-stage').style.minHeight).toBe('1200px')
+    expect(screen.getByTestId('client-workspace-stage').style.getPropertyValue('--workspace-reserved-height')).toBe('1200px')
     vi.useFakeTimers()
     expect(screen.queryByTestId('progress-charts')).toBeNull()
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
@@ -139,12 +136,10 @@ describe('client detail progressive rendering', () => {
     act(() => fireEvent.click(progress))
 
     expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
-    expect(screen.getByTestId('client-workspace-stage').style.minHeight).toBe('1200px')
-    expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
+    expect(screen.getByRole('button', { name: 'Load interactive charts' })).toBeTruthy()
     expect(screen.queryByTestId('progress-charts')).toBeNull()
     act(() => vi.advanceTimersByTime(300))
-    const charts = screen.getByTestId('progress-charts')
-    const progressRenderCount = workspaceRenders.progress.mock.calls.length
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
 
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
@@ -156,11 +151,15 @@ describe('client detail progressive rendering', () => {
     const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
 
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Load interactive charts' })))
+    const charts = screen.getByTestId('progress-charts')
+    const progressRenderCount = workspaceRenders.progress.mock.calls.length
     expect(screen.getByTestId('progress-charts')).toBe(charts)
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
     expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
     expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
+    expect(forcedLayoutSpy).not.toHaveBeenCalled()
   })
 
   it('cancels an abandoned deferred workspace when tabs change quickly', async () => {

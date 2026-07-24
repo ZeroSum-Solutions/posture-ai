@@ -143,7 +143,6 @@ function ClientDetailRoute({
     () => new Set<Tab>(['assessments', 'info']),
   )
   const workspaceStageElement = useRef<HTMLDivElement>(null)
-  const [workspaceMinHeight, setWorkspaceMinHeight] = useState(0)
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   // Compare selectors: older = "before", newer = "after"
@@ -279,7 +278,11 @@ function ClientDetailRoute({
   }, [id, ownsInitialData, router])
 
   useEffect(() => {
-    if (renderedTabs.has(activeTab)) return
+    // Recharts/d3 must never begin loading just because a practitioner is
+    // navigating through the workspace. Progress exposes an explicit load
+    // action; the lighter comparison workspace may still mount after its
+    // selected tab has painted.
+    if (activeTab === 'progress' || renderedTabs.has(activeTab)) return
     return scheduleAfterPresentedFrame(() => {
       startTransition(() => {
         setRenderedTabs((current) => {
@@ -293,15 +296,14 @@ function ClientDetailRoute({
   }, [activeTab, renderedTabs])
 
   useLayoutEffect(() => {
-    const activePanel = workspaceStageElement.current?.querySelector<HTMLElement>(
-      '[role="tabpanel"]:not([hidden])',
-    )
-    if (!activePanel) return
-    const measuredHeight = Math.ceil(activePanel.getBoundingClientRect().height)
+    const stage = workspaceStageElement.current
+    const assessmentPanel = stage?.querySelector<HTMLElement>('#client-panel-assessments')
+    if (!stage || !assessmentPanel) return
+    const measuredHeight = Math.ceil(assessmentPanel.scrollHeight)
     if (measuredHeight > 0) {
-      setWorkspaceMinHeight((current) => Math.max(current, measuredHeight))
+      stage.style.setProperty('--workspace-reserved-height', `${measuredHeight}px`)
     }
-  }, [activeTab, assessments.length, nextAssessmentCursor, renderedTabs])
+  }, [assessments.length, nextAssessmentCursor])
 
   const {
     imbalanceKeys,
@@ -577,6 +579,17 @@ function ClientDetailRoute({
     setActiveTab(tab)
   }
 
+  function loadProgressCharts() {
+    startTransition(() => {
+      setRenderedTabs((current) => {
+        if (current.has('progress')) return current
+        const next = new Set(current)
+        next.add('progress')
+        return next
+      })
+    })
+  }
+
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
     const currentIndex = availableTabs.indexOf(tab)
     let nextIndex: number | null = null
@@ -821,7 +834,6 @@ function ClientDetailRoute({
         ref={workspaceStageElement}
         className={styles.workspaceStage}
         data-testid="client-workspace-stage"
-        style={{ minHeight: workspaceMinHeight > 0 ? `${workspaceMinHeight}px` : undefined }}
       >
       {/* Assessments Tab */}
       <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
@@ -896,7 +908,16 @@ function ClientDetailRoute({
               />
             </>
           ) : (
-            <div className={styles.loadingPanel} role="status">Preparing progress charts…</div>
+            <div className={styles.loadingPanel}>
+              <p>Interactive charts are available when you need them.</p>
+              <button
+                type="button"
+                className={styles.loadWorkspaceButton}
+                onClick={loadProgressCharts}
+              >
+                Load interactive charts
+              </button>
+            </div>
           )}
         </div>
       )}

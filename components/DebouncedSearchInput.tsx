@@ -6,6 +6,7 @@ interface DebouncedSearchInputProps {
   ariaLabel: string
   placeholder: string
   onQueryChange: (query: string) => void
+  onInputActivity?: () => boolean | void
   initialValue?: string
   debounceMs?: number
   style?: CSSProperties
@@ -19,17 +20,21 @@ export default function DebouncedSearchInput({
   ariaLabel,
   placeholder,
   onQueryChange,
+  onInputActivity,
   initialValue = '',
   debounceMs = 250,
   style,
 }: DebouncedSearchInputProps) {
   const latestCallback = useRef(onQueryChange)
+  const latestActivityCallback = useRef(onInputActivity)
   const pendingTimer = useRef<number | null>(null)
   const lastEmittedValue = useRef(initialValue)
+  const requestWasInvalidated = useRef(false)
 
   useEffect(() => {
     latestCallback.current = onQueryChange
-  }, [onQueryChange])
+    latestActivityCallback.current = onInputActivity
+  }, [onInputActivity, onQueryChange])
 
   useEffect(() => () => {
     if (pendingTimer.current !== null) window.clearTimeout(pendingTimer.current)
@@ -46,13 +51,15 @@ export default function DebouncedSearchInput({
         // keystroke while a large directory or picker is mounted; only the
         // settled query crosses the component boundary and starts I/O.
         const query = event.currentTarget.value
+        if (latestActivityCallback.current?.()) requestWasInvalidated.current = true
         if (pendingTimer.current !== null) window.clearTimeout(pendingTimer.current)
         pendingTimer.current = window.setTimeout(() => {
           pendingTimer.current = null
           // Consumers set their searching/loading state before updating the
           // query atom. Emitting an unchanged settled query would let React bail
           // out of that atom update and strand the consumer in its busy state.
-          if (query === lastEmittedValue.current) return
+          if (query === lastEmittedValue.current && !requestWasInvalidated.current) return
+          requestWasInvalidated.current = false
           lastEmittedValue.current = query
           latestCallback.current(query)
         }, debounceMs)

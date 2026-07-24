@@ -13,10 +13,12 @@ describe('DebouncedSearchInput', () => {
   it('updates the visible value immediately and emits only the settled query', () => {
     vi.useFakeTimers()
     const onQueryChange = vi.fn()
+    const onInputActivity = vi.fn()
     render(
       <DebouncedSearchInput
         ariaLabel="Search clients by name"
         placeholder="Search clients by name..."
+        onInputActivity={onInputActivity}
         onQueryChange={onQueryChange}
       />,
     )
@@ -26,6 +28,7 @@ describe('DebouncedSearchInput', () => {
     fireEvent.change(input, { target: { value: 'Performance' } })
 
     expect(input.value).toBe('Performance')
+    expect(onInputActivity).toHaveBeenCalledTimes(2)
     expect(onQueryChange).not.toHaveBeenCalled()
     act(() => vi.advanceTimersByTime(249))
     expect(onQueryChange).not.toHaveBeenCalled()
@@ -80,5 +83,30 @@ describe('DebouncedSearchInput', () => {
     act(() => vi.advanceTimersByTime(250))
 
     expect(onQueryChange).not.toHaveBeenCalled()
+  })
+
+  it('re-emits the settled query when typing invalidated its in-flight request', () => {
+    vi.useFakeTimers()
+    const onQueryChange = vi.fn()
+    const onInputActivity = vi.fn()
+      .mockReturnValueOnce(true)
+      .mockReturnValue(false)
+    render(
+      <DebouncedSearchInput
+        ariaLabel="Search clients by name"
+        placeholder="Search clients by name..."
+        initialValue="Ada"
+        onInputActivity={onInputActivity}
+        onQueryChange={onQueryChange}
+      />,
+    )
+
+    const input = screen.getByRole('textbox', { name: 'Search clients by name' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Ada L' } })
+    fireEvent.change(input, { target: { value: 'Ada' } })
+    act(() => vi.advanceTimersByTime(250))
+
+    expect(onQueryChange).toHaveBeenCalledOnce()
+    expect(onQueryChange).toHaveBeenCalledWith('Ada')
   })
 })

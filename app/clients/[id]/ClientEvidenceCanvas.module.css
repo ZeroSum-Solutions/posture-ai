@@ -22,6 +22,27 @@
 
 .workspaceStage {
   min-width: 0;
+  min-height: var(--workspace-reserved-height, 720px);
+  contain: layout style;
+}
+
+.loadWorkspaceButton {
+  min-height: 44px;
+  margin-block-start: 16px;
+  border: 1px solid color-mix(in srgb, var(--brand) 36%, var(--glass-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--brand-strong) 24%, var(--glass-well));
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  padding-inline: 18px;
+}
+
+.loadWorkspaceButton:focus-visible {
+  outline: 2px solid var(--spectral-cool);
+  outline-offset: 2px;
 }
 
 .pageLoadingShell {

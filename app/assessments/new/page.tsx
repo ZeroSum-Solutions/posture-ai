@@ -126,16 +126,20 @@ export function NewAssessmentWizard() {
   const preselectedClientId = searchParams.get('client_id')
   const testModeParam = searchParams.get('testMode') === '1'
   const testMode = IS_TEST_MODE || testModeParam
-  const screeningNotice = useLegalDocument('screening_notice')
 
   const [step, setStep] = useState(1)
   const [clients, setClients] = useState<Client[]>([])
   const [clientSearch, setClientSearch] = useState('')
+  const [clientSearchRevision, setClientSearchRevision] = useState(0)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const screeningNotice = useLegalDocument(
+    'screening_notice',
+    Boolean(selectedClient) && !testMode,
+  )
   const [selectedClientError, setSelectedClientError] = useState<string | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [showConsentForm, setShowConsentForm] = useState(false)
-  const [loadingClients, setLoadingClients] = useState(true)
+  const [loadingClients, setLoadingClients] = useState(false)
   const [loadingMoreClients, setLoadingMoreClients] = useState(false)
   const [nextClientCursor, setNextClientCursor] = useState<string | null>(null)
   const [clientsError, setClientsError] = useState<string | null>(null)
@@ -176,6 +180,8 @@ export function NewAssessmentWizard() {
   }, [testMode])
 
   const clientRequestVersion = useRef(0)
+  const clientSearchRequestInvalidated = useRef(false)
+  const clientPageController = useRef<AbortController | null>(null)
   const loadMoreClientController = useRef<AbortController | null>(null)
   const invalidateConsentForSelection = useCallback((nextClientId: string) => {
     if (selectedClientRef.current?.id === nextClientId) return
@@ -185,6 +191,8 @@ export function NewAssessmentWizard() {
     checkingConsentLock.current = false
   }, [])
   useEffect(() => () => {
+    clientPageController.current?.abort()
+    clientPageController.current = null
     loadMoreClientController.current?.abort()
     consentRequestVersion.current += 1
     consentRequestController.current?.abort()
@@ -214,8 +222,20 @@ export function NewAssessmentWizard() {
 
   useEffect(() => {
     const version = ++clientRequestVersion.current
-    const controller = new AbortController()
     const normalizedSearch = clientSearch.trim().replace(/\s+/g, ' ')
+    clientPageController.current?.abort()
+    clientPageController.current = null
+    if (!normalizedSearch) {
+      startTransition(() => {
+        setClients([])
+        setNextClientCursor(null)
+        setClientsError(null)
+        setLoadingClients(false)
+      })
+      return
+    }
+    const controller = new AbortController()
+    clientPageController.current = controller
     const timer = window.setTimeout(async () => {
       try {
         const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
@@ -236,13 +256,20 @@ export function NewAssessmentWizard() {
           }
           setLoadingClients(false)
         })
+      } finally {
+        if (clientPageController.current === controller) {
+          clientPageController.current = null
+        }
       }
     }, 0)
     return () => {
       window.clearTimeout(timer)
       controller.abort()
+      if (clientPageController.current === controller) {
+        clientPageController.current = null
+      }
     }
-  }, [clientSearch, fetchClientPage])
+  }, [clientSearch, clientSearchRevision, fetchClientPage])
 
   // A deep-linked client may be on page 2 or page 200. Fetch that exact owned,
   // active record instead of requiring it to appear in the first directory page.
@@ -845,18 +872,40 @@ export function NewAssessmentWizard() {
             }}
           >
             <div className="app-search-shell">
-            <DebouncedSearchInput placeholder="Search clients by name..." ariaLabel="Search clients by name" initialValue={clientSearch} onQueryChange={(query) => {
+            <DebouncedSearchInput
+              placeholder="Search clients by name..."
+              ariaLabel="Search clients by name"
+              initialValue={clientSearch}
+              onInputActivity={() => {
+                // A settled search result must not render over the next query's
+                // keystrokes. Abort it immediately while the input remains
+                // DOM-owned and render-free.
+                const controller = clientPageController.current
+                if (!controller) return false
+                clientRequestVersion.current += 1
+                controller.abort()
+                clientPageController.current = null
+                clientSearchRequestInvalidated.current = true
+                return true
+              }}
+              onQueryChange={(query) => {
               // Step 1 unmounts while capture is open. A remounted search input
               // is seeded from this settled query and must not strand the picker
               // in a loading state by re-emitting an unchanged value.
-              if (query === clientSearch) return
+              const requestWasInvalidated = clientSearchRequestInvalidated.current
+              clientSearchRequestInvalidated.current = false
+              if (query === clientSearch && !requestWasInvalidated) return
               loadMoreClientController.current?.abort()
               loadMoreClientController.current = null
               setLoadingMoreClients(false)
-              setClientSearch(query)
               setLoadingClients(true)
               setNextClientCursor(null)
-            }}
+              if (query === clientSearch) {
+                setClientSearchRevision((current) => current + 1)
+              } else {
+                setClientSearch(query)
+              }
+              }}
               style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
             />
             </div>
@@ -883,9 +932,14 @@ export function NewAssessmentWizard() {
               <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : clientsError ? (
               <p role="alert" style={{ color: 'var(--danger)', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
+            ) : !clientSearch.trim() ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
+                Search by first or last name to select a client.{' '}
+                <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link>
+              </div>
             ) : clients.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
-                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link></span>}
+                No clients match your search.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>

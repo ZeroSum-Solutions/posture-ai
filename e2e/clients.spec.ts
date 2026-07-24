@@ -256,6 +256,7 @@ test.describe('client comparison policy', () => {
     await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
 
     await page.getByRole('tab', { name: 'Progress' }).click()
+    await page.getByRole('button', { name: 'Load interactive charts' }).click()
     await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
     await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
     await expect(page.getByText('v2').first()).toBeVisible()

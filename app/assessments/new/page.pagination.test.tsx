@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const routerPush = vi.fn()
 const router = { push: routerPush }
 const legalDocumentState = vi.hoisted(() => ({
+  enabledCalls: [] as boolean[],
   value: {
     document: {} as Record<string, never> | null,
     isLoading: false,
@@ -38,7 +39,12 @@ vi.mock('./FullScreenCapture', () => ({
   ),
 }))
 vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
-vi.mock('@/components/useLegalDocument', () => ({ default: () => legalDocumentState.value }))
+vi.mock('@/components/useLegalDocument', () => ({
+  default: (_kind: string, enabled = true) => {
+    legalDocumentState.enabledCalls.push(enabled)
+    return legalDocumentState.value
+  },
+}))
 vi.mock('@/lib/pose/capture-runtime', () => ({
   getCaptureRuntime: () => ({
     detect: vi.fn(async () => ({
@@ -74,6 +80,7 @@ const deepClient = {
 describe('new assessment paginated client picker', () => {
   beforeEach(() => {
     routerPush.mockReset()
+    legalDocumentState.enabledCalls = []
     legalDocumentState.value = { document: {}, isLoading: false, error: null }
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -99,6 +106,17 @@ describe('new assessment paginated client picker', () => {
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('search=Another+person'))).toBe(true))
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('does not load the client directory or enable the legal notice before search or selection', async () => {
+    const fetchMock = vi.mocked(fetch)
+    render(<NewAssessmentWizard />)
+
+    expect(screen.getByText(/Search by first or last name to select a client/)).toBeTruthy()
+    expect(legalDocumentState.enabledCalls[0]).toBe(false)
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/clients?limit=50')).toBe(false)
+    expect(legalDocumentState.enabledCalls).toContain(true)
   })
 
   it('keeps capture disabled until the required screening notice is ready', async () => {
@@ -140,6 +158,7 @@ describe('new assessment paginated client picker', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<NewAssessmentWizard />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
     await screen.findByText('Page One')
     fireEvent.click(screen.getByRole('button', { name: 'Load more clients' }))
     expect((screen.getByRole('button', { name: 'Loading…' }) as HTMLButtonElement).disabled).toBe(true)
@@ -216,6 +235,8 @@ describe('new assessment paginated client picker', () => {
     await waitFor(() => {
       expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/api/consent?'))).toHaveLength(1)
     })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
+    await screen.findByText('Page One')
     fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
     expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
@@ -246,6 +267,7 @@ describe('new assessment paginated client picker', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<NewAssessmentWizard />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
     fireEvent.click(await screen.findByRole('button', { name: /Page One/ }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
 
@@ -280,9 +302,9 @@ describe('new assessment paginated client picker', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     render(<NewAssessmentWizard />)
-    await screen.findByText('Page One')
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
     fireEvent.change(search, { target: { value: 'Page' } })
+    await screen.findByText('Page One')
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('search=Page'))).toBe(true))
     const searchRequestCount = fetchMock.mock.calls.filter(([input]) => String(input).includes('search=Page')).length
 
