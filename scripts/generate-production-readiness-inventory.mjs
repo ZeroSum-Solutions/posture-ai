@@ -32,26 +32,26 @@ const PERFORMANCE_BUDGET_VALIDATOR_SOURCE_SHA256 = 'de8d6504c9953ec3563c63ce0c59
 const TIER_B_DOCUMENT_SOURCES = [
   ['docs/qa/AUDIT.md', 'posture-ai-production-readiness-audit-2026-07-24-pr10', 'c19e929124988636c2471bc2cfcfb64a6a812b00a853868624fb57bb43feb899'],
   ['docs/plans/2026-07-19-production-readiness-goal-spec.md', 'posture-ai-production-readiness-spec-v2-2026-07-24-pr10', '217b4d06681b711c7653594cd3ce396f0d60640976121101d22244002301ce56'],
-  ['docs/qa/tierb-reliability/protocol.md', 'posture-ai-tierb-reliability-protocol-v2-r4-pr10', 'fb5d4a83bffbfa7c6ea412dd631da10f9b1c13b1200210512f2078ca6c1ecee9'],
+  ['docs/qa/tierb-reliability/protocol.md', 'posture-ai-tierb-reliability-protocol-v2-r7-pr10', '85cc40268969692fccc6f926bbcba63f401e0004abd15129702f35cb52f7b8e3'],
   ['docs/qa/tierb-reliability/prepared.packet.json', 'posture-ai-tierb-prepared-packet-v1-pr10', 'a2805a4618628f8230f4f836f8c0813706e0f070a191d82ed8a0324a1a631d13'],
   ['docs/qa/tierb-reliability/trust-policy.json', 'posture-ai-tierb-production-trust-policy-v1-pr10', 'bf46a4198c1e4be37ebf6e2c065105e5a188c79cb95fdb31f20b0b5fa1135cbe'],
   ['docs/qa/tierb-reliability/trust-policy.pin.json', 'posture-ai-tierb-production-trust-pin-v1-pr10', '5dcf941362c3b0d91114cf4a9d0198708169f695972ca2c050e4277b3b56fe25'],
   ['docs/qa/tierb-reliability/schemas/prepared-packet.schema.json', 'posture-ai-tierb-prepared-schema-v1-pr10', '93760c63dc8898d392e4727336ea4458ef3b32b45b1374b4898d2ba41733b03d'],
   ['docs/qa/tierb-reliability/schemas/trust-policy.schema.json', 'posture-ai-tierb-trust-schema-v1-pr10', '5ede34e5e4c6171faf6cec5d47eb3c5b1674bebf01367a442b65e5b508d8fdf9'],
   ['docs/qa/tierb-reliability/schemas/analysis-input.schema.json', 'posture-ai-tierb-analysis-input-schema-v1-r3-pr10', '17b07b8b4fff184814e0b36454a0218b25382f05cfe07b7c852da40f25225f89'],
-  ['docs/qa/tierb-reliability/schemas/collection-manifest.schema.json', 'posture-ai-tierb-manifest-schema-v1-r2-pr10', 'cce741c746f9f4dda28bf3cfe48c5ef5b61051f7abaafd669aeb0cb1d5079e9c'],
+  ['docs/qa/tierb-reliability/schemas/collection-manifest.schema.json', 'posture-ai-tierb-manifest-schema-v1-r3-pr10', 'a87f76f27270adb8cbb40199ac69e2a8913abfd3b2124a6b5b66cbc9641ad530'],
 ]
 const TIER_B_RUNTIME_SOURCES = [
   ['lib/pose/tierb-contract.ts', 'posture-ai-tierb-contract-v1-pr10', 'e689d37a24364c575182d7b8b4ee79945f8001410eba6f38117160224781ef0a'],
   ['packages/posture-engine/src/reliability.ts', 'posture-ai-tierb-reliability-math-v2-r2-pr10', 'b65d767673811d7a938cb120f0955ae735d9b63393a40005fbbeaa772d303c4b'],
-  ['lib/reliability/tierb-analysis.ts', 'posture-ai-tierb-analysis-v1-r3-pr10', 'ddfa95520d0c88d3ed6dde40fd77915a7e4aa604ee8c0b3f35f117e4c6675352'],
+  ['lib/reliability/tierb-analysis.ts', 'posture-ai-tierb-analysis-v1-r4-pr10', '16910f2c207f6442ca8338166dd10f2d0238d52370b9158d869fd76247a3ca91'],
   ['lib/reliability/tierb-canonical.ts', 'posture-ai-tierb-canonicalization-v1-pr10', '8f3e97b3e8793e1ddcb4ddeb88990f4d9014f81a21d1c596ab6c0412cd4577ab'],
-  ['lib/reliability/tierb-validator.ts', 'posture-ai-tierb-validator-v1-r4-pr10', '15b163ab46fb2866456bb77d72523f1885f3bda774c519738f20422c16b6523d'],
+  ['lib/reliability/tierb-validator.ts', 'posture-ai-tierb-validator-v1-r7-pr10', 'a9c497e4dd3a63ccaa5e47d1d8384b4747445edc16029a4315f9513439839af3'],
   ['scripts/check-tierb-reliability.ts', 'posture-ai-tierb-prepared-check-v1-r2-pr10', 'f1ce2421188156d49b283fba8706133257fe2347c7afc62f3bbd0cdaf0f541a0'],
   ['scripts/golden-repeatability-core.ts', 'posture-ai-tierb-analysis-input-adapter-v1-r2-pr10', 'd171c790b2a887590418910fbe2f559275d2709da610f4cdd852d4f560c3901f'],
   ['scripts/golden-repeatability.ts', 'posture-ai-tierb-analysis-runner-v2-r2-pr10', '02d6dad4d7426c4a0a13c680a91e46b83a67d507450ecbc004b19ba373ef3e02'],
-  ['scripts/golden-model-compare-core.mjs', 'posture-ai-tierb-model-switch-guard-v2-pr10', '4a2ffed827d9838b4561db06cde3d4f6b407204aeee7b5070fe03876c8b96543'],
-  ['scripts/golden-model-compare.mjs', 'posture-ai-tierb-model-switch-cli-v1-pr10', 'cd7424ad6ae73c2b84e53d95572c694a95795812acf39a46698cd0a3eed54a33'],
+  ['scripts/golden-model-compare-core.mjs', 'posture-ai-tierb-model-switch-guard-v3-pr10', 'a8df78c1cd2719a558f8048d81ad792579c2adc89beec96414736e65919a50be'],
+  ['scripts/golden-model-compare.mjs', 'posture-ai-tierb-model-switch-cli-v3-pr10', '22c2f8c99132e7ae7124d6928c9f4808d2d2f2b277aad75aec63b0e0cda8645a'],
 ]
 const SOURCE_INVENTORY_HASH_PATTERN = /const SOURCE_INVENTORY_HASH = '[a-f0-9]{64}'/
 const PR08_BASE_COMMIT = '92b31ab453b1e70c630cdfbb88d67688633a184d'

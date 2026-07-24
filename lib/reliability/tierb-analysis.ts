@@ -276,6 +276,9 @@ function validateInput(input: TierBAnalysisInput): ValidatedInput {
     if (!TIERB_REPEAT_IDS.includes(record.repeatId)) {
       throw new Error(`unexpected repeat: ${record.repeatId}`)
     }
+    if (typeof record.reliable !== 'boolean') {
+      throw new Error('Tier B measurement reliable must be a boolean')
+    }
     if (
       record.value !== null
       && (!Number.isFinite(record.value) || record.value < 0 || record.value > 100)

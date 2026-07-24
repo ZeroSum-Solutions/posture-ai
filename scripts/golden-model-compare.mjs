@@ -27,31 +27,63 @@ const subjects = readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirec
 // Collect paired lite/full JSONs across all subject directories
 const pairs = []
 const unpaired = []
+const unclassified = []
 for (const subj of subjects) {
   const subjDir = join(dir, subj.name)
   const files = readdirSync(subjDir).filter(f => f.endsWith('.json'))
-  const liteFiles = files.filter(f => f.endsWith('-lite.json'))
-  for (const liteFile of liteFiles) {
-    const baseName = liteFile.slice(0, -'-lite.json'.length)
-    const fullFile = baseName + '-full.json'
-    if (!files.includes(fullFile)) {
-      unpaired.push(`${subj.name}/${baseName}`)
-      continue
+  for (const file of files) {
+    if (!file.endsWith('-lite.json') && !file.endsWith('-full.json')) {
+      unclassified.push(`${subj.name}/${file}`)
     }
+  }
+  const liteBases = new Set(
+    files
+      .filter(f => f.endsWith('-lite.json'))
+      .map(f => f.slice(0, -'-lite.json'.length)),
+  )
+  const fullBases = new Set(
+    files
+      .filter(f => f.endsWith('-full.json'))
+      .map(f => f.slice(0, -'-full.json'.length)),
+  )
+  for (const baseName of liteBases) {
+    if (!fullBases.has(baseName)) {
+      unpaired.push(`${subj.name}/${baseName} (missing full)`)
+    }
+  }
+  for (const baseName of fullBases) {
+    if (!liteBases.has(baseName)) {
+      unpaired.push(`${subj.name}/${baseName} (missing lite)`)
+    }
+  }
+  for (const baseName of [...liteBases].filter(name => fullBases.has(name)).sort()) {
+    const liteFile = baseName + '-lite.json'
+    const fullFile = baseName + '-full.json'
     const lite = JSON.parse(readFileSync(join(subjDir, liteFile), 'utf8'))
     const full = JSON.parse(readFileSync(join(subjDir, fullFile), 'utf8'))
-    assertModelComparisonEvidence(lite, full, `${subj.name}/${baseName}`)
+    const groundTruth = assertModelComparisonEvidence(
+      lite,
+      full,
+      `${subj.name}/${baseName}`,
+    )
     pairs.push({
       name: `${subj.name}/${baseName}`,
       liteFrames: lite.frames,
       fullFrames: full.frames,
-      groundTruth: lite.groundTruth ?? {},
+      groundTruth,
     })
   }
 }
 
 if (unpaired.length > 0) {
   console.error(`Unpaired model-comparison files: ${unpaired.join(', ')}`)
+  process.exit(2)
+}
+
+if (unclassified.length > 0) {
+  console.error(
+    `Unclassified model-comparison JSON files: ${unclassified.join(', ')}`,
+  )
   process.exit(2)
 }
 
@@ -63,25 +95,18 @@ if (pairs.length === 0) {
 // vite-node evaluates the TS engine in one child (same pattern as golden-report.mjs)
 const evalTs = `
   import { assessPosture } from './packages/posture-engine/src/engine'
+  import { buildAccuracyRows } from './scripts/golden-model-compare-core.mjs'
   const pairs = ${JSON.stringify(pairs)}
   const rows = []
   for (const { name, liteFrames, fullFrames, groundTruth } of pairs) {
     const liteFindings = assessPosture(liteFrames).findings
     const fullFindings = assessPosture(fullFrames).findings
-    for (const lf of liteFindings) {
-      const ff = fullFindings.find(x => x.key === lf.key)
-      if (!ff) continue
-      const gt = groundTruth[lf.key]
-      rows.push({
-        name,
-        key: lf.key,
-        liteDev: lf.deviation,
-        fullDev: ff.deviation,
-        delta: Math.abs(lf.deviation - ff.deviation),
-        liteErr: gt != null ? Math.abs(lf.deviation - gt) : null,
-        fullErr: gt != null ? Math.abs(ff.deviation - gt) : null,
-      })
-    }
+    rows.push(...buildAccuracyRows(
+      name,
+      liteFindings,
+      fullFindings,
+      groundTruth,
+    ))
   }
   console.log(JSON.stringify(rows))
 `
@@ -98,8 +123,8 @@ const byMetric = {}
 for (const r of rows) {
   const m = (byMetric[r.key] ??= { deltas: [], liteErrs: [], fullErrs: [] })
   m.deltas.push(r.delta)
-  if (r.liteErr != null) m.liteErrs.push(r.liteErr)
-  if (r.fullErr != null) m.fullErrs.push(r.fullErr)
+  m.liteErrs.push(r.liteErr)
+  m.fullErrs.push(r.fullErr)
 }
 
 const median = xs => {
@@ -140,12 +165,7 @@ for (const [key, { deltas, liteErrs, fullErrs }] of Object.entries(byMetric)) {
 
 let fullDefault = false
 if (!disagreement) {
-  console.log('\nModels agree within 1° on every metric — no reason to switch.')
-} else if (gtMaeDeltas.length === 0) {
-  console.log(
-    '\nModels disagree >1° but no groundTruth is present to adjudicate which is right.' +
-    '\nCapture Tier B ground truth before switching the default.'
-  )
+  console.log('\nModels agree within 1° on every measured metric — no reason to switch.')
 } else {
   fullDefault = median(gtMaeDeltas) <= 0
   console.log(

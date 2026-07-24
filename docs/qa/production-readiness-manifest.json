@@ -65,9 +65,9 @@
     {
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "id": "posture-ai-tierb-reliability-protocol-v2-r4-pr10",
+      "id": "posture-ai-tierb-reliability-protocol-v2-r7-pr10",
       "path": "docs/qa/tierb-reliability/protocol.md",
-      "sha256": "fb5d4a83bffbfa7c6ea412dd631da10f9b1c13b1200210512f2078ca6c1ecee9"
+      "sha256": "85cc40268969692fccc6f926bbcba63f401e0004abd15129702f35cb52f7b8e3"
     },
     {
       "hash_algorithm": "sha256",
@@ -114,9 +114,9 @@
     {
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "id": "posture-ai-tierb-manifest-schema-v1-r2-pr10",
+      "id": "posture-ai-tierb-manifest-schema-v1-r3-pr10",
       "path": "docs/qa/tierb-reliability/schemas/collection-manifest.schema.json",
-      "sha256": "cce741c746f9f4dda28bf3cfe48c5ef5b61051f7abaafd669aeb0cb1d5079e9c"
+      "sha256": "a87f76f27270adb8cbb40199ac69e2a8913abfd3b2124a6b5b66cbc9641ad530"
     }
   ],
   "source_identity_contract": {

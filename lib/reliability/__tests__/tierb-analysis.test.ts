@@ -264,6 +264,17 @@ describe('analyzeTierBReliability', () => {
       index === 0 ? { ...record, reliable: false, value: 0 } : record)
     expect(() => analyzeTierBReliability(unreliableNumber)).toThrow('unreliable')
 
+    for (const invalidReliable of ['true', 1]) {
+      const nonBooleanReliable = makeInput()
+      nonBooleanReliable.records = nonBooleanReliable.records.map((record, index) =>
+        index === 0
+          ? { ...record, reliable: invalidReliable } as unknown as TierBMeasurement
+          : record)
+      expect(() => analyzeTierBReliability(nonBooleanReliable)).toThrow(
+        'reliable must be a boolean',
+      )
+    }
+
     const wrongUnit = makeInput()
     wrongUnit.records = wrongUnit.records.map((record, index) => index === 0
       ? { ...record, unit: 'degrees' as TierBMeasurement['unit'] }

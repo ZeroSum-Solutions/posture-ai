@@ -318,6 +318,11 @@ function adjudicatedChain(options: {
   staleEngineArtifact?: boolean
   omitReliableAnalysisRecord?: boolean
   omitUnreliableAnalysisRecord?: boolean
+  wrongFrameProfileSide?: boolean
+  mixedFrameProfileSides?: boolean
+  emptyLandmarkFrames?: boolean
+  excessiveLandmarkFrames?: boolean
+  spuriousFrontFrameProfileSide?: boolean
 } = {}) {
   const authorized = authorizedChain()
   const reviewer = signingKey('statistical-reviewer', 'statistical_reviewer')
@@ -397,6 +402,21 @@ function adjudicatedChain(options: {
       const frame = cell.view === 'back'
         ? { ...generatedFrame, view: 'back' as const }
         : generatedFrame
+      const frameProfileTarget = cell.participantSlot === 1
+        && cell.deviceId === 'device-a'
+        && cell.repeatId === 1
+        && cell.view === 'side_left'
+      const artifactFrames = options.emptyLandmarkFrames && index === 0
+        ? []
+        : options.excessiveLandmarkFrames && index === 0
+          ? Array.from({ length: 6 }, () => structuredClone(frame))
+          : options.spuriousFrontFrameProfileSide && index === 0
+            ? [{ ...frame, profileSide: 'left' as const }]
+            : options.mixedFrameProfileSides && frameProfileTarget
+              ? [frame, { ...frame, profileSide: 'right' as const }]
+              : options.wrongFrameProfileSide && frameProfileTarget
+                ? [{ ...frame, profileSide: 'right' as const }]
+                : [frame]
       const landmarkPayload = {
         rowBindingSha256,
         sourcePhotoSha256,
@@ -408,7 +428,7 @@ function adjudicatedChain(options: {
         poseModel: provenance.poseModel.variant,
         view: side ? 'side' : cell.view,
         profileSide: side,
-        frames: [frame],
+        frames: artifactFrames,
       }
       const landmarkBytes = Buffer.from(canonicalizeTierB(landmarkPayload))
       const landmarkPath = `landmarks/${stableId}.json`
@@ -442,7 +462,7 @@ function adjudicatedChain(options: {
           sha256: sha256TierBBytes(landmarkBytes),
           byteLength: landmarkBytes.byteLength,
           mime: 'application/json',
-          frameCount: 1,
+          frameCount: artifactFrames.length,
         },
         authorizationPublicEnvelopeSha256,
         frozenProvenanceSha256,
@@ -503,8 +523,8 @@ function adjudicatedChain(options: {
             pose: 'neutral' as const,
             unit: 'percentage_points' as const,
             sourceField: 'severityPct' as const,
-            reliable: finding.reliable,
-            value: finding.reliable ? finding.severityPct : null,
+            reliable: finding?.reliable ?? false,
+            value: finding?.reliable ? finding.severityPct : null,
           }
         })
     })
@@ -1317,5 +1337,68 @@ describe('validateTierBChain adjudication', { timeout: 30_000 }, () => {
       code: 'VIEW_PROFILE_MISMATCH',
       path: expect.stringMatching(/landmarks$/),
     }))
+  })
+
+  it.each([
+    ['a wrong per-frame profile side', { wrongFrameProfileSide: true }],
+    ['mixed per-frame profile sides', { mixedFrameProfileSides: true }],
+    ['a profile side on a front frame', { spuriousFrontFrameProfileSide: true }],
+  ])('rejects %s even when envelope metadata matches the manifest', (_label, options) => {
+    const chain = adjudicatedChain(options)
+    const trustPolicy: TierBTrustPolicy = {
+      ...emptyTrustPolicy(),
+      keys: [chain.owner.trustedKey, chain.reviewer.trustedKey],
+    }
+    const result = validateTierBChain({
+      envelopes: [
+        { publicEnvelope: chain.prepared },
+        { publicEnvelope: chain.authorized, restrictedEnvelope: chain.restricted },
+        { publicEnvelope: chain.adjudicated, restrictedEnvelope: chain.adjudicatedRestricted },
+      ],
+      trustPolicy,
+      expectedTrustPolicySha256: sha256TierB(trustPolicy),
+      expectedState: 'adjudicated',
+      now: '2026-07-24T12:00:00.000Z',
+      artifactReader: chain.artifactReader,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContainEqual(expect.objectContaining({
+      code: 'VIEW_PROFILE_MISMATCH',
+      path: expect.stringMatching(/landmarks$/),
+      message: expect.stringMatching(/one or more landmark frames/),
+    }))
+    expect(result.consumerEligible).toBe(false)
+  })
+
+  it.each([
+    ['zero-frame', { emptyLandmarkFrames: true }],
+    ['six-frame', { excessiveLandmarkFrames: true }],
+  ])('rejects a %s landmark artifact even when its declared frame count matches', (_label, options) => {
+    const chain = adjudicatedChain(options)
+    const trustPolicy: TierBTrustPolicy = {
+      ...emptyTrustPolicy(),
+      keys: [chain.owner.trustedKey, chain.reviewer.trustedKey],
+    }
+    const result = validateTierBChain({
+      envelopes: [
+        { publicEnvelope: chain.prepared },
+        { publicEnvelope: chain.authorized, restrictedEnvelope: chain.restricted },
+        { publicEnvelope: chain.adjudicated, restrictedEnvelope: chain.adjudicatedRestricted },
+      ],
+      trustPolicy,
+      expectedTrustPolicySha256: sha256TierB(trustPolicy),
+      expectedState: 'adjudicated',
+      now: '2026-07-24T12:00:00.000Z',
+      artifactReader: chain.artifactReader,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContainEqual(expect.objectContaining({
+      code: 'ANALYSIS_CONTRACT_INVALID',
+      path: expect.stringMatching(/landmarks$/),
+      message: expect.stringMatching(/one to 5.*frames/),
+    }))
+    expect(result.consumerEligible).toBe(false)
   })
 })

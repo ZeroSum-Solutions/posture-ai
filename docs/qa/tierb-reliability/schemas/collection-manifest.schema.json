@@ -125,7 +125,7 @@
         },
         "widthPx": { "type": "integer", "minimum": 1 },
         "heightPx": { "type": "integer", "minimum": 1 },
-        "frameCount": { "type": "integer", "minimum": 1 }
+        "frameCount": { "type": "integer", "minimum": 1, "maximum": 5 }
       }
     }
   }

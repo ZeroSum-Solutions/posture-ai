@@ -107,7 +107,10 @@ substitution, and content changes between validation and use.
 At adjudication it must also contain the deidentified analysis-input envelope.
 The validator binds those participants, devices, repeats, and views to the
 verified manifest, reruns the frozen engine on every verified landmark
-artifact, requires the submitted measurement keys to exactly equal the full
+artifact, requires one to five frames per artifact, rejects any individual
+frame whose `view` or `profileSide` differs
+from its manifest slot even when the artifact envelope claims the correct
+mapping, requires the submitted measurement keys to exactly equal the full
 derived key set (including every unreliable output as an explicit `null`),
 requires every reliable-gated `severityPct` value to match that engine output,
 reruns the deterministic statistical analyzer, and
@@ -197,3 +200,11 @@ A failed or imprecise metric is reported and then demoted, redesigned, or left
 ineligible. Thresholds, weights, grade bands, and model defaults are not
 changed to manufacture a pass. A protocol change requires a new version and
 new parent packet; it may not rewrite this frozen history.
+
+Any later Lite-versus-Full default-model decision must use separately marked
+accuracy evidence. The two model files must be symmetrically paired under one
+non-empty accuracy protocol and carry the same non-empty set of finite measured
+ground-truth metrics with identical values. Only those measured metrics may
+enter the disagreement and error comparison; missing pairs, references, or
+model findings fail closed, as do unclassified JSON files in the comparison
+input directory.

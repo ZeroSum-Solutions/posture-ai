@@ -45,6 +45,8 @@ import {
   type TierBAnalysisInput,
 } from './tierb-analysis'
 
+const TIER_B_MAX_FRAMES_PER_ARTIFACT = 5
+
 export type TierBState = 'prepared' | 'collection_authorized' | 'adjudicated'
 
 export interface TierBTransition {
@@ -974,11 +976,36 @@ function validateLandmarkBinding(
     add(errors, 'VIEW_PROFILE_MISMATCH', path, 'landmark metadata or view/profile binding differs from the manifest row')
     return null
   }
+  const frames = landmark.frames
+  if (
+    frames.length === 0
+    || frames.length > TIER_B_MAX_FRAMES_PER_ARTIFACT
+  ) {
+    add(
+      errors,
+      'ANALYSIS_CONTRACT_INVALID',
+      path,
+      `landmark artifact must contain one to ${TIER_B_MAX_FRAMES_PER_ARTIFACT} frozen-engine frames`,
+    )
+    return null
+  }
+  if (frames.some((frame) =>
+    !object(frame)
+    || frame.view !== expectedView
+    || (frame.profileSide ?? null) !== expectedProfile)) {
+    add(
+      errors,
+      'VIEW_PROFILE_MISMATCH',
+      path,
+      'one or more landmark frames differ from the manifest row view/profile binding',
+    )
+    return null
+  }
   try {
-    const frames = landmark.frames as PoseFrame[]
-    const result = assessPosture(frames)
+    const poseFrames = frames as PoseFrame[]
+    const result = assessPosture(poseFrames)
     if (result.engineVersion !== ENGINE_VERSION) throw new Error('engine version mismatch')
-    return { frames, result }
+    return { frames: poseFrames, result }
   } catch {
     add(errors, 'ANALYSIS_CONTRACT_INVALID', path, 'verified landmark frames cannot be scored by the frozen engine')
     return null
@@ -1187,7 +1214,15 @@ function validateManifest(
         const finding = scoredArtifact.result.findings.find(
           (candidate) => candidate.key === metric.key,
         )
-        if (!finding) continue
+        if (!finding) {
+          add(
+            errors,
+            'ANALYSIS_CONTRACT_INVALID',
+            rowPath,
+            `frozen engine omitted required metric ${metric.key}`,
+          )
+          continue
+        }
         const measurementKey = derivedMeasurementKey(
           row.clusterId,
           row.deviceId,
