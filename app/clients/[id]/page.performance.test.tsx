@@ -30,7 +30,9 @@ vi.mock('./ComparisonWorkspace', () => ({
     return <div data-testid="comparison-workspace">Comparison loaded</div>
   },
 }))
-vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
+vi.mock('@/components/InPersonConsentForm', () => ({
+  default: () => <form aria-label="Record in-person consent" />,
+}))
 vi.mock('@/components/RemoteConsentButton', () => ({ default: () => null }))
 vi.mock('@/components/PrivacyLifecycleControls', () => ({ default: () => null }))
 
@@ -243,6 +245,31 @@ describe('client detail progressive rendering', () => {
     expect(screen.getByText('Assessment — Jul 2, 2026')).toBeTruthy()
     expect(screen.getByText('Assessment — Jul 3, 2026')).toBeTruthy()
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled())
+  })
+
+  it('fails closed when server-seeded consent status is unavailable', () => {
+    render(
+      <ClientDetailPage
+        initialData={{
+          client: {
+            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+            consent_recorded_at: null, created_at: '2026-06-01T00:00:00.000Z',
+          },
+          assessments: [],
+          consentStatus: 'unavailable',
+          pagination: {
+            has_more: false,
+            next_cursor: null,
+            snapshot_at: '2026-07-03T00:00:00.000Z',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('unavailable', { exact: true })).toBeTruthy()
+    expect(screen.getByText('Status unavailable', { exact: true })).toBeTruthy()
+    expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
   })
 
   it('merges older pages by id, advances the cursor, and clears it at the end', async () => {

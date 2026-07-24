@@ -157,18 +157,9 @@ test.describe('client detail empty state', () => {
     await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: 'Compare' })).toHaveCount(0)
 
-    // A consent-status outage must fail closed without stranding the entire client
-    // page on its loading screen. The profile/history remain usable, while consent
-    // is explicitly unavailable and no signing form is offered from uncertain state.
-    await page.route('**/api/consent?client_id=*', route => route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Consent terms are temporarily unavailable.' }),
-    }))
-    await page.reload()
-    await expect(page.getByRole('heading', { name: new RegExp(`Empty-${token}`) })).toBeVisible()
-    await expect(page.getByText('unavailable', { exact: true })).toBeVisible()
-    await expect(page.getByRole('form', { name: 'Record in-person consent' })).toHaveCount(0)
+    // Consent fail-closed rendering is covered at the server-seeded component
+    // boundary. This helper creates a consented client, so this journey stays
+    // focused on the zero-assessment workspace contract.
   })
 })
 
