@@ -87,4 +87,40 @@ describe('client directory pagination', () => {
     await screen.findByText('Slow Example')
     await waitFor(() => expect(screen.queryByText('Searching…')).toBeNull())
   })
+
+  it('aborts obsolete directory work on input and refetches an invalidated settled query', async () => {
+    let firstSearchAborted = false
+    let searchRequestCount = 0
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('search=Ada')) {
+        searchRequestCount += 1
+        if (searchRequestCount === 1) {
+          init?.signal?.addEventListener('abort', () => { firstSearchAborted = true }, { once: true })
+          return new Promise<Response>(() => {})
+        }
+        return Promise.resolve(new Response(JSON.stringify({
+          clients: [client('30000000-0000-4000-8000-000000000003', 'Ada')],
+          pagination: { has_more: false, next_cursor: null },
+        }), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [client('10000000-0000-4000-8000-000000000001', 'Initial')],
+        pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    }))
+
+    render(<ClientsPage />)
+    await screen.findByText('Initial Example')
+    const search = screen.getByRole('textbox', { name: 'Search clients by name' })
+    fireEvent.change(search, { target: { value: 'Ada' } })
+    await waitFor(() => expect(searchRequestCount).toBe(1))
+
+    fireEvent.change(search, { target: { value: 'Ada L' } })
+    expect(firstSearchAborted).toBe(true)
+    fireEvent.change(search, { target: { value: 'Ada' } })
+
+    await screen.findByText('Ada Example')
+    expect(searchRequestCount).toBe(2)
+  })
 })

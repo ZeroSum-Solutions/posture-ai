@@ -103,6 +103,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
       ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server error' }) })
       : route.continue())
     await page.goto('/assessments/new?testMode=1')
+    await page.getByRole('textbox', { name: 'Search clients by name' }).fill('Failure')
     const alert = page.locator('[role="alert"]').filter({ hasText: /could not load your clients/i })
     await expect(alert).toBeVisible({ timeout: 10_000 })
     // Must NOT show the "No clients yet" empty state

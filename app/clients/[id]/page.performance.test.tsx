@@ -123,12 +123,15 @@ describe('client detail progressive rendering', () => {
     }))
 
     const forcedLayoutSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.id === 'client-panel-assessments' ? 1200 : 120
-    })
+    const dateFormattingSpy = vi.spyOn(Date.prototype, 'toLocaleDateString')
     render(<ClientDetailPage />)
     const progress = await screen.findByRole('tab', { name: 'Progress' })
-    expect(screen.getByTestId('client-workspace-stage').style.getPropertyValue('--workspace-reserved-height')).toBe('1200px')
+    const assessmentPanel = document.getElementById('client-panel-assessments')!
+    const progressPanel = document.getElementById('client-panel-progress')!
+    expect(assessmentPanel.getAttribute('aria-hidden')).toBeNull()
+    expect(progressPanel.getAttribute('aria-hidden')).toBe('true')
+    expect(progressPanel.hasAttribute('hidden')).toBe(false)
+    const dateFormattingCount = dateFormattingSpy.mock.calls.length
     vi.useFakeTimers()
     expect(screen.queryByTestId('progress-charts')).toBeNull()
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
@@ -136,6 +139,9 @@ describe('client detail progressive rendering', () => {
     act(() => fireEvent.click(progress))
 
     expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
+    expect(assessmentPanel.getAttribute('aria-hidden')).toBe('true')
+    expect(progressPanel.getAttribute('aria-hidden')).toBeNull()
+    expect(dateFormattingSpy).toHaveBeenCalledTimes(dateFormattingCount)
     expect(screen.getByRole('button', { name: 'Load interactive charts' })).toBeTruthy()
     expect(screen.queryByTestId('progress-charts')).toBeNull()
     act(() => vi.advanceTimersByTime(300))

@@ -60,8 +60,10 @@ export async function createClient(
 
 /** Walks wizard step 1: pick the given client and continue to step 2. */
 export async function selectClientInWizard(page: Page, fullName: string) {
-  await expect(page.getByText(fullName).first()).toBeVisible({ timeout: 10_000 })
-  await page.getByText(fullName).first().click()
+  await page.getByRole('textbox', { name: 'Search clients by name' }).fill(fullName)
+  const clientResult = page.getByRole('button', { name: fullName }).first()
+  await expect(clientResult).toBeVisible({ timeout: 10_000 })
+  await clientResult.click()
   await page.getByRole('button', { name: /Next: (Confirm|Upload Views)/ }).click()
 }
 

@@ -30,6 +30,7 @@ export default function DebouncedSearchInput({
   const pendingTimer = useRef<number | null>(null)
   const lastEmittedValue = useRef(initialValue)
   const requestWasInvalidated = useRef(false)
+  const inputElement = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     latestCallback.current = onQueryChange
@@ -40,9 +41,18 @@ export default function DebouncedSearchInput({
     if (pendingTimer.current !== null) window.clearTimeout(pendingTimer.current)
   }, [])
 
+  useEffect(() => {
+    // The server-rendered field is visible before React can observe input.
+    // Enable it imperatively after hydration so early mobile taps/keystrokes
+    // cannot be accepted by the browser and silently missed by this handler.
+    if (inputElement.current) inputElement.current.disabled = false
+  }, [])
+
   return (
     <input
+      ref={inputElement}
       type="text"
+      disabled
       placeholder={placeholder}
       aria-label={ariaLabel}
       defaultValue={initialValue}

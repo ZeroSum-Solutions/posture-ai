@@ -709,6 +709,9 @@ export function NewAssessmentWizard() {
   function advanceToCapture() {
     captureSelectionLocked.current = true
     clientSelectionVersion.current += 1
+    clientPageController.current?.abort()
+    clientPageController.current = null
+    setLoadingClients(false)
     preselectedClientController.current?.abort()
     preselectedClientController.current = null
     setStep(2)

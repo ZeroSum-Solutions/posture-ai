@@ -23,6 +23,7 @@ interface ClientPageResponse {
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
+  const [searchRevision, setSearchRevision] = useState(0)
   const [loading, setLoading] = useState(true)
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -30,8 +31,12 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null)
   const [erasureNotice, setErasureNotice] = useState<'complete' | 'pending' | null>(null)
   const requestVersion = useRef(0)
+  const clientPageController = useRef<AbortController | null>(null)
   const loadMoreController = useRef<AbortController | null>(null)
-  useEffect(() => () => loadMoreController.current?.abort(), [])
+  useEffect(() => () => {
+    clientPageController.current?.abort()
+    loadMoreController.current?.abort()
+  }, [])
 
   const fetchClientPage = useCallback(async (input: {
     search: string
@@ -59,7 +64,9 @@ export default function ClientsPage() {
   // 50 records and older responses are discarded when the query changes.
   useEffect(() => {
     const version = ++requestVersion.current
+    clientPageController.current?.abort()
     const controller = new AbortController()
+    clientPageController.current = controller
     const normalizedSearch = search.trim().replace(/\s+/g, ' ')
     const timer = window.setTimeout(async () => {
       try {
@@ -80,14 +87,21 @@ export default function ClientsPage() {
           setLoading(false)
           setSearching(false)
         })
+      } finally {
+        if (clientPageController.current === controller) {
+          clientPageController.current = null
+        }
       }
     }, 0)
 
     return () => {
       window.clearTimeout(timer)
       controller.abort()
+      if (clientPageController.current === controller) {
+        clientPageController.current = null
+      }
     }
-  }, [fetchClientPage, search])
+  }, [fetchClientPage, search, searchRevision])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -183,11 +197,26 @@ export default function ClientsPage() {
         <DebouncedSearchInput
           placeholder="Search clients by name..."
           ariaLabel="Search clients by name"
+          onInputActivity={() => {
+            // The initial 50-row directory request must not finish and repaint
+            // over a practitioner's next keystroke. Keep the input DOM-owned
+            // while cancelling obsolete work immediately.
+            const controller = clientPageController.current
+            if (!controller) return false
+            requestVersion.current += 1
+            controller.abort()
+            clientPageController.current = null
+            return true
+          }}
           onQueryChange={(query) => {
             loadMoreController.current?.abort()
             loadMoreController.current = null
             setLoadingMore(false)
-            setSearch(query)
+            if (query === search) {
+              setSearchRevision((current) => current + 1)
+            } else {
+              setSearch(query)
+            }
             setSearching(true)
             setError(null)
             setNextCursor(null)
@@ -238,6 +267,7 @@ export default function ClientsPage() {
               <Link
                 key={client.id}
                 href={`/clients/${client.id}`}
+                prefetch={false}
                 className="app-list-row"
                 style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
               >

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { renderToString } from 'react-dom/server'
 
 import DebouncedSearchInput from './DebouncedSearchInput'
 
@@ -8,6 +9,26 @@ describe('DebouncedSearchInput', () => {
   afterEach(() => {
     cleanup()
     vi.useRealTimers()
+  })
+
+  it('is disabled in server markup and enabled only after hydration', () => {
+    const markup = renderToString(
+      <DebouncedSearchInput
+        ariaLabel="Search clients by name"
+        placeholder="Search clients by name..."
+        onQueryChange={vi.fn()}
+      />,
+    )
+    expect(markup).toContain('disabled=""')
+
+    render(
+      <DebouncedSearchInput
+        ariaLabel="Search clients by name"
+        placeholder="Search clients by name..."
+        onQueryChange={vi.fn()}
+      />,
+    )
+    expect((screen.getByRole('textbox', { name: 'Search clients by name' }) as HTMLInputElement).disabled).toBe(false)
   })
 
   it('updates the visible value immediately and emits only the settled query', () => {

@@ -1,6 +1,6 @@
 'use client'
 // Progress-tab trend charts, split into their own chunk so recharts (+ d3) is
-// fetched only after bounded history confirms a client has multiple assessments.
+// fetched only after the practitioner explicitly loads interactive charts.
 // The parent keeps this component behind next/dynamic with ssr:false.
 import {
   CartesianGrid,

@@ -133,6 +133,52 @@ describe('new assessment paginated client picker', () => {
     expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('keeps capture disabled and exposes an alert when the screening notice fails', async () => {
+    legalDocumentState.value = { document: null, isLoading: false, error: 'Required notice unavailable.' }
+    render(<NewAssessmentWizard />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    expect(screen.getByRole('alert').textContent).toContain('Required notice unavailable.')
+    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('refetches the same settled query after input invalidates its in-flight request', async () => {
+    let pageSearchCount = 0
+    let firstSearchAborted = false
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return Promise.resolve(new Response(JSON.stringify({ client: deepClient }), { status: 200 }))
+      }
+      if (url.includes('search=Page')) {
+        pageSearchCount += 1
+        if (pageSearchCount === 1) {
+          init?.signal?.addEventListener('abort', () => { firstSearchAborted = true }, { once: true })
+          return new Promise<Response>(() => {})
+        }
+        return Promise.resolve(new Response(JSON.stringify({
+          clients: [pageClient], pagination: { has_more: false, next_cursor: null },
+        }), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [], pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<NewAssessmentWizard />)
+    const search = screen.getByRole('textbox', { name: 'Search clients by name' })
+    fireEvent.change(search, { target: { value: 'Page' } })
+    await waitFor(() => expect(pageSearchCount).toBe(1))
+
+    fireEvent.change(search, { target: { value: 'Page O' } })
+    expect(firstSearchAborted).toBe(true)
+    fireEvent.change(search, { target: { value: 'Page' } })
+
+    await screen.findByText('Page One')
+    expect(pageSearchCount).toBe(2)
+  })
+
   it('re-enables paging when search replaces an in-flight Load more request', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -317,6 +363,6 @@ describe('new assessment paginated client picker', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
     await new Promise((resolve) => window.setTimeout(resolve, 300))
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('search=Page'))).toHaveLength(searchRequestCount)
-    expect(screen.queryByText('Loading clients…')).toBeNull()
+    expect(screen.queryByText('Loading clients...')).toBeNull()
   })
 })

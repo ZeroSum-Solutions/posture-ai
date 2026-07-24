@@ -21,9 +21,21 @@
 }
 
 .workspaceStage {
+  display: grid;
   min-width: 0;
-  min-height: var(--workspace-reserved-height, 720px);
   contain: layout style;
+}
+
+.workspacePanel {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.workspacePanelActive {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .loadWorkspaceButton {

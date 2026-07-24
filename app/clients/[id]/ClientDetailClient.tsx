@@ -1,5 +1,5 @@
 'use client'
-import { memo, startTransition, useCallback, useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, startTransition, useCallback, useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
@@ -21,8 +21,8 @@ import { segmentTrendHistory } from '@/lib/comparison/trends'
 import styles from './ClientEvidenceCanvas.module.css'
 
 // recharts (+ d3) is heavy and only used for multi-assessment clients. Keep it
-// in its own chunk, then begin loading it when bounded history confirms it is
-// needed so the first Progress click only reveals retained content.
+// in its own chunk and load it only after the practitioner explicitly asks for
+// interactive charts.
 const ProgressCharts = dynamic(() => import('./ProgressCharts'), {
   ssr: false,
   loading: () => <div className={styles.loadingPanel} role="status">Loading progress charts…</div>,
@@ -96,6 +96,168 @@ function formatStatus(status: string) {
     .join(' ')
 }
 
+interface ClientWorkspaceProps {
+  hasMultipleAssessments: boolean
+  assessmentsPanel: ReactNode
+  progressPanel: ReactNode
+  comparePanel: ReactNode
+  infoPanel: ReactNode
+}
+
+const ClientWorkspace = memo(function ClientWorkspace({
+  hasMultipleAssessments,
+  assessmentsPanel,
+  progressPanel,
+  comparePanel,
+  infoPanel,
+}: ClientWorkspaceProps) {
+  // Keep tab navigation below the client route boundary. A tab click should
+  // update four small controls and panel visibility, not reconcile the profile,
+  // evidence cards, assessment history, or consent controls above them.
+  const [activeTab, setActiveTab] = useState<Tab>('assessments')
+  const [renderedTabs, setRenderedTabs] = useState<ReadonlySet<Tab>>(
+    () => new Set<Tab>(['assessments', 'info']),
+  )
+  const availableTabs: Tab[] = hasMultipleAssessments
+    ? ['assessments', 'progress', 'compare', 'info']
+    : ['assessments', 'info']
+
+  useEffect(() => {
+    // Progress remains an explicit opt-in because recharts/d3 is the largest
+    // workspace chunk. Compare mounts after its lightweight panel has painted.
+    if (activeTab === 'progress' || renderedTabs.has(activeTab)) return
+    return scheduleAfterPresentedFrame(() => {
+      startTransition(() => {
+        setRenderedTabs((current) => {
+          if (current.has(activeTab)) return current
+          const next = new Set(current)
+          next.add(activeTab)
+          return next
+        })
+      })
+    })
+  }, [activeTab, renderedTabs])
+
+  function activateTab(tab: Tab) {
+    if (tab === activeTab) return
+    setActiveTab(tab)
+  }
+
+  function loadProgressCharts() {
+    startTransition(() => {
+      setRenderedTabs((current) => {
+        if (current.has('progress')) return current
+        const next = new Set(current)
+        next.add('progress')
+        return next
+      })
+    })
+  }
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
+    const currentIndex = availableTabs.indexOf(tab)
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % availableTabs.length
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = availableTabs.length - 1
+    if (nextIndex === null) return
+
+    event.preventDefault()
+    const nextTab = availableTabs[nextIndex]
+    activateTab(nextTab)
+    document.getElementById(`client-tab-${nextTab}`)?.focus()
+  }
+
+  function tabProps(tab: Tab) {
+    return {
+      id: `client-tab-${tab}`,
+      role: 'tab',
+      'aria-controls': `client-panel-${tab}`,
+      'aria-selected': activeTab === tab,
+      tabIndex: activeTab === tab ? 0 : -1,
+      onClick: () => activateTab(tab),
+      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(event, tab),
+    } as const
+  }
+
+  function panelProps(tab: Tab) {
+    const active = activeTab === tab
+    return {
+      id: `client-panel-${tab}`,
+      role: 'tabpanel',
+      'aria-labelledby': `client-tab-${tab}`,
+      'aria-hidden': active ? undefined : true,
+      inert: active ? undefined : true,
+      tabIndex: active ? 0 : -1,
+      className: `${styles.workspacePanel} ${active ? styles.workspacePanelActive : ''}`,
+    } as const
+  }
+
+  return (
+    <>
+      <div className={styles.tabList} role="tablist" aria-label="Client workspace">
+        <button
+          {...tabProps('assessments')}
+          className={`${styles.tab} ${activeTab === 'assessments' ? styles.tabActive : ''}`}
+        >
+          Assessments
+        </button>
+        {hasMultipleAssessments && (
+          <>
+            <button
+              {...tabProps('progress')}
+              className={`${styles.tab} ${activeTab === 'progress' ? styles.tabActive : ''}`}
+            >
+              Progress
+            </button>
+            <button
+              {...tabProps('compare')}
+              className={`${styles.tab} ${activeTab === 'compare' ? styles.tabActive : ''}`}
+            >
+              Compare
+            </button>
+          </>
+        )}
+        <button
+          {...tabProps('info')}
+          className={`${styles.tab} ${activeTab === 'info' ? styles.tabActive : ''}`}
+        >
+          Info
+        </button>
+      </div>
+
+      <div className={styles.workspaceStage} data-testid="client-workspace-stage">
+        <div {...panelProps('assessments')}>{assessmentsPanel}</div>
+        {hasMultipleAssessments && (
+          <div {...panelProps('progress')}>
+            {renderedTabs.has('progress') ? progressPanel : (
+              <div className={styles.loadingPanel}>
+                <p>Interactive charts are available when you need them.</p>
+                <button
+                  type="button"
+                  className={styles.loadWorkspaceButton}
+                  onClick={loadProgressCharts}
+                >
+                  Load interactive charts
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {hasMultipleAssessments && (
+          <div {...panelProps('compare')}>
+            {renderedTabs.has('compare') ? comparePanel : (
+              <div className={styles.loadingPanel} role="status">Preparing comparison…</div>
+            )}
+          </div>
+        )}
+        <div {...panelProps('info')}>{infoPanel}</div>
+      </div>
+    </>
+  )
+})
+
 export default function ClientDetailClient({
   initialData = null,
 }: {
@@ -138,11 +300,6 @@ function ClientDetailRoute({
   const [historyPageError, setHistoryPageError] = useState<string | null>(null)
   const [loading, setLoading] = useState(!ownsInitialData)
   const [historyLoadedForId, setHistoryLoadedForId] = useState<string | null>(ownsInitialData ? id : null)
-  const [activeTab, setActiveTab] = useState<Tab>('assessments')
-  const [renderedTabs, setRenderedTabs] = useState<ReadonlySet<Tab>>(
-    () => new Set<Tab>(['assessments', 'info']),
-  )
-  const workspaceStageElement = useRef<HTMLDivElement>(null)
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   // Compare selectors: older = "before", newer = "after"
@@ -276,34 +433,6 @@ function ClientDetailRoute({
       loadMoreAssessmentController.current?.abort()
     }
   }, [id, ownsInitialData, router])
-
-  useEffect(() => {
-    // Recharts/d3 must never begin loading just because a practitioner is
-    // navigating through the workspace. Progress exposes an explicit load
-    // action; the lighter comparison workspace may still mount after its
-    // selected tab has painted.
-    if (activeTab === 'progress' || renderedTabs.has(activeTab)) return
-    return scheduleAfterPresentedFrame(() => {
-      startTransition(() => {
-        setRenderedTabs((current) => {
-          if (current.has(activeTab)) return current
-          const next = new Set(current)
-          next.add(activeTab)
-          return next
-        })
-      })
-    })
-  }, [activeTab, renderedTabs])
-
-  useLayoutEffect(() => {
-    const stage = workspaceStageElement.current
-    const assessmentPanel = stage?.querySelector<HTMLElement>('#client-panel-assessments')
-    if (!stage || !assessmentPanel) return
-    const measuredHeight = Math.ceil(assessmentPanel.scrollHeight)
-    if (measuredHeight > 0) {
-      stage.style.setProperty('--workspace-reserved-height', `${measuredHeight}px`)
-    }
-  }, [assessments.length, nextAssessmentCursor])
 
   const {
     imbalanceKeys,
@@ -570,62 +699,6 @@ function ClientDetailRoute({
   }
 
   const hasMultipleAssessments = assessments.length >= 2
-  const availableTabs: Tab[] = hasMultipleAssessments
-    ? ['assessments', 'progress', 'compare', 'info']
-    : ['assessments', 'info']
-
-  function activateTab(tab: Tab) {
-    if (tab === activeTab) return
-    setActiveTab(tab)
-  }
-
-  function loadProgressCharts() {
-    startTransition(() => {
-      setRenderedTabs((current) => {
-        if (current.has('progress')) return current
-        const next = new Set(current)
-        next.add('progress')
-        return next
-      })
-    })
-  }
-
-  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
-    const currentIndex = availableTabs.indexOf(tab)
-    let nextIndex: number | null = null
-    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % availableTabs.length
-    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length
-    if (event.key === 'Home') nextIndex = 0
-    if (event.key === 'End') nextIndex = availableTabs.length - 1
-    if (nextIndex === null) return
-
-    event.preventDefault()
-    const nextTab = availableTabs[nextIndex]
-    activateTab(nextTab)
-    document.getElementById(`client-tab-${nextTab}`)?.focus()
-  }
-
-  function tabProps(tab: Tab) {
-    return {
-      id: `client-tab-${tab}`,
-      role: 'tab',
-      'aria-controls': `client-panel-${tab}`,
-      'aria-selected': activeTab === tab,
-      tabIndex: activeTab === tab ? 0 : -1,
-      onClick: () => activateTab(tab),
-      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(event, tab),
-    } as const
-  }
-
-  function panelProps(tab: Tab) {
-    return {
-      id: `client-panel-${tab}`,
-      role: 'tabpanel',
-      'aria-labelledby': `client-tab-${tab}`,
-      tabIndex: 0,
-      hidden: activeTab !== tab,
-    } as const
-  }
 
   const latestAssessment = assessments.at(-1)
   const latestDeviation = toNum(latestAssessment?.overall_score)
@@ -798,45 +871,10 @@ function ClientDetailRoute({
         </ConfirmDialog>
       )}
 
-      {/* Tabs */}
-      <div className={styles.tabList} role="tablist" aria-label="Client workspace">
-        <button
-          {...tabProps('assessments')}
-          className={`${styles.tab} ${activeTab === 'assessments' ? styles.tabActive : ''}`}
-        >
-          Assessments
-        </button>
-        {hasMultipleAssessments && (
-          <>
-            <button
-              {...tabProps('progress')}
-              className={`${styles.tab} ${activeTab === 'progress' ? styles.tabActive : ''}`}
-            >
-              Progress
-            </button>
-            <button
-              {...tabProps('compare')}
-              className={`${styles.tab} ${activeTab === 'compare' ? styles.tabActive : ''}`}
-            >
-              Compare
-            </button>
-          </>
-        )}
-        <button
-          {...tabProps('info')}
-          className={`${styles.tab} ${activeTab === 'info' ? styles.tabActive : ''}`}
-        >
-          Info
-        </button>
-      </div>
-
-      <div
-        ref={workspaceStageElement}
-        className={styles.workspaceStage}
-        data-testid="client-workspace-stage"
-      >
-      {/* Assessments Tab */}
-      <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+      <ClientWorkspace
+        hasMultipleAssessments={hasMultipleAssessments}
+        assessmentsPanel={(
+          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
           {historyLoadedForId !== id ? (
             <p role="status" className={styles.loadingPanel}>Loading assessment history…</p>
@@ -888,68 +926,43 @@ function ClientDetailRoute({
               )}
             </>
           )}
-      </div>
-
-      {/* Progress / Trend Charts Tab (recharts lazy-loaded — see ProgressCharts) */}
-      {hasMultipleAssessments && (
-        <div {...panelProps('progress')}>
-          {renderedTabs.has('progress') ? (
-            <>
-              {nextAssessmentCursor && (
-                <p role="status" className={styles.loadingPanel}>
-                  Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
-                </p>
-              )}
-              <RetainedProgressCharts
-                trendData={trendData}
-                trendSegments={trendSegments}
-                imbalanceKeys={imbalanceKeys}
-                imbalanceLabels={imbalanceLabels}
-              />
-            </>
-          ) : (
-            <div className={styles.loadingPanel}>
-              <p>Interactive charts are available when you need them.</p>
-              <button
-                type="button"
-                className={styles.loadWorkspaceButton}
-                onClick={loadProgressCharts}
-              >
-                Load interactive charts
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Compare Tab */}
-      {hasMultipleAssessments && (
-        <div {...panelProps('compare')}>
-          {renderedTabs.has('compare') ? (
-            <>
-              {nextAssessmentCursor && (
-                <p role="status" className={styles.loadingPanel}>
-                  Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
-                </p>
-              )}
-              <RetainedComparisonWorkspace
-                assessments={comparisonAssessments}
-                baseId={compareBaseId}
-                targetId={compareTargetId}
-                deltaRows={deltaRows}
-                overallComparison={selectedComparison?.overall ?? null}
-                onBaseChange={handleCompareBaseChange}
-                onTargetChange={handleCompareTargetChange}
-              />
-            </>
-          ) : (
-            <div className={styles.loadingPanel} role="status">Preparing comparison…</div>
-          )}
-        </div>
-      )}
-
-      {/* Info Tab */}
-      <div {...panelProps('info')}>
+          </div>
+        )}
+        progressPanel={(
+          <>
+            {nextAssessmentCursor && (
+              <p role="status" className={styles.loadingPanel}>
+                Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
+              </p>
+            )}
+            <RetainedProgressCharts
+              trendData={trendData}
+              trendSegments={trendSegments}
+              imbalanceKeys={imbalanceKeys}
+              imbalanceLabels={imbalanceLabels}
+            />
+          </>
+        )}
+        comparePanel={(
+          <>
+            {nextAssessmentCursor && (
+              <p role="status" className={styles.loadingPanel}>
+                Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
+              </p>
+            )}
+            <RetainedComparisonWorkspace
+              assessments={comparisonAssessments}
+              baseId={compareBaseId}
+              targetId={compareTargetId}
+              deltaRows={deltaRows}
+              overallComparison={selectedComparison?.overall ?? null}
+              onBaseChange={handleCompareBaseChange}
+              onTargetChange={handleCompareTargetChange}
+            />
+          </>
+        )}
+        infoPanel={(
+          <div>
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
@@ -1038,8 +1051,9 @@ function ClientDetailRoute({
               router.push(`/clients?erasure=${externalStatus}`)
             }}
           />
-      </div>
-      </div>
+          </div>
+        )}
+      />
     </div>
   )
 }
