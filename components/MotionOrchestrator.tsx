@@ -3,10 +3,15 @@
 import { motion } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { shouldAnimateRouteEntrance } from './motionOrchestratorPolicy'
 
 /** One route-level entrance; descendants remain untouched during hydration. */
 export default function MotionOrchestrator({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? ''
+
+  if (!shouldAnimateRouteEntrance(pathname)) {
+    return <main className="app-shell-main">{children}</main>
+  }
 
   return (
     <motion.main

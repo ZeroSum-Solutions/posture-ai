@@ -1,7 +1,8 @@
 const ATMOSPHERE_EXCLUDED_PREFIXES = [
   '/auth',
   '/onboarding',
-  '/assessments/new',
+  '/assessments',
+  '/clients',
   '/workouts',
 ] as const
 
