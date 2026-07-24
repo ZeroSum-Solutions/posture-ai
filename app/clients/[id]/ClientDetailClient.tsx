@@ -236,6 +236,15 @@ const ClientWorkspace = memo(function ClientWorkspace({
         </button>
       </div>
 
+      <div
+        className={styles.visuallyHidden}
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="privacy-workspace-status"
+      >
+        {privacyStatus}
+      </div>
+
       <div className={styles.workspaceStage} data-testid="client-workspace-stage">
         <div {...panelProps('assessments')}>{assessmentsPanel}</div>
         {hasMultipleAssessments && (
@@ -262,14 +271,6 @@ const ClientWorkspace = memo(function ClientWorkspace({
           </div>
         )}
         <div {...panelProps('info')}>
-          <div
-            className={styles.visuallyHidden}
-            aria-live="polite"
-            aria-atomic="true"
-            data-testid="privacy-workspace-status"
-          >
-            {privacyStatus}
-          </div>
           {infoPanel}
           {renderedTabs.has('info')
             ? privacyPanel
