@@ -117,7 +117,7 @@ const ClientWorkspace = memo(function ClientWorkspace({
   // evidence cards, assessment history, or consent controls above them.
   const [activeTab, setActiveTab] = useState<Tab>('assessments')
   const [renderedTabs, setRenderedTabs] = useState<ReadonlySet<Tab>>(
-    () => new Set<Tab>(['assessments', 'info']),
+    () => new Set<Tab>(['assessments']),
   )
   const availableTabs: Tab[] = hasMultipleAssessments
     ? ['assessments', 'progress', 'compare', 'info']
@@ -125,7 +125,9 @@ const ClientWorkspace = memo(function ClientWorkspace({
 
   useEffect(() => {
     // Progress remains an explicit opt-in because recharts/d3 is the largest
-    // workspace chunk. Compare mounts after its lightweight panel has painted.
+    // workspace chunk. Compare and Info mount after their lightweight panels
+    // have painted so hidden privacy inventory work cannot collide with the
+    // first measured interaction on a throttled device.
     if (activeTab === 'progress' || renderedTabs.has(activeTab)) return
     return scheduleAfterPresentedFrame(() => {
       startTransition(() => {
@@ -251,7 +253,11 @@ const ClientWorkspace = memo(function ClientWorkspace({
             )}
           </div>
         )}
-        <div {...panelProps('info')}>{infoPanel}</div>
+        <div {...panelProps('info')}>
+          {renderedTabs.has('info') ? infoPanel : (
+            <div className={styles.loadingPanel}>Preparing client information…</div>
+          )}
+        </div>
       </div>
     </>
   )

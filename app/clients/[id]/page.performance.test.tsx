@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const workspaceRenders = vi.hoisted(() => ({
   progress: vi.fn(),
   comparison: vi.fn(),
+  privacy: vi.fn(),
 }))
 
 const navigation = vi.hoisted(() => ({
@@ -34,7 +35,12 @@ vi.mock('@/components/InPersonConsentForm', () => ({
   default: () => <form aria-label="Record in-person consent" />,
 }))
 vi.mock('@/components/RemoteConsentButton', () => ({ default: () => null }))
-vi.mock('@/components/PrivacyLifecycleControls', () => ({ default: () => null }))
+vi.mock('@/components/PrivacyLifecycleControls', () => ({
+  default: () => {
+    workspaceRenders.privacy()
+    return <div data-testid="privacy-lifecycle-controls">Privacy controls loaded</div>
+  },
+}))
 
 import ClientDetailPage from './ClientDetailClient'
 
@@ -73,6 +79,42 @@ afterEach(() => {
 })
 
 describe('client detail progressive rendering', () => {
+  it('defers hidden privacy lifecycle work until the Info tab is presented', () => {
+    workspaceRenders.privacy.mockClear()
+    vi.useFakeTimers()
+
+    render(
+      <ClientDetailPage
+        initialData={{
+          client: {
+            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+            consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
+          },
+          assessments,
+          consentStatus: 'valid',
+          pagination: {
+            has_more: false,
+            next_cursor: null,
+            snapshot_at: '2026-07-03T00:00:00.000Z',
+          },
+        }}
+      />,
+    )
+
+    expect(workspaceRenders.privacy).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
+    expect(screen.getByText('Preparing client information…')).toBeTruthy()
+    expect(workspaceRenders.privacy).not.toHaveBeenCalled()
+
+    act(() => vi.advanceTimersByTime(299))
+    expect(workspaceRenders.privacy).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(1))
+
+    expect(screen.getByTestId('privacy-lifecycle-controls')).toBeTruthy()
+    expect(workspaceRenders.privacy).toHaveBeenCalledTimes(1)
+  })
+
   it('paints the client record before consent and assessment history finish', async () => {
     const consent = deferred<Response>()
     const history = deferred<Response>()
@@ -248,6 +290,7 @@ describe('client detail progressive rendering', () => {
   })
 
   it('fails closed when server-seeded consent status is unavailable', () => {
+    vi.useFakeTimers()
     render(
       <ClientDetailPage
         initialData={{
@@ -268,6 +311,8 @@ describe('client detail progressive rendering', () => {
     )
 
     expect(screen.getByText('unavailable', { exact: true })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
+    act(() => vi.advanceTimersByTime(300))
     expect(screen.getByText('Status unavailable', { exact: true })).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
   })
