@@ -40,6 +40,27 @@
       "hash_scope": "canonical-json-sorted-keys-preserved-array-order-with-trailing-newline",
       "verification_command": "jq -cS '.criteria' ~/.claude/goal-state/posture-ai-production-readiness/state.json | shasum -a 256",
       "sha256": "4795fa7dbcaefdf3ece6d3aeba831aa656cb1b029c35cfabcf0b678a6391ca93"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-performance-budgets-v6-2026-07-22-pr09",
+      "path": "docs/qa/performance-budgets.json",
+      "sha256": "13d2331f4fa4fe11fe98b9a98fbb631ac734040ef54a0ef2af6137bc98f46b74"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-performance-budgets-schema-v6-2026-07-22-pr09",
+      "path": "docs/qa/performance-budgets.schema.json",
+      "sha256": "159d652df8b9b070681a5a49aa88d385ea6d6505d8d739311c6fe753fa26aa94"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-performance-budgets-validator-v7-2026-07-22-pr09",
+      "path": "scripts/check-performance-budgets.mjs",
+      "sha256": "de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a"
     }
   ],
   "runtime_source_contracts": [
@@ -1331,7 +1352,7 @@
     "expected_files": 32,
     "test_ids_sha256": "ae77a606ccde7c9f70bce5226c87b3a98b0da918e3a8706b9a70a2bd911cdf29"
   },
-  "inventory_hash": "da26fb44640172a1394e8e761fdd49c27eed86b2172ab3a6e84d4badf036df06",
+  "inventory_hash": "7de538ebaf64c49373aeeb5abf0e073c238dd0c6b27f68e7d7af2d5043b8eb6d",
   "ci_contract": {
     "global_commands": [
       "npm run lint",

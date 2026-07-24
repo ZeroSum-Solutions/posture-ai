@@ -24,6 +24,12 @@ const DEVICE_VALIDATOR_SOURCE_ID = 'posture-ai-device-evidence-validator-2026-07
 const DEVICE_SCHEMA_SOURCE_ID = 'posture-ai-device-evidence-schema-2026-07-21-pr08'
 const PLAYWRIGHT_RECEIPT_SOURCE_ID = 'posture-ai-playwright-receipt-reporter-2026-07-21-pr08'
 const PLAYWRIGHT_SANITIZER_SOURCE_ID = 'posture-ai-playwright-receipt-sanitizer-2026-07-21-pr08'
+const PERFORMANCE_BUDGET_SOURCE_ID = 'posture-ai-performance-budgets-v6-2026-07-22-pr09'
+const PERFORMANCE_BUDGET_SCHEMA_SOURCE_ID = 'posture-ai-performance-budgets-schema-v6-2026-07-22-pr09'
+const PERFORMANCE_BUDGET_VALIDATOR_SOURCE_ID = 'posture-ai-performance-budgets-validator-v7-2026-07-22-pr09'
+const PERFORMANCE_BUDGET_SOURCE_SHA256 = '13d2331f4fa4fe11fe98b9a98fbb631ac734040ef54a0ef2af6137bc98f46b74'
+const PERFORMANCE_BUDGET_SCHEMA_SOURCE_SHA256 = '159d652df8b9b070681a5a49aa88d385ea6d6505d8d739311c6fe753fa26aa94'
+const PERFORMANCE_BUDGET_VALIDATOR_SOURCE_SHA256 = 'de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a'
 const SOURCE_INVENTORY_HASH_PATTERN = /const SOURCE_INVENTORY_HASH = '[a-f0-9]{64}'/
 const PR08_BASE_COMMIT = '92b31ab453b1e70c630cdfbb88d67688633a184d'
 
@@ -96,6 +102,14 @@ export function deviceEvidenceRuntimeSources() {
   ]
 }
 
+export function performanceBudgetSources() {
+  return [
+    { path: 'docs/qa/performance-budgets.json', id: PERFORMANCE_BUDGET_SOURCE_ID, sha256: PERFORMANCE_BUDGET_SOURCE_SHA256 },
+    { path: 'docs/qa/performance-budgets.schema.json', id: PERFORMANCE_BUDGET_SCHEMA_SOURCE_ID, sha256: PERFORMANCE_BUDGET_SCHEMA_SOURCE_SHA256 },
+    { path: 'scripts/check-performance-budgets.mjs', id: PERFORMANCE_BUDGET_VALIDATOR_SOURCE_ID, sha256: PERFORMANCE_BUDGET_VALIDATOR_SOURCE_SHA256 },
+  ]
+}
+
 function updateSourceContract(contracts, path, { id } = {}) {
   const contract = contracts.find(row => row.path === path)
   if (!contract) throw new Error(`Missing source contract for ${path}`)
@@ -109,6 +123,32 @@ function upsertEntireFileContract(contracts, path, id) {
   next.id = id
   next.path = path
   next.sha256 = sha256(readFileSync(resolve(ROOT, path), 'utf8'))
+  if (!existing) contracts.push(next)
+}
+
+export function upsertImmutableEntireFileContract(contracts, path, id, bytes, expectedSha256) {
+  const idOwner = contracts.find(row => row.id === id && row.path !== path)
+  if (idOwner) throw new Error(`Immutable source contract ID ${id} already belongs to ${idOwner.path}`)
+  const nextHash = sha256(bytes)
+  if (nextHash !== expectedSha256) {
+    throw new Error(`Immutable source contract ${path} bytes changed under ${id}; bump the source ID and frozen hash before regeneration`)
+  }
+  const existing = contracts.find(row => row.path === path)
+  if (existing?.id === id && existing.sha256 !== nextHash) {
+    throw new Error(`Immutable source contract ${path} changed under ${id}; bump the source ID before regeneration`)
+  }
+  if (existing?.id === id) {
+    if (existing.hash_algorithm !== 'sha256' || existing.hash_scope !== 'entire_file') {
+      throw new Error(`Immutable source contract ${path} has invalid hash metadata`)
+    }
+    return
+  }
+  const next = existing ?? {}
+  next.hash_algorithm = 'sha256'
+  next.hash_scope = 'entire_file'
+  next.id = id
+  next.path = path
+  next.sha256 = nextHash
   if (!existing) contracts.push(next)
 }
 
@@ -131,6 +171,9 @@ function buildNext() {
   if (!auditContract) throw new Error('Manifest is missing the AUDIT source contract')
   auditContract.id = AUDIT_SOURCE_ID
   auditContract.sha256 = sha256(readFileSync(resolve(ROOT, auditContract.path), 'utf8'))
+  for (const source of performanceBudgetSources()) {
+    upsertImmutableEntireFileContract(manifest.source_contracts, source.path, source.id, readFileSync(resolve(ROOT, source.path), 'utf8'), source.sha256)
+  }
 
   manifest.e2e.inventory_id = INVENTORY_ID
   manifest.e2e.project_order = inventory.project_order

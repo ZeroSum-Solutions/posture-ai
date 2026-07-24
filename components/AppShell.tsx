@@ -9,6 +9,7 @@ import NavBar from './NavBar'
 import MotionOrchestrator from './MotionOrchestrator'
 import AuthSessionGuard from './AuthSessionGuard'
 import { shouldRenderAppAtmosphere } from './appAtmospherePolicy'
+import { isOperationalRoute } from './motionOrchestratorPolicy'
 import LegalNotice from './LegalNotice'
 
 export default function AppShell({
@@ -20,10 +21,15 @@ export default function AppShell({
 }) {
   const pathname = usePathname() ?? ''
   const showAtmosphere = shouldRenderAppAtmosphere(pathname)
+  const shellClassName = [
+    'app-shell',
+    showAtmosphere ? 'app-shell--immersive' : '',
+    isOperationalRoute(pathname) ? 'app-shell--operational' : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className={showAtmosphere ? 'app-shell app-shell--immersive' : 'app-shell'}>
+      <div className={shellClassName}>
         {showAtmosphere && <AppAtmosphere />}
         <AuthSessionGuard pathname={pathname}>
           <NavBar clinicalContentEnabled={clinicalContentEnabled} />

@@ -362,6 +362,20 @@ describe('POST /api/reports', () => {
     expect(uploadSpy).not.toHaveBeenCalled()
   })
 
+  test('accepts an earlier comparison assessment within the same JavaScript millisecond', async () => {
+    serverTableQueues.assessments = [
+      { data: { ...approvedAssessment, assessed_at: '2026-01-01T00:00:00.123789Z' }, error: null },
+      { data: { ...approvedAssessment, id: 'prior', assessed_at: '2026-01-01T00:00:00.123456Z' }, error: null },
+    ]
+    serverTableQueues.assessment_findings = [
+      { data: [], error: null },
+      { data: [], error: null },
+    ]
+
+    const res = await POST(req({ assessment_id: 'a1', compared_to_assessment_id: 'prior', variant: 'client' }))
+    expect(res.status).toBe(200)
+  })
+
   test.each([
     ['missing prior version', 'v1', null],
     ['missing current version', null, 'v1'],

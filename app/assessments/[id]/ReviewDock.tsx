@@ -33,6 +33,9 @@ export type ReviewDockProps = {
   comparisonId: string
   comparisonOptions: ComparisonOption[]
   onComparisonChange: (id: string) => void
+  hasMoreComparisonOptions: boolean
+  isLoadingMoreComparisonOptions: boolean
+  onLoadMoreComparisonOptions: () => void
   isSharing: boolean
   shareLink: string | null
   copied: boolean
@@ -73,6 +76,9 @@ export default function ReviewDock({
   comparisonId,
   comparisonOptions,
   onComparisonChange,
+  hasMoreComparisonOptions,
+  isLoadingMoreComparisonOptions,
+  onLoadMoreComparisonOptions,
   isSharing,
   shareLink,
   copied,
@@ -207,14 +213,28 @@ export default function ReviewDock({
           )}
         </div>
 
-        {comparisonOptions.length > 0 && (
-          <label className={styles.comparisonField} htmlFor="compare-prior">
-            <span>Compare report</span>
-            <select id="compare-prior" value={comparisonId} onChange={(event) => onComparisonChange(event.target.value)}>
-              <option value="">No prior comparison</option>
-              {comparisonOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
-          </label>
+        {(comparisonOptions.length > 0 || hasMoreComparisonOptions) && (
+          <div className={styles.comparisonField}>
+            {comparisonOptions.length > 0 && (
+              <label htmlFor="compare-prior">
+                <span>Compare report</span>
+                <select id="compare-prior" value={comparisonId} onChange={(event) => onComparisonChange(event.target.value)}>
+                  <option value="">No prior comparison</option>
+                  {comparisonOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+              </label>
+            )}
+            {hasMoreComparisonOptions && (
+              <button
+                type="button"
+                className={styles.secondaryAction}
+                disabled={isLoadingMoreComparisonOptions}
+                onClick={onLoadMoreComparisonOptions}
+              >
+                {isLoadingMoreComparisonOptions ? 'Loading older reports…' : 'Load older report options'}
+              </button>
+            )}
+          </div>
         )}
 
         {shareLink && (

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 const state = vi.hoisted(() => ({
   user: { id: '10000000-0000-4000-8000-000000000001' } as { id: string } | null,
@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
     approvedReportCopyIds: [] as string[],
   },
   update: vi.fn(),
+  loadAssessmentResults: vi.fn(),
 }))
 
 function serviceClient() {
@@ -36,8 +37,11 @@ vi.mock('@/lib/clinical-content/runtime', () => ({ clinicalContentAccess: () => 
 vi.mock('@/lib/clinical-content/database', () => ({
   verifyClinicalContentAccess: async (access: unknown) => access,
 }))
+vi.mock('@/app/assessments/[id]/loadAssessmentResults', () => ({
+  loadAssessmentResults: state.loadAssessmentResults,
+}))
 
-import { PATCH } from './route'
+import { GET, PATCH } from './route'
 
 function invoke(body: Record<string, unknown> = { capability: 'standard' }) {
   return PATCH(
@@ -48,6 +52,48 @@ function invoke(body: Record<string, unknown> = { capability: 'standard' }) {
     { params: Promise.resolve({ id: 'a1' }) },
   )
 }
+
+function invokeGet() {
+  return GET(
+    new NextRequest('http://localhost/api/assessments/a1'),
+    { params: Promise.resolve({ id: 'a1' }) },
+  )
+}
+
+describe('GET /api/assessments/[id] loader parity', () => {
+  beforeEach(() => {
+    state.loadAssessmentResults.mockReset()
+  })
+
+  test('serializes the successful loader payload without reshaping it', async () => {
+    const payload = {
+      assessment: { id: 'a1', status: 'complete' },
+      findings: [{ id: 'finding-1' }],
+      captures: [],
+      clinical_content: { enabled: true, projection: { program: { priorities: [] } } },
+    }
+    state.loadAssessmentResults.mockResolvedValue({ ok: true, data: payload })
+
+    const response = await invokeGet()
+
+    expect(state.loadAssessmentResults).toHaveBeenCalledWith('a1')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(payload)
+  })
+
+  test('returns the loader authorization or read failure unchanged', async () => {
+    state.loadAssessmentResults.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json({ error: 'Assessment not found' }, { status: 404 }),
+    })
+
+    const response = await invokeGet()
+
+    expect(state.loadAssessmentResults).toHaveBeenCalledWith('a1')
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'Assessment not found' })
+  })
+})
 
 describe('PATCH /api/assessments/[id] clinical surface gating', () => {
   beforeEach(() => {

@@ -9,7 +9,7 @@ vi.mock('./PriorityProgram', () => ({ default: () => null }))
 vi.mock('./WhyThisSheet', () => ({ default: () => null }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }))
 
-import { FindingCard } from './ClinicalAssessmentResults'
+import { canonicalAssessmentTimestamp, FindingCard } from './ClinicalAssessmentResults'
 
 afterEach(cleanup)
 
@@ -26,5 +26,14 @@ describe('FindingCard Muscle Analysis disclosure', () => {
     render(<FindingCard f={finding as never} />)
     const btn = screen.getByRole('button', { name: /Muscle Analysis/i })
     expect(btn.getAttribute('aria-expanded')).toBe('false')
+  })
+})
+
+describe('assessment comparison timestamp boundary', () => {
+  it('normalizes Postgres RFC 3339 timestamps for the canonical API filter', () => {
+    expect(canonicalAssessmentTimestamp('2026-06-30T12:00:00+00:00')).toBe('2026-06-30T12:00:00.000Z')
+    expect(canonicalAssessmentTimestamp('2026-06-30T12:00:00.123456+00:00'))
+      .toBe('2026-06-30T12:00:00.123456Z')
+    expect(canonicalAssessmentTimestamp('not-a-date')).toBeNull()
   })
 })

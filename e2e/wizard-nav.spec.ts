@@ -15,10 +15,10 @@ test.describe('assessment wizard navigation', () => {
     await page.goto('/assessments/new?testMode=1')
     await expect(page.getByRole('heading', { name: 'Step 1: Select Client' })).toBeVisible()
 
-    // Select the client (search narrows past the shared practitioner's other clients).
-    await page.getByPlaceholder('Search clients by name...').fill(token)
-    await page.getByRole('button', { name: new RegExp(`Back-${token}`) }).click()
-    await expect(page.getByText('✓ Selected')).toBeVisible()
+    const query = `Back-${token}`
+    await page.getByRole('textbox', { name: 'Search clients by name' }).fill(query)
+    await page.getByRole('button', { name: new RegExp(`E2E ${query}`) }).click()
+    await expect(page.getByTestId('selected-client-summary')).toContainText(`Back-${token}`)
 
     // Advance to step 2.
     await page.getByRole('button', { name: 'Next: Confirm' }).click()
@@ -27,7 +27,8 @@ test.describe('assessment wizard navigation', () => {
     // Back to step 1 — the selection must persist.
     await page.getByRole('button', { name: 'Back', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Step 1: Select Client' })).toBeVisible()
-    await expect(page.getByText('✓ Selected')).toBeVisible()
+    await expect(page.getByTestId('selected-client-summary')).toContainText(`Back-${token}`)
+    await expect(page.getByRole('textbox', { name: 'Search clients by name' })).toHaveValue(query)
     await expect(page.getByRole('button', { name: 'Next: Confirm' })).toBeEnabled()
   })
 
@@ -35,9 +36,8 @@ test.describe('assessment wizard navigation', () => {
     const token = randomUUID().slice(0, 8)
     const client = await createClient(page, 'E2E', `Abandon-${token}`)
 
-    await page.goto('/assessments/new?testMode=1')
-    await page.getByPlaceholder('Search clients by name...').fill(token)
-    await page.getByRole('button', { name: new RegExp(`Abandon-${token}`) }).click()
+    await page.goto(`/assessments/new?testMode=1&client_id=${client.id}`)
+    await expect(page.getByTestId('selected-client-summary')).toContainText(`Abandon-${token}`)
     await page.getByRole('button', { name: 'Next: Confirm' }).click()
     await expect(page.getByRole('heading', { name: 'Step 2: Confirm Test Mode' })).toBeVisible()
 

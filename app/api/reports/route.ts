@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
 import { createHash, randomUUID } from 'node:crypto'
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
@@ -142,9 +143,7 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       )
     }
-    const currentTime = Date.parse(assessment.assessed_at)
-    const priorTime = Date.parse(prior.assessed_at)
-    if (!Number.isFinite(currentTime) || !Number.isFinite(priorTime) || priorTime >= currentTime) {
+    if (comparePostgresTimestamps(prior.assessed_at, assessment.assessed_at) !== -1) {
       return NextResponse.json(
         { error: 'The comparison assessment must be earlier than the current assessment.' },
         { status: 400 },

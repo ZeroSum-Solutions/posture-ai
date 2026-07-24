@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { startTransition, useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import DebouncedSearchInput from '@/components/DebouncedSearchInput'
 
 interface Client {
   id: string
@@ -11,48 +11,142 @@ interface Client {
   created_at: string
 }
 
+interface ClientPageResponse {
+  clients?: Client[]
+  pagination?: {
+    next_cursor?: string | null
+    has_more?: boolean
+  }
+  error?: string
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [searchRevision, setSearchRevision] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [erasureNotice, setErasureNotice] = useState<'complete' | 'pending' | null>(null)
-
-  const fetchClients = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    const supabase = createSupabaseBrowserClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/auth/sign-in'; return }
-    const { data, error: fetchError } = await supabase
-      .from('clients')
-      .select('id, first_name, last_name, date_of_birth, created_at')
-      .eq('practitioner_id', user.id)
-      .is('archived_at', null)
-      // Exclude erased (right-to-erasure) clients — deleted_at is the tombstone.
-      // Without this an erased client lingers as a redacted ghost row, disagreeing
-      // with /api/clients which filters both (QA-001).
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-    if (fetchError) {
-      setError(fetchError.message)
-    } else {
-      setClients(data || [])
-    }
-    setLoading(false)
+  const requestVersion = useRef(0)
+  const clientPageController = useRef<AbortController | null>(null)
+  const loadMoreController = useRef<AbortController | null>(null)
+  useEffect(() => () => {
+    clientPageController.current?.abort()
+    loadMoreController.current?.abort()
   }, [])
 
-  // Fetch-on-mount; loading flag flips synchronously by design. Revisit in P5 polish.
-  useEffect(() => {
-    // Existing imperative Supabase loader; it owns loading/error state updates.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchClients()
-    const status = new URLSearchParams(window.location.search).get('erasure')
-    if (status === 'complete') {
-      sessionStorage.removeItem('postureai:pending-erasure-receipt')
-      setErasureNotice('complete')
+  const fetchClientPage = useCallback(async (input: {
+    search: string
+    cursor?: string | null
+    signal?: AbortSignal
+  }): Promise<ClientPageResponse> => {
+    const query = new URLSearchParams({ limit: '50' })
+    if (input.search) query.set('search', input.search)
+    if (input.cursor) query.set('cursor', input.cursor)
+    const response = await fetch(`/api/clients?${query.toString()}`, {
+      cache: 'no-store',
+      signal: input.signal,
+    })
+    if (response.status === 401) {
+      window.location.assign('/auth/sign-in')
+      throw new Error('Unauthorized')
     }
-  }, [fetchClients])
+    const body = await response.json().catch(() => ({})) as ClientPageResponse
+    if (!response.ok) throw new Error(body.error || 'Could not load clients.')
+    return body
+  }, [])
+
+  // Server-side search is debounced so a growing directory never has to be
+  // downloaded just to filter it in the browser. Each response is a maximum of
+  // 50 records and older responses are discarded when the query changes.
+  useEffect(() => {
+    const version = ++requestVersion.current
+    clientPageController.current?.abort()
+    const normalizedSearch = search.trim().replace(/\s+/g, ' ')
+    if (!normalizedSearch) return
+
+    const controller = new AbortController()
+    clientPageController.current = controller
+    const timer = window.setTimeout(async () => {
+      try {
+        const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
+        if (controller.signal.aborted || requestVersion.current !== version) return
+        startTransition(() => {
+          setClients(body.clients ?? [])
+          setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+          setError(null)
+          setLoading(false)
+          setSearching(false)
+        })
+      } catch (caught) {
+        if ((caught as Error)?.name === 'AbortError' || requestVersion.current !== version) return
+        startTransition(() => {
+          setNextCursor(null)
+          if ((caught as Error)?.message !== 'Unauthorized') setError('Could not load clients. Refresh to try again.')
+          setLoading(false)
+          setSearching(false)
+        })
+      } finally {
+        if (clientPageController.current === controller) {
+          clientPageController.current = null
+        }
+      }
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+      if (clientPageController.current === controller) {
+        clientPageController.current = null
+      }
+    }
+  }, [fetchClientPage, search, searchRevision])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const status = new URLSearchParams(window.location.search).get('erasure')
+      if (status === 'complete') {
+        sessionStorage.removeItem('postureai:pending-erasure-receipt')
+        setErasureNotice('complete')
+      }
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  async function loadMoreClients() {
+    if (!nextCursor || loadingMore) return
+    const version = requestVersion.current
+    loadMoreController.current?.abort()
+    const controller = new AbortController()
+    loadMoreController.current = controller
+    setLoadingMore(true)
+    setError(null)
+    try {
+      const body = await fetchClientPage({
+        search: search.trim().replace(/\s+/g, ' '),
+        cursor: nextCursor,
+        signal: controller.signal,
+      })
+      if (requestVersion.current !== version) return
+      setClients((current) => {
+        const seen = new Set(current.map((client) => client.id))
+        return [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
+      })
+      setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && requestVersion.current === version && (caught as Error)?.message !== 'Unauthorized') {
+        setError('Could not load more clients. Try again.')
+      }
+    } finally {
+      if (loadMoreController.current === controller) {
+        loadMoreController.current = null
+        setLoadingMore(false)
+      }
+    }
+  }
 
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get('erasure')
@@ -61,7 +155,6 @@ export default function ClientsPage() {
 
     let stopped = false
     // The query/session receipt is external navigation state synchronized here.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setErasureNotice('pending')
     async function poll() {
       const response = await fetch('/api/privacy/erasure-status', {
@@ -86,16 +179,6 @@ export default function ClientsPage() {
     }
   }, [])
 
-  const filtered = clients.filter(c => {
-    if (!search.trim()) return true
-    const q = search.trim().toLowerCase()
-    return (
-      c.first_name.toLowerCase().includes(q) ||
-      c.last_name.toLowerCase().includes(q) ||
-      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q)
-    )
-  })
-
   return (
     <div className="app-standard-page">
       <div className="app-page-header">
@@ -113,11 +196,35 @@ export default function ClientsPage() {
       </div>
 
       <div className="app-search-shell">
-        <input
-          type="text"
+        <DebouncedSearchInput
           placeholder="Search clients by name..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+          ariaLabel="Search clients by name"
+          onInputActivity={() => {
+            // Keep the input DOM-owned while cancelling an obsolete settled
+            // search immediately. The empty directory never starts a request.
+            const controller = clientPageController.current
+            if (!controller) return false
+            requestVersion.current += 1
+            controller.abort()
+            clientPageController.current = null
+            return true
+          }}
+          onQueryChange={(query) => {
+            loadMoreController.current?.abort()
+            loadMoreController.current = null
+            setLoadingMore(false)
+            const hasSearch = query.trim().length > 0
+            if (query === search) {
+              setSearchRevision((current) => current + 1)
+            } else {
+              setSearch(query)
+            }
+            if (!hasSearch) setClients([])
+            setLoading(hasSearch && clients.length === 0)
+            setSearching(hasSearch)
+            setError(null)
+            setNextCursor(null)
+          }}
           style={{
             width: '100%',
             padding: '10px 14px',
@@ -126,10 +233,17 @@ export default function ClientsPage() {
             borderRadius: '8px',
             color: 'var(--text-primary)',
             fontSize: '0.9rem',
-                        boxSizing: 'border-box' as const,
+            minHeight: '44px',
+            boxSizing: 'border-box' as const,
           }}
         />
       </div>
+
+      {searching && !loading && (
+        <p role="status" aria-live="polite" style={{ color: 'var(--text-secondary)', margin: '-12px 0 16px' }}>
+          Searching…
+        </p>
+      )}
 
       {erasureNotice === 'complete' && (
         <p role="status" className="app-panel" style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
@@ -142,33 +256,48 @@ export default function ClientsPage() {
         </p>
       )}
 
-      {error && <p style={{ color: 'var(--danger)' }}>Error loading clients: {error}</p>}
+      {error && <p role="alert" style={{ color: 'var(--danger)' }}>Error loading clients: {error}</p>}
 
       {loading ? (
         <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">···</span></div><div><h2>Loading clients</h2><p>Preparing the practice directory.</p></div></div>
-      ) : filtered.length === 0 && clients.length === 0 ? (
-        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">01</span></div><div><h2>No clients yet</h2><p>Add the first client when you are ready to create a baseline.</p></div><Link href="/clients/new">Add client →</Link></div>
-      ) : filtered.length === 0 ? (
+      ) : error && clients.length === 0 ? null : clients.length === 0 && !search.trim() ? (
+        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">⌕</span></div><div><h2>Search by first or last name</h2><p>Enter a client name to open a record or review prior screens.</p></div><Link href="/clients/new">Add a new client →</Link></div>
+      ) : clients.length === 0 ? (
         <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">0</span></div><div><h2>No matching clients</h2><p>Try a different first or last name.</p></div></div>
       ) : (
-        <div className="app-list">
-          {filtered.map((client, index) => (
-            <Link
-              key={client.id}
-              href={`/clients/${client.id}`}
-              className="app-list-row"
-              style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
-            >
-              <span className="app-row-index">{String(index + 1).padStart(2, '0')}</span>
-              <span className="app-row-main">{client.first_name} {client.last_name}</span>
-              <span className="app-row-meta">
-                {client.date_of_birth
-                  ? `DOB: ${new Date(client.date_of_birth).toLocaleDateString()}`
-                  : `Added ${new Date(client.created_at).toLocaleDateString()}`}
-              </span>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="app-list">
+            {clients.map((client, index) => (
+              <Link
+                key={client.id}
+                href={`/clients/${client.id}`}
+                prefetch={false}
+                className="app-list-row"
+                style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
+              >
+                <span className="app-row-index">{String(index + 1).padStart(2, '0')}</span>
+                <span className="app-row-main">{client.first_name} {client.last_name}</span>
+                <span className="app-row-meta">
+                  {client.date_of_birth
+                    ? `DOB: ${new Date(client.date_of_birth).toLocaleDateString()}`
+                    : `Added ${new Date(client.created_at).toLocaleDateString()}`}
+                </span>
+              </Link>
+            ))}
+          </div>
+          {nextCursor && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <button
+                type="button"
+                className="app-gradient-action"
+                disabled={loadingMore}
+                onClick={loadMoreClients}
+              >
+                <span>{loadingMore ? 'Loading…' : 'Load more clients'}</span>
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

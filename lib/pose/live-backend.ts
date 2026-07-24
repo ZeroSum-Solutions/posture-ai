@@ -16,7 +16,10 @@ import {
 
 type WorkerInitStatus = Extract<LiveTelemetryEvent, { type: 'worker-init' }>['status']
 
-export const LIVE_INIT_TIMEOUT_MS = 12_000
+// The frozen PR-09 cold-start SLO is 20 seconds on a 10 Mbps / 4x CPU profile.
+// Keep the recovery cutoff just above that budget so CI can measure the SLO
+// instead of the application aborting a still-eligible initialization first.
+export const LIVE_INIT_TIMEOUT_MS = 22_000
 export const LIVE_FRAME_TIMEOUT_MS = 1_000
 
 let worker: Worker | null = null

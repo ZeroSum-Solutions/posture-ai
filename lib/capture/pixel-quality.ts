@@ -27,10 +27,17 @@ interface LumaStats {
   brightClip: number
 }
 
+// Pixel scoring is synchronous. Reuse the largest luma scratch buffer instead
+// of allocating roughly 800 KiB for every calibrated 320px sample; otherwise
+// WebKit can pause for garbage collection during a burst even though the math
+// itself is bounded.
+let reusableLuma = new Float64Array(0)
+
 // Rec.601 luma per pixel, summed for the mean and counted against the clip
 // levels in one pass over the already-downscaled sample.
 function lumaStats(data: Uint8ClampedArray, pixelCount: number): LumaStats {
-  const luma = new Float64Array(pixelCount)
+  if (reusableLuma.length < pixelCount) reusableLuma = new Float64Array(pixelCount)
+  const luma = reusableLuma
   let lumaSum = 0
   let darkCount = 0
   let brightCount = 0
@@ -56,18 +63,25 @@ function lumaStats(data: Uint8ClampedArray, pixelCount: number): LumaStats {
 function laplacianVariance(luma: Float64Array, width: number, height: number): number {
   if (width < 3 || height < 3) return 0
 
-  const responses: number[] = []
+  // Accumulate both moments without materializing roughly 100k responses.
+  // Laplacian values are tightly bounded by 8-bit input, so this population
+  // variance is stable here and avoids Welford's division per pixel on
+  // constrained WebKit devices.
+  let count = 0
+  let sum = 0
+  let sumSquares = 0
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x
       const lap = luma[idx - width] + luma[idx + width] + luma[idx - 1] + luma[idx + 1] - 4 * luma[idx]
-      responses.push(lap)
+      count++
+      sum += lap
+      sumSquares += lap * lap
     }
   }
 
-  const n = responses.length
-  const mean = responses.reduce((sum, v) => sum + v, 0) / n
-  return responses.reduce((sum, v) => sum + (v - mean) ** 2, 0) / n
+  const mean = sum / count
+  return Math.max(0, (sumSquares / count) - (mean * mean))
 }
 
 /**

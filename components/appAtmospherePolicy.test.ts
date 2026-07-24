@@ -8,6 +8,9 @@ describe('shouldRenderAppAtmosphere', () => {
     '/auth/update-password',
     '/onboarding',
     '/assessments/new',
+    '/assessments/assessment-123',
+    '/clients',
+    '/clients/client-123',
     '/workouts',
     '/workouts/session-123',
   ])('disables decorative WebGL on %s', (pathname) => {
@@ -16,9 +19,6 @@ describe('shouldRenderAppAtmosphere', () => {
 
   it.each([
     '/dashboard',
-    '/clients',
-    '/clients/client-123',
-    '/assessments/assessment-123',
     '/exercises',
   ])('keeps the authenticated atmosphere on %s', (pathname) => {
     expect(shouldRenderAppAtmosphere(pathname)).toBe(true)

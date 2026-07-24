@@ -1,6 +1,6 @@
 'use client'
 // This bundle is referenced only after the server verifies an active HG-03 release.
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
@@ -8,8 +8,9 @@ import ReviewDock from './ReviewDock'
 import styles from './AssessmentReviewStudio.module.css'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
-import { hasAnyMuscle, type MuscleLink } from './muscleMap'
+import { hasAnyMuscle } from './muscleMap'
 import { saveOverridePatch } from './saveOverride'
+import type { AssessmentResultsPayload } from './loadAssessmentResults'
 import {
   createOverrideQueue,
   type OverridePatch,
@@ -24,57 +25,20 @@ import type {
 import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
+import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import LegalNotice from '@/components/LegalNotice'
+import {
+  canonicalizePostgresTimestamp,
+  comparePostgresTimestamps,
+} from '@/lib/time/postgres-timestamp'
 
-type OverallGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
-type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
+type Finding = AssessmentResultsPayload['findings'][number]
+type Capture = AssessmentResultsPayload['captures'][number]
+type Assessment = AssessmentResultsPayload['assessment']
+type Zone = Finding['zone']
 
-interface Finding {
-  id: string
-  imbalance_key: string
-  region: string
-  label: string
-  deviation: number
-  direction: string
-  severity_pct: number
-  zone: Zone
-  view_used: string
-  confidence: number
-  stability_score?: number | null
-  uncertainty_deg?: number | null
-  borderline?: boolean | null
-  metric_validity?: string | null
-  explanation?: string | null
-  causes_text?: string
-  tight_muscles?: string[]
-  weak_muscles?: string[]
-  tight_muscle_links?: MuscleLink[]
-  weak_muscle_links?: MuscleLink[]
-}
-
-interface Capture {
-  id: string
-  view: string
-  profile_side: 'left' | 'right' | null
-  signed_url: string | null
-  source: string
-  capture_roll_deg: number | null
-}
-interface Assessment {
-  id: string
-  status: string
-  overall_score: number
-  overall_grade: OverallGrade
-  scoring_engine_version: string | null
-  tilt_corrected: boolean | null
-  level_verified: boolean | null
-  capture_stability?: number | null
-  assessed_at: string
-  priority_keys?: string[] | null
-  capability?: string | null
-  exercise_swaps?: Record<string, Record<string, string>> | null
-  practitioner_approved?: boolean | null
-  clients: { id: string; first_name: string; last_name: string }
+export function canonicalAssessmentTimestamp(value: string): string | null {
+  return canonicalizePostgresTimestamp(value)
 }
 
 // Zone colors
@@ -540,14 +504,38 @@ function ExercisesSection({ exercises }: { exercises: ClinicalExerciseProjection
 }
 
 // ---- Main Results Page ----
-export default function ClinicalAssessmentResults({ params }: { params: Promise<{ id: string }> }) {
+export default function ClinicalAssessmentResults({
+  params,
+  initialAssessmentId,
+  initialData,
+}: {
+  params: Promise<{ id: string }>
+  initialAssessmentId?: string
+  initialData?: AssessmentResultsPayload
+}) {
   const router = useRouter()
-  const [assessment, setAssessment] = useState<Assessment | null>(null)
-  const [findings, setFindings] = useState<Finding[]>([])
-  const [captures, setCaptures] = useState<Capture[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [assessmentId, setAssessmentId] = useState<string>('')
+  const initialProjection = initialData?.clinical_content.enabled === true
+    ? initialData.clinical_content.projection
+    : null
+  const hasInitialReport = Boolean(initialData && initialProjection?.program)
+  const initialCapability = initialData?.assessment.capability
+  const [assessment, setAssessment] = useState<Assessment | null>(
+    hasInitialReport ? initialData!.assessment : null,
+  )
+  const [findings, setFindings] = useState<Finding[]>(
+    hasInitialReport ? initialData!.findings : [],
+  )
+  const [captures, setCaptures] = useState<Capture[]>(
+    hasInitialReport ? initialData!.captures : [],
+  )
+  const [loading, setLoading] = useState(!initialData)
+  const [error, setError] = useState<string | null>(
+    initialData && !hasInitialReport
+      ? 'Clinical content is not available for this release.'
+      : null,
+  )
+  const [resolvedAssessmentId, setResolvedAssessmentId] = useState<string>('')
+  const assessmentId = initialAssessmentId ?? resolvedAssessmentId
   const [pdfLoading, setPdfLoading] = useState<'practitioner' | 'client' | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfKind, setPdfKind] = useState<'practitioner' | 'client'>('practitioner')
@@ -555,10 +543,22 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   const [approved, setApproved] = useState(false)
   const [approving, setApproving] = useState(false)
   const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>>([])
+  const [nextPriorCursor, setNextPriorCursor] = useState<string | null>(null)
+  const [loadingMorePriors, setLoadingMorePriors] = useState(false)
+  const priorRequestVersion = useRef(0)
+  const loadMorePriorController = useRef<AbortController | null>(null)
   const [compareToId, setCompareToId] = useState<string>('')
   const [auxError, setAuxError] = useState<string | null>(null)
-  const [capability, setCapability] = useState<Capability>('standard')
-  const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>({})
+  const [capability, setCapability] = useState<Capability>(
+    initialCapability === 'regression' || initialCapability === 'progression'
+      ? initialCapability
+      : 'standard',
+  )
+  const [swaps, setSwaps] = useState<Record<string, Record<string, string>>>(
+    initialData?.assessment.exercise_swaps && typeof initialData.assessment.exercise_swaps === 'object'
+      ? initialData.assessment.exercise_swaps
+      : {},
+  )
   const [launching, setLaunching] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
@@ -568,9 +568,15 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   const [overrideError, setOverrideError] = useState<string | null>(null)
   const [overrideSaveState, setOverrideSaveState] = useState<OverrideSaveState>('idle')
   const [runList, setRunList] = useState<Array<{ session_id: string; created_at: string; status: string; red_flag_acknowledged: boolean | null; completed_at: string | null }>>([])
-  const [program, setProgram] = useState<ClinicalProgramReport | null>(null)
-  const [exercises, setExercises] = useState<ClinicalExerciseProjection[]>([])
-  const [sessionPreview, setSessionPreview] = useState<ClinicalProjection['sessionPreview']>(null)
+  const [program, setProgram] = useState<ClinicalProgramReport | null>(
+    initialProjection?.program ?? null,
+  )
+  const [exercises, setExercises] = useState<ClinicalExerciseProjection[]>(
+    initialProjection?.exercises ?? [],
+  )
+  const [sessionPreview, setSessionPreview] = useState<ClinicalProjection['sessionPreview']>(
+    initialProjection?.sessionPreview ?? null,
+  )
 
   const overrideQueue = useMemo(() => assessmentId ? createOverrideQueue(
     (patch) => saveOverridePatch(assessmentId, patch),
@@ -583,24 +589,38 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
   ) : null, [assessmentId])
 
   useEffect(() => {
-    params.then(p => setAssessmentId(p.id))
-  }, [params])
+    if (initialAssessmentId) return
+    params.then(p => setResolvedAssessmentId(p.id))
+  }, [initialAssessmentId, params])
 
   useEffect(() => {
     if (!assessmentId) return
+    const version = ++priorRequestVersion.current
+    loadMorePriorController.current?.abort()
+    loadMorePriorController.current = null
     // Abort a stale in-flight load when the id changes / the page unmounts, so a
     // slower earlier response can't paint the wrong assessment's data.
     const ac = new AbortController()
     async function load() {
+      setPriorAssessments([])
+      setNextPriorCursor(null)
+      setCompareToId('')
+      setAuxError(null)
+      setLoadingMorePriors(false)
       try {
-        const r = await fetch('/api/assessments/' + assessmentId, { signal: ac.signal })
-        if (!r.ok) {
-          if (r.status === 401) { router.push('/auth/sign-in'); return }
-          setError('Assessment not found.')
-          setLoading(false)
-          return
+        let data: AssessmentResultsPayload
+        if (initialData && assessmentId === initialAssessmentId) {
+          data = initialData
+        } else {
+          const r = await fetch('/api/assessments/' + assessmentId, { signal: ac.signal })
+          if (!r.ok) {
+            if (r.status === 401) { router.push('/auth/sign-in'); return }
+            setError('Assessment not found.')
+            setLoading(false)
+            return
+          }
+          data = await r.json() as AssessmentResultsPayload
         }
-        const data = await r.json()
         const projection = data.clinical_content?.projection as ClinicalProjection | null | undefined
         if (data.clinical_content?.enabled !== true || !projection?.program) {
           setError('Clinical content is not available for this release.')
@@ -617,14 +637,40 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
         const cap = data.assessment?.capability
         if (cap === 'regression' || cap === 'standard' || cap === 'progression') setCapability(cap)
         setSwaps(data.assessment?.exercise_swaps && typeof data.assessment.exercise_swaps === 'object' ? data.assessment.exercise_swaps : {})
+        // The primary review is complete at this point. Paint it while the
+        // optional prior-report picker continues loading; ReviewDock exposes
+        // that selector only after prior options arrive, so comparisons remain
+        // unavailable until their authoritative data is ready.
+        setLoading(false)
         if (data.assessment?.clients?.id) {
           const clientId = data.assessment.clients.id
-          const priorRes = await fetch('/api/clients/' + clientId + '/assessments?exclude=' + assessmentId + '&approved_only=true', { signal: ac.signal })
-          if (priorRes.ok) {
-            const priorData = await priorRes.json()
-            setPriorAssessments(priorData.assessments || [])
-          } else {
-            setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
+          const beforeAt = canonicalAssessmentTimestamp(data.assessment.assessed_at)
+          if (!beforeAt) {
+            setAuxError('Some report options could not load (invalid assessment date). Refresh to try again.')
+            return
+          }
+          const priorQuery = new URLSearchParams({
+            exclude: assessmentId,
+            approved_only: 'true',
+            before_at: beforeAt,
+            limit: '50',
+          })
+          try {
+            const priorRes = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${priorQuery.toString()}`, { signal: ac.signal })
+            if (priorRes.ok) {
+              const priorData = await priorRes.json()
+              if (version === priorRequestVersion.current) {
+                setPriorAssessments(sortAssessmentsChronologically(priorData.assessments || []))
+                setNextPriorCursor(priorData.pagination?.has_more ? priorData.pagination.next_cursor ?? null : null)
+              }
+            } else if (version === priorRequestVersion.current) {
+              setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
+            }
+          } catch (priorError) {
+            if ((priorError as Error)?.name === 'AbortError') return
+            if (version === priorRequestVersion.current) {
+              setAuxError('Some report options could not load (prior assessments). Refresh to try again.')
+            }
           }
         }
       } catch (e) {
@@ -635,8 +681,61 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
       }
     }
     load()
-    return () => ac.abort()
-  }, [assessmentId, router])
+    return () => {
+      ac.abort()
+      loadMorePriorController.current?.abort()
+    }
+  }, [assessmentId, initialAssessmentId, initialData, router])
+
+  async function loadMorePriorAssessments() {
+    const clientId = assessment?.clients?.id
+    if (!clientId || !assessmentId || !nextPriorCursor || loadingMorePriors) return
+    const beforeAt = canonicalAssessmentTimestamp(assessment.assessed_at)
+    if (!beforeAt) {
+      setAuxError('Some older report options could not load (invalid assessment date). Refresh to try again.')
+      return
+    }
+    const version = priorRequestVersion.current
+    loadMorePriorController.current?.abort()
+    const controller = new AbortController()
+    loadMorePriorController.current = controller
+    setLoadingMorePriors(true)
+    setAuxError(null)
+    try {
+      const query = new URLSearchParams({
+        exclude: assessmentId,
+        approved_only: 'true',
+        before_at: beforeAt,
+        limit: '50',
+        cursor: nextPriorCursor,
+      })
+      const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${query.toString()}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      if (!response.ok) throw new Error(`Failed to load prior assessments (${response.status})`)
+      const body = await response.json() as {
+        assessments?: Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>
+        pagination?: { has_more?: boolean; next_cursor?: string | null }
+      }
+      if (controller.signal.aborted || version !== priorRequestVersion.current) return
+      setPriorAssessments((current) => {
+        const byId = new Map(current.map((prior) => [prior.id, prior]))
+        for (const prior of body.assessments ?? []) byId.set(prior.id, prior)
+        return sortAssessmentsChronologically([...byId.values()])
+      })
+      setNextPriorCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && version === priorRequestVersion.current) {
+        setAuxError('Some older report options could not load. Try again.')
+      }
+    } finally {
+      if (loadMorePriorController.current === controller) {
+        loadMorePriorController.current = null
+        setLoadingMorePriors(false)
+      }
+    }
+  }
 
   // Practitioner-facing session-run list (with pain-check status). Refetched on
   // mount; a launched session remounts this page on return from the player.
@@ -858,19 +957,23 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
 
   if (loading) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-        <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
+      <div className={`${styles.reviewPage} ${styles.routeStatePage}`} role="status">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 48, height: 48, border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
+          <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
+        </div>
       </div>
     )
   }
 
   if (error || !assessment || !program) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--danger)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
-        <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none' }}>Back to Clients</Link>
+      <div className={`${styles.reviewPage} ${styles.routeStatePage}`}>
+        <div style={{ textAlign: 'center' }}>
+          <p role="alert" style={{ color: 'var(--danger)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
+          <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none' }}>Back to Clients</Link>
+        </div>
       </div>
     )
   }
@@ -914,12 +1017,8 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
       ? `Tilt corrected: ${rollNotes.join(', ')}`
       : null,
   ].filter((part): part is string => part !== null)
-  const currentAssessmentTime = Date.parse(assessment.assessed_at)
   const comparisonOptions = priorAssessments
-    .filter((prior) => {
-      const priorTime = Date.parse(prior.assessed_at)
-      return Number.isFinite(currentAssessmentTime) && Number.isFinite(priorTime) && priorTime < currentAssessmentTime
-    })
+    .filter((prior) => comparePostgresTimestamps(prior.assessed_at, assessment.assessed_at) === -1)
     .map((prior) => ({
     id: prior.id,
     label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(
@@ -967,6 +1066,9 @@ export default function ClinicalAssessmentResults({ params }: { params: Promise<
           comparisonId={compareToId}
           comparisonOptions={comparisonOptions}
           onComparisonChange={setCompareToId}
+          hasMoreComparisonOptions={nextPriorCursor !== null}
+          isLoadingMoreComparisonOptions={loadingMorePriors}
+          onLoadMoreComparisonOptions={loadMorePriorAssessments}
           isSharing={sharing}
           shareLink={shareLink}
           copied={copied}

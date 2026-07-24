@@ -158,6 +158,7 @@ test.describe('accessibility budget', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
     await page.waitForLoadState('networkidle')
+    await expect(page).toHaveTitle('Assessment Results · Posture AI')
     await expectNoSeriousViolations(page, testInfo, 'results')
 
     await page.getByRole('button', { name: 'Approve report' }).click()
@@ -197,6 +198,10 @@ test.describe('accessibility budget', () => {
   })
 
   test('assessment results with prior assessment (compare-select + category badges) pass the axe budget', async ({ page }, testInfo) => {
+    // This journey creates and renders two complete assessments, then runs a
+    // full Axe scan over the largest results surface. Keep every assertion,
+    // but do not force cold mobile WebKit into the generic 30-second ceiling.
+    test.setTimeout(120_000)
     const stamp = Date.now().toString().slice(-7)
     const client = await createClient(page, 'A11y', `Prior${stamp}`)
 
@@ -220,6 +225,7 @@ test.describe('accessibility budget', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
     await page.waitForLoadState('networkidle')
+    await expect(page).toHaveTitle('Assessment Results · Posture AI')
     await expectNoSeriousViolations(page, testInfo, 'assessment results with prior (compare-select + badges)')
   })
 })

@@ -11,7 +11,20 @@ export async function currentLegalDocument(
   page: Page,
   kind: 'subject_consent' | 'privacy' | 'terms' | 'screening_notice',
 ): Promise<LegalDocumentIdentity> {
-  const response = await page.request.get(`/api/legal/documents?kind=${kind}`)
+  let response: Awaited<ReturnType<typeof page.request.get>> | undefined
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await page.request.get(`/api/legal/documents?kind=${kind}`)
+      break
+    } catch (error) {
+      if (attempt === 1) throw error
+      // The local Next server can reset an otherwise-idempotent setup GET while
+      // concurrent browser projects are compiling routes. Retry transport
+      // failure only; HTTP error responses still fail below without a retry.
+      await page.waitForTimeout(100)
+    }
+  }
+  if (!response) throw new Error(`${kind} legal document request did not complete`)
   expect(response.ok(), `${kind} legal document failed: ${response.status()}`).toBeTruthy()
   const body = await response.json() as { document?: LegalDocumentIdentity }
   expect(body.document?.documentId).toBeTruthy()
@@ -60,8 +73,10 @@ export async function createClient(
 
 /** Walks wizard step 1: pick the given client and continue to step 2. */
 export async function selectClientInWizard(page: Page, fullName: string) {
-  await expect(page.getByText(fullName).first()).toBeVisible({ timeout: 10_000 })
-  await page.getByText(fullName).first().click()
+  await page.getByRole('textbox', { name: 'Search clients by name' }).fill(fullName)
+  const clientResult = page.getByRole('button', { name: fullName }).first()
+  await expect(clientResult).toBeVisible({ timeout: 10_000 })
+  await clientResult.click()
   await page.getByRole('button', { name: /Next: (Confirm|Upload Views)/ }).click()
 }
 

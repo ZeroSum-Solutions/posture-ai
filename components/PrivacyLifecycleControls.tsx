@@ -140,6 +140,15 @@ export default function PrivacyLifecycleControls({
       setBusyShare(null)
       return
     }
+    if (method === 'DELETE' && (body.status === 'revoked' || body.status === 'already_revoked')) {
+      // The mutation response is authoritative for this row. Reflect the
+      // terminal state immediately; the full inventory refresh can still
+      // reconcile server metadata without making the user wait on a second
+      // network round trip for confirmation.
+      setShares(current => current.map(share => (
+        share.session_id === sessionId ? { ...share, state: 'revoked' } : share
+      )))
+    }
     await loadShares().catch(() => {
       setSharesError('The share changed, but its current status could not be refreshed. Reload this page.')
     })

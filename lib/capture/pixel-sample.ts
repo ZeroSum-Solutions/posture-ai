@@ -9,6 +9,7 @@ import calibration from './pixel-quality.calibration.json'
 
 /** Calibrated long-edge sample bound (lib/capture/pixel-quality.calibration.json). */
 export const MAX_SAMPLE_EDGE = calibration.scale
+let reusableCanvas: HTMLCanvasElement | null = null
 
 /**
  * Downscales `source` (srcW x srcH) onto a small canvas bounded by `maxEdge`
@@ -22,23 +23,44 @@ export function samplePixelsFromSource(
   srcH: number,
   maxEdge: number = MAX_SAMPLE_EDGE,
 ): PixelSample | null {
-  if (!Number.isFinite(srcW) || !Number.isFinite(srcH) || srcW <= 0 || srcH <= 0) return null
+  if (
+    !Number.isFinite(srcW)
+    || !Number.isFinite(srcH)
+    || !Number.isFinite(maxEdge)
+    || !Number.isInteger(maxEdge)
+    || srcW <= 0
+    || srcH <= 0
+    || maxEdge <= 0
+  ) return null
 
   try {
     const scale = Math.min(1, maxEdge / Math.max(srcW, srcH))
     const targetW = Math.max(1, Math.round(srcW * scale))
     const targetH = Math.max(1, Math.round(srcH * scale))
 
-    const canvas = document.createElement('canvas')
-    canvas.width = targetW
-    canvas.height = targetH
-    const ctx = canvas.getContext('2d')
+    // Sampling is synchronous, so one reusable canvas cannot overlap another
+    // call. Keep one square backing store at the requested bound instead of
+    // resizing it for every portrait/landscape frame: a resize discards the
+    // browser's read-optimized store and made constrained WebKit occasionally
+    // pay the allocation/readback cost inside the timed capture path.
+    const canvas = reusableCanvas ??= document.createElement('canvas')
+    if (canvas.width !== maxEdge || canvas.height !== maxEdge) {
+      canvas.width = maxEdge
+      canvas.height = maxEdge
+    }
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return null
 
+    // Reuse must not blend transparent pixels over the prior sample.
+    ctx.clearRect(0, 0, targetW, targetH)
     ctx.drawImage(source, 0, 0, targetW, targetH)
     const imageData = ctx.getImageData(0, 0, targetW, targetH)
     return { data: imageData.data, width: targetW, height: targetH }
   } catch {
+    // A failed draw/readback can leave the canvas permanently origin-unclean;
+    // clearing pixels does not restore that security state. Discard it so an
+    // unrelated, origin-clean source can recover on the next sample.
+    reusableCanvas = null
     return null
   }
 }

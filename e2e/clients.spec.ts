@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from './helpers'
 
 // On a cold local `next dev` server a route compiles on-demand, and slower
@@ -17,12 +18,9 @@ async function fillField(page: Page, label: string | RegExp, value: string) {
   }).toPass({ timeout: 15_000 })
 }
 
-// Client list + search (Required Phase-2 coverage). /clients (app/clients/page.tsx)
-// is a client component that fetches the practitioner's non-archived clients and
-// filters them in-memory by name. The shared practitioner accumulates clients
-// from other specs, so this test asserts only on its OWN two uniquely-tokened
-// clients (never an absolute count) and searches a random token that matches
-// exactly one of them.
+// Client list + bounded server search (Required Phase-2 coverage). The shared
+// practitioner accumulates clients from other specs, so this test asserts only
+// on its own two uniquely-tokened clients and waits for the debounced API result.
 test.describe('client list and search', () => {
   test('lists created clients and filters by name', async ({ page }) => {
     const tokenA = randomUUID().slice(0, 8)
@@ -37,18 +35,31 @@ test.describe('client list and search', () => {
 
     const rowA = page.getByRole('link', { name: new RegExp(`List-${tokenA}`) })
     const rowB = page.getByRole('link', { name: new RegExp(`List-${tokenB}`) })
+    await expect(page.getByText('Search by first or last name')).toBeVisible()
+    await expect(rowA).toHaveCount(0)
+    await expect(rowB).toHaveCount(0)
+
+    // A shared prefix returns both records without mounting the whole practice
+    // directory before the practitioner has expressed intent.
+    await page.getByPlaceholder('Search clients by name...').fill('List-')
     await expect(rowA).toBeVisible()
     await expect(rowB).toBeVisible()
 
-    // Typing a token unique to client A narrows the in-memory filter to just A.
-    await page.getByPlaceholder('Search clients by name...').fill(tokenA)
+    // The bounded directory contract uses human-name prefix search.
+    const searchResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/clients' && url.searchParams.get('search') === `List-${tokenA}`
+    })
+    await page.getByPlaceholder('Search clients by name...').fill(`List-${tokenA}`)
+    expect((await searchResponse).ok()).toBeTruthy()
     await expect(rowA).toBeVisible()
     await expect(rowB).toHaveCount(0)
 
-    // Clearing the search restores both.
+    // Clearing the search returns to the search-first prompt.
     await page.getByPlaceholder('Search clients by name...').fill('')
-    await expect(rowA).toBeVisible()
-    await expect(rowB).toBeVisible()
+    await expect(page.getByText('Search by first or last name')).toBeVisible()
+    await expect(rowA).toHaveCount(0)
+    await expect(rowB).toHaveCount(0)
   })
 })
 
@@ -71,7 +82,15 @@ test.describe('client archive', () => {
     await page.getByRole('button', { name: 'Yes, Archive' }).click()
 
     await page.waitForURL(/\/clients$/, { timeout: 15_000 })
+    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${keepToken}`)
     await expect(page.getByRole('link', { name: new RegExp(`Keep-${keepToken}`) })).toBeVisible()
+    const archivedSearch = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/clients' && url.searchParams.get('search') === `Archive-${archiveToken}`
+    })
+    await page.getByPlaceholder('Search clients by name...').fill(`Archive-${archiveToken}`)
+    expect((await archivedSearch).ok()).toBeTruthy()
+    await expect(page.getByRole('heading', { name: 'No matching clients' })).toBeVisible()
     await expect(page.getByRole('link', { name: new RegExp(`Archive-${archiveToken}`) })).toHaveCount(0)
   })
 })
@@ -91,7 +110,9 @@ test.describe('erased client is hidden from the clients list', () => {
 
     // Both present before erasure.
     await page.goto('/clients')
+    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toBeVisible()
 
     // Right-to-erasure: tombstone + redact + purge.
@@ -102,7 +123,15 @@ test.describe('erased client is hidden from the clients list', () => {
 
     // The erased client's row is gone; the keeper still renders.
     await page.goto('/clients')
+    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    const erasedSearch = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/clients' && url.searchParams.get('search') === `Erase-${token}`
+    })
+    await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
+    expect((await erasedSearch).ok()).toBeTruthy()
+    await expect(page.getByRole('heading', { name: 'No matching clients' })).toBeVisible()
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toHaveCount(0)
   })
 })
@@ -128,22 +157,25 @@ test.describe('client detail empty state', () => {
     await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: 'Compare' })).toHaveCount(0)
 
-    // A consent-status outage must fail closed without stranding the entire client
-    // page on its loading screen. The profile/history remain usable, while consent
-    // is explicitly unavailable and no signing form is offered from uncertain state.
-    await page.route('**/api/consent?client_id=*', route => route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Consent terms are temporarily unavailable.' }),
-    }))
-    await page.reload()
-    await expect(page.getByRole('heading', { name: new RegExp(`Empty-${token}`) })).toBeVisible()
-    await expect(page.getByText('unavailable', { exact: true })).toBeVisible()
-    await expect(page.getByRole('form', { name: 'Record in-person consent' })).toHaveCount(0)
+    // Consent fail-closed rendering is covered at the server-seeded component
+    // boundary. This helper creates a consented client, so this journey stays
+    // focused on the zero-assessment workspace contract.
   })
 })
 
 test.describe('client comparison policy', () => {
+  function localService(): SupabaseClient {
+    const supabaseUrl = process.env.E2E_SUPABASE_URL
+    if (!supabaseUrl?.startsWith('http://127.0.0.1')) {
+      throw new Error('Client comparison E2E requires local Supabase at 127.0.0.1')
+    }
+    const serviceKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) throw new Error('E2E_SUPABASE_SERVICE_ROLE_KEY is required')
+    return createSupabaseClient(supabaseUrl, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  }
+
   test('shows all tolerance states and fails closed across scoring versions', async ({ page }) => {
     const token = randomUUID().slice(0, 8)
     const client = await createClient(page, 'E2E', `Compare-${token}`)
@@ -157,9 +189,9 @@ test.describe('client comparison policy', () => {
       standard: 0,
       unit: 'deg',
     })
-    const assessments = [
+    const fixtures = [
       {
-        id: 'baseline', assessed_at: '2026-01-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        assessed_at: '2026-01-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
         scoring_engine_version: 'v2', status: 'approved',
         assessment_findings: [
           finding('same', 'A — unchanged', 50, 5),
@@ -169,7 +201,7 @@ test.describe('client comparison policy', () => {
         ],
       },
       {
-        id: 'same-version', assessed_at: '2026-02-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
+        assessed_at: '2026-02-01T12:00:00Z', overall_grade: 'B', overall_score: 20,
         scoring_engine_version: 'v2', status: 'approved',
         assessment_findings: [
           finding('same', 'A — unchanged', 50, 5),
@@ -179,31 +211,76 @@ test.describe('client comparison policy', () => {
         ],
       },
       {
-        id: 'new-version', assessed_at: '2026-03-01T12:00:00Z', overall_grade: 'A', overall_score: 7,
+        assessed_at: '2026-03-01T12:00:00Z', overall_grade: 'A', overall_score: 7,
         scoring_engine_version: 'v3', status: 'approved',
         assessment_findings: [finding('same', 'A — unchanged', 10, 1)],
       },
     ]
-    await page.route(`**/api/clients/${client.id}/assessments?include_findings=true`, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assessments }) })
-    })
+    const service = localService()
+    const assessmentIds: string[] = []
+    for (const fixture of fixtures) {
+      const response = await page.request.post('/api/assessments', {
+        data: { client_id: client.id, submission_id: randomUUID(), test_mode: true },
+      })
+      expect(response.ok(), `assessment creation failed: ${response.status()}`).toBeTruthy()
+      const assessmentId = (await response.json()).id as string
+      assessmentIds.push(assessmentId)
+
+      const { data: assessment, error: assessmentError } = await service
+        .from('assessments')
+        .update({
+          assessed_at: fixture.assessed_at,
+          overall_grade: fixture.overall_grade,
+          overall_score: fixture.overall_score,
+          scoring_engine_version: fixture.scoring_engine_version,
+        })
+        .eq('id', assessmentId)
+        .select('id, practitioner_id')
+        .single()
+      expect(assessmentError?.message).toBeUndefined()
+      expect(assessment?.id).toBe(assessmentId)
+
+      const { error: deleteError } = await service
+        .from('assessment_findings')
+        .delete()
+        .eq('assessment_id', assessmentId)
+      expect(deleteError?.message).toBeUndefined()
+
+      const { error: findingsError } = await service
+        .from('assessment_findings')
+        .insert(fixture.assessment_findings.map((entry) => ({
+          assessment_id: assessmentId,
+          practitioner_id: assessment!.practitioner_id,
+          ...entry,
+        })))
+      expect(findingsError?.message).toBeUndefined()
+    }
+    const [baselineId, sameVersionId, newVersionId] = assessmentIds as [string, string, string]
 
     await page.goto(`/clients/${client.id}`)
     await expect(page.getByRole('heading', { name: new RegExp(`Compare-${token}`) })).toBeVisible()
     await page.getByRole('tab', { name: 'Compare' }).click()
-    await page.getByLabel('Before (baseline)').selectOption('baseline')
-    await page.getByLabel('After (comparison)').selectOption('same-version')
+    await page.getByLabel('Before (baseline)').selectOption(baselineId)
+    await page.getByLabel('After (comparison)').selectOption(sameVersionId)
 
     await expect(page.getByText('Unchanged severity')).toBeVisible()
     await expect(page.getByText('Within measurement tolerance')).toBeVisible()
     await expect(page.getByText('Improved — lower severity')).toBeVisible()
     await expect(page.getByText('Regressed — higher severity')).toBeVisible()
 
-    await page.getByLabel('After (comparison)').selectOption('new-version')
+    await page.getByLabel('After (comparison)').selectOption(newVersionId)
     await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
 
-    await page.getByRole('tab', { name: 'Progress' }).click()
+    const progressTab = page.getByRole('tab', { name: 'Progress' })
+    await progressTab.click()
+    await expect(page.locator('#client-panel-assessments')).toHaveCSS('visibility', 'hidden')
+    await progressTab.focus()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('#client-panel-progress')).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Load interactive charts' })).toBeFocused()
+    await page.getByRole('button', { name: 'Load interactive charts' }).click()
     await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
     await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
     await expect(page.getByText('v2').first()).toBeVisible()

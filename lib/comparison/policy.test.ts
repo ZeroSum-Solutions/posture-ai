@@ -10,7 +10,10 @@ import {
 } from './policy'
 
 const VERSION = '2.0.0'
-const TIME_PAIR = { currentAssessedAt: '2026-02-01', priorAssessedAt: '2026-01-01' }
+const TIME_PAIR = {
+  currentAssessedAt: '2026-02-01T00:00:00.000Z',
+  priorAssessedAt: '2026-01-01T00:00:00.000Z',
+}
 
 function overall(current: number | null, prior: number | null, currentVersion: string | null = VERSION, priorVersion: string | null = VERSION) {
   return compareOverallScores({
@@ -101,13 +104,17 @@ describe('central comparison policy', () => {
   it('fails closed for reverse, equal, invalid, or one-sided timestamps', () => {
     const input = { current: 10, prior: 90, currentEngineVersion: VERSION, priorEngineVersion: VERSION }
     expect(compareOverallScores({
-      ...input, currentAssessedAt: '2026-01-01', priorAssessedAt: '2026-02-01',
+      ...input,
+      currentAssessedAt: '2026-01-01T00:00:00.000Z',
+      priorAssessedAt: '2026-02-01T00:00:00.000Z',
     })).toMatchObject({ status: 'not_comparable', reason: 'non_chronological' })
     expect(compareOverallScores({
-      ...input, currentAssessedAt: '2026-01-01', priorAssessedAt: '2026-01-01',
+      ...input,
+      currentAssessedAt: '2026-01-01T00:00:00.000Z',
+      priorAssessedAt: '2026-01-01T00:00:00.000Z',
     })).toMatchObject({ status: 'not_comparable', reason: 'non_chronological' })
     expect(compareOverallScores({
-      ...input, currentAssessedAt: 'invalid', priorAssessedAt: '2026-01-01',
+      ...input, currentAssessedAt: 'invalid', priorAssessedAt: '2026-01-01T00:00:00.000Z',
     })).toMatchObject({ status: 'not_comparable', reason: 'missing_timestamp' })
     expect(compareOverallScores({
       ...input, currentAssessedAt: '2026-02-01', priorAssessedAt: undefined,
@@ -115,6 +122,17 @@ describe('central comparison policy', () => {
     expect(compareOverallScores({
       ...input, currentAssessedAt: undefined, priorAssessedAt: undefined,
     })).toMatchObject({ status: 'not_comparable', reason: 'missing_timestamp' })
+  })
+
+  it('recognizes strict chronology below JavaScript millisecond precision', () => {
+    expect(compareOverallScores({
+      current: 17,
+      prior: 20,
+      currentEngineVersion: VERSION,
+      priorEngineVersion: VERSION,
+      currentAssessedAt: '2026-01-01T00:00:00.123789Z',
+      priorAssessedAt: '2026-01-01T00:00:00.123456Z',
+    })).toMatchObject({ status: 'improved', reason: 'outside_tolerance', delta: -3 })
   })
 
   it('never calls an unreliable finding improved and fails closed on unit mismatch', () => {

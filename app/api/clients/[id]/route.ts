@@ -7,6 +7,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 interface Params { id: string }
+const NO_STORE = { 'Cache-Control': 'private, no-store, max-age=0' }
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<Params> }) {
+  const { id } = await params
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE })
+  const gate = await practitionerGate(supabase, user.id)
+  if (gate) return gate
+
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, consent_recorded_at, created_at')
+    .eq('id', id)
+    .eq('practitioner_id', user.id)
+    .is('archived_at', null)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (error) {
+    logEvent({
+      route: 'GET /api/clients/[id]',
+      outcome: 'server_error',
+      status: 500,
+      userHash: hashUser(user.id),
+      resourceHash: hashResource(id),
+      detailCode: 'client_load_failed',
+    })
+    return NextResponse.json({ error: 'Failed to load client.' }, { status: 500, headers: NO_STORE })
+  }
+  if (!data) return NextResponse.json({ error: 'Client not found' }, { status: 404, headers: NO_STORE })
+  return NextResponse.json({ client: data }, { headers: NO_STORE })
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<Params> }) {
   const ROUTE = 'PATCH /api/clients/[id]'

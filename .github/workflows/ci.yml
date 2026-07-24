@@ -56,6 +56,8 @@ jobs:
             sleep "${wait_seconds}"
             attempt=$((attempt + 1))
           done
+      - name: Critical contract ratchet
+        run: npm run test:critical-contracts
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Run e2e suite

@@ -1,6 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { memo, startTransition, useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
@@ -16,6 +15,7 @@ import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hook
 import { createSubmissionGuard } from '@/lib/capture/submission-guard'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import useLegalDocument from '@/components/useLegalDocument'
+import DebouncedSearchInput from '@/components/DebouncedSearchInput'
 
 interface Client {
   id: string
@@ -24,9 +24,48 @@ interface Client {
   date_of_birth: string | null
 }
 
+interface ClientPageResponse {
+  clients?: Client[]
+  pagination?: { has_more?: boolean; next_cursor?: string | null }
+  error?: string
+}
+
+const ClientResultButton = memo(function ClientResultButton({
+  client,
+  isSelected,
+  onChoose,
+}: {
+  client: Client
+  isSelected: boolean
+  onChoose: (client: Client) => void
+}) {
+  return (
+    <button onClick={() => onChoose(client)} style={{
+      width: '100%', padding: '14px 16px', textAlign: 'left',
+      background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
+      border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
+      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', minHeight: '44px',
+    }}>
+      <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
+        {client.first_name} {client.last_name}
+        {isSelected && <span style={{ color: 'var(--brand)', marginLeft: '8px' }}>✓ Selected</span>}
+      </span>
+      {client.date_of_birth && (
+        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+          DOB: {new Date(client.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}
+        </span>
+      )}
+    </button>
+  )
+}, (previous, next) => (
+  previous.client === next.client
+  && previous.isSelected === next.isSelected
+))
+
 const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
+const CONSENT_WORK_AFTER_FEEDBACK_MS = 250
 
 function initialCaptures(): Captures {
   return {
@@ -37,26 +76,114 @@ function initialCaptures(): Captures {
   }
 }
 
+function afterBusyStatePaint(): Promise<void> {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      // A zero-delay task can still be coalesced ahead of presentation on a
+      // throttled browser. Preserve a bounded feedback window so consent I/O
+      // and the capture overlay cannot be charged to the initiating click.
+      window.setTimeout(resolve, CONSENT_WORK_AFTER_FEEDBACK_MS)
+    })
+  })
+}
+
+function ConsentAdvanceButton({
+  disabled,
+  testMode,
+  onTestAdvance,
+  onProceed,
+}: {
+  disabled: boolean
+  testMode: boolean
+  onTestAdvance: () => void
+  onProceed: () => Promise<void>
+}) {
+  const [checking, setChecking] = useState(false)
+  const checkingLock = useRef(false)
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  async function handleClick() {
+    if (disabled || checkingLock.current) return
+    if (testMode) {
+      onTestAdvance()
+      return
+    }
+
+    // Keep this feedback local so the browser can paint it without reconciling
+    // the client search and picker. The parent still owns the authoritative
+    // age/consent gates and its own synchronous duplicate-request lock.
+    checkingLock.current = true
+    setChecking(true)
+    try {
+      await afterBusyStatePaint()
+      await onProceed()
+    } finally {
+      checkingLock.current = false
+      if (mounted.current) setChecking(false)
+    }
+  }
+
+  const unavailable = disabled || checking
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={unavailable}
+      style={{
+        padding: '12px 28px', borderRadius: '10px',
+        background: unavailable ? 'rgba(0,152,243,0.25)' : 'var(--brand-strong)',
+        color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
+        cursor: unavailable ? 'not-allowed' : 'pointer', minHeight: '44px',
+      }}
+    >
+      {checking ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
+    </button>
+  )
+}
+
 // ---- Main Wizard ----
-function NewAssessmentWizard() {
+export function NewAssessmentWizard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClientId = searchParams.get('client_id')
   const testModeParam = searchParams.get('testMode') === '1'
   const testMode = IS_TEST_MODE || testModeParam
-  const screeningNotice = useLegalDocument('screening_notice')
 
   const [step, setStep] = useState(1)
   const [clients, setClients] = useState<Client[]>([])
   const [clientSearch, setClientSearch] = useState('')
+  const [clientSearchRevision, setClientSearchRevision] = useState(0)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const screeningNotice = useLegalDocument(
+    'screening_notice',
+    Boolean(selectedClient) && !testMode,
+  )
+  const [selectedClientError, setSelectedClientError] = useState<string | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [showConsentForm, setShowConsentForm] = useState(false)
-  const [checkingConsent, setCheckingConsent] = useState(false)
-  const [loadingClients, setLoadingClients] = useState(true)
+  const [loadingClients, setLoadingClients] = useState(false)
+  const [loadingMoreClients, setLoadingMoreClients] = useState(false)
+  const [nextClientCursor, setNextClientCursor] = useState<string | null>(null)
   const [clientsError, setClientsError] = useState<string | null>(null)
   const [captures, setCaptures] = useState<Captures>(initialCaptures)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const checkingConsentLock = useRef(false)
+  const selectedClientRef = useRef<Client | null>(null)
+  const clientSelectionVersion = useRef(0)
+  const captureSelectionLocked = useRef(false)
+  const preselectedClientController = useRef<AbortController | null>(null)
+  const consentRequestVersion = useRef(0)
+  const consentRequestController = useRef<AbortController | null>(null)
 
   // Assessment API state
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
@@ -66,6 +193,16 @@ function NewAssessmentWizard() {
   // is also the server idempotency key for retries of unchanged capture content.
   const [submissionGuard] = useState(createSubmissionGuard)
 
+  // Stable browser-performance boundary: entering the real capture step starts
+  // camera readiness. This is deliberately not route navigation because the
+  // route first presents client selection and consent gates.
+  useEffect(() => {
+    if (step !== 2 || testMode || typeof performance.mark !== 'function') return
+    performance.clearMarks?.('assessment_capture_route_navigation_start')
+    performance.clearMarks?.('pose_runtime_ready_for_first_inference')
+    performance.mark('assessment_capture_route_navigation_start')
+  }, [step, testMode])
+
   // Expose the production pixel-sampling + scoring functions for out-of-process
   // drivers (T1b calibration, T4b cross-engine spec) under the CLIENT test-mode
   // gate only — absent entirely in production (T2 §"Test-mode hooks").
@@ -74,36 +211,181 @@ function NewAssessmentWizard() {
     return () => syncPixelQualityTestHooks(false)
   }, [testMode])
 
+  const clientRequestVersion = useRef(0)
+  const clientSearchRequestInvalidated = useRef(false)
+  const clientPageController = useRef<AbortController | null>(null)
+  const loadMoreClientController = useRef<AbortController | null>(null)
+  const invalidateConsentForSelection = useCallback((nextClientId: string) => {
+    if (selectedClientRef.current?.id === nextClientId) return
+    consentRequestVersion.current += 1
+    consentRequestController.current?.abort()
+    consentRequestController.current = null
+    checkingConsentLock.current = false
+  }, [])
+  useEffect(() => () => {
+    clientPageController.current?.abort()
+    clientPageController.current = null
+    loadMoreClientController.current?.abort()
+    consentRequestVersion.current += 1
+    consentRequestController.current?.abort()
+    consentRequestController.current = null
+    checkingConsentLock.current = false
+  }, [])
+  const fetchClientPage = useCallback(async (input: {
+    search: string
+    cursor?: string | null
+    signal?: AbortSignal
+  }): Promise<ClientPageResponse> => {
+    const query = new URLSearchParams({ limit: '50' })
+    if (input.search) query.set('search', input.search)
+    if (input.cursor) query.set('cursor', input.cursor)
+    const response = await fetch(`/api/clients?${query.toString()}`, {
+      cache: 'no-store',
+      signal: input.signal,
+    })
+    if (response.status === 401) {
+      router.push('/auth/sign-in')
+      throw new Error('Unauthorized')
+    }
+    const body = await response.json().catch(() => ({})) as ClientPageResponse
+    if (!response.ok) throw new Error(body.error || 'Could not load clients.')
+    return body
+  }, [router])
+
   useEffect(() => {
-    async function loadClients() {
-      const supabase = createSupabaseBrowserClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/auth/sign-in'); return }
-      try {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('id, first_name, last_name, date_of_birth')
-          .eq('practitioner_id', user.id)
-          .is('archived_at', null)
-          // Never offer an erased client in the picker — the assessment insert
-          // would be rejected by the reject-deleted-client trigger anyway (QA-001).
-          .is('deleted_at', null)
-          .order('first_name')
-        if (error) throw error
-        const list = data || []
-        setClients(list)
-        if (preselectedClientId) {
-          const pre = list.find(c => c.id === preselectedClientId)
-          if (pre) setSelectedClient(pre)
-        }
-      } catch {
-        setClientsError('Could not load your clients. Refresh to try again.')
-      } finally {
+    const version = ++clientRequestVersion.current
+    const normalizedSearch = clientSearch.trim().replace(/\s+/g, ' ')
+    clientPageController.current?.abort()
+    clientPageController.current = null
+    if (!normalizedSearch) {
+      startTransition(() => {
+        setClients([])
+        setNextClientCursor(null)
+        setClientsError(null)
         setLoadingClients(false)
+      })
+      return
+    }
+    const controller = new AbortController()
+    clientPageController.current = controller
+    const timer = window.setTimeout(async () => {
+      try {
+        const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
+        if (controller.signal.aborted || clientRequestVersion.current !== version) return
+        startTransition(() => {
+          setClients(body.clients ?? [])
+          setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+          setClientsError(null)
+          setLoadingClients(false)
+        })
+      } catch (caught) {
+        if ((caught as Error)?.name === 'AbortError' || clientRequestVersion.current !== version) return
+        startTransition(() => {
+          setClients([])
+          setNextClientCursor(null)
+          if ((caught as Error)?.message !== 'Unauthorized') {
+            setClientsError('Could not load your clients. Refresh to try again.')
+          }
+          setLoadingClients(false)
+        })
+      } finally {
+        if (clientPageController.current === controller) {
+          clientPageController.current = null
+        }
+      }
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+      if (clientPageController.current === controller) {
+        clientPageController.current = null
       }
     }
-    loadClients()
-  }, [preselectedClientId, router])
+  }, [clientSearch, clientSearchRevision, fetchClientPage])
+
+  // A deep-linked client may be on page 2 or page 200. Fetch that exact owned,
+  // active record instead of requiring it to appear in the first directory page.
+  useEffect(() => {
+    if (!preselectedClientId) return
+    const controller = new AbortController()
+    const selectionVersionAtRequest = clientSelectionVersion.current
+    preselectedClientController.current?.abort()
+    preselectedClientController.current = controller
+    const selectionIsStale = () => (
+      controller.signal.aborted
+      || captureSelectionLocked.current
+      || clientSelectionVersion.current !== selectionVersionAtRequest
+      || selectedClientRef.current !== null
+    )
+    fetch(`/api/clients/${encodeURIComponent(preselectedClientId)}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (response.status === 401) {
+          router.push('/auth/sign-in')
+          return null
+        }
+        if (!response.ok) throw new Error('Preselected client is unavailable')
+        return response.json() as Promise<{ client?: Client }>
+      })
+      .then((body) => {
+        if (body?.client && !selectionIsStale()) {
+          clientSelectionVersion.current += 1
+          invalidateConsentForSelection(body.client.id)
+          selectedClientRef.current = body.client
+          setSelectedClient(body.client)
+          setSelectedClientError(null)
+        }
+      })
+      .catch((caught) => {
+        if ((caught as Error)?.name !== 'AbortError' && !selectionIsStale()) {
+          setSelectedClientError('The selected client is unavailable. Choose another active client.')
+        }
+      })
+      .finally(() => {
+        if (preselectedClientController.current === controller) {
+          preselectedClientController.current = null
+        }
+      })
+    return () => {
+      controller.abort()
+      if (preselectedClientController.current === controller) {
+        preselectedClientController.current = null
+      }
+    }
+  }, [preselectedClientId, router, invalidateConsentForSelection])
+
+  async function loadMoreClientOptions() {
+    if (!nextClientCursor || loadingMoreClients) return
+    const version = clientRequestVersion.current
+    loadMoreClientController.current?.abort()
+    const controller = new AbortController()
+    loadMoreClientController.current = controller
+    setLoadingMoreClients(true)
+    try {
+      const body = await fetchClientPage({
+        search: clientSearch.trim().replace(/\s+/g, ' '),
+        cursor: nextClientCursor,
+        signal: controller.signal,
+      })
+      if (clientRequestVersion.current !== version) return
+      setClients((current) => {
+        const seen = new Set(current.map((client) => client.id))
+        return [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
+      })
+      setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && clientRequestVersion.current === version && (caught as Error)?.message !== 'Unauthorized') {
+        setClientsError('Could not load more clients. Try again.')
+      }
+    } finally {
+      if (loadMoreClientController.current === controller) {
+        loadMoreClientController.current = null
+        setLoadingMoreClients(false)
+      }
+    }
+  }
 
   // Step 3: Poll assessment status and redirect when complete
   useEffect(() => {
@@ -164,13 +446,6 @@ function NewAssessmentWizard() {
     }
   }, [step, assessmentId, router, submissionGuard])
 
-  const filteredClients = clientSearch.trim()
-    ? clients.filter(c => {
-        const q = clientSearch.toLowerCase()
-        return c.first_name.toLowerCase().includes(q) || c.last_name.toLowerCase().includes(q) || (c.first_name + ' ' + c.last_name).toLowerCase().includes(q)
-      })
-    : clients
-
   // Monotonic op token per slot: every capture/upload bumps it, so a still-running
   // async commit for a SUPERSEDED capture — a preflight, or an upload's image
   // normalization — discards its result instead of overwriting the newer one.
@@ -209,7 +484,13 @@ function NewAssessmentWizard() {
   }
 
   function chooseClient(client: Client) {
-    if (selectedClient?.id !== client.id) {
+    if (captureSelectionLocked.current) return
+    const previousClient = selectedClientRef.current
+    clientSelectionVersion.current += 1
+    preselectedClientController.current?.abort()
+    preselectedClientController.current = null
+    invalidateConsentForSelection(client.id)
+    if (previousClient && previousClient.id !== client.id) {
       // A capture belongs to one subject. Switching subjects invalidates every
       // pending async result, revokes every photo URL, clears the four slots,
       // and rotates the digest-bound submission identity before capture resumes.
@@ -223,7 +504,9 @@ function NewAssessmentWizard() {
       setProcessingError(null)
       setUploadError(null)
     }
+    selectedClientRef.current = client
     setSelectedClient(client)
+    setSelectedClientError(null)
     setAgeGateError(null)
     setShowConsentForm(false)
   }
@@ -453,7 +736,36 @@ function NewAssessmentWizard() {
   function handleRetry() {
     setProcessingError(null)
     setAssessmentId(null)
+    advanceToCapture()
+  }
+
+  function advanceToCapture() {
+    captureSelectionLocked.current = true
+    clientSelectionVersion.current += 1
+    const pendingClientPage = clientPageController.current
+    if (pendingClientPage) {
+      // Capture does not need directory results, but returning to the picker
+      // must restart this exact settled search instead of pairing its text with
+      // the prior query's rows.
+      clientSearchRequestInvalidated.current = true
+      pendingClientPage.abort()
+    }
+    clientPageController.current = null
+    setLoadingClients(false)
+    preselectedClientController.current?.abort()
+    preselectedClientController.current = null
     setStep(2)
+  }
+
+  function returnToSelection() {
+    captureSelectionLocked.current = false
+    if (clientSearchRequestInvalidated.current && clientSearch.trim()) {
+      clientSearchRequestInvalidated.current = false
+      setLoadingClients(true)
+      setNextClientCursor(null)
+      setClientSearchRevision((current) => current + 1)
+    }
+    setStep(1)
   }
 
   // Gate the camera on BIPA/subject consent, not just age. Biometric capture must
@@ -463,24 +775,43 @@ function NewAssessmentWizard() {
   // the final gate; this stops biometric data from ever being captured for an
   // unconsented subject.
   async function proceedToCapture() {
-    if (!selectedClient || checkingConsent) return
-    const band = ageBand(selectedClient.date_of_birth)
+    if (
+      !selectedClient
+      || selectedClientRef.current?.id !== selectedClient.id
+      || checkingConsentLock.current
+    ) return
+    const consentClient = selectedClient
+    const band = ageBand(consentClient.date_of_birth)
     if (band === 'under_13') { setShowConsentForm(false); setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
     if (band === 'unknown') { setShowConsentForm(false); setAgeGateError('Add a date of birth for this client before screening.'); return }
     setAgeGateError(null)
-    setCheckingConsent(true)
+    // Close the duplicate-click window synchronously. The isolated button owns
+    // its lightweight busy paint; this parent remains the authoritative gate.
+    const requestVersion = ++consentRequestVersion.current
+    const controller = new AbortController()
+    consentRequestController.current?.abort()
+    consentRequestController.current = controller
+    checkingConsentLock.current = true
+    const isCurrentSelection = () => (
+      !controller.signal.aborted
+      && consentRequestVersion.current === requestVersion
+      && selectedClientRef.current?.id === consentClient.id
+    )
     try {
       if (!screeningNotice.document) {
         throw new Error(screeningNotice.error || 'The required screening notice is still loading.')
       }
-      const response = await fetch(`/api/consent?client_id=${encodeURIComponent(selectedClient.id)}`, {
+      const response = await fetch(`/api/consent?client_id=${encodeURIComponent(consentClient.id)}`, {
         cache: 'no-store',
+        signal: controller.signal,
       })
+      if (!isCurrentSelection()) return
       const decision = await response.json().catch(() => ({})) as {
         captureAllowed?: boolean
         reason?: string | null
         error?: string
       }
+      if (!isCurrentSelection()) return
       if (!response.ok) throw new Error(decision.error || 'Could not verify consent.')
       if (!decision.captureAllowed) {
         setShowConsentForm(true)
@@ -488,14 +819,18 @@ function NewAssessmentWizard() {
         return
       }
       setShowConsentForm(false)
-      setStep(2)
+      advanceToCapture()
     } catch (caught) {
+      if ((caught as Error)?.name === 'AbortError' || !isCurrentSelection()) return
       setShowConsentForm(false)
       setAgeGateError(caught instanceof Error && caught.message
         ? caught.message
         : 'Could not verify consent. Refresh and try again.')
     } finally {
-      setCheckingConsent(false)
+      if (consentRequestVersion.current === requestVersion) {
+        consentRequestController.current = null
+        checkingConsentLock.current = false
+      }
     }
   }
 
@@ -574,43 +909,115 @@ function NewAssessmentWizard() {
               Test mode active — fixture landmarks will be used instead of MediaPipe.
             </div>
           )}
-          <div className="app-panel" style={{ padding: '24px' }}>
+          <div
+            className="app-panel"
+            style={{
+              padding: '24px',
+              // This interactive list repaints on selection. Sampling the full
+              // page through a large live blur made the paint dominate INP on
+              // older devices; the existing layered background remains.
+              WebkitBackdropFilter: 'none',
+              backdropFilter: 'none',
+            }}
+          >
             <div className="app-search-shell">
-            <input type="text" placeholder="Search clients by name..." value={clientSearch} onChange={e => setClientSearch(e.target.value)}
+            <DebouncedSearchInput
+              placeholder="Search clients by name..."
+              ariaLabel="Search clients by name"
+              initialValue={clientSearch}
+              onInputActivity={() => {
+                // A settled search result must not render over the next query's
+                // keystrokes. Abort it immediately while the input remains
+                // DOM-owned and render-free.
+                const controller = clientPageController.current
+                if (!controller) return false
+                clientRequestVersion.current += 1
+                controller.abort()
+                clientPageController.current = null
+                clientSearchRequestInvalidated.current = true
+                return true
+              }}
+              onQueryChange={(query) => {
+              // Step 1 unmounts while capture is open. A remounted search input
+              // is seeded from this settled query and must not strand the picker
+              // in a loading state by re-emitting an unchanged value.
+              const requestWasInvalidated = clientSearchRequestInvalidated.current
+              clientSearchRequestInvalidated.current = false
+              if (query === clientSearch && !requestWasInvalidated) return
+              loadMoreClientController.current?.abort()
+              loadMoreClientController.current = null
+              setLoadingMoreClients(false)
+              setLoadingClients(true)
+              setNextClientCursor(null)
+              if (query === clientSearch) {
+                setClientSearchRevision((current) => current + 1)
+              } else {
+                setClientSearch(query)
+              }
+              }}
               style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
             />
             </div>
+            <div
+              role="status"
+              aria-hidden={selectedClient ? undefined : true}
+              data-testid="selected-client-summary"
+              style={{
+                minHeight: '64px', boxSizing: 'border-box',
+                marginBottom: '16px', padding: '12px 14px', borderRadius: '10px',
+                background: 'rgba(0,152,243,0.12)', border: '1px solid rgba(0,152,243,0.35)',
+                color: 'var(--text-primary)', visibility: selectedClient ? 'visible' : 'hidden',
+              }}
+            >
+              <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Selected client
+              </span>
+              <strong>{selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}` : 'No client selected'}</strong>
+            </div>
+            {selectedClientError && (
+              <p role="alert" style={{ color: 'var(--danger)', margin: '0 0 16px' }}>{selectedClientError}</p>
+            )}
             {loadingClients ? (
               <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : clientsError ? (
               <p role="alert" style={{ color: 'var(--danger)', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
-            ) : filteredClients.length === 0 ? (
+            ) : !clientSearch.trim() ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
-                {clientSearch ? 'No clients match your search.' : <span>No clients yet. <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link></span>}
+                Search by first or last name to select a client.{' '}
+                <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link>
+              </div>
+            ) : clients.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
+                No clients match your search.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
-                {filteredClients.map(c => {
+                {clients.map(c => {
                   const isSelected = selectedClient?.id === c.id
                   return (
-                    <button key={c.id} onClick={() => chooseClient(c)} style={{
-                      width: '100%', padding: '14px 16px', textAlign: 'left',
-                      background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
-                      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', transition: 'all 0.15s ease', minHeight: '44px',
-                    }}>
-                      <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
-                        {c.first_name} {c.last_name}
-                        {isSelected && <span style={{ color: 'var(--brand)', marginLeft: '8px' }}>✓ Selected</span>}
-                      </span>
-                      {c.date_of_birth && (
-                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          DOB: {new Date(c.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}
-                        </span>
-                      )}
-                    </button>
+                    <ClientResultButton
+                      key={c.id}
+                      client={c}
+                      isSelected={isSelected}
+                      onChoose={chooseClient}
+                    />
                   )
                 })}
+                {nextClientCursor && (
+                  <button
+                    type="button"
+                    onClick={loadMoreClientOptions}
+                    disabled={loadingMoreClients}
+                    style={{
+                      width: '100%', padding: '12px 16px', borderRadius: '10px', minHeight: '44px',
+                      background: 'rgba(255,255,255,0.05)', color: 'var(--brand)',
+                      border: '1px solid rgba(0,152,243,0.28)', cursor: loadingMoreClients ? 'wait' : 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {loadingMoreClients ? 'Loading…' : 'Load more clients'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -636,17 +1043,27 @@ function NewAssessmentWizard() {
               onRecorded={handleConsentRecorded}
             />
           )}
+          <p
+            role={screeningNotice.error ? 'alert' : 'status'}
+            aria-hidden={!selectedClient || testMode || Boolean(screeningNotice.document)}
+            style={{
+              minHeight: '22px',
+              margin: '16px 0 0',
+              color: screeningNotice.error ? 'var(--danger)' : 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              visibility: selectedClient && !testMode && !screeningNotice.document ? 'visible' : 'hidden',
+            }}
+          >
+            {screeningNotice.error ?? 'Loading required screening notice…'}
+          </p>
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => { if (testMode) { setStep(2) } else { proceedToCapture() } }}
-              disabled={!selectedClient || checkingConsent}
-              style={{
-                padding: '12px 28px', borderRadius: '10px',
-                background: selectedClient && !checkingConsent ? 'var(--brand-strong)' : 'rgba(0,152,243,0.25)',
-                color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
-                cursor: selectedClient && !checkingConsent ? 'pointer' : 'not-allowed', minHeight: '44px',
-              }}>
-              {checkingConsent ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
-            </button>
+            <ConsentAdvanceButton
+              key={selectedClient?.id ?? 'no-client'}
+              disabled={!selectedClient || (!testMode && !screeningNotice.document)}
+              testMode={testMode}
+              onTestAdvance={advanceToCapture}
+              onProceed={proceedToCapture}
+            />
           </div>
         </div>
       )}
@@ -669,7 +1086,7 @@ function NewAssessmentWizard() {
               </div>
             </div>
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
+              <button onClick={returnToSelection} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
               <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
                 {submitting ? 'Submitting...' : 'Run Test Analysis'}
               </button>
@@ -682,7 +1099,7 @@ function NewAssessmentWizard() {
             onCameraCapture={handleCameraCapture}
             onFileUpload={handleFileUpload}
             onProceed={validateAndProceed}
-            onExit={() => { void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {}); setStep(1) }}
+            onExit={() => { void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {}); returnToSelection() }}
             modelError={modelError}
             onRetryFailedChecks={retryFailedChecks}
             submitting={submitting}
