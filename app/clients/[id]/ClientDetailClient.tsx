@@ -197,6 +197,12 @@ const ClientWorkspace = memo(function ClientWorkspace({
     } as const
   }
 
+  const privacyStatus = activeTab === 'info'
+    ? renderedTabs.has('info')
+      ? 'Privacy controls ready.'
+      : 'Preparing privacy controls…'
+    : ''
+
   return (
     <>
       <div className={styles.tabList} role="tablist" aria-label="Client workspace">
@@ -256,11 +262,19 @@ const ClientWorkspace = memo(function ClientWorkspace({
           </div>
         )}
         <div {...panelProps('info')}>
+          <div
+            className={styles.visuallyHidden}
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="privacy-workspace-status"
+          >
+            {privacyStatus}
+          </div>
           {infoPanel}
           {renderedTabs.has('info')
             ? privacyPanel
             : activeTab === 'info'
-              ? <div className={styles.loadingPanel} role="status">Preparing privacy controls…</div>
+              ? <div className={styles.loadingPanel} aria-hidden="true">Preparing privacy controls…</div>
               : null}
         </div>
       </div>

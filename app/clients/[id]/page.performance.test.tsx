@@ -109,7 +109,10 @@ describe('client detail progressive rendering', () => {
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
     expect(screen.getByRole('heading', { name: 'Client Information' })).toBeTruthy()
-    expect(screen.getByText('Preparing privacy controls…').getAttribute('role')).toBe('status')
+    const privacyStatus = screen.getByTestId('privacy-workspace-status')
+    expect(privacyStatus.getAttribute('aria-live')).toBe('polite')
+    expect(privacyStatus.getAttribute('aria-atomic')).toBe('true')
+    expect(privacyStatus.textContent).toBe('Preparing privacy controls…')
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
 
     act(() => vi.advanceTimersByTime(299))
@@ -117,6 +120,7 @@ describe('client detail progressive rendering', () => {
     act(() => vi.advanceTimersByTime(1))
 
     expect(screen.getByTestId('privacy-lifecycle-controls')).toBeTruthy()
+    expect(privacyStatus.textContent).toBe('Privacy controls ready.')
     expect(workspaceRenders.privacy).toHaveBeenCalledTimes(1)
   })
 
@@ -126,10 +130,12 @@ describe('client detail progressive rendering', () => {
     render(<ClientDetailPage initialData={seededInitialData()} />)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
-    expect(screen.getByText('Preparing privacy controls…').getAttribute('role')).toBe('status')
+    const privacyStatus = screen.getByTestId('privacy-workspace-status')
+    expect(privacyStatus.textContent).toBe('Preparing privacy controls…')
     fireEvent.click(screen.getByRole('tab', { name: 'Assessments' }))
     act(() => vi.advanceTimersByTime(300))
 
+    expect(privacyStatus.textContent).toBe('')
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
   })
 
@@ -329,7 +335,9 @@ describe('client detail progressive rendering', () => {
 
     expect(screen.getByText('unavailable', { exact: true })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
-    expect(screen.getByText('Status unavailable', { exact: true })).toBeTruthy()
+    const infoPanel = document.getElementById('client-panel-info')!
+    expect(infoPanel.className).toContain('workspacePanelActive')
+    expect(infoPanel.textContent).toContain('Status unavailable')
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
   })
 
