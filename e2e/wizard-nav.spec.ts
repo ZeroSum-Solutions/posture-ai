@@ -10,13 +10,14 @@ import { createClient } from './helpers'
 test.describe('assessment wizard navigation', () => {
   test('Back from step 2 preserves the selected client on step 1', async ({ page }) => {
     const token = randomUUID().slice(0, 8)
-    const client = await createClient(page, 'E2E', `Back-${token}`)
+    await createClient(page, 'E2E', `Back-${token}`)
 
-    await page.goto(`/assessments/new?testMode=1&client_id=${client.id}`)
+    await page.goto('/assessments/new?testMode=1')
     await expect(page.getByRole('heading', { name: 'Step 1: Select Client' })).toBeVisible()
 
-    // Deep-link the exact client so this spec remains about wizard navigation;
-    // bounded server search has its own cross-browser client-list coverage.
+    const query = `Back-${token}`
+    await page.getByRole('textbox', { name: 'Search clients by name' }).fill(query)
+    await page.getByRole('button', { name: new RegExp(`E2E ${query}`) }).click()
     await expect(page.getByTestId('selected-client-summary')).toContainText(`Back-${token}`)
 
     // Advance to step 2.
@@ -27,6 +28,7 @@ test.describe('assessment wizard navigation', () => {
     await page.getByRole('button', { name: 'Back', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Step 1: Select Client' })).toBeVisible()
     await expect(page.getByTestId('selected-client-summary')).toContainText(`Back-${token}`)
+    await expect(page.getByRole('textbox', { name: 'Search clients by name' })).toHaveValue(query)
     await expect(page.getByRole('button', { name: 'Next: Confirm' })).toBeEnabled()
   })
 

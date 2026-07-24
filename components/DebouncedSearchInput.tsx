@@ -6,6 +6,7 @@ interface DebouncedSearchInputProps {
   ariaLabel: string
   placeholder: string
   onQueryChange: (query: string) => void
+  initialValue?: string
   debounceMs?: number
   style?: CSSProperties
 }
@@ -18,12 +19,13 @@ export default function DebouncedSearchInput({
   ariaLabel,
   placeholder,
   onQueryChange,
+  initialValue = '',
   debounceMs = 250,
   style,
 }: DebouncedSearchInputProps) {
   const latestCallback = useRef(onQueryChange)
   const pendingTimer = useRef<number | null>(null)
-  const lastEmittedValue = useRef('')
+  const lastEmittedValue = useRef(initialValue)
 
   useEffect(() => {
     latestCallback.current = onQueryChange
@@ -38,6 +40,7 @@ export default function DebouncedSearchInput({
       type="text"
       placeholder={placeholder}
       aria-label={ariaLabel}
+      defaultValue={initialValue}
       onChange={(event) => {
         // The DOM already owns the visible value. Avoid a React render for every
         // keystroke while a large directory or picker is mounted; only the

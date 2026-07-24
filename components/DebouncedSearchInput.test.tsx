@@ -61,4 +61,24 @@ describe('DebouncedSearchInput', () => {
     act(() => vi.advanceTimersByTime(250))
     expect(onQueryChange).toHaveBeenCalledOnce()
   })
+
+  it('restores a settled query without re-emitting it after remount', () => {
+    vi.useFakeTimers()
+    const onQueryChange = vi.fn()
+    render(
+      <DebouncedSearchInput
+        ariaLabel="Search clients by name"
+        placeholder="Search clients by name..."
+        initialValue="Ada"
+        onQueryChange={onQueryChange}
+      />,
+    )
+
+    const input = screen.getByRole('textbox', { name: 'Search clients by name' }) as HTMLInputElement
+    expect(input.value).toBe('Ada')
+    fireEvent.change(input, { target: { value: 'Ada' } })
+    act(() => vi.advanceTimersByTime(250))
+
+    expect(onQueryChange).not.toHaveBeenCalled()
+  })
 })

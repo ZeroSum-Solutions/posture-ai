@@ -845,7 +845,11 @@ export function NewAssessmentWizard() {
             }}
           >
             <div className="app-search-shell">
-            <DebouncedSearchInput placeholder="Search clients by name..." ariaLabel="Search clients by name" onQueryChange={(query) => {
+            <DebouncedSearchInput placeholder="Search clients by name..." ariaLabel="Search clients by name" initialValue={clientSearch} onQueryChange={(query) => {
+              // Step 1 unmounts while capture is open. A remounted search input
+              // is seeded from this settled query and must not strand the picker
+              // in a loading state by re-emitting an unchanged value.
+              if (query === clientSearch) return
               loadMoreClientController.current?.abort()
               loadMoreClientController.current = null
               setLoadingMoreClients(false)
@@ -946,10 +950,23 @@ export function NewAssessmentWizard() {
               onRecorded={handleConsentRecorded}
             />
           )}
+          <p
+            role={screeningNotice.error ? 'alert' : 'status'}
+            aria-hidden={!selectedClient || testMode || Boolean(screeningNotice.document)}
+            style={{
+              minHeight: '22px',
+              margin: '16px 0 0',
+              color: screeningNotice.error ? 'var(--danger)' : 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              visibility: selectedClient && !testMode && !screeningNotice.document ? 'visible' : 'hidden',
+            }}
+          >
+            {screeningNotice.error ?? 'Loading required screening notice…'}
+          </p>
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
             <ConsentAdvanceButton
               key={selectedClient?.id ?? 'no-client'}
-              disabled={!selectedClient}
+              disabled={!selectedClient || (!testMode && !screeningNotice.document)}
               testMode={testMode}
               onTestAdvance={advanceToCapture}
               onProceed={proceedToCapture}

@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routerPush = vi.fn()
 const router = { push: routerPush }
+const legalDocumentState = vi.hoisted(() => ({
+  value: {
+    document: {} as Record<string, never> | null,
+    isLoading: false,
+    error: null as string | null,
+  },
+}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => router,
@@ -31,7 +38,7 @@ vi.mock('./FullScreenCapture', () => ({
   ),
 }))
 vi.mock('@/components/InPersonConsentForm', () => ({ default: () => null }))
-vi.mock('@/components/useLegalDocument', () => ({ default: () => ({ status: 'ready', document: {}, error: null }) }))
+vi.mock('@/components/useLegalDocument', () => ({ default: () => legalDocumentState.value }))
 vi.mock('@/lib/pose/capture-runtime', () => ({
   getCaptureRuntime: () => ({
     detect: vi.fn(async () => ({
@@ -67,6 +74,7 @@ const deepClient = {
 describe('new assessment paginated client picker', () => {
   beforeEach(() => {
     routerPush.mockReset()
+    legalDocumentState.value = { document: {}, isLoading: false, error: null }
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes(`/api/clients/${deepClient.id}`)) {
@@ -90,6 +98,20 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('search=Another+person'))).toBe(true))
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('keeps capture disabled until the required screening notice is ready', async () => {
+    legalDocumentState.value = { document: null, isLoading: true, error: null }
+    const view = render(<NewAssessmentWizard />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    expect(screen.getByText('Loading required screening notice…')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(true)
+
+    legalDocumentState.value = { document: {}, isLoading: false, error: null }
+    view.rerender(<NewAssessmentWizard />)
+
     expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -241,5 +263,38 @@ describe('new assessment paginated client picker', () => {
     expect(screen.getByTestId('front-capture').textContent).toBe('fixture:manual-front')
     fireEvent.click(screen.getByRole('button', { name: 'Exit capture' }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
+  })
+
+  it('restores the settled search after leaving capture without starting another request', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return Promise.resolve(new Response(JSON.stringify({ client: deepClient }), { status: 200 }))
+      }
+      if (url.startsWith(`/api/consent?client_id=${pageClient.id}`)) {
+        return Promise.resolve(new Response(JSON.stringify({ captureAllowed: true }), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [pageClient], pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<NewAssessmentWizard />)
+    await screen.findByText('Page One')
+    const search = screen.getByRole('textbox', { name: 'Search clients by name' })
+    fireEvent.change(search, { target: { value: 'Page' } })
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('search=Page'))).toBe(true))
+    const searchRequestCount = fetchMock.mock.calls.filter(([input]) => String(input).includes('search=Page')).length
+
+    fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    await screen.findByTestId('capture-step')
+    fireEvent.click(screen.getByRole('button', { name: 'Exit capture' }))
+
+    expect((screen.getByRole('textbox', { name: 'Search clients by name' }) as HTMLInputElement).value).toBe('Page')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
+    await new Promise((resolve) => window.setTimeout(resolve, 300))
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('search=Page'))).toHaveLength(searchRequestCount)
+    expect(screen.queryByText('Loading clients…')).toBeNull()
   })
 })
