@@ -106,8 +106,8 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
     await page.getByRole('textbox', { name: 'Search clients by name' }).fill('Failure')
     const alert = page.locator('[role="alert"]').filter({ hasText: /could not load your clients/i })
     await expect(alert).toBeVisible({ timeout: 10_000 })
-    // Must NOT show the "No clients yet" empty state
-    await expect(page.getByText(/No clients yet/)).toHaveCount(0)
+    // A server failure must not be presented as a valid zero-result search.
+    await expect(page.getByText(/No clients match your search/)).toHaveCount(0)
   })
 
   test('assessment results: prior assessments 500 shows aux error alert', async ({ page }) => {

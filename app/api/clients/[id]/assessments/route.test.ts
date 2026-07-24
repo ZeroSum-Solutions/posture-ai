@@ -127,16 +127,33 @@ describe('GET /api/clients/[id]/assessments', () => {
     expect(queryCalls.assessments).toContainEqual({ method: 'limit', args: [51] })
   })
 
-  test('canonicalizes PostgREST timestamptz values before encoding a cursor', async () => {
+  test('preserves PostgREST microseconds in the next-page assessment boundary', async () => {
     tableResult.assessments = {
       data: Array.from({ length: 51 }, (_, index) => ({
         id: assessmentId(index),
-        assessed_at: `2026-07-22T12:00:${String(59 - index).padStart(2, '0')}+00:00`,
+        assessed_at: index === 49
+          ? '2026-07-22T11:00:00.123456+00:00'
+          : new Date(Date.UTC(2026, 6, 22, 12, 0, 0) - index * 1000).toISOString(),
       })),
       error: null,
     }
     const body = await (await GET(req('?limit=50'), { params: params() })).json()
     expect(body.pagination.next_cursor).toEqual(expect.any(String))
+
+    queryCalls.assessments = []
+    tableResult.assessments = { data: [], error: null }
+    const next = await GET(
+      req(`?limit=50&cursor=${encodeURIComponent(body.pagination.next_cursor)}`),
+      { params: params() },
+    )
+
+    expect(next.status).toBe(200)
+    expect(queryCalls.assessments).toContainEqual({
+      method: 'or',
+      args: [
+        `assessed_at.lt.2026-07-22T11:00:00.123456Z,and(assessed_at.eq.2026-07-22T11:00:00.123456Z,id.lt.${assessmentId(49)})`,
+      ],
+    })
   })
 
   test('keeps snapshot/filter bindings across assessment pages', async () => {

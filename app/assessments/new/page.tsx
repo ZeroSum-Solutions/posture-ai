@@ -709,7 +709,14 @@ export function NewAssessmentWizard() {
   function advanceToCapture() {
     captureSelectionLocked.current = true
     clientSelectionVersion.current += 1
-    clientPageController.current?.abort()
+    const pendingClientPage = clientPageController.current
+    if (pendingClientPage) {
+      // Capture does not need directory results, but returning to the picker
+      // must restart this exact settled search instead of pairing its text with
+      // the prior query's rows.
+      clientSearchRequestInvalidated.current = true
+      pendingClientPage.abort()
+    }
     clientPageController.current = null
     setLoadingClients(false)
     preselectedClientController.current?.abort()
@@ -719,6 +726,12 @@ export function NewAssessmentWizard() {
 
   function returnToSelection() {
     captureSelectionLocked.current = false
+    if (clientSearchRequestInvalidated.current && clientSearch.trim()) {
+      clientSearchRequestInvalidated.current = false
+      setLoadingClients(true)
+      setNextClientCursor(null)
+      setClientSearchRevision((current) => current + 1)
+    }
     setStep(1)
   }
 

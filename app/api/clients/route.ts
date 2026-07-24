@@ -10,7 +10,12 @@ import {
 import { snapshotLegalDocument } from '@/lib/legal/policy'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import type { LegalSnapshot } from '@/lib/legal/types'
-import { finalizeKeysetPage, isCanonicalUuid, parseKeysetPageRequest } from '@/lib/pagination/keyset'
+import {
+  canonicalizeKeysetTimestamp,
+  finalizeKeysetPage,
+  isCanonicalUuid,
+  parseKeysetPageRequest,
+} from '@/lib/pagination/keyset'
 import { NextRequest, NextResponse } from 'next/server'
 
 const SIGNER_RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
@@ -102,7 +107,7 @@ export async function GET(req: NextRequest) {
     limit: page.limit,
     // PostgREST may serialize timestamptz with `+00:00`; bind cursors to one
     // canonical UTC representation so real rows cannot create invalid cursors.
-    key: (client) => ({ at: new Date(client.created_at).toISOString(), id: client.id }),
+    key: (client) => ({ at: canonicalizeKeysetTimestamp(client.created_at), id: client.id }),
   })
   logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_loaded' })
   return NextResponse.json(

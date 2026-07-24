@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canonicalizeKeysetTimestamp,
   encodeKeysetCursor,
   finalizeKeysetPage,
   parseKeysetPageRequest,
@@ -74,6 +75,37 @@ describe('keyset pagination contract', () => {
       scope: 'clients',
       filterKey: 'client=c1&approved=false&exclude=',
     })).toMatchObject({ ok: false, error: 'Cursor does not match this request' })
+  })
+
+  it('preserves PostgreSQL microseconds while canonicalizing UTC cursor timestamps', () => {
+    expect(canonicalizeKeysetTimestamp('2026-07-20T12:00:00.123456+00:00'))
+      .toBe('2026-07-20T12:00:00.123456Z')
+
+    const cursor = encodeKeysetCursor({
+      scope: 'client-assessments',
+      filterKey: 'client=c1&approved=false&exclude=',
+      snapshotAt: NOW,
+      after: { at: '2026-07-20T12:00:00.123456Z', id: 'a-50' },
+    })
+
+    expect(parseKeysetPageRequest(params(`cursor=${cursor}`), {
+      scope: 'client-assessments',
+      filterKey: 'client=c1&approved=false&exclude=',
+    })).toMatchObject({
+      ok: true,
+      value: {
+        after: { at: '2026-07-20T12:00:00.123456Z', id: 'a-50' },
+      },
+    })
+  })
+
+  it('compares cursor positions to the snapshot at microsecond precision', () => {
+    expect(() => encodeKeysetCursor({
+      scope: 'clients',
+      filterKey: 'search=',
+      snapshotAt: '2026-07-20T12:00:00.123Z',
+      after: { at: '2026-07-20T12:00:00.123001Z', id: 'c-1' },
+    })).toThrow('Cursor position exceeds snapshot')
   })
 
   it.each([

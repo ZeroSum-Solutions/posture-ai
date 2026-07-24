@@ -7,6 +7,7 @@ import {
   clientAssessmentHistoryFilterKey,
 } from '@/lib/clients/assessment-history'
 import {
+  canonicalizeKeysetTimestamp,
   finalizeKeysetPage,
   isCanonicalIsoTimestamp,
   isCanonicalUuid,
@@ -171,7 +172,7 @@ export async function GET(
     filterKey,
     snapshotAt: page.snapshotAt,
     limit: page.limit,
-    key: (assessment) => ({ at: new Date(assessment.assessed_at).toISOString(), id: assessment.id }),
+    key: (assessment) => ({ at: canonicalizeKeysetTimestamp(assessment.assessed_at), id: assessment.id }),
   })
   // Preserve the prior endpoint's oldest-to-newest response ordering for one
   // deployed client version. The keyset cursor still advances over the bounded

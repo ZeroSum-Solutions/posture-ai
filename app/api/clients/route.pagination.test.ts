@@ -111,16 +111,28 @@ describe('GET /api/clients pagination', () => {
     })
   })
 
-  it('canonicalizes the PostgREST timestamptz form before encoding a cursor', async () => {
+  it('preserves PostgREST microseconds in the next-page client boundary', async () => {
     queryResult = {
       data: Array.from({ length: 51 }, (_, index) => ({
         ...client(index),
-        created_at: `2026-07-22T12:00:${String(59 - index).padStart(2, '0')}+00:00`,
+        created_at: index === 49
+          ? '2026-07-22T11:00:00.123456+00:00'
+          : client(index).created_at,
       })),
       error: null,
     }
     const body = await (await get('?limit=50')).json()
     expect(body.pagination.next_cursor).toEqual(expect.any(String))
+
+    rpcSpy.mockClear()
+    queryResult = { data: [], error: null }
+    const next = await get(`?limit=50&cursor=${encodeURIComponent(body.pagination.next_cursor)}`)
+
+    expect(next.status).toBe(200)
+    expect(rpcSpy).toHaveBeenCalledWith('list_owned_clients_page', expect.objectContaining({
+      p_after_at: '2026-07-22T11:00:00.123456Z',
+      p_after_id: client(49).id,
+    }))
   })
 
   it('binds the cursor to its snapshot and uses a composite created_at/id boundary', async () => {

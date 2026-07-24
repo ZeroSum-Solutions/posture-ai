@@ -6,6 +6,7 @@ const MAX_CURSOR_LENGTH = 2_048
 const MAX_SCOPE_LENGTH = 80
 const MAX_FILTER_KEY_LENGTH = 1_024
 const MAX_ID_LENGTH = 200
+const UTC_TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(Z|\+00:00)$/
 
 export interface KeysetPosition {
   at: string
@@ -43,10 +44,40 @@ function filterHash(filterKey: string): string {
   return createHash('sha256').update(filterKey).digest('hex')
 }
 
+function parseUtcTimestamp(value: string) {
+  const match = UTC_TIMESTAMP_PATTERN.exec(value)
+  if (!match) return null
+  const [, wholeSeconds, rawFraction = ''] = match
+  const fraction = rawFraction.padEnd(6, '0')
+  const millisecondTimestamp = `${wholeSeconds}.${fraction.slice(0, 3)}Z`
+  const parsed = new Date(millisecondTimestamp)
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 19) !== wholeSeconds) return null
+
+  // Keep millisecond timestamps compatible with existing v1 cursors, but retain
+  // all six digits whenever PostgreSQL supplied meaningful microseconds.
+  const canonicalFraction = fraction.slice(3) === '000' ? fraction.slice(0, 3) : fraction
+  return {
+    canonical: `${wholeSeconds}.${canonicalFraction}Z`,
+    sortKey: `${wholeSeconds}.${fraction}`,
+  }
+}
+
+export function canonicalizeKeysetTimestamp(value: string): string {
+  const parsed = parseUtcTimestamp(value)
+  if (!parsed) throw new Error('Invalid cursor timestamp')
+  return parsed.canonical
+}
+
 export function isCanonicalIsoTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string') return false
-  const timestamp = Date.parse(value)
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value
+  if (typeof value !== 'string' || !value.endsWith('Z')) return false
+  return parseUtcTimestamp(value)?.canonical === value
+}
+
+function compareCanonicalTimestamps(left: string, right: string): number {
+  const leftTimestamp = parseUtcTimestamp(left)
+  const rightTimestamp = parseUtcTimestamp(right)
+  if (!leftTimestamp || !rightTimestamp) throw new Error('Invalid cursor timestamp')
+  return leftTimestamp.sortKey.localeCompare(rightTimestamp.sortKey)
 }
 
 function exactObjectKeys(value: Record<string, unknown>, expected: string[]): boolean {
@@ -71,7 +102,7 @@ function decodeCursor(raw: string): CursorPayload | null {
     if (!exactObjectKeys(after, ['at', 'id'])) return null
     if (!isCanonicalIsoTimestamp(after.at)) return null
     if (typeof after.id !== 'string' || !after.id || after.id.length > MAX_ID_LENGTH) return null
-    if (Date.parse(after.at) > Date.parse(cursor.snapshotAt)) return null
+    if (compareCanonicalTimestamps(after.at, cursor.snapshotAt) > 0) return null
     return cursor as unknown as CursorPayload
   } catch {
     return null
@@ -88,7 +119,7 @@ export function encodeKeysetCursor(input: {
   if (input.filterKey.length > MAX_FILTER_KEY_LENGTH) throw new Error('Invalid cursor filter')
   if (!isCanonicalIsoTimestamp(input.snapshotAt) || !isCanonicalIsoTimestamp(input.after.at)) throw new Error('Invalid cursor timestamp')
   if (!input.after.id || input.after.id.length > MAX_ID_LENGTH) throw new Error('Invalid cursor id')
-  if (Date.parse(input.after.at) > Date.parse(input.snapshotAt)) throw new Error('Cursor position exceeds snapshot')
+  if (compareCanonicalTimestamps(input.after.at, input.snapshotAt) > 0) throw new Error('Cursor position exceeds snapshot')
 
   const payload: CursorPayload = {
     version: CURSOR_VERSION,

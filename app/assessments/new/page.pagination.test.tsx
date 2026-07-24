@@ -365,4 +365,49 @@ describe('new assessment paginated client picker', () => {
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('search=Page'))).toHaveLength(searchRequestCount)
     expect(screen.queryByText('Loading clients...')).toBeNull()
   })
+
+  it('refetches a settled search that capture aborted before returning to selection', async () => {
+    let pageSearchCount = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return Promise.resolve(new Response(JSON.stringify({ client: deepClient }), { status: 200 }))
+      }
+      if (url === `/api/consent?client_id=${deepClient.id}`) {
+        return Promise.resolve(new Response(JSON.stringify({ captureAllowed: true }), { status: 200 }))
+      }
+      if (url.includes('search=Page')) {
+        pageSearchCount += 1
+        if (pageSearchCount === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              'abort',
+              () => reject(new DOMException('Aborted', 'AbortError')),
+              { once: true },
+            )
+          })
+        }
+        return Promise.resolve(new Response(JSON.stringify({
+          clients: [pageClient], pagination: { has_more: false, next_cursor: null },
+        }), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        clients: [], pagination: { has_more: false, next_cursor: null },
+      }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<NewAssessmentWizard />)
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
+    await waitFor(() => expect(pageSearchCount).toBe(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    await screen.findByTestId('capture-step')
+    fireEvent.click(screen.getByRole('button', { name: 'Exit capture' }))
+
+    await screen.findByText('Page One')
+    expect(pageSearchCount).toBe(2)
+    expect((screen.getByRole('textbox', { name: 'Search clients by name' }) as HTMLInputElement).value).toBe('Page')
+  })
 })
