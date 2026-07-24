@@ -23,7 +23,14 @@ export function samplePixelsFromSource(
   srcH: number,
   maxEdge: number = MAX_SAMPLE_EDGE,
 ): PixelSample | null {
-  if (!Number.isFinite(srcW) || !Number.isFinite(srcH) || srcW <= 0 || srcH <= 0) return null
+  if (
+    !Number.isFinite(srcW)
+    || !Number.isFinite(srcH)
+    || !Number.isFinite(maxEdge)
+    || srcW <= 0
+    || srcH <= 0
+    || maxEdge <= 0
+  ) return null
 
   try {
     const scale = Math.min(1, maxEdge / Math.max(srcW, srcH))
@@ -31,14 +38,20 @@ export function samplePixelsFromSource(
     const targetH = Math.max(1, Math.round(srcH * scale))
 
     // Sampling is synchronous, so one reusable canvas cannot overlap another
-    // call. Reusing it avoids canvas allocation churn across burst frames;
-    // willReadFrequently asks the browser to keep readback inexpensive.
+    // call. Keep one square backing store at the requested bound instead of
+    // resizing it for every portrait/landscape frame: a resize discards the
+    // browser's read-optimized store and made constrained WebKit occasionally
+    // pay the allocation/readback cost inside the timed capture path.
     const canvas = reusableCanvas ??= document.createElement('canvas')
-    canvas.width = targetW
-    canvas.height = targetH
+    if (canvas.width !== maxEdge || canvas.height !== maxEdge) {
+      canvas.width = maxEdge
+      canvas.height = maxEdge
+    }
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return null
 
+    // Reuse must not blend transparent pixels over the prior sample.
+    ctx.clearRect(0, 0, targetW, targetH)
     ctx.drawImage(source, 0, 0, targetW, targetH)
     const imageData = ctx.getImageData(0, 0, targetW, targetH)
     return { data: imageData.data, width: targetW, height: targetH }

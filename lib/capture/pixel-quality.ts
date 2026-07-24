@@ -27,10 +27,17 @@ interface LumaStats {
   brightClip: number
 }
 
+// Pixel scoring is synchronous. Reuse the largest luma scratch buffer instead
+// of allocating roughly 800 KiB for every calibrated 320px sample; otherwise
+// WebKit can pause for garbage collection during a burst even though the math
+// itself is bounded.
+let reusableLuma = new Float64Array(0)
+
 // Rec.601 luma per pixel, summed for the mean and counted against the clip
 // levels in one pass over the already-downscaled sample.
 function lumaStats(data: Uint8ClampedArray, pixelCount: number): LumaStats {
-  const luma = new Float64Array(pixelCount)
+  if (reusableLuma.length < pixelCount) reusableLuma = new Float64Array(pixelCount)
+  const luma = reusableLuma
   let lumaSum = 0
   let darkCount = 0
   let brightCount = 0

@@ -13,6 +13,7 @@ function stubCanvas2d(behavior: StubBehavior) {
     if (type !== '2d') return null
     if (behavior === 'null') return null
     return {
+      clearRect: vi.fn(),
       drawImage: vi.fn(() => {
         if (behavior === 'drawThrow') throw new Error('drawImage failed')
       }),
@@ -121,6 +122,8 @@ describe('samplePixelsFromSource', () => {
     expect(samplePixelsFromSource(fakeSource, -1, 600)).toBeNull()
     expect(samplePixelsFromSource(fakeSource, 800, NaN)).toBeNull()
     expect(samplePixelsFromSource(fakeSource, Infinity, 600)).toBeNull()
+    expect(samplePixelsFromSource(fakeSource, 800, 600, 0)).toBeNull()
+    expect(samplePixelsFromSource(fakeSource, 800, 600, Number.NaN)).toBeNull()
   })
 
   it('never downscales below source dims (scale clamped to <=1)', () => {
