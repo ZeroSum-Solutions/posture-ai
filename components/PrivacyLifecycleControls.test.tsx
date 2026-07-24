@@ -83,6 +83,37 @@ describe('PrivacyLifecycleControls', () => {
     expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy()
   })
 
+  test('shows a confirmed revocation before a slow inventory refresh completes', async () => {
+    let inventoryRequests = 0
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.startsWith('/api/workouts/shares?')) {
+        inventoryRequests += 1
+        if (inventoryRequests > 1) return new Promise<Response>(() => {})
+        return jsonResponse({ shares: [{
+          session_id: '30000000-0000-4000-8000-000000000001',
+          assessment_id: '40000000-0000-4000-8000-000000000001',
+          created_at: '2026-07-20T00:00:00Z',
+          expires_at: '2026-07-27T00:00:00Z',
+          revoked_at: null,
+          share_generation: 1,
+          state: 'active',
+        }], next_cursor: null, rotation_enabled: true })
+      }
+      if (url === '/api/workouts/shares' && init?.method === 'DELETE') {
+        return jsonResponse({ status: 'revoked' })
+      }
+      return jsonResponse({ error: 'unexpected request' }, 500)
+    })
+
+    render(<PrivacyLifecycleControls clientId={clientId} hasConsent onConsentWithdrawn={vi.fn()} onDeleted={vi.fn()} />)
+    await screen.findByText('active')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }))
+
+    expect(await screen.findByText('revoked')).toBeTruthy()
+  })
+
   test('fails closed when the inventory response omits the rotation capability', async () => {
     vi.mocked(fetch).mockImplementationOnce(() => jsonResponse({
       shares: [{
