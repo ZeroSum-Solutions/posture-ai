@@ -7,18 +7,19 @@ type StubBehavior = 'null' | 'drawThrow' | 'getImageDataThrow' | 'happy'
 // jsdom has no real canvas backend installed, so HTMLCanvasElement#getContext
 // returns null by default — stub it per-test to exercise the draw/readback
 // paths the pure-node default can't reach.
-function stubCanvas2d(behavior: StubBehavior) {
+function stubCanvas2d(behavior: StubBehavior | (() => StubBehavior)) {
   const original = HTMLCanvasElement.prototype.getContext
   HTMLCanvasElement.prototype.getContext = vi.fn(function (this: HTMLCanvasElement, type: string) {
     if (type !== '2d') return null
-    if (behavior === 'null') return null
+    const currentBehavior = typeof behavior === 'function' ? behavior() : behavior
+    if (currentBehavior === 'null') return null
     return {
       clearRect: vi.fn(),
       drawImage: vi.fn(() => {
-        if (behavior === 'drawThrow') throw new Error('drawImage failed')
+        if (currentBehavior === 'drawThrow') throw new Error('drawImage failed')
       }),
       getImageData: vi.fn((_x: number, _y: number, w: number, h: number) => {
-        if (behavior === 'getImageDataThrow') throw new Error('getImageData failed')
+        if (currentBehavior === 'getImageDataThrow') throw new Error('getImageData failed')
         return { data: new Uint8ClampedArray(w * h * 4), width: w, height: h }
       }),
     } as unknown as CanvasRenderingContext2D
@@ -57,6 +58,22 @@ describe('samplePixelsFromSource', () => {
     const restore = stubCanvas2d('getImageDataThrow')
     try {
       expect(samplePixelsFromSource(fakeSource, 800, 600)).toBeNull()
+    } finally {
+      restore()
+    }
+  })
+
+  it('discards a failed canvas so a later origin-clean source can recover', () => {
+    let behavior: StubBehavior = 'getImageDataThrow'
+    const restore = stubCanvas2d(() => behavior)
+    const createElement = vi.spyOn(document, 'createElement')
+    try {
+      expect(samplePixelsFromSource(fakeSource, 800, 600)).toBeNull()
+      createElement.mockClear()
+
+      behavior = 'happy'
+      expect(samplePixelsFromSource(fakeSource, 800, 600)).not.toBeNull()
+      expect(createElement).toHaveBeenCalledWith('canvas')
     } finally {
       restore()
     }
@@ -124,6 +141,15 @@ describe('samplePixelsFromSource', () => {
     expect(samplePixelsFromSource(fakeSource, Infinity, 600)).toBeNull()
     expect(samplePixelsFromSource(fakeSource, 800, 600, 0)).toBeNull()
     expect(samplePixelsFromSource(fakeSource, 800, 600, Number.NaN)).toBeNull()
+  })
+
+  it('rejects a fractional maxEdge before canvas sizing can truncate it', () => {
+    const restore = stubCanvas2d('happy')
+    try {
+      expect(samplePixelsFromSource(fakeSource, 1000, 1000, 320.5)).toBeNull()
+    } finally {
+      restore()
+    }
   })
 
   it('never downscales below source dims (scale clamped to <=1)', () => {

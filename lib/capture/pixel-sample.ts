@@ -27,6 +27,7 @@ export function samplePixelsFromSource(
     !Number.isFinite(srcW)
     || !Number.isFinite(srcH)
     || !Number.isFinite(maxEdge)
+    || !Number.isInteger(maxEdge)
     || srcW <= 0
     || srcH <= 0
     || maxEdge <= 0
@@ -56,6 +57,10 @@ export function samplePixelsFromSource(
     const imageData = ctx.getImageData(0, 0, targetW, targetH)
     return { data: imageData.data, width: targetW, height: targetH }
   } catch {
+    // A failed draw/readback can leave the canvas permanently origin-unclean;
+    // clearing pixels does not restore that security state. Discard it so an
+    // unrelated, origin-clean source can recover on the next sample.
+    reusableCanvas = null
     return null
   }
 }
