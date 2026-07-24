@@ -14,16 +14,15 @@ function params(value = '') {
 }
 
 describe('keyset pagination contract', () => {
-  it('defaults to the frozen 50-record maximum and binds a new snapshot', () => {
+  it('defaults to the frozen 50-record maximum and requires a database snapshot', () => {
     expect(parseKeysetPageRequest(params(), {
       scope: 'clients',
       filterKey: 'search=',
-      now: () => new Date(NOW),
     })).toEqual({
       ok: true,
       value: {
         limit: 50,
-        snapshotAt: NOW,
+        snapshotAt: null,
         after: null,
       },
     })
@@ -33,7 +32,6 @@ describe('keyset pagination contract', () => {
     expect(parseKeysetPageRequest(params(`limit=${encodeURIComponent(limit)}`), {
       scope: 'clients',
       filterKey: 'search=',
-      now: () => new Date(NOW),
     })).toMatchObject({ ok: false, error: 'Invalid limit' })
   })
 
@@ -41,7 +39,6 @@ describe('keyset pagination contract', () => {
     expect(parseKeysetPageRequest(params('limit=17'), {
       scope: 'clients',
       filterKey: 'search=',
-      now: () => new Date(NOW),
     })).toMatchObject({ ok: true, value: { limit: 17 } })
   })
 
@@ -56,7 +53,6 @@ describe('keyset pagination contract', () => {
     expect(parseKeysetPageRequest(params(`cursor=${cursor}&limit=25`), {
       scope: 'client-assessments',
       filterKey: 'client=c1&approved=false&exclude=',
-      now: () => new Date('2099-01-01T00:00:00.000Z'),
     })).toEqual({
       ok: true,
       value: {
@@ -196,14 +192,14 @@ describe('keyset pagination contract', () => {
         const parsed = parseKeysetPageRequest(requestParams, {
           scope: 'clients',
           filterKey: 'search=',
-          now: () => new Date(NOW),
         })
         expect(parsed.ok).toBe(true)
         if (!parsed.ok) throw new Error(parsed.error)
-        snapshotAt ??= parsed.value.snapshotAt
+        const requestSnapshotAt = parsed.value.snapshotAt ?? NOW
+        snapshotAt ??= requestSnapshotAt
 
         const candidates = source
-          .filter((row) => row.created_at <= parsed.value.snapshotAt)
+          .filter((row) => row.created_at <= requestSnapshotAt)
           .filter((row) => !parsed.value.after
             || row.created_at < parsed.value.after.at
             || (row.created_at === parsed.value.after.at && row.id < parsed.value.after.id))
@@ -212,7 +208,7 @@ describe('keyset pagination contract', () => {
         const page = finalizeKeysetPage(candidates, {
           scope: 'clients',
           filterKey: 'search=',
-          snapshotAt: parsed.value.snapshotAt,
+          snapshotAt: requestSnapshotAt,
           limit: parsed.value.limit,
           key: (row) => ({ at: row.created_at, id: row.id }),
         })

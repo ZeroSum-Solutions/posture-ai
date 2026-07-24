@@ -1,3 +1,5 @@
+import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
+
 /**
  * One comparison policy for every progress surface.
  *
@@ -86,10 +88,9 @@ function finiteValue(value: unknown): number | null {
 
 function chronologyReason(input: LowerIsBetterComparisonInput): 'comparable' | 'missing_timestamp' | 'non_chronological' {
   if (!input.currentAssessedAt || !input.priorAssessedAt) return 'missing_timestamp'
-  const current = Date.parse(input.currentAssessedAt)
-  const prior = Date.parse(input.priorAssessedAt)
-  if (!Number.isFinite(current) || !Number.isFinite(prior)) return 'missing_timestamp'
-  return current > prior ? 'comparable' : 'non_chronological'
+  const order = comparePostgresTimestamps(input.currentAssessedAt, input.priorAssessedAt)
+  if (order === null) return 'missing_timestamp'
+  return order === 1 ? 'comparable' : 'non_chronological'
 }
 
 export function engineVersionComparisonReason(

@@ -101,6 +101,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
     }
   }
+  if (!page.snapshotAt) {
+    logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_snapshot_missing' })
+    return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
+  }
 
   const { data, error } = await supabase.rpc('list_owned_clients_page', {
     p_search: parsedSearch.value,

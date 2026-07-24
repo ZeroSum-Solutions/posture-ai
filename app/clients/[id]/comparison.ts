@@ -1,3 +1,5 @@
+import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
+
 export type ChronologicalAssessment = {
   id: string
   assessed_at: string
@@ -10,7 +12,7 @@ export type ComparisonSelection = {
 
 export function sortAssessmentsChronologically<T extends ChronologicalAssessment>(assessments: readonly T[]): T[] {
   return [...assessments].sort((left, right) => {
-    const dateDifference = Date.parse(left.assessed_at) - Date.parse(right.assessed_at)
+    const dateDifference = comparePostgresTimestamps(left.assessed_at, right.assessed_at) ?? 0
     return dateDifference || left.id.localeCompare(right.id)
   })
 }
@@ -19,7 +21,7 @@ export function initialComparison(assessments: readonly ChronologicalAssessment[
   if (assessments.length < 2) return { baseId: '', targetId: '' }
   const base = assessments[0]
   const target = [...assessments].reverse().find(
-    (assessment) => Date.parse(assessment.assessed_at) > Date.parse(base.assessed_at),
+    (assessment) => comparePostgresTimestamps(assessment.assessed_at, base.assessed_at) === 1,
   )
   return {
     baseId: base.id,
@@ -35,11 +37,16 @@ export function selectComparisonBase(
   const baseIndex = assessments.findIndex((assessment) => assessment.id === nextBaseId)
   const targetIndex = assessments.findIndex((assessment) => assessment.id === currentTargetId)
   if (baseIndex < 0) return initialComparison(assessments)
-  const baseDate = Date.parse(assessments[baseIndex].assessed_at)
   const isCurrentTargetLater = targetIndex >= 0
-    && Date.parse(assessments[targetIndex].assessed_at) > baseDate
+    && comparePostgresTimestamps(
+      assessments[targetIndex].assessed_at,
+      assessments[baseIndex].assessed_at,
+    ) === 1
   const nextLaterAssessment = assessments.find(
-    (assessment) => Date.parse(assessment.assessed_at) > baseDate,
+    (assessment) => comparePostgresTimestamps(
+      assessment.assessed_at,
+      assessments[baseIndex].assessed_at,
+    ) === 1,
   )
 
   return {
@@ -56,11 +63,16 @@ export function selectComparisonTarget(
   const baseIndex = assessments.findIndex((assessment) => assessment.id === currentBaseId)
   const targetIndex = assessments.findIndex((assessment) => assessment.id === nextTargetId)
   if (targetIndex < 0) return initialComparison(assessments)
-  const targetDate = Date.parse(assessments[targetIndex].assessed_at)
   const isCurrentBaseEarlier = baseIndex >= 0
-    && Date.parse(assessments[baseIndex].assessed_at) < targetDate
+    && comparePostgresTimestamps(
+      assessments[baseIndex].assessed_at,
+      assessments[targetIndex].assessed_at,
+    ) === -1
   const nextEarlierAssessment = [...assessments].reverse().find(
-    (assessment) => Date.parse(assessment.assessed_at) < targetDate,
+    (assessment) => comparePostgresTimestamps(
+      assessment.assessed_at,
+      assessments[targetIndex].assessed_at,
+    ) === -1,
   )
 
   return {

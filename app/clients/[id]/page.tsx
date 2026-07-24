@@ -5,7 +5,7 @@ import {
   clientAssessmentHistoryFilterKey,
 } from '@/lib/clients/assessment-history'
 import { hashResource, hashUser, logEvent } from '@/lib/log'
-import { finalizeKeysetPage } from '@/lib/pagination/keyset'
+import { canonicalizeKeysetTimestamp, finalizeKeysetPage } from '@/lib/pagination/keyset'
 import { getConsentStatus } from '@/lib/consent/record'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import ClientDetailClient, { type ClientDetailInitialData } from './ClientDetailClient'
@@ -24,7 +24,22 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return null
 
-  const snapshotAt = new Date().toISOString()
+  const { data: preciseSnapshot, error: snapshotError } = await supabase.rpc('current_keyset_snapshot')
+  let snapshotAt: string
+  try {
+    if (snapshotError || typeof preciseSnapshot !== 'string') throw new Error('snapshot unavailable')
+    snapshotAt = canonicalizeKeysetTimestamp(preciseSnapshot)
+  } catch {
+    logEvent({
+      route: 'GET /clients/[id]',
+      outcome: 'server_error',
+      status: 500,
+      userHash: hashUser(user.id),
+      resourceHash: hashResource(id),
+      detailCode: snapshotError ? 'client_detail_seed_snapshot_failed' : 'client_detail_seed_snapshot_invalid',
+    })
+    return null
+  }
   const [clientResult, historyResult, consent] = await Promise.all([
     supabase
       .from('clients')
@@ -75,7 +90,7 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
       snapshotAt,
       limit: INITIAL_HISTORY_PAGE_SIZE,
       key: (assessment) => ({
-        at: new Date(assessment.assessed_at).toISOString(),
+        at: canonicalizeKeysetTimestamp(assessment.assessed_at),
         id: assessment.id,
       }),
     },

@@ -32,6 +32,8 @@ describe('FindingCard Muscle Analysis disclosure', () => {
 describe('assessment comparison timestamp boundary', () => {
   it('normalizes Postgres RFC 3339 timestamps for the canonical API filter', () => {
     expect(canonicalAssessmentTimestamp('2026-06-30T12:00:00+00:00')).toBe('2026-06-30T12:00:00.000Z')
+    expect(canonicalAssessmentTimestamp('2026-06-30T12:00:00.123456+00:00'))
+      .toBe('2026-06-30T12:00:00.123456Z')
     expect(canonicalAssessmentTimestamp('not-a-date')).toBeNull()
   })
 })

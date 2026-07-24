@@ -27,6 +27,10 @@ import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import LegalNotice from '@/components/LegalNotice'
+import {
+  canonicalizePostgresTimestamp,
+  comparePostgresTimestamps,
+} from '@/lib/time/postgres-timestamp'
 
 type Finding = AssessmentResultsPayload['findings'][number]
 type Capture = AssessmentResultsPayload['captures'][number]
@@ -34,8 +38,7 @@ type Assessment = AssessmentResultsPayload['assessment']
 type Zone = Finding['zone']
 
 export function canonicalAssessmentTimestamp(value: string): string | null {
-  const timestamp = Date.parse(value)
-  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null
+  return canonicalizePostgresTimestamp(value)
 }
 
 // Zone colors
@@ -1014,12 +1017,8 @@ export default function ClinicalAssessmentResults({
       ? `Tilt corrected: ${rollNotes.join(', ')}`
       : null,
   ].filter((part): part is string => part !== null)
-  const currentAssessmentTime = Date.parse(assessment.assessed_at)
   const comparisonOptions = priorAssessments
-    .filter((prior) => {
-      const priorTime = Date.parse(prior.assessed_at)
-      return Number.isFinite(currentAssessmentTime) && Number.isFinite(priorTime) && priorTime < currentAssessmentTime
-    })
+    .filter((prior) => comparePostgresTimestamps(prior.assessed_at, assessment.assessed_at) === -1)
     .map((prior) => ({
     id: prior.id,
     label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(

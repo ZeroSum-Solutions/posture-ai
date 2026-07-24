@@ -7,6 +7,7 @@ import {
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
 import styles from './ClientEvidenceCanvas.module.css'
+import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
 
 export type ComparisonAssessment = {
   id: string
@@ -70,14 +71,15 @@ export default function ComparisonWorkspace({
   onTargetChange,
 }: ComparisonWorkspaceProps) {
   const chronologicalAssessments = [...assessments].sort((left, right) => {
-    const dateDifference = Date.parse(left.assessedAt) - Date.parse(right.assessedAt)
+    const dateDifference = comparePostgresTimestamps(left.assessedAt, right.assessedAt) ?? 0
     return dateDifference || left.id.localeCompare(right.id)
   })
   const baseAssessment = chronologicalAssessments.find((assessment) => assessment.id === baseId)
-  const baseTime = baseAssessment ? Date.parse(baseAssessment.assessedAt) : null
-  const laterAssessments = baseTime === null
+  const laterAssessments = !baseAssessment
     ? []
-    : chronologicalAssessments.filter((assessment) => Date.parse(assessment.assessedAt) > baseTime)
+    : chronologicalAssessments.filter(
+        (assessment) => comparePostgresTimestamps(assessment.assessedAt, baseAssessment.assessedAt) === 1,
+      )
   const targetAssessment = chronologicalAssessments.find((assessment) => assessment.id === targetId)
   const overallStatus = overallComparison?.status ?? 'not_comparable'
   const overallTone = comparisonTone(overallStatus)

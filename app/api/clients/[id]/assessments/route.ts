@@ -134,6 +134,20 @@ export async function GET(
       return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
     }
   }
+  if (page && !page.snapshotAt) {
+    logEvent({
+      route: 'GET /api/clients/[id]/assessments',
+      outcome: 'server_error',
+      status: 500,
+      userHash: hashUser(user.id),
+      resourceHash: hashResource(clientId),
+      detailCode: 'assessment_snapshot_missing',
+    })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
+  }
+  const boundedPage = page?.snapshotAt
+    ? { ...page, snapshotAt: page.snapshotAt }
+    : null
 
   let query = supabase
     .from('assessments')
@@ -155,9 +169,9 @@ export async function GET(
   if (beforeAt) {
     query = query.lt('assessed_at', beforeAt)
   }
-  if (page?.after) {
+  if (boundedPage?.after) {
     query = query.or(
-      `assessed_at.lt.${page.after.at},and(assessed_at.eq.${page.after.at},id.lt.${page.after.id})`,
+      `assessed_at.lt.${boundedPage.after.at},and(assessed_at.eq.${boundedPage.after.at},id.lt.${boundedPage.after.id})`,
     )
   }
 
@@ -165,12 +179,12 @@ export async function GET(
   // `limit` and still receive the complete oldest-to-newest history. Every
   // current caller opts into the bounded contract. Remove this branch after
   // one deployed app version, following docs/qa/pr09-performance-runbook.md.
-  query = page
+  query = boundedPage
     ? query
         .order('assessed_at', { ascending: false })
         .order('id', { ascending: false })
-        .lte('assessed_at', page.snapshotAt)
-        .limit(page.limit + 1)
+        .lte('assessed_at', boundedPage.snapshotAt)
+        .limit(boundedPage.limit + 1)
     : query
         .order('assessed_at', { ascending: true })
         .order('id', { ascending: true })
@@ -191,15 +205,15 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
   }
 
-  if (!page) {
+  if (!boundedPage) {
     return NextResponse.json({ assessments: assessments ?? [] }, { headers: NO_STORE })
   }
 
   const result = finalizeKeysetPage((assessments ?? []) as unknown as Array<{ id: string; assessed_at: string }>, {
     scope: CLIENT_ASSESSMENT_LIST_SCOPE,
     filterKey,
-    snapshotAt: page.snapshotAt,
-    limit: page.limit,
+    snapshotAt: boundedPage.snapshotAt,
+    limit: boundedPage.limit,
     key: (assessment) => ({ at: canonicalizeKeysetTimestamp(assessment.assessed_at), id: assessment.id }),
   })
   // Preserve the prior endpoint's oldest-to-newest response ordering for one

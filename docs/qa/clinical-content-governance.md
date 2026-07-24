@@ -18,16 +18,18 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`7a3c75888804cba91c1a2bcf8f475a155ba816f747821a77a05e76cb6439e842`.
+`d923a6fbe2c2d198d9f290eea699a41bb6edfc18e56ba0b65cd28dea500285a7`.
 
 Recommendation algorithm SHA-256:
-`074c6e3720847e1726acaf76e2261ccac0f534fdb4c1d79e23f4efbbc3389ff4`.
+`30d6b50fe2ec32494bae2d51b97e9acae0ed0662e24933a5bc3a4d5e27c58573`.
 
 PR-09 regenerated this hash because the governed source list deliberately includes
 `ClinicalAssessmentResults.tsx` and the shared `loadAssessmentResults.ts` projection
 loader. The same review closed a pre-existing coverage gap by explicitly hashing the
 measurement modules imported by the engine entry point, the complete-surface predicate,
-and the assessment-override write helpers. The runtime changes release the
+and the assessment-override write helpers. A final precision correction also preserves
+PostgreSQL microseconds when deciding whether one assessment is strictly earlier than
+another. The runtime changes release the
 already-authoritative primary review before optional comparison history arrives and
 centralize the existing authenticated API projection; they do not alter measured
 findings, scoring, recommendation inputs, clinical copy, or release eligibility. The

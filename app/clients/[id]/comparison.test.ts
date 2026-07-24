@@ -58,4 +58,14 @@ describe('assessment comparison chronology', () => {
     expect(initialComparison(sameTime)).toEqual({ baseId: 'a', targetId: '' })
     expect(selectComparisonBase(sameTime, 'b', 'a')).toEqual({ baseId: 'a', targetId: '' })
   })
+
+  test('orders assessments that differ only below JavaScript millisecond precision', () => {
+    const withinOneMillisecond = sortAssessmentsChronologically([
+      { id: 'later', assessed_at: '2026-04-01T10:00:00.123789Z' },
+      { id: 'earlier', assessed_at: '2026-04-01T10:00:00.123456Z' },
+    ])
+
+    expect(withinOneMillisecond.map((assessment) => assessment.id)).toEqual(['earlier', 'later'])
+    expect(initialComparison(withinOneMillisecond)).toEqual({ baseId: 'earlier', targetId: 'later' })
+  })
 })
