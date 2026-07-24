@@ -158,6 +158,7 @@ test.describe('accessibility budget', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
     await page.waitForLoadState('networkidle')
+    await expect(page).toHaveTitle('Assessment Results · Posture AI')
     await expectNoSeriousViolations(page, testInfo, 'results')
 
     await page.getByRole('button', { name: 'Approve report' }).click()
@@ -220,6 +221,7 @@ test.describe('accessibility budget', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
     await page.waitForLoadState('networkidle')
+    await expect(page).toHaveTitle('Assessment Results · Posture AI')
     await expectNoSeriousViolations(page, testInfo, 'assessment results with prior (compare-select + badges)')
   })
 })
