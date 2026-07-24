@@ -11,7 +11,20 @@ export async function currentLegalDocument(
   page: Page,
   kind: 'subject_consent' | 'privacy' | 'terms' | 'screening_notice',
 ): Promise<LegalDocumentIdentity> {
-  const response = await page.request.get(`/api/legal/documents?kind=${kind}`)
+  let response: Awaited<ReturnType<typeof page.request.get>> | undefined
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await page.request.get(`/api/legal/documents?kind=${kind}`)
+      break
+    } catch (error) {
+      if (attempt === 1) throw error
+      // The local Next server can reset an otherwise-idempotent setup GET while
+      // concurrent browser projects are compiling routes. Retry transport
+      // failure only; HTTP error responses still fail below without a retry.
+      await page.waitForTimeout(100)
+    }
+  }
+  if (!response) throw new Error(`${kind} legal document request did not complete`)
   expect(response.ok(), `${kind} legal document failed: ${response.status()}`).toBeTruthy()
   const body = await response.json() as { document?: LegalDocumentIdentity }
   expect(body.document?.documentId).toBeTruthy()
