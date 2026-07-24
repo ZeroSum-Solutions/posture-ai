@@ -69,6 +69,23 @@ const assessments = [
   },
 ]
 
+function seededInitialData() {
+  return {
+    client: {
+      id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+      sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+      consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
+    },
+    assessments,
+    consentStatus: 'valid' as const,
+    pagination: {
+      has_more: false,
+      next_cursor: null,
+      snapshot_at: '2026-07-03T00:00:00.000Z',
+    },
+  }
+}
+
 afterEach(() => {
   cleanup()
   navigation.id = 'client-1'
@@ -85,26 +102,14 @@ describe('client detail progressive rendering', () => {
 
     render(
       <ClientDetailPage
-        initialData={{
-          client: {
-            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
-            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
-            consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
-          },
-          assessments,
-          consentStatus: 'valid',
-          pagination: {
-            has_more: false,
-            next_cursor: null,
-            snapshot_at: '2026-07-03T00:00:00.000Z',
-          },
-        }}
+        initialData={seededInitialData()}
       />,
     )
 
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
-    expect(screen.getByText('Preparing client information…')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Client Information' })).toBeTruthy()
+    expect(screen.getByText('Preparing privacy controls…').getAttribute('role')).toBe('status')
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
 
     act(() => vi.advanceTimersByTime(299))
@@ -113,6 +118,19 @@ describe('client detail progressive rendering', () => {
 
     expect(screen.getByTestId('privacy-lifecycle-controls')).toBeTruthy()
     expect(workspaceRenders.privacy).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels deferred privacy work when the practitioner leaves Info', () => {
+    workspaceRenders.privacy.mockClear()
+    vi.useFakeTimers()
+    render(<ClientDetailPage initialData={seededInitialData()} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
+    expect(screen.getByText('Preparing privacy controls…').getAttribute('role')).toBe('status')
+    fireEvent.click(screen.getByRole('tab', { name: 'Assessments' }))
+    act(() => vi.advanceTimersByTime(300))
+
+    expect(workspaceRenders.privacy).not.toHaveBeenCalled()
   })
 
   it('paints the client record before consent and assessment history finish', async () => {
@@ -290,7 +308,6 @@ describe('client detail progressive rendering', () => {
   })
 
   it('fails closed when server-seeded consent status is unavailable', () => {
-    vi.useFakeTimers()
     render(
       <ClientDetailPage
         initialData={{
@@ -312,7 +329,6 @@ describe('client detail progressive rendering', () => {
 
     expect(screen.getByText('unavailable', { exact: true })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
-    act(() => vi.advanceTimersByTime(300))
     expect(screen.getByText('Status unavailable', { exact: true })).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
   })

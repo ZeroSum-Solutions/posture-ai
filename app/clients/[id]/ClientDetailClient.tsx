@@ -103,6 +103,7 @@ interface ClientWorkspaceProps {
   progressPanel: ReactNode
   comparePanel: ReactNode
   infoPanel: ReactNode
+  privacyPanel: ReactNode
 }
 
 const ClientWorkspace = memo(function ClientWorkspace({
@@ -111,6 +112,7 @@ const ClientWorkspace = memo(function ClientWorkspace({
   progressPanel,
   comparePanel,
   infoPanel,
+  privacyPanel,
 }: ClientWorkspaceProps) {
   // Keep tab navigation below the client route boundary. A tab click should
   // update four small controls and panel visibility, not reconcile the profile,
@@ -254,9 +256,12 @@ const ClientWorkspace = memo(function ClientWorkspace({
           </div>
         )}
         <div {...panelProps('info')}>
-          {renderedTabs.has('info') ? infoPanel : (
-            <div className={styles.loadingPanel}>Preparing client information…</div>
-          )}
+          {infoPanel}
+          {renderedTabs.has('info')
+            ? privacyPanel
+            : activeTab === 'info'
+              ? <div className={styles.loadingPanel} role="status">Preparing privacy controls…</div>
+              : null}
         </div>
       </div>
     </>
@@ -953,7 +958,6 @@ function ClientDetailRoute({
           </>
         )}
         infoPanel={(
-          <div>
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
@@ -1031,6 +1035,8 @@ function ClientDetailRoute({
             </div>
           )}
           </div>
+        )}
+        privacyPanel={(
           <PrivacyLifecycleControls
             clientId={client.id}
             hasConsent={consentStatus === 'valid'}
@@ -1042,7 +1048,6 @@ function ClientDetailRoute({
               router.push(`/clients?erasure=${externalStatus}`)
             }}
           />
-          </div>
         )}
       />
     </div>
