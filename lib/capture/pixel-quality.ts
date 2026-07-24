@@ -56,25 +56,25 @@ function lumaStats(data: Uint8ClampedArray, pixelCount: number): LumaStats {
 function laplacianVariance(luma: Float64Array, width: number, height: number): number {
   if (width < 3 || height < 3) return 0
 
-  // Accumulate variance online instead of materializing one boxed Number per
-  // interior pixel. A 320px sample has roughly 100k interior pixels; avoiding
-  // that temporary array removes a large WebKit allocation/GC spike from the
-  // capture preflight while preserving population-variance semantics.
+  // Accumulate both moments without materializing roughly 100k responses.
+  // Laplacian values are tightly bounded by 8-bit input, so this population
+  // variance is stable here and avoids Welford's division per pixel on
+  // constrained WebKit devices.
   let count = 0
-  let mean = 0
-  let sumSquaredDifferences = 0
+  let sum = 0
+  let sumSquares = 0
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x
       const lap = luma[idx - width] + luma[idx + width] + luma[idx - 1] + luma[idx + 1] - 4 * luma[idx]
       count++
-      const delta = lap - mean
-      mean += delta / count
-      sumSquaredDifferences += delta * (lap - mean)
+      sum += lap
+      sumSquares += lap * lap
     }
   }
 
-  return sumSquaredDifferences / count
+  const mean = sum / count
+  return Math.max(0, (sumSquares / count) - (mean * mean))
 }
 
 /**

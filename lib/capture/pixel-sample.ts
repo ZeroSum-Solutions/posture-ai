@@ -9,6 +9,7 @@ import calibration from './pixel-quality.calibration.json'
 
 /** Calibrated long-edge sample bound (lib/capture/pixel-quality.calibration.json). */
 export const MAX_SAMPLE_EDGE = calibration.scale
+let reusableCanvas: HTMLCanvasElement | null = null
 
 /**
  * Downscales `source` (srcW x srcH) onto a small canvas bounded by `maxEdge`
@@ -29,10 +30,13 @@ export function samplePixelsFromSource(
     const targetW = Math.max(1, Math.round(srcW * scale))
     const targetH = Math.max(1, Math.round(srcH * scale))
 
-    const canvas = document.createElement('canvas')
+    // Sampling is synchronous, so one reusable canvas cannot overlap another
+    // call. Reusing it avoids canvas allocation churn across burst frames;
+    // willReadFrequently asks the browser to keep readback inexpensive.
+    const canvas = reusableCanvas ??= document.createElement('canvas')
     canvas.width = targetW
     canvas.height = targetH
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return null
 
     ctx.drawImage(source, 0, 0, targetW, targetH)
