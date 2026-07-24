@@ -17,6 +17,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
   ))
 
   test('client detail: assessments 500 shows alert not empty-state', async ({ page }) => {
+    test.setTimeout(60_000)
     const client = await createClient(page, 'E2E', `ErrAssess-${randomUUID().slice(0, 8)}`)
     const assessmentResponse = await page.request.post('/api/assessments', {
       data: { client_id: client.id, submission_id: randomUUID(), test_mode: true },

@@ -26,6 +26,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Validate frozen performance contract
+        run: npm run performance:budgets:check
       - name: Start disposable local Supabase
         run: npx supabase start -x studio,inbucket,imgproxy,edge-runtime,logflare,vector
       - name: Install frozen browser engine

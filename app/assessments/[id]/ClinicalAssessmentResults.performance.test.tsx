@@ -110,6 +110,7 @@ function assessmentResponseData({
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 

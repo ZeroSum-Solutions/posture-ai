@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(9);
+SELECT plan(11);
 
 SELECT ok(
   to_regclass('public.clients_active_practitioner_created_id_idx') IS NOT NULL,
@@ -82,6 +82,55 @@ SELECT ok(
   ),
   'only authenticated callers can execute client search'
 );
+
+-- Exercise the invoker path as two authenticated practitioners. Structural
+-- assertions alone cannot prove that a future function edit preserves tenant
+-- isolation.
+SET LOCAL session_replication_role = replica;
+INSERT INTO public.practitioners (id, display_name, access_status, role)
+VALUES
+  ('12000000-0000-4000-8000-000000000001', 'Bounded search practitioner A', 'active', 'practitioner'),
+  ('12000000-0000-4000-8000-000000000002', 'Bounded search practitioner B', 'active', 'practitioner');
+SET LOCAL session_replication_role = origin;
+
+INSERT INTO public.clients (id, practitioner_id, first_name, last_name, created_at)
+VALUES
+  ('22000000-0000-4000-8000-000000000001', '12000000-0000-4000-8000-000000000001', 'Owned', 'Alpha', '2026-07-20T00:00:00Z'),
+  ('22000000-0000-4000-8000-000000000002', '12000000-0000-4000-8000-000000000002', 'Owned', 'Beta', '2026-07-20T00:00:00Z');
+
+SELECT set_config('request.jwt.claim.sub', '12000000-0000-4000-8000-000000000001', true);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"12000000-0000-4000-8000-000000000001","aal":"aal2","iat":2000000000}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT results_eq(
+  $$
+    SELECT id
+    FROM public.list_owned_clients_page('', '2026-07-21T00:00:00Z', NULL, NULL, 51)
+  $$,
+  $$ VALUES ('22000000-0000-4000-8000-000000000001'::uuid) $$,
+  'practitioner A client search cannot return practitioner B records'
+);
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub', '12000000-0000-4000-8000-000000000002', true);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"12000000-0000-4000-8000-000000000002","aal":"aal2","iat":2000000000}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT results_eq(
+  $$
+    SELECT id
+    FROM public.list_owned_clients_page('', '2026-07-21T00:00:00Z', NULL, NULL, 51)
+  $$,
+  $$ VALUES ('22000000-0000-4000-8000-000000000002'::uuid) $$,
+  'practitioner B client search cannot return practitioner A records'
+);
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;
