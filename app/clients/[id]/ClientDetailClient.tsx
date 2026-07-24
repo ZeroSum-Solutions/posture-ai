@@ -187,8 +187,6 @@ const ClientWorkspace = memo(function ClientWorkspace({
       id: `client-panel-${tab}`,
       role: 'tabpanel',
       'aria-labelledby': `client-tab-${tab}`,
-      'aria-hidden': active ? undefined : true,
-      inert: active ? undefined : true,
       tabIndex: active ? 0 : -1,
       className: `${styles.workspacePanel} ${active ? styles.workspacePanelActive : ''}`,
     } as const
@@ -889,7 +887,11 @@ function ClientDetailRoute({
                   const date = fmtDate(a.assessed_at)
                   return (
                     <li key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '12px' }}>
-                      <Link href={`/assessments/${a.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+                      <Link
+                        href={`/assessments/${a.id}`}
+                        prefetch={false}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}
+                      >
                         <div>
                           <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>Assessment — {date}</div>
                           {a.overall_score !== null && (

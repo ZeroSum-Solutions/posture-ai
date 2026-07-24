@@ -129,8 +129,12 @@ describe('client detail progressive rendering', () => {
     const assessmentPanel = document.getElementById('client-panel-assessments')!
     const progressPanel = document.getElementById('client-panel-progress')!
     expect(assessmentPanel.getAttribute('aria-hidden')).toBeNull()
-    expect(progressPanel.getAttribute('aria-hidden')).toBe('true')
+    expect(progressPanel.getAttribute('aria-hidden')).toBeNull()
+    expect(assessmentPanel.hasAttribute('inert')).toBe(false)
+    expect(progressPanel.hasAttribute('inert')).toBe(false)
     expect(progressPanel.hasAttribute('hidden')).toBe(false)
+    expect(assessmentPanel.className).toContain('workspacePanelActive')
+    expect(progressPanel.className).not.toContain('workspacePanelActive')
     const dateFormattingCount = dateFormattingSpy.mock.calls.length
     vi.useFakeTimers()
     expect(screen.queryByTestId('progress-charts')).toBeNull()
@@ -139,8 +143,14 @@ describe('client detail progressive rendering', () => {
     act(() => fireEvent.click(progress))
 
     expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
-    expect(assessmentPanel.getAttribute('aria-hidden')).toBe('true')
+    expect(assessmentPanel.getAttribute('aria-hidden')).toBeNull()
     expect(progressPanel.getAttribute('aria-hidden')).toBeNull()
+    expect(assessmentPanel.hasAttribute('inert')).toBe(false)
+    expect(progressPanel.hasAttribute('inert')).toBe(false)
+    expect(assessmentPanel.className).not.toContain('workspacePanelActive')
+    expect(progressPanel.className).toContain('workspacePanelActive')
+    expect(assessmentPanel.tabIndex).toBe(-1)
+    expect(progressPanel.tabIndex).toBe(0)
     expect(dateFormattingSpy).toHaveBeenCalledTimes(dateFormattingCount)
     expect(screen.getByRole('button', { name: 'Load interactive charts' })).toBeTruthy()
     expect(screen.queryByTestId('progress-charts')).toBeNull()

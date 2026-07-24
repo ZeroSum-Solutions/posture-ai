@@ -24,7 +24,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
   const [searchRevision, setSearchRevision] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -65,9 +65,11 @@ export default function ClientsPage() {
   useEffect(() => {
     const version = ++requestVersion.current
     clientPageController.current?.abort()
+    const normalizedSearch = search.trim().replace(/\s+/g, ' ')
+    if (!normalizedSearch) return
+
     const controller = new AbortController()
     clientPageController.current = controller
-    const normalizedSearch = search.trim().replace(/\s+/g, ' ')
     const timer = window.setTimeout(async () => {
       try {
         const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
@@ -198,9 +200,8 @@ export default function ClientsPage() {
           placeholder="Search clients by name..."
           ariaLabel="Search clients by name"
           onInputActivity={() => {
-            // The initial 50-row directory request must not finish and repaint
-            // over a practitioner's next keystroke. Keep the input DOM-owned
-            // while cancelling obsolete work immediately.
+            // Keep the input DOM-owned while cancelling an obsolete settled
+            // search immediately. The empty directory never starts a request.
             const controller = clientPageController.current
             if (!controller) return false
             requestVersion.current += 1
@@ -212,12 +213,15 @@ export default function ClientsPage() {
             loadMoreController.current?.abort()
             loadMoreController.current = null
             setLoadingMore(false)
+            const hasSearch = query.trim().length > 0
             if (query === search) {
               setSearchRevision((current) => current + 1)
             } else {
               setSearch(query)
             }
-            setSearching(true)
+            if (!hasSearch) setClients([])
+            setLoading(hasSearch && clients.length === 0)
+            setSearching(hasSearch)
             setError(null)
             setNextCursor(null)
           }}
@@ -257,7 +261,7 @@ export default function ClientsPage() {
       {loading ? (
         <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">···</span></div><div><h2>Loading clients</h2><p>Preparing the practice directory.</p></div></div>
       ) : error && clients.length === 0 ? null : clients.length === 0 && !search.trim() ? (
-        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">01</span></div><div><h2>No clients yet</h2><p>Add the first client when you are ready to create a baseline.</p></div><Link href="/clients/new">Add client →</Link></div>
+        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">⌕</span></div><div><h2>Search by first or last name</h2><p>Enter a client name to open a record or review prior screens.</p></div><Link href="/clients/new">Add a new client →</Link></div>
       ) : clients.length === 0 ? (
         <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">0</span></div><div><h2>No matching clients</h2><p>Try a different first or last name.</p></div></div>
       ) : (

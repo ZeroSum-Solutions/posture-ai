@@ -45,14 +45,34 @@ describe('client directory pagination', () => {
     vi.unstubAllGlobals()
   })
 
+  it('waits for a non-empty settled search before loading the directory', async () => {
+    render(<ClientsPage />)
+
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
+    expect(screen.getByText('Search by first or last name')).toBeTruthy()
+    expect(screen.queryByText('Loading clients')).toBeNull()
+
+    const search = screen.getByRole('textbox', { name: 'Search clients by name' })
+    fireEvent.change(search, { target: { value: 'Jane' } })
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
+
+    await screen.findByText('Jane Example')
+    const urls = vi.mocked(fetch).mock.calls.map(([input]) => String(input))
+    expect(urls).toHaveLength(1)
+    expect(urls[0]).toContain('search=Jane')
+    expect(urls.some((url) => url === '/api/clients?limit=50')).toBe(false)
+  })
+
   it('does not leave Load more disabled when search replaces an in-flight page', async () => {
     render(<ClientsPage />)
+    const search = screen.getByRole('textbox', { name: 'Search clients by name' })
+    fireEvent.change(search, { target: { value: 'Initial' } })
     await screen.findByText('Initial Example')
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more clients' }))
     expect((screen.getByRole('button', { name: 'Loading…' }) as HTMLButtonElement).disabled).toBe(true)
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Jane' } })
+    fireEvent.change(search, { target: { value: 'Jane' } })
 
     await screen.findByText('Jane Example')
     await waitFor(() => expect((screen.getByRole('button', { name: 'Load more clients' }) as HTMLButtonElement).disabled).toBe(false))
@@ -71,8 +91,9 @@ describe('client directory pagination', () => {
     }))
 
     render(<ClientsPage />)
-    await screen.findByText('Initial Example')
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
+    fireEvent.change(search, { target: { value: 'Initial' } })
+    await screen.findByText('Initial Example')
     expect((search as HTMLInputElement).style.minHeight).toBe('44px')
 
     fireEvent.change(search, { target: { value: 'Slow' } })
@@ -111,7 +132,6 @@ describe('client directory pagination', () => {
     }))
 
     render(<ClientsPage />)
-    await screen.findByText('Initial Example')
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
     fireEvent.change(search, { target: { value: 'Ada' } })
     await waitFor(() => expect(searchRequestCount).toBe(1))

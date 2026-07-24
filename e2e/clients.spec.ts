@@ -35,6 +35,13 @@ test.describe('client list and search', () => {
 
     const rowA = page.getByRole('link', { name: new RegExp(`List-${tokenA}`) })
     const rowB = page.getByRole('link', { name: new RegExp(`List-${tokenB}`) })
+    await expect(page.getByText('Search by first or last name')).toBeVisible()
+    await expect(rowA).toHaveCount(0)
+    await expect(rowB).toHaveCount(0)
+
+    // A shared prefix returns both records without mounting the whole practice
+    // directory before the practitioner has expressed intent.
+    await page.getByPlaceholder('Search clients by name...').fill('List-')
     await expect(rowA).toBeVisible()
     await expect(rowB).toBeVisible()
 
@@ -48,10 +55,11 @@ test.describe('client list and search', () => {
     await expect(rowA).toBeVisible()
     await expect(rowB).toHaveCount(0)
 
-    // Clearing the search restores both.
+    // Clearing the search returns to the search-first prompt.
     await page.getByPlaceholder('Search clients by name...').fill('')
-    await expect(rowA).toBeVisible()
-    await expect(rowB).toBeVisible()
+    await expect(page.getByText('Search by first or last name')).toBeVisible()
+    await expect(rowA).toHaveCount(0)
+    await expect(rowB).toHaveCount(0)
   })
 })
 
@@ -74,7 +82,9 @@ test.describe('client archive', () => {
     await page.getByRole('button', { name: 'Yes, Archive' }).click()
 
     await page.waitForURL(/\/clients$/, { timeout: 15_000 })
+    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${keepToken}`)
     await expect(page.getByRole('link', { name: new RegExp(`Keep-${keepToken}`) })).toBeVisible()
+    await page.getByPlaceholder('Search clients by name...').fill(`Archive-${archiveToken}`)
     await expect(page.getByRole('link', { name: new RegExp(`Archive-${archiveToken}`) })).toHaveCount(0)
   })
 })
@@ -94,7 +104,9 @@ test.describe('erased client is hidden from the clients list', () => {
 
     // Both present before erasure.
     await page.goto('/clients')
+    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toBeVisible()
 
     // Right-to-erasure: tombstone + redact + purge.
@@ -105,7 +117,9 @@ test.describe('erased client is hidden from the clients list', () => {
 
     // The erased client's row is gone; the keeper still renders.
     await page.goto('/clients')
+    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
+    await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toHaveCount(0)
   })
 })
@@ -255,7 +269,14 @@ test.describe('client comparison policy', () => {
     await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
 
-    await page.getByRole('tab', { name: 'Progress' }).click()
+    const progressTab = page.getByRole('tab', { name: 'Progress' })
+    await progressTab.click()
+    await expect(page.locator('#client-panel-assessments')).toHaveCSS('visibility', 'hidden')
+    await progressTab.focus()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('#client-panel-progress')).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Load interactive charts' })).toBeFocused()
     await page.getByRole('button', { name: 'Load interactive charts' }).click()
     await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
     await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
