@@ -105,7 +105,65 @@ describe('client detail progressive rendering', () => {
     ))).toBe(true)
   })
 
-  it('presents a lightweight tab before mounting and retaining expensive workspaces', async () => {
+  it('presents lightweight tabs before mounting and retaining expensive workspaces', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/clients/client-1') {
+        return Promise.resolve(response({
+          client: {
+            id: 'client-1', first_name: 'Ada', last_name: 'Lovelace', date_of_birth: '1990-01-01',
+            sex_at_birth: 'female', height_cm: 165, weight_kg: 60, notes: null,
+            consent_recorded_at: '2026-07-01T00:00:00.000Z', created_at: '2026-06-01T00:00:00.000Z',
+          },
+        }))
+      }
+      if (url.startsWith('/api/consent?')) return Promise.resolve(response({ hasConsent: true, legalState: 'current' }))
+      if (url.includes('/assessments?')) return Promise.resolve(response({ assessments, pagination: { has_more: false, next_cursor: null } }))
+      throw new Error(`Unexpected URL: ${url}`)
+    }))
+
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.id === 'client-panel-assessments' ? 1200 : 120
+      return {
+        x: 0, y: 0, width: 900, height, top: 0, right: 900,
+        bottom: height, left: 0, toJSON: () => ({}),
+      } as DOMRect
+    })
+    render(<ClientDetailPage />)
+    const progress = await screen.findByRole('tab', { name: 'Progress' })
+    expect(screen.getByTestId('client-workspace-stage').style.minHeight).toBe('1200px')
+    vi.useFakeTimers()
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
+
+    act(() => fireEvent.click(progress))
+
+    expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
+    expect(screen.getByTestId('client-workspace-stage').style.minHeight).toBe('1200px')
+    expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    act(() => vi.advanceTimersByTime(300))
+    const charts = screen.getByTestId('progress-charts')
+    const progressRenderCount = workspaceRenders.progress.mock.calls.length
+
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
+    expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain('Preparing comparison')
+    act(() => vi.advanceTimersByTime(299))
+    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
+    act(() => vi.advanceTimersByTime(1))
+    const comparison = screen.getByTestId('comparison-workspace')
+    const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
+
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
+    expect(screen.getByTestId('progress-charts')).toBe(charts)
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
+    expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
+    expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
+    expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
+  })
+
+  it('cancels an abandoned deferred workspace when tabs change quickly', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/clients/client-1') {
@@ -125,39 +183,12 @@ describe('client detail progressive rendering', () => {
     render(<ClientDetailPage />)
     const progress = await screen.findByRole('tab', { name: 'Progress' })
     vi.useFakeTimers()
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
-
     act(() => fireEvent.click(progress))
-
-    expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
-    expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-
-    // Match the measured journey: switching again before the deferred mount
-    // cancels the abandoned workspace instead of making it contend with the
-    // second tab interaction.
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
-    expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
-    expect(screen.getByRole('status').textContent).toContain('Preparing comparison')
-    act(() => vi.advanceTimersByTime(299))
-    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-    act(() => vi.advanceTimersByTime(1))
-    const comparison = screen.getByTestId('comparison-workspace')
-    const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
-
-    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
-    expect(screen.getByRole('status').textContent).toContain('Preparing progress charts')
     act(() => vi.advanceTimersByTime(300))
-    const charts = screen.getByTestId('progress-charts')
-    const progressRenderCount = workspaceRenders.progress.mock.calls.length
-    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
-    expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
-    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
-    expect(screen.getByTestId('progress-charts')).toBe(charts)
-    expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
-    expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
+
+    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    expect(screen.getByTestId('comparison-workspace')).toBeTruthy()
   })
 
   it('uses server-seeded identity and history without repeating those requests after hydration', async () => {

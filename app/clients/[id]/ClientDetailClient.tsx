@@ -1,5 +1,5 @@
 'use client'
-import { memo, startTransition, useCallback, useState, useEffect, useMemo, useRef } from 'react'
+import { memo, startTransition, useCallback, useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
@@ -142,6 +142,8 @@ function ClientDetailRoute({
   const [renderedTabs, setRenderedTabs] = useState<ReadonlySet<Tab>>(
     () => new Set<Tab>(['assessments', 'info']),
   )
+  const workspaceStageElement = useRef<HTMLDivElement>(null)
+  const [workspaceMinHeight, setWorkspaceMinHeight] = useState(0)
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   // Compare selectors: older = "before", newer = "after"
@@ -289,6 +291,17 @@ function ClientDetailRoute({
       })
     })
   }, [activeTab, renderedTabs])
+
+  useLayoutEffect(() => {
+    const activePanel = workspaceStageElement.current?.querySelector<HTMLElement>(
+      '[role="tabpanel"]:not([hidden])',
+    )
+    if (!activePanel) return
+    const measuredHeight = Math.ceil(activePanel.getBoundingClientRect().height)
+    if (measuredHeight > 0) {
+      setWorkspaceMinHeight((current) => Math.max(current, measuredHeight))
+    }
+  }, [activeTab, assessments.length, nextAssessmentCursor, renderedTabs])
 
   const {
     imbalanceKeys,
@@ -640,6 +653,8 @@ function ClientDetailRoute({
         borderRadius: '16px', padding: '24px', marginBottom: '24px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         flexWrap: 'wrap', gap: '12px',
+        WebkitBackdropFilter: 'none',
+        backdropFilter: 'none',
       }}>
         <div>
           <p className="app-page-kicker">Client record</p>
@@ -802,6 +817,12 @@ function ClientDetailRoute({
         </button>
       </div>
 
+      <div
+        ref={workspaceStageElement}
+        className={styles.workspaceStage}
+        data-testid="client-workspace-stage"
+        style={{ minHeight: workspaceMinHeight > 0 ? `${workspaceMinHeight}px` : undefined }}
+      >
       {/* Assessments Tab */}
       <div {...panelProps('assessments')} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
@@ -996,6 +1017,7 @@ function ClientDetailRoute({
               router.push(`/clients?erasure=${externalStatus}`)
             }}
           />
+      </div>
       </div>
     </div>
   )

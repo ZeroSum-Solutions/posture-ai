@@ -20,6 +20,10 @@
   min-height: 120px;
 }
 
+.workspaceStage {
+  min-width: 0;
+}
+
 .pageLoadingShell {
   /* Keep the footer below the viewport while client evidence hydrates. Without
      this reservation, replacing the short loading card with the full record
