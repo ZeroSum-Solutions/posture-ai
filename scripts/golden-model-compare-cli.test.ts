@@ -9,9 +9,13 @@ import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 import { generatePose } from '../packages/posture-engine/golden/synthetic'
-import { TIER_B_RELIABILITY_ONLY_PROTOCOL } from './golden-model-compare-core.mjs'
+import {
+  MODEL_COMPARISON_ASSET_SHA256,
+  TIER_B_RELIABILITY_ONLY_PROTOCOL,
+} from './golden-model-compare-core.mjs'
 
 const ROOT = resolve(__dirname, '..')
+const CAPTURE_HMAC = `hmac-sha256:${'a'.repeat(64)}`
 const temporaryRoots: string[] = []
 
 function fixtureDirectory(): string {
@@ -45,11 +49,22 @@ describe('golden model-comparison CLI evidence boundary', () => {
     const payload = {
       protocolVersion: 'measured-reference-v1',
       studyPurpose: 'accuracy',
-      frames: [generatePose('front', { shoulderTiltDeg: 4 })],
       groundTruth: { anterior_imbalanced_shoulders: 4 },
     }
-    writeFileSync(join(subject, 'front-lite.json'), JSON.stringify(payload))
-    writeFileSync(join(subject, 'front-full.json'), JSON.stringify(payload))
+    writeFileSync(join(subject, 'front-lite.json'), JSON.stringify({
+      ...payload,
+      modelVariant: 'lite',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.lite,
+      sourceCaptureHmacSha256: CAPTURE_HMAC,
+      frames: [generatePose('front', { shoulderTiltDeg: 4 })],
+    }))
+    writeFileSync(join(subject, 'front-full.json'), JSON.stringify({
+      ...payload,
+      modelVariant: 'full',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.full,
+      sourceCaptureHmacSha256: CAPTURE_HMAC,
+      frames: [generatePose('front', { shoulderTiltDeg: 4 })],
+    }))
 
     const result = run(directory)
 
@@ -111,12 +126,18 @@ describe('golden model-comparison CLI evidence boundary', () => {
     writeFileSync(join(subject, 'front-lite.json'), JSON.stringify({
       studyPurpose: 'accuracy',
       protocolVersion: 'measured-reference-v1',
+      modelVariant: 'lite',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.lite,
+      sourceCaptureHmacSha256: CAPTURE_HMAC,
       frames: [],
       groundTruth: { trunk_lean: 8 },
     }))
     writeFileSync(join(subject, 'front-full.json'), JSON.stringify({
       studyPurpose: 'accuracy',
       protocolVersion: 'measured-reference-v1',
+      modelVariant: 'full',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.full,
+      sourceCaptureHmacSha256: CAPTURE_HMAC,
       frames: [],
       groundTruth: { trunk_lean: 9 },
     }))
@@ -125,6 +146,62 @@ describe('golden model-comparison CLI evidence boundary', () => {
 
     expect(result.status).not.toBe(0)
     expect(result.stderr).toMatch(/identical measured values.*trunk_lean/i)
+  })
+
+  it('rejects swapped model identities or mismatched source captures', () => {
+    const directory = fixtureDirectory()
+    const subject = join(directory, 'participant-01')
+    const shared = {
+      studyPurpose: 'accuracy',
+      protocolVersion: 'measured-reference-v1',
+      frames: [],
+      groundTruth: { trunk_lean: 8 },
+    }
+    writeFileSync(join(subject, 'front-lite.json'), JSON.stringify({
+      ...shared,
+      modelVariant: 'full',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.full,
+      sourceCaptureHmacSha256: CAPTURE_HMAC,
+    }))
+    writeFileSync(join(subject, 'front-full.json'), JSON.stringify({
+      ...shared,
+      modelVariant: 'lite',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.lite,
+      sourceCaptureHmacSha256: `hmac-sha256:${'b'.repeat(64)}`,
+    }))
+
+    const result = run(directory)
+
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/filename-designated lite and full/i)
+  })
+
+  it('rejects privacy-bearing extra evidence fields in the real wrapper', () => {
+    const directory = fixtureDirectory()
+    const subject = join(directory, 'participant-01')
+    const shared = {
+      studyPurpose: 'accuracy',
+      protocolVersion: 'measured-reference-v1',
+      sourceCaptureHmacSha256: CAPTURE_HMAC,
+      frames: [],
+      groundTruth: { trunk_lean: 8 },
+    }
+    writeFileSync(join(subject, 'front-lite.json'), JSON.stringify({
+      ...shared,
+      modelVariant: 'lite',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.lite,
+      rawPhotoHash: `sha256:${'c'.repeat(64)}`,
+    }))
+    writeFileSync(join(subject, 'front-full.json'), JSON.stringify({
+      ...shared,
+      modelVariant: 'full',
+      modelAssetSha256: MODEL_COMPARISON_ASSET_SHA256.full,
+    }))
+
+    const result = run(directory)
+
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/only the exact governed evidence fields/i)
   })
 
   it('fails closed on a misnamed or unclassified comparison JSON', () => {

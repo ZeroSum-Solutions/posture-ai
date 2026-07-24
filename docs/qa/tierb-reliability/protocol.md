@@ -208,3 +208,12 @@ ground-truth metrics with identical values. Only those measured metrics may
 enter the disagreement and error comparison; missing pairs, references, or
 model findings fail closed, as do unclassified JSON files in the comparison
 input directory.
+
+Each accuracy payload must also bind its filename-designated `lite` or `full`
+variant to the exact frozen model-asset SHA-256 and both files must carry the
+same `sourceCaptureHmacSha256`. That capture binding is a study-local
+HMAC-SHA-256 over the exact source-photo bytes using a secret held outside the
+repository. A raw photo hash is forbidden. Missing, malformed, swapped, or
+mismatched identity fields fail closed. Accuracy payloads use an exact governed
+field allowlist; undeclared fields—including raw hashes, filenames, timestamps,
+participant identifiers, and user-agent or device strings—are rejected.

@@ -1,10 +1,33 @@
 export const TIER_B_RELIABILITY_ONLY_PROTOCOL =
   'tier-b-four-view-repositioned-v2'
 
+export const MODEL_COMPARISON_ASSET_SHA256 = Object.freeze({
+  lite: 'sha256:59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a',
+  full: 'sha256:5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1',
+})
+
+const SOURCE_CAPTURE_HMAC = /^hmac-sha256:[a-f0-9]{64}$/
+const ACCURACY_PAYLOAD_KEYS = Object.freeze([
+  'studyPurpose',
+  'protocolVersion',
+  'modelVariant',
+  'modelAssetSha256',
+  'sourceCaptureHmacSha256',
+  'frames',
+  'groundTruth',
+].sort())
+
 function plainRecord(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const prototype = Object.getPrototypeOf(value)
   return prototype === Object.prototype || prototype === null
+}
+
+function exactAccuracyPayload(value) {
+  if (!plainRecord(value)) return false
+  const keys = Object.keys(value).sort()
+  return keys.length === ACCURACY_PAYLOAD_KEYS.length
+    && keys.every((key, index) => key === ACCURACY_PAYLOAD_KEYS[index])
 }
 
 function validateGroundTruth(value, source) {
@@ -53,6 +76,11 @@ export function assertModelComparisonEvidence(lite, full, source = 'Tier B pair'
       `${source} lacks the explicit accuracy-study marker required to adjudicate a model default`,
     )
   }
+  if (!exactAccuracyPayload(lite) || !exactAccuracyPayload(full)) {
+    throw new Error(
+      `${source} accuracy payloads must contain only the exact governed evidence fields`,
+    )
+  }
   if (
     protocols.some((protocol) =>
       typeof protocol !== 'string' || protocol.trim().length === 0)
@@ -60,6 +88,28 @@ export function assertModelComparisonEvidence(lite, full, source = 'Tier B pair'
   ) {
     throw new Error(
       `${source} must use one matching, non-empty accuracy protocolVersion`,
+    )
+  }
+  if (lite?.modelVariant !== 'lite' || full?.modelVariant !== 'full') {
+    throw new Error(
+      `${source} payloads must identify the filename-designated lite and full model variants`,
+    )
+  }
+  if (
+    lite?.modelAssetSha256 !== MODEL_COMPARISON_ASSET_SHA256.lite
+    || full?.modelAssetSha256 !== MODEL_COMPARISON_ASSET_SHA256.full
+  ) {
+    throw new Error(
+      `${source} payloads must bind the exact frozen lite and full model assets`,
+    )
+  }
+  if (
+    !SOURCE_CAPTURE_HMAC.test(String(lite?.sourceCaptureHmacSha256 ?? ''))
+    || !SOURCE_CAPTURE_HMAC.test(String(full?.sourceCaptureHmacSha256 ?? ''))
+    || lite.sourceCaptureHmacSha256 !== full.sourceCaptureHmacSha256
+  ) {
+    throw new Error(
+      `${source} lite/full payloads must bind the same source capture HMAC`,
     )
   }
   const liteGroundTruth = validateGroundTruth(

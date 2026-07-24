@@ -65,9 +65,9 @@
     {
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "id": "posture-ai-tierb-reliability-protocol-v2-r7-pr10",
+      "id": "posture-ai-tierb-reliability-protocol-v2-r8-pr10",
       "path": "docs/qa/tierb-reliability/protocol.md",
-      "sha256": "85cc40268969692fccc6f926bbcba63f401e0004abd15129702f35cb52f7b8e3"
+      "sha256": "7c6281396beb5ff1f4cfbc78c7d31d0d37ceb471a2a5b5b7e7916d511b8a79d3"
     },
     {
       "hash_algorithm": "sha256",
@@ -228,9 +228,9 @@
     {
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "id": "posture-ai-tierb-model-switch-guard-v3-pr10",
+      "id": "posture-ai-tierb-model-switch-guard-v4-pr10",
       "path": "scripts/golden-model-compare-core.mjs",
-      "sha256": "a8df78c1cd2719a558f8048d81ad792579c2adc89beec96414736e65919a50be"
+      "sha256": "6f50234dcf18ea2d1e46b7f68537f74a6e34d31a62f869762e7707b1d821f789"
     },
     {
       "hash_algorithm": "sha256",
@@ -1479,7 +1479,7 @@
     "expected_files": 32,
     "test_ids_sha256": "c6f0c6e20ee3527747efada6d16824df54a3a2354d62ea1c88fc783cadaacc31"
   },
-  "inventory_hash": "b794d0c29893fcb8300bd8fa56e897197d2656d9769b1d4859cbf975f5b26f9f",
+  "inventory_hash": "6cba41faaf7463d6ccd84866e7c7bea357547c1525b2402248a77d8dc67d2827",
   "ci_contract": {
     "global_commands": [
       "npm run lint",

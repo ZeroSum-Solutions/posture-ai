@@ -65,9 +65,9 @@
     {
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "id": "posture-ai-tierb-reliability-protocol-v2-r7-pr10",
+      "id": "posture-ai-tierb-reliability-protocol-v2-r8-pr10",
       "path": "docs/qa/tierb-reliability/protocol.md",
-      "sha256": "85cc40268969692fccc6f926bbcba63f401e0004abd15129702f35cb52f7b8e3"
+      "sha256": "7c6281396beb5ff1f4cfbc78c7d31d0d37ceb471a2a5b5b7e7916d511b8a79d3"
     },
     {
       "hash_algorithm": "sha256",
