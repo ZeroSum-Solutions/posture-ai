@@ -56,18 +56,25 @@ function lumaStats(data: Uint8ClampedArray, pixelCount: number): LumaStats {
 function laplacianVariance(luma: Float64Array, width: number, height: number): number {
   if (width < 3 || height < 3) return 0
 
-  const responses: number[] = []
+  // Accumulate variance online instead of materializing one boxed Number per
+  // interior pixel. A 320px sample has roughly 100k interior pixels; avoiding
+  // that temporary array removes a large WebKit allocation/GC spike from the
+  // capture preflight while preserving population-variance semantics.
+  let count = 0
+  let mean = 0
+  let sumSquaredDifferences = 0
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x
       const lap = luma[idx - width] + luma[idx + width] + luma[idx - 1] + luma[idx + 1] - 4 * luma[idx]
-      responses.push(lap)
+      count++
+      const delta = lap - mean
+      mean += delta / count
+      sumSquaredDifferences += delta * (lap - mean)
     }
   }
 
-  const n = responses.length
-  const mean = responses.reduce((sum, v) => sum + v, 0) / n
-  return responses.reduce((sum, v) => sum + (v - mean) ** 2, 0) / n
+  return sumSquaredDifferences / count
 }
 
 /**
