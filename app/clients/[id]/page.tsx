@@ -6,6 +6,7 @@ import {
 } from '@/lib/clients/assessment-history'
 import { hashResource, hashUser, logEvent } from '@/lib/log'
 import { finalizeKeysetPage } from '@/lib/pagination/keyset'
+import { getConsentStatus } from '@/lib/consent/record'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import ClientDetailClient, { type ClientDetailInitialData } from './ClientDetailClient'
 
@@ -24,7 +25,7 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
   if (gate) return null
 
   const snapshotAt = new Date().toISOString()
-  const [clientResult, historyResult] = await Promise.all([
+  const [clientResult, historyResult, consent] = await Promise.all([
     supabase
       .from('clients')
       .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, consent_recorded_at, created_at')
@@ -43,6 +44,7 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
       .order('assessed_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(INITIAL_HISTORY_PAGE_SIZE + 1),
+    getConsentStatus(supabase, id),
   ])
 
   if (clientResult.error || historyResult.error) {
@@ -84,6 +86,15 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
     // The client workspace owns one chronological representation even though
     // the bounded database page and cursor advance newest-first.
     assessments: [...page.records].reverse(),
+    consentStatus: consent.hasConsent && consent.legalState === 'current'
+      ? 'valid'
+      : consent.legalState === 'withdrawn'
+        ? 'withdrawn'
+        : consent.legalState === 'reconsent_required'
+          ? 'reconsent_required'
+          : consent.legalState === 'missing'
+            ? 'missing'
+            : 'unavailable',
     pagination: page.pagination,
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shouldAnimateRouteEntrance } from './motionOrchestratorPolicy'
+import { isOperationalRoute, shouldAnimateRouteEntrance } from './motionOrchestratorPolicy'
 
 describe('shouldAnimateRouteEntrance', () => {
   it.each([
@@ -9,6 +9,7 @@ describe('shouldAnimateRouteEntrance', () => {
     '/clients/client-123',
     '/clients/client-123/edit',
   ])('keeps the operational route immediately interactive on %s', (pathname) => {
+    expect(isOperationalRoute(pathname)).toBe(true)
     expect(shouldAnimateRouteEntrance(pathname)).toBe(false)
   })
 
@@ -18,6 +19,7 @@ describe('shouldAnimateRouteEntrance', () => {
     '/exercises',
     '/settings',
   ])('retains route entrance motion on %s', (pathname) => {
+    expect(isOperationalRoute(pathname)).toBe(false)
     expect(shouldAnimateRouteEntrance(pathname)).toBe(true)
   })
 })

@@ -67,6 +67,7 @@ interface Assessment {
 export interface ClientDetailInitialData {
   client: Client
   assessments: Assessment[]
+  consentStatus: 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable'
   pagination: {
     has_more: boolean
     next_cursor: string | null
@@ -307,7 +308,7 @@ function ClientDetailRoute({
   const [archiveError, setArchiveError] = useState<string | null>(null)
   const [consentStatus, setConsentStatus] = useState<
     'checking' | 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable'
-  >('checking')
+  >(() => ownsInitialData ? initialData.consentStatus : 'checking')
 
   useEffect(() => {
     const version = ++assessmentRequestVersion.current
@@ -324,29 +325,11 @@ function ClientDetailRoute({
         }
 
         if (ownsInitialData) {
-          // The server already supplied the owned record and bounded history in
-          // the navigation response. Only the mutable legal-consent decision is
-          // refreshed after hydration; repeating the two data queries would
-          // contend with the first tab interaction on a throttled device.
-          const consentResult = await getJson<{
-            hasConsent?: boolean
-            legalState?: 'current' | 'missing' | 'withdrawn' | 'reconsent_required' | 'legal_unavailable'
-          }>(`/api/consent?client_id=${encodeURIComponent(id)}`)
-          if (ac.signal.aborted || version !== assessmentRequestVersion.current) return
-          if (consentResult.status === 401) {
-            router.push('/auth/sign-in')
-            return
-          }
-          const consent = consentResult.ok ? consentResult.body : null
-          setConsentStatus(consent?.hasConsent && consent.legalState === 'current'
-            ? 'valid'
-            : consent?.legalState === 'withdrawn'
-              ? 'withdrawn'
-              : consent?.legalState === 'reconsent_required'
-                ? 'reconsent_required'
-                : consent?.legalState === 'missing'
-                  ? 'missing'
-                  : 'unavailable')
+          // Identity, bounded history, and the mutable legal-consent decision
+          // were resolved together on the server. Avoid a post-hydration fetch
+          // and parent rerender that can collide with the first workspace click
+          // on a throttled device.
+          setHistoryLoadedForId(id)
           return
         }
 

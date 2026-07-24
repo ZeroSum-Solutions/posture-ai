@@ -1,5 +1,5 @@
 'use client'
-import { startTransition, useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { memo, startTransition, useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
@@ -29,6 +29,38 @@ interface ClientPageResponse {
   pagination?: { has_more?: boolean; next_cursor?: string | null }
   error?: string
 }
+
+const ClientResultButton = memo(function ClientResultButton({
+  client,
+  isSelected,
+  onChoose,
+}: {
+  client: Client
+  isSelected: boolean
+  onChoose: (client: Client) => void
+}) {
+  return (
+    <button onClick={() => onChoose(client)} style={{
+      width: '100%', padding: '14px 16px', textAlign: 'left',
+      background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
+      border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
+      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', minHeight: '44px',
+    }}>
+      <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
+        {client.first_name} {client.last_name}
+        {isSelected && <span style={{ color: 'var(--brand)', marginLeft: '8px' }}>✓ Selected</span>}
+      </span>
+      {client.date_of_birth && (
+        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+          DOB: {new Date(client.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}
+        </span>
+      )}
+    </button>
+  )
+}, (previous, next) => (
+  previous.client === next.client
+  && previous.isSelected === next.isSelected
+))
 
 const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
@@ -453,11 +485,12 @@ export function NewAssessmentWizard() {
 
   function chooseClient(client: Client) {
     if (captureSelectionLocked.current) return
+    const previousClient = selectedClientRef.current
     clientSelectionVersion.current += 1
     preselectedClientController.current?.abort()
     preselectedClientController.current = null
     invalidateConsentForSelection(client.id)
-    if (selectedClient && selectedClient.id !== client.id) {
+    if (previousClient && previousClient.id !== client.id) {
       // A capture belongs to one subject. Switching subjects invalidates every
       // pending async result, revokes every photo URL, clears the four slots,
       // and rotates the digest-bound submission identity before capture resumes.
@@ -962,22 +995,12 @@ export function NewAssessmentWizard() {
                 {clients.map(c => {
                   const isSelected = selectedClient?.id === c.id
                   return (
-                    <button key={c.id} onClick={() => chooseClient(c)} style={{
-                      width: '100%', padding: '14px 16px', textAlign: 'left',
-                      background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
-                      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', minHeight: '44px',
-                    }}>
-                      <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
-                        {c.first_name} {c.last_name}
-                        {isSelected && <span style={{ color: 'var(--brand)', marginLeft: '8px' }}>✓ Selected</span>}
-                      </span>
-                      {c.date_of_birth && (
-                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          DOB: {new Date(c.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}
-                        </span>
-                      )}
-                    </button>
+                    <ClientResultButton
+                      key={c.id}
+                      client={c}
+                      isSelected={isSelected}
+                      onChoose={chooseClient}
+                    />
                   )
                 })}
                 {nextClientCursor && (

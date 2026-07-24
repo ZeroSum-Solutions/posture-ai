@@ -94,6 +94,18 @@ body {
 .app-footer { position: relative; z-index: 0; border-top: 1px solid rgba(255,255,255,0.1); padding: 16px 24px 20px; color: var(--text-secondary); font-size: 12px; text-align: center; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(14px); }
 .app-footer-links { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; }
 .app-footer a { color: var(--brand); text-decoration: none; }
+/*
+ * Client and assessment routes repaint large interactive workspaces. An
+ * opaque material keeps the glass hierarchy without re-sampling the page
+ * behind every panel, sticky navigation event, and footer presentation.
+ */
+.app-shell--operational :is(.app-panel, nav, .app-footer) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.app-shell--operational > nav { background: rgba(8, 9, 11, 0.97) !important; }
+.app-shell--operational .app-panel { background-color: var(--glass-base) !important; }
+.app-shell--operational > .app-footer { background: #050506; }
 
 .app-standard-page { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 52px 0 72px; }
 .app-standard-page--narrow { width: min(760px, calc(100% - 40px)); }

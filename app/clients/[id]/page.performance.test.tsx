@@ -228,6 +228,7 @@ describe('client detail progressive rendering', () => {
             { ...assessments[0], assessed_at: '2026-07-01T23:30:00-07:00' },
             { ...assessments[1], assessed_at: '2026-07-02T23:30:00-07:00' },
           ],
+          consentStatus: 'valid',
           pagination: {
             has_more: false,
             next_cursor: null,
@@ -241,8 +242,7 @@ describe('client detail progressive rendering', () => {
     expect(screen.getByRole('tab', { name: 'Progress' })).toBeTruthy()
     expect(screen.getByText('Assessment — Jul 2, 2026')).toBeTruthy()
     expect(screen.getByText('Assessment — Jul 3, 2026')).toBeTruthy()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
-    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/consent?client_id=client-1')
+    await waitFor(() => expect(fetchMock).not.toHaveBeenCalled())
   })
 
   it('merges older pages by id, advances the cursor, and clears it at the end', async () => {
