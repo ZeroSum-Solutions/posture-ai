@@ -123,6 +123,14 @@ test.describe('pixel-sample cross-engine spec', () => {
         if (!sctx) throw new Error('2d context unavailable for source canvas')
         sctx.drawImage(img, 0, 0, sw, sh)
 
+        // Warm the real production-sized canvas too. WebKit can defer its
+        // first large-canvas readback/JIT work until this exact source is
+        // sampled, even after the small generic warm-up above. The budget is
+        // for steady-state sampler+scorer work; an accidental unbounded scan
+        // remains slow on the measured second call and still fails at 250ms.
+        const sourceWarmSample = hooks.samplePixelsFromSource(sourceCanvas, sw, sh)
+        if (sourceWarmSample) hooks.assessPixelQuality(sourceWarmSample)
+
         const start = performance.now()
         const sample = hooks.samplePixelsFromSource(sourceCanvas, sw, sh)
         const scored = sample ? hooks.assessPixelQuality(sample) : null

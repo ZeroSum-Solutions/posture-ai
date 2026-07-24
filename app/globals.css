@@ -206,6 +206,7 @@ h1, h2, h3 { font-family: var(--font-sans); line-height: 1.08; letter-spacing: -
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  .app-shell-main { transform: none !important; }
   .motion-reveal { opacity: 1 !important; filter: none !important; transform: none !important; }
 }
 
