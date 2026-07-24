@@ -1,5 +1,13 @@
 # Reliability-Axis Accuracy Phase — Baseline Plan
 
+> **Partially superseded:** Tier B collection, privacy, authorization, and
+> statistical details are now governed by
+> `docs/qa/tierb-reliability/protocol.md`. In particular, do not use this
+> document's older 3–5-person/144-photo design, pooled-SD SEM formula, legacy
+> `golden/tierb/<subject>` directory ingest, or report-writing runner contract.
+> PR 10's authorization-bound restricted input and stdout-by-default runner are
+> the only current harness contract.
+
 status: active
 date: 2026-07-17
 positioning: screening/tracking (Devin, 2026-07-16 — mem0 e4639d8b)
@@ -35,8 +43,10 @@ phase exists to produce and then use that number.
 New `packages/posture-engine/src/reliability.ts` + `reliability.test.ts` (TDD):
 - Input: per-metric repeated-measures matrix (subjects × repeats of the SAME true posture,
   re-positioned between captures per the Tier B protocol).
-- Output: ICC(2,1) generalized to k repeats, SEM (σ√(1−ICC)), MDC95 (SEM × 1.96 × √2),
-  per-metric n/mean/spread. Guard: return null below minimum sample (n<3 subjects or k<2).
+- Output: ICC(A,1)/ICC(2,1) generalized to k repeats, agreement SEM from
+  `MSE + nonnegative occasion variance`, consistency SEM from MSE, and MDC95
+  (`agreement SEM × 1.96 × √2`), plus per-metric n/mean/spread. Guard:
+  return null below the frozen minimum supported by the analysis contract.
 - Pure functions, no I/O, mirrors compare-core.ts style. Does NOT touch metrics.ts,
   thresholds.ts, quality.ts, quality-score.ts, or lib/capture/.
 
@@ -48,12 +58,14 @@ New `scripts/golden-repeatability.mjs` (or .ts under vite-node, matching moti-im
 - **Data reality: golden/tierb/ is currently EMPTY.** The harness ships with synthetic
   fixture tests so it is proven correct, but real numbers are BLOCKED on step 3.
 
-### 3. BLOCKED ON DEVIN — Tier B data collection
-Run the existing protocol (packages/posture-engine/golden/protocol.md): 3–5 volunteers ×
-4 poses × front/side × 3 re-positioned repeats × 2 devices, measured staging, consent line,
-photos never in git. This is a physical-world task only Devin can do. Until then no universal
-"±X°" claim is published — a 3–5 subject pilot yields a pilot-labeled profile with explicit
-uncertainty, per Codex's caveat (agreed).
+### 3. LOCKED pending HG-05 authorization — Tier B data collection
+Run only the frozen v2 protocol: neutral standing, the same 12 participants
+minimum (15 target), exactly two devices, three full re-stances, and four slots.
+That is 288 unique photos minimum or 360 at target. A valid signed
+collection-authorization packet and purpose-specific governed consent are
+required before any photo is collected or processed. Photos and restricted
+identity/consent evidence never enter git. Until signed adjudication, no
+universal “±X°” or change claim is published.
 
 ### 4. Capture control (after 2, parallel with 3)
 Pixel-quality preflight (blur/exposure) as a NEW helper in lib/capture/, wired into the

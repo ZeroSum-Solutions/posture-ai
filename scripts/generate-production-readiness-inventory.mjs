@@ -16,8 +16,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const MANIFEST_PATH = resolve(ROOT, 'docs/qa/production-readiness-manifest.json')
 const SOURCE_INVENTORY_PATH = resolve(ROOT, 'scripts/fixtures/production-readiness/source-inventory.json')
 const CHECKER_PATH = resolve(ROOT, 'scripts/check-production-readiness-goal.mjs')
-const INVENTORY_ID = 'playwright-production-readiness-2026-07-21-v4'
-const AUDIT_SOURCE_ID = 'posture-ai-production-readiness-audit-2026-07-21-pr08'
+const INVENTORY_ID = 'playwright-production-readiness-2026-07-24-v5-pr10'
 const PLAYWRIGHT_SOURCE_ID = 'posture-ai-playwright-config-2026-07-21-pr08'
 const DEVICE_CONTRACT_SOURCE_ID = 'posture-ai-device-release-contract-2026-07-21-pr08'
 const DEVICE_VALIDATOR_SOURCE_ID = 'posture-ai-device-evidence-validator-2026-07-21-pr08'
@@ -30,6 +29,30 @@ const PERFORMANCE_BUDGET_VALIDATOR_SOURCE_ID = 'posture-ai-performance-budgets-v
 const PERFORMANCE_BUDGET_SOURCE_SHA256 = '13d2331f4fa4fe11fe98b9a98fbb631ac734040ef54a0ef2af6137bc98f46b74'
 const PERFORMANCE_BUDGET_SCHEMA_SOURCE_SHA256 = '159d652df8b9b070681a5a49aa88d385ea6d6505d8d739311c6fe753fa26aa94'
 const PERFORMANCE_BUDGET_VALIDATOR_SOURCE_SHA256 = 'de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a'
+const TIER_B_DOCUMENT_SOURCES = [
+  ['docs/qa/AUDIT.md', 'posture-ai-production-readiness-audit-2026-07-24-pr10', 'c19e929124988636c2471bc2cfcfb64a6a812b00a853868624fb57bb43feb899'],
+  ['docs/plans/2026-07-19-production-readiness-goal-spec.md', 'posture-ai-production-readiness-spec-v2-2026-07-24-pr10', '217b4d06681b711c7653594cd3ce396f0d60640976121101d22244002301ce56'],
+  ['docs/qa/tierb-reliability/protocol.md', 'posture-ai-tierb-reliability-protocol-v2-r4-pr10', 'fb5d4a83bffbfa7c6ea412dd631da10f9b1c13b1200210512f2078ca6c1ecee9'],
+  ['docs/qa/tierb-reliability/prepared.packet.json', 'posture-ai-tierb-prepared-packet-v1-pr10', 'a2805a4618628f8230f4f836f8c0813706e0f070a191d82ed8a0324a1a631d13'],
+  ['docs/qa/tierb-reliability/trust-policy.json', 'posture-ai-tierb-production-trust-policy-v1-pr10', 'bf46a4198c1e4be37ebf6e2c065105e5a188c79cb95fdb31f20b0b5fa1135cbe'],
+  ['docs/qa/tierb-reliability/trust-policy.pin.json', 'posture-ai-tierb-production-trust-pin-v1-pr10', '5dcf941362c3b0d91114cf4a9d0198708169f695972ca2c050e4277b3b56fe25'],
+  ['docs/qa/tierb-reliability/schemas/prepared-packet.schema.json', 'posture-ai-tierb-prepared-schema-v1-pr10', '93760c63dc8898d392e4727336ea4458ef3b32b45b1374b4898d2ba41733b03d'],
+  ['docs/qa/tierb-reliability/schemas/trust-policy.schema.json', 'posture-ai-tierb-trust-schema-v1-pr10', '5ede34e5e4c6171faf6cec5d47eb3c5b1674bebf01367a442b65e5b508d8fdf9'],
+  ['docs/qa/tierb-reliability/schemas/analysis-input.schema.json', 'posture-ai-tierb-analysis-input-schema-v1-r3-pr10', '17b07b8b4fff184814e0b36454a0218b25382f05cfe07b7c852da40f25225f89'],
+  ['docs/qa/tierb-reliability/schemas/collection-manifest.schema.json', 'posture-ai-tierb-manifest-schema-v1-r2-pr10', 'cce741c746f9f4dda28bf3cfe48c5ef5b61051f7abaafd669aeb0cb1d5079e9c'],
+]
+const TIER_B_RUNTIME_SOURCES = [
+  ['lib/pose/tierb-contract.ts', 'posture-ai-tierb-contract-v1-pr10', 'e689d37a24364c575182d7b8b4ee79945f8001410eba6f38117160224781ef0a'],
+  ['packages/posture-engine/src/reliability.ts', 'posture-ai-tierb-reliability-math-v2-r2-pr10', 'b65d767673811d7a938cb120f0955ae735d9b63393a40005fbbeaa772d303c4b'],
+  ['lib/reliability/tierb-analysis.ts', 'posture-ai-tierb-analysis-v1-r3-pr10', 'ddfa95520d0c88d3ed6dde40fd77915a7e4aa604ee8c0b3f35f117e4c6675352'],
+  ['lib/reliability/tierb-canonical.ts', 'posture-ai-tierb-canonicalization-v1-pr10', '8f3e97b3e8793e1ddcb4ddeb88990f4d9014f81a21d1c596ab6c0412cd4577ab'],
+  ['lib/reliability/tierb-validator.ts', 'posture-ai-tierb-validator-v1-r4-pr10', '15b163ab46fb2866456bb77d72523f1885f3bda774c519738f20422c16b6523d'],
+  ['scripts/check-tierb-reliability.ts', 'posture-ai-tierb-prepared-check-v1-r2-pr10', 'f1ce2421188156d49b283fba8706133257fe2347c7afc62f3bbd0cdaf0f541a0'],
+  ['scripts/golden-repeatability-core.ts', 'posture-ai-tierb-analysis-input-adapter-v1-r2-pr10', 'd171c790b2a887590418910fbe2f559275d2709da610f4cdd852d4f560c3901f'],
+  ['scripts/golden-repeatability.ts', 'posture-ai-tierb-analysis-runner-v2-r2-pr10', '02d6dad4d7426c4a0a13c680a91e46b83a67d507450ecbc004b19ba373ef3e02'],
+  ['scripts/golden-model-compare-core.mjs', 'posture-ai-tierb-model-switch-guard-v2-pr10', '4a2ffed827d9838b4561db06cde3d4f6b407204aeee7b5070fe03876c8b96543'],
+  ['scripts/golden-model-compare.mjs', 'posture-ai-tierb-model-switch-cli-v1-pr10', 'cd7424ad6ae73c2b84e53d95572c694a95795812acf39a46698cd0a3eed54a33'],
+]
 const SOURCE_INVENTORY_HASH_PATTERN = /const SOURCE_INVENTORY_HASH = '[a-f0-9]{64}'/
 const PR08_BASE_COMMIT = '92b31ab453b1e70c630cdfbb88d67688633a184d'
 
@@ -110,6 +133,14 @@ export function performanceBudgetSources() {
   ]
 }
 
+export function tierBDocumentSources() {
+  return TIER_B_DOCUMENT_SOURCES.map(([path, id, sha256]) => ({ path, id, sha256 }))
+}
+
+export function tierBRuntimeSources() {
+  return TIER_B_RUNTIME_SOURCES.map(([path, id, sha256]) => ({ path, id, sha256 }))
+}
+
 function updateSourceContract(contracts, path, { id } = {}) {
   const contract = contracts.find(row => row.path === path)
   if (!contract) throw new Error(`Missing source contract for ${path}`)
@@ -167,10 +198,9 @@ function buildNext() {
   if (playwright.status !== 0) throw new Error(`Playwright inventory failed:\n${playwright.stderr}`)
   const inventory = parsePlaywrightList(playwright.stdout)
 
-  const auditContract = manifest.source_contracts.find(row => row.path === 'docs/qa/AUDIT.md')
-  if (!auditContract) throw new Error('Manifest is missing the AUDIT source contract')
-  auditContract.id = AUDIT_SOURCE_ID
-  auditContract.sha256 = sha256(readFileSync(resolve(ROOT, auditContract.path), 'utf8'))
+  for (const source of tierBDocumentSources()) {
+    upsertImmutableEntireFileContract(manifest.source_contracts, source.path, source.id, readFileSync(resolve(ROOT, source.path), 'utf8'), source.sha256)
+  }
   for (const source of performanceBudgetSources()) {
     upsertImmutableEntireFileContract(manifest.source_contracts, source.path, source.id, readFileSync(resolve(ROOT, source.path), 'utf8'), source.sha256)
   }
@@ -196,6 +226,9 @@ function buildNext() {
   updateSourceContract(sourceInventory.runtime_source_contracts, 'playwright.config.ts', { id: PLAYWRIGHT_SOURCE_ID })
   updateSourceContract(sourceInventory.runtime_source_contracts, 'scripts/run-e2e.mjs')
   for (const source of deviceEvidenceRuntimeSources()) upsertEntireFileContract(sourceInventory.runtime_source_contracts, source.path, source.id)
+  for (const source of tierBRuntimeSources()) {
+    upsertImmutableEntireFileContract(sourceInventory.runtime_source_contracts, source.path, source.id, readFileSync(resolve(ROOT, source.path), 'utf8'), source.sha256)
+  }
   upsertEntireFileContract(sourceInventory.runtime_source_contracts, 'scripts/playwright-receipt-reporter.mjs', PLAYWRIGHT_RECEIPT_SOURCE_ID)
   upsertEntireFileContract(sourceInventory.runtime_source_contracts, 'scripts/playwright-receipt-sanitize.cjs', PLAYWRIGHT_SANITIZER_SOURCE_ID)
   sourceInventory.playwright_inventory = inventory

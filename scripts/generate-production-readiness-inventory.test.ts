@@ -8,6 +8,8 @@ import {
   deviceEvidenceRuntimeSources,
   parsePlaywrightList,
   performanceBudgetSources,
+  tierBDocumentSources,
+  tierBRuntimeSources,
   upsertImmutableEntireFileContract,
 } from './generate-production-readiness-inventory.mjs'
 
@@ -72,6 +74,42 @@ describe('production-readiness inventory generator', () => {
       { path: 'docs/qa/performance-budgets.schema.json', id: 'posture-ai-performance-budgets-schema-v6-2026-07-22-pr09', sha256: '159d652df8b9b070681a5a49aa88d385ea6d6505d8d739311c6fe753fa26aa94' },
       { path: 'scripts/check-performance-budgets.mjs', id: 'posture-ai-performance-budgets-validator-v7-2026-07-22-pr09', sha256: 'de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a' },
     ])
+  })
+
+  it('pins the complete PR-10 reliability authority and runtime surface', () => {
+    expect(tierBDocumentSources().map((source) => source.path)).toEqual([
+      'docs/qa/AUDIT.md',
+      'docs/plans/2026-07-19-production-readiness-goal-spec.md',
+      'docs/qa/tierb-reliability/protocol.md',
+      'docs/qa/tierb-reliability/prepared.packet.json',
+      'docs/qa/tierb-reliability/trust-policy.json',
+      'docs/qa/tierb-reliability/trust-policy.pin.json',
+      'docs/qa/tierb-reliability/schemas/prepared-packet.schema.json',
+      'docs/qa/tierb-reliability/schemas/trust-policy.schema.json',
+      'docs/qa/tierb-reliability/schemas/analysis-input.schema.json',
+      'docs/qa/tierb-reliability/schemas/collection-manifest.schema.json',
+    ])
+    expect(tierBRuntimeSources().map((source) => source.path)).toEqual([
+      'lib/pose/tierb-contract.ts',
+      'packages/posture-engine/src/reliability.ts',
+      'lib/reliability/tierb-analysis.ts',
+      'lib/reliability/tierb-canonical.ts',
+      'lib/reliability/tierb-validator.ts',
+      'scripts/check-tierb-reliability.ts',
+      'scripts/golden-repeatability-core.ts',
+      'scripts/golden-repeatability.ts',
+      'scripts/golden-model-compare-core.mjs',
+      'scripts/golden-model-compare.mjs',
+    ])
+    expect([
+      ...tierBDocumentSources(),
+      ...tierBRuntimeSources(),
+    ]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: expect.stringMatching(/pr10$/),
+        sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
+    ]))
   })
 
   it('fails a same-ID performance source mutation and accepts only a bumped ID', () => {

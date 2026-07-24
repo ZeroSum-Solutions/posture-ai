@@ -1,122 +1,115 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildMetricReliability,
-  buildReliabilityProfile,
-  fingerprintTierBDataset,
-  assertCapturePoseModel,
-  parseTierBFileName,
-  validateTierBProvenance,
-  RELIABILITY_ALGORITHM_VERSION,
-  RELIABILITY_PROFILE_SCHEMA_VERSION,
-  RELIABILITY_PROTOCOL_VERSION,
+  TIER_B_ANALYSIS_VERSION,
+  TIER_B_PROTOCOL_VERSION,
+} from '../lib/pose/tierb-contract'
+import {
+  TIERB_ANALYSIS_METRIC_CELLS,
+  type TierBAnalysisInput,
+  type TierBMeasurement,
+} from '../lib/reliability/tierb-analysis'
+import { sha256TierB } from '../lib/reliability/tierb-canonical'
+import type { TierBPublicEnvelope } from '../lib/reliability/tierb-validator'
+import {
+  analyzeAuthorizedTierBInput,
+  RELIABILITY_INPUT_SCHEMA_VERSION,
+  validateTierBAnalysisInputEnvelope,
+  type TierBAnalysisInputEnvelope,
 } from './golden-repeatability-core'
 
-const records = [
-  { caseKey: 's1|neutral|iphone', repeatId: '1', deviationDeg: 1, severityPct: 10 },
-  { caseKey: 's1|neutral|iphone', repeatId: '2', deviationDeg: 2, severityPct: 20 },
-  { caseKey: 's2|neutral|iphone', repeatId: '1', deviationDeg: 4, severityPct: 40 },
-  { caseKey: 's2|neutral|iphone', repeatId: '2', deviationDeg: 5, severityPct: 50 },
-  { caseKey: 's3|neutral|iphone', repeatId: '1', deviationDeg: 7, severityPct: 70 },
-  { caseKey: 's3|neutral|iphone', repeatId: '2', deviationDeg: 8, severityPct: 80 },
-]
+function authorization(): TierBPublicEnvelope {
+  return {
+    schemaVersion: 'tierb-public-envelope-v1',
+    packetId: 'fixture',
+    state: 'collection_authorized',
+    parentPublicEnvelopeSha256: `sha256:${'1'.repeat(64)}`,
+    repositoryCommit: '2'.repeat(40),
+    configurationSha256: `sha256:${'3'.repeat(64)}`,
+    restrictedEnvelopeSha256: `sha256:${'4'.repeat(64)}`,
+    payload: {},
+    payloadSha256: `sha256:${'5'.repeat(64)}`,
+    transition: null,
+  }
+}
 
-describe('buildMetricReliability', () => {
-  it('emits aligned reliability statistics in degrees and severity percentage points', () => {
-    const result = buildMetricReliability(records, ['1', '2'])
+function input(): TierBAnalysisInput {
+  const participantIds = Array.from(
+    { length: 12 },
+    (_, index) => `cluster-${String(index + 1).padStart(2, '0')}`,
+  )
+  const deviceIds = ['device-a', 'device-b']
+  const records: TierBMeasurement[] = participantIds.flatMap(
+    (participantId, participantIndex) =>
+      deviceIds.flatMap((deviceId, deviceIndex) =>
+        [1, 2, 3].map((repeatId, repeatIndex) => ({
+          participantId,
+          deviceId,
+          metricId: 'anterior_imbalanced_shoulders',
+          view: 'front' as const,
+          repeatId: repeatId as 1 | 2 | 3,
+          pose: 'neutral' as const,
+          unit: 'percentage_points' as const,
+          sourceField: 'severityPct' as const,
+          reliable: true,
+          value: 10 + participantIndex + deviceIndex * 0.2 + repeatIndex * 0.1,
+        })),
+      ),
+  )
+  return {
+    participantIds,
+    deviceIds,
+    metricCells: TIERB_ANALYSIS_METRIC_CELLS,
+    records,
+    bootstrapSeed: 'runner-fixture',
+  }
+}
 
-    expect(result.repeatIds).toEqual(['1', '2'])
-    expect(result.nSubjects).toBe(3)
-    expect(result.nCases).toBe(3)
-    expect(result.droppedCases).toEqual([])
-    expect(result.deviationDeg.unit).toBe('deg')
-    expect(result.deviationDeg.stats?.nCases).toBe(3)
-    expect(result.deviationDeg.stats?.mean).toBe(4.5)
-    expect(result.severityPct.unit).toBe('percentage_points')
-    expect(result.severityPct.stats?.nCases).toBe(3)
-    expect(result.severityPct.stats?.mean).toBe(45)
+function envelope(
+  authorized = authorization(),
+): TierBAnalysisInputEnvelope {
+  const analysisInput = input()
+  return {
+    schemaVersion: RELIABILITY_INPUT_SCHEMA_VERSION,
+    protocolVersion: TIER_B_PROTOCOL_VERSION,
+    analysisVersion: TIER_B_ANALYSIS_VERSION,
+    authorizationPublicEnvelopeSha256: sha256TierB(authorized),
+    repositoryCommit: authorized.repositoryCommit!,
+    configurationSha256: authorized.configurationSha256!,
+    unit: 'percentage_points',
+    sourceField: 'severityPct',
+    input: analysisInput,
+    inputSha256: sha256TierB(analysisInput),
+  }
+}
+
+describe('Tier B v2 authorized repeatability adapter', () => {
+  it('analyzes only input bound to the exact collection authorization', () => {
+    const authorized = authorization()
+    const result = analyzeAuthorizedTierBInput(envelope(authorized), authorized)
+    const shoulders = result.primary.filter((entry) =>
+      entry.metricId === 'anterior_imbalanced_shoulders')
+
+    expect(shoulders).toHaveLength(2)
+    expect(shoulders.every((entry) => entry.isEligible)).toBe(true)
+    expect(result.consumerEligible).toBe(false)
   })
-})
 
-describe('Tier B ingest provenance', () => {
-  it('fingerprints accepted dataset bytes deterministically by relative path', () => {
-    const a = fingerprintTierBDataset([
-      { path: 's2/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[2]}' },
-      { path: 's1/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[1]}' },
-    ])
-    const reordered = fingerprintTierBDataset([
-      { path: 's1/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[1]}' },
-      { path: 's2/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[2]}' },
-    ])
-    const changed = fingerprintTierBDataset([
-      { path: 's1/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[9]}' },
-      { path: 's2/neutral_front_iphone_r1.landmarks.json', content: '{"frames":[2]}' },
-    ])
+  it('rejects prepared state, wrong units, and stale row hashes', () => {
+    const authorized = authorization()
+    const prepared = { ...authorized, state: 'prepared' as const }
+    expect(() => validateTierBAnalysisInputEnvelope(
+      envelope(authorized),
+      prepared,
+    )).toThrow('collection_authorized')
 
-    expect(a).toMatch(/^sha256:[a-f0-9]{64}$/)
-    expect(reordered).toBe(a)
-    expect(changed).not.toBe(a)
-  })
+    expect(() => validateTierBAnalysisInputEnvelope({
+      ...envelope(authorized),
+      unit: 'degrees' as TierBAnalysisInputEnvelope['unit'],
+    }, authorized)).toThrow('severityPct')
 
-  it('parses the frozen filename fields used for capture grouping', () => {
-    expect(parseTierBFileName('neutral_front_iphone_r2.landmarks.json')).toEqual({
-      pose: 'neutral',
-      view: 'front',
-      device: 'iphone',
-      repeatId: '2',
-    })
-    expect(parseTierBFileName('bad-name.json')).toBeNull()
-  })
-
-  it('accepts only a known pose model under the current protocol version', () => {
-    expect(validateTierBProvenance({
-      poseModel: 'lite',
-      protocolVersion: RELIABILITY_PROTOCOL_VERSION,
-    }, 'fixture')).toBe('lite')
-    expect(() => validateTierBProvenance({
-      poseModel: 'lite',
-      protocolVersion: 'old-protocol',
-    }, 'fixture')).toThrow('incompatible protocolVersion')
-    expect(() => validateTierBProvenance({
-      protocolVersion: RELIABILITY_PROTOCOL_VERSION,
-    }, 'fixture')).toThrow('poseModel')
-  })
-
-  it('rejects mixed pose models within one grouped capture', () => {
-    expect(() => assertCapturePoseModel('lite', 'full', 's1|neutral|iphone|1'))
-      .toThrow('mixes pose models')
-  })
-})
-
-describe('buildReliabilityProfile', () => {
-  it('builds a versioned pilot profile that cannot drive report comparisons', () => {
-    const metric = buildMetricReliability(records, ['1', '2'])
-    const profile = buildReliabilityProfile({
-      engineVersion: '2.1.0',
-      poseModel: 'lite',
-      datasetFingerprint: 'sha256:test-fixture',
-      generatedAt: '2026-07-19T00:00:00.000Z',
-      nSubjects: 3,
-      capturesAssessed: 6,
-      unreliableFindingsExcluded: 0,
-      perMetric: { pelvic_obliquity: metric },
-    })
-
-    expect(profile).toMatchObject({
-      schemaVersion: RELIABILITY_PROFILE_SCHEMA_VERSION,
-      algorithmVersion: RELIABILITY_ALGORITHM_VERSION,
-      protocolVersion: RELIABILITY_PROTOCOL_VERSION,
-      engineVersion: '2.1.0',
-      poseModel: 'lite',
-      datasetFingerprint: 'sha256:test-fixture',
-      label: 'pilot',
-      consumerEligible: false,
-      estimand: 'short-term within-session re-positioning repeatability',
-      method: {
-        icc: 'ICC(2,1): two-way random, absolute agreement, single measure',
-        sem: 'pooled sample SD * sqrt(1 - clamp(ICC, 0, 1))',
-        mdc95: '1.96 * sqrt(2) * SEM',
-      },
-    })
-    expect(profile.caveats).toContain('No confidence intervals are reported; this pilot profile must not gate report comparisons.')
+    expect(() => validateTierBAnalysisInputEnvelope({
+      ...envelope(authorized),
+      inputSha256: `sha256:${'f'.repeat(64)}`,
+    }, authorized)).toThrow('hash')
   })
 })

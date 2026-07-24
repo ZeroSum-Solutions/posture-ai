@@ -9,11 +9,35 @@
 export interface ReliabilityStats {
   nCases: number
   kRepeats: number
-  /** ICC(2,1): two-way random effects, single measures, absolute agreement. */
+  /** ICC(A,1), equivalently ICC(2,1): two-way random, single-measure absolute agreement. */
   icc21: number
-  /** Standard error of measurement: SD·√(1−ICC), in metric units (degrees). */
+  /** Two-way ANOVA mean squares used by ICC(A,1). */
+  meanSquares: {
+    cases: number
+    occasions: number
+    error: number
+  }
+  /** Signed method-of-moments components. Negative values remain diagnostic. */
+  varianceComponents: {
+    cases: number
+    occasions: number
+    error: number
+  }
+  /** Variance components floored at zero for error-bound calculations. */
+  nonnegativeVarianceComponents: {
+    cases: number
+    occasions: number
+    error: number
+  }
+  /** Consistency SEM: √MSE, excluding systematic repeat-to-repeat offsets. */
+  semConsistency: number
+  /** Absolute-agreement SEM: √(MSE + max(0, occasion variance)). */
+  semAgreement: number
+  /**
+   * @deprecated Use semAgreement. Retained for stored-report compatibility.
+   */
   sem: number
-  /** Minimal detectable change, 95%: 1.96·√2·SEM. Deltas below this are noise. */
+  /** Minimal detectable change, 95%: 1.96·√2·SEM_agreement. */
   mdc95: number
   mean: number
   /** Sample SD of all measurements (pooled across cases and repeats). */
@@ -106,19 +130,46 @@ export function testRetestReliability(matrix: number[][]): ReliabilityStats | nu
   const ssc = n * colMeans.reduce((s, m) => s + (m - grand) ** 2, 0)
   const sst = flat.reduce((s, v) => s + (v - grand) ** 2, 0)
   if (sst === 0) return null // zero variance everywhere — ICC is undefined
-  const sse = sst - ssr - ssc
+  // Compute residuals directly. `sst - ssr - ssc` can become a tiny negative
+  // number for an exactly additive matrix because of cancellation.
+  const sse = matrix.reduce((sum, row, i) =>
+    sum + row.reduce((rowSum, value, j) =>
+      rowSum + (value - rowMeans[i] - colMeans[j] + grand) ** 2, 0), 0)
   const msr = ssr / (n - 1)
   const msc = ssc / (k - 1)
   const mse = sse / ((n - 1) * (k - 1))
 
-  const icc21 = (msr - mse) / (msr + (k - 1) * mse + (k / n) * (msc - mse))
+  const denominator = msr + (k - 1) * mse + (k / n) * (msc - mse)
+  if (denominator === 0) return null
+  const icc21 = (msr - mse) / denominator
 
   const sd = Math.sqrt(flat.reduce((s, v) => s + (v - grand) ** 2, 0) / (n * k - 1))
-  // icc21 is reported as computed (a negative value is itself informative),
-  // but for SEM it is clamped into [0,1] (Weir 2005): a negative ICC would
-  // otherwise yield SEM > SD, which is nonsensical — SEM saturates at SD.
-  const sem = sd * Math.sqrt(1 - Math.min(1, Math.max(0, icc21)))
-  const mdc95 = 1.96 * Math.SQRT2 * sem
+  const varianceComponents = {
+    cases: (msr - mse) / k,
+    occasions: (msc - mse) / n,
+    error: mse,
+  }
+  const nonnegativeVarianceComponents = {
+    cases: Math.max(0, varianceComponents.cases),
+    occasions: Math.max(0, varianceComponents.occasions),
+    error: Math.max(0, varianceComponents.error),
+  }
+  const semConsistency = Math.sqrt(mse)
+  const semAgreement = Math.sqrt(mse + nonnegativeVarianceComponents.occasions)
+  const mdc95 = 1.96 * Math.SQRT2 * semAgreement
 
-  return { nCases: n, kRepeats: k, icc21, sem, mdc95, mean: grand, sd }
+  return {
+    nCases: n,
+    kRepeats: k,
+    icc21,
+    meanSquares: { cases: msr, occasions: msc, error: mse },
+    varianceComponents,
+    nonnegativeVarianceComponents,
+    semConsistency,
+    semAgreement,
+    sem: semAgreement,
+    mdc95,
+    mean: grand,
+    sd,
+  }
 }

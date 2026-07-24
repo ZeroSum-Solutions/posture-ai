@@ -1,6 +1,6 @@
-// golden-model-compare.mjs — lite vs full over Tier B landmarks.
-// Tier B JSONs are produced per model by running the ingest page twice with
-// NEXT_PUBLIC_POSE_MODEL=lite then =full (files suffixed -lite / -full).
+// golden-model-compare.mjs — advisory lite-vs-full accuracy-study comparison.
+// Inputs must be paired, explicitly marked studyPurpose:"accuracy", and carry
+// measured ground truth. Reliability-only Tier B v2 evidence is refused.
 // Reports per-metric |deviation_lite − deviation_full| and each model's error
 // vs measured groundTruth. Decision rule (spec §2.1, amended 2026-07-16):
 // disagreement (any scored metric with median |Δ| > 1° across Tier B) makes
@@ -8,12 +8,15 @@
 // least as accurate as lite against ground truth. Disagreement alone proves
 // the models differ, not that full is better.
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
+import { assertModelComparisonEvidence } from './golden-model-compare-core.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const dir = join(root, 'packages/posture-engine/golden/tierb')
+const dir = process.env.GOLDEN_MODEL_COMPARE_DIR
+  ? resolve(process.env.GOLDEN_MODEL_COMPARE_DIR)
+  : join(root, 'packages/posture-engine/golden/tierb')
 
 if (!existsSync(dir) || readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory()).length === 0) {
   console.error('No Tier B data yet — capture per golden/protocol.md first.')
@@ -23,6 +26,7 @@ const subjects = readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirec
 
 // Collect paired lite/full JSONs across all subject directories
 const pairs = []
+const unpaired = []
 for (const subj of subjects) {
   const subjDir = join(dir, subj.name)
   const files = readdirSync(subjDir).filter(f => f.endsWith('.json'))
@@ -31,11 +35,12 @@ for (const subj of subjects) {
     const baseName = liteFile.slice(0, -'-lite.json'.length)
     const fullFile = baseName + '-full.json'
     if (!files.includes(fullFile)) {
-      console.warn(`  [skip] ${subj.name}/${baseName}: no matching -full.json`)
+      unpaired.push(`${subj.name}/${baseName}`)
       continue
     }
     const lite = JSON.parse(readFileSync(join(subjDir, liteFile), 'utf8'))
     const full = JSON.parse(readFileSync(join(subjDir, fullFile), 'utf8'))
+    assertModelComparisonEvidence(lite, full, `${subj.name}/${baseName}`)
     pairs.push({
       name: `${subj.name}/${baseName}`,
       liteFrames: lite.frames,
@@ -43,6 +48,11 @@ for (const subj of subjects) {
       groundTruth: lite.groundTruth ?? {},
     })
   }
+}
+
+if (unpaired.length > 0) {
+  console.error(`Unpaired model-comparison files: ${unpaired.join(', ')}`)
+  process.exit(2)
 }
 
 if (pairs.length === 0) {
@@ -144,4 +154,4 @@ if (!disagreement) {
   )
 }
 
-console.log(`\nVERDICT: full-default = ${fullDefault}`)
+console.log(`\nADVISORY VERDICT: full-default = ${fullDefault}`)

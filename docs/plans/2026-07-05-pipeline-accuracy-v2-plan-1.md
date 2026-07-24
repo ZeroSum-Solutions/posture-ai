@@ -1,5 +1,10 @@
 # Pipeline Accuracy v2 — Plan 1 of 2 (Golden Harness + Engine v2 + Capture Measurement) Implementation Plan
 
+> **Historical implementation record:** The embedded Tier B collection and
+> ingest instructions are superseded by
+> `docs/qa/tierb-reliability/protocol.md`. Do not run its 3–5-person,
+> staged-pose, 144-photo, or direct photo-to-landmark workflow for human data.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the golden accuracy-regression harness (spec §1), ship engine v2.0.0 with the trunk-lean merge, validity-weighted scoring, percentile removal, and uncertainty-aware borderline zones (spec §3), and produce the data-driven capture verdicts (spec §2).

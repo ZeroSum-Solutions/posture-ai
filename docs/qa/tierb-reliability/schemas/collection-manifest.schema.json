@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posture-ai.local/schemas/tierb/collection-manifest-v1",
+  "title": "Restricted Tier B collection manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorizationPublicEnvelopeSha256",
+    "frozenProvenanceSha256",
+    "activatedParticipantSlots",
+    "rows"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "tierb-collection-manifest-v1" },
+    "authorizationPublicEnvelopeSha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "frozenProvenanceSha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "activatedParticipantSlots": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1, "maximum": 15 }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 288,
+      "maxItems": 360,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rowId",
+          "participantSlot",
+          "clusterId",
+          "deviceId",
+          "operatorId",
+          "repeatId",
+          "view",
+          "scheduledSequence",
+          "capturedAt",
+          "consent",
+          "sourcePhoto",
+          "landmarks",
+          "authorizationPublicEnvelopeSha256",
+          "frozenProvenanceSha256",
+          "rowBindingSha256"
+        ],
+        "properties": {
+          "rowId": { "type": "string", "minLength": 1 },
+          "participantSlot": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 15
+          },
+          "clusterId": {
+            "type": "string",
+            "pattern": "^cluster-[0-9]{2}$"
+          },
+          "deviceId": { "type": "string", "minLength": 1 },
+          "operatorId": { "type": "string", "minLength": 1 },
+          "repeatId": { "enum": [1, 2, 3] },
+          "view": {
+            "enum": ["front", "side_left", "back", "side_right"]
+          },
+          "scheduledSequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24
+          },
+          "capturedAt": { "type": "string", "format": "date-time" },
+          "authorizationPublicEnvelopeSha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "frozenProvenanceSha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "rowBindingSha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "consent": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "verified",
+              "receiptId",
+              "deidentified",
+              "withdrawalState"
+            ],
+            "properties": {
+              "verified": { "const": true },
+              "receiptId": { "type": "string", "minLength": 1 },
+              "deidentified": { "const": true },
+              "withdrawalState": { "const": "active" }
+            }
+          },
+          "sourcePhoto": { "$ref": "#/$defs/artifact" },
+          "landmarks": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["path", "sha256", "byteLength", "mime"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "byteLength": { "type": "integer", "minimum": 0 },
+        "mime": {
+          "enum": ["image/jpeg", "image/png", "application/json"]
+        },
+        "widthPx": { "type": "integer", "minimum": 1 },
+        "heightPx": { "type": "integer", "minimum": 1 },
+        "frameCount": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

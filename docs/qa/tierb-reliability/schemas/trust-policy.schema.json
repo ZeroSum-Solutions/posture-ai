@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posture-ai.local/schemas/tierb/trust-policy-v1",
+  "title": "Tier B independently pinned trust policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "trustDomain", "environment", "keys"],
+  "properties": {
+    "schemaVersion": { "const": "tierb-trust-policy-v1" },
+    "trustDomain": { "const": "posture-ai-tierb-reliability" },
+    "environment": { "enum": ["production", "fixture"] },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "keyId",
+          "algorithm",
+          "roles",
+          "publicKeySpkiDerBase64",
+          "publicKeySha256",
+          "status",
+          "validFrom",
+          "validUntil"
+        ],
+        "properties": {
+          "keyId": { "type": "string", "minLength": 1 },
+          "algorithm": { "const": "Ed25519" },
+          "roles": {
+            "type": "array",
+            "items": {
+              "enum": ["collection_owner", "statistical_reviewer"]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "publicKeySpkiDerBase64": { "type": "string", "minLength": 1 },
+          "publicKeySha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "status": { "enum": ["active", "revoked"] },
+          "validFrom": { "type": "string", "format": "date-time" },
+          "validUntil": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
