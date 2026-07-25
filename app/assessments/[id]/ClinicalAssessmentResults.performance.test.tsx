@@ -129,7 +129,7 @@ describe('assessment results progressive rendering', () => {
 
     render(<ClinicalAssessmentResults params={Promise.resolve({ id: 'assessment-1' })} />)
 
-    expect(await screen.findByRole('heading', { name: 'Assessment review studio' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Screening results' })).toBeTruthy()
     expect(screen.queryByText('Loading results...')).toBeNull()
     expect(screen.getByTestId('review-dock').getAttribute('data-comparison-count')).toBe('0')
 
@@ -175,7 +175,7 @@ describe('assessment results progressive rendering', () => {
       />,
     )
 
-    expect(screen.getByRole('heading', { name: 'Assessment review studio' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Screening results' })).toBeTruthy()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain('/api/assessments/assessment-1')
   })
@@ -201,12 +201,12 @@ describe('assessment results progressive rendering', () => {
         initialData={assessmentResponseData()}
       />,
     )
-    expect(screen.getByRole('heading', { name: 'Assessment review studio' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Screening results' })).toBeTruthy()
 
     priorHistory.reject(new Error('comparison history unavailable'))
 
     expect(await screen.findByText('Some report options could not load (prior assessments). Refresh to try again.')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Assessment review studio' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Screening results' })).toBeTruthy()
     expect(screen.queryByText('Failed to load assessment.')).toBeNull()
   })
 
@@ -236,7 +236,7 @@ describe('assessment results progressive rendering', () => {
         initialData={assessmentResponseData()}
       />,
     )
-    expect(screen.getByRole('heading', { name: 'Assessment review studio' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Screening results' })).toBeTruthy()
 
     rerender(
       <ComponentWithInitialData
@@ -259,7 +259,7 @@ describe('assessment results progressive rendering', () => {
       await Promise.resolve()
     })
 
-    expect(screen.getByRole('heading', { name: 'Assessment review studio' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Screening results' })).toBeTruthy()
     expect(screen.queryByText('Some report options could not load (prior assessments). Refresh to try again.')).toBeNull()
     expect(screen.queryByText('Failed to load assessment.')).toBeNull()
   })

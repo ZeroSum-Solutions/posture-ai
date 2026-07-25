@@ -11,6 +11,7 @@ function props(overrides: Partial<ReviewDockProps> = {}): ReviewDockProps {
     assessedAtLabel: 'July 15, 2026',
     grade: 'B',
     score: 42,
+    gradeDescription: 'Mild deviation',
     reliabilityLabel: 'Camera level verified',
     reliabilityDetail: 'Capture stability 86%',
     unreliableCount: 0,
@@ -48,14 +49,12 @@ describe('ReviewDock action hierarchy', () => {
     const { container } = render(<ReviewDock {...props()} />)
 
     const primary = screen.getByRole('button', { name: 'Approve report' })
-    const sectionNavigation = screen.getByRole('navigation', { name: 'Review sections' })
-
     expect(primary.getAttribute('data-visual-weight')).toBe('primary')
-    expect(primary.compareDocumentPosition(sectionNavigation) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     expect(screen.queryByRole('button', { name: 'Launch session' })).toBeNull()
     expect((screen.getByRole('button', { name: 'Practitioner PDF' }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'Client report' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getAllByRole('link', { name: /summary|program|alignment|findings|library/i })).toHaveLength(5)
+    expect(screen.getByText('Mild deviation')).toBeTruthy()
+    expect(screen.queryByRole('navigation', { name: 'Review sections' })).toBeNull()
     expect(container.querySelectorAll('[data-visual-weight="primary"]')).toHaveLength(1)
   })
 

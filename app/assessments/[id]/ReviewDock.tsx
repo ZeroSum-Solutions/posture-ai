@@ -15,6 +15,7 @@ export type ReviewDockProps = {
   assessedAtLabel: string
   grade: string
   score: number
+  gradeDescription: string
   reliabilityLabel: string
   reliabilityDetail: string | null
   unreliableCount: number
@@ -45,19 +46,12 @@ export type ReviewDockProps = {
   newAssessmentHref: string
 }
 
-const sections = [
-  ['review-summary', 'Summary'],
-  ['review-program', 'Program'],
-  ['review-alignment', 'Alignment'],
-  ['review-findings', 'Findings'],
-  ['review-library', 'Library'],
-] as const
-
 export default function ReviewDock({
   clientName,
   assessedAtLabel,
   grade,
   score,
+  gradeDescription,
   reliabilityLabel,
   reliabilityDetail,
   unreliableCount,
@@ -148,6 +142,7 @@ export default function ReviewDock({
             <span>Grade</span>
             <strong className="data-readout">{grade}</strong>
             <small className="data-readout">{score}/100</small>
+            <em>{gradeDescription}</em>
           </div>
         </div>
 
@@ -258,9 +253,6 @@ export default function ReviewDock({
         </div>
       </div>
 
-      <nav className={styles.sectionNav} aria-label="Review sections">
-        {sections.map(([href, label]) => <a key={href} href={`#${href}`}>{label}</a>)}
-      </nav>
     </aside>
   )
 }

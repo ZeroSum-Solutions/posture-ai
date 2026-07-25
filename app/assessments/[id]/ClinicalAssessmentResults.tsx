@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
 import ReviewDock from './ReviewDock'
+import ReviewTabs from './ReviewTabs'
 import styles from './AssessmentReviewStudio.module.css'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
@@ -270,103 +271,89 @@ export function FindingCard({ f }: { f: Finding }) {
     tightLinks: f.tight_muscle_links ?? [],
     weakLinks: f.weak_muscle_links ?? [],
   })
+  const musclePanelId = `muscle-analysis-${f.id}`
 
   return (
-    <div
+    <details
       data-testid={`finding-card-${f.imbalance_key}`}
-      style={{
-        background: isUnreliable ? 'var(--surface-elevated)' : 'var(--surface)',
-        border: '1px solid ' + (isUnreliable ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'),
-        borderRadius: 12, padding: 16,
-        opacity: isUnreliable ? 0.65 : 1,
-      }}
+      className={styles.findingDisclosure}
+      data-unreliable={isUnreliable ? 'true' : 'false'}
     >
-      {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontWeight: 600, color: isUnreliable ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '0.9rem' }}>
-          {f.label}
-          <span style={{ marginLeft: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>({f.view_used} view)</span>
+      <summary>
+        <span className={styles.findingSummaryIdentity}>
+          <strong>{f.label}</strong>
+          <small>{f.view_used} view</small>
         </span>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {isUnreliable && (
-            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
-              background: 'rgba(113,113,122,0.2)', color: 'var(--text-muted)', border: '1px solid rgba(113,113,122,0.4)',
-              textTransform: 'uppercase' }}>Unreliable</span>
-          )}
-          <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-            background: `color-mix(in srgb, ${zoneColor} 13%, transparent)`, color: isUnreliable ? 'var(--text-secondary)' : zoneColor, textTransform: 'uppercase' }}>{f.zone}</span>
+        <span className={styles.findingSummaryMeasurement}>
+          <strong>{Number(f.deviation).toFixed(1)}&deg;</strong>
+          {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' ? ` · ${f.direction}` : ''}
+        </span>
+        <span className={styles.findingSummarySignals}>
+          <span className={styles.findingZone} style={{ color: isUnreliable ? 'var(--text-secondary)' : zoneColor }}>
+            {f.zone}
+          </span>
           {f.borderline ? (
-            <span title="This reading sits within its own capture variability of a zone boundary — consider the zone as approximate."
-              style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
+            <span title="This reading sits within its own capture variability of a zone boundary — consider the zone as approximate.">
               ± borderline
             </span>
           ) : null}
-          <span style={{ fontSize: 11, opacity: 0.7 }}>
+          <span>
             {/* VALIDATED needs its own label when the first metric is promoted
                 by the Layer-1 study — this ternary would mislabel it. */}
             {f.metric_validity === 'LITERATURE_CITED' ? 'Literature-referenced thresholds' : 'Screening estimate'}
           </span>
-        </div>
-      </div>
+        </span>
+      </summary>
 
-      {/* Deviation */}
-      <div style={{ fontSize: '0.875rem', color: isUnreliable ? 'var(--text-secondary)' : 'var(--text-secondary)', marginBottom: 10 }}>
-        <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation from 0&deg; standard
-        {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' && (
-          <span style={{ color: 'var(--text-secondary)' }}> — {f.direction}</span>
+      <div className={styles.findingDetail}>
+        <p className={styles.findingStandard}>
+          <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation from 0&deg; standard
+        </p>
+
+        {!isUnreliable && (
+          <div className={styles.findingSeverity}>
+            <div>
+              <span>Severity</span>
+              <strong style={{ color: zoneColor }}>{f.severity_pct}%</strong>
+            </div>
+            <div>
+              <span style={{ width: `${f.severity_pct}%`, background: zoneColor }} />
+            </div>
+          </div>
+        )}
+
+        {f.causes_text && (
+          <div className={styles.findingCauses}>
+            <span>Behavioral causes: </span>
+            {f.causes_text}
+          </div>
+        )}
+
+        {hasMuscles && (
+          <div className={styles.muscleDisclosure}>
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              aria-expanded={expanded}
+              aria-controls={musclePanelId}
+            >
+              <span>Muscle analysis</span>
+              <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+            </button>
+            {expanded && (
+              <div id={musclePanelId} className={styles.muscleDisclosurePanel}>
+                <MuscleBodyMap
+                  tightMuscles={f.tight_muscles || []}
+                  weakMuscles={f.weak_muscles || []}
+                  tightLinks={f.tight_muscle_links || []}
+                  weakLinks={f.weak_muscle_links || []}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
-
-      {/* Severity bar */}
-      {!isUnreliable && (
-        <div style={{ marginBottom: f.causes_text ? 12 : 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Severity</span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: zoneColor }}>{f.severity_pct}%</span>
-          </div>
-          <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: f.severity_pct + '%', background: zoneColor, borderRadius: 3, transition: 'width 0.5s ease' }} />
-          </div>
-        </div>
-      )}
-
-      {/* Behavioral causes */}
-      {f.causes_text && (
-        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-          <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Behavioral Causes: </span>
-          {f.causes_text}
-        </div>
-      )}
-
-      {/* Muscle Analysis expandable section */}
-      {hasMuscles && (
-        <div style={{ marginTop: 12 }}>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            aria-expanded={expanded}
-            style={{
-              background: 'none', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
-              color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-            }}
-          >
-            <span style={{ color: 'var(--brand)' }}>Muscle Analysis</span>
-            <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-          </button>
-          {expanded && (
-            <div style={{ marginTop: 12, padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: 10 }}>
-              <MuscleBodyMap
-                tightMuscles={f.tight_muscles || []}
-                weakMuscles={f.weak_muscles || []}
-                tightLinks={f.tight_muscle_links || []}
-                weakLinks={f.weak_muscle_links || []}
-              />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    </details>
   )
 }
 
@@ -482,16 +469,12 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
 }
 
 function ExercisesSection({ exercises }: { exercises: ClinicalExerciseProjection[] }) {
-  const [open, setOpen] = useState(true)
-
   if (exercises.length === 0) return null
 
   return (
     <details
       data-testid="exercises-section"
       className={styles.disclosure}
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary>Browse all matched exercises <span>{exercises.length}</span></summary>
       <div className={styles.disclosureContent}>
@@ -1026,6 +1009,8 @@ export default function ClinicalAssessmentResults({
       prior.scoring_engine_version,
     )}`,
     }))
+  const findingsNeedingReview = findings.filter((finding) => finding.zone === 'warning' || finding.zone === 'danger').length
+  const maintainingFindings = findings.filter((finding) => finding.zone === 'maintain').length
 
   return (
     <div className={styles.reviewPage}>
@@ -1033,8 +1018,8 @@ export default function ClinicalAssessmentResults({
 
       <header className={styles.studioHeader}>
         <p className="app-page-kicker">Screening review</p>
-        <h1>Assessment review studio</h1>
-        <p>Verify the evidence, tune the corrective program, and release the next safe practitioner action.</p>
+        <h1>Screening results</h1>
+        <p>Start with the grade, then move through findings, the program, exercises, and supporting evidence.</p>
         {typeof assessment.level_verified === 'boolean' && (
           <span className={styles.levelBadge} data-testid="level-badge" data-verified={assessment.level_verified ? 'true' : 'false'}>
             {assessment.level_verified ? 'Camera level verified' : 'Camera level not verified — results may be less accurate'}
@@ -1048,6 +1033,7 @@ export default function ClinicalAssessmentResults({
           assessedAtLabel={assessedAtLabel}
           grade={grade}
           score={score}
+          gradeDescription={gradeDesc}
           reliabilityLabel={reliabilityLabel}
           reliabilityDetail={reliabilityDetailParts.join(' · ') || null}
           unreliableCount={unreliableFindings.length}
@@ -1079,96 +1065,171 @@ export default function ClinicalAssessmentResults({
         />
 
         <div className={styles.canvas}>
-          <section id="review-summary" className={styles.canvasSection} aria-labelledby="review-summary-heading">
-            <h2 id="review-summary-heading" className={styles.sectionHeading}>Summary</h2>
-            <div data-testid="disclaimer" className={styles.screeningNotice}>
-              <LegalNotice kind="screening_notice" compact />
-            </div>
-            <div className={styles.ratingSummary}>
-              <GradeRing grade={grade} score={score} description={gradeDesc} />
-              <div>
-                <strong>{gradeDesc}</strong>
-                <p>Deviation: {score}/100 (lower is better) — Grade <span style={{ color }}>{grade}</span></p>
-                {showCurrentGradeScale
-                  ? <ScoreBar score={score} grade={grade} />
-                  : <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Recorded with a different or unknown scoring version; the current grade scale is not applied.</p>}
-              </div>
-            </div>
-            {showCurrentGradeScale && <BandTable currentGrade={grade} />}
+          <ReviewTabs
+            defaultTabId="review-summary"
+            tabs={[
+              {
+                id: 'review-summary',
+                label: 'Summary',
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>At a glance</h2>
+                    <div className={styles.summaryHero}>
+                      <div className={styles.ratingSummary}>
+                        <GradeRing grade={grade} score={score} description={gradeDesc} />
+                        <div>
+                          <span className={styles.quietLabel}>Overall screening grade</span>
+                          <strong>{gradeDesc}</strong>
+                          <p>Deviation: {score}/100 (lower is better) — Grade <span style={{ color }}>{grade}</span></p>
+                          {showCurrentGradeScale
+                            ? <ScoreBar score={score} grade={grade} />
+                            : <p className={styles.scaleNote}>Recorded with a different or unknown scoring version; the current grade scale is not applied.</p>}
+                        </div>
+                      </div>
 
-            <div className={styles.sessionSummary}>
-              {sessionPreview ? (
-                <div>
-                  <strong>Guided corrective session ready</strong>
-                  <p>{sessionPreview.itemCount} movements · about {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach</p>
-                  {!isApproved && <p>Practitioner approval is required before launch.</p>}
-                </div>
-              ) : (
-                <div>
-                  <strong>No guided session available</strong>
-                  <p>There are not enough reliably measured findings. Re-capture clear front and side photos to build a session.</p>
-                </div>
-              )}
-            </div>
+                      <div className={styles.findingSnapshot} aria-label="Finding summary">
+                        <div className={styles.snapshotCard}>
+                          <span>Review</span>
+                          <strong className="data-readout">{findingsNeedingReview}</strong>
+                          <small>flagged findings</small>
+                        </div>
+                        <div className={styles.snapshotCard}>
+                          <span>Maintain</span>
+                          <strong className="data-readout">{maintainingFindings}</strong>
+                          <small>within maintain range</small>
+                        </div>
+                        <div className={styles.snapshotCard}>
+                          <span>Unavailable</span>
+                          <strong className="data-readout">{unreliableFindings.length}</strong>
+                          <small>readings to recheck</small>
+                        </div>
+                      </div>
+                      <a className={styles.snapshotAction} href="#review-findings">
+                        Review all {findings.length} findings
+                      </a>
+                    </div>
 
-            {runList.length > 0 && (
-              <div className={styles.runList}>
-                <h3>Session runs</h3>
-                {runList.map((run) => (
-                  <div key={run.session_id + run.created_at}>
-                    <span>{new Date(run.created_at).toLocaleDateString()}</span>
-                    <span>{run.status.replace('_', ' ')}</span>
-                    <span>{run.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+                    <div className={styles.sessionSummary}>
+                      {sessionPreview ? (
+                        <div>
+                          <strong>Guided corrective session ready</strong>
+                          <p>{sessionPreview.itemCount} movements · about {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach</p>
+                          {!isApproved && <p>Practitioner approval is required before launch.</p>}
+                        </div>
+                      ) : (
+                        <div>
+                          <strong>No guided session available</strong>
+                          <p>There are not enough reliably measured findings. Re-capture clear front and side photos to build a session.</p>
+                        </div>
+                      )}
+                    </div>
 
-            {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
-              <p key={message} className={styles.inlineAlert} role="alert">{message}</p>
-            ))}
-            <AccuracyCard assessment={assessment} findings={findings} />
-          </section>
+                    {runList.length > 0 && (
+                      <div className={styles.runList}>
+                        <h3>Session runs</h3>
+                        {runList.map((run) => (
+                          <div key={run.session_id + run.created_at}>
+                            <span>{new Date(run.created_at).toLocaleDateString()}</span>
+                            <span>{run.status.replace('_', ' ')}</span>
+                            <span>{run.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-          <section id="review-program" className={styles.canvasSection} aria-labelledby="review-program-heading">
-            <h2 id="review-program-heading" className={styles.sectionHeading}>Program</h2>
-            {findings.length > 0 ? (
-              <PriorityProgram
-                report={program}
-                unreliable={unreliableFindings}
-                capability={capability}
-                onCapabilityChange={handleCapabilityChange}
-                onDemote={handleDemote}
-                onPromote={handlePromote}
-                onSwap={handleSwap}
-              />
-            ) : (
-              <p className={styles.emptyState}>No corrective priorities are available from this screening.</p>
-            )}
-            {overrideSaveState === 'saving' && <p role="status" aria-live="polite" className={styles.inlineStatus}>Saving program changes…</p>}
-            {overrideError && <p role="alert" aria-live="assertive" className={styles.inlineAlert}>{overrideError}</p>}
-          </section>
+                    {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
+                      <p key={message} className={styles.inlineAlert} role="alert">{message}</p>
+                    ))}
 
-          <section id="review-alignment" className={styles.canvasSection} aria-labelledby="review-alignment-heading">
-            <h2 id="review-alignment-heading" className={styles.sectionHeading}>Alignment evidence</h2>
-            <SkeletalDiagramSection findings={findings} frontCapture={frontCapture} sideCapture={sideCapture} />
-            {findings.length > 0 && <MuscleModel3D findings={findings} />}
-          </section>
+                    {showCurrentGradeScale && (
+                      <details className={styles.detailDisclosure}>
+                        <summary>Grade reference</summary>
+                        <div className={styles.detailDisclosureContent}>
+                          <BandTable currentGrade={grade} />
+                        </div>
+                      </details>
+                    )}
 
-          <section id="review-findings" className={styles.canvasSection} aria-labelledby="review-findings-heading">
-            <h2 id="review-findings-heading" className={styles.sectionHeading}>Findings</h2>
-            {findings.length > 0
-              ? <FindingsSection findings={findings} />
-              : <p className={styles.emptyState}>No findings were recorded for this screening.</p>}
-          </section>
-
-          <section id="review-library" className={styles.canvasSection} aria-labelledby="review-library-heading">
-            <h2 id="review-library-heading" className={styles.sectionHeading}>Exercise library</h2>
-            {exercises.length > 0
-              ? <ExercisesSection exercises={exercises} />
-              : <p className={styles.emptyState}>No matched exercise references are available.</p>}
-            <div className={styles.screeningFooter}><LegalNotice kind="screening_notice" compact /></div>
-          </section>
+                    <details data-testid="disclaimer" className={styles.detailDisclosure}>
+                      <summary>Screening notice</summary>
+                      <div className={styles.screeningNotice}>
+                        <LegalNotice kind="screening_notice" compact />
+                      </div>
+                    </details>
+                  </>
+                ),
+              },
+              {
+                id: 'review-findings',
+                label: 'Findings',
+                count: findings.length,
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>Practitioner findings</h2>
+                    {findings.length > 0
+                      ? <FindingsSection findings={findings} />
+                      : <p className={styles.emptyState}>No findings were recorded for this screening.</p>}
+                    <details className={styles.detailDisclosure}>
+                      <summary>Accuracy &amp; methodology</summary>
+                      <div className={styles.detailDisclosureContent}>
+                        <AccuracyCard assessment={assessment} findings={findings} />
+                      </div>
+                    </details>
+                  </>
+                ),
+              },
+              {
+                id: 'review-program',
+                label: 'Program',
+                count: program.priorities.length,
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>Corrective program</h2>
+                    {findings.length > 0 ? (
+                      <PriorityProgram
+                        report={program}
+                        unreliable={unreliableFindings}
+                        capability={capability}
+                        onCapabilityChange={handleCapabilityChange}
+                        onDemote={handleDemote}
+                        onPromote={handlePromote}
+                        onSwap={handleSwap}
+                      />
+                    ) : (
+                      <p className={styles.emptyState}>No corrective priorities are available from this screening.</p>
+                    )}
+                    {overrideSaveState === 'saving' && <p role="status" aria-live="polite" className={styles.inlineStatus}>Saving program changes…</p>}
+                    {overrideError && <p role="alert" aria-live="assertive" className={styles.inlineAlert}>{overrideError}</p>}
+                  </>
+                ),
+              },
+              {
+                id: 'review-exercises',
+                label: 'Exercises',
+                count: exercises.length,
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>Matched exercises</h2>
+                    <p className={styles.tabIntro}>Exercise detail stays collapsed until you choose to browse it.</p>
+                    {exercises.length > 0
+                      ? <ExercisesSection exercises={exercises} />
+                      : <p className={styles.emptyState}>No matched exercise references are available.</p>}
+                  </>
+                ),
+              },
+              {
+                id: 'review-evidence',
+                label: 'Evidence',
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>Alignment evidence</h2>
+                    <SkeletalDiagramSection findings={findings} frontCapture={frontCapture} sideCapture={sideCapture} />
+                    {findings.length > 0 && <MuscleModel3D findings={findings} />}
+                  </>
+                ),
+              },
+            ]}
+          />
         </div>
       </div>
     </div>

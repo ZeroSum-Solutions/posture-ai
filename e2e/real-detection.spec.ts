@@ -44,6 +44,7 @@ test.describe('real pose detection through the wizard', () => {
     // detectPose runs per view at submit (model download + WASM init on first call).
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
 
+    await page.getByRole('tab', { name: /^Findings/ }).click()
     const findings = page.locator('[data-testid^="finding-card-"]')
     await expect(findings).toHaveCount(9, { timeout: 15_000 })
 
