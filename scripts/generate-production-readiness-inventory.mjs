@@ -46,7 +46,7 @@ const TIER_B_RUNTIME_SOURCES = [
   ['packages/posture-engine/src/reliability.ts', 'posture-ai-tierb-reliability-math-v2-r2-pr10', 'b65d767673811d7a938cb120f0955ae735d9b63393a40005fbbeaa772d303c4b'],
   ['lib/reliability/tierb-analysis.ts', 'posture-ai-tierb-analysis-v1-r4-pr10', '16910f2c207f6442ca8338166dd10f2d0238d52370b9158d869fd76247a3ca91'],
   ['lib/reliability/tierb-canonical.ts', 'posture-ai-tierb-canonicalization-v1-pr10', '8f3e97b3e8793e1ddcb4ddeb88990f4d9014f81a21d1c596ab6c0412cd4577ab'],
-  ['lib/reliability/tierb-validator.ts', 'posture-ai-tierb-validator-v1-r7-pr10', 'a9c497e4dd3a63ccaa5e47d1d8384b4747445edc16029a4315f9513439839af3'],
+  ['lib/reliability/tierb-validator.ts', 'posture-ai-tierb-validator-v1-r8-pr10', 'ea27e53f0880beb3660317a1ee3eeec7d3175995d5c133b68428af9f744c062f'],
   ['scripts/check-tierb-reliability.ts', 'posture-ai-tierb-prepared-check-v1-r2-pr10', 'f1ce2421188156d49b283fba8706133257fe2347c7afc62f3bbd0cdaf0f541a0'],
   ['scripts/golden-repeatability-core.ts', 'posture-ai-tierb-analysis-input-adapter-v1-r2-pr10', 'd171c790b2a887590418910fbe2f559275d2709da610f4cdd852d4f560c3901f'],
   ['scripts/golden-repeatability.ts', 'posture-ai-tierb-analysis-runner-v2-r2-pr10', '02d6dad4d7426c4a0a13c680a91e46b83a67d507450ecbc004b19ba373ef3e02'],

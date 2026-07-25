@@ -200,9 +200,9 @@
     {
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "id": "posture-ai-tierb-validator-v1-r7-pr10",
+      "id": "posture-ai-tierb-validator-v1-r8-pr10",
       "path": "lib/reliability/tierb-validator.ts",
-      "sha256": "a9c497e4dd3a63ccaa5e47d1d8384b4747445edc16029a4315f9513439839af3"
+      "sha256": "ea27e53f0880beb3660317a1ee3eeec7d3175995d5c133b68428af9f744c062f"
     },
     {
       "hash_algorithm": "sha256",
@@ -1479,7 +1479,7 @@
     "expected_files": 32,
     "test_ids_sha256": "c6f0c6e20ee3527747efada6d16824df54a3a2354d62ea1c88fc783cadaacc31"
   },
-  "inventory_hash": "6cba41faaf7463d6ccd84866e7c7bea357547c1525b2402248a77d8dc67d2827",
+  "inventory_hash": "51197c36cca272a4f5057915b8c5819812f40bf37bb9271e17ed7b469e4d09a0",
   "ci_contract": {
     "global_commands": [
       "npm run lint",

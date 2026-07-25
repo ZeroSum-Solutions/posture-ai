@@ -1796,6 +1796,7 @@ function validateAdjudicatedPayload(
   reader: TierBArtifactReader | undefined,
   errors: TierBValidationError[],
 ) {
+  const initialErrorCount = errors.length
   if (!object(payload)
     || !exactKeys(payload, [
       'protocolVersion',
@@ -1836,13 +1837,14 @@ function validateAdjudicatedPayload(
     reader,
     errors,
   )
-  if (!hashes) return
+  if (!hashes || errors.length > initialErrorCount) return
   const frozenProvenanceSha256 = sha256TierB(authorizedEnvelope.payload.frozenProvenance)
   if (payload.frozenProvenanceSha256 !== frozenProvenanceSha256
     || payload.manifestSha256 !== hashes.manifestSha256
     || payload.datasetFingerprint !== hashes.datasetFingerprint) {
     add(errors, 'HASH_MISMATCH', '/payload', 'public adjudication hashes differ from the private evidence chain')
   }
+  if (errors.length > initialErrorCount) return
 
   const analysis = payload.analysis
   const profile = payload.profile
@@ -1857,15 +1859,6 @@ function validateAdjudicatedPayload(
   const participantCount = Array.isArray(manifest.activatedParticipantSlots)
     ? manifest.activatedParticipantSlots.length
     : 0
-  validateAnalysisInputAndRecompute(
-    restricted.payload.analysisInput,
-    analysis,
-    authorizedEnvelope,
-    manifest,
-    deviceIds.filter((deviceId): deviceId is string => typeof deviceId === 'string'),
-    hashes.derivedMeasurements,
-    errors,
-  )
   const derivedEligibility = validateAnalysisAndDeriveEligibility(
     analysis,
     deviceIds.filter((deviceId): deviceId is string => typeof deviceId === 'string'),
@@ -1970,6 +1963,16 @@ function validateAdjudicatedPayload(
     || payload.consumerEligible !== profileRecord.consumerEligible) {
     add(errors, 'SCHEMA_INVALID', '/payload/profile/eligibleMetricKeys', 'consumer eligibility must derive only from eligible registered metrics')
   }
+  if (errors.length > initialErrorCount) return
+  validateAnalysisInputAndRecompute(
+    restricted.payload.analysisInput,
+    analysis,
+    authorizedEnvelope,
+    manifest,
+    deviceIds.filter((deviceId): deviceId is string => typeof deviceId === 'string'),
+    hashes.derivedMeasurements,
+    errors,
+  )
 }
 
 function validatePreparedPayload(payload: unknown, errors: TierBValidationError[]) {
