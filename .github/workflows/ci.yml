@@ -26,6 +26,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint:vocab
       - run: npm run readiness:inventory
+      - run: npm run reliability:check
       - run: npx vitest run
       - run: npm test -w @posture-ai/engine
       - run: npm run golden

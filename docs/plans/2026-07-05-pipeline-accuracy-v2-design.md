@@ -1,5 +1,11 @@
 # Pipeline Accuracy v2 — Design
 
+> **Historical document:** Its Tier B collection instructions are superseded
+> by the frozen Tier B v2 reliability protocol in
+> `docs/qa/tierb-reliability/protocol.md`. Do not use the older 3–5-person,
+> staged-pose, 144-photo, verbal/written-OK, or direct-ingest instructions for
+> human collection.
+
 **Date:** 2026-07-05 · **Status:** approved design, pre-implementation
 **Decides for:** capture → landmarks → distortion scoring → muscle mapping → exercise selection
 **Supersedes nothing** — companions: `2026-06-27-wave3-layer1-validation-protocol.md` (clinical study, still gated), `docs/qa/AUDIT.md` (evidence for the defects fixed here), `docs/qa/passes/PASS-01.md` (parallel QA track).

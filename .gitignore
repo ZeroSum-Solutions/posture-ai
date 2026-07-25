@@ -39,6 +39,12 @@ public/mediapipe/wasm/
 data/exercises-dataset/
 docs/qa/evidence/
 packages/posture-engine/golden/photos-local/
+packages/posture-engine/golden/private-local/
+packages/posture-engine/golden/restricted-local/
+packages/posture-engine/golden/tierb/*
+!packages/posture-engine/golden/tierb/.gitkeep
+docs/qa/tierb-reliability/private-local/
+docs/qa/tierb-reliability/restricted-local/
 .golden-eval.ts
 
 # macOS

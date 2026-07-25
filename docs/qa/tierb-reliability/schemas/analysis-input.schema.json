@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posture-ai.local/schemas/tierb/analysis-input-v1",
+  "title": "Restricted Tier B analysis input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "protocolVersion",
+    "analysisVersion",
+    "authorizationPublicEnvelopeSha256",
+    "repositoryCommit",
+    "configurationSha256",
+    "unit",
+    "sourceField",
+    "input",
+    "inputSha256"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "tierb-analysis-input-v1" },
+    "protocolVersion": { "const": "tier-b-four-view-repositioned-v2" },
+    "analysisVersion": { "const": "tierb-agreement-bootstrap-v1" },
+    "authorizationPublicEnvelopeSha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "repositoryCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "configurationSha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "unit": { "const": "percentage_points" },
+    "sourceField": { "const": "severityPct" },
+    "inputSha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participantIds",
+        "deviceIds",
+        "metricCells",
+        "records",
+        "bootstrapSeed"
+      ],
+      "properties": {
+        "participantIds": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 15,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^cluster-[0-9]{2}$"
+          }
+        },
+        "deviceIds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "metricCells": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metricId", "view"],
+            "properties": {
+              "metricId": { "type": "string", "minLength": 1 },
+              "view": {
+                "enum": ["front", "side_left", "back", "side_right"]
+              }
+            }
+          }
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "participantId",
+              "deviceId",
+              "metricId",
+              "view",
+              "repeatId",
+              "pose",
+              "unit",
+              "sourceField",
+              "reliable",
+              "value"
+            ],
+            "properties": {
+              "participantId": {
+                "type": "string",
+                "pattern": "^cluster-[0-9]{2}$"
+              },
+              "deviceId": { "type": "string", "minLength": 1 },
+              "metricId": { "type": "string", "minLength": 1 },
+              "view": {
+                "enum": ["front", "side_left", "back", "side_right"]
+              },
+              "repeatId": { "enum": [1, 2, 3] },
+              "pose": { "const": "neutral" },
+              "unit": { "const": "percentage_points" },
+              "sourceField": { "const": "severityPct" },
+              "reliable": { "type": "boolean" },
+              "value": {
+                "anyOf": [
+                  { "type": "number", "minimum": 0, "maximum": 100 },
+                  { "type": "null" }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "reliable": { "const": true } },
+                  "required": ["reliable"]
+                },
+                "then": {
+                  "properties": { "value": { "type": "number" } }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "reliable": { "const": false } },
+                  "required": ["reliable"]
+                },
+                "then": {
+                  "properties": { "value": { "type": "null" } }
+                }
+              }
+            ]
+          }
+        },
+        "bootstrapSeed": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

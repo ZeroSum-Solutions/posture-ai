@@ -5,9 +5,9 @@
  * Input is a repeated-measures matrix: each row is one case (a stable true
  * posture — subject×pose×device under the Tier B protocol), each column one
  * re-positioned capture of it. Output: ICC(2,1) generalized to k repeats
- * (two-way random effects, single measures, absolute agreement), SEM
- * (SD·√(1−ICC)) and MDC95 (1.96·√2·SEM) — the smallest score change that is
- * signal rather than capture noise.
+ * (two-way random effects, single measures, absolute agreement), agreement
+ * SEM from its ANOVA variance components, and MDC95 (1.96·√2·SEM) — the
+ * smallest score change that is signal rather than capture noise.
  *
  * This is REAL test-retest repeatability — the number stabilityScore
  * (within-burst detector jitter, types.ts) explicitly cannot see.
@@ -32,9 +32,16 @@ describe('testRetestReliability', () => {
     const stats = testRetestReliability(KNOWN)!
     expect(stats.nCases).toBe(4)
     expect(stats.kRepeats).toBe(3)
-    expect(stats.icc21).toBeCloseTo(0.978678, 5)
-    expect(stats.sem).toBeCloseTo(0.827969, 5)
-    expect(stats.mdc95).toBeCloseTo(2.295014, 5)
+    expect(stats.icc21).toBeCloseTo(0.978678038, 8)
+    expect(stats.meanSquares.cases).toBeCloseTo(115.6666667, 7)
+    expect(stats.meanSquares.occasions).toBeCloseTo(0.5833333, 7)
+    expect(stats.meanSquares.error).toBeCloseTo(0.9166667, 7)
+    expect(stats.varianceComponents.occasions).toBeCloseTo(-1 / 12, 12)
+    expect(stats.nonnegativeVarianceComponents.occasions).toBe(0)
+    expect(stats.semConsistency).toBeCloseTo(0.957427108, 8)
+    expect(stats.semAgreement).toBeCloseTo(0.957427108, 8)
+    expect(stats.sem).toBe(stats.semAgreement)
+    expect(stats.mdc95).toBeCloseTo(2.653852546, 8)
     expect(stats.mean).toBeCloseTo(12.8333, 3)
     expect(stats.sd).toBeCloseTo(5.670231, 5)
   })
@@ -50,6 +57,11 @@ describe('testRetestReliability', () => {
       [4, 14],
     ])!
     expect(stats.icc21).toBeCloseTo(1 / 31, 12)
+    expect(stats.meanSquares.error).toBeCloseTo(0, 12)
+    expect(stats.varianceComponents.occasions).toBeCloseTo(50, 12)
+    expect(stats.semConsistency).toBeCloseTo(0, 12)
+    expect(stats.semAgreement).toBeCloseTo(Math.sqrt(50), 12)
+    expect(stats.mdc95).toBeCloseTo(19.6, 12)
   })
 
   it('reports near-perfect reliability when repeats are identical', () => {
@@ -59,7 +71,8 @@ describe('testRetestReliability', () => {
       [5, 5, 5],
     ])!
     expect(stats.icc21).toBeCloseTo(1, 9)
-    expect(stats.sem).toBeCloseTo(0, 9)
+    expect(stats.semConsistency).toBeCloseTo(0, 9)
+    expect(stats.semAgreement).toBeCloseTo(0, 9)
     expect(stats.mdc95).toBeCloseTo(0, 9)
   })
 
@@ -69,18 +82,17 @@ describe('testRetestReliability', () => {
     expect(testRetestReliability([])).toBeNull()
   })
 
-  it('floors SEM at the observed SD when ICC is negative (Weir 2005 convention)', () => {
-    // Within-case variance dwarfs between-case variance → ICC < 0. The true
-    // (negative) ICC is still reported, but SEM must never exceed the observed
-    // SD — a negative ICC is floored at 0 for the SEM step, so SEM = SD.
+  it('preserves a negative ICC while deriving SEM from the ANOVA error component', () => {
     const stats = testRetestReliability([
       [1, 9],
       [2, 8],
       [9, 1],
     ])!
-    expect(stats.icc21).toBeLessThan(0)
-    expect(stats.sem).toBeCloseTo(stats.sd, 9)
-    expect(stats.mdc95).toBeCloseTo(1.96 * Math.SQRT2 * stats.sd, 9)
+    expect(stats.icc21).toBeCloseTo(-2.28, 12)
+    expect(stats.meanSquares.error).toBeCloseTo(38, 12)
+    expect(stats.semConsistency).toBeCloseTo(Math.sqrt(38), 12)
+    expect(stats.semAgreement).toBeCloseTo(Math.sqrt(38), 12)
+    expect(stats.mdc95).toBeCloseTo(1.96 * Math.SQRT2 * Math.sqrt(38), 12)
   })
 
   it('returns null for a zero-variance (all-constant) matrix — ICC is undefined there', () => {
@@ -117,7 +129,8 @@ describe('testRetestReliability', () => {
       expect(candidate.icc21).toBeCloseTo(baseline.icc21, 12)
       expect(candidate.mean).toBeCloseTo(baseline.mean, 12)
       expect(candidate.sd).toBeCloseTo(baseline.sd, 12)
-      expect(candidate.sem).toBeCloseTo(baseline.sem, 12)
+      expect(candidate.semConsistency).toBeCloseTo(baseline.semConsistency, 12)
+      expect(candidate.semAgreement).toBeCloseTo(baseline.semAgreement, 12)
       expect(candidate.mdc95).toBeCloseTo(baseline.mdc95, 12)
     }
   })
@@ -130,13 +143,15 @@ describe('testRetestReliability', () => {
     expect(translated.icc21).toBeCloseTo(baseline.icc21, 12)
     expect(translated.mean).toBeCloseTo(baseline.mean + 37, 12)
     expect(translated.sd).toBeCloseTo(baseline.sd, 12)
-    expect(translated.sem).toBeCloseTo(baseline.sem, 12)
+    expect(translated.semConsistency).toBeCloseTo(baseline.semConsistency, 12)
+    expect(translated.semAgreement).toBeCloseTo(baseline.semAgreement, 12)
     expect(translated.mdc95).toBeCloseTo(baseline.mdc95, 12)
 
     expect(scaled.icc21).toBeCloseTo(baseline.icc21, 12)
     expect(scaled.mean).toBeCloseTo(baseline.mean * 3, 12)
     expect(scaled.sd).toBeCloseTo(baseline.sd * 3, 12)
-    expect(scaled.sem).toBeCloseTo(baseline.sem * 3, 12)
+    expect(scaled.semConsistency).toBeCloseTo(baseline.semConsistency * 3, 12)
+    expect(scaled.semAgreement).toBeCloseTo(baseline.semAgreement * 3, 12)
     expect(scaled.mdc95).toBeCloseTo(baseline.mdc95 * 3, 12)
   })
 
@@ -148,7 +163,7 @@ describe('testRetestReliability', () => {
       [4, 5, 6],
     ])!
     expect(Number.isFinite(stats.icc21)).toBe(true)
-    expect(Number.isFinite(stats.sem)).toBe(true)
+    expect(Number.isFinite(stats.semAgreement)).toBe(true)
     expect(Number.isFinite(stats.mdc95)).toBe(true)
   })
 })

@@ -11,19 +11,19 @@
   },
   "source_contracts": [
     {
-      "id": "posture-ai-production-readiness-audit-2026-07-21-pr08",
+      "id": "posture-ai-production-readiness-audit-2026-07-24-pr10",
       "path": "docs/qa/AUDIT.md",
       "anchor": "production-readiness-re-audit--2026-07-19",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "def3e5db1d28602de8785e53ee6f920d6a93c7fde83e1d6cb131a141278846df"
+      "sha256": "c19e929124988636c2471bc2cfcfb64a6a812b00a853868624fb57bb43feb899"
     },
     {
-      "id": "posture-ai-production-readiness-spec-v1",
+      "id": "posture-ai-production-readiness-spec-v2-2026-07-24-pr10",
       "path": "docs/plans/2026-07-19-production-readiness-goal-spec.md",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "0b4ba1572b64598af8f3480c3b0f63e96de479bf8df7799394ae91ee39dbf4af"
+      "sha256": "217b4d06681b711c7653594cd3ce396f0d60640976121101d22244002301ce56"
     },
     {
       "id": "posture-ai-production-readiness-decisions-2026-07-19",
@@ -61,6 +61,62 @@
       "id": "posture-ai-performance-budgets-validator-v7-2026-07-22-pr09",
       "path": "scripts/check-performance-budgets.mjs",
       "sha256": "de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-reliability-protocol-v2-r8-pr10",
+      "path": "docs/qa/tierb-reliability/protocol.md",
+      "sha256": "7c6281396beb5ff1f4cfbc78c7d31d0d37ceb471a2a5b5b7e7916d511b8a79d3"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-prepared-packet-v1-pr10",
+      "path": "docs/qa/tierb-reliability/prepared.packet.json",
+      "sha256": "a2805a4618628f8230f4f836f8c0813706e0f070a191d82ed8a0324a1a631d13"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-production-trust-policy-v1-pr10",
+      "path": "docs/qa/tierb-reliability/trust-policy.json",
+      "sha256": "bf46a4198c1e4be37ebf6e2c065105e5a188c79cb95fdb31f20b0b5fa1135cbe"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-production-trust-pin-v1-pr10",
+      "path": "docs/qa/tierb-reliability/trust-policy.pin.json",
+      "sha256": "5dcf941362c3b0d91114cf4a9d0198708169f695972ca2c050e4277b3b56fe25"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-prepared-schema-v1-pr10",
+      "path": "docs/qa/tierb-reliability/schemas/prepared-packet.schema.json",
+      "sha256": "93760c63dc8898d392e4727336ea4458ef3b32b45b1374b4898d2ba41733b03d"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-trust-schema-v1-pr10",
+      "path": "docs/qa/tierb-reliability/schemas/trust-policy.schema.json",
+      "sha256": "5ede34e5e4c6171faf6cec5d47eb3c5b1674bebf01367a442b65e5b508d8fdf9"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-analysis-input-schema-v1-r3-pr10",
+      "path": "docs/qa/tierb-reliability/schemas/analysis-input.schema.json",
+      "sha256": "17b07b8b4fff184814e0b36454a0218b25382f05cfe07b7c852da40f25225f89"
+    },
+    {
+      "hash_algorithm": "sha256",
+      "hash_scope": "entire_file",
+      "id": "posture-ai-tierb-manifest-schema-v1-r3-pr10",
+      "path": "docs/qa/tierb-reliability/schemas/collection-manifest.schema.json",
+      "sha256": "a87f76f27270adb8cbb40199ac69e2a8913abfd3b2124a6b5b66cbc9641ad530"
     }
   ],
   "source_identity_contract": {
@@ -1663,7 +1719,7 @@
     }
   ],
   "e2e": {
-    "inventory_id": "playwright-production-readiness-2026-07-21-v4",
+    "inventory_id": "playwright-production-readiness-2026-07-24-v5-pr10",
     "source_config": "playwright.config.ts",
     "source_runner": "scripts/run-e2e.mjs",
     "inventory_command": "npx playwright test --list",
@@ -1683,7 +1739,7 @@
     },
     "expected_total": 163,
     "expected_files": 32,
-    "inventory_hash": "974c693855ecc2f4edb5aaec6911499bfe707acc70c8194a3093907468d44a40",
+    "inventory_hash": "e29ae93304bf1a317fdb539758c6b2929009bfb59ba9fa5b40b2b2a99e9f183c",
     "inventory_hash_contract": {
       "algorithm": "sha256",
       "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
@@ -2180,30 +2236,30 @@
         "expires_on": "2026-08-31"
       },
       {
-        "key": "skip:golden-ingest:desktop-ci",
-        "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+        "key": "skip:golden-ingest:desktop-chromium:ci-production-build",
+        "source": "e2e/golden-ingest.spec.ts::keeps preparation-only collection locked with all four planned slots",
         "scope": {
           "project": "desktop-chromium",
           "condition": "CI=true production build"
         },
         "test_ids": [
-          "desktop-chromium::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+          "desktop-chromium::e2e/golden-ingest.spec.ts::golden ingest page › keeps preparation-only collection locked with all four planned slots"
         ],
         "reason": "The developer-only route intentionally returns 404 in production builds.",
         "owner": "PR-10",
         "expires_on": "2026-08-31"
       },
       {
-        "key": "skip:golden-ingest:mobile-webkit",
-        "source": "e2e/golden-ingest.spec.ts::detects landmarks from a fixture photo and offers the JSON download",
+        "key": "skip:golden-ingest:mobile-webkit:ci-production-build",
+        "source": "e2e/golden-ingest.spec.ts::keeps preparation-only collection locked with all four planned slots",
         "scope": {
           "project": "mobile-webkit",
-          "condition": "browserName=webkit"
+          "condition": "CI=true production build"
         },
         "test_ids": [
-          "mobile-webkit::e2e/golden-ingest.spec.ts::golden ingest page › detects landmarks from a fixture photo and offers the JSON download"
+          "mobile-webkit::e2e/golden-ingest.spec.ts::golden ingest page › keeps preparation-only collection locked with all four planned slots"
         ],
-        "reason": "WASM-heavy developer tool test is Chromium-only and excluded from launch surfaces.",
+        "reason": "The developer-only route intentionally returns 404 in production builds.",
         "owner": "PR-10",
         "expires_on": "2026-08-31"
       },
@@ -2379,7 +2435,7 @@
       "retry_results"
     ],
     "required_evidence_values": {
-      "inventory_id": "playwright-production-readiness-2026-07-21-v4",
+      "inventory_id": "playwright-production-readiness-2026-07-24-v5-pr10",
       "report_format": "playwright-json-report",
       "status": "passed"
     },
@@ -2587,6 +2643,7 @@
       "npm run lint",
       "npm run typecheck",
       "npm run readiness:inventory",
+      "npm run reliability:check",
       "npx vitest run",
       "npm test -w @posture-ai/engine",
       "npm run golden",
@@ -2637,7 +2694,7 @@
   "configuration_hash_contract": {
     "algorithm": "sha256",
     "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash": "1b93b928512683c0c37f41bc47ae9cd16e9d6e065f1d695ceb7e6b148f2e0b79",
+    "expected_hash": "dbc89135b0d46058011d64bd7189e70c3660b9199cb73a85d854f2fd47c98d58",
     "covered_fields": [
       "release_boundary",
       "release_configuration",
@@ -2695,5 +2752,5 @@
     "owner_approval_required": true,
     "owner_approval_task": "HG-10"
   },
-  "configuration_hash": "1b93b928512683c0c37f41bc47ae9cd16e9d6e065f1d695ceb7e6b148f2e0b79"
+  "configuration_hash": "dbc89135b0d46058011d64bd7189e70c3660b9199cb73a85d854f2fd47c98d58"
 }

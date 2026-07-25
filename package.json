@@ -31,6 +31,7 @@
     "performance:check": "node scripts/performance/check-receipts.mjs",
     "test:critical-contracts": "node scripts/run-critical-contracts.mjs",
     "readiness:inventory": "node scripts/generate-production-readiness-inventory.mjs",
+    "reliability:check": "vite-node scripts/check-tierb-reliability.ts",
     "golden": "node scripts/golden-report.mjs"
   },
   "dependencies": {

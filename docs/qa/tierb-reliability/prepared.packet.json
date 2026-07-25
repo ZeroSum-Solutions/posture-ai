@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "tierb-public-envelope-v1",
+  "packetId": "tierb-primary-neutral-v1",
+  "state": "prepared",
+  "parentPublicEnvelopeSha256": null,
+  "repositoryCommit": null,
+  "configurationSha256": null,
+  "restrictedEnvelopeSha256": null,
+  "payload": {
+    "protocolVersion": "tier-b-four-view-repositioned-v2",
+    "analysisVersion": "tierb-agreement-bootstrap-v1",
+    "estimand": "within-session fully-repositioned test-retest repeatability",
+    "studyDesign": {
+      "cohort": "primary_neutral",
+      "minimumParticipantsPerDevice": 12,
+      "targetParticipantsPerDevice": 15,
+      "exactDeviceCount": 2,
+      "sameParticipantsOnBothDevices": true,
+      "repeatIds": [
+        1,
+        2,
+        3
+      ],
+      "views": [
+        "front",
+        "side_left",
+        "back",
+        "side_right"
+      ],
+      "fullRestanceBetweenRepeats": true,
+      "expectedMinimumPhotoRows": 288,
+      "manifestMissingRowsAllowed": 0,
+      "maxMetricMissingCellFraction": 0.2,
+      "primaryUnit": "percentage_points",
+      "deviceOrderPolicy": "counterbalanced",
+      "viewOrderPolicy": "counterbalanced-four-sequence-v1"
+    },
+    "bootstrap": {
+      "algorithm": "participant-cluster-sha256-counter-v1",
+      "attempts": 10000,
+      "minimumValidAttempts": 9500,
+      "intervalMethod": "percentile-95-type7",
+      "invalidAttemptsRetried": false,
+      "seed": "posture-ai-tierb-v2"
+    },
+    "metricRegistry": [
+      {
+        "key": "anterior_imbalanced_shoulders",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "front"
+        ]
+      },
+      {
+        "key": "posterior_imbalanced_shoulders",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "back"
+        ]
+      },
+      {
+        "key": "pelvic_obliquity",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "front"
+        ]
+      },
+      {
+        "key": "genu_varum_valgum_left",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "front"
+        ]
+      },
+      {
+        "key": "genu_varum_valgum_right",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "front"
+        ]
+      },
+      {
+        "key": "forward_head_posture",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "side_left",
+          "side_right"
+        ]
+      },
+      {
+        "key": "trunk_lean",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "side_left",
+          "side_right"
+        ]
+      },
+      {
+        "key": "knee_extension_back_knee",
+        "status": "candidate",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "side_left",
+          "side_right"
+        ]
+      },
+      {
+        "key": "pelvic_axial_rotation",
+        "status": "excluded_design",
+        "primaryUnit": "percentage_points",
+        "requiredViews": [
+          "front"
+        ],
+        "reasonCode": "ENGINE_ALWAYS_UNRELIABLE"
+      }
+    ],
+    "collectionAuthorized": false,
+    "consumerEligible": false,
+    "frozenProvenance": null,
+    "approvedSigningKeyIds": []
+  },
+  "payloadSha256": "sha256:3473b22c7722a2533600f7fdd70fe1d7a4d18172ca78cebd05d0a2c21adba7ba",
+  "transition": null
+}

@@ -1,162 +1,94 @@
 import {
-  buildRepeatMatrix,
-  testRetestReliability,
-  type ReliabilityStats,
-} from '../packages/posture-engine/src/reliability'
-import { createHash } from 'node:crypto'
-import { TIER_B_PROTOCOL_VERSION, type TierBPoseModel } from '../lib/pose/tierb-contract'
+  TIER_B_ANALYSIS_VERSION,
+  TIER_B_PROTOCOL_VERSION,
+} from '../lib/pose/tierb-contract'
+import {
+  analyzeTierBReliability,
+  type TierBAnalysisInput,
+  type TierBAnalysisResult,
+} from '../lib/reliability/tierb-analysis'
+import {
+  sha256TierB,
+  type TierBSha256,
+} from '../lib/reliability/tierb-canonical'
+import type { TierBPublicEnvelope } from '../lib/reliability/tierb-validator'
 
-export const RELIABILITY_PROFILE_SCHEMA_VERSION = 2 as const
-export const RELIABILITY_ALGORITHM_VERSION = 'icc-2-1-pooled-sd-mdc95-v1' as const
 export const RELIABILITY_PROTOCOL_VERSION = TIER_B_PROTOCOL_VERSION
-export const EXPECTED_REPEAT_IDS = ['1', '2', '3'] as const
+export const RELIABILITY_ANALYSIS_VERSION = TIER_B_ANALYSIS_VERSION
+export const RELIABILITY_INPUT_SCHEMA_VERSION = 'tierb-analysis-input-v1' as const
 
-const TIER_B_FILE_RE = /^([a-z0-9-]+)_(front|side|back)_([a-z0-9-]+)_r(\d+)\.landmarks\.json$/
-
-export function fingerprintTierBDataset(entries: Array<{ path: string; content: string }>): string {
-  const hash = createHash('sha256')
-  for (const entry of [...entries].sort((a, b) =>
-    a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
-  )) {
-    hash.update(`${entry.path}\0`)
-    hash.update(entry.content)
-    hash.update('\0')
-  }
-  return `sha256:${hash.digest('hex')}`
+export interface TierBAnalysisInputEnvelope {
+  schemaVersion: typeof RELIABILITY_INPUT_SCHEMA_VERSION
+  protocolVersion: typeof TIER_B_PROTOCOL_VERSION
+  analysisVersion: typeof TIER_B_ANALYSIS_VERSION
+  authorizationPublicEnvelopeSha256: TierBSha256
+  repositoryCommit: string
+  configurationSha256: TierBSha256
+  unit: 'percentage_points'
+  sourceField: 'severityPct'
+  input: TierBAnalysisInput
+  inputSha256: TierBSha256
 }
 
-export interface TierBFileName {
-  pose: string
-  view: 'front' | 'side' | 'back'
-  device: string
-  repeatId: string
+function exactKeys(value: object, expected: readonly string[]): boolean {
+  const actual = Object.keys(value).sort()
+  const wanted = [...expected].sort()
+  return actual.length === wanted.length
+    && actual.every((key, index) => key === wanted[index])
 }
 
-export function parseTierBFileName(file: string): TierBFileName | null {
-  const match = TIER_B_FILE_RE.exec(file)
-  if (!match) return null
-  return {
-    pose: match[1],
-    view: match[2] as TierBFileName['view'],
-    device: match[3],
-    repeatId: match[4],
-  }
-}
-
-export function validateTierBProvenance(
-  payload: { poseModel?: unknown; protocolVersion?: unknown },
-  source: string,
-): TierBPoseModel {
-  if (payload.poseModel !== 'lite' && payload.poseModel !== 'full') {
-    throw new Error(`${source} is missing a valid poseModel provenance field`)
-  }
-  if (payload.protocolVersion !== TIER_B_PROTOCOL_VERSION) {
-    throw new Error(`${source} has incompatible protocolVersion ${payload.protocolVersion ?? 'missing'}`)
-  }
-  return payload.poseModel
-}
-
-export function assertCapturePoseModel(
-  existing: TierBPoseModel,
-  incoming: TierBPoseModel,
-  captureKey: string,
+/**
+ * Binds the restricted, deidentified analysis rows to the exact signed
+ * collection authorization. This adapter intentionally accepts no legacy
+ * directory/filename convention and no degree-valued input.
+ */
+export function validateTierBAnalysisInputEnvelope(
+  envelope: TierBAnalysisInputEnvelope,
+  authorization: TierBPublicEnvelope,
 ): void {
-  if (existing !== incoming) {
-    throw new Error(`capture ${captureKey} mixes pose models ${existing} and ${incoming}`)
+  if (!envelope || typeof envelope !== 'object' || !exactKeys(envelope, [
+    'schemaVersion',
+    'protocolVersion',
+    'analysisVersion',
+    'authorizationPublicEnvelopeSha256',
+    'repositoryCommit',
+    'configurationSha256',
+    'unit',
+    'sourceField',
+    'input',
+    'inputSha256',
+  ])) {
+    throw new Error('Tier B analysis input envelope has unknown or missing fields')
+  }
+  if (authorization.state !== 'collection_authorized') {
+    throw new Error('Tier B analysis requires a validated collection_authorized packet')
+  }
+  if (envelope.schemaVersion !== RELIABILITY_INPUT_SCHEMA_VERSION
+    || envelope.protocolVersion !== TIER_B_PROTOCOL_VERSION
+    || envelope.analysisVersion !== TIER_B_ANALYSIS_VERSION) {
+    throw new Error('Tier B analysis input version differs from the frozen contract')
+  }
+  if (envelope.authorizationPublicEnvelopeSha256 !== sha256TierB(authorization)
+    || envelope.repositoryCommit !== authorization.repositoryCommit
+    || envelope.configurationSha256 !== authorization.configurationSha256) {
+    throw new Error('Tier B analysis input is not bound to the exact collection authorization')
+  }
+  if (envelope.unit !== 'percentage_points' || envelope.sourceField !== 'severityPct') {
+    throw new Error('Tier B analysis input must use severityPct percentage points')
+  }
+  if (envelope.input.participantIds.some((participantId) =>
+    !/^cluster-[0-9]{2}$/.test(participantId))) {
+    throw new Error('Tier B analysis input must use deidentified cluster-XX participant IDs')
+  }
+  if (envelope.inputSha256 !== sha256TierB(envelope.input)) {
+    throw new Error('Tier B analysis input hash does not match its canonical rows')
   }
 }
 
-export interface MetricCaptureRecord {
-  caseKey: string
-  repeatId: string
-  deviationDeg: number
-  severityPct: number
-}
-
-interface ReliabilitySeries<Unit extends string> {
-  unit: Unit
-  stats: ReliabilityStats | null
-}
-
-export interface MetricReliabilityProfile {
-  nSubjects: number
-  nCases: number
-  repeatIds: string[]
-  droppedCases: string[]
-  deviationDeg: ReliabilitySeries<'deg'>
-  severityPct: ReliabilitySeries<'percentage_points'>
-}
-
-export function buildMetricReliability(
-  records: MetricCaptureRecord[],
-  expectedRepeatIds: readonly string[] = EXPECTED_REPEAT_IDS,
-): MetricReliabilityProfile {
-  const deviation = buildRepeatMatrix(
-    records.map(({ caseKey, repeatId, deviationDeg }) => ({ caseKey, repeatId, value: deviationDeg })),
-    expectedRepeatIds,
-  )
-  const severity = buildRepeatMatrix(
-    records.map(({ caseKey, repeatId, severityPct }) => ({ caseKey, repeatId, value: severityPct })),
-    expectedRepeatIds,
-  )
-  const completeCaseKeys = new Set<string>()
-  const repeatsByCase = new Map<string, Set<string>>()
-  for (const { caseKey, repeatId } of records) {
-    const repeats = repeatsByCase.get(caseKey) ?? new Set<string>()
-    repeats.add(repeatId)
-    repeatsByCase.set(caseKey, repeats)
-  }
-  for (const [caseKey, repeats] of repeatsByCase) {
-    if (expectedRepeatIds.every((repeatId) => repeats.has(repeatId))) completeCaseKeys.add(caseKey)
-  }
-
-  return {
-    nSubjects: new Set([...completeCaseKeys].map((caseKey) => caseKey.split('|', 1)[0])).size,
-    nCases: deviation.matrix.length,
-    repeatIds: deviation.repeatIds,
-    droppedCases: deviation.droppedCases,
-    deviationDeg: { unit: 'deg', stats: testRetestReliability(deviation.matrix) },
-    severityPct: { unit: 'percentage_points', stats: testRetestReliability(severity.matrix) },
-  }
-}
-
-export interface ReliabilityProfileInput {
-  engineVersion: string
-  poseModel: TierBPoseModel
-  datasetFingerprint: string
-  generatedAt: string
-  nSubjects: number
-  capturesAssessed: number
-  unreliableFindingsExcluded: number
-  perMetric: Record<string, MetricReliabilityProfile>
-}
-
-export function buildReliabilityProfile(input: ReliabilityProfileInput) {
-  return {
-    schemaVersion: RELIABILITY_PROFILE_SCHEMA_VERSION,
-    algorithmVersion: RELIABILITY_ALGORITHM_VERSION,
-    protocolVersion: RELIABILITY_PROTOCOL_VERSION,
-    engineVersion: input.engineVersion,
-    poseModel: input.poseModel,
-    datasetFingerprint: input.datasetFingerprint,
-    generatedAt: input.generatedAt,
-    label: 'pilot' as const,
-    consumerEligible: false as const,
-    estimand: 'short-term within-session re-positioning repeatability' as const,
-    method: {
-      icc: 'ICC(2,1): two-way random, absolute agreement, single measure',
-      sem: 'pooled sample SD * sqrt(1 - clamp(ICC, 0, 1))',
-      mdc95: '1.96 * sqrt(2) * SEM',
-    },
-    nSubjects: input.nSubjects,
-    capturesAssessed: input.capturesAssessed,
-    unreliableFindingsExcluded: input.unreliableFindingsExcluded,
-    caveats: [
-      'No confidence intervals are reported; this pilot profile must not gate report comparisons.',
-      'Cases cluster within subjects, so case counts are not independent-subject counts.',
-      'Subject count, not photo, capture, or model-output count, is the independent biological sample size.',
-      'Unreliable findings are excluded, so this describes the reliable-gated pipeline.',
-    ],
-    perMetric: input.perMetric,
-  }
+export function analyzeAuthorizedTierBInput(
+  envelope: TierBAnalysisInputEnvelope,
+  authorization: TierBPublicEnvelope,
+): TierBAnalysisResult {
+  validateTierBAnalysisInputEnvelope(envelope, authorization)
+  return analyzeTierBReliability(envelope.input)
 }

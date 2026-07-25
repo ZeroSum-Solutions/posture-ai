@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "tierb-trust-policy-v1",
+  "trustDomain": "posture-ai-tierb-reliability",
+  "environment": "production",
+  "keys": []
+}

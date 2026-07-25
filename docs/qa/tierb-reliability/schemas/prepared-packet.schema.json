@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posture-ai.local/schemas/tierb/prepared-packet-v1",
+  "title": "Tier B preparation-only public packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packetId",
+    "state",
+    "parentPublicEnvelopeSha256",
+    "repositoryCommit",
+    "configurationSha256",
+    "restrictedEnvelopeSha256",
+    "payload",
+    "payloadSha256",
+    "transition"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "tierb-public-envelope-v1" },
+    "packetId": { "const": "tierb-primary-neutral-v1" },
+    "state": { "const": "prepared" },
+    "parentPublicEnvelopeSha256": { "type": "null" },
+    "repositoryCommit": { "type": "null" },
+    "configurationSha256": { "type": "null" },
+    "restrictedEnvelopeSha256": { "type": "null" },
+    "payloadSha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "transition": { "type": "null" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "analysisVersion",
+        "estimand",
+        "studyDesign",
+        "bootstrap",
+        "metricRegistry",
+        "collectionAuthorized",
+        "consumerEligible",
+        "frozenProvenance",
+        "approvedSigningKeyIds"
+      ],
+      "properties": {
+        "protocolVersion": { "const": "tier-b-four-view-repositioned-v2" },
+        "analysisVersion": { "const": "tierb-agreement-bootstrap-v1" },
+        "estimand": {
+          "const": "within-session fully-repositioned test-retest repeatability"
+        },
+        "collectionAuthorized": { "const": false },
+        "consumerEligible": { "const": false },
+        "frozenProvenance": { "type": "null" },
+        "approvedSigningKeyIds": { "type": "array", "maxItems": 0 },
+        "studyDesign": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cohort",
+            "minimumParticipantsPerDevice",
+            "targetParticipantsPerDevice",
+            "exactDeviceCount",
+            "sameParticipantsOnBothDevices",
+            "repeatIds",
+            "views",
+            "fullRestanceBetweenRepeats",
+            "expectedMinimumPhotoRows",
+            "manifestMissingRowsAllowed",
+            "maxMetricMissingCellFraction",
+            "primaryUnit",
+            "deviceOrderPolicy",
+            "viewOrderPolicy"
+          ],
+          "properties": {
+            "cohort": { "const": "primary_neutral" },
+            "minimumParticipantsPerDevice": { "const": 12 },
+            "targetParticipantsPerDevice": { "const": 15 },
+            "exactDeviceCount": { "const": 2 },
+            "sameParticipantsOnBothDevices": { "const": true },
+            "repeatIds": {
+              "type": "array",
+              "prefixItems": [
+                { "const": 1 },
+                { "const": 2 },
+                { "const": 3 }
+              ],
+              "items": false
+            },
+            "views": {
+              "type": "array",
+              "prefixItems": [
+                { "const": "front" },
+                { "const": "side_left" },
+                { "const": "back" },
+                { "const": "side_right" }
+              ],
+              "items": false
+            },
+            "fullRestanceBetweenRepeats": { "const": true },
+            "expectedMinimumPhotoRows": { "const": 288 },
+            "manifestMissingRowsAllowed": { "const": 0 },
+            "maxMetricMissingCellFraction": { "const": 0.2 },
+            "primaryUnit": { "const": "percentage_points" },
+            "deviceOrderPolicy": { "const": "counterbalanced" },
+            "viewOrderPolicy": {
+              "const": "counterbalanced-four-sequence-v1"
+            }
+          }
+        },
+        "bootstrap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "attempts",
+            "minimumValidAttempts",
+            "intervalMethod",
+            "invalidAttemptsRetried",
+            "seed"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "participant-cluster-sha256-counter-v1"
+            },
+            "attempts": { "const": 10000 },
+            "minimumValidAttempts": { "const": 9500 },
+            "intervalMethod": { "const": "percentile-95-type7" },
+            "invalidAttemptsRetried": { "const": false },
+            "seed": { "type": "string", "minLength": 1 }
+          }
+        },
+        "metricRegistry": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "status", "primaryUnit", "requiredViews"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "status": {
+                "enum": ["candidate", "excluded_design"]
+              },
+              "primaryUnit": { "const": "percentage_points" },
+              "requiredViews": {
+                "type": "array",
+                "items": {
+                  "enum": ["front", "side_left", "back", "side_right"]
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "reasonCode": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
