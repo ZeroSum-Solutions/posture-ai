@@ -19,18 +19,25 @@ test.describe('assessment golden path (test mode)', () => {
     // Synchronous scoring + status polling ends on the results page.
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
+    // Results open on a grade-first summary. Secondary concerns are separate,
+    // keyboard-accessible tabs rather than one long document.
+    await expect(page.getByRole('tab', { name: 'Summary' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByText(/Grade C/i).first()).toBeVisible()
+    await expect(page.locator('[data-testid="disclaimer"]')).toBeVisible()
+
     const findings = page.locator('[data-testid^="finding-card-"]')
+    await expect(findings).toHaveCount(0)
+    await page.getByRole('tab', { name: /^Findings/ }).click()
     await expect(findings).toHaveCount(9, { timeout: 15_000 })
     await expect(page.getByText('Screening estimate').first()).toBeVisible()
 
-    // The canonical fixture is deterministic: score 22, Grade C.
-    await expect(page.getByText(/Grade C/i).first()).toBeVisible()
-
+    await page.getByRole('tab', { name: /^Exercises/ }).click()
     await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
-    await expect(page.locator('[data-testid="disclaimer"]')).toBeVisible()
+    await expect(page.locator('[data-testid="exercises-section"]')).not.toHaveAttribute('open', '')
 
     // Every coach-side program control needs stable form identity for browser
     // autofill/devtools and explicit label association.
+    await page.getByRole('tab', { name: /^Program/ }).click()
     await expect(page.getByTestId('capability-select')).toBeVisible()
     const firstSwap = page.locator('[data-testid^="swap-"]').first()
     await expect(firstSwap).toBeVisible()
@@ -65,6 +72,7 @@ test.describe('assessment golden path (test mode)', () => {
     await selectClientInWizard(page, `E2E Detail${stamp}`)
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
+    await page.getByRole('tab', { name: /^Program/ }).click()
     await expect(page.locator('[data-testid="corrective-program"]')).toBeVisible({ timeout: 15_000 })
 
     const detailButton = page.locator('[data-testid^="exercise-detail-"]').first()

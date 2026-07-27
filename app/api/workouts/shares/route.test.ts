@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const state = vi.hoisted(() => ({
@@ -49,10 +49,16 @@ function mutationRequest(method: 'POST' | 'DELETE', body: Record<string, unknown
 
 describe('/api/workouts/shares', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-21T00:00:00Z'))
     state.user = { id: '10000000-0000-4000-8000-000000000001' }
     state.rows = []
     state.rpc.mockReset()
     state.clinicalEnabled = true
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   test('lists scoped share metadata without returning token hashes', async () => {

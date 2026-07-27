@@ -26,6 +26,10 @@ test.describe('3D posture summary', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
+    // The 3D model belongs to the Evidence tab and is intentionally not mounted
+    // while the grade-first Summary tab is active.
+    await page.getByRole('tab', { name: 'Evidence' }).click()
+
     // Card is present but NOT yet loaded — no GLB request should have fired.
     const showButton = page.getByRole('button', { name: 'Show 3D model' })
     await expect(showButton).toBeVisible({ timeout: 15_000 })

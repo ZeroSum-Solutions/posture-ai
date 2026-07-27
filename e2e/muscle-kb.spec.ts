@@ -13,9 +13,15 @@ test.describe('muscle knowledge base', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
-    // Open the first finding's muscle analysis panel and follow a muscle chip.
-    await page.getByRole('button', { name: /Muscle Analysis/i }).first().click()
-    const chip = page.locator('[data-testid^="muscle-chip-"]').first()
+    // Findings are mounted only while their tab is active. Open the first
+    // finding's muscle analysis panel and follow a muscle chip.
+    await page.getByRole('tab', { name: /Findings/ }).click()
+    const findingWithMuscles = page.locator('[data-testid^="finding-card-"]')
+      .filter({ has: page.locator('button', { hasText: /Muscle analysis/i }) })
+      .first()
+    await findingWithMuscles.locator('summary').click()
+    await findingWithMuscles.getByRole('button', { name: /Muscle analysis/i }).click()
+    const chip = findingWithMuscles.locator('[data-testid^="muscle-chip-"]').first()
     await expect(chip).toBeVisible({ timeout: 10_000 })
     await chip.click()
 

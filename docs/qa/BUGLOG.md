@@ -192,3 +192,43 @@ viewport test verifies Exit opacity/visibility/tab order/geometry after secondar
 hides, and the live Codex-browser screenshot confirms the labelled control.
 FIX: separate a labelled `× Exit` pill from auto-hide style/state while preserving managed
 reveal behavior for secondary controls.
+
+## QA-010 — Completed screening results are one long, section-stacked review
+severity: S2 · status: FIXED (PR #139; assessment-only release remains fail-closed) · found: PASS-06 · item: RES-01, RES-02, RES-04, XC-01
+PASS-07 update: the exact local-only clinical fixture and SQL contract hashes now
+match the generated inventory, so the full governance/unit suite passes without
+adding a production release or approval. The source-controlled clinical ledger and
+production activation variables remain absent. PR #139 may therefore land in the
+documented assessment-only mode; licensed-clinician approval is still required
+before enabling Program, Exercises, Evidence, workouts, or knowledge links.
+root cause: the completed-screening route mounted Summary, Findings, Program, Exercises,
+and Evidence as five consecutive sections. The grade was visually subordinate to the
+review controls, all 50 exercises were part of the same document, and the section-jump
+links looked like navigation without providing tab semantics or containing page length.
+repro: open a completed nine-finding fixture assessment at 390 × 844. Before the fix the
+full route is 14,874 px tall (17.62 viewports); the practitioner must scroll through the
+entire document to understand or relocate findings, program content, and exercises.
+expected: grade and finding counts are readable at a glance; Findings is an immediately
+visible destination; Program, Exercises, and Evidence are separate tabs; only the selected
+panel is mounted; dense finding/exercise detail is collapsed by default.
+actual: one 17.62-viewport mobile document with five stacked sections and expanded content.
+evidence: `docs/qa/evidence/UI-RESULTS-pass-01-mobile-clinical-before.png`,
+`docs/qa/evidence/UI-RESULTS-final-mobile-summary.png`,
+`docs/qa/evidence/UI-RESULTS-final-mobile-findings.png`, and
+`docs/qa/evidence/UI-RESULTS-final-desktop-summary.png`.
+FIX: added one accessible tab system shared by clinical and assessment-only results;
+introduced grade-first summary metrics; reduced findings to practitioner-scan rows with
+disclosed detail; closed the exercise collection by default; moved accuracy, grade
+reference, and screening notice into disclosures; and placed the tabbed canvas before
+the action dock on narrow screens. The final mobile summary is 3.22 viewports, findings
+is 3.85, desktop summary is 1.56, all five tabs are visible at 375 px, and there is no
+horizontal overflow.
+approval boundary: `ClinicalAssessmentResults.tsx` is deliberately included in the
+governed recommendation-engine inventory. Regenerating the inventory changes its algorithm
+and inventory hashes, so production release literals and human-reviewed activation cannot
+be updated as part of this UI loop. The branch must not land in production while the
+governance suite fails closed; a new clinical review/activation cycle must approve the
+generated inventory first.
+PASS-07 clarification: the literals updated by this branch are explicitly labeled
+local/test-only fixtures and are not HG-03 evidence. Production activation remains
+separate and unmodified.

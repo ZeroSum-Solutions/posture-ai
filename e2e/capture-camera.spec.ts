@@ -171,6 +171,7 @@ test.describe('full-screen camera capture', () => {
     await page.getByRole('button', { name: 'Analyze Posture' }).click()
 
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
+    await page.getByRole('tab', { name: /^Findings/ }).click()
     await expect(page.locator('[data-testid^="finding-card-"]')).toHaveCount(9, { timeout: 15_000 })
   })
 })

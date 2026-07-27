@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import LegalNotice from '@/components/LegalNotice'
 import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
+import ReviewTabs from './ReviewTabs'
 import styles from './AssessmentReviewStudio.module.css'
 
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -132,14 +133,17 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
     ? getGradeDisplayBand(assessment.overall_grade).description
     : 'Recorded screening grade'
   const clientName = `${assessment.clients.first_name} ${assessment.clients.last_name}`
+  const findingsNeedingReview = findings.filter((finding) => finding.zone === 'warning' || finding.zone === 'danger').length
+  const maintainingFindings = findings.filter((finding) => finding.zone === 'maintain').length
+  const unavailableFindings = findings.filter((finding) => finding.zone === 'unreliable').length
 
   return (
     <div className={styles.reviewPage} data-testid="assessment-only-results">
       <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to client</Link>
       <header className={styles.studioHeader}>
         <p className="app-page-kicker">Screening review</p>
-        <h1>Assessment results</h1>
-        <p>Review the measured posture findings and export the assessment record.</p>
+        <h1>Screening results</h1>
+        <p>Start with the grade, then open the practitioner findings when you are ready to review them.</p>
       </header>
 
       <div className={styles.studioGrid}>
@@ -151,6 +155,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                 <span>Grade</span>
                 <strong>{assessment.overall_grade}</strong>
                 <small>{assessment.overall_score}/100</small>
+                <em>{gradeDescription}</em>
               </div>
             </div>
             <p className={styles.actionHint}>
@@ -173,38 +178,89 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
         </aside>
 
         <main className={styles.canvas}>
-          <section className={styles.canvasSection} aria-labelledby="assessment-summary-heading">
-            <h2 id="assessment-summary-heading" className={styles.sectionHeading}>Summary</h2>
-            <div className={styles.screeningNotice}><LegalNotice kind="screening_notice" compact /></div>
-            <div className={styles.ratingSummary}>
-              <GradeRing grade={assessment.overall_grade} score={assessment.overall_score} description={gradeDescription} />
-              <div>
-                <strong>{gradeDescription}</strong>
-                <p>Deviation: {assessment.overall_score}/100 (lower is better) — Grade <span style={{ color: gradeColor(assessment.overall_grade) }}>{assessment.overall_grade}</span></p>
-                {usesCurrentScale && <ScoreBar score={assessment.overall_score} grade={assessment.overall_grade} />}
-              </div>
-            </div>
-            {usesCurrentScale && <BandTable currentGrade={assessment.overall_grade} />}
-          </section>
-
-          <section className={styles.canvasSection} aria-labelledby="assessment-findings-heading">
-            <h2 id="assessment-findings-heading" className={styles.sectionHeading}>Measured findings</h2>
-            <div style={{ display: 'grid', gap: 10 }}>
-              {findings.map((finding) => (
-                <article key={finding.id} data-testid={`finding-card-${finding.imbalance_key}`} className="app-panel" style={{ padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <strong>{finding.label}</strong>
-                    <span style={{ color: ZONE_COLORS[finding.zone], textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700 }}>{finding.zone}</span>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>
-                    {Number(finding.deviation).toFixed(1)}{finding.unit ?? '°'} · {finding.direction} · {finding.view_used} view
-                    {finding.uncertainty_deg != null ? ` · ±${finding.uncertainty_deg.toFixed(1)}° capture variation` : ''}
-                  </p>
-                </article>
-              ))}
-              {findings.length === 0 && <p>No findings were recorded for this screening.</p>}
-            </div>
-          </section>
+          <ReviewTabs
+            defaultTabId="assessment-summary"
+            label="Assessment result details"
+            tabs={[
+              {
+                id: 'assessment-summary',
+                label: 'Summary',
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>At a glance</h2>
+                    <div className={styles.summaryHero}>
+                      <div className={styles.ratingSummary}>
+                        <GradeRing grade={assessment.overall_grade} score={assessment.overall_score} description={gradeDescription} />
+                        <div>
+                          <span className={styles.quietLabel}>Overall screening grade</span>
+                          <strong>{gradeDescription}</strong>
+                          <p>Deviation: {assessment.overall_score}/100 (lower is better) — Grade <span style={{ color: gradeColor(assessment.overall_grade) }}>{assessment.overall_grade}</span></p>
+                          {usesCurrentScale && <ScoreBar score={assessment.overall_score} grade={assessment.overall_grade} />}
+                        </div>
+                      </div>
+                      <div className={styles.findingSnapshot} aria-label="Finding summary">
+                        <div className={styles.snapshotCard}>
+                          <span>Review</span>
+                          <strong className="data-readout">{findingsNeedingReview}</strong>
+                          <small>flagged findings</small>
+                        </div>
+                        <div className={styles.snapshotCard}>
+                          <span>Maintain</span>
+                          <strong className="data-readout">{maintainingFindings}</strong>
+                          <small>within maintain range</small>
+                        </div>
+                        <div className={styles.snapshotCard}>
+                          <span>Unavailable</span>
+                          <strong className="data-readout">{unavailableFindings}</strong>
+                          <small>readings to recheck</small>
+                        </div>
+                      </div>
+                      <a className={styles.snapshotAction} href="#assessment-findings">
+                        Review all {findings.length} findings
+                      </a>
+                    </div>
+                    {usesCurrentScale && (
+                      <details className={styles.detailDisclosure}>
+                        <summary>Grade reference</summary>
+                        <div className={styles.detailDisclosureContent}>
+                          <BandTable currentGrade={assessment.overall_grade} />
+                        </div>
+                      </details>
+                    )}
+                    <details data-testid="disclaimer" className={styles.detailDisclosure}>
+                      <summary>Screening notice</summary>
+                      <div className={styles.screeningNotice}><LegalNotice kind="screening_notice" compact /></div>
+                    </details>
+                  </>
+                ),
+              },
+              {
+                id: 'assessment-findings',
+                label: 'Findings',
+                count: findings.length,
+                content: (
+                  <>
+                    <h2 className={styles.sectionHeading}>Practitioner findings</h2>
+                    <div className={styles.compactFindings}>
+                      {findings.map((finding) => (
+                        <article key={finding.id} data-testid={`finding-card-${finding.imbalance_key}`} className={styles.compactFinding}>
+                          <div className={styles.compactFindingHeader}>
+                            <strong>{finding.label}</strong>
+                            <span style={{ color: ZONE_COLORS[finding.zone] }}>{finding.zone}</span>
+                          </div>
+                          <p>
+                            {Number(finding.deviation).toFixed(1)}{finding.unit ?? '°'} · {finding.direction} · {finding.view_used} view
+                            {finding.uncertainty_deg != null ? ` · ±${finding.uncertainty_deg.toFixed(1)}° capture variation` : ''}
+                          </p>
+                        </article>
+                      ))}
+                      {findings.length === 0 && <p>No findings were recorded for this screening.</p>}
+                    </div>
+                  </>
+                ),
+              },
+            ]}
+          />
         </main>
       </div>
     </div>

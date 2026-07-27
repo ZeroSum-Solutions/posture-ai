@@ -75,4 +75,18 @@ describe('GET /api/health schema readiness', () => {
     expect(response.status).toBe(200)
     expect((await response.json()).schema).toBe('pending_migration')
   })
+
+  test.each(['PGRST204', 'PGRST205'])(
+    'reports pending_migration for PostgREST schema code %s',
+    async (code) => {
+      probeResults['clinical_content_releases.id, inventory_sha256, hg03_receipt_sha256'] = {
+        error: { code, message: 'schema cache is behind' },
+      }
+
+      const response = await GET()
+
+      expect(response.status).toBe(200)
+      expect((await response.json()).schema).toBe('pending_migration')
+    },
+  )
 })
