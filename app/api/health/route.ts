@@ -33,9 +33,11 @@ export async function GET() {
       supabase.from('workout_sessions').select('clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256').limit(0),
     ])
 
-    // 42P01 = missing table, 42703 = missing column -> schema not fully applied.
-    // PGRST116 = no rows (fine). Anything else is a real connection/DB failure.
-    const SCHEMA_MISSING = new Set(['42P01', '42703'])
+    // PostgreSQL and PostgREST surface missing schema through different codes:
+    // 42P01 / PGRST205 = missing table, 42703 / PGRST204 = missing column.
+    // These mean the connection works but migrations are behind. PGRST116 is
+    // merely "no rows" and does not affect readiness.
+    const SCHEMA_MISSING = new Set(['42P01', '42703', 'PGRST204', 'PGRST205'])
     let schemaApplied = true
     for (const { error: probeError } of probes) {
       if (!probeError || probeError.code === 'PGRST116') continue

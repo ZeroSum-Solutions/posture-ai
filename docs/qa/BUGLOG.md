@@ -194,7 +194,13 @@ FIX: separate a labelled `× Exit` pill from auto-hide style/state while preserv
 reveal behavior for secondary controls.
 
 ## QA-010 — Completed screening results are one long, section-stacked review
-severity: S2 · status: FIXED LOCALLY / CLINICAL APPROVAL REQUIRED TO LAND (branch codex/ui-screening-results-loop) · found: PASS-06 · item: RES-01, RES-02, RES-04, XC-01
+severity: S2 · status: FIXED (PR #139; assessment-only release remains fail-closed) · found: PASS-06 · item: RES-01, RES-02, RES-04, XC-01
+PASS-07 update: the exact local-only clinical fixture and SQL contract hashes now
+match the generated inventory, so the full governance/unit suite passes without
+adding a production release or approval. The source-controlled clinical ledger and
+production activation variables remain absent. PR #139 may therefore land in the
+documented assessment-only mode; licensed-clinician approval is still required
+before enabling Program, Exercises, Evidence, workouts, or knowledge links.
 root cause: the completed-screening route mounted Summary, Findings, Program, Exercises,
 and Evidence as five consecutive sections. The grade was visually subordinate to the
 review controls, all 50 exercises were part of the same document, and the section-jump
@@ -223,3 +229,6 @@ and inventory hashes, so production release literals and human-reviewed activati
 be updated as part of this UI loop. The branch must not land in production while the
 governance suite fails closed; a new clinical review/activation cycle must approve the
 generated inventory first.
+PASS-07 clarification: the literals updated by this branch are explicitly labeled
+local/test-only fixtures and are not HG-03 evidence. Production activation remains
+separate and unmodified.
