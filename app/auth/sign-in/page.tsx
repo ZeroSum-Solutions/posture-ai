@@ -44,102 +44,56 @@ export default function SignInPage() {
     }
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    background: 'var(--background)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: '8px',
-    color: 'var(--text-primary)',
-    fontSize: '0.9rem',
-    boxSizing: 'border-box',
-  }
-
   return (
     <AuthFrame title="Welcome back" description="Sign in with the email address tied to your practitioner invitation.">
         {error && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            style={{
-              background: 'rgba(239,68,68,0.12)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '8px',
-              padding: '12px',
-              color: 'var(--danger)',
-              fontSize: '0.85rem',
-              marginBottom: '16px',
-            }}
-          >
+          <p className="a-error" role="alert" aria-live="assertive" style={{ marginBottom: 16 }}>
             {error}
-          </div>
+          </p>
         )}
 
-        <form onSubmit={handleSubmit} noValidate>
-          <div style={{ marginBottom: '16px' }}>
-            <label
-              htmlFor="email"
-              style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
-            >
-              Email
-            </label>
+        <form onSubmit={handleSubmit} noValidate className="a-form">
+          <div className="a-field">
+            <label className="a-label" htmlFor="email">Email</label>
             <input
               id="email"
+              className="a-input"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="you@example.com"
-              aria-label="Email"
               autoComplete="email"
-              style={inputStyle}
+              inputMode="email"
             />
           </div>
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-              <label
-                htmlFor="password"
-                style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
-              >
-                Password
-              </label>
-              <Link href="/auth/forgot-password" style={{ fontSize: '0.8rem', color: 'var(--brand)', textDecoration: 'underline' }}>
+
+          <div className="a-field">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <label className="a-label" htmlFor="password">Password</label>
+              <Link href="/auth/forgot-password" className="a-label" style={{ textDecoration: 'underline' }}>
                 Forgot password?
               </Link>
             </div>
             <input
               id="password"
+              className="a-input"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
               placeholder="Your password"
-              aria-label="Password"
               autoComplete="current-password"
-              style={inputStyle}
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '11px',
-              background: loading ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              marginBottom: '16px',
-            }}
-          >
+
+          <button type="submit" disabled={loading} className="a-primary a-primary--bar" style={{ marginTop: 6 }}>
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
-          <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+
+          <p className="a-help" style={{ textAlign: 'center' }}>
             Practitioner access is invitation-only.{' '}
-            <Link href="/auth/sign-up" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+            <Link href="/auth/sign-up" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
               Learn how invitations work
             </Link>
           </p>

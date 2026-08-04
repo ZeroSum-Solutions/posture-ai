@@ -1,6 +1,6 @@
 'use client'
 
-import styles from './AssessmentReviewStudio.module.css'
+import styles from './AssessmentReview.module.css'
 
 export type ReviewSaveState = 'idle' | 'saving' | 'failed'
 export type ReportKind = 'practitioner' | 'client'

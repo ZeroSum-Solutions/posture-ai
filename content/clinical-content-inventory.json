@@ -15,7 +15,7 @@
       "id": "algorithm:recommendation-engine",
       "kind": "algorithm",
       "slug": "recommendation-engine-v1",
-      "sha256": "f3a95ad6a99c4293573c792de43531cd06e7e8dd07a33ffdf529bead45eae53c"
+      "sha256": "5c250d41662a0f715f20bd9787efa61bf9b83d1b1b37db57ab9de545634e7552"
     },
     {
       "id": "contraindication:seated-hamstring-stretch:knee_extension_back_knee",
@@ -1698,5 +1698,5 @@
       "sha256": "c9aeb1a3cc437bc0220b6dd224c490fe868d2844d86a23473c0eca05f5aebf7c"
     }
   ],
-  "inventory_sha256": "834fce79898c574a3b2738f22761b8af99c93fde79672f09ae62f1a044ce3b4d"
+  "inventory_sha256": "74d47f39e8092444b816ec0062d923a724a0166170300c47ffc088c16a257f56"
 }

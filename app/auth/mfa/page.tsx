@@ -204,36 +204,30 @@ export default function MfaPage() {
       description="A second factor is required for every practitioner session."
     >
       {recoveryCopy && (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6, marginBottom: '18px' }}>
-          {recoveryCopy}
-        </p>
+        <p className="a-help" style={{ marginBottom: 18 }}>{recoveryCopy}</p>
       )}
 
       {phase === 'loading' && (
-        <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          Checking your account security…
-        </p>
+        <p className="a-help" role="status">Checking your account security…</p>
       )}
 
       {phase === 'error' && (
-        <div>
-          <div role="alert" style={{ color: 'var(--danger)', marginBottom: '18px', lineHeight: 1.5 }}>
-            {error}
-          </div>
-          <button type="button" onClick={() => void initialize()} style={{ minHeight: '44px', marginRight: '14px' }}>
+        <div className="a-form">
+          <p className="a-error" role="alert">{error}</p>
+          <button type="button" onClick={() => void initialize()} className="a-secondary a-secondary--bar">
             Try again
           </button>
-          <Link href="/auth/sign-in" style={{ color: 'var(--brand)' }}>
+          <Link href="/auth/sign-in" className="a-help" style={{ textAlign: 'center', textDecoration: 'underline' }}>
             Return to sign in
           </Link>
         </div>
       )}
 
       {(phase === 'enroll' || phase === 'challenge') && factorId && (
-        <form onSubmit={handleVerify} noValidate>
+        <form onSubmit={handleVerify} noValidate className="a-form">
           {phase === 'enroll' && qrCode && (
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            <div>
+              <p className="a-help">
                 Scan this QR code with your authenticator app, then enter the current 6-digit code.
               </p>
               {/* Supabase returns a short-lived data URL; it is never persisted. */}
@@ -243,61 +237,38 @@ export default function MfaPage() {
                 alt="QR code for Posture AI authenticator setup"
                 width={220}
                 height={220}
-                style={{ display: 'block', maxWidth: '100%', margin: '16px auto', background: '#fff', padding: '8px', borderRadius: '8px' }}
+                style={{
+                  display: 'block', maxWidth: '100%', margin: '16px auto',
+                  background: '#fff', padding: 8, borderRadius: 12,
+                }}
               />
             </div>
           )}
 
           {phase === 'challenge' && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            <p className="a-help">
               Enter the current code from the authenticator app already connected to your account.
             </p>
           )}
 
-          {error && (
-            <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)', margin: '14px 0' }}>
-              {error}
-            </div>
-          )}
+          {error && <p className="a-error" role="alert" aria-live="assertive">{error}</p>}
 
-          <label htmlFor="mfa_code" style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '16px 0 6px' }}>
-            Authenticator code
-          </label>
-          <input
-            id="mfa_code"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="000000"
-            maxLength={7}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              padding: '11px 12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: 'var(--background)',
-              color: 'var(--text-primary)',
-              fontSize: '1rem',
-              letterSpacing: '0.16em',
-              marginBottom: '16px',
-            }}
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              border: 0,
-              borderRadius: '8px',
-              background: submitting ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
-              color: '#fff',
-              fontWeight: 600,
-              cursor: submitting ? 'not-allowed' : 'pointer',
-            }}
-          >
+          <div className="a-field">
+            <label className="a-label" htmlFor="mfa_code">Authenticator code</label>
+            <input
+              id="mfa_code"
+              className="a-input n"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={7}
+              style={{ letterSpacing: '0.16em' }}
+            />
+          </div>
+
+          <button type="submit" disabled={submitting} className="a-primary a-primary--bar">
             {submitting ? 'Verifying…' : 'Verify and continue'}
           </button>
         </form>

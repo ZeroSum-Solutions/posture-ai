@@ -32,3 +32,25 @@ test('capture migrated screens', async ({ page }) => {
     await page.screenshot({ path: path.join(OUT, `${screen.name}-full.png`), fullPage: true })
   }
 })
+
+/**
+ * Auth screens, captured without the stored practitioner session. These are the
+ * screens a practitioner hits on a new device, so a broken one locks them out —
+ * which is exactly what the deleted v1 tokens did before they were migrated.
+ */
+test.describe('unauthenticated', () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
+  test('capture auth screens', async ({ page }) => {
+    await mkdir(OUT, { recursive: true })
+    for (const screen of [
+      { name: '90-sign-in', path: '/auth/sign-in' },
+      { name: '91-forgot-password', path: '/auth/forgot-password' },
+    ]) {
+      await page.goto(screen.path)
+      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForTimeout(600)
+      await page.screenshot({ path: path.join(OUT, `${screen.name}-viewport.png`) })
+    }
+  })
+})

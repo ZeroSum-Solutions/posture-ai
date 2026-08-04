@@ -160,6 +160,51 @@ h1, h2, h3 { font-family: var(--font-sans); font-weight: 300; line-height: 1.12;
 .a-primary:disabled, .a-secondary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .a-primary:not(:disabled):active, .a-secondary:not(:disabled):active { transform: scale(0.98); }
 
+/* ── Forms ─────────────────────────────────────────────────────────────────
+   One field vocabulary for every form in the app — auth, client records,
+   settings, consent. Inputs are 44px minimum so a thumb can reach them, and the
+   focus ring is a visible outline rather than a colour shift, because a colour
+   shift on a glass surface is not reliably perceivable. */
+
+.a-form { display: flex; flex-direction: column; gap: 14px; }
+
+.a-field { display: flex; flex-direction: column; gap: 6px; }
+
+.a-label { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+
+.a-input, .a-select, .a-textarea {
+  width: 100%; min-height: 48px; padding: 12px 14px;
+  border: 0; border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-primary);
+  font: 400 14px/1.4 var(--font-sans);
+  /* 14px minimum: iOS Safari zooms the viewport on focus below 16px, but the
+     design's body scale tops out at 14px, so the shell locks the viewport
+     instead of inflating the type. */
+}
+
+.a-textarea { min-height: 96px; resize: vertical; }
+
+.a-input::placeholder, .a-textarea::placeholder { color: var(--text-quiet); }
+
+.a-input:focus-visible, .a-select:focus-visible, .a-textarea:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
+.a-input:disabled, .a-select:disabled, .a-textarea:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+
+.a-help { font-size: 12px; font-weight: 300; line-height: 1.55; color: var(--text-tertiary); }
+
+/* An error states what happened; it never relies on colour alone. */
+.a-error {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 12px; font-weight: 400; line-height: 1.55; color: var(--review);
+}
+
 .a-quiet {
   display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px;
   border: 0; border-radius: 9999px; background: transparent; color: rgba(255, 255, 255, 0.75);

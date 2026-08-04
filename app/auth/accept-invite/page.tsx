@@ -73,7 +73,7 @@ export default function AcceptInvitePage() {
           <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
             This invitation link is invalid, expired, or has already been used.
           </p>
-          <Link href="/auth/sign-in" style={{ color: 'var(--brand)' }}>
+          <Link href="/auth/sign-in" style={{ color: 'var(--text-secondary)' }}>
             Return to sign in
           </Link>
         </div>
@@ -91,7 +91,7 @@ export default function AcceptInvitePage() {
                 border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: '8px',
                 padding: '12px',
-                color: 'var(--danger)',
+                color: 'var(--review)',
                 fontSize: '0.85rem',
                 marginBottom: '16px',
               }}
@@ -134,8 +134,8 @@ export default function AcceptInvitePage() {
               minHeight: '44px',
               border: 0,
               borderRadius: '8px',
-              background: loading ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
-              color: '#fff',
+              background: loading ? 'rgba(255,255,255,0.45)' : 'var(--action)',
+              color: 'var(--action-text)',
               fontWeight: 600,
               cursor: loading ? 'not-allowed' : 'pointer',
             }}

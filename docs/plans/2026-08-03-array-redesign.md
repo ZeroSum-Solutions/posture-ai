@@ -16,7 +16,7 @@ utility class renders unstyled. Checkpoints are internal recovery points.
 | 1 | Tokens, primitives, island nav, Today | done |
 | 2 | Clients list + `list_owned_clients_page` RPC migration | done |
 | 3 | Client detail (dropped `recharts`) | done |
-| 4 | Review — Findings + Evidence (one checkpoint; shared tab/dock state) | pending |
+| 4 | Review — Findings + Evidence + Program, 3 tabs | done |
 | 5 | Exercise library (establishes the session-builder contract) | pending |
 | 6 | Workout player (consumes that contract) | pending |
 | 7 | Capture — characterization tests first, presentation only | pending |
@@ -46,9 +46,13 @@ re-expressed in Array tokens or they ship broken. Grouped by how much judgement 
 needs; none may keep a v1 token.
 
 **Forms and flows** (Array form tokens + pill actions, no new layout invention)
-`app/clients/ClientForm.tsx`, `app/clients/new/`, `app/clients/[id]/edit/`,
-`app/onboarding/`, `app/settings/`, `app/auth/*` (sign-in, sign-up, accept-invite,
-forgot-password, update-password, mfa), `components/AuthFrame.tsx`,
+`app/auth/*` and `components/AuthFrame.tsx` are **done** — they were the login path,
+and on this branch their deleted v1 tokens rendered the sign-in and MFA screens
+unstyled, which reads as "two-factor is locking me out" rather than as a CSS fault.
+`globals.css` now carries the shared field vocabulary (`.a-form`, `.a-field`,
+`.a-input`, `.a-help`, `.a-error`) that the rest of this group should use.
+Remaining: `app/clients/ClientForm.tsx`, `app/clients/new/`, `app/clients/[id]/edit/`,
+`app/onboarding/`, `app/settings/`,
 `components/InPersonConsentForm.tsx`, `components/ConsentResponder.tsx`,
 `components/RemoteConsentButton.tsx`, `components/PrivacyLifecycleControls.tsx`
 
@@ -106,6 +110,11 @@ environment with clinical content live until that re-approval lands.**
 The local QA bindings were regenerated to match (`supabase/seed.sql`,
 `supabase/tests/*.sql`, `docs/qa/clinical-content-governance.md`) so the local stack
 still activates; that is a development fixture, not an approval.
+
+`app/assessments/[id]/reviewModel.ts` is a new provenance candidate: it derives the
+on-screen grade band, the finding zone labels, and every directional claim on the
+review screen. Add it to `algorithmSourcePaths` at the purge checkpoint, in the same
+single edit as the change below — not before, so there is one final hash.
 
 At the v1-purge checkpoint, `components/NavBar.tsx` must be replaced in the provenance
 list by `components/array/IslandNav.tsx` and `components/array/islandPolicy.ts` — the

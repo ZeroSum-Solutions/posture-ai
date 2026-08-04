@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
               If an account exists for <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>, we&apos;ve sent a
               link to reset your password. Check your inbox.
             </p>
-            <Link href="/auth/sign-in" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <Link href="/auth/sign-in" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.85rem' }}>
               ← Back to sign in
             </Link>
           </>
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
                   border: '1px solid rgba(239,68,68,0.3)',
                   borderRadius: '8px',
                   padding: '12px',
-                  color: 'var(--danger)',
+                  color: 'var(--review)',
                   fontSize: '0.85rem',
                   marginBottom: '16px',
                 }}
@@ -102,8 +102,8 @@ export default function ForgotPasswordPage() {
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: loading ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
-                  color: '#fff',
+                  background: loading ? 'rgba(255,255,255,0.45)' : 'var(--action)',
+                  color: 'var(--action-text)',
                   border: 'none',
                   borderRadius: '8px',
                   fontWeight: 600,
@@ -115,7 +115,7 @@ export default function ForgotPasswordPage() {
                 {loading ? 'Sending...' : 'Send reset link'}
               </button>
               <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <Link href="/auth/sign-in" style={{ color: 'var(--brand)', textDecoration: 'none' }}>
+                <Link href="/auth/sign-in" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
                   Back to sign in
                 </Link>
               </p>

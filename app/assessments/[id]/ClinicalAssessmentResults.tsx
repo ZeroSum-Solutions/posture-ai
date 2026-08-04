@@ -1,12 +1,19 @@
 'use client'
 // This bundle is referenced only after the server verifies an active HG-03 release.
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { startTransition, useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PriorityProgram from './PriorityProgram'
 import ReviewDock from './ReviewDock'
-import ReviewTabs from './ReviewTabs'
-import styles from './AssessmentReviewStudio.module.css'
+import GradeRail from './GradeRail'
+import ReviewEvidence from './ReviewEvidence'
+import ReviewFindings from './ReviewFindings'
+import { buildReviewModel } from './reviewModel'
+import Icon from '@/components/array/Icon'
+import { Surface } from '@/components/array/Surface'
+import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
+import { tint, tone } from '@/components/array/severity'
+import styles from './AssessmentReview.module.css'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
 import { hasAnyMuscle } from './muscleMap'
@@ -23,7 +30,6 @@ import type {
   ClinicalProgramReport,
   ClinicalProjection,
 } from '@/lib/program/clinicalProjection'
-import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
@@ -38,355 +44,22 @@ type Capture = AssessmentResultsPayload['captures'][number]
 type Assessment = AssessmentResultsPayload['assessment']
 type Zone = Finding['zone']
 
+const REVIEW_TAB_BASE = 'review'
+const DEFERRED_PANEL_MOUNT_MS = 300
+
+/** Short UTC date, matching every other calendar projection in the app. */
+function shortDate(iso: string): string {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return 'date unavailable'
+  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+}
+
 export function canonicalAssessmentTimestamp(value: string): string | null {
   return canonicalizePostgresTimestamp(value)
 }
 
 // Zone colors
-const ZONE_COLORS: Record<Zone, string> = {
-  maintain: 'var(--maintain)',
-  warning: 'var(--warning)',
-  danger: 'var(--danger)',
-  unreliable: 'var(--text-muted)',
-}
-
-const REGION_ORDER: Record<string, number> = { head_shoulders: 0, spine: 1, pelvis: 2, leg: 3 }
-const REGION_LABELS: Record<string, string> = {
-  head_shoulders: 'Head & Shoulders',
-  spine: 'Spine',
-  pelvis: 'Pelvis',
-  leg: 'Legs',
-}
-
 // ---- Skeletal Diagram: Front View positions ----
-const FRONT_ANNOTATION_POSITIONS: Record<string, { x: number; y: number; label: string }> = {
-  anterior_imbalanced_shoulders: { x: 90, y: 62, label: 'Shoulder' },
-  posterior_imbalanced_shoulders: { x: 90, y: 62, label: 'Shoulder' },
-  pelvic_obliquity: { x: 90, y: 218, label: 'Pelvis' },
-  genu_varum_valgum_left: { x: 60, y: 305, label: 'L Knee' },
-  genu_varum_valgum_right: { x: 120, y: 305, label: 'R Knee' },
-}
-
-// ---- Skeletal Diagram: Side View positions ----
-const SIDE_ANNOTATION_POSITIONS: Record<string, { x: number; y: number; label: string }> = {
-  forward_head_posture: { x: 82, y: 28, label: 'Head' },
-  t1_tilt_backward: { x: 68, y: 115, label: 'T1' },
-  trunk_lean: { x: 68, y: 115, label: 'T1' },
-  anterior_pelvic_shift: { x: 75, y: 220, label: 'Pelvis' },
-  knee_extension_back_knee: { x: 75, y: 305, label: 'Knee' },
-}
-
-function AngleMarker({ x, y, color, severity, label }: { x: number; y: number; color: string; severity: number; label: string }) {
-  const r = severity >= 50 ? 16 : severity >= 20 ? 12 : 9
-  return (
-    <g>
-      <circle cx={x} cy={y} r={r + 7} fill={color} fillOpacity="0.06" />
-      <circle cx={x} cy={y} r={r + 2} fill={color} fillOpacity="0.07" stroke={color} strokeOpacity=".72" strokeWidth="1.4" />
-      <circle cx={x} cy={y} r={3} fill={color}/>
-      <text x={x} y={y + r + 14} textAnchor="middle" fill={color} fontSize="8" fontWeight="700">
-        {label}
-      </text>
-    </g>
-  )
-}
-
-function DirectionArrow({ x, y, color, direction, view }: { x: number; y: number; color: string; direction: string; view: 'front' | 'side' }) {
-  const dx = view === 'front'
-    ? (direction.includes('Left') || direction.includes('left') ? -14 : 14)
-    : (direction.includes('Forward') || direction.includes('forward') || direction.includes('Anterior') ? 14 : -14)
-  const dy = view === 'side' && direction.includes('Forward') ? -8 : 0
-  return (
-    <line
-      x1={x} y1={y}
-      x2={x + dx} y2={y + dy}
-      stroke={color}
-      strokeWidth="2.5"
-      markerEnd={`url(#arrow${view === 'side' ? '-side' : ''}-${color.replace('#', '')})`}
-    />
-  )
-}
-
-function FrontSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUrl: string | null }) {
-  const relevantFindings = findings.filter(f => f.view_used === 'front' && FRONT_ANNOTATION_POSITIONS[f.imbalance_key])
-  const uniqueColors = [...new Set(relevantFindings.map(f => ZONE_COLORS[f.zone]))]
-
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      {captureUrl && (
-        <div style={{ position: 'absolute', top: 4, right: -48, width: 40, height: 60, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden', background: '#111' }}>
-          <img src={captureUrl} alt="Front view" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        </div>
-      )}
-      <svg viewBox="0 0 180 410" width="160" height="365" aria-label="Front view skeletal diagram" style={{ display: 'block' }}>
-        <defs>
-          <linearGradient id="front-body-glow" x1="36" y1="52" x2="142" y2="370" gradientUnits="userSpaceOnUse"><stop stopColor="#FF8918" stopOpacity=".19" /><stop offset=".48" stopColor="#FFFFFF" stopOpacity=".035" /><stop offset="1" stopColor="#0098F3" stopOpacity=".17" /></linearGradient>
-          {uniqueColors.map(color => (
-            <marker key={color} id={`arrow-${color.replace('#', '')}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={color}/>
-            </marker>
-          ))}
-        </defs>
-        <path d="M90 47C62 47 48 67 43 105l-12 88c-2 15 8 24 20 21l15-5-8 91c-1 8 3 13 10 13h44c7 0 11-5 10-13l-8-91 15 5c12 3 22-6 20-21l-12-88c-5-38-19-58-47-58Z" fill="url(#front-body-glow)" />
-        <circle cx="90" cy="26" r="20" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
-        <line x1="90" y1="46" x2="90" y2="62" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <line x1="48" y1="62" x2="132" y2="62" stroke="rgba(255,255,255,0.32)" strokeWidth="3"/>
-        <line x1="48" y1="62" x2="28" y2="132" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <line x1="28" y1="132" x2="16" y2="190" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <line x1="132" y1="62" x2="152" y2="132" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <line x1="152" y1="132" x2="164" y2="190" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <path d="M 90 80 Q 62 95 58 120" stroke="rgba(255,255,255,0.32)" strokeWidth="1.5" fill="none" opacity="0.5"/>
-        <path d="M 90 80 Q 118 95 122 120" stroke="rgba(255,255,255,0.32)" strokeWidth="1.5" fill="none" opacity="0.5"/>
-        <line x1="62" y1="218" x2="118" y2="218" stroke="rgba(255,255,255,0.32)" strokeWidth="3"/>
-        <line x1="62" y1="218" x2="58" y2="305" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <line x1="118" y1="218" x2="122" y2="305" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <circle cx="58" cy="305" r="5" stroke="rgba(255,255,255,0.32)" strokeWidth="2" fill="var(--surface)"/>
-        <circle cx="122" cy="305" r="5" stroke="rgba(255,255,255,0.32)" strokeWidth="2" fill="var(--surface)"/>
-        <line x1="58" y1="310" x2="56" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <line x1="122" y1="310" x2="124" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <line x1="42" y1="392" x2="68" y2="392" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <line x1="112" y1="392" x2="138" y2="392" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <path d="M40 398H140" stroke="rgba(255,255,255,.12)" strokeWidth="1" />
-        {relevantFindings.map(f => {
-          const pos = FRONT_ANNOTATION_POSITIONS[f.imbalance_key]
-          const color = ZONE_COLORS[f.zone]
-          return (
-            <g key={f.imbalance_key}>
-              <AngleMarker x={pos.x} y={pos.y} color={color} severity={f.severity_pct} label={pos.label}/>
-              {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' && (
-                <DirectionArrow x={pos.x} y={pos.y} color={color} direction={f.direction} view="front"/>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-    </div>
-  )
-}
-
-function SideSkeleton({ findings, captureUrl }: { findings: Finding[]; captureUrl: string | null }) {
-  const relevantFindings = findings.filter(f => f.view_used === 'side' && SIDE_ANNOTATION_POSITIONS[f.imbalance_key])
-  const uniqueColors = [...new Set(relevantFindings.map(f => ZONE_COLORS[f.zone]))]
-
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      {captureUrl && (
-        <div style={{ position: 'absolute', top: 4, right: -48, width: 40, height: 60, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden', background: '#111' }}>
-          <img src={captureUrl} alt="Side view" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        </div>
-      )}
-      <svg viewBox="0 0 150 410" width="130" height="357" aria-label="Side view skeletal diagram" style={{ display: 'block' }}>
-        <defs>
-          <linearGradient id="side-body-glow" x1="50" y1="42" x2="104" y2="380" gradientUnits="userSpaceOnUse"><stop stopColor="#FF8918" stopOpacity=".18" /><stop offset=".5" stopColor="#FFFFFF" stopOpacity=".03" /><stop offset="1" stopColor="#0098F3" stopOpacity=".16" /></linearGradient>
-          {uniqueColors.map(color => (
-            <marker key={color} id={`arrow-side-${color.replace('#', '')}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={color}/>
-            </marker>
-          ))}
-        </defs>
-        <path d="M76 47c-18 10-22 34-19 69l6 99c1 14 7 24 15 28l-10 59c-1 8 3 12 10 12h12c6 0 10-5 8-12l-13-67c11-9 15-29 10-49l-13-58 18 53c4 12 14 14 18 5 2-4 1-10-1-16L98 91c-5-25-10-38-22-44Z" fill="url(#side-body-glow)" />
-        <circle cx="80" cy="26" r="20" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
-        <path d="M 75 46 Q 70 54 68 62" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
-        <path d="M 68 62 Q 64 80 62 100" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
-        <line x1="68" y1="62" x2="88" y2="120" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <line x1="88" y1="120" x2="95" y2="178" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <path d="M 62 100 Q 58 135 60 165" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
-        <path d="M 60 165 Q 64 192 66 218" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5" fill="none"/>
-        <path d="M 66 218 Q 72 228 70 238" stroke="rgba(255,255,255,0.32)" strokeWidth="3" fill="none"/>
-        <line x1="70" y1="238" x2="72" y2="305" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <circle cx="72" cy="305" r="5" stroke="rgba(255,255,255,0.32)" strokeWidth="2" fill="var(--surface)"/>
-        <line x1="72" y1="310" x2="74" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2.5"/>
-        <line x1="60" y1="390" x2="100" y2="390" stroke="rgba(255,255,255,0.32)" strokeWidth="2"/>
-        <path d="M50 398H112" stroke="rgba(255,255,255,.12)" strokeWidth="1" />
-        {relevantFindings.map(f => {
-          const pos = SIDE_ANNOTATION_POSITIONS[f.imbalance_key]
-          const color = ZONE_COLORS[f.zone]
-          return (
-            <g key={f.imbalance_key}>
-              <AngleMarker x={pos.x} y={pos.y} color={color} severity={f.severity_pct} label={pos.label}/>
-              {f.direction && f.direction !== 'Neutral' && (
-                <DirectionArrow x={pos.x} y={pos.y} color={color} direction={f.direction} view="side"/>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-    </div>
-  )
-}
-
-function SkeletalDiagramSection({
-  findings, frontCapture, sideCapture,
-}: {
-  findings: Finding[]
-  frontCapture: Capture | null
-  sideCapture: Capture | null
-}) {
-  // Per-view finding counts are directly supported by the stored screening data.
-  function viewFindingsLabel(view: 'front' | 'side'): string {
-    const n = findings.filter((f) => f.view_used === view).length
-    return n === 0 ? 'No findings marked on this view' : n === 1 ? '1 finding marked' : `${n} findings marked`
-  }
-
-  return (
-    <div className="app-panel" style={{ padding: 24, marginBottom: 24 }}>
-      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Postural Alignment Diagram
-      </h3>
-      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Front View</div>
-          <FrontSkeleton findings={findings} captureUrl={frontCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{viewFindingsLabel('front')}</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Side View</div>
-          <SideSkeleton findings={findings} captureUrl={sideCapture?.signed_url ?? null}/>
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{viewFindingsLabel('side')}</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
-        {[{ color: 'var(--maintain)', label: 'Maintain' }, { color: 'var(--warning)', label: 'Warning' }, { color: 'var(--danger)', label: 'Danger' }].map(({ color, label }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }}/>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{label}</span>
-          </div>
-        ))}
-      </div>
-      <p style={{ marginTop: 14, fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5 }}>
-        Diagrams are schematic representations only and do not depict literal measurements or anatomical accuracy.
-        Markers indicate regions of interest detected during screening.
-      </p>
-    </div>
-  )
-}
-
-// ---- Finding Card ----
-export function FindingCard({ f }: { f: Finding }) {
-  const isUnreliable = f.zone === 'unreliable'
-  const zoneColor = ZONE_COLORS[f.zone]
-  const [expanded, setExpanded] = useState(false)
-  const hasMuscles = hasAnyMuscle({
-    tightMuscles: f.tight_muscles ?? [],
-    weakMuscles: f.weak_muscles ?? [],
-    tightLinks: f.tight_muscle_links ?? [],
-    weakLinks: f.weak_muscle_links ?? [],
-  })
-  const musclePanelId = `muscle-analysis-${f.id}`
-
-  return (
-    <details
-      data-testid={`finding-card-${f.imbalance_key}`}
-      className={styles.findingDisclosure}
-      data-unreliable={isUnreliable ? 'true' : 'false'}
-    >
-      <summary>
-        <span className={styles.findingSummaryIdentity}>
-          <strong>{f.label}</strong>
-          <small>{f.view_used} view</small>
-        </span>
-        <span className={styles.findingSummaryMeasurement}>
-          <strong>{Number(f.deviation).toFixed(1)}&deg;</strong>
-          {f.direction && f.direction !== 'Neutral' && f.direction !== 'Level' ? ` · ${f.direction}` : ''}
-        </span>
-        <span className={styles.findingSummarySignals}>
-          <span className={styles.findingZone} style={{ color: isUnreliable ? 'var(--text-secondary)' : zoneColor }}>
-            {f.zone}
-          </span>
-          {f.borderline ? (
-            <span title="This reading sits within its own capture variability of a zone boundary — consider the zone as approximate.">
-              ± borderline
-            </span>
-          ) : null}
-          <span>
-            {/* VALIDATED needs its own label when the first metric is promoted
-                by the Layer-1 study — this ternary would mislabel it. */}
-            {f.metric_validity === 'LITERATURE_CITED' ? 'Literature-referenced thresholds' : 'Screening estimate'}
-          </span>
-        </span>
-      </summary>
-
-      <div className={styles.findingDetail}>
-        <p className={styles.findingStandard}>
-          <strong>{Number(f.deviation).toFixed(1)}&deg;</strong> deviation from 0&deg; standard
-        </p>
-
-        {!isUnreliable && (
-          <div className={styles.findingSeverity}>
-            <div>
-              <span>Severity</span>
-              <strong style={{ color: zoneColor }}>{f.severity_pct}%</strong>
-            </div>
-            <div>
-              <span style={{ width: `${f.severity_pct}%`, background: zoneColor }} />
-            </div>
-          </div>
-        )}
-
-        {f.causes_text && (
-          <div className={styles.findingCauses}>
-            <span>Behavioral causes: </span>
-            {f.causes_text}
-          </div>
-        )}
-
-        {hasMuscles && (
-          <div className={styles.muscleDisclosure}>
-            <button
-              type="button"
-              onClick={() => setExpanded(!expanded)}
-              aria-expanded={expanded}
-              aria-controls={musclePanelId}
-            >
-              <span>Muscle analysis</span>
-              <span aria-hidden="true">{expanded ? '−' : '+'}</span>
-            </button>
-            {expanded && (
-              <div id={musclePanelId} className={styles.muscleDisclosurePanel}>
-                <MuscleBodyMap
-                  tightMuscles={f.tight_muscles || []}
-                  weakMuscles={f.weak_muscles || []}
-                  tightLinks={f.tight_muscle_links || []}
-                  weakLinks={f.weak_muscle_links || []}
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </details>
-  )
-}
-
-// ---- Findings Section ----
-function FindingsSection({ findings }: { findings: Finding[] }) {
-  const grouped = findings.reduce((acc, f) => {
-    if (!acc[f.region]) acc[f.region] = []
-    acc[f.region].push(f)
-    return acc
-  }, {} as Record<string, Finding[]>)
-
-  const regions = Object.keys(grouped).sort((a, b) => (REGION_ORDER[a] ?? 99) - (REGION_ORDER[b] ?? 99))
-
-  return (
-    <div style={{ marginBottom: 24 }}>
-      <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Detailed Findings
-      </h3>
-      {regions.map(region => (
-        <div key={region} style={{ marginBottom: 16 }}>
-          <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {REGION_LABELS[region] ?? region}
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {grouped[region].map(f => <FindingCard key={f.id} f={f} />)}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ---- Exercises Section ----
 const CATEGORY_LABELS: Record<string, string> = {
   stretch: 'Stretch',
   strengthen: 'Strengthen',
@@ -487,6 +160,25 @@ function ExercisesSection({ exercises }: { exercises: ClinicalExerciseProjection
 }
 
 // ---- Main Results Page ----
+/**
+ * A previously approved scan of the same client. `overall_score` and the findings
+ * are what let the grade rail draw the previous reading and each finding row show
+ * a real movement — both already served by the assessments endpoint.
+ */
+type PriorAssessment = {
+  id: string
+  assessed_at: string
+  overall_grade: string
+  overall_score: number | null
+  scoring_engine_version: string | null
+  assessment_findings?: Array<{
+    imbalance_key: string
+    severity_pct: number
+    zone: 'maintain' | 'warning' | 'danger' | 'unreliable'
+    unit: string | null
+  }>
+}
+
 export default function ClinicalAssessmentResults({
   params,
   initialAssessmentId,
@@ -525,7 +217,10 @@ export default function ClinicalAssessmentResults({
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [approved, setApproved] = useState(false)
   const [approving, setApproving] = useState(false)
-  const [priorAssessments, setPriorAssessments] = useState<Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>>([])
+  // Prior scans carry their score and findings so the grade rail can draw the
+  // previous reading and each finding row can show a real movement. Both come
+  // from the existing endpoint; nothing here is derived from the current scan.
+  const [priorAssessments, setPriorAssessments] = useState<Array<PriorAssessment>>([])
   const [nextPriorCursor, setNextPriorCursor] = useState<string | null>(null)
   const [loadingMorePriors, setLoadingMorePriors] = useState(false)
   const priorRequestVersion = useRef(0)
@@ -637,6 +332,7 @@ export default function ClinicalAssessmentResults({
             approved_only: 'true',
             before_at: beforeAt,
             limit: '50',
+            include_findings: 'true',
           })
           try {
             const priorRes = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${priorQuery.toString()}`, { signal: ac.signal })
@@ -691,6 +387,7 @@ export default function ClinicalAssessmentResults({
         before_at: beforeAt,
         limit: '50',
         cursor: nextPriorCursor,
+        include_findings: 'true',
       })
       const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/assessments?${query.toString()}`, {
         cache: 'no-store',
@@ -698,7 +395,7 @@ export default function ClinicalAssessmentResults({
       })
       if (!response.ok) throw new Error(`Failed to load prior assessments (${response.status})`)
       const body = await response.json() as {
-        assessments?: Array<{id: string; assessed_at: string; overall_grade: string; scoring_engine_version: string | null}>
+        assessments?: Array<PriorAssessment>
         pagination?: { has_more?: boolean; next_cursor?: string | null }
       }
       if (controller.signal.aborted || version !== priorRequestVersion.current) return
@@ -967,18 +664,8 @@ export default function ClinicalAssessmentResults({
   const gradeDesc = showCurrentGradeScale
     ? getGradeDisplayBand(grade).description
     : 'Recorded screening grade'
-  const color = gradeColor(grade)
   const isApproved = approved || !!assessment.practitioner_approved
   const clientName = assessment.clients.first_name + ' ' + assessment.clients.last_name
-  const frontCapture = captures.find(c => c.view === 'front') ?? null
-  // A per-side assessment now returns two `side` captures; pick deterministically
-  // (left, then right, then any) instead of arbitrary array order. Legacy single
-  // side rows carry a null profile_side and fall through to the first side row.
-  const sideCaptures = captures.filter(c => c.view === 'side')
-  const sideCapture =
-    sideCaptures.find(c => c.profile_side === 'left')
-    ?? sideCaptures.find(c => c.profile_side === 'right')
-    ?? sideCaptures[0] ?? null
   const rollNotes = captures
     .filter(c => typeof c.capture_roll_deg === 'number' && Math.abs(c.capture_roll_deg) >= 0.05)
     .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
@@ -1009,230 +696,361 @@ export default function ClinicalAssessmentResults({
       prior.scoring_engine_version,
     )}`,
     }))
-  const findingsNeedingReview = findings.filter((finding) => finding.zone === 'warning' || finding.zone === 'danger').length
-  const maintainingFindings = findings.filter((finding) => finding.zone === 'maintain').length
+  const assessedAtShort = shortDate(assessment.assessed_at)
+  // Chronological order, so the last entry is the scan immediately behind this one.
+  const mostRecentPrior = priorAssessments.length > 0
+    ? priorAssessments[priorAssessments.length - 1]
+    : null
+
+  const reviewModel = buildReviewModel({
+    assessment: {
+      overall_score: score,
+      overall_grade: grade,
+      scoring_engine_version: assessment.scoring_engine_version,
+      assessed_at: assessment.assessed_at,
+    },
+    findings,
+    // The most recent prior scan. priorAssessments is chronological, so the last
+    // entry is the nearest one behind this scan; the shared comparison policy
+    // decides on its own whether the pair is comparable at all.
+    prior: mostRecentPrior
+      ? {
+        overall_score: mostRecentPrior.overall_score,
+        scoring_engine_version: mostRecentPrior.scoring_engine_version,
+        assessed_at: mostRecentPrior.assessed_at,
+        findings: mostRecentPrior.assessment_findings ?? [],
+      }
+      : null,
+    scanLabel: `Screening · ${assessedAtShort}`,
+    priorLabel: mostRecentPrior ? shortDate(mostRecentPrior.assessed_at) : null,
+  })
 
   return (
-    <div className={styles.reviewPage}>
-      <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to client</Link>
-
-      <header className={styles.studioHeader}>
-        <p className="app-page-kicker">Screening review</p>
-        <h1>Screening results</h1>
-        <p>Start with the grade, then move through findings, the program, exercises, and supporting evidence.</p>
+    <div className="app-screen app-screen--bar">
+      <div className={styles.topBar}>
+        <Link className={styles.back} href={`/clients/${assessment.clients.id}`}>
+          <Icon name="alt-arrow-left-linear" size={18} />
+          {clientName}
+        </Link>
         {typeof assessment.level_verified === 'boolean' && (
-          <span className={styles.levelBadge} data-testid="level-badge" data-verified={assessment.level_verified ? 'true' : 'false'}>
-            {assessment.level_verified ? 'Camera level verified' : 'Camera level not verified — results may be less accurate'}
+          <span
+            className={styles.verifiedChip}
+            data-testid="level-badge"
+            data-verified={assessment.level_verified ? 'true' : 'false'}
+            style={assessment.level_verified
+              ? { background: tint('maintain'), color: tone('maintain') }
+              : { background: tint('monitor'), color: tone('monitor') }}
+          >
+            <Icon name={assessment.level_verified ? 'shield-check-linear' : 'flag-linear'} size={13} />
+            {assessment.level_verified
+              ? `${captures.length} ${captures.length === 1 ? 'view' : 'views'} verified`
+              : 'Camera level not verified'}
           </span>
         )}
-      </header>
+      </div>
 
-      <div className={styles.studioGrid}>
-        <ReviewDock
-          clientName={clientName}
-          assessedAtLabel={assessedAtLabel}
-          grade={grade}
-          score={score}
-          gradeDescription={gradeDesc}
-          reliabilityLabel={reliabilityLabel}
-          reliabilityDetail={reliabilityDetailParts.join(' · ') || null}
-          unreliableCount={unreliableFindings.length}
-          isApproved={isApproved}
-          saveState={overrideSaveState}
-          hasSession={sessionPreview !== null}
-          isApproving={approving}
-          isLaunching={launching}
-          onApprove={handleApprove}
-          onLaunch={handleLaunch}
-          onRetrySave={retryOverrides}
-          pdfLoading={pdfLoading}
-          pdfUrl={pdfUrl}
-          pdfKind={pdfKind}
-          onGeneratePdf={handleGeneratePdf}
-          comparisonId={compareToId}
-          comparisonOptions={comparisonOptions}
-          onComparisonChange={setCompareToId}
-          hasMoreComparisonOptions={nextPriorCursor !== null}
-          isLoadingMoreComparisonOptions={loadingMorePriors}
-          onLoadMoreComparisonOptions={loadMorePriorAssessments}
-          isSharing={sharing}
-          shareLink={shareLink}
-          copied={copied}
-          onShare={handleShare}
-          onCopyShare={copyShareLink}
-          backHref={`/clients/${assessment.clients.id}`}
-          newAssessmentHref="/assessments/new"
+      <section className={styles.verdict}>
+        <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
+        <h1 className="t-headline">
+          {reviewModel.verdict.headline.lead}
+          {reviewModel.verdict.headline.tail
+            ? <> <em>{reviewModel.verdict.headline.tail}</em></>
+            : null}
+        </h1>
+      </section>
+
+      <div className="app-screen-x app-stack">
+        <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
+
+        {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
+          <p key={message} className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+            <Icon name="close-circle-linear" size={16} />
+            {message}
+          </p>
+        ))}
+
+        <ReviewWorkspace
+          findingsCount={findings.length}
+          programCount={program.priorities.length}
+          findingsPanel={(
+            <div className="app-stack">
+              <ReviewFindings rows={reviewModel.rows} />
+              {reviewModel.counts.unreliable > 0 && (
+                <p className={styles.scanCaption} style={{ borderTop: 0, paddingTop: 0 }}>
+                  {reviewModel.counts.unreliable === 1
+                    ? 'One reading was not usable and is listed last. Re-capture that view to score it.'
+                    : `${reviewModel.counts.unreliable} readings were not usable and are listed last. Re-capture those views to score them.`}
+                </p>
+              )}
+              <details className={styles.disclosure}>
+                <summary className={styles.disclosureSummary}>Accuracy &amp; methodology</summary>
+                <div className={styles.disclosureBody}>
+                  <AccuracyCard assessment={assessment} findings={findings} />
+                </div>
+              </details>
+              <details data-testid="disclaimer" className={styles.disclosure}>
+                <summary className={styles.disclosureSummary}>Screening notice</summary>
+                <div className={styles.disclosureBody}>
+                  <LegalNotice kind="screening_notice" compact />
+                </div>
+              </details>
+            </div>
+          )}
+          evidencePanel={(
+            <div className="app-stack">
+              <ReviewEvidence
+                findings={findings}
+                captures={captures}
+                levelVerified={assessment.level_verified}
+              />
+              {findings.length > 0 && (
+                <details className={styles.disclosure}>
+                  <summary className={styles.disclosureSummary}>Muscle model</summary>
+                  <div className={styles.disclosureBody}>
+                    <MuscleModel3D findings={findings} />
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+          programPanel={(
+            <div className="app-stack">
+              {findings.length > 0 ? (
+                <PriorityProgram
+                  report={program}
+                  unreliable={unreliableFindings}
+                  capability={capability}
+                  onCapabilityChange={handleCapabilityChange}
+                  onDemote={handleDemote}
+                  onPromote={handlePromote}
+                  onSwap={handleSwap}
+                />
+              ) : (
+                <Surface tier="tile">
+                  <p className={styles.emptyState}>
+                    No corrective priorities are available from this screening.
+                  </p>
+                </Surface>
+              )}
+              {overrideSaveState === 'saving' && (
+                <p role="status" aria-live="polite" className={styles.notice}>Saving program changes…</p>
+              )}
+              {overrideError && (
+                <p role="alert" aria-live="assertive" className={`${styles.notice} ${styles.errorNotice}`}>
+                  {overrideError}
+                </p>
+              )}
+
+              {exercises.length > 0 && (
+                <details className={styles.disclosure}>
+                  <summary className={styles.disclosureSummary}>
+                    Matched exercises ({exercises.length})
+                  </summary>
+                  <div className={styles.disclosureBody}>
+                    <ExercisesSection exercises={exercises} />
+                  </div>
+                </details>
+              )}
+
+              {sessionPreview ? (
+                <Surface tier="tile">
+                  <h3 className="t-title">Guided corrective session ready</h3>
+                  <p className="t-body" style={{ marginTop: 4 }}>
+                    {sessionPreview.itemCount} movements · about{' '}
+                    {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
+                  </p>
+                  {!isApproved && (
+                    <p className="t-quiet" style={{ marginTop: 6 }}>
+                      Practitioner approval is required before launch.
+                    </p>
+                  )}
+                </Surface>
+              ) : (
+                <Surface tier="tile">
+                  <h3 className="t-title">No guided session available</h3>
+                  <p className="t-body" style={{ marginTop: 4 }}>
+                    There are not enough reliably measured findings. Re-capture clear front and
+                    side photos to build a session.
+                  </p>
+                </Surface>
+              )}
+
+              {runList.length > 0 && (
+                <details className={styles.disclosure}>
+                  <summary className={styles.disclosureSummary}>Session runs ({runList.length})</summary>
+                  <div className={styles.disclosureBody}>
+                    {runList.map((run) => (
+                      <p key={run.session_id + run.created_at}>
+                        {shortDate(run.created_at)} · {run.status.replace('_', ' ')} ·{' '}
+                        {run.red_flag_acknowledged ? 'Pain check clear' : 'Pain check not recorded'}
+                      </p>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+            </div>
+          )}
         />
 
-        <div className={styles.canvas}>
-          <ReviewTabs
-            defaultTabId="review-summary"
-            tabs={[
-              {
-                id: 'review-summary',
-                label: 'Summary',
-                content: (
-                  <>
-                    <h2 className={styles.sectionHeading}>At a glance</h2>
-                    <div className={styles.summaryHero}>
-                      <div className={styles.ratingSummary}>
-                        <GradeRing grade={grade} score={score} description={gradeDesc} />
-                        <div>
-                          <span className={styles.quietLabel}>Overall screening grade</span>
-                          <strong>{gradeDesc}</strong>
-                          <p>Deviation: {score}/100 (lower is better) — Grade <span style={{ color }}>{grade}</span></p>
-                          {showCurrentGradeScale
-                            ? <ScoreBar score={score} grade={grade} />
-                            : <p className={styles.scaleNote}>Recorded with a different or unknown scoring version; the current grade scale is not applied.</p>}
-                        </div>
-                      </div>
+              <details className={styles.disclosure}>
+          <summary className={styles.disclosureSummary}>Report, share &amp; compare</summary>
+          <div className={styles.disclosureBody}>
+            <ReviewDock
+              clientName={clientName}
+              assessedAtLabel={assessedAtLabel}
+              grade={grade}
+              score={score}
+              gradeDescription={gradeDesc}
+              reliabilityLabel={reliabilityLabel}
+              reliabilityDetail={reliabilityDetailParts.join(' · ') || null}
+              unreliableCount={unreliableFindings.length}
+              isApproved={isApproved}
+              saveState={overrideSaveState}
+              hasSession={sessionPreview !== null}
+              isApproving={approving}
+              isLaunching={launching}
+              onApprove={handleApprove}
+              onLaunch={handleLaunch}
+              onRetrySave={retryOverrides}
+              pdfLoading={pdfLoading}
+              pdfUrl={pdfUrl}
+              pdfKind={pdfKind}
+              onGeneratePdf={handleGeneratePdf}
+              comparisonId={compareToId}
+              comparisonOptions={comparisonOptions}
+              onComparisonChange={setCompareToId}
+              hasMoreComparisonOptions={nextPriorCursor !== null}
+              isLoadingMoreComparisonOptions={loadingMorePriors}
+              onLoadMoreComparisonOptions={loadMorePriorAssessments}
+              isSharing={sharing}
+              shareLink={shareLink}
+              copied={copied}
+              onShare={handleShare}
+              onCopyShare={copyShareLink}
+              backHref={`/clients/${assessment.clients.id}`}
+              newAssessmentHref="/assessments/new"
+            />
+          </div>
+        </details>
+      </div>
 
-                      <div className={styles.findingSnapshot} aria-label="Finding summary">
-                        <div className={styles.snapshotCard}>
-                          <span>Review</span>
-                          <strong className="data-readout">{findingsNeedingReview}</strong>
-                          <small>flagged findings</small>
-                        </div>
-                        <div className={styles.snapshotCard}>
-                          <span>Maintain</span>
-                          <strong className="data-readout">{maintainingFindings}</strong>
-                          <small>within maintain range</small>
-                        </div>
-                        <div className={styles.snapshotCard}>
-                          <span>Unavailable</span>
-                          <strong className="data-readout">{unreliableFindings.length}</strong>
-                          <small>readings to recheck</small>
-                        </div>
-                      </div>
-                      <a className={styles.snapshotAction} href="#review-findings">
-                        Review all {findings.length} findings
-                      </a>
-                    </div>
-
-                    <div className={styles.sessionSummary}>
-                      {sessionPreview ? (
-                        <div>
-                          <strong>Guided corrective session ready</strong>
-                          <p>{sessionPreview.itemCount} movements · about {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach</p>
-                          {!isApproved && <p>Practitioner approval is required before launch.</p>}
-                        </div>
-                      ) : (
-                        <div>
-                          <strong>No guided session available</strong>
-                          <p>There are not enough reliably measured findings. Re-capture clear front and side photos to build a session.</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {runList.length > 0 && (
-                      <div className={styles.runList}>
-                        <h3>Session runs</h3>
-                        {runList.map((run) => (
-                          <div key={run.session_id + run.created_at}>
-                            <span>{new Date(run.created_at).toLocaleDateString()}</span>
-                            <span>{run.status.replace('_', ' ')}</span>
-                            <span>{run.red_flag_acknowledged ? 'Pain check: clear' : 'Pain check: not recorded'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
-                      <p key={message} className={styles.inlineAlert} role="alert">{message}</p>
-                    ))}
-
-                    {showCurrentGradeScale && (
-                      <details className={styles.detailDisclosure}>
-                        <summary>Grade reference</summary>
-                        <div className={styles.detailDisclosureContent}>
-                          <BandTable currentGrade={grade} />
-                        </div>
-                      </details>
-                    )}
-
-                    <details data-testid="disclaimer" className={styles.detailDisclosure}>
-                      <summary>Screening notice</summary>
-                      <div className={styles.screeningNotice}>
-                        <LegalNotice kind="screening_notice" compact />
-                      </div>
-                    </details>
-                  </>
-                ),
-              },
-              {
-                id: 'review-findings',
-                label: 'Findings',
-                count: findings.length,
-                content: (
-                  <>
-                    <h2 className={styles.sectionHeading}>Practitioner findings</h2>
-                    {findings.length > 0
-                      ? <FindingsSection findings={findings} />
-                      : <p className={styles.emptyState}>No findings were recorded for this screening.</p>}
-                    <details className={styles.detailDisclosure}>
-                      <summary>Accuracy &amp; methodology</summary>
-                      <div className={styles.detailDisclosureContent}>
-                        <AccuracyCard assessment={assessment} findings={findings} />
-                      </div>
-                    </details>
-                  </>
-                ),
-              },
-              {
-                id: 'review-program',
-                label: 'Program',
-                count: program.priorities.length,
-                content: (
-                  <>
-                    <h2 className={styles.sectionHeading}>Corrective program</h2>
-                    {findings.length > 0 ? (
-                      <PriorityProgram
-                        report={program}
-                        unreliable={unreliableFindings}
-                        capability={capability}
-                        onCapabilityChange={handleCapabilityChange}
-                        onDemote={handleDemote}
-                        onPromote={handlePromote}
-                        onSwap={handleSwap}
-                      />
-                    ) : (
-                      <p className={styles.emptyState}>No corrective priorities are available from this screening.</p>
-                    )}
-                    {overrideSaveState === 'saving' && <p role="status" aria-live="polite" className={styles.inlineStatus}>Saving program changes…</p>}
-                    {overrideError && <p role="alert" aria-live="assertive" className={styles.inlineAlert}>{overrideError}</p>}
-                  </>
-                ),
-              },
-              {
-                id: 'review-exercises',
-                label: 'Exercises',
-                count: exercises.length,
-                content: (
-                  <>
-                    <h2 className={styles.sectionHeading}>Matched exercises</h2>
-                    <p className={styles.tabIntro}>Exercise detail stays collapsed until you choose to browse it.</p>
-                    {exercises.length > 0
-                      ? <ExercisesSection exercises={exercises} />
-                      : <p className={styles.emptyState}>No matched exercise references are available.</p>}
-                  </>
-                ),
-              },
-              {
-                id: 'review-evidence',
-                label: 'Evidence',
-                content: (
-                  <>
-                    <h2 className={styles.sectionHeading}>Alignment evidence</h2>
-                    <SkeletalDiagramSection findings={findings} frontCapture={frontCapture} sideCapture={sideCapture} />
-                    {findings.length > 0 && <MuscleModel3D findings={findings} />}
-                  </>
-                ),
-              },
-            ]}
-          />
+      {/* Sign-off stays reachable from anywhere on the screen. The dock above
+          still owns every other action, including its own approve control, so
+          nothing here is the only route to it. */}
+      <div className={styles.actionBar}>
+        <div className={styles.actionBarInner}>
+          <button
+            type="button"
+            className={styles.iconAction}
+            onClick={() => handleGeneratePdf('practitioner')}
+            disabled={pdfLoading !== null || overrideSaveState === 'saving'}
+            aria-label="Generate practitioner PDF"
+          >
+            <Icon name="pen-new-square-linear" size={20} />
+          </button>
+          {isApproved ? (
+            <button
+              type="button"
+              className={`a-primary a-primary--bar approve ${styles.approve}`}
+              onClick={handleLaunch}
+              disabled={launching || sessionPreview === null}
+            >
+              <Icon name="check-circle-linear" size={18} />
+              {launching ? 'Launching…' : 'Launch session'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`a-primary a-primary--bar approve ${styles.approve}`}
+              onClick={handleApprove}
+              disabled={approving || overrideSaveState === 'saving'}
+            >
+              <Icon name="check-circle-linear" size={18} />
+              {approving ? 'Approving…' : 'Approve & send report'}
+            </button>
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Findings, Evidence and Program. Evidence and Program mount after the selected
+ * panel has painted: the point-scan canvas and the program's override controls are
+ * the two heaviest things on this route, and neither should compete with the first
+ * interaction on a throttled device.
+ */
+type ReviewPanel = 'findings' | 'evidence' | 'program'
+
+function ReviewWorkspace({
+  findingsCount,
+  programCount,
+  findingsPanel,
+  evidencePanel,
+  programPanel,
+}: {
+  findingsCount: number
+  programCount: number
+  findingsPanel: ReactNode
+  evidencePanel: ReactNode
+  programPanel: ReactNode
+}) {
+  const [active, setActive] = useState<ReviewPanel>('findings')
+  const [mounted, setMounted] = useState<ReadonlySet<ReviewPanel>>(
+    () => new Set<ReviewPanel>(['findings']),
+  )
+
+  useEffect(() => {
+    if (mounted.has(active)) return
+    const timer = window.setTimeout(() => {
+      startTransition(() => {
+        setMounted((current) => {
+          if (current.has(active)) return current
+          const next = new Set(current)
+          next.add(active)
+          return next
+        })
+      })
+    }, DEFERRED_PANEL_MOUNT_MS)
+    return () => window.clearTimeout(timer)
+  }, [active, mounted])
+
+  function panelClass(panel: ReviewPanel) {
+    return `${styles.workspacePanel} ${active === panel ? styles.workspacePanelActive : ''}`
+  }
+
+  return (
+    <>
+      <TabStrip
+        idBase={REVIEW_TAB_BASE}
+        options={[
+          { value: 'findings', label: `Findings${findingsCount > 0 ? ` ${findingsCount}` : ''}` },
+          { value: 'evidence', label: 'Evidence' },
+          { value: 'program', label: `Program${programCount > 0 ? ` ${programCount}` : ''}` },
+        ]}
+        value={active}
+        onChange={setActive}
+        label="Screening result details"
+      />
+
+      <div className={styles.workspaceStage}>
+        <div {...tabPanelProps(REVIEW_TAB_BASE, 'findings', active === 'findings')} className={panelClass('findings')}>
+          {findingsPanel}
+        </div>
+        <div {...tabPanelProps(REVIEW_TAB_BASE, 'evidence', active === 'evidence')} className={panelClass('evidence')}>
+          {mounted.has('evidence')
+            ? evidencePanel
+            : <div className={styles.loadingPanel} role="status">Preparing evidence…</div>}
+        </div>
+        <div {...tabPanelProps(REVIEW_TAB_BASE, 'program', active === 'program')} className={panelClass('program')}>
+          {mounted.has('program')
+            ? programPanel
+            : <div className={styles.loadingPanel} role="status">Preparing program…</div>}
+        </div>
+      </div>
+    </>
   )
 }
 
