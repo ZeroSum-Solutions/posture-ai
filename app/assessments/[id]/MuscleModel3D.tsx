@@ -20,7 +20,7 @@ const HELLO_INTERVAL_MS = 300
 const HELLO_MAX_TRIES = 40 // ~12s of pinging before we surface "unavailable" (still recovers late)
 
 const CARD: CSSProperties = {
-  background: 'var(--surface)',
+  background: 'var(--surface-glass)',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 16,
   padding: 24,
@@ -156,9 +156,9 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
       >
         <h2 style={HEADING}>3D Posture Summary</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Swatch color="var(--danger)" label="Tight" />
-          <Swatch color="var(--brand)" label="Weak" />
-          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          <Swatch color="var(--review)" label="Tight" />
+          <Swatch color="var(--info)" label="Weak" />
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
             shaded by severity
           </span>
         </div>
@@ -197,7 +197,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
             <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               Show 3D model
             </span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
               Loads an interactive anatomy model (~9 MB)
             </span>
           </button>
@@ -246,7 +246,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
         </p>
       )}
 
-      <p style={{ marginTop: 14, fontSize: '0.62rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      <p style={{ marginTop: 14, fontSize: '0.62rem', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>
         Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP. Red =
         tight/overactive, blue = weak/inhibited; depth of color reflects severity.
       </p>

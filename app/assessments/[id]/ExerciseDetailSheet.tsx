@@ -65,14 +65,14 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
         aria-modal="true"
         aria-label={`${name} details`}
         onClick={(e) => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px 16px 0 0', padding: 20 }}
+        style={{ width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', background: 'var(--surface-glass)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px 16px 0 0', padding: 20 }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>{name}</h3>
           <button onClick={onClose} aria-label="Close" style={{ width: 44, height: 44, minHeight: 44, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(0,0,0,0.35)', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
         </div>
 
-        {error && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{error}</p>}
+        {error && <p role="alert" style={{ color: 'var(--review)', fontSize: '0.85rem' }}>{error}</p>}
         {!detail && !error && <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Loading…</p>}
 
         {detail && (
@@ -84,7 +84,7 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
             ) : null}
 
             {(detail.sets || detail.hold_seconds) && (
-              <p style={{ fontSize: '0.8rem', color: 'var(--brand)', margin: '0 0 10px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--info)', margin: '0 0 10px' }}>
                 {detail.sets && `${detail.sets} sets`}{detail.sets && detail.hold_seconds && ' · '}{detail.hold_seconds && `${detail.hold_seconds}s hold`}
               </p>
             )}
@@ -94,7 +94,7 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
             {muscles.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {muscles.map((m) => (
-                  <span key={m.muscle_slug} style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 600, textTransform: 'capitalize', background: m.role === 'stretch' ? 'rgba(16,185,129,0.15)' : 'rgba(0,152,243,0.15)', color: m.role === 'stretch' ? 'var(--maintain)' : 'var(--brand)' }}>
+                  <span key={m.muscle_slug} style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 600, textTransform: 'capitalize', background: m.role === 'stretch' ? 'rgba(16,185,129,0.15)' : 'rgba(10,131,201,0.15)', color: m.role === 'stretch' ? 'var(--maintain)' : 'var(--info)' }}>
                     {prettyMuscle(m.muscle_slug)} · {m.role}
                   </span>
                 ))}

@@ -21,15 +21,19 @@ export default async function MusclesPage() {
     .sort((a, b) => a.region.localeCompare(b.region) || a.name.localeCompare(b.name))
 
   return (
-    <div className="app-standard-page">
-      <p className="app-page-kicker">Anatomy reference</p>
-      <h1 className="app-page-heading">Muscle guide</h1>
-      <p className="app-page-lede" style={{ marginBottom: '18px' }}>
-        Anatomy, function, and corrective exercise guidance for every muscle implicated in the
-        ten postural screening measures.
-      </p>
-      <Disclaimer compact />
-      <MuscleLibrary muscles={muscles} />
+    <div className="app-screen">
+      <div className="app-screen-x app-stack">
+        <div>
+          <p className="t-kicker" style={{ marginBottom: 10 }}>Anatomy reference</p>
+          <h1 className="t-headline">Muscle guide</h1>
+          <p className="t-body" style={{ marginTop: 8 }}>
+            Anatomy, function, and corrective exercise guidance for every muscle implicated in the
+            ten postural screening measures.
+          </p>
+        </div>
+        <Disclaimer compact />
+        <MuscleLibrary muscles={muscles} />
+      </div>
     </div>
   )
 }

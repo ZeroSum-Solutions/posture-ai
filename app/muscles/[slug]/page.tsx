@@ -1,6 +1,10 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Disclaimer } from '@/components/Disclaimer'
+import Icon from '@/components/array/Icon'
+import { Chip } from '@/components/array/Chip'
+import { Surface } from '@/components/array/Surface'
+import { tone, type SeverityBand } from '@/components/array/severity'
 import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
 import {
   approvedClinicalExercises,
@@ -21,6 +25,9 @@ const REGION_LABELS: Record<string, string> = {
 }
 
 const LEVEL_LABELS: Record<number, string> = { 1: 'Regression', 2: 'Standard', 3: 'Progression' }
+/** Progression reads as the band that carries the most demand; regression the
+ * least — the same ramp the severity bands already express elsewhere. */
+const LEVEL_BANDS: Record<number, SeverityBand> = { 1: 'maintain', 2: 'info', 3: 'review' }
 
 interface LinkRow {
   role: 'tight' | 'weak'
@@ -90,94 +97,87 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
     .filter(e => e.role === 'strengthen' && e.exercises)
     .sort((a, b) => a.progression_level - b.progression_level)
 
-  const card: React.CSSProperties = {
-    background: 'var(--surface)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px',
-    padding: '18px',
-    marginBottom: '16px',
-  }
-  const h2: React.CSSProperties = { fontSize: '1rem', fontWeight: 600, color: 'var(--brand)', margin: '0 0 10px' }
-  const body: React.CSSProperties = { fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }
-
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '760px', margin: '0 auto' }}>
-      <Link href="/muscles" style={{ color: 'var(--brand)', fontSize: '0.85rem', textDecoration: 'none' }}>
-        ← Muscle Guide
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '12px 0 4px', flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{muscle.name}</h1>
-        {access.mode === 'test_fixture' && (
-          <span style={{
-            fontSize: '0.65rem', padding: '3px 9px', borderRadius: '4px',
-            background: 'rgba(255,137,24,0.15)', color: 'var(--warning)', textTransform: 'uppercase',
-          }}>
-            Pending review
-          </span>
+    <div className="app-screen">
+      <div className="app-screen-x app-stack">
+        <Link href="/muscles" className="a-quiet" style={{ paddingLeft: 4 }}>
+          <Icon name="alt-arrow-left-linear" size={16} />
+          Muscle Guide
+        </Link>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 className="t-headline">{muscle.name}</h1>
+            {access.mode === 'test_fixture' && <Chip band="monitor" size="sm">Pending review</Chip>}
+          </div>
+          <p className="t-quiet" style={{ marginTop: 4 }}>{REGION_LABELS[muscle.region] ?? muscle.region}</p>
+        </div>
+
+        <Surface tier="tile">
+          <h2 className="t-title" style={{ marginBottom: 8 }}>Anatomy</h2>
+          <p className="t-body">{muscle.anatomySummary}</p>
+        </Surface>
+
+        <Surface tier="tile">
+          <h2 className="t-title" style={{ marginBottom: 8 }}>What it does</h2>
+          <p className="t-body">{muscle.functionText}</p>
+        </Surface>
+
+        {muscle.screeningNotes && (
+          <Surface tier="tile">
+            <h2 className="t-title" style={{ marginBottom: 8 }}>In posture screening</h2>
+            <p className="t-body">{muscle.screeningNotes}</p>
+          </Surface>
         )}
+
+        {(tightLinks.length > 0 || weakLinks.length > 0) && (
+          <div data-testid="related-findings">
+            <Surface tier="tile">
+              <h2 className="t-title" style={{ marginBottom: 12 }}>Related posture findings</h2>
+              {tightLinks.map((l, i) => (
+                <div key={`t${i}`} style={{ marginBottom: 12 }}>
+                  <p className="t-body" style={{ fontWeight: 500, color: tone('review'), marginBottom: 4 }}>
+                    Commonly tight in: {l.imbalance_definitions?.label}
+                  </p>
+                  <p className="t-body">{l.rationale_text}</p>
+                </div>
+              ))}
+              {weakLinks.map((l, i) => (
+                <div key={`w${i}`} style={{ marginBottom: 12 }}>
+                  <p className="t-body" style={{ fontWeight: 500, color: tone('info'), marginBottom: 4 }}>
+                    Commonly underactive in: {l.imbalance_definitions?.label}
+                  </p>
+                  <p className="t-body">{l.rationale_text}</p>
+                </div>
+              ))}
+            </Surface>
+          </div>
+        )}
+
+        {stretches.length > 0 && (
+          <div data-testid="stretch-exercises">
+            <Surface tier="tile">
+              <h2 className="t-title" style={{ marginBottom: 4 }}>Stretching</h2>
+              {stretches.map((e, i) => (
+                <ExerciseRow key={i} row={e} />
+              ))}
+            </Surface>
+          </div>
+        )}
+
+        {strengthening.length > 0 && (
+          <div data-testid="strengthen-exercises">
+            <Surface tier="tile">
+              <h2 className="t-title" style={{ marginBottom: 4 }}>Strengthening progressions</h2>
+              {strengthening.map((e, i) => (
+                <ExerciseRow key={i} row={e} showLevel />
+              ))}
+            </Surface>
+          </div>
+        )}
+
+        <Disclaimer />
       </div>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 20px' }}>
-        {REGION_LABELS[muscle.region] ?? muscle.region}
-      </p>
-
-      <div style={card}>
-        <h2 style={h2}>Anatomy</h2>
-        <p style={body}>{muscle.anatomySummary}</p>
-      </div>
-
-      <div style={card}>
-        <h2 style={h2}>What it does</h2>
-        <p style={body}>{muscle.functionText}</p>
-      </div>
-
-      {muscle.screeningNotes && (
-        <div style={card}>
-          <h2 style={h2}>In posture screening</h2>
-          <p style={body}>{muscle.screeningNotes}</p>
-        </div>
-      )}
-
-      {(tightLinks.length > 0 || weakLinks.length > 0) && (
-        <div style={card} data-testid="related-findings">
-          <h2 style={h2}>Related posture findings</h2>
-          {tightLinks.map((l, i) => (
-            <div key={`t${i}`} style={{ marginBottom: '12px' }}>
-              <p style={{ ...body, fontWeight: 600, color: 'var(--danger)', marginBottom: '4px' }}>
-                Commonly tight in: {l.imbalance_definitions?.label}
-              </p>
-              <p style={{ ...body, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{l.rationale_text}</p>
-            </div>
-          ))}
-          {weakLinks.map((l, i) => (
-            <div key={`w${i}`} style={{ marginBottom: '12px' }}>
-              <p style={{ ...body, fontWeight: 600, color: 'var(--brand)', marginBottom: '4px' }}>
-                Commonly underactive in: {l.imbalance_definitions?.label}
-              </p>
-              <p style={{ ...body, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{l.rationale_text}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {stretches.length > 0 && (
-        <div style={card} data-testid="stretch-exercises">
-          <h2 style={h2}>Stretching</h2>
-          {stretches.map((e, i) => (
-            <ExerciseRow key={i} row={e} />
-          ))}
-        </div>
-      )}
-
-      {strengthening.length > 0 && (
-        <div style={card} data-testid="strengthen-exercises">
-          <h2 style={h2}>Strengthening progressions</h2>
-          {strengthening.map((e, i) => (
-            <ExerciseRow key={i} row={e} showLevel />
-          ))}
-        </div>
-      )}
-
-      <Disclaimer />
     </div>
   )
 }
@@ -185,28 +185,24 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
 function ExerciseRow({ row, showLevel = false }: { row: ExerciseMuscleRow; showLevel?: boolean }) {
   const ex = row.exercises!
   return (
-    <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{ex.name}</span>
-        <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+    <div style={{ padding: '10px 0', borderTop: '1px solid var(--hairline-soft)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className="t-title">{ex.name}</span>
+        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {showLevel && (
-            <span style={{
-              fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase',
-              background: row.progression_level === 3 ? 'rgba(239,68,68,0.15)' : row.progression_level === 1 ? 'rgba(16,185,129,0.15)' : 'rgba(0,152,243,0.15)',
-              color: row.progression_level === 3 ? 'var(--danger)' : row.progression_level === 1 ? 'var(--maintain)' : 'var(--brand)',
-            }}>
+            <Chip band={LEVEL_BANDS[row.progression_level] ?? 'neutral'} size="sm">
               {LEVEL_LABELS[row.progression_level]}
-            </span>
+            </Chip>
           )}
           {(ex.sets || ex.hold_seconds) && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--brand)' }}>
+            <span className="t-quiet n">
               {ex.sets ? `${ex.sets} sets` : ''}{ex.sets && ex.hold_seconds ? ' · ' : ''}{ex.hold_seconds ? `${ex.hold_seconds}s` : ''}
             </span>
           )}
         </span>
       </div>
       {ex.instructions && (
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '6px 0 0' }}>
+        <p className="t-body" style={{ marginTop: 6 }}>
           {ex.instructions}
         </p>
       )}

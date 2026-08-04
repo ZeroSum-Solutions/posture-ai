@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import LegalDocumentView from './LegalDocumentView'
+import { Surface } from '@/components/array/Surface'
 import type { LegalSnapshot } from '@/lib/legal/types'
+import styles from './ConsentResponder.module.css'
 
 export default function ConsentResponder({
   token,
@@ -55,20 +57,11 @@ export default function ConsentResponder({
     }
   }
 
-  const wrap: React.CSSProperties = {
-    maxWidth: 560, margin: '0 auto', padding: '32px 20px', color: 'var(--text-primary)',
-  }
-  const input: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', background: 'var(--background)',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)',
-    fontSize: '0.95rem', boxSizing: 'border-box', minHeight: 44,
-  }
-
   if (status === 'done') {
     return (
-      <main style={wrap} role="status" aria-live="polite">
-        <h1 ref={doneRef} tabIndex={-1} style={{ fontSize: '1.4rem', marginBottom: 12 }}>Consent recorded</h1>
-        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+      <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }} role="status" aria-live="polite">
+        <h1 ref={doneRef} tabIndex={-1} className="t-headline">Consent recorded</h1>
+        <p className="t-body">
           Thank you. Your consent has been recorded. You can close this page.
         </p>
       </main>
@@ -76,65 +69,63 @@ export default function ConsentResponder({
   }
 
   return (
-    <main style={wrap}>
-      <h1 style={{ fontSize: '1.4rem', marginBottom: 16 }}>Posture Screening Consent</h1>
-      <div style={{ marginBottom: 20 }}>
-        {!document && (
-          <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)' }}>
-            This consent link is unavailable or has been superseded. Ask the practitioner to create a new consent request.
-          </div>
-        )}
-        {document && <LegalDocumentView document={document} headingLevel={2} />}
+    <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+      <div>
+        <p className="t-kicker">Consent request</p>
+        <h1 className="t-headline" style={{ marginTop: 10 }}>Posture Screening Consent</h1>
       </div>
 
-      <form onSubmit={submit} aria-label="Remote consent form">
-        {error && document && (
-          <div role="alert" style={{
-            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 8, padding: 12, color: 'var(--danger)', fontSize: '0.875rem', marginBottom: 16,
-          }}>{error}</div>
-        )}
+      {!document && (
+        <p role="alert" aria-live="assertive" className="a-error">
+          This consent link is unavailable or has been superseded. Ask the practitioner to create a new consent request.
+        </p>
+      )}
+      {document && <LegalDocumentView document={document} headingLevel={2} />}
 
-        <label htmlFor="signer_relationship" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
-          I am signing as
-        </label>
-        <select id="signer_relationship" value={rel} onChange={e => setRel(e.target.value)} style={{ ...input, marginBottom: 16 }}>
-          <option value="self">The person being screened (myself)</option>
-          <option value="parent">Parent of the person being screened</option>
-          <option value="legal_guardian">Legal guardian of the person being screened</option>
-          <option value="other">Other authorized representative</option>
-        </select>
+      <Surface tier="feature">
+        <form onSubmit={submit} aria-label="Remote consent form" className="a-form">
+          {error && document && (
+            <p role="alert" className="a-error">{error}</p>
+          )}
 
-        <label htmlFor="signer_name" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
-          Type full name to sign <span style={{ color: 'var(--danger)' }}>*</span>
-        </label>
-        <input
-          id="signer_name" type="text" value={name} onChange={e => setName(e.target.value)}
-          placeholder="Full legal name" style={{ ...input, marginBottom: 20 }}
-          required aria-required="true"
-        />
+          <div className="a-field">
+            <label className="a-label" htmlFor="signer_relationship">I am signing as</label>
+            <select id="signer_relationship" className="a-select" value={rel} onChange={e => setRel(e.target.value)}>
+              <option value="self">The person being screened (myself)</option>
+              <option value="parent">Parent of the person being screened</option>
+              <option value="legal_guardian">Legal guardian of the person being screened</option>
+              <option value="other">Other authorized representative</option>
+            </select>
+          </div>
 
-        <label htmlFor="consent_confirm" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-          <input
-            id="consent_confirm"
-            type="checkbox"
-            checked={confirmed}
-            disabled={!document}
-            onChange={(event) => setConfirmed(event.target.checked)}
-            aria-required="true"
-            style={{ width: 20, height: 20, marginTop: 1, flexShrink: 0 }}
-          />
-          <span>I confirm I have read and agree to the exact consent shown above.</span>
-        </label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="signer_name">
+              Type full name to sign <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
+            </label>
+            <input
+              id="signer_name" className="a-input" type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Full legal name"
+              required aria-required="true"
+            />
+          </div>
 
-        <button type="submit" disabled={status === 'submitting' || !document} style={{
-          width: '100%', padding: 12, background: status === 'submitting' || !document ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
-          color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: '0.95rem',
-          cursor: status === 'submitting' || !document ? 'not-allowed' : 'pointer',
-        }}>
-          {status === 'submitting' ? 'Submitting…' : 'I Agree & Sign'}
-        </button>
-      </form>
+          <label htmlFor="consent_confirm" className={styles.consentCheck}>
+            <input
+              id="consent_confirm"
+              type="checkbox"
+              checked={confirmed}
+              disabled={!document}
+              onChange={(event) => setConfirmed(event.target.checked)}
+              aria-required="true"
+            />
+            <span className="t-body">I confirm I have read and agree to the exact consent shown above.</span>
+          </label>
+
+          <button type="submit" disabled={status === 'submitting' || !document} className="a-primary a-primary--bar">
+            {status === 'submitting' ? 'Submitting…' : 'I Agree & Sign'}
+          </button>
+        </form>
+      </Surface>
     </main>
   )
 }

@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
+import { Surface } from '@/components/array/Surface'
+import styles from './SettingsPage.module.css'
 
 type Practitioner = {
   display_name: string | null
@@ -202,158 +204,102 @@ export default function SettingsPage() {
     }
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    background: 'var(--background)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: '8px',
-    color: 'var(--text-primary)',
-    fontSize: '0.9rem',
-        boxSizing: 'border-box',
-  }
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: '0.85rem',
-    color: 'var(--text-secondary)',
-    marginBottom: '6px',
-  }
-
-  const cardStyle: React.CSSProperties = {
-    background: 'var(--surface)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px',
-    padding: '24px',
-    marginBottom: '16px',
-  }
-
   if (loading) {
     return (
-      <div className="app-standard-page app-standard-page--narrow">
-        <p style={{ color: 'var(--text-secondary)' }}>Loading settings...</p>
+      <div className="app-screen app-screen-x">
+        <p className="t-body">Loading settings...</p>
       </div>
     )
   }
 
   return (
-    <div className="app-standard-page app-standard-page--narrow">
-      <p className="app-page-kicker">Workspace control</p>
-      <h1 className="app-page-heading">Settings</h1>
-      <p className="app-page-lede" style={{ marginBottom: 28 }}>Manage your identity, organization, and account security in one place.</p>
+    <div className="app-screen app-screen-x app-stack">
+      <header className={styles.header}>
+        <p className="t-kicker" style={{ marginBottom: 10 }}>Workspace control</p>
+        <h1 className="t-headline">Settings</h1>
+        <p className="t-body" style={{ marginTop: 8 }}>Manage your identity, organization, and account security in one place.</p>
+      </header>
 
-      {/* Toast notification */}
       {toast && (
-        <div
-          role="alert"
-          aria-live="polite"
-          style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            zIndex: 9999,
-            padding: '12px 20px',
-            borderRadius: '10px',
-            fontWeight: 500,
-            fontSize: '0.9rem',
-            background: toast.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-            border: toast.type === 'success' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(239,68,68,0.4)',
-            color: toast.type === 'success' ? 'var(--maintain)' : 'var(--danger)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-          }}
-        >
+        <div role="alert" aria-live="polite" className={styles.toast} data-variant={toast.type}>
           {toast.message}
         </div>
       )}
 
       {/* Profile section */}
-      <div className="app-panel" style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Profile</h2>
-        <form onSubmit={handleSaveProfile}>
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="display_name" style={labelStyle}>Display Name</label>
+      <Surface tier="feature">
+        <h2 className="t-title" style={{ marginBottom: 16 }}>Profile</h2>
+        <form onSubmit={handleSaveProfile} className="a-form">
+          <div className="a-field">
+            <label className="a-label" htmlFor="display_name">Display Name</label>
             <input
               id="display_name"
+              className="a-input"
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
               placeholder="Your display name"
               aria-label="Display name"
-              style={inputStyle}
             />
           </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="practice_name" style={labelStyle}>Practice Name</label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="practice_name">Practice Name</label>
             <input
               id="practice_name"
+              className="a-input"
               type="text"
               value={practiceName}
               onChange={e => setPracticeName(e.target.value)}
               placeholder="Your practice name"
               aria-label="Practice name"
-              style={inputStyle}
             />
           </div>
-          <button
-            type="submit"
-            disabled={saving}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '8px',
-              background: saving ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
-              color: saving ? '#9CA3AF' : '#fff',
-              border: 'none',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            }}
-          >
+          <button type="submit" disabled={saving} className="a-primary">
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
-      </div>
+      </Surface>
 
       {/* Organization & Compliance section */}
-      <div className="app-panel" style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Organization &amp; Compliance</h2>
-        <form onSubmit={handleSaveOrg}>
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="org_name" style={labelStyle}>Organization Name</label>
+      <Surface tier="feature">
+        <h2 className="t-title" style={{ marginBottom: 16 }}>Organization &amp; Compliance</h2>
+        <form onSubmit={handleSaveOrg} className="a-form">
+          <div className="a-field">
+            <label className="a-label" htmlFor="org_name">Organization Name</label>
             <input
               id="org_name"
+              className="a-input"
               type="text"
               value={orgName}
               onChange={e => setOrgName(e.target.value)}
               placeholder="Your organization name"
               aria-label="Organization name"
-              style={inputStyle}
             />
           </div>
 
-          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <label htmlFor="covered_entity" className={styles.checkRow}>
             <input
               id="covered_entity"
               type="checkbox"
               checked={isCoveredEntity}
               onChange={e => setIsCoveredEntity(e.target.checked)}
-              style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: 'var(--brand)', cursor: 'pointer' }}
             />
-            <label htmlFor="covered_entity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
+            <span className="t-body">
               This organization is a HIPAA covered entity
-              <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
+              <span className="a-help" style={{ display: 'block', marginTop: 4 }}>
                 Turning this on requires a signed Business Associate Agreement before practitioner mode can be used.
               </span>
-            </label>
-          </div>
+            </span>
+          </label>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="baa_status" style={labelStyle}>Business Associate Agreement (BAA) status</label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="baa_status">Business Associate Agreement (BAA) status</label>
             <select
               id="baa_status"
+              className="a-select"
               value={baaStatus}
               onChange={e => setBaaStatus(e.target.value as 'not_required' | 'pending' | 'signed')}
               aria-label="BAA status"
-              style={inputStyle}
             >
               <option value="not_required">Not required</option>
               <option value="pending">Pending</option>
@@ -362,161 +308,100 @@ export default function SettingsPage() {
           </div>
 
           {baaStatus === 'signed' && (
-            <div style={{ marginBottom: '16px' }}>
-              <label htmlFor="baa_signed_at" style={labelStyle}>BAA signed date</label>
+            <div className="a-field">
+              <label className="a-label" htmlFor="baa_signed_at">BAA signed date</label>
               <input
                 id="baa_signed_at"
+                className="a-input"
                 type="date"
                 value={baaSignedAt}
                 onChange={e => setBaaSignedAt(e.target.value)}
                 aria-label="BAA signed date"
-                style={inputStyle}
               />
             </div>
           )}
 
           {isCoveredEntity && baaStatus !== 'signed' && (
-            <p
-              role="status"
-              style={{
-                fontSize: '0.82rem',
-                color: '#FBBF24',
-                background: 'rgba(251,191,36,0.1)',
-                border: '1px solid rgba(251,191,36,0.3)',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                marginBottom: '16px',
-              }}
-            >
+            <p role="status" className={`t-body ${styles.baaWarning}`}>
               Practitioner mode is currently blocked for this organization until a signed BAA is recorded.
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={orgSaving}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '8px',
-              background: orgSaving ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)',
-              color: orgSaving ? '#9CA3AF' : '#fff',
-              border: 'none',
-              cursor: orgSaving ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            }}
-          >
+          <button type="submit" disabled={orgSaving} className="a-primary">
             {orgSaving ? 'Saving...' : 'Save Organization'}
           </button>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '10px' }}>
+          <p className="a-help">
             These compliance details are self-attested by you and control whether the BAA gate applies.
           </p>
         </form>
-      </div>
+      </Surface>
 
       {/* Logo section */}
-      <div className="app-panel" style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Practice Logo</h2>
-        {logoUrl && (
-          <div style={{ marginBottom: '16px' }}>
-            <img
-              src={logoUrl}
-              alt="Practice logo preview"
-              style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--background)' }}
-            />
-          </div>
-        )}
-        <input
-          ref={logoInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleLogoUpload}
-          style={{ display: 'none' }}
-          aria-label="Upload practice logo"
-        />
-        <button
-          type="button"
-          disabled={logoUploading}
-          onClick={() => logoInputRef.current?.click()}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            background: 'rgba(0,152,243,0.12)',
-            color: logoUploading ? '#9CA3AF' : 'var(--brand)',
-            border: '1px solid rgba(0,152,243,0.3)',
-            cursor: logoUploading ? 'not-allowed' : 'pointer',
-            fontWeight: 500,
-            fontSize: '0.9rem',
-          }}
-        >
-          {logoUploading ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
-        </button>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-          JPEG, PNG, or WebP. Shown on PDF reports.
-        </p>
-      </div>
+      <Surface tier="feature">
+        <h2 className="t-title" style={{ marginBottom: 16 }}>Practice Logo</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Practice logo preview" className={styles.logoPreview} />
+          )}
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleLogoUpload}
+            style={{ display: 'none' }}
+            aria-label="Upload practice logo"
+          />
+          <button
+            type="button"
+            disabled={logoUploading}
+            onClick={() => logoInputRef.current?.click()}
+            className="a-secondary"
+            style={{ alignSelf: 'flex-start' }}
+          >
+            {logoUploading ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
+          </button>
+          <p className="a-help">JPEG, PNG, or WebP. Shown on PDF reports.</p>
+        </div>
+      </Surface>
 
       {/* Password section */}
-      <div className="app-panel" style={cardStyle}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Change Password</h2>
-        <form onSubmit={handlePasswordChange}>
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="current_password" style={labelStyle}>Current Password</label>
+      <Surface tier="feature">
+        <h2 className="t-title" style={{ marginBottom: 16 }}>Change Password</h2>
+        <form onSubmit={handlePasswordChange} className="a-form">
+          <div className="a-field">
+            <label className="a-label" htmlFor="current_password">Current Password</label>
             <input
               id="current_password"
+              className="a-input"
               type="password"
               value={currentPassword}
               onChange={e => setCurrentPassword(e.target.value)}
               placeholder="Current password"
               aria-label="Current password"
-              style={inputStyle}
             />
           </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="new_password" style={labelStyle}>New Password</label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="new_password">New Password</label>
             <input
               id="new_password"
+              className="a-input"
               type="password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               placeholder={`New password (min ${MIN_PASSWORD_LENGTH} characters)`}
               aria-label="New password"
-              style={inputStyle}
             />
           </div>
-          <button
-            type="submit"
-            disabled={passwordSaving || !newPassword.trim()}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '8px',
-              background: (passwordSaving || !newPassword.trim()) ? 'rgba(0,152,243,0.3)' : 'var(--brand-strong)',
-              color: (passwordSaving || !newPassword.trim()) ? '#6B7280' : '#fff',
-              border: 'none',
-              cursor: (passwordSaving || !newPassword.trim()) ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            }}
-          >
+          <button type="submit" disabled={passwordSaving || !newPassword.trim()} className="a-primary">
             {passwordSaving ? 'Updating...' : 'Update Password'}
           </button>
         </form>
-      </div>
+      </Surface>
 
       {/* Sign out */}
       <form action="/api/auth/sign-out" method="POST">
-        <button
-          type="submit"
-          style={{
-            padding: '10px 18px',
-            borderRadius: '8px',
-            background: 'rgba(239,68,68,0.12)',
-            color: 'var(--danger)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            cursor: 'pointer',
-            fontWeight: 500,
-          }}
-        >
+        <button type="submit" className={`a-quiet ${styles.signOut}`} style={{ color: 'var(--review)' }}>
           Sign Out
         </button>
       </form>

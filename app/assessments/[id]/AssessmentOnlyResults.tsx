@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import LegalNotice from '@/components/LegalNotice'
 import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
+import { bandFromZone, tone } from '@/components/array/severity'
 import ReviewTabs from './ReviewTabs'
 import styles from './AssessmentReviewStudio.module.css'
 
@@ -39,11 +40,13 @@ interface AssessmentOnlyRecord {
   clients: { id: string; first_name: string; last_name: string }
 }
 
+// Every zone here is a severity band, so its colour comes from the shared
+// severity module rather than a per-file token guess.
 const ZONE_COLORS: Record<Zone, string> = {
-  maintain: 'var(--maintain)',
-  warning: 'var(--warning)',
-  danger: 'var(--danger)',
-  unreliable: 'var(--text-muted)',
+  maintain: tone(bandFromZone('maintain')),
+  warning: tone(bandFromZone('warning')),
+  danger: tone(bandFromZone('danger')),
+  unreliable: tone(bandFromZone('unreliable')),
 }
 
 export default function AssessmentOnlyResults({ params }: { params: Promise<{ id: string }> }) {

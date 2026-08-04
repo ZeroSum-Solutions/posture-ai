@@ -22,13 +22,13 @@ export default function LegalNotice({
   const document = suppliedDocument ?? loaded.document
 
   if (loaded.isLoading) {
-    return <p role="status" aria-live="polite">Loading required legal text…</p>
+    return <p role="status" aria-live="polite" className="a-help">Loading required legal text…</p>
   }
   if (loaded.error || !document) {
     return (
-      <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)' }}>
+      <p role="alert" aria-live="assertive" className="a-error">
         {loaded.error ?? 'Required legal text is unavailable.'}
-      </div>
+      </p>
     )
   }
   return <LegalDocumentView document={document} headingLevel={headingLevel} compact={compact} />

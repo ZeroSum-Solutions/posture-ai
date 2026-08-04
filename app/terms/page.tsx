@@ -16,32 +16,31 @@ export function generateMetadata(): Metadata {
   }
 }
 
-const wrap: React.CSSProperties = {
-  maxWidth: 760,
-  margin: '0 auto',
-  padding: '52px 20px 40px',
-  color: 'var(--text-secondary)',
-  lineHeight: 1.65,
-}
-
 export default function TermsPage() {
   const resolution = resolveRuntimeLegalDocument({ kind: 'terms' })
   return (
-    <main className="app-standard-page app-standard-page--narrow" style={wrap}>
-      <Link href="/" className="auth-brand" style={{ marginBottom: 54 }}>
+    <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+      <Link
+        href="/"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          fontSize: 14, fontWeight: 400, letterSpacing: '-0.01em',
+          color: 'var(--text-primary)', textDecoration: 'none',
+        }}
+      >
         <BrandMark size={32} /><span>Posture AI</span>
       </Link>
-      <p className="app-page-kicker">Usage agreement</p>
+      <p className="t-kicker">Usage agreement</p>
       {resolution.ok ? (
         <LegalNotice document={snapshotLegalDocument(resolution.document)} headingLevel={1} />
       ) : (
-        <div role="alert" style={{ color: 'var(--danger)' }}>
+        <p role="alert" className="a-error">
           The approved Terms of Use are temporarily unavailable.
-        </div>
+        </p>
       )}
-      <p style={{ marginTop: 32, fontSize: '0.85rem' }}>
+      <p className="a-help">
         See also our{' '}
-        <Link href="/privacy" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+        <Link href="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
           Privacy Policy
         </Link>.
       </p>

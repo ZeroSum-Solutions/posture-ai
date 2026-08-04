@@ -20,8 +20,8 @@ function evidenceBadge(confidence: 'high' | 'medium' | 'low' | undefined): strin
 
 function badgeColor(confidence: 'high' | 'medium' | 'low' | undefined): string {
   if (confidence === 'high') return 'var(--maintain)'
-  if (confidence === 'low') return 'var(--warning)'
-  return 'var(--brand)'
+  if (confidence === 'low') return 'var(--monitor)'
+  return 'var(--info)'
 }
 
 // ─── WhyThisBody (pure) ───────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
   const label: React.CSSProperties = {
     fontSize: '0.66rem',
     fontWeight: 700,
-    color: 'var(--text-muted)',
+    color: 'var(--text-tertiary)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     marginBottom: 4,
@@ -178,7 +178,7 @@ export default function WhyThisSheet({
           maxWidth: 560,
           maxHeight: '85vh',
           overflowY: 'auto',
-          background: 'var(--surface)',
+          background: 'var(--surface-glass)',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '16px 16px 0 0',
           padding: 20,
@@ -207,7 +207,7 @@ export default function WhyThisSheet({
         </div>
 
         {error && (
-          <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>
+          <p role="alert" style={{ color: 'var(--review)', fontSize: '0.85rem' }}>
             {error}
           </p>
         )}

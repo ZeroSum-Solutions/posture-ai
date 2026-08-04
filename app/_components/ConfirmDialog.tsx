@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useId, useRef } from 'react'
+import { Surface } from '@/components/array/Surface'
 
 /**
  * Accessible confirmation modal: role="dialog" + aria-modal, labelled by its
@@ -61,36 +62,40 @@ export function ConfirmDialog({
   return (
     <div
       onClick={() => { if (!busy) onCancel() }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: '#1A1A1C', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '16px', padding: '32px', maxWidth: '420px', width: '90%' }}
-      >
-        <h2 id={titleId} style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>{title}</h2>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>{children}</div>
-        {error && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '16px' }}>{error}</p>}
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            onClick={onCancel}
-            disabled={busy}
-            style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
-          >
-            {cancelLabel}
-          </button>
-          <button
-            ref={confirmRef}
-            onClick={onConfirm}
-            disabled={busy}
-            style={{ flex: 1, padding: '10px', background: busy ? (danger ? 'rgba(239,68,68,0.3)' : 'rgba(0,152,243,0.3)') : (danger ? 'var(--danger)' : 'var(--brand-strong)'), color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
-          >
-            {confirmLabel}
-          </button>
-        </div>
+      {/* Stops the backdrop's onCancel from firing when the click lands on the panel itself. */}
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420 }}>
+        <Surface tier="feature">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+            <h2 id={titleId} className="t-headline-sm" style={{ marginBottom: 12 }}>{title}</h2>
+            <div className="t-body" style={{ marginBottom: 24 }}>{children}</div>
+            {error && <p role="alert" className="a-error" style={{ marginBottom: 16 }}>{error}</p>}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={onCancel}
+                disabled={busy}
+                className="a-secondary"
+                style={{ flex: 1 }}
+              >
+                {cancelLabel}
+              </button>
+              <button
+                ref={confirmRef}
+                onClick={onConfirm}
+                disabled={busy}
+                className="a-primary"
+                style={{
+                  flex: 1,
+                  background: danger ? 'var(--review)' : 'var(--action)',
+                  color: danger ? '#fff' : 'var(--action-text)',
+                }}
+              >
+                {confirmLabel}
+              </button>
+            </div>
+          </div>
+        </Surface>
       </div>
     </div>
   )

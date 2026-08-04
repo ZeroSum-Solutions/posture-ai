@@ -23,9 +23,11 @@ describe('MuscleBodyMap', () => {
     expect(container.querySelectorAll('ellipse')).toHaveLength(2)
 
     const fills = Array.from(container.querySelectorAll('[fill]'), (node) => node.getAttribute('fill') ?? '')
-    expect(fills).not.toContain('var(--danger)40')
-    expect(fills).not.toContain('var(--brand)40')
-    expect(fills).toEqual(expect.arrayContaining(['var(--danger)', 'var(--brand)']))
+    // A hex-alpha suffix on a var() is invalid CSS and renders as nothing; the
+    // opacity belongs on fill-opacity, asserted below.
+    expect(fills).not.toContain('var(--review)40')
+    expect(fills).not.toContain('var(--info)40')
+    expect(fills).toEqual(expect.arrayContaining(['var(--review)', 'var(--info)']))
     expect(Array.from(container.querySelectorAll('ellipse'), (node) => node.getAttribute('fill-opacity'))).toEqual(['0.25', '0.25'])
   })
 
@@ -85,7 +87,7 @@ describe('MuscleBodyMap', () => {
     // High link renders in Tight section (red chip present, not gray)
     const highChip = container.querySelector('[data-testid="muscle-chip-pectoralis-major"]') as HTMLElement | null
     expect(highChip).not.toBeNull()
-    expect(highChip?.style.color).toBe('var(--danger)')
+    expect(highChip?.style.color).toBe('var(--review)')
 
     // Low tight link appears as gray Possible chip, NOT red Tight chip
     const lowTightChip = container.querySelector('[data-testid="muscle-chip-latissimus-dorsi"]') as HTMLElement | null
@@ -102,7 +104,7 @@ describe('MuscleBodyMap', () => {
 
     const possibleMarkers = Array.from(container.querySelectorAll('ellipse[stroke-dasharray="3,3"]'))
     expect(possibleMarkers.length).toBeGreaterThan(0)
-    expect(possibleMarkers.every((node) => node.getAttribute('fill') === 'var(--text-muted)')).toBe(true)
+    expect(possibleMarkers.every((node) => node.getAttribute('fill') === 'var(--text-tertiary)')).toBe(true)
     expect(possibleMarkers.every((node) => node.getAttribute('fill-opacity') === '0.13')).toBe(true)
   })
 })

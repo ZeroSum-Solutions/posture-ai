@@ -160,35 +160,81 @@ Ordered gates before Production:
 8. Merge to the default branch.
 9. Promote to Production; confirm the cron and the clinical gate behave identically.
 
-## Production schema is seven migrations behind (found 2026-08-04)
+## Production schema is nine migrations behind (found 2026-08-04)
 
-Not caused by this branch and not fixable from it. The cloud ledger for
-`dhrkezfypzutiwtmcmof` stops at `20260712000000_per_side_observations`; the local
-chain has eight files after it. Verified directly against the live schema — none of
-`list_owned_clients_page`, `current_keyset_snapshot`,
-`verify_clinical_content_activation`, `clinical_content_releases`,
-`erasure_requests`, or the `consent_records` legal-provenance columns exist there.
+Not caused by this branch. The cloud ledger for `dhrkezfypzutiwtmcmof` stops at
+`20260712000000_per_side_observations`; the local chain has nine files after it.
+Verified directly against the live schema, not inferred from the ledger.
 
 Consequences on production today, independent of the redesign: the clients
 directory and the client-detail server seed cannot resolve their RPCs, the clinical
-content gate fails closed, the privacy/erasure lifecycle has no table, and consent
-legal state cannot be evaluated. The code fails closed rather than showing wrong
-data, so this presents as features being unavailable, not as incorrect clinical
-output.
+content gate fails closed, the privacy lifecycle has no tables, and consent legal
+state cannot be evaluated. The code fails closed rather than showing wrong data, so
+this presents as features being unavailable, not as incorrect clinical output.
 
-This blocks applying `20260803000000_client_directory_trend.sql`: it drops and
-recreates `list_owned_clients_page`, which `20260722011000_owned_client_search.sql`
-creates, and that file is not on production either.
+### The redesign needs three of the nine, and none of the gated ones
 
-**Do not resolve this autonomously.** Two of the pending migrations —
-`20260720000000_legal_document_provenance` and `20260720020000_clinical_content_governance`
-— carry activation latches that `docs/RUNBOOK.md` says must not be activated during
-autonomous engineering or before the counsel/product HG-02 and HG-03 gates. The
-catch-up is an owner-supervised release, not a redesign step.
+Corrects an earlier reading of this gap, which assumed the whole chain had to land
+before `20260803000000_client_directory_trend.sql` could. It does not.
+`20260803000000` hard-depends only on `20260722011000_owned_client_search`, which
+creates the `list_owned_clients_page` it drops and recreates, plus a soft
+(performance-only) dependency on `20260722010000_bounded_history_indexes`. Neither
+gated migration appears anywhere in that dependency graph.
+
+Safe subset, verified against the live schema before applying — baseline
+`clients.deleted_at` and `assessments.practitioner_approved` present, no marker
+column/type from any skipped migration present, target functions and indexes absent,
+`clients`=12 / `assessments`=11 rows so index locks are negligible:
+
+1. `20260722010000_bounded_history_indexes` — two partial indexes
+2. `20260722011000_owned_client_search` — `current_keyset_snapshot`, 5-arg page fn
+3. `20260803000000_client_directory_trend` — 6-arg page fn, summary, longest-since-scan
+
+All additive: indexes and functions only, no existing row read or written, all
+`SECURITY INVOKER` with `SET search_path = ''` and explicit `REVOKE`/`GRANT`.
+Record these three versions in `supabase_migrations.schema_migrations` so the CLI
+reconciles; leave the other six showing as pending, because they are.
+
+### Why the other six stay unapplied
+
+Two are gated, and `docs/RUNBOOK.md` reserves them for the counsel/product and
+licensed-clinician releases:
+
+- `20260720000000_legal_document_provenance` — HG-02. Its DDL *is* inert: the latch
+  row is inserted with `activated_at` NULL and the rejection trigger no-ops until
+  `activate_legal_governance()` is called. Inert is not the same as in scope.
+- `20260720020000_clinical_content_governance` — HG-03, and **not inert on apply**.
+  Applying the DDL alone immediately privatizes the `exercise-media` storage bucket,
+  revokes anon/authenticated read on the exercise, muscle and imbalance tables, and
+  stubs `finalize_report_upload` / `create_workout_session_governed`. No data step
+  needed for any of that.
+
+Two more are dangerous for reasons that have nothing to do with regulation, and are
+the stronger argument against a blind catch-up:
+
+- `20260719020000_practitioner_admission` — backfills **every existing practitioner**
+  to `access_status = 'review_required'` and then sets the column NOT NULL. On the
+  current six accounts that is a full lockout until each is re-admitted.
+- `20260720010000_privacy_lifecycle` — **irreversibly** nulls the free-text
+  `clients.deletion_reason`, `client_deletion_log.reason` and
+  `workout_share_events.actor` columns on every existing row, replacing them with
+  coarse codes. The original text is not recoverable afterwards.
+
+A full catch-up therefore needs an admission plan for the existing accounts and a
+decision to accept that text loss. Neither belongs to a UI change.
+
+Correction to an earlier note in this file: there is no `erasure_requests` table
+anywhere in the codebase. The erasure machinery is `client_deletion_log` and
+`privacy_storage_deletion_outbox`, both from `20260720010000_privacy_lifecycle`.
 
 Recorded risk: one Supabase project serves production, preview and dev, so every
 branch preview is a live client against real clinical records with no isolation.
 A dedicated preview project would stop this being a per-PR judgement call.
+
+Recorded risk: Vercel Deployment Protection is set to `all_except_custom_domains`
+and the project has no custom domain, so every URL — production included — sits
+behind a Vercel account login. A reviewer without Vercel access sees `vercel.com/login`
+and never reaches the app, which reads as an app auth bug and is not one.
 
 ## Known conflicts and gaps
 

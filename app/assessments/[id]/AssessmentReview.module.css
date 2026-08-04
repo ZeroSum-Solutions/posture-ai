@@ -432,6 +432,45 @@
   text-transform: capitalize;
 }
 
+/* ── Route states (loading / error) ────────────────────────────────────────
+   The screen has not resolved a subject yet, so it centers in the viewport
+   rather than adopting the app-screen column it will occupy once it has one. */
+
+.routeState {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--action);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* A spinning ring is motion a reduced-motion request asks to not see; the
+   loading state still reads through its text alone. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
+.errorLink {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.errorLink:hover { color: var(--text-primary); }
+
 /* ── Shared states ──────────────────────────────────────────────────────── */
 
 .sectionHead {

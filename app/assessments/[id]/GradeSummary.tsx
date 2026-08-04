@@ -77,10 +77,10 @@ export function ScoreBar({ score, grade }: { score: number; grade: OverallGrade 
           boxShadow: `0 0 8px color-mix(in srgb, ${color} 53%, transparent)`,
         }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
         <span style={{ color: 'var(--maintain)' }}>Lower deviation</span>
         <span>Deviation: {score}</span>
-        <span style={{ color: 'var(--danger)' }}>Higher deviation</span>
+        <span style={{ color: 'var(--review)' }}>Higher deviation</span>
       </div>
     </div>
   )

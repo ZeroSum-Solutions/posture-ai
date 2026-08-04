@@ -4,6 +4,8 @@ import { useState } from 'react'
 
 import LegalDocumentView from '@/components/LegalDocumentView'
 import useLegalDocument from '@/components/useLegalDocument'
+import { Surface } from '@/components/array/Surface'
+import styles from './OnboardingPage.module.css'
 
 export default function OnboardingPage() {
   const [accepted, setAccepted] = useState(false)
@@ -52,40 +54,23 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main style={{
-      width: '100%',
-      maxWidth: 760,
-      margin: '0 auto',
-      padding: '40px 20px 64px',
-    }}>
-      <header style={{ marginBottom: 24 }}>
-        <p className="app-page-kicker">Practitioner agreement</p>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '1.5rem', marginBottom: 8 }}>
-          Review and accept the legal terms
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <p className="t-kicker" style={{ marginBottom: 10 }}>Practitioner agreement</p>
+        <h1 className="t-headline">Review and accept the legal terms</h1>
+        <p className="t-body" style={{ marginTop: 8 }}>
           Read each complete document below. Acceptance is recorded against the exact versions shown.
         </p>
       </header>
 
-      {isLegalLoading && <p role="status" aria-live="polite">Loading required legal documents…</p>}
+      {isLegalLoading && <p role="status" aria-live="polite" className="t-body">Loading required legal documents…</p>}
       {legalError && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          style={{
-            padding: 12,
-            marginBottom: 16,
-            border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 8,
-            color: 'var(--danger)',
-          }}
-        >
+        <p role="alert" aria-live="assertive" className="a-error" style={{ marginBottom: 16 }}>
           {legalError} Acceptance is disabled until every required document is available.
-        </div>
+        </p>
       )}
 
-      <div style={{ display: 'grid', gap: 20 }}>
+      <div className={styles.documents}>
         {states.map((state) => state.document && (
           <LegalDocumentView
             key={state.document.documentId}
@@ -95,71 +80,34 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      <section style={{
-        marginTop: 24,
-        padding: 20,
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 10,
-        background: 'var(--surface)',
-      }}>
-        <label style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 12,
-          cursor: areDocumentsReady ? 'pointer' : 'not-allowed',
-          marginBottom: 20,
-        }}>
+      <Surface tier="feature" style={{ marginTop: 24 }}>
+        <label htmlFor="accept_terms" className={styles.acceptRow} data-disabled={!areDocumentsReady || undefined} style={{ marginBottom: 20 }}>
           <input
+            id="accept_terms"
             type="checkbox"
             checked={accepted}
             disabled={!areDocumentsReady}
             onChange={(event) => setAccepted(event.target.checked)}
-            style={{ marginTop: 2, width: 20, height: 20, cursor: 'inherit' }}
           />
-          <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          <span className="t-body">
             I have read and accept the Terms of Use, Privacy Policy, and Screening Notice versions shown above.
           </span>
         </label>
 
         {error && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            style={{
-              background: 'rgba(239,68,68,0.12)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: 8,
-              padding: 12,
-              color: 'var(--danger)',
-              fontSize: '0.85rem',
-              marginBottom: 16,
-            }}
-          >
+          <p role="alert" aria-live="assertive" className="a-error" style={{ marginBottom: 16 }}>
             {error}
-          </div>
+          </p>
         )}
         <button
           type="button"
           onClick={handleAccept}
           disabled={!accepted || loading || !areDocumentsReady}
-          style={{
-            width: '100%',
-            minHeight: 44,
-            padding: 12,
-            background: !accepted || loading || !areDocumentsReady
-              ? 'rgba(0,152,243,0.3)'
-              : 'var(--brand-strong)',
-            color: !accepted || loading || !areDocumentsReady ? 'var(--text-secondary)' : '#fff',
-            border: 'none',
-            borderRadius: 8,
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            cursor: !accepted || loading || !areDocumentsReady ? 'not-allowed' : 'pointer',
-          }}
+          className="a-primary a-primary--bar"
         >
           {loading ? 'Saving…' : 'Accept and Continue'}
         </button>
-      </section>
+      </Surface>
     </main>
   )
 }

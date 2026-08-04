@@ -12,7 +12,7 @@ import { buildReviewModel } from './reviewModel'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
-import { tint, tone } from '@/components/array/severity'
+import { ring, tint, tone, type SeverityBand } from '@/components/array/severity'
 import styles from './AssessmentReview.module.css'
 import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
@@ -67,24 +67,27 @@ const CATEGORY_LABELS: Record<string, string> = {
   activation: 'Activation',
   informational: 'Info',
 }
+// These label exercise CATEGORIES, not severity — they must never reuse
+// maintain/monitor/review, or a "mobility" exercise tinted amber would read
+// as a warning. The palette is deliberately off to the side of that trio.
 const CATEGORY_COLORS: Record<string, string> = {
-  stretch: 'var(--brand)',
-  strengthen: 'var(--maintain)',
-  mobility: 'var(--warning)',
+  stretch: '#818CF8',
+  strengthen: '#38BDF8',
+  mobility: '#A78BFA',
   activation: '#F472B6',
   informational: 'var(--text-secondary)',
 }
 
 function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProjection }) {
   const [open, setOpen] = useState(false)
-  const catColor = CATEGORY_COLORS[exercise.category] ?? 'var(--brand)'
+  const catColor = CATEGORY_COLORS[exercise.category] ?? CATEGORY_COLORS.stretch
   const catLabel = CATEGORY_LABELS[exercise.category] ?? exercise.category
 
   return (
     <div
       data-testid={`exercise-item-${exercise.slug}`}
       style={{
-        background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--surface-glass)', border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 10, overflow: 'hidden', marginBottom: 8,
       }}
     >
@@ -117,20 +120,20 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
           </p>
           <div style={{ display: 'flex', gap: 16 }}>
             {exercise.sets > 0 && (
-              <div style={{ background: 'rgba(0,152,243,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brand)' }}>{exercise.sets}</div>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{exercise.sets}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
             {exercise.dosageType !== 'dynamic' && exercise.holdSeconds > 0 && (
-              <div style={{ background: 'rgba(0,152,243,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brand)' }}>{exercise.holdSeconds}s</div>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{exercise.holdSeconds}s</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Hold</div>
               </div>
             )}
             {exercise.reps != null && (
-              <div style={{ background: 'rgba(0,152,243,0.1)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brand)' }}>{exercise.reps.min}–{exercise.reps.max}</div>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{exercise.reps.min}–{exercise.reps.max}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
@@ -149,8 +152,8 @@ function ExercisesSection({ exercises }: { exercises: ClinicalExerciseProjection
       data-testid="exercises-section"
       className={styles.disclosure}
     >
-      <summary>Browse all matched exercises <span>{exercises.length}</span></summary>
-      <div className={styles.disclosureContent}>
+      <summary className={styles.disclosureSummary}>Browse all matched exercises <span>{exercises.length}</span></summary>
+      <div className={styles.disclosureBody}>
         {exercises.map(ex => (
           <ExerciseAccordionItem key={ex.slug} exercise={ex} />
         ))}
@@ -637,10 +640,9 @@ export default function ClinicalAssessmentResults({
 
   if (loading) {
     return (
-      <div className={`${styles.reviewPage} ${styles.routeStatePage}`} role="status">
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-          <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
+      <div className={styles.routeState} role="status">
+        <div>
+          <div className={styles.spinner} />
           <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
         </div>
       </div>
@@ -649,10 +651,10 @@ export default function ClinicalAssessmentResults({
 
   if (error || !assessment || !program) {
     return (
-      <div className={`${styles.reviewPage} ${styles.routeStatePage}`}>
-        <div style={{ textAlign: 'center' }}>
-          <p role="alert" style={{ color: 'var(--danger)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
-          <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none' }}>Back to Clients</Link>
+      <div className={styles.routeState}>
+        <div>
+          <p role="alert" style={{ color: 'var(--review)', marginBottom: 16 }}>{error || 'Assessment not found.'}</p>
+          <Link href="/clients" className={styles.errorLink}>Back to Clients</Link>
         </div>
       </div>
     )
@@ -1060,30 +1062,34 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
   const withStability = findings.filter(
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
   )
-  const pill = (ok: boolean, label: string) => (
+  // Reliability is a ramp, not a pass/fail, so its colour comes from the same
+  // maintain/monitor/review bands as every other severity readout on this
+  // screen rather than an ad-hoc green/orange pair.
+  const pill = (band: SeverityBand, label: string) => (
     <span style={{
       padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700,
-      background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(255,137,24,0.12)',
-      color: ok ? 'var(--maintain)' : 'var(--warning)',
-      border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'rgba(255,137,24,0.3)'}`,
+      background: tint(band),
+      color: tone(band),
+      border: `1px solid ${ring(band)}`,
     }}>{label}</span>
   )
   return (
-    <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--glass-border)' }}>
+    <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--hairline)' }}>
       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h3>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
+      <p style={{ color: 'var(--text-tertiary)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
         A single-photo <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
-        {pill(assessment.level_verified === true, assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
-        {assessment.tilt_corrected ? pill(true, 'Tilt-corrected') : null}
-        {typeof assessment.capture_stability === 'number' ? pill(assessment.capture_stability >= 0.7, `Capture stability ${Math.round(assessment.capture_stability * 100)}%`) : null}
+        {pill(assessment.level_verified === true ? 'maintain' : 'monitor', assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
+        {assessment.tilt_corrected ? pill('maintain', 'Tilt-corrected') : null}
+        {typeof assessment.capture_stability === 'number' ? pill(assessment.capture_stability >= 0.7 ? 'maintain' : 'monitor', `Capture stability ${Math.round(assessment.capture_stability * 100)}%`) : null}
       </div>
       {withStability.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {withStability.map(f => {
             const s = f.stability_score
-            const stColor = s == null ? 'var(--text-secondary)' : s >= 0.8 ? 'var(--maintain)' : s >= 0.6 ? 'var(--warning)' : 'var(--danger)'
+            const stBand: SeverityBand = s == null ? 'neutral' : s >= 0.8 ? 'maintain' : s >= 0.6 ? 'monitor' : 'review'
+            const stColor = tone(stBand)
             return (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>

@@ -1,0 +1,13 @@
+/* The arc's own transition, split out of the inline style so it can be
+   switched off under prefers-reduced-motion — a countdown ring is a progress
+   animation, and the global reduced-motion rule in globals.css only shortens
+   durations to near-zero rather than removing this one outright. */
+.arc {
+  transition: stroke-dashoffset 0.25s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc {
+    transition: none;
+  }
+}

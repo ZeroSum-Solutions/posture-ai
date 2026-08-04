@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Surface } from '@/components/array/Surface'
+import styles from './PrivacyLifecycleControls.module.css'
 
 type ShareState = 'active' | 'expired' | 'revoked' | 'inactive'
 type Share = {
@@ -11,12 +13,6 @@ type Share = {
   revoked_at: string | null
   share_generation: number
   state: ShareState
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', minHeight: 44, boxSizing: 'border-box', padding: '10px 12px',
-  borderRadius: 8, border: '1px solid rgba(255,255,255,0.14)',
-  background: 'var(--background)', color: 'var(--text-primary)', fontSize: '0.86rem',
 }
 
 async function responseBody(response: Response) {
@@ -190,79 +186,86 @@ export default function PrivacyLifecycleControls({
   }
 
   return (
-    <section aria-labelledby="privacy-lifecycle-heading" style={{ marginTop: 20, display: 'grid', gap: 16 }}>
-      <div className="app-panel" style={{ padding: 20 }}>
-        <h2 id="privacy-lifecycle-heading" style={{ margin: '0 0 6px', fontSize: '1rem' }}>Privacy controls</h2>
-        <p style={{ margin: '0 0 18px', color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>
+    <section aria-labelledby="privacy-lifecycle-heading" className={styles.stack}>
+      <Surface tier="feature">
+        <h2 id="privacy-lifecycle-heading" className="t-title" style={{ marginBottom: 6 }}>Privacy controls</h2>
+        <p className="t-body" style={{ marginBottom: 18 }}>
           Consent, shared workout links, and permanent erasure are separate actions. Each change is recorded with a controlled reason.
         </p>
 
-        <h3 style={{ fontSize: '0.92rem', marginBottom: 10 }}>Workout share links</h3>
-        {sharesError && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.82rem' }}>{sharesError}</p>}
+        <h3 className="t-title" style={{ marginBottom: 10 }}>Workout share links</h3>
+        {sharesError && <p role="alert" className="a-error">{sharesError}</p>}
         {shares.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>No workout share links have been created.</p>
+          <p className="t-body">No workout share links have been created.</p>
         ) : shares.map((share) => (
-          <div key={share.session_id} style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div key={share.session_id} className={styles.shareRow}>
             <div>
-              <strong style={{ textTransform: 'capitalize' }}>{share.state}</strong>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginLeft: 8 }}>
+              <strong className={styles.shareState}>{share.state}</strong>
+              <span className={styles.shareMeta}>
                 Created {new Date(share.created_at).toLocaleDateString()} · generation {share.share_generation}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className={styles.shareActions}>
               {shareRotationEnabled && (
-                <button type="button" disabled={!hasConsent || busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'POST')}>Rotate</button>
+                <button type="button" className="a-secondary" disabled={!hasConsent || busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'POST')}>Rotate</button>
               )}
-              <button type="button" disabled={busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'DELETE')}>Revoke</button>
+              <button type="button" className="a-secondary" disabled={busyShare === share.session_id || share.state !== 'active'} onClick={() => mutateShare(share.session_id, 'DELETE')}>Revoke</button>
             </div>
           </div>
         ))}
         {newLink && (
-          <label style={{ display: 'block', marginTop: 12, fontSize: '0.82rem' }}>
-            New link — copy it now; the old link no longer works.
-            <input readOnly value={newLink} onFocus={(event) => event.currentTarget.select()} style={{ ...inputStyle, marginTop: 6 }} />
+          <label className={`a-field ${styles.newLinkField}`}>
+            <span className="a-label">New link — copy it now; the old link no longer works.</span>
+            <input readOnly value={newLink} onFocus={(event) => event.currentTarget.select()} className="a-input" />
           </label>
         )}
-      </div>
+      </Surface>
 
       {hasConsent && (
-        <form onSubmit={withdrawConsent} className="app-panel" style={{ padding: 20 }} aria-label="Withdraw consent">
-          <h3 style={{ margin: '0 0 6px', fontSize: '0.92rem' }}>Withdraw subject consent</h3>
-          <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>
-            This blocks new captures and immediately revokes every active workout share link. It does not erase the client record.
-          </p>
-          <select aria-label="Withdrawal reason" value={withdrawReason} onChange={(event) => setWithdrawReason(event.target.value as typeof withdrawReason)} style={{ ...inputStyle, marginBottom: 10 }}>
-            <option value="subject_request">Client requested withdrawal</option>
-            <option value="guardian_request">Guardian requested withdrawal</option>
-            <option value="practitioner_correction">Practitioner correction</option>
-          </select>
-          <select aria-label="Withdrawal signer relationship" value={relationship} onChange={(event) => setRelationship(event.target.value as typeof relationship)} style={{ ...inputStyle, marginBottom: 10 }}>
-            <option value="self">Client</option><option value="parent">Parent</option>
-            <option value="legal_guardian">Legal guardian</option><option value="other">Authorized representative</option>
-          </select>
-          <input aria-label="Withdrawal signer name" value={signerName} onChange={(event) => setSignerName(event.target.value)} placeholder="Signer’s full name" style={{ ...inputStyle, marginBottom: 10 }} />
-          <label style={{ display: 'flex', gap: 8, color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.4 }}>
-            <input type="checkbox" checked={withdrawConfirmed} onChange={(event) => setWithdrawConfirmed(event.target.checked)} />
-            I confirm the signer asked to withdraw consent.
-          </label>
-          {withdrawError && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.82rem' }}>{withdrawError}</p>}
-          <button type="submit" disabled={withdrawing} style={{ marginTop: 12 }}>{withdrawing ? 'Recording…' : 'Withdraw consent'}</button>
-        </form>
+        <Surface tier="feature">
+          <form onSubmit={withdrawConsent} className="a-form" aria-label="Withdraw consent">
+            <h3 className="t-title" style={{ marginBottom: 6 }}>Withdraw subject consent</h3>
+            <p className="t-body" style={{ marginBottom: 8 }}>
+              This blocks new captures and immediately revokes every active workout share link. It does not erase the client record.
+            </p>
+            <select aria-label="Withdrawal reason" className="a-select" value={withdrawReason} onChange={(event) => setWithdrawReason(event.target.value as typeof withdrawReason)}>
+              <option value="subject_request">Client requested withdrawal</option>
+              <option value="guardian_request">Guardian requested withdrawal</option>
+              <option value="practitioner_correction">Practitioner correction</option>
+            </select>
+            <select aria-label="Withdrawal signer relationship" className="a-select" value={relationship} onChange={(event) => setRelationship(event.target.value as typeof relationship)}>
+              <option value="self">Client</option><option value="parent">Parent</option>
+              <option value="legal_guardian">Legal guardian</option><option value="other">Authorized representative</option>
+            </select>
+            <input aria-label="Withdrawal signer name" className="a-input" value={signerName} onChange={(event) => setSignerName(event.target.value)} placeholder="Signer’s full name" />
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <input type="checkbox" checked={withdrawConfirmed} onChange={(event) => setWithdrawConfirmed(event.target.checked)} />
+              <span className="t-body">I confirm the signer asked to withdraw consent.</span>
+            </label>
+            {withdrawError && <p role="alert" className="a-error">{withdrawError}</p>}
+            <button type="submit" className="a-primary" disabled={withdrawing}>{withdrawing ? 'Recording…' : 'Withdraw consent'}</button>
+          </form>
+        </Surface>
       )}
 
-      <form onSubmit={eraseClient} className="app-panel" style={{ padding: 20, borderColor: 'rgba(239,68,68,0.35)' }} aria-label="Permanently erase client">
-        <h3 style={{ margin: '0 0 6px', fontSize: '0.92rem', color: 'var(--danger)' }}>Permanently erase client</h3>
-        <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>
-          Irreversible. Screening data is deleted in one database transaction. Stored report files are queued for retry until deletion completes.
-        </p>
-        <select aria-label="Erasure reason" value={erasureReason} onChange={(event) => setErasureReason(event.target.value as typeof erasureReason)} style={{ ...inputStyle, marginBottom: 10 }}>
-          <option value="subject_request">Client request</option><option value="guardian_request">Guardian request</option>
-          <option value="duplicate_record">Duplicate record</option><option value="practitioner_correction">Practitioner correction</option>
-        </select>
-        <input aria-label="Type ERASE to confirm" value={erasePhrase} onChange={(event) => setErasePhrase(event.target.value)} placeholder="Type ERASE" autoComplete="off" style={{ ...inputStyle, marginBottom: 10 }} />
-        {eraseError && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.82rem' }}>{eraseError}</p>}
-        <button type="submit" disabled={erasing || erasePhrase !== 'ERASE'} style={{ color: 'var(--danger)' }}>{erasing ? 'Erasing…' : 'Permanently erase'}</button>
-      </form>
+      <Surface tier="feature" className={styles.erasePanel}>
+        <form onSubmit={eraseClient} className="a-form" aria-label="Permanently erase client">
+          <h3 className="t-title" style={{ marginBottom: 6, color: 'var(--review)' }}>Permanently erase client</h3>
+          <p className="t-body" style={{ marginBottom: 8 }}>
+            Irreversible. Screening data is deleted in one database transaction. Stored report files are queued for retry until deletion completes.
+          </p>
+          <select aria-label="Erasure reason" className="a-select" value={erasureReason} onChange={(event) => setErasureReason(event.target.value as typeof erasureReason)}>
+            <option value="subject_request">Client request</option><option value="guardian_request">Guardian request</option>
+            <option value="duplicate_record">Duplicate record</option><option value="practitioner_correction">Practitioner correction</option>
+          </select>
+          <input aria-label="Type ERASE to confirm" className="a-input" value={erasePhrase} onChange={(event) => setErasePhrase(event.target.value)} placeholder="Type ERASE" autoComplete="off" />
+          {eraseError && <p role="alert" className="a-error">{eraseError}</p>}
+          {/* The system rule is "never a filled red button" (see globals.css) —
+              destructiveness reads through the review-tinted panel ring, the
+              red heading, and this label color, not a solid fill. */}
+          <button type="submit" className="a-secondary" disabled={erasing || erasePhrase !== 'ERASE'} style={{ color: 'var(--review)' }}>{erasing ? 'Erasing…' : 'Permanently erase'}</button>
+        </form>
+      </Surface>
     </section>
   )
 }

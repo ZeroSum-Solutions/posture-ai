@@ -13,16 +13,25 @@ import type {
 } from '../../../lib/program/clinicalProjection'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
+import { bandFromZone, tone } from '@/components/array/severity'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
 import WhyThisSheet from './WhyThisSheet'
 
-const ZONE_COLOR: Record<'warning' | 'danger', string> = { warning: 'var(--warning)', danger: 'var(--danger)' }
+// priority.zone is the engine's warning/danger severity, so its colour comes
+// from the shared severity module.
+const ZONE_COLOR: Record<'warning' | 'danger', string> = {
+  warning: tone(bandFromZone('warning')),
+  danger: tone(bandFromZone('danger')),
+}
+// Step labels (Loosen/Lengthen/.../Connect) are the program's own sequence,
+// not a severity — reusing maintain/monitor/review here would make "Loosen"
+// misread as a warning and "Strengthen" misread as an all-clear.
 const STEP_COLOR: Record<string, string> = {
-  Loosen: 'var(--warning)',
-  Lengthen: 'var(--brand)',
+  Loosen: '#818CF8',
+  Lengthen: '#22D3EE',
   'Wake up': '#F472B6',
-  Strengthen: 'var(--maintain)',
-  Connect: 'var(--brand)',
+  Strengthen: '#38BDF8',
+  Connect: '#A78BFA',
 }
 const WEEK_THEME = ['Learn & Own', 'Reinforce', 'Consolidate']
 const MOVEMENT_ACTION: Record<string, string> = {
@@ -92,7 +101,7 @@ function SwapControl({
           borderRadius: 6,
           background: 'var(--background)',
           border: `1px solid ${swapped ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.12)'}`,
-          color: swapped ? 'var(--brand)' : 'var(--text-secondary)',
+          color: swapped ? 'var(--info)' : 'var(--text-secondary)',
           fontSize: '0.7rem',
           cursor: 'pointer',
           maxWidth: 200,
@@ -125,10 +134,10 @@ function RampTable({
     padding: '8px 10px',
     fontSize: '0.68rem',
     fontWeight: 700,
-    color: 'var(--text-muted)',
+    color: 'var(--text-tertiary)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    borderBottom: '1px solid var(--border)',
+    borderBottom: '1px solid var(--hairline)',
   }
   const wkTh: React.CSSProperties = { ...th, textAlign: 'center', minWidth: 86 }
   const td: React.CSSProperties = {
@@ -141,7 +150,7 @@ function RampTable({
   const wkTd: React.CSSProperties = { ...td, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
 
   return (
-    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--border)' }}>
+    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--hairline)' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 460 }}>
         <thead>
           <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
@@ -156,7 +165,7 @@ function RampTable({
         </thead>
         <tbody>
           {priority.steps.map((s) => {
-            const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--brand)'
+            const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--info)'
             return (
               <tr key={s.baseSlug}>
                 <td style={td}>
@@ -172,7 +181,7 @@ function RampTable({
                     <button
                       data-testid={`why-this-${s.slug}`}
                       onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
-                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.72rem', color: 'var(--brand)', cursor: 'pointer', textDecoration: 'underline dotted rgba(0,152,243,0.4)', textUnderlineOffset: 3 }}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.72rem', color: 'var(--info)', cursor: 'pointer', textDecoration: 'underline dotted rgba(10,131,201,0.4)', textUnderlineOffset: 3 }}
                     >
                       Why this?
                     </button>
@@ -185,7 +194,7 @@ function RampTable({
                   <SwapControl priority={priority} step={s} onSwap={onSwap} />
                 </td>
                 {s.weeks.map((dose, i) => (
-                  <td key={i} style={{ ...wkTd, color: dose ? 'var(--text-primary)' : 'var(--border-strong)' }}>
+                  <td key={i} style={{ ...wkTd, color: dose ? 'var(--text-primary)' : 'var(--text-quiet)' }}>
                     {renderDose(dose)}
                   </td>
                 ))}
@@ -216,7 +225,7 @@ function PriorityCard({
     <div
       data-testid={`priority-card-${priority.primaryKey}`}
       style={{
-        background: 'var(--surface)',
+        background: 'var(--surface-glass)',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 12,
         padding: 18,
@@ -251,7 +260,7 @@ function PriorityCard({
             borderRadius: 8,
             background: 'none',
             border: '1px solid rgba(255,255,255,0.12)',
-            color: 'var(--text-muted)',
+            color: 'var(--text-tertiary)',
             fontSize: '0.7rem',
             fontWeight: 600,
             cursor: 'pointer',
@@ -267,7 +276,7 @@ function PriorityCard({
         style={{
           fontSize: '0.72rem',
           fontWeight: 700,
-          color: 'var(--brand)',
+          color: 'var(--info)',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
           marginBottom: 8,
@@ -407,7 +416,7 @@ export default function PriorityProgram({
       ) : (
         <div
           style={{
-            background: 'var(--surface)',
+            background: 'var(--surface-glass)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 12,
             padding: 18,
@@ -425,7 +434,7 @@ export default function PriorityProgram({
         <div
           style={{
             marginTop: 14,
-            background: 'var(--surface-elevated)',
+            background: 'var(--surface-glass-strong)',
             border: '1px solid rgba(255,255,255,0.07)',
             borderRadius: 10,
             padding: '12px 14px',
@@ -435,7 +444,7 @@ export default function PriorityProgram({
             style={{
               fontSize: '0.68rem',
               fontWeight: 700,
-              color: 'var(--text-muted)',
+              color: 'var(--text-tertiary)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: 8,
@@ -455,9 +464,9 @@ export default function PriorityProgram({
                     style={{
                       padding: '4px 10px',
                       borderRadius: 8,
-                      background: 'rgba(0,152,243,0.12)',
-                      border: '1px solid rgba(0,152,243,0.3)',
-                      color: 'var(--brand)',
+                      background: 'rgba(10,131,201,0.12)',
+                      border: '1px solid rgba(10,131,201,0.3)',
+                      color: 'var(--info)',
                       fontSize: '0.7rem',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -476,7 +485,7 @@ export default function PriorityProgram({
         <div
           style={{
             marginTop: 14,
-            background: 'var(--surface-elevated)',
+            background: 'var(--surface-glass-strong)',
             border: '1px solid rgba(255,255,255,0.05)',
             borderRadius: 10,
             padding: '10px 14px',

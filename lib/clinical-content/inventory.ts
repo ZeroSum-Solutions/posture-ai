@@ -120,7 +120,19 @@ export function buildClinicalContentInventory(): ClinicalInventory {
     'app/s/[token]/page.tsx',
     'app/layout.tsx',
     'components/AppShell.tsx',
-    'components/NavBar.tsx',
+    // The island replaced NavBar as the surface that decides which clinical
+    // destinations a practitioner can reach, so the policy that gates them is
+    // governed for the same reason the old nav was.
+    'components/array/IslandNav.tsx',
+    'components/array/islandPolicy.ts',
+    // severity.ts is the single source of the on-screen band a grade or finding
+    // renders in. It decides what a practitioner reads as maintain, monitor or
+    // review, which is the same class of decision lib/scoring/grade-display.ts
+    // makes for the PDF — and that module is already governed here.
+    'components/array/severity.ts',
+    // reviewModel.ts derives the sign-off screen's verdict, grade rail and
+    // per-finding deltas from stored findings.
+    'app/assessments/[id]/reviewModel.ts',
     'proxy.ts',
     'app/api/assessments/[id]/route.ts',
     'app/api/clinical-content/exercises/[slug]/route.ts',

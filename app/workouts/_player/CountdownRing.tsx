@@ -1,6 +1,7 @@
 'use client'
 import type { ReactNode } from 'react'
 import { workoutTheme as theme } from './theme'
+import styles from './CountdownRing.module.css'
 
 /**
  * Circular countdown ring for the workout player. `progress` is the fraction of
@@ -48,10 +49,8 @@ export function CountdownRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{
-            transition: 'stroke-dashoffset 0.25s linear',
-            opacity: dimmed ? 0.5 : 1,
-          }}
+          className={styles.arc}
+          style={{ opacity: dimmed ? 0.5 : 1 }}
         />
       </svg>
       <div

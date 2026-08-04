@@ -62,7 +62,7 @@ export function MarketingHome() {
               </div>
               <div className={styles.previewFooter}><span>Screening only · not a diagnosis</span><span className={styles.previewAction}>Open report <span aria-hidden="true">→</span></span></div>
             </article>
-            <div className={styles.floatingStat}><span>Baseline confidence</span><strong className="data-readout">0.92</strong><em>Verified capture</em></div>
+            <div className={styles.floatingStat}><span>Baseline confidence</span><strong className="t-readout-md n">0.92</strong><em>Verified capture</em></div>
           </div>
         </section>
 
@@ -81,7 +81,7 @@ export function MarketingHome() {
           <div className={styles.signalCopy}><p className={styles.kicker}><span /> Clear findings</p><h2 id="signal-title">Make the next decision easier to see.</h2><p>Give every client a report you can review together. Clear focus areas and readable measurements keep the conversation grounded in your professional judgment.</p><Link href="/auth/sign-in" className={styles.textLink}>Explore the assessment view <span aria-hidden="true">→</span></Link></div>
           <div className={styles.findingBoard}>
             <header><span>Priority findings</span><em>Sample screen</em></header>
-            {findings.map((finding, index) => <article key={finding.label}><span className={styles.findingIndex}>0{index + 1}</span><div><h3>{finding.label}</h3><p>{finding.note}</p></div><strong className="data-readout">{finding.value}</strong><span className={finding.tone === 'review' ? styles.reviewChip : styles.quietChip}>{finding.tone === 'review' ? 'Review' : 'Monitor'}</span></article>)}
+            {findings.map((finding, index) => <article key={finding.label}><span className={styles.findingIndex}>0{index + 1}</span><div><h3>{finding.label}</h3><p>{finding.note}</p></div><strong className="t-readout-md n">{finding.value}</strong><span className={finding.tone === 'review' ? styles.reviewChip : styles.quietChip}>{finding.tone === 'review' ? 'Review' : 'Monitor'}</span></article>)}
             <footer><span>Results are screening signals, not a clinical conclusion.</span><span>3 findings</span></footer>
           </div>
         </section>
