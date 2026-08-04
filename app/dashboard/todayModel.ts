@@ -210,7 +210,10 @@ export function buildTodayModel({
     grade: row.overall_grade,
     meta: [
       relativeDay(row.created_at, now),
-      row.practitioner_approved ? 'Approved · report sent' : 'Awaiting review',
+      // practitioner_approved records sign-off, not report generation or delivery
+      // (reports are a separate table written by their own endpoint), so this must
+      // not claim a report was sent.
+      row.practitioner_approved ? 'Approved' : 'Awaiting review',
     ].filter(Boolean).join(' · '),
     icon: row.practitioner_approved ? 'check-circle-linear' : 'clock-circle-linear',
     // The trailing icon reports review state, not grade — the chip already

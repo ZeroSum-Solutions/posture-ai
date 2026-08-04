@@ -69,13 +69,52 @@ importing v1 tokens.
 
 ## Verification harness
 
-`e2e/array-visual.spec.ts` captures each migrated screen on the `mobile-webkit`
-project (iPhone 14) into `docs/screenshots/array/`. It asserts nothing — it exists
-so the build can be graded against the handoff. **Delete it when the redesign lands.**
+`scripts/testing/array-visual/` captures each migrated screen on an iPhone 14 viewport
+into `docs/screenshots/array/`. It asserts nothing — it exists so the build can be
+graded against the handoff. **Delete the whole directory when the redesign lands.**
 
-Populating it locally: `npx supabase start`, `npm run qa:seed`, run the `setup`
-project once to mint an AAL2 practitioner, then re-point the seeded fixtures at that
-practitioner (the seeded QA practitioners and the e2e one are different accounts).
+It lives outside `e2e/` on purpose: that directory's spec list feeds the
+production-readiness gate, which compares a live `playwright --list` against a signed
+inventory, so scaffolding placed there fails the release check (`E2E_SOURCE_DRIFT`).
+It is also excluded in `vitest.config.ts`, since a Playwright spec cannot run under vitest.
+
+Running it:
+
+```bash
+npx supabase start && npm run qa:seed
+npx playwright test --project=setup                      # mints an AAL2 practitioner
+npx playwright test --config scripts/testing/array-visual/playwright.config.ts
+```
+
+The seeded QA practitioners and the e2e practitioner are different accounts, so the
+seeded fixtures have to be re-pointed at the e2e practitioner id for the screens to
+show populated data.
+
+## RELEASE BLOCKER — clinical content re-review required
+
+The Array redesign rewrote `app/layout.tsx` and `components/AppShell.tsx`, both of
+which are in `lib/clinical-content/inventory.ts`'s `algorithmSourcePaths` because they
+carry the `clinicalContentEnabled` gating flag down to `NavBar`/`IslandNav`. This
+changes `inventory_sha256` and invalidates the currently-approved
+`clinical_content_releases` row. Clinical content (recommendations, programs, workouts,
+knowledge links) will render as disabled (`database_activation_mismatch`) in any
+environment until a licensed clinician reviews the regenerated inventory and a new
+approved release row is added with the updated hash. **This branch must not go to an
+environment with clinical content live until that re-approval lands.**
+
+The local QA bindings were regenerated to match (`supabase/seed.sql`,
+`supabase/tests/*.sql`, `docs/qa/clinical-content-governance.md`) so the local stack
+still activates; that is a development fixture, not an approval.
+
+At the v1-purge checkpoint, `components/NavBar.tsx` must be replaced in the provenance
+list by `components/array/IslandNav.tsx` and `components/array/islandPolicy.ts` — the
+files that inherited the gating logic — requiring a further regeneration and re-review
+pass. Do **not** add `AmbientField.tsx` or `Surface.tsx`: neither touches the gating
+path, and the list should cover exactly the shell files that participate in the
+`clinicalContentEnabled` decision, not "shell files" as a category.
+
+Deleting `NavBar.tsx` without editing `algorithmSourcePaths` first will make
+`readFileSync` throw and break the inventory build outright.
 
 ## Known conflicts and gaps
 

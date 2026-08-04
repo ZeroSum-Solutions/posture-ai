@@ -151,13 +151,18 @@ export async function GET(req: NextRequest) {
     // canonical UTC representation so real rows cannot create invalid cursors.
     key: (client) => ({ at: canonicalizeKeysetTimestamp(client.created_at), id: client.id }),
   })
-  // Chip counts describe the whole directory, so they are read once for the first
-  // page and never recomputed while paging — a count that shifted mid-scroll would
-  // be describing a moving target. A failed summary is omitted, not faked: the
-  // chips then render without counts rather than with wrong ones.
+  // Chip counts describe the whole directory, read once for the first page and
+  // never recomputed while paging — a count that shifted mid-scroll would describe
+  // a moving target. They take the page's own snapshot, so a client created between
+  // the two calls cannot be counted by a chip while being unreachable by the cursor.
+  // A failed summary is omitted, not faked: the chips then render without counts
+  // rather than with wrong ones.
   let summary: { total: number; needs_review: number; improving: number; overdue: number } | null = null
   if (!page.after) {
-    const { data: summaryRows, error: summaryError } = await supabase.rpc('owned_client_directory_summary')
+    const { data: summaryRows, error: summaryError } = await supabase.rpc(
+      'owned_client_directory_summary',
+      { p_snapshot_at: page.snapshotAt },
+    )
     const row = Array.isArray(summaryRows) ? summaryRows[0] : summaryRows
     if (!summaryError && row) {
       summary = {

@@ -103,18 +103,10 @@ export default async function DashboardPage() {
       .is('clients.deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(4),
-    // Longest since a scan. The feed is descending, so the first row per client
-    // is that client's latest scan; clients with no scan at all are absent,
-    // since "due for re-scan" only means something after a first one.
-    supabase
-      .from('assessments')
-      .select('created_at, clients!inner(id, first_name, last_name, deleted_at, archived_at)')
-      .eq('practitioner_id', user.id)
-      .eq('status', 'complete')
-      .is('clients.deleted_at', null)
-      .is('clients.archived_at', null)
-      .order('created_at', { ascending: false })
-      .limit(200),
+    // Longest since a scan, resolved in SQL. A capped feed of recent assessments
+    // cannot answer this: the client who has waited longest is precisely the one
+    // whose last scan sits furthest behind any cap.
+    supabase.rpc('owned_client_longest_since_scan', { p_snapshot_at: new Date(now).toISOString() }),
   ])
 
   const failed = [
@@ -179,7 +171,7 @@ export default async function DashboardPage() {
     awaiting,
     awaitingTotal: awaitingCountResult.count ?? awaiting.length,
     recent,
-    rescan: pickMostOverdue(rescanResult.data),
+    rescan: firstRescanRow(rescanResult.data),
     counts: {
       activeClients: clientCountResult.count ?? 0,
       clientsAddedThisWeek: clientsAddedResult.count ?? 0,
@@ -201,25 +193,10 @@ export default async function DashboardPage() {
   )
 }
 
-/** Reduce a descending scan feed to the client whose most recent scan is oldest. */
-function pickMostOverdue(rows: unknown): RescanRow | null {
-  type ClientRef = { id: string; first_name: string; last_name: string }
-  const feed = (rows ?? []) as Array<{ created_at: string | null; clients: ClientRef | ClientRef[] | null }>
-  const latestByClient = new Map<string, RescanRow>()
-  for (const row of feed) {
-    const client = firstRelation(row.clients)
-    if (!client || latestByClient.has(client.id)) continue
-    latestByClient.set(client.id, {
-      id: client.id,
-      first_name: client.first_name,
-      last_name: client.last_name,
-      last_scan_at: row.created_at,
-    })
-  }
-  let oldest: RescanRow | null = null
-  for (const candidate of latestByClient.values()) {
-    if (!candidate.last_scan_at) continue
-    if (!oldest?.last_scan_at || candidate.last_scan_at < oldest.last_scan_at) oldest = candidate
-  }
-  return oldest
+/** Unwrap the single row owned_client_longest_since_scan returns, if any. */
+function firstRescanRow(rows: unknown): RescanRow | null {
+  const list = (rows ?? []) as RescanRow[]
+  const row = Array.isArray(list) ? list[0] : (list as RescanRow | null)
+  if (!row?.id || !row.last_scan_at) return null
+  return row
 }

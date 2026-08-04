@@ -107,7 +107,7 @@ export default function DashboardExperience({
             "next booked session" carries the truthful equivalent: the client who
             has gone longest without a scan. Never presented as a booking. */}
         {model.rescan ? (
-          <SurfaceLink href={model.rescan.href} tier="tile" pad="rowy" aria-label={model.rescan.name}>
+          <SurfaceLink href={model.rescan.href} tier="tile" pad="rowy">
             <span className={styles.infoRow}>
               <span className={styles.infoIcon} aria-hidden="true">
                 <Icon name="calendar-linear" size={20} />
@@ -152,7 +152,7 @@ export default function DashboardExperience({
           </Surface>
         ) : (
           model.recent.map(scan => (
-            <SurfaceLink key={scan.id} href={scan.href} tier="row" aria-label={`${scan.name} — ${scan.meta}`}>
+            <SurfaceLink key={scan.id} href={scan.href} tier="row">
               <span className={styles.scanRow}>
                 <GradeChip grade={scan.grade} />
                 <span className={styles.scanBody}>

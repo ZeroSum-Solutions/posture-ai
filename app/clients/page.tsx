@@ -185,8 +185,19 @@ export default function ClientsPage() {
     }
   }
 
-  // One clock per loaded page, so every "scanned N days ago" on screen agrees.
-  const now = useMemo(() => Date.now(), [clients])
+  // One clock for the whole render, so every "scanned N days ago" agrees — but it
+  // has to keep moving. A directory left open overnight would otherwise go on
+  // saying "Today" and would never cross the six-week overdue boundary.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const tick = () => setNow(Date.now())
+    const timer = window.setInterval(tick, 10 * 60 * 1000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [])
   const rows = useMemo(() => clients.map((client) => toDirectoryRow(client, now)), [clients, now])
 
   const counts: Record<ClientFilter, number | undefined> = {
@@ -217,7 +228,7 @@ export default function ClientsPage() {
           <div className={styles.searchInner}>
             <Icon name="magnifer-linear" size={17} />
             <DebouncedSearchInput
-              placeholder="Search name or scan date"
+              placeholder="Search by name"
               ariaLabel="Search clients by name"
               style={{ minHeight: 44 }}
               onInputActivity={() => {
@@ -318,7 +329,7 @@ export default function ClientsPage() {
         ) : (
           <>
             {rows.map((row) => (
-              <SurfaceLink key={row.id} href={row.href} tier="row" aria-label={row.trendLabel}>
+              <SurfaceLink key={row.id} href={row.href} tier="row">
                 <span className={styles.row}>
                   <GradeChip grade={row.grade} />
                   <span className={styles.body}>
@@ -326,10 +337,15 @@ export default function ClientsPage() {
                     <span className={styles.meta}>{row.meta}</span>
                   </span>
                   <span className={styles.trend}>
-                    <span className={styles.trendValue} style={{ color: tone(row.trendBand) }}>
+                    {/* The visible form is a bare arrow and number; the sentence
+                        beside it is what a screen reader reads instead. No
+                        aria-label on the row itself — that would replace the
+                        grade and scan meta rather than add to them. */}
+                    <span className={styles.trendValue} style={{ color: tone(row.trendBand) }} aria-hidden="true">
                       <Icon name={row.trendIcon} size={14} />
                       {row.trend}
                     </span>
+                    <span className="sr-only">{row.trendLabel}</span>
                     <span className={styles.chevron}>
                       <Icon name="alt-arrow-right-linear" size={16} />
                     </span>
