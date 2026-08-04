@@ -204,6 +204,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 
 /* ── Footer ────────────────────────────────────────────────────────────── */
 
-.app-footer { position: relative; z-index: 0; padding: 20px 24px 24px; color: var(--text-tertiary); font-size: 12px; font-weight: 300; text-align: center; }
+.app-footer { position: relative; z-index: 0; padding: 20px 24px calc(var(--island-clearance) + env(safe-area-inset-bottom)); color: var(--text-tertiary); font-size: 12px; font-weight: 300; text-align: center; }
+/* The screen already reserves island clearance; the footer must not double it. */
+.app-shell:has(.app-screen) > .app-footer { padding-top: 4px; }
 .app-footer-links { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; }
 .app-footer a { color: rgba(255, 255, 255, 0.6); text-decoration: none; }

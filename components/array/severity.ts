@@ -109,10 +109,13 @@ export function deltaIcon(delta: number | null | undefined): DeltaArrow {
   return delta < 0 ? 'arrow-down-linear' : 'arrow-up-linear'
 }
 
-/** Signed delta as display text, e.g. `-8` / `+3` / `0`. */
+/**
+ * Signed delta as display text, e.g. `−8` / `+3`. Returns null when there is no
+ * change to report: a chip reading "→ 0" is noise, and the absence of a delta
+ * says "flat" more clearly than a zero does.
+ */
 export function formatDelta(delta: number | null | undefined, digits = 0): string | null {
-  if (delta == null) return null
-  if (delta === 0) return '0'
+  if (delta == null || delta === 0) return null
   const magnitude = Math.abs(delta).toFixed(digits)
   return `${delta < 0 ? '−' : '+'}${magnitude}`
 }

@@ -177,7 +177,7 @@ export function buildTodayModel({
       icon: 'users-group-rounded-linear',
       value: String(counts.activeClients),
       label: 'Active',
-      delta: counts.clientsAddedThisWeek > 0 ? formatDelta(counts.clientsAddedThisWeek) : null,
+      delta: formatDelta(counts.clientsAddedThisWeek),
       deltaIcon: deltaIcon(counts.clientsAddedThisWeek),
       // More clients on the books is the good direction.
       deltaBand: deltaBand(counts.clientsAddedThisWeek, false),
@@ -213,7 +213,9 @@ export function buildTodayModel({
       row.practitioner_approved ? 'Approved · report sent' : 'Awaiting review',
     ].filter(Boolean).join(' · '),
     icon: row.practitioner_approved ? 'check-circle-linear' : 'clock-circle-linear',
-    band: row.practitioner_approved ? bandFromGrade(row.overall_grade) : 'monitor',
+    // The trailing icon reports review state, not grade — the chip already
+    // carries the grade, and an amber tick on an approved C reads as a warning.
+    band: row.practitioner_approved ? 'maintain' : 'monitor',
   }))
 
   return {

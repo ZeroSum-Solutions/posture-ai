@@ -9,7 +9,6 @@ import IslandNav from './array/IslandNav'
 import { shouldRenderAmbientField } from './array/fieldPolicy'
 import MotionOrchestrator from './MotionOrchestrator'
 import AuthSessionGuard from './AuthSessionGuard'
-import LegalNotice from './LegalNotice'
 
 export default function AppShell({
   children,
@@ -27,8 +26,11 @@ export default function AppShell({
         <AuthSessionGuard pathname={pathname}>
           <MotionOrchestrator>{children}</MotionOrchestrator>
         </AuthSessionGuard>
+        {/* Disclaimers are one line. The governed screening document still renders
+            in full where it legally matters — capture, assessment results and the
+            privacy page — rather than under every screen in the app. */}
         <footer className="app-footer">
-          <LegalNotice kind="screening_notice" compact />
+          <p>Screening support only — not a medical diagnosis.</p>
           <div className="app-footer-links">
             <Link href="/privacy">Privacy Policy</Link>
             <span aria-hidden="true">·</span>

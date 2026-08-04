@@ -167,7 +167,6 @@ export default function DashboardExperience({
           ))
         )}
 
-        <p className={styles.disclaimer}>Screening support only — not a medical diagnosis.</p>
       </div>
     </div>
   )
