@@ -9,9 +9,17 @@ import path from 'node:path'
  */
 const OUT = path.resolve(__dirname, '../../../docs/screenshots/array')
 
+/**
+ * ARRAY_VISUAL_CLIENT_ID points at a seeded client with several completed scans,
+ * so the client-detail capture exercises a real trend instead of a single dot.
+ * Omitted rather than guessed when unset — a 404 capture proves nothing.
+ */
+const CLIENT_ID = process.env.ARRAY_VISUAL_CLIENT_ID ?? ''
+
 const SCREENS: Array<{ name: string; path: string }> = [
   { name: '01-today', path: '/dashboard' },
   { name: '02-clients', path: '/clients' },
+  ...(CLIENT_ID ? [{ name: '03-client-detail', path: `/clients/${CLIENT_ID}` }] : []),
 ]
 
 test('capture migrated screens', async ({ page }) => {

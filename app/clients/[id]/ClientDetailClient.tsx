@@ -6,8 +6,12 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
 import PrivacyLifecycleControls from '@/components/PrivacyLifecycleControls'
+import { GradeChip } from '@/components/array/Chip'
+import Icon from '@/components/array/Icon'
+import { Surface, SurfaceLink } from '@/components/array/Surface'
+import { TabStrip, tabPanelProps, type TabOption } from '@/components/array/Tabs'
+import { bandFromGrade, ring, tint, tone } from '@/components/array/severity'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
-import dynamic from 'next/dynamic'
 import { toNum } from './numeric'
 import {
   initialComparison,
@@ -16,18 +20,14 @@ import {
   sortAssessmentsChronologically,
 } from './comparison'
 import ComparisonWorkspace, { type ComparisonDeltaRow } from './ComparisonWorkspace'
+import FindingsTrend from './FindingsTrend'
+import TrendChart from './TrendChart'
+import { buildHistoryRows } from './historyRows'
 import { buildClientComparison } from '@/lib/reports/clientComparison'
 import { segmentTrendHistory } from '@/lib/comparison/trends'
-import styles from './ClientEvidenceCanvas.module.css'
+import styles from './ClientDetail.module.css'
 
-// recharts (+ d3) is heavy and only used for multi-assessment clients. Keep it
-// in its own chunk and load it only after the practitioner explicitly asks for
-// interactive charts.
-const ProgressCharts = dynamic(() => import('./ProgressCharts'), {
-  ssr: false,
-  loading: () => <div className={styles.loadingPanel} role="status">Loading progress charts…</div>,
-})
-const RetainedProgressCharts = memo(ProgressCharts)
+const RetainedFindingsTrend = memo(FindingsTrend)
 const RetainedComparisonWorkspace = memo(ComparisonWorkspace)
 
 interface Client {
@@ -75,7 +75,13 @@ export interface ClientDetailInitialData {
   }
 }
 
-type Tab = 'assessments' | 'progress' | 'compare' | 'info'
+/**
+ * The trend, the actions and the scan history are the screen, not a tab. What
+ * remains behind tabs is per-finding detail, the comparison workspace, and the
+ * record's own particulars — each of which a practitioner opens deliberately.
+ */
+type Tab = 'findings' | 'compare' | 'details'
+const TAB_ID_BASE = 'client'
 const INITIAL_HISTORY_PAGE_SIZE = 20
 const DEFERRED_WORKSPACE_MOUNT_MS = 300
 
@@ -90,47 +96,42 @@ function scheduleAfterPresentedFrame(callback: () => void): () => void {
   return () => window.clearTimeout(timer)
 }
 
-function formatStatus(status: string) {
-  return status
-    .split('_')
-    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
-    .join(' ')
-}
-
 interface ClientWorkspaceProps {
   hasMultipleAssessments: boolean
-  assessmentsPanel: ReactNode
-  progressPanel: ReactNode
+  findingsPanel: ReactNode
   comparePanel: ReactNode
-  infoPanel: ReactNode
+  detailsPanel: ReactNode
   privacyPanel: ReactNode
 }
 
 const ClientWorkspace = memo(function ClientWorkspace({
   hasMultipleAssessments,
-  assessmentsPanel,
-  progressPanel,
+  findingsPanel,
   comparePanel,
-  infoPanel,
+  detailsPanel,
   privacyPanel,
 }: ClientWorkspaceProps) {
   // Keep tab navigation below the client route boundary. A tab click should
-  // update four small controls and panel visibility, not reconcile the profile,
-  // evidence cards, assessment history, or consent controls above them.
-  const [activeTab, setActiveTab] = useState<Tab>('assessments')
-  const [renderedTabs, setRenderedTabs] = useState<ReadonlySet<Tab>>(
-    () => new Set<Tab>(['assessments']),
-  )
+  // update a few small controls and panel visibility, not reconcile the trend
+  // card, scan history, or consent controls above them.
   const availableTabs: Tab[] = hasMultipleAssessments
-    ? ['assessments', 'progress', 'compare', 'info']
-    : ['assessments', 'info']
+    ? ['findings', 'compare', 'details']
+    : ['findings', 'details']
+  const [activeTab, setActiveTab] = useState<Tab>('findings')
+  const [renderedTabs, setRenderedTabs] = useState<ReadonlySet<Tab>>(
+    () => new Set<Tab>(['findings']),
+  )
+
+  const options: readonly TabOption<Tab>[] = availableTabs.map(tab => ({
+    value: tab,
+    label: tab === 'findings' ? 'Findings' : tab === 'compare' ? 'Compare' : 'Details',
+  }))
 
   useEffect(() => {
-    // Progress remains an explicit opt-in because recharts/d3 is the largest
-    // workspace chunk. Compare and Info mount after their lightweight panels
-    // have painted so hidden privacy inventory work cannot collide with the
-    // first measured interaction on a throttled device.
-    if (activeTab === 'progress' || renderedTabs.has(activeTab)) return
+    // Compare and Details mount after their lightweight sibling has painted, so
+    // hidden privacy-inventory work cannot collide with the first measured
+    // interaction on a throttled device.
+    if (renderedTabs.has(activeTab)) return
     return scheduleAfterPresentedFrame(() => {
       startTransition(() => {
         setRenderedTabs((current) => {
@@ -143,101 +144,28 @@ const ClientWorkspace = memo(function ClientWorkspace({
     })
   }, [activeTab, renderedTabs])
 
-  function activateTab(tab: Tab) {
-    if (tab === activeTab) return
-    setActiveTab(tab)
-  }
-
-  function loadProgressCharts() {
-    startTransition(() => {
-      setRenderedTabs((current) => {
-        if (current.has('progress')) return current
-        const next = new Set(current)
-        next.add('progress')
-        return next
-      })
-    })
-  }
-
-  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: Tab) {
-    const currentIndex = availableTabs.indexOf(tab)
-    let nextIndex: number | null = null
-    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % availableTabs.length
-    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length
-    if (event.key === 'Home') nextIndex = 0
-    if (event.key === 'End') nextIndex = availableTabs.length - 1
-    if (nextIndex === null) return
-
-    event.preventDefault()
-    const nextTab = availableTabs[nextIndex]
-    activateTab(nextTab)
-    document.getElementById(`client-tab-${nextTab}`)?.focus()
-  }
-
-  function tabProps(tab: Tab) {
-    return {
-      id: `client-tab-${tab}`,
-      role: 'tab',
-      'aria-controls': `client-panel-${tab}`,
-      'aria-selected': activeTab === tab,
-      tabIndex: activeTab === tab ? 0 : -1,
-      onClick: () => activateTab(tab),
-      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(event, tab),
-    } as const
-  }
-
-  function panelProps(tab: Tab) {
-    const active = activeTab === tab
-    return {
-      id: `client-panel-${tab}`,
-      role: 'tabpanel',
-      'aria-labelledby': `client-tab-${tab}`,
-      tabIndex: active ? 0 : -1,
-      className: `${styles.workspacePanel} ${active ? styles.workspacePanelActive : ''}`,
-    } as const
-  }
-
-  const privacyStatus = activeTab === 'info'
-    ? renderedTabs.has('info')
+  const privacyStatus = activeTab === 'details'
+    ? renderedTabs.has('details')
       ? 'Privacy controls ready.'
       : 'Preparing privacy controls…'
     : ''
 
+  function panelClass(tab: Tab) {
+    return `${styles.workspacePanel} ${activeTab === tab ? styles.workspacePanelActive : ''}`
+  }
+
   return (
     <>
-      <div className={styles.tabList} role="tablist" aria-label="Client workspace">
-        <button
-          {...tabProps('assessments')}
-          className={`${styles.tab} ${activeTab === 'assessments' ? styles.tabActive : ''}`}
-        >
-          Assessments
-        </button>
-        {hasMultipleAssessments && (
-          <>
-            <button
-              {...tabProps('progress')}
-              className={`${styles.tab} ${activeTab === 'progress' ? styles.tabActive : ''}`}
-            >
-              Progress
-            </button>
-            <button
-              {...tabProps('compare')}
-              className={`${styles.tab} ${activeTab === 'compare' ? styles.tabActive : ''}`}
-            >
-              Compare
-            </button>
-          </>
-        )}
-        <button
-          {...tabProps('info')}
-          className={`${styles.tab} ${activeTab === 'info' ? styles.tabActive : ''}`}
-        >
-          Info
-        </button>
-      </div>
+      <TabStrip
+        idBase={TAB_ID_BASE}
+        options={options}
+        value={activeTab}
+        onChange={setActiveTab}
+        label="Client workspace"
+      />
 
       <div
-        className={styles.visuallyHidden}
+        className="sr-only"
         aria-live="polite"
         aria-atomic="true"
         data-testid="privacy-workspace-status"
@@ -246,35 +174,21 @@ const ClientWorkspace = memo(function ClientWorkspace({
       </div>
 
       <div className={styles.workspaceStage} data-testid="client-workspace-stage">
-        <div {...panelProps('assessments')}>{assessmentsPanel}</div>
+        <div {...tabPanelProps(TAB_ID_BASE, 'findings', activeTab === 'findings')} className={panelClass('findings')}>
+          {findingsPanel}
+        </div>
         {hasMultipleAssessments && (
-          <div {...panelProps('progress')}>
-            {renderedTabs.has('progress') ? progressPanel : (
-              <div className={styles.loadingPanel}>
-                <p>Interactive charts are available when you need them.</p>
-                <button
-                  type="button"
-                  className={styles.loadWorkspaceButton}
-                  onClick={loadProgressCharts}
-                >
-                  Load interactive charts
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        {hasMultipleAssessments && (
-          <div {...panelProps('compare')}>
+          <div {...tabPanelProps(TAB_ID_BASE, 'compare', activeTab === 'compare')} className={panelClass('compare')}>
             {renderedTabs.has('compare') ? comparePanel : (
               <div className={styles.loadingPanel} role="status">Preparing comparison…</div>
             )}
           </div>
         )}
-        <div {...panelProps('info')}>
-          {infoPanel}
-          {renderedTabs.has('info')
+        <div {...tabPanelProps(TAB_ID_BASE, 'details', activeTab === 'details')} className={panelClass('details')}>
+          {detailsPanel}
+          {renderedTabs.has('details')
             ? privacyPanel
-            : activeTab === 'info'
+            : activeTab === 'details'
               ? <div className={styles.loadingPanel} aria-hidden="true">Preparing privacy controls…</div>
               : null}
         </div>
@@ -327,6 +241,7 @@ function ClientDetailRoute({
   const [historyLoadedForId, setHistoryLoadedForId] = useState<string | null>(ownsInitialData ? id : null)
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   // Compare selectors: older = "before", newer = "after"
   const [compareBaseId, setCompareBaseId] = useState<string>(initialSelection.baseId)
   const [compareTargetId, setCompareTargetId] = useState<string>(initialSelection.targetId)
@@ -441,65 +356,62 @@ function ClientDetailRoute({
     }
   }, [id, ownsInitialData, router])
 
-  const {
-    imbalanceKeys,
-    imbalanceLabels,
-    trendData,
-    trendSegments,
-  } = useMemo(() => {
-    const keys: string[] = []
-    const labels: Record<string, string> = {}
-    assessments.forEach((assessment) => {
-      ;(assessment.assessment_findings || []).forEach((finding) => {
-        if (!keys.includes(finding.imbalance_key)) {
-          keys.push(finding.imbalance_key)
-          labels[finding.imbalance_key] = finding.label || finding.imbalance_key
-        }
-      })
-    })
+  // The overflow menu is a disclosure, not an ARIA menu: it holds two links to
+  // other routes. Escape and an outside click close it so it cannot be left
+  // hanging over the trend card.
+  useEffect(() => {
+    if (!menuOpen) return
+    function close(event: Event) {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      setMenuOpen(false)
+    }
+    document.addEventListener('keydown', close)
+    document.addEventListener('pointerdown', close)
+    return () => {
+      document.removeEventListener('keydown', close)
+      document.removeEventListener('pointerdown', close)
+    }
+  }, [menuOpen])
 
-    const segmentedTrendHistory = segmentTrendHistory(assessments.map((assessment) => ({
+  const { trendPoints, findingsAssessments } = useMemo(() => {
+    const segmented = segmentTrendHistory(assessments.map((assessment) => ({
       ...assessment,
       assessmentId: assessment.id,
       scoringEngineVersion: assessment.scoring_engine_version,
     })))
-    const data = segmentedTrendHistory.points.map(({ value: assessment, segmentId }) => {
-      const point: Record<string, number | string | null> = {
-        assessment_id: assessment.id,
-        date: new Date(assessment.assessed_at).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          timeZone: 'UTC',
-        }),
-        scoring_engine_version: assessment.scoring_engine_version,
-        segment_id: segmentId,
-        overall_score: toNum(assessment.overall_score),
-        overall_grade: assessment.overall_grade,
-      }
-      const findingsMap: Record<string, number> = {}
-      ;(assessment.assessment_findings || []).forEach((finding) => {
-        // severity_pct is NUMERIC and therefore may arrive as a string.
-        const severity = toNum(finding.severity_pct)
-        if (severity !== null && finding.zone !== null && finding.zone !== 'unreliable') {
-          findingsMap[finding.imbalance_key] = severity
-        }
-      })
-      keys.forEach((key) => {
-        if (findingsMap[key] !== undefined) point[key] = findingsMap[key]
-      })
-      return point
-    })
 
     return {
-      imbalanceKeys: keys,
-      imbalanceLabels: labels,
-      trendData: data,
-      trendSegments: segmentedTrendHistory.segments.map((segment) => ({
-        id: segment.id,
-        scoringEngineVersion: segment.scoringEngineVersion,
+      trendPoints: segmented.points.map(({ value: assessment, segmentId }) => ({
+        id: assessment.id,
+        assessedAt: assessment.assessed_at,
+        score: toNum(assessment.overall_score),
+        grade: assessment.overall_grade,
+        scoringEngineVersion: assessment.scoring_engine_version,
+        segmentId,
+      })),
+      findingsAssessments: segmented.points.map(({ value: assessment, segmentId }) => ({
+        id: assessment.id,
+        assessedAt: assessment.assessed_at,
+        scoringEngineVersion: assessment.scoring_engine_version,
+        segmentId,
+        findings: (assessment.assessment_findings || []).map((finding) => ({
+          key: finding.imbalance_key,
+          label: finding.label,
+          severityPct: finding.severity_pct,
+          zone: finding.zone,
+          unit: finding.unit,
+        })),
       })),
     }
   }, [assessments])
+
+  const historyRows = useMemo(() => buildHistoryRows(assessments.map((assessment) => ({
+    id: assessment.id,
+    assessedAt: assessment.assessed_at,
+    overallGrade: assessment.overall_grade,
+    overallScore: toNum(assessment.overall_score),
+    scoringEngineVersion: assessment.scoring_engine_version,
+  }))), [assessments])
 
   const {
     deltaRows,
@@ -670,9 +582,9 @@ function ClientDetailRoute({
 
   if (loading || (client !== null && client.id !== id)) {
     return (
-      <div className={`app-standard-page ${styles.canvas} ${styles.pageLoadingShell}`}>
-        <div className={styles.loadingPanel} role="status">
-          Loading client evidence…
+      <div className="app-screen">
+        <div className="app-screen-x" style={{ paddingTop: 24 }}>
+          <div className={styles.loadingPanel} role="status">Loading client record…</div>
         </div>
       </div>
     )
@@ -681,16 +593,7 @@ function ClientDetailRoute({
   if (!client) return null
 
   const dob = client.date_of_birth
-    ? new Date(client.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
-    : null
-
-  const consentDate = consentStatus === 'valid' && client.consent_recorded_at
-    ? new Date(client.consent_recorded_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC',
-      })
+    ? new Date(client.date_of_birth).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
     : null
 
   function handleConsentRecorded() {
@@ -706,163 +609,289 @@ function ClientDetailRoute({
   }
 
   const hasMultipleAssessments = assessments.length >= 2
-
   const latestAssessment = assessments.at(-1)
-  const latestDeviation = toNum(latestAssessment?.overall_score)
+  const latestBand = bandFromGrade(latestAssessment?.overall_grade)
+
   const trackingSpanDays = assessments.length >= 2
     ? Math.max(0, Math.round(
       (Date.parse(assessments[assessments.length - 1].assessed_at) - Date.parse(assessments[0].assessed_at))
       / (24 * 60 * 60 * 1000),
     ))
     : null
-  const latestStatus = latestAssessment ? formatStatus(latestAssessment.status) : 'No assessment'
-  const latestReviewContext = latestAssessment
-    ? 'Approval state is not included in this history response.'
-    : 'Review context appears after the first assessment.'
 
-  // Client-detail evidence is server rendered. Its calendar-date projection is
-  // deliberately UTC (docs/qa/pr09-performance-runbook.md) so hydration and
-  // later browser renders describe the same stored timestamp identically.
-  function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC',
-    })
-  }
+  // State only, no date. The one date available here is clients.consent_recorded_at,
+  // which is not the record the legal-consent decision is made from — showing it
+  // beside "Consent active" would attribute the decision to the wrong evidence.
+  const consentSummary = consentStatus === 'checking'
+    ? { text: 'Checking consent', band: 'neutral' as const, icon: 'clock-circle-linear' as const }
+    : consentStatus === 'valid'
+      ? { text: 'Consent active', band: 'maintain' as const, icon: 'shield-check-linear' as const }
+      : consentStatus === 'unavailable'
+        ? { text: 'Consent status unavailable', band: 'review' as const, icon: 'close-circle-linear' as const }
+        : consentStatus === 'withdrawn'
+          ? { text: 'Consent withdrawn', band: 'review' as const, icon: 'close-circle-linear' as const }
+          : consentStatus === 'reconsent_required'
+            ? { text: 'New consent required', band: 'monitor' as const, icon: 'flag-linear' as const }
+            : { text: 'Consent not recorded', band: 'monitor' as const, icon: 'flag-linear' as const }
+
+  const scanCountLabel = assessments.length === 0
+    ? 'No scans'
+    : `${assessments.length}${nextAssessmentCursor ? '+' : ''} ${assessments.length === 1 ? 'scan' : 'scans'}`
 
   return (
-    <div className={`app-standard-page ${styles.canvas}`}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem' }}>
-          ← Back to Clients
+    <div className="app-screen">
+      <div className={styles.topBar}>
+        <Link href="/clients" className={styles.back}>
+          <Icon name="alt-arrow-left-linear" size={18} />
+          Clients
         </Link>
-      </div>
-
-      {/* Profile Header */}
-      <div className="app-panel" style={{
-        background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '16px', padding: '24px', marginBottom: '24px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        flexWrap: 'wrap', gap: '12px',
-        WebkitBackdropFilter: 'none',
-        backdropFilter: 'none',
-      }}>
-        <div>
-          <p className="app-page-kicker">Client record</p>
-          <h1 className="app-page-heading" style={{ marginBottom: '10px' }}>
-            {client.first_name} {client.last_name}
-          </h1>
-          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-            {dob && (
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                DOB: <span style={{ color: 'var(--text-secondary)' }}>{dob}</span>
-              </span>
-            )}
-            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              Consent: {consentStatus === 'checking'
-                ? <span style={{ color: 'var(--text-secondary)' }}>checking…</span>
-                : consentStatus === 'valid'
-                  ? <span style={{ color: '#10B981' }}>✓ {consentDate ?? 'recorded'}</span>
-                  : consentStatus === 'unavailable'
-                    ? <span style={{ color: 'var(--danger)' }}>unavailable</span>
-                    : consentStatus === 'withdrawn'
-                      ? <span style={{ color: 'var(--warning)' }}>withdrawn</span>
-                      : consentStatus === 'reconsent_required'
-                        ? <span style={{ color: 'var(--warning)' }}>new consent required</span>
-                        : <span style={{ color: 'var(--warning)' }}>not recorded</span>}
-            </span>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link
-            href={`/clients/${client.id}/edit`}
-            style={{
-              padding: '9px 16px', borderRadius: '8px',
-              background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              textDecoration: 'none', fontWeight: 600, fontSize: '0.85rem',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Edit Client
-          </Link>
+        <div style={{ position: 'relative' }}>
           <button
-            onClick={() => setShowArchiveConfirm(true)}
-            style={{
-              padding: '9px 16px', borderRadius: '8px',
-              background: 'rgba(239,68,68,0.1)', color: 'var(--danger)',
-              border: '1px solid rgba(239,68,68,0.25)',
-              fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-            }}
+            type="button"
+            className={styles.iconButton}
+            aria-expanded={menuOpen}
+            aria-label="Client record actions"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => setMenuOpen((open) => !open)}
           >
-            Archive Client
+            <span aria-hidden="true"><Icon name="menu-dots-linear" size={18} /></span>
           </button>
-          <Link
-            href={`/assessments/new?client_id=${client.id}`}
-            style={{
-              padding: '10px 18px', borderRadius: '8px', background: 'var(--brand-strong)',
-              color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + New Assessment
-          </Link>
+          {menuOpen ? (
+            <div className={styles.menu} onPointerDown={(event) => event.stopPropagation()}>
+              <Link href={`/clients/${client.id}/edit`} className={styles.menuItem}>
+                <Icon name="pen-linear" size={16} />
+                Edit client
+              </Link>
+              <button
+                type="button"
+                className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                onClick={() => { setMenuOpen(false); setShowArchiveConfirm(true) }}
+              >
+                <Icon name="close-circle-linear" size={16} />
+                Archive client
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {consentStatus === 'missing' && (
-        <div style={{ marginBottom: '16px', display: 'grid', gap: 12 }}>
-          <InPersonConsentForm
-            clientId={client.id}
-            subjectName={`${client.first_name} ${client.last_name}`}
-            onRecorded={handleConsentRecorded}
-          />
-          <RemoteConsentButton clientId={client.id} />
+      <section className={styles.identity}>
+        <div className={styles.identityBody}>
+          <h1 className="t-headline">{client.first_name} {client.last_name}</h1>
+          <p className={styles.identityMeta}>
+            <span className={styles.consentIcon} style={{ color: tone(consentSummary.band) }}>
+              <Icon name={consentSummary.icon} size={14} />
+            </span>
+            {consentSummary.text}
+            {' · '}
+            <span className="n">{scanCountLabel}</span>
+            {trackingSpanDays === null ? null : <>{' · '}<span className="n">{nextAssessmentCursor ? '≥ ' : ''}{trackingSpanDays} days</span></>}
+          </p>
         </div>
-      )}
-
-      <section className={styles.metricsStrip} aria-label="Client evidence summary">
-        <article className={styles.metricCard}>
-          <p className={styles.metricLabel}>Latest screening</p>
-          <p className={styles.metricValue}>
-            {latestAssessment ? `Grade ${latestAssessment.overall_grade ?? '—'}` : '—'}
-          </p>
-          <p className={styles.metricSupport}>
-            {latestAssessment
-              ? `${latestDeviation === null ? 'Deviation unavailable' : `Deviation ${latestDeviation.toFixed(1)} / 100`} · ${fmtDate(latestAssessment.assessed_at)}`
-              : 'Complete an assessment to establish a baseline.'}
-          </p>
-        </article>
-        <article className={styles.metricCard}>
-          <p className={styles.metricLabel}>Assessment count</p>
-          <p className={styles.metricValue}>{assessments.length}{nextAssessmentCursor ? '+' : ''}</p>
-          <p className={styles.metricSupport}>
-            {nextAssessmentCursor
-              ? `${assessments.length} screenings loaded; older history is available.`
-              : assessments.length === 1 ? 'One recorded screening.' : `${assessments.length} recorded screenings.`}
-          </p>
-        </article>
-        <article className={styles.metricCard}>
-          <p className={styles.metricLabel}>Tracking span</p>
-          <p className={styles.metricValue}>{trackingSpanDays === null ? '—' : `${nextAssessmentCursor ? '≥ ' : ''}${trackingSpanDays} days`}</p>
-          <p className={styles.metricSupport}>
-            {trackingSpanDays === null
-              ? 'A second assessment starts the timeline.'
-              : nextAssessmentCursor
-                ? 'Loaded span; older assessments can extend it.'
-                : 'Elapsed time from first to latest assessment.'}
-          </p>
-        </article>
-        <article className={styles.metricCard}>
-          <p className={styles.metricLabel}>Latest assessment status</p>
-          <p className={styles.metricValue}>{latestStatus}</p>
-          <p className={styles.metricSupport}>{latestReviewContext}</p>
-        </article>
+        {latestAssessment ? (
+          <span
+            className={styles.gradeTile}
+            style={{
+              background: tint(latestBand),
+              boxShadow: `inset 0 0 0 1px ${ring(latestBand)}`,
+              color: tone(latestBand),
+            }}
+            aria-label={`Latest grade ${latestAssessment.overall_grade ?? 'not graded'}`}
+          >
+            {latestAssessment.overall_grade ?? '—'}
+          </span>
+        ) : null}
       </section>
 
-      {/* Archive Confirmation Dialog */}
+      <div className="app-screen-x app-stack">
+        {loadError ? (
+          <Surface tier="tile">
+            <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+              <Icon name="close-circle-linear" size={16} />
+              {loadError}
+            </p>
+          </Surface>
+        ) : null}
+
+        {consentStatus === 'missing' && (
+          <>
+            <InPersonConsentForm
+              clientId={client.id}
+              subjectName={`${client.first_name} ${client.last_name}`}
+              onRecorded={handleConsentRecorded}
+            />
+            <RemoteConsentButton clientId={client.id} />
+          </>
+        )}
+
+        <TrendChart history={trendPoints} tableId="client-score-table" />
+
+        <div className={styles.actionPair}>
+          <Link href={`/assessments/new?client_id=${client.id}`} className="a-primary">
+            <Icon name="scanner-linear" size={18} />
+            New scan
+          </Link>
+          <Link href="#client-workspace" className="a-secondary">
+            <Icon name="square-transfer-horizontal-linear" size={18} />
+            Compare
+          </Link>
+        </div>
+
+        <div className={styles.sectionHead}>
+          <h2 className="t-headline-sm">Scan history</h2>
+          {nextAssessmentCursor ? <span className="t-quiet">latest {assessments.length}</span> : null}
+        </div>
+
+        {historyLoadedForId !== id ? (
+          <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
+        ) : historyRows.length === 0 ? (
+          <Surface tier="tile">
+            <p className="t-body">No scans yet.</p>
+            <p className="t-quiet" style={{ marginTop: 4 }}>
+              Capture one to establish this client&apos;s baseline.
+            </p>
+          </Surface>
+        ) : (
+          <>
+            {historyRows.map((row) => (
+              <SurfaceLink key={row.id} href={row.href} tier="row" prefetch={false}>
+                <span className={styles.historyRow}>
+                  <GradeChip grade={row.grade} />
+                  <span className={styles.historyBody}>
+                    <span className={styles.historyDate} style={{ display: 'block' }}>{row.dateLabel}</span>
+                    <span className={styles.historyMeta} style={{ display: 'block' }}>{row.meta}</span>
+                  </span>
+                  <span className={`${styles.historyDelta} n`} style={{ color: tone(row.deltaBand) }}>
+                    {row.deltaIcon ? <Icon name={row.deltaIcon} size={13} /> : null}
+                    {row.delta ?? row.deltaWord}
+                  </span>
+                </span>
+              </SurfaceLink>
+            ))}
+            {historyPageError && (
+              <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">{historyPageError}</p>
+            )}
+            {nextAssessmentCursor && (
+              <button
+                type="button"
+                onClick={loadMoreAssessments}
+                disabled={loadingMoreAssessments}
+                className="a-secondary a-secondary--bar"
+                style={{ minHeight: 44 }}
+              >
+                {loadingMoreAssessments ? 'Loading older assessments…' : 'Load older assessments'}
+              </button>
+            )}
+          </>
+        )}
+
+        <div id="client-workspace" className={styles.sectionHead} style={{ paddingTop: 16 }}>
+          <h2 className="t-headline-sm">Detail</h2>
+        </div>
+
+        <ClientWorkspace
+          hasMultipleAssessments={hasMultipleAssessments}
+          findingsPanel={(
+            <RetainedFindingsTrend assessments={findingsAssessments} />
+          )}
+          comparePanel={(
+            <>
+              {nextAssessmentCursor && (
+                <p className={styles.loadingPanel} role="status" style={{ marginBottom: 12 }}>
+                  Comparing the latest {assessments.length} assessments. Load older assessments above
+                  for earlier options.
+                </p>
+              )}
+              <RetainedComparisonWorkspace
+                assessments={comparisonAssessments}
+                baseId={compareBaseId}
+                targetId={compareTargetId}
+                deltaRows={deltaRows}
+                overallComparison={selectedComparison?.overall ?? null}
+                onBaseChange={handleCompareBaseChange}
+                onTargetChange={handleCompareTargetChange}
+              />
+            </>
+          )}
+          detailsPanel={(
+            <Surface tier="tile">
+              <h2 className="t-title" style={{ marginBottom: 14 }}>Client Information</h2>
+              <div className={styles.factGrid}>
+                {dob && (
+                  <div>
+                    <p className={styles.factLabel}>Date of birth</p>
+                    <p className={styles.factValue}>{dob}</p>
+                  </div>
+                )}
+                {client.sex_at_birth && (
+                  <div>
+                    <p className={styles.factLabel}>Sex at birth</p>
+                    <p className={styles.factValue} style={{ textTransform: 'capitalize' }}>
+                      {client.sex_at_birth.replace('_', ' ')}
+                    </p>
+                  </div>
+                )}
+                {client.height_cm && (
+                  <div>
+                    <p className={styles.factLabel}>Height</p>
+                    <p className={`${styles.factValue} n`}>
+                      {round1(cmToInches(client.height_cm))} in{' '}
+                      <span className={styles.unitAlt}>({client.height_cm} cm)</span>
+                    </p>
+                  </div>
+                )}
+                {client.weight_kg && (
+                  <div>
+                    <p className={styles.factLabel}>Weight</p>
+                    <p className={`${styles.factValue} n`}>
+                      {round1(kgToPounds(client.weight_kg))} lb{' '}
+                      <span className={styles.unitAlt}>({client.weight_kg} kg)</span>
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className={styles.factLabel}>Added</p>
+                  <p className={`${styles.factValue} n`}>
+                    {new Date(client.created_at).toLocaleDateString('en-GB', {
+                      year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+                    })}
+                  </p>
+                </div>
+                {consentStatus !== 'checking' && (
+                  <div>
+                    <p className={styles.factLabel}>Consent</p>
+                    <p className={styles.factValue} style={{ color: tone(consentSummary.band) }}>
+                      {consentSummary.text}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {client.notes && (
+                <div className={styles.notes}>
+                  <p className={styles.factLabel}>Notes</p>
+                  <p className={styles.notesBody}>{client.notes}</p>
+                </div>
+              )}
+            </Surface>
+          )}
+          privacyPanel={(
+            <div style={{ marginTop: 12 }}>
+              <PrivacyLifecycleControls
+                clientId={client.id}
+                hasConsent={consentStatus === 'valid'}
+                onConsentWithdrawn={handleConsentWithdrawn}
+                onDeleted={({ externalStatus, receiptId }) => {
+                  if (externalStatus === 'pending' && receiptId) {
+                    sessionStorage.setItem('postureai:pending-erasure-receipt', receiptId)
+                  }
+                  router.push(`/clients?erasure=${externalStatus}`)
+                }}
+              />
+            </div>
+          )}
+        />
+      </div>
+
       {showArchiveConfirm && (
         <ConfirmDialog
           title="Archive Client?"
@@ -873,198 +902,10 @@ function ClientDetailRoute({
           danger
           error={archiveError}
         >
-          Archiving <strong style={{ color: 'var(--text-primary)' }}>{client.first_name} {client.last_name}</strong> will
+          Archiving <strong>{client.first_name} {client.last_name}</strong> will
           remove them from your active client list. Their data will be preserved and can be recovered.
         </ConfirmDialog>
       )}
-
-      <ClientWorkspace
-        hasMultipleAssessments={hasMultipleAssessments}
-        assessmentsPanel={(
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Assessment History</h2>
-          {historyLoadedForId !== id ? (
-            <p role="status" className={styles.loadingPanel}>Loading assessment history…</p>
-          ) : loadError ? (
-            <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>{loadError}</p>
-          ) : assessments.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No assessments yet. Click &quot;+ New Assessment&quot; to start.</p>
-          ) : (
-            <>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {[...assessments].reverse().map((a) => {
-                  const date = fmtDate(a.assessed_at)
-                  return (
-                    <li key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '12px' }}>
-                      <Link
-                        href={`/assessments/${a.id}`}
-                        prefetch={false}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>Assessment — {date}</div>
-                          {a.overall_score !== null && (
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Deviation: {a.overall_score}/100 · lower is better</div>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {a.overall_grade && (
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--brand)', background: 'rgba(0,152,243,0.12)', borderRadius: '6px', padding: '2px 8px' }}>
-                              Grade {a.overall_grade}
-                            </span>
-                          )}
-                          <span style={{ color: 'var(--text-secondary)' }}>›</span>
-                        </div>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-              {historyPageError && <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>{historyPageError}</p>}
-              {nextAssessmentCursor && (
-                <button
-                  type="button"
-                  onClick={loadMoreAssessments}
-                  disabled={loadingMoreAssessments}
-                  style={{
-                    width: '100%', minHeight: 44, borderRadius: 10,
-                    border: '1px solid rgba(0,152,243,0.28)', background: 'rgba(0,152,243,0.08)',
-                    color: 'var(--brand)', fontWeight: 600, cursor: loadingMoreAssessments ? 'wait' : 'pointer',
-                  }}
-                >
-                  {loadingMoreAssessments ? 'Loading older assessments…' : 'Load older assessments'}
-                </button>
-              )}
-            </>
-          )}
-          </div>
-        )}
-        progressPanel={(
-          <>
-            {nextAssessmentCursor && (
-              <p role="status" className={styles.loadingPanel}>
-                Showing the latest {assessments.length} assessments. Load older assessments in the Assessments tab to extend this chart.
-              </p>
-            )}
-            <RetainedProgressCharts
-              trendData={trendData}
-              trendSegments={trendSegments}
-              imbalanceKeys={imbalanceKeys}
-              imbalanceLabels={imbalanceLabels}
-            />
-          </>
-        )}
-        comparePanel={(
-          <>
-            {nextAssessmentCursor && (
-              <p role="status" className={styles.loadingPanel}>
-                Comparing the latest {assessments.length} assessments. Load older assessments in the Assessments tab for earlier options.
-              </p>
-            )}
-            <RetainedComparisonWorkspace
-              assessments={comparisonAssessments}
-              baseId={compareBaseId}
-              targetId={compareTargetId}
-              deltaRows={deltaRows}
-              overallComparison={selectedComparison?.overall ?? null}
-              onBaseChange={handleCompareBaseChange}
-              onTargetChange={handleCompareTargetChange}
-            />
-          </>
-        )}
-        infoPanel={(
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Client Information</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
-            {dob && (
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Date of Birth</div>
-                <div style={{ color: 'var(--text-primary)' }}>{dob}</div>
-              </div>
-            )}
-            {client.sex_at_birth && (
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Sex at Birth</div>
-                <div style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{client.sex_at_birth.replace('_', ' ')}</div>
-              </div>
-            )}
-            {client.height_cm && (
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Height</div>
-                <div style={{ color: 'var(--text-primary)' }}>
-                  {round1(cmToInches(client.height_cm))} in{' '}
-                  <span style={{ color: 'var(--text-secondary)' }}>({client.height_cm} cm)</span>
-                </div>
-              </div>
-            )}
-            {client.weight_kg && (
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Weight</div>
-                <div style={{ color: 'var(--text-primary)' }}>
-                  {round1(kgToPounds(client.weight_kg))} lb{' '}
-                  <span style={{ color: 'var(--text-secondary)' }}>({client.weight_kg} kg)</span>
-                </div>
-              </div>
-            )}
-            <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Added</div>
-              <div style={{ color: 'var(--text-primary)' }}>
-                {new Date(client.created_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'numeric',
-                  day: 'numeric',
-                  timeZone: 'UTC',
-                })}
-              </div>
-            </div>
-            {consentStatus !== 'checking' && (
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Consent</div>
-                {consentStatus === 'valid' ? (
-                  <div style={{ color: '#10B981', fontSize: '0.875rem' }}>
-                    ✓ {client.consent_recorded_at
-                      ? new Date(client.consent_recorded_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'numeric',
-                          day: 'numeric',
-                          timeZone: 'UTC',
-                        })
-                      : 'Recorded'}
-                  </div>
-                ) : consentStatus === 'withdrawn' ? (
-                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Withdrawn</div>
-                ) : consentStatus === 'reconsent_required' ? (
-                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>New consent required</div>
-                ) : consentStatus === 'unavailable' ? (
-                  <div style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>Status unavailable</div>
-                ) : (
-                  <div style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Not recorded</div>
-                )}
-              </div>
-            )}
-          </div>
-          {client.notes && (
-            <div style={{ marginTop: '16px' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Notes</div>
-              <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{client.notes}</div>
-            </div>
-          )}
-          </div>
-        )}
-        privacyPanel={(
-          <PrivacyLifecycleControls
-            clientId={client.id}
-            hasConsent={consentStatus === 'valid'}
-            onConsentWithdrawn={handleConsentWithdrawn}
-            onDeleted={({ externalStatus, receiptId }) => {
-              if (externalStatus === 'pending' && receiptId) {
-                sessionStorage.setItem('postureai:pending-erasure-receipt', receiptId)
-              }
-              router.push(`/clients?erasure=${externalStatus}`)
-            }}
-          />
-        )}
-      />
     </div>
   )
 }

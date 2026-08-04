@@ -107,33 +107,3 @@ export function FilterRow({ children, label }: { children: ReactNode; label: str
     </div>
   )
 }
-
-/** Tabs and view switches. Three segments at most — a tab bar must never wrap. */
-export function Segmented<T extends string>({
-  options,
-  value,
-  onChange,
-  label,
-}: {
-  options: readonly { value: T; label: string }[]
-  value: T
-  onChange: (value: T) => void
-  label: string
-}) {
-  return (
-    <div className={styles.segmented} role="tablist" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="tab"
-          aria-selected={option.value === value}
-          onClick={() => onChange(option.value)}
-          className={[styles.segment, option.value === value ? styles.segmentActive : ''].filter(Boolean).join(' ')}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}

@@ -137,9 +137,7 @@ GRANT EXECUTE ON FUNCTION public.list_owned_clients_page(text, timestamptz, time
 -- reading "Needs review 6" while the list holds only the first 50 clients would be
 -- a half-truth. Takes the same snapshot as the page it labels, so a client created
 -- mid-scroll cannot be counted by a chip while being unreachable through the cursor.
-DROP FUNCTION IF EXISTS public.owned_client_directory_summary();
-
-CREATE FUNCTION public.owned_client_directory_summary(p_snapshot_at timestamptz)
+CREATE OR REPLACE FUNCTION public.owned_client_directory_summary(p_snapshot_at timestamptz)
 RETURNS TABLE (
   total bigint,
   needs_review bigint,

@@ -15,7 +15,7 @@ utility class renders unstyled. Checkpoints are internal recovery points.
 |---|-------|-------|
 | 1 | Tokens, primitives, island nav, Today | done |
 | 2 | Clients list + `list_owned_clients_page` RPC migration | done |
-| 3 | Client detail (drops `recharts`) | pending |
+| 3 | Client detail (dropped `recharts`) | done |
 | 4 | Review — Findings + Evidence (one checkpoint; shared tab/dock state) | pending |
 | 5 | Exercise library (establishes the session-builder contract) | pending |
 | 6 | Workout player (consumes that contract) | pending |
@@ -35,7 +35,7 @@ no cleanup or dependency removal so a regression stays attributable.
 3. Capture → `app/assessments/new/FullScreenCapture.tsx`, `LiveGuides.tsx`
 4. Review · Findings → `app/assessments/[id]/`
 5. Review · Evidence → same route, Evidence tab
-6. Client detail → `app/clients/[id]/`
+6. Client detail → `app/clients/[id]/` — **done**
 7. Exercise library → `app/exercises/`
 8. Workout player → `app/workouts/_player/`
 
@@ -70,7 +70,8 @@ importing v1 tokens.
 ## Verification harness
 
 `scripts/testing/array-visual/` captures each migrated screen on an iPhone 14 viewport
-into `docs/screenshots/array/`. It asserts nothing — it exists so the build can be
+into `docs/screenshots/array/`. Set `ARRAY_VISUAL_CLIENT_ID` to a seeded client with
+several completed scans so client detail captures a real trend rather than one dot. It asserts nothing — it exists so the build can be
 graded against the handoff. **Delete the whole directory when the redesign lands.**
 
 It lives outside `e2e/` on purpose: that directory's spec list feeds the
@@ -116,6 +117,40 @@ path, and the list should cover exactly the shell files that participate in the
 Deleting `NavBar.tsx` without editing `algorithmSourcePaths` first will make
 `readFileSync` throw and break the inventory build outright.
 
+## Deploy authority — ruled 2026-08-04
+
+Standing delegation: permission calls go to Fable 5 in the owner's place.
+
+- **Preview deployments of this branch are allowed.** `serverClinicalContentAccess()`
+  calls `verifyClinicalContentAccess()` on every request regardless of `VERCEL_ENV`,
+  so an unapproved `inventory_sha256` disables clinical content automatically —
+  preview cannot leak unreviewed clinical content. Conditions: keep Vercel
+  Deployment Protection on, do not share the URL while surfaces are unstyled, and
+  never set `POSTURE_TEST_MODE_ENABLED` / `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` on
+  preview — that pair is the one path that would render unreviewed content.
+  `vercel.json` crons are Production-only, so the privacy-maintenance cron is not a
+  preview concern.
+- **Merge and Production are held.** "Deploy" is the terminal step of the checkpoint
+  chain, not the next action.
+- **One inventory regeneration, one review.** The v1-purge regeneration must land
+  *before* the clinician is asked to review. Reviewing hash #1 now and hash #2 after
+  the purge spends the clinician's attention twice, invites a rubber stamp on the
+  second pass, and would leave an approved row pointing at `NavBar.tsx` — a file
+  already scheduled for deletion.
+
+Ordered gates before Production:
+
+1. Migrate the remaining screens and the undesigned surfaces below.
+2. Complete the v1-purge checkpoint.
+3. Regenerate `content/clinical-content-inventory.json` once, post-purge.
+4. Send the clinician that single final hash.
+5. On approval, add the `clinical_content_releases` row so the RPC matches.
+6. Re-run the full test, type and lint suite.
+7. Refresh preview; confirm clinical content *activates* (not merely fails safe)
+   and every screen renders styled.
+8. Merge to the default branch.
+9. Promote to Production; confirm the cron and the clinical gate behave identically.
+
 ## Known conflicts and gaps
 
 - **Grade B changes band.** `/DESIGN.md` v2 puts A and B under Maintain. v1
@@ -128,6 +163,18 @@ Deleting `NavBar.tsx` without editing `algorithmSourcePaths` first will make
   and never presents it as a booking. A real booking row needs a scheduling feature.
 - **Scan ordinal** (`Scan 03`) needs each client's full history; the queue omits it
   rather than showing a wrong number. Add it when the queue query can join history.
+- **The comparison policy's wording is a phrase, not a chip label.** Client detail
+  shows the magnitude in the pill and `comparisonStatusText` verbatim on its own
+  full-width line. Crammed into a pill beside the card heading it wrapped mid-number.
+  Finding rows show the phrase only when there is no signed magnitude — which is
+  exactly when it carries information the row would otherwise lack.
+- **The ±3-point tolerance is smaller than the dot it marks.** On a pinned 0–100
+  domain the whisker the handoff draws is about eight user units, shorter than the
+  diameter of the latest point. It is drawn instead as a shaded band spanning the
+  compared interval: same quantity, visible, never inflated to be seen.
+- **No consent date on client detail.** The only date available to that screen is
+  `clients.consent_recorded_at`, which is not the record `getConsentStatus` decides
+  from. State without a date beats a date attributed to the wrong evidence.
 - **Status bar and home indicator** in the prototype are device chrome, not app UI.
   Deliberately not built. Safe-area insets are honoured instead.
 - **Ambient photo** is a locally hosted downscale of the Vision Engine reference

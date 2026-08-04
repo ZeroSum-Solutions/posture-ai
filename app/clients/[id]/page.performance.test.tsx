@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const workspaceRenders = vi.hoisted(() => ({
-  progress: vi.fn(),
+  findings: vi.fn(),
   comparison: vi.fn(),
   privacy: vi.fn(),
 }))
@@ -19,10 +19,13 @@ vi.mock('next/navigation', () => {
     useRouter: () => navigation.router,
   }
 })
-vi.mock('next/dynamic', () => ({
-  default: () => function ProgressChartsStub() {
-    workspaceRenders.progress()
-    return <div data-testid="progress-charts">Progress charts loaded</div>
+// The findings panel is no longer behind next/dynamic: dropping recharts removed
+// the only chunk worth deferring, so the panel is plain SVG built from the
+// history already in memory. It is still stubbed here to count its renders.
+vi.mock('./FindingsTrend', () => ({
+  default: () => {
+    workspaceRenders.findings()
+    return <div data-testid="findings-trend">Findings trend loaded</div>
   },
 }))
 vi.mock('./ComparisonWorkspace', () => ({
@@ -56,6 +59,11 @@ function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((done) => { resolve = done })
   return { promise, resolve }
+}
+
+/** Every scan row carries its deviation readout, so this counts history rows. */
+function historyRows() {
+  return screen.queryAllByRole('link', { name: /Deviation/ })
 }
 
 const assessments = [
@@ -96,7 +104,7 @@ afterEach(() => {
 })
 
 describe('client detail progressive rendering', () => {
-  it('defers hidden privacy lifecycle work until the Info tab is presented', () => {
+  it('defers hidden privacy lifecycle work until the Details tab is presented', () => {
     workspaceRenders.privacy.mockClear()
     vi.useFakeTimers()
 
@@ -107,7 +115,7 @@ describe('client detail progressive rendering', () => {
     )
 
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
     expect(screen.getByRole('heading', { name: 'Client Information' })).toBeTruthy()
     const privacyStatus = screen.getByTestId('privacy-workspace-status')
     expect(privacyStatus.getAttribute('aria-live')).toBe('polite')
@@ -124,15 +132,15 @@ describe('client detail progressive rendering', () => {
     expect(workspaceRenders.privacy).toHaveBeenCalledTimes(1)
   })
 
-  it('cancels deferred privacy work when the practitioner leaves Info', () => {
+  it('cancels deferred privacy work when the practitioner leaves Details', () => {
     workspaceRenders.privacy.mockClear()
     vi.useFakeTimers()
     render(<ClientDetailPage initialData={seededInitialData()} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
     const privacyStatus = screen.getByTestId('privacy-workspace-status')
     expect(privacyStatus.textContent).toBe('Preparing privacy controls…')
-    fireEvent.click(screen.getByRole('tab', { name: 'Assessments' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Findings' }))
     act(() => vi.advanceTimersByTime(300))
 
     expect(privacyStatus.textContent).toBe('')
@@ -166,7 +174,9 @@ describe('client detail progressive rendering', () => {
       history.resolve(response({ assessments, pagination: { has_more: false, next_cursor: null } }))
     }, 50)
 
-    expect(await screen.findByRole('tab', { name: 'Progress' })).toBeTruthy()
+    // Compare only exists once a second scan is known, so its tab appearing is
+    // the signal that history landed after the record had already painted.
+    expect(await screen.findByRole('tab', { name: 'Compare' })).toBeTruthy()
     expect(paintedBeforeSecondaryData).toBe(true)
     expect(vi.mocked(fetch).mock.calls.some(([input]) => (
       String(input) === '/api/clients/client-1/assessments?include_findings=true&limit=20'
@@ -193,60 +203,58 @@ describe('client detail progressive rendering', () => {
     const forcedLayoutSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
     const dateFormattingSpy = vi.spyOn(Date.prototype, 'toLocaleDateString')
     render(<ClientDetailPage />)
-    const progress = await screen.findByRole('tab', { name: 'Progress' })
-    const assessmentPanel = document.getElementById('client-panel-assessments')!
-    const progressPanel = document.getElementById('client-panel-progress')!
-    expect(assessmentPanel.getAttribute('aria-hidden')).toBeNull()
-    expect(progressPanel.getAttribute('aria-hidden')).toBeNull()
-    expect(assessmentPanel.hasAttribute('inert')).toBe(false)
-    expect(progressPanel.hasAttribute('inert')).toBe(false)
-    expect(progressPanel.hasAttribute('hidden')).toBe(false)
-    expect(assessmentPanel.className).toContain('workspacePanelActive')
-    expect(progressPanel.className).not.toContain('workspacePanelActive')
+    const compareTab = await screen.findByRole('tab', { name: 'Compare' })
+    const findingsPanel = document.getElementById('client-panel-findings')!
+    const comparePanel = document.getElementById('client-panel-compare')!
+    // Hidden panels are hidden by class, never by aria-hidden, inert, or hidden:
+    // the tab strip already tells assistive technology which panel is current,
+    // and the other three attributes would each fight it differently.
+    expect(findingsPanel.getAttribute('aria-hidden')).toBeNull()
+    expect(comparePanel.getAttribute('aria-hidden')).toBeNull()
+    expect(findingsPanel.hasAttribute('inert')).toBe(false)
+    expect(comparePanel.hasAttribute('inert')).toBe(false)
+    expect(comparePanel.hasAttribute('hidden')).toBe(false)
+    expect(findingsPanel.className).toContain('workspacePanelActive')
+    expect(comparePanel.className).not.toContain('workspacePanelActive')
     const dateFormattingCount = dateFormattingSpy.mock.calls.length
     vi.useFakeTimers()
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
 
-    act(() => fireEvent.click(progress))
+    act(() => fireEvent.click(compareTab))
 
-    expect(screen.getByRole('tabpanel', { name: 'Progress' })).toBeTruthy()
-    expect(assessmentPanel.getAttribute('aria-hidden')).toBeNull()
-    expect(progressPanel.getAttribute('aria-hidden')).toBeNull()
-    expect(assessmentPanel.hasAttribute('inert')).toBe(false)
-    expect(progressPanel.hasAttribute('inert')).toBe(false)
-    expect(assessmentPanel.className).not.toContain('workspacePanelActive')
-    expect(progressPanel.className).toContain('workspacePanelActive')
-    expect(assessmentPanel.tabIndex).toBe(-1)
-    expect(progressPanel.tabIndex).toBe(0)
-    expect(dateFormattingSpy).toHaveBeenCalledTimes(dateFormattingCount)
-    expect(screen.getByRole('button', { name: 'Load interactive charts' })).toBeTruthy()
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-    act(() => vi.advanceTimersByTime(300))
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-
-    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByRole('tabpanel', { name: 'Compare' })).toBeTruthy()
+    expect(findingsPanel.getAttribute('aria-hidden')).toBeNull()
+    expect(comparePanel.getAttribute('aria-hidden')).toBeNull()
+    expect(findingsPanel.hasAttribute('inert')).toBe(false)
+    expect(comparePanel.hasAttribute('inert')).toBe(false)
+    expect(findingsPanel.className).not.toContain('workspacePanelActive')
+    expect(comparePanel.className).toContain('workspacePanelActive')
+    expect(findingsPanel.tabIndex).toBe(-1)
+    expect(comparePanel.tabIndex).toBe(0)
+    // Switching panels must not re-project a single date: the trend card and the
+    // history rows are above the tab strip and are not part of the switch.
+    expect(dateFormattingSpy).toHaveBeenCalledTimes(dateFormattingCount)
     expect(screen.getByRole('status').textContent).toContain('Preparing comparison')
     act(() => vi.advanceTimersByTime(299))
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
     act(() => vi.advanceTimersByTime(1))
     const comparison = screen.getByTestId('comparison-workspace')
     const comparisonRenderCount = workspaceRenders.comparison.mock.calls.length
+    const findings = screen.getByTestId('findings-trend')
+    const findingsRenderCount = workspaceRenders.findings.mock.calls.length
 
-    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Progress' })))
-    act(() => fireEvent.click(screen.getByRole('button', { name: 'Load interactive charts' })))
-    const charts = screen.getByTestId('progress-charts')
-    const progressRenderCount = workspaceRenders.progress.mock.calls.length
-    expect(screen.getByTestId('progress-charts')).toBe(charts)
+    // Both panels stay mounted, so returning to one costs no work.
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Findings' })))
+    expect(screen.getByTestId('findings-trend')).toBe(findings)
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
     expect(screen.getByTestId('comparison-workspace')).toBe(comparison)
-    expect(workspaceRenders.progress).toHaveBeenCalledTimes(progressRenderCount)
+    expect(workspaceRenders.findings).toHaveBeenCalledTimes(findingsRenderCount)
     expect(workspaceRenders.comparison).toHaveBeenCalledTimes(comparisonRenderCount)
     expect(forcedLayoutSpy).not.toHaveBeenCalled()
   })
 
   it('cancels an abandoned deferred workspace when tabs change quickly', async () => {
+    workspaceRenders.comparison.mockClear()
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/clients/client-1') {
@@ -264,14 +272,15 @@ describe('client detail progressive rendering', () => {
     }))
 
     render(<ClientDetailPage />)
-    const progress = await screen.findByRole('tab', { name: 'Progress' })
+    const compareTab = await screen.findByRole('tab', { name: 'Compare' })
     vi.useFakeTimers()
-    act(() => fireEvent.click(progress))
-    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Compare' })))
+    act(() => fireEvent.click(compareTab))
+    act(() => fireEvent.click(screen.getByRole('tab', { name: 'Details' })))
     act(() => vi.advanceTimersByTime(300))
 
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
-    expect(screen.getByTestId('comparison-workspace')).toBeTruthy()
+    expect(screen.queryByTestId('comparison-workspace')).toBeNull()
+    expect(workspaceRenders.comparison).not.toHaveBeenCalled()
+    expect(screen.getByTestId('privacy-lifecycle-controls')).toBeTruthy()
   })
 
   it('uses server-seeded identity and history without repeating those requests after hydration', async () => {
@@ -307,9 +316,13 @@ describe('client detail progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Progress' })).toBeTruthy()
-    expect(screen.getByText('Assessment — Jul 2, 2026')).toBeTruthy()
-    expect(screen.getByText('Assessment — Jul 3, 2026')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Compare' })).toBeTruthy()
+    // Both offsets fall on the following UTC day; the row labels must name the
+    // stored day, not the viewer's. Scoped to the rows because the trend card's
+    // numeric table restates every date.
+    const rowText = historyRows().map(row => row.textContent).join(' | ')
+    expect(rowText).toContain('2 Jul 2026')
+    expect(rowText).toContain('3 Jul 2026')
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled())
   })
 
@@ -333,11 +346,13 @@ describe('client detail progressive rendering', () => {
       />,
     )
 
-    expect(screen.getByText('unavailable', { exact: true })).toBeTruthy()
-    fireEvent.click(screen.getByRole('tab', { name: 'Info' }))
-    const infoPanel = document.getElementById('client-panel-info')!
-    expect(infoPanel.className).toContain('workspacePanelActive')
-    expect(infoPanel.textContent).toContain('Status unavailable')
+    // Stated on the identity line and again in the Details panel's fact grid.
+    expect(screen.getAllByText(/Consent status unavailable/).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
+    const detailsPanel = document.getElementById('client-panel-details')!
+    expect(detailsPanel.className).toContain('workspacePanelActive')
+    expect(detailsPanel.textContent).toContain('Consent status unavailable')
+    // An unknown consent state must never offer the in-person consent form.
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
   })
 
@@ -400,17 +415,19 @@ describe('client detail progressive rendering', () => {
     render(<ClientDetailPage />)
     fireEvent.click(await screen.findByRole('button', { name: 'Load older assessments' }))
 
-    await waitFor(() => expect(screen.getAllByText('Grade S')).toHaveLength(2))
-    expect(screen.getAllByText(/^Assessment — /)).toHaveLength(3)
-    expect(screen.getByText('3+')).toBeTruthy()
+    // assessment-2 arrives again with a revised grade; the merge must replace it
+    // rather than append a second row for the same scan.
+    await waitFor(() => expect(historyRows()).toHaveLength(3))
+    expect(historyRows()[0].textContent).toContain('Deviation 5 / 100')
+    expect(screen.getByText(/3\+ scans/)).toBeTruthy()
     expect(fetchMock.mock.calls.some(([input]) => (
       String(input).includes('include_findings=true&limit=50&cursor=cursor-one')
     ))).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Load older assessments' }))
 
-    await waitFor(() => expect(screen.getAllByText(/^Assessment — /)).toHaveLength(4))
-    expect(screen.getByText('4')).toBeTruthy()
+    await waitFor(() => expect(historyRows()).toHaveLength(4))
+    expect(screen.getByText(/4 scans/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Load older assessments' })).toBeNull()
     expect(fetchMock.mock.calls.some(([input]) => (
       String(input).includes('include_findings=true&limit=50&cursor=cursor-two')
@@ -447,14 +464,14 @@ describe('client detail progressive rendering', () => {
 
     const view = render(<ClientDetailPage />)
     expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy()
-    expect(await screen.findByRole('tab', { name: 'Progress' })).toBeTruthy()
-    expect(screen.getByText('2+')).toBeTruthy()
+    expect(await screen.findByRole('tab', { name: 'Compare' })).toBeTruthy()
+    expect(screen.getByText(/2\+ scans/)).toBeTruthy()
 
     navigation.id = 'client-2'
     view.rerender(<ClientDetailPage />)
 
     expect(screen.queryByRole('heading', { name: 'Ada Lovelace' })).toBeNull()
-    expect(screen.getByRole('status').textContent).toContain('Loading client evidence')
+    expect(screen.getByRole('status').textContent).toContain('Loading client record')
 
     await act(async () => {
       replacementClient.resolve(response({
@@ -468,10 +485,10 @@ describe('client detail progressive rendering', () => {
     })
 
     expect(await screen.findByRole('heading', { name: 'Grace Hopper' })).toBeTruthy()
-    expect(screen.queryByRole('tab', { name: 'Progress' })).toBeNull()
-    expect(screen.queryByTestId('progress-charts')).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Compare' })).toBeNull()
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
-    expect(screen.queryByText('2+')).toBeNull()
+    expect(screen.queryByText(/2\+ scans/)).toBeNull()
+    expect(historyRows()).toHaveLength(0)
     expect(screen.getByRole('status').textContent).toContain('Loading assessment history')
 
     await act(async () => {
@@ -482,7 +499,7 @@ describe('client detail progressive rendering', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Could not load the assessment history for this client.',
     )
-    expect(screen.queryByRole('tab', { name: 'Progress' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Compare' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Load older assessments' })).toBeNull()
   })
 })

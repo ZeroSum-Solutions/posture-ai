@@ -68,34 +68,3 @@
   border-radius: 9999px;
   flex-shrink: 0;
 }
-
-/* Segmented control — 150ms bg swap, white pill on active. Must not wrap. */
-.segmented {
-  display: flex;
-  padding: 4px;
-  border-radius: 9999px;
-  border: 1px solid var(--hairline);
-  background: rgba(0, 0, 0, 0.4);
-  -webkit-backdrop-filter: blur(var(--blur-tile));
-  backdrop-filter: blur(var(--blur-tile));
-}
-.segment {
-  flex: 1;
-  min-width: 0;
-  min-height: 36px;
-  padding: 9px 0;
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
-  color: var(--text-secondary);
-  font: 400 12px/1 var(--font-sans);
-  text-align: center;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background var(--duration-state) var(--ease-standard), color var(--duration-state) var(--ease-standard);
-}
-.segmentActive {
-  background: #fff;
-  color: #000;
-  font-weight: 500;
-}

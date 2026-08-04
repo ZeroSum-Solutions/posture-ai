@@ -60,11 +60,15 @@ export function SurfaceLink({
   innerClassName,
   innerStyle,
   'aria-label': ariaLabel,
-}: BaseProps & { href: string; 'aria-label'?: string }) {
+  prefetch,
+}: BaseProps & { href: string; 'aria-label'?: string; prefetch?: boolean }) {
   return (
     <Link
       href={href}
       aria-label={ariaLabel}
+      /* A list of rows should not prefetch every destination; long histories set
+         this to false so a scroll does not fetch a page per row. */
+      prefetch={prefetch}
       className={[styles.shell, styles[tier], styles.interactive, padClass[pad], className].filter(Boolean).join(' ')}
       style={style}
     >
