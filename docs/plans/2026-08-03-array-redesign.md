@@ -160,6 +160,36 @@ Ordered gates before Production:
 8. Merge to the default branch.
 9. Promote to Production; confirm the cron and the clinical gate behave identically.
 
+## Production schema is seven migrations behind (found 2026-08-04)
+
+Not caused by this branch and not fixable from it. The cloud ledger for
+`dhrkezfypzutiwtmcmof` stops at `20260712000000_per_side_observations`; the local
+chain has eight files after it. Verified directly against the live schema — none of
+`list_owned_clients_page`, `current_keyset_snapshot`,
+`verify_clinical_content_activation`, `clinical_content_releases`,
+`erasure_requests`, or the `consent_records` legal-provenance columns exist there.
+
+Consequences on production today, independent of the redesign: the clients
+directory and the client-detail server seed cannot resolve their RPCs, the clinical
+content gate fails closed, the privacy/erasure lifecycle has no table, and consent
+legal state cannot be evaluated. The code fails closed rather than showing wrong
+data, so this presents as features being unavailable, not as incorrect clinical
+output.
+
+This blocks applying `20260803000000_client_directory_trend.sql`: it drops and
+recreates `list_owned_clients_page`, which `20260722011000_owned_client_search.sql`
+creates, and that file is not on production either.
+
+**Do not resolve this autonomously.** Two of the pending migrations —
+`20260720000000_legal_document_provenance` and `20260720020000_clinical_content_governance`
+— carry activation latches that `docs/RUNBOOK.md` says must not be activated during
+autonomous engineering or before the counsel/product HG-02 and HG-03 gates. The
+catch-up is an owner-supervised release, not a redesign step.
+
+Recorded risk: one Supabase project serves production, preview and dev, so every
+branch preview is a live client against real clinical records with no isolation.
+A dedicated preview project would stop this being a per-PR judgement call.
+
 ## Known conflicts and gaps
 
 - **Grade B changes band.** `/DESIGN.md` v2 puts A and B under Maintain. v1
