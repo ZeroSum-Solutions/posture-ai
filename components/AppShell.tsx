@@ -4,12 +4,11 @@ import { MotionConfig } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
-import AppAtmosphere from './AppAtmosphere'
-import NavBar from './NavBar'
+import AmbientField from './array/AmbientField'
+import IslandNav from './array/IslandNav'
+import { shouldRenderAmbientField } from './array/fieldPolicy'
 import MotionOrchestrator from './MotionOrchestrator'
 import AuthSessionGuard from './AuthSessionGuard'
-import { shouldRenderAppAtmosphere } from './appAtmospherePolicy'
-import { isOperationalRoute } from './motionOrchestratorPolicy'
 import LegalNotice from './LegalNotice'
 
 export default function AppShell({
@@ -20,19 +19,12 @@ export default function AppShell({
   clinicalContentEnabled: boolean
 }) {
   const pathname = usePathname() ?? ''
-  const showAtmosphere = shouldRenderAppAtmosphere(pathname)
-  const shellClassName = [
-    'app-shell',
-    showAtmosphere ? 'app-shell--immersive' : '',
-    isOperationalRoute(pathname) ? 'app-shell--operational' : '',
-  ].filter(Boolean).join(' ')
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className={shellClassName}>
-        {showAtmosphere && <AppAtmosphere />}
+      <div className="app-shell">
+        {shouldRenderAmbientField(pathname) && <AmbientField />}
         <AuthSessionGuard pathname={pathname}>
-          <NavBar clinicalContentEnabled={clinicalContentEnabled} />
           <MotionOrchestrator>{children}</MotionOrchestrator>
         </AuthSessionGuard>
         <footer className="app-footer">
@@ -43,6 +35,7 @@ export default function AppShell({
             <Link href="/terms">Terms of Use</Link>
           </div>
         </footer>
+        <IslandNav clinicalContentEnabled={clinicalContentEnabled} />
       </div>
     </MotionConfig>
   )

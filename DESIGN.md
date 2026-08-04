@@ -1,131 +1,150 @@
 ---
-version: 1
-name: Posture AI Dark
+version: 2
+name: Posture AI — Array
 description: >-
-  A premium dark product system for clinical posture screening. Quiet depth,
-  unmistakable actions, and readable evidence—not medical ornament.
+  Mobile-first glass console for posture screening on the gym floor. Pure black
+  field, gradient-shell glass cards, Roboto Light headlines, white pill actions,
+  and a floating island nav. Replaces "Posture AI Dark" (v1) entirely.
+  Derived from the Vision Engine — Scan Console contract.
+colors:
+  background: "#000000"
+  surface-glass: "rgba(0,0,0,0.30)"
+  shell-gradient: "linear-gradient(135deg, rgba(255,255,255,.40), rgba(255,255,255,.05) 46%, rgba(255,255,255,.10))"
+  action: "#FFFFFF"
+  action-text: "#000000"
+  text-primary: "rgba(255,255,255,0.95)"
+  text-secondary: "rgba(255,255,255,0.60)"
+  text-tertiary: "rgba(255,255,255,0.45)"
+  hairline: "rgba(255,255,255,0.10)"
+  maintain: "#10B981"
+  monitor: "#F59E0B"
+  review: "#EF4444"
+  info: "#0A83C9"
+typography:
+  font: "Roboto"
+  headline-lg: { size: "30px", weight: 300, lineHeight: 1.12, tracking: "-0.025em" }
+  headline-sm: { size: "20px", weight: 300, lineHeight: 1.2,  tracking: "-0.025em" }
+  readout-xl:  { size: "64px", weight: 100, tracking: "-0.03em", numeric: "tabular" }
+  readout-lg:  { size: "24px", weight: 300, tracking: "-0.025em", numeric: "tabular" }
+  readout-md:  { size: "20px", weight: 300, tracking: "-0.025em", numeric: "tabular" }
+  title-md:    { size: "14px", weight: 400, tracking: "0.01em" }
+  body-md:     { size: "12px", weight: 300, lineHeight: 1.62 }
+  label-md:    { size: "12px", weight: 500, lineHeight: "16px" }
+  kicker:      { size: "12px", weight: 400, tracking: "0.16em", transform: "uppercase" }
+radius:  { sm: "12px", md: "15px", lg: "16px", card: "23px", shell: "24px", frame: "48px", full: "9999px" }
+spacing: { base: "4px", scale: [4, 6, 8, 12, 14, 16, 20, 24, 32, 48], screen-x: "16px", prose-x: "24px", card: "20px", tile: "14px" }
+blur:    { card: "40px", tile: "24px", ambient: "4px" }
 ---
 
-# Posture AI design system
+## What changed from v1
 
-## Intent
+v1 ("Posture AI Dark") stacked one glass recipe at one elevation across every
+panel, so a hero, a metric and a list row read at the same weight. It also
+carried eleven type sizes with no scale and used IBM Plex Mono for every number.
+v2 fixes those three things specifically: **two** surface tiers instead of one,
+**seven** type roles instead of eleven, and numerals set in Roboto Light with
+tabular figures rather than a monospace face.
 
-Posture AI makes a practitioner's screening workflow feel focused, modern, and
-substantial. The product is dark by default: neutral smoked glass, directional
-highlights, and the same black, white, orange, and electric-cyan palette. The visual language borrows the cinematic
-restraint, layered panels, and decisive composition of the Fusion AI reference
-without copying its content, layout, assets, or code.
+Do not reintroduce: `--glass-*` tokens, the orange→black→cyan border gradient,
+`backdrop-filter` on list rows, or IBM Plex Mono.
 
-This is a screening product, not a diagnosis tool. Keep its language precise,
-plain, and calm. Decorative graphics must never compete with a finding,
-measurement, or decision.
+## Field
 
-## Core rules
+Every screen is pure `#000` with the ambient photograph behind the content and a
+legibility veil over it — the same treatment as the source console.
 
-- Black is the world; structural glass must stay neutral, never green or olive.
-- Color is localized illumination behind glass, not an opaque panel fill.
-- Use blue and orange/rust as deliberate, paired accent moments. Use the dark
-  interior and gradient-rim treatment for primary actions.
-- One primary action per screen. Secondary actions use a tonal surface or a
-  hairline border.
-- Glow indicates focus, progress, or an active action—not decoration.
-- Never encode screening state in color alone; pair it with a label, icon, or
-  grade.
-- Use the 8-point grid. Keep air around major content and density inside data
-  panels.
-- Motion is short and purposeful: 120ms press, 180ms hover, 240ms state,
-  320ms panels. Respect reduced motion.
+```
+ambient:  <img> photo, object-fit: cover, scale(1.1)
+          → opacity: .6; mix-blend-mode: screen; filter: blur(4px) saturate(.85)
+veil:     linear-gradient(to bottom, rgba(0,0,0,.5), rgba(0,0,0,.1) 45%, rgba(0,0,0,.8))
+```
 
-## Tokens
+Immersive screens (capture, player) skip the photo — their background is the
+live camera / video frame. The ambient carries the mood; content stays neutral.
 
-### Surfaces
+## Surfaces — two tiers only
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--background` | `#000000` | Page canvas |
-| `--surface` | `#0A0B0D` | Neutral panel fallback |
-| `--surface-elevated` | `#0E0F12` | Raised neutral fallback |
-| `--surface-strong` | `#17191D` | Pressed or selected wells |
-| `--glass-fill` | `rgba(10,11,13,.62)` | Transmissive major panels |
-| `--glass-well` | `rgba(5,5,6,.90)` | Controls nested inside glass |
-| `--glass-border` | `rgba(255,255,255,.10)` | Neutral glass hairline |
-| `--glass-highlight` | `rgba(255,255,255,.14)` | Directional top highlight |
-| `--spectral-warm` | `#FF8A2A` | Localized warm beam |
-| `--spectral-cool` | `#38D6FF` | Localized cool beam |
-| `--border` | `#24262B` | Quiet separators |
-| `--border-strong` | `#3C4048` | Inputs and active boundaries |
+**Tier 1 — feature card.** One per screen, maximum two. Gradient shell, 24px
+outer radius, 1px padding, 23px inner radius, `blur(40px)`, `rgba(0,0,0,.30)`.
 
-### Type and action
+```html
+<div style="position:relative;border-radius:24px;padding:1px;overflow:hidden;
+            box-shadow:0 25px 50px -12px rgba(0,0,0,.4)">
+  <div style="position:absolute;inset:0;background:<shell-gradient>;opacity:.7"></div>
+  <div style="position:relative;backdrop-filter:blur(40px);border-radius:23px;
+              padding:20px;background:rgba(0,0,0,.30)">…</div>
+</div>
+```
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--text-primary` | `#FFFFFF` | Primary copy |
-| `--text-secondary` | `#CCCCCC` | Supporting copy |
-| `--text-muted` | `#949494` | Metadata |
-| `--brand` | `#0098F3` | Electric-blue focus and active state |
-| `--brand-warm` | `#FF8918` | Orange accent moment |
-| `--brand-hot` | `#DA4E24` | Rust depth |
-| `--brand-gradient` | orange → rust → black → blue | Gradient rim / atmosphere |
+**Tier 2 — tile / row.** Everything else. Same shell at `opacity:.5–.6`, 16px
+outer / 15px inner radius, `blur(24px)`, 14px padding, no drop shadow.
 
-### Clinical state and data
+There is no tier 3. If something needs to sit above a tier 1 card, it belongs in
+the pinned action bar or the island, not in a new surface.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--maintain` | `#5BD5AC` | Maintain state |
-| `--warning` | `#FF8918` | Review state |
-| `--danger` | `#DA4E24` | Significant state |
-| `--data-blue` | `#0098F3` | Charts and active data |
+## Type
 
-## Typography
+Roboto only. Headlines are Light (300) at `-0.025em` — the tracking is what makes
+them read as considered rather than default. Body is Light 12px; labels are
+Medium 12px. Never bold a headline; never set body above 14px.
 
-Inter carries every interface and headline: confident, legible, and compact
-at small sizes. IBM Plex Mono is reserved for measurements, grades, timing,
-and other numeric evidence. Use Inter 400, 500, 600, and 700; never use a
-third family.
+Numbers are content, not chrome: Roboto Light with `font-variant-numeric:
+tabular-nums`, sized by importance (64 / 24 / 20 / 14). A measurement is always
+shown with its reference range — `47.2°` next to `ref ≥ 53°` — never alone.
 
-Use the following scale: 12, 14, 16, 20, 24, 32, 40, 56px. Display line height
-is 1.0–1.12; body line height is 1.5–1.6. Keep body copy to 65 characters or
-less when a comfortable measure is possible.
+## Severity
 
-## Components
+Three bands, mapped from the engine grade. This is the one semantic state added
+beyond the source contract's emerald/red pair, and it exists because a screening
+grade is a ramp, not a pass/fail.
 
-- **Primary button:** near-black interior with a restrained orange-to-blue
-  gradient rim, white label, 10px radius, and 44px minimum height.
-- **Secondary button:** graphite fill, quiet border, white label. It must never
-  compete with the primary action.
-- **Glass navigation:** neutral `rgba(8,9,11,.66)`, 1px white-alpha border,
-  `blur(28px) saturate(145%)`, and a brighter top edge.
-- **Panel:** neutral `rgba(10,11,13,.62)` over localized orange/cyan light,
-  `blur(24–40px) saturate(140–160%)`, directional inner highlights, and layered
-  black shadows. Use 20–24px radius for major panels and 12–14px for controls.
-- **Nested control:** use a near-black well (`#050506`), visibly darker than
-  its surrounding glass. Do not use cloudy white or colored structural fills.
-- **Data readout:** IBM Plex Mono, tabular figures, direct labels, and at least
-  3:1 graphical contrast.
+| Band     | Colour    | Grades | Means                        |
+|----------|-----------|--------|------------------------------|
+| Maintain | `#10B981` | A, B   | Inside range, keep going     |
+| Monitor  | `#F59E0B` | C      | Outside range, not urgent    |
+| Review   | `#EF4444` | D, E   | Flag and address             |
 
-## Composition
+Colour appears as a 16%-tint chip with a 42% ring, a 4px progress fill, or a
+7px dot. Never as a filled block behind body text.
 
-Marketing may use a slow abstract atmospheric field behind the hero and a
-product-like report panel as the key visual. The authenticated product should
-favor a persistent shell, direct navigation, clear page titles, and one
-dominant task per view. A practitioner should understand a screen's next step
-within three seconds.
+## Actions
 
-### Authenticated application
+- **Primary:** white fill, black text, `label-md`, full radius (pills) or 16px
+  (bars), `0 10px 15px -3px rgba(0,0,0,.3)`. One per screen.
+- **Secondary:** `rgba(0,0,0,.5)` + `blur(24px)` + 1px inset white hairline.
+- **Destructive/blocked:** never a red button. Blocked actions dim to `.45` and
+  state the reason directly above them.
+- Minimum target 44px. Bottom bars sit above a 150px `to-top` black fade.
 
-- Treat the dashboard as a practitioner console, not a marketing page: lead with
-  the next action, then the few measurements that orient the practitioner.
-- Major dashboard sections use 22–24px neutral glass panels. Dense activity rows
-  and filters sit in 12–14px near-black wells so scan targets remain distinct.
-- Keep orange/cyan as localized illumination and data emphasis. Use semantic
-  maintain, review, and alert colors only with a visible label.
-- At desktop, persistent navigation and one primary action remain visible. At
-  mobile, stack data panels and keep the primary action full width.
+## Island navigation
 
-## Accessibility gates
+Fixed pill, 6px padding, `rgba(0,0,0,.55)` + `blur(40px)`, gradient ring.
+Five slots: Today, Clients, **Capture**, Library, Profile. The active tab expands
+into a white labelled pill (44px tall, 16px inline padding); inactive tabs are
+44px circles at `rgba(255,255,255,.5)`. Capture is always an emerald-tinted
+circle — it is an action, not a destination, and never expands.
 
-- Normal text: at least 4.5:1 contrast; aim for 7:1 for critical reading.
-- All controls: 44px minimum target and visible keyboard focus.
-- Mobile layouts: test at 375px, 768px, 1024px, and 1440px with no horizontal
-  scroll.
-- Avoid auto-playing decorative motion; honour `prefers-reduced-motion`.
+Immersive screens (capture, player) hide the island and show only the home
+indicator.
+
+## Iconography
+
+Solar linear, via `iconify-icon`. 20px in nav and controls, 18px in tiles, 14px
+inline with text. Never filled, never two-tone, never emoji.
+
+## Motion
+
+Moderate. 150ms for state, 300ms for layout, `cubic-bezier(0.4, 0, 0.2, 1)`.
+Masked word reveal on headlines (`power4.out`, 0.05 stagger); cards rise 44px on
+scroll entry; the island scales 0.96→1 on tab change. No parallax on data, ever.
+
+## Do / Don't
+
+**Do** state a measurement with its reference range. Do gate an action and say
+why, rather than warning and allowing. Do keep one primary action per screen.
+Do write disclaimers as one line.
+
+**Don't** add a fourth radius family, a third surface tier, or an accent outside
+the five roles. Don't repeat a value in two places on one screen (the v1 grade
+appeared as a ring and again in the dock). Don't let a tab bar wrap. Don't use
+`backdrop-filter` on more than two nested levels — it compounds and muddies.

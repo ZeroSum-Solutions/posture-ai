@@ -1,0 +1,101 @@
+/* Colour appears as a 16%-tint chip with a 42% ring, a 4px progress fill, or a
+   7px dot — never as a filled block behind body text. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.chipSm {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+/* Filter chips are a control, so they carry the 44px target rule via padding. */
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9999px;
+  font: 500 12px/1 var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filterCount {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+.filterRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The grade chip: a letter in a 40px tinted square, leading its row. */
+.grade {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 300;
+}
+.gradeLg {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+/* Segmented control — 150ms bg swap, white pill on active. Must not wrap. */
+.segmented {
+  display: flex;
+  padding: 4px;
+  border-radius: 9999px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(var(--blur-tile));
+  backdrop-filter: blur(var(--blur-tile));
+}
+.segment {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 400 12px/1 var(--font-sans);
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--duration-state) var(--ease-standard), color var(--duration-state) var(--ease-standard);
+}
+.segmentActive {
+  background: #fff;
+  color: #000;
+  font-weight: 500;
+}

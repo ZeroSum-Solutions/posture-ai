@@ -1,0 +1,76 @@
+/* Banded bars. A measurement is always shown with its reference range, and the
+   band the value falls in is stated in words beside the bar — colour alone is
+   never the carrier. */
+
+.range {
+  position: relative;
+  height: 16px;
+}
+.rangeTrack {
+  position: absolute;
+  inset: 6px 0;
+  border-radius: 9999px;
+}
+/* The reference cut-point: a white tick the value dot is read against. */
+.rangeRef {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 1.5px;
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateX(-50%);
+}
+.rangeDot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2.5px rgba(0, 0, 0, 0.6);
+}
+
+.rail {
+  position: relative;
+  height: 20px;
+  margin-bottom: 6px;
+}
+.railTrack {
+  position: absolute;
+  inset: 7px 0;
+  border-radius: 9999px;
+}
+.railEdge {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.6);
+}
+/* Bright dot = this scan. */
+.railNow {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.65), 0 0 14px rgba(255, 255, 255, 0.4);
+}
+/* Faded dot = the previous scan. */
+.railPrev {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+  transform: translate(-50%, -50%);
+}
+.railLegend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 300;
+}
