@@ -1,30 +1,37 @@
 'use client'
-import { startTransition, useState, useEffect, useCallback, useRef } from 'react'
+
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import DebouncedSearchInput from '@/components/DebouncedSearchInput'
+import Icon from '@/components/array/Icon'
+import { FilterChip, FilterRow, GradeChip } from '@/components/array/Chip'
+import { Surface, SurfaceLink } from '@/components/array/Surface'
+import { tone } from '@/components/array/severity'
+import { CLIENT_FILTERS, toDirectoryRow, type ClientFilter, type DirectoryClient } from './clientRow'
+import styles from './ClientsPage.module.css'
 
-interface Client {
-  id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string | null
-  created_at: string
+interface DirectorySummary {
+  total: number
+  needs_review: number
+  improving: number
+  overdue: number
 }
 
 interface ClientPageResponse {
-  clients?: Client[]
-  pagination?: {
-    next_cursor?: string | null
-    has_more?: boolean
-  }
+  clients?: DirectoryClient[]
+  summary?: DirectorySummary | null
+  pagination?: { next_cursor?: string | null; has_more?: boolean }
   error?: string
 }
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<DirectoryClient[]>([])
+  const [summary, setSummary] = useState<DirectorySummary | null>(null)
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<ClientFilter>('all')
   const [searchRevision, setSearchRevision] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  /** A refetch over results already on screen: announce it, keep them visible. */
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -33,6 +40,7 @@ export default function ClientsPage() {
   const requestVersion = useRef(0)
   const clientPageController = useRef<AbortController | null>(null)
   const loadMoreController = useRef<AbortController | null>(null)
+
   useEffect(() => () => {
     clientPageController.current?.abort()
     loadMoreController.current?.abort()
@@ -40,10 +48,11 @@ export default function ClientsPage() {
 
   const fetchClientPage = useCallback(async (input: {
     search: string
+    filter: ClientFilter
     cursor?: string | null
     signal?: AbortSignal
   }): Promise<ClientPageResponse> => {
-    const query = new URLSearchParams({ limit: '50' })
+    const query = new URLSearchParams({ limit: '50', filter: input.filter })
     if (input.search) query.set('search', input.search)
     if (input.cursor) query.set('cursor', input.cursor)
     const response = await fetch(`/api/clients?${query.toString()}`, {
@@ -59,23 +68,23 @@ export default function ClientsPage() {
     return body
   }, [])
 
-  // Server-side search is debounced so a growing directory never has to be
-  // downloaded just to filter it in the browser. Each response is a maximum of
-  // 50 records and older responses are discarded when the query changes.
+  // The directory loads on arrival and reloads when the search or filter changes.
+  // Filtering happens in SQL, so a page always reflects the chip that is lit — a
+  // client-side filter over one page would quietly hide matching records.
   useEffect(() => {
     const version = ++requestVersion.current
     clientPageController.current?.abort()
     const normalizedSearch = search.trim().replace(/\s+/g, ' ')
-    if (!normalizedSearch) return
-
     const controller = new AbortController()
     clientPageController.current = controller
-    const timer = window.setTimeout(async () => {
+
+    const run = async () => {
       try {
-        const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
+        const body = await fetchClientPage({ search: normalizedSearch, filter, signal: controller.signal })
         if (controller.signal.aborted || requestVersion.current !== version) return
         startTransition(() => {
           setClients(body.clients ?? [])
+          if (body.summary) setSummary(body.summary)
           setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
           setError(null)
           setLoading(false)
@@ -90,20 +99,16 @@ export default function ClientsPage() {
           setSearching(false)
         })
       } finally {
-        if (clientPageController.current === controller) {
-          clientPageController.current = null
-        }
-      }
-    }, 0)
-
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-      if (clientPageController.current === controller) {
-        clientPageController.current = null
+        if (clientPageController.current === controller) clientPageController.current = null
       }
     }
-  }, [fetchClientPage, search, searchRevision])
+    void run()
+
+    return () => {
+      controller.abort()
+      if (clientPageController.current === controller) clientPageController.current = null
+    }
+  }, [fetchClientPage, search, searchRevision, filter])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -115,38 +120,6 @@ export default function ClientsPage() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [])
-
-  async function loadMoreClients() {
-    if (!nextCursor || loadingMore) return
-    const version = requestVersion.current
-    loadMoreController.current?.abort()
-    const controller = new AbortController()
-    loadMoreController.current = controller
-    setLoadingMore(true)
-    setError(null)
-    try {
-      const body = await fetchClientPage({
-        search: search.trim().replace(/\s+/g, ' '),
-        cursor: nextCursor,
-        signal: controller.signal,
-      })
-      if (requestVersion.current !== version) return
-      setClients((current) => {
-        const seen = new Set(current.map((client) => client.id))
-        return [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
-      })
-      setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
-    } catch (caught) {
-      if ((caught as Error)?.name !== 'AbortError' && requestVersion.current === version && (caught as Error)?.message !== 'Unauthorized') {
-        setError('Could not load more clients. Try again.')
-      }
-    } finally {
-      if (loadMoreController.current === controller) {
-        loadMoreController.current = null
-        setLoadingMore(false)
-      }
-    }
-  }
 
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get('erasure')
@@ -179,126 +152,201 @@ export default function ClientsPage() {
     }
   }, [])
 
+  async function loadMoreClients() {
+    if (!nextCursor || loadingMore) return
+    const version = requestVersion.current
+    loadMoreController.current?.abort()
+    const controller = new AbortController()
+    loadMoreController.current = controller
+    setLoadingMore(true)
+    setError(null)
+    try {
+      const body = await fetchClientPage({
+        search: search.trim().replace(/\s+/g, ' '),
+        filter,
+        cursor: nextCursor,
+        signal: controller.signal,
+      })
+      if (requestVersion.current !== version) return
+      setClients((current) => {
+        const seen = new Set(current.map((client) => client.id))
+        return [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
+      })
+      setNextCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
+    } catch (caught) {
+      if ((caught as Error)?.name !== 'AbortError' && requestVersion.current === version && (caught as Error)?.message !== 'Unauthorized') {
+        setError('Could not load more clients. Try again.')
+      }
+    } finally {
+      if (loadMoreController.current === controller) {
+        loadMoreController.current = null
+        setLoadingMore(false)
+      }
+    }
+  }
+
+  // One clock per loaded page, so every "scanned N days ago" on screen agrees.
+  const now = useMemo(() => Date.now(), [clients])
+  const rows = useMemo(() => clients.map((client) => toDirectoryRow(client, now)), [clients, now])
+
+  const counts: Record<ClientFilter, number | undefined> = {
+    all: summary?.total,
+    needs_review: summary?.needs_review,
+    improving: summary?.improving,
+    overdue: summary?.overdue,
+  }
+  const activeLabel = CLIENT_FILTERS.find((entry) => entry.value === filter)?.label ?? 'All'
+
   return (
-    <div className="app-standard-page">
-      <div className="app-page-header">
+    <div className="app-screen">
+      <header className={styles.header}>
         <div>
-          <p className="app-page-kicker">Practice directory</p>
-          <h1 className="app-page-heading">Clients</h1>
-          <p className="app-page-lede">Find a record, review prior screens, or begin a new baseline.</p>
+          <p className="t-kicker" style={{ marginBottom: 10 }}>
+            Directory{summary ? ` — ${summary.total} active` : ''}
+          </p>
+          <h1 className="t-headline">Clients</h1>
         </div>
-        <Link
-          href="/clients/new"
-          className="app-gradient-action"
-        >
-          <span>New client&nbsp; ↗</span>
+        <Link href="/clients/new" className={styles.add} aria-label="Add a new client">
+          <Icon name="user-plus-linear" size={20} />
         </Link>
-      </div>
+      </header>
 
-      <div className="app-search-shell">
-        <DebouncedSearchInput
-          placeholder="Search clients by name..."
-          ariaLabel="Search clients by name"
-          onInputActivity={() => {
-            // Keep the input DOM-owned while cancelling an obsolete settled
-            // search immediately. The empty directory never starts a request.
-            const controller = clientPageController.current
-            if (!controller) return false
-            requestVersion.current += 1
-            controller.abort()
-            clientPageController.current = null
-            return true
-          }}
-          onQueryChange={(query) => {
-            loadMoreController.current?.abort()
-            loadMoreController.current = null
-            setLoadingMore(false)
-            const hasSearch = query.trim().length > 0
-            if (query === search) {
-              setSearchRevision((current) => current + 1)
-            } else {
-              setSearch(query)
-            }
-            if (!hasSearch) setClients([])
-            setLoading(hasSearch && clients.length === 0)
-            setSearching(hasSearch)
-            setError(null)
-            setNextCursor(null)
-          }}
-          style={{
-            width: '100%',
-            padding: '10px 14px',
-            background: 'var(--surface)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '8px',
-            color: 'var(--text-primary)',
-            fontSize: '0.9rem',
-            minHeight: '44px',
-            boxSizing: 'border-box' as const,
-          }}
-        />
-      </div>
-
-      {searching && !loading && (
-        <p role="status" aria-live="polite" style={{ color: 'var(--text-secondary)', margin: '-12px 0 16px' }}>
-          Searching…
-        </p>
-      )}
-
-      {erasureNotice === 'complete' && (
-        <p role="status" className="app-panel" style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
-          Client data was erased. No external file cleanup remains.
-        </p>
-      )}
-      {erasureNotice === 'pending' && (
-        <p role="alert" className="app-panel" style={{ padding: '12px 16px', color: 'var(--warning)' }}>
-          Client database data was erased. Stored report cleanup is still pending; this page is checking its retry status automatically.
-        </p>
-      )}
-
-      {error && <p role="alert" style={{ color: 'var(--danger)' }}>Error loading clients: {error}</p>}
-
-      {loading ? (
-        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">···</span></div><div><h2>Loading clients</h2><p>Preparing the practice directory.</p></div></div>
-      ) : error && clients.length === 0 ? null : clients.length === 0 && !search.trim() ? (
-        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">⌕</span></div><div><h2>Search by first or last name</h2><p>Enter a client name to open a record or review prior screens.</p></div><Link href="/clients/new">Add a new client →</Link></div>
-      ) : clients.length === 0 ? (
-        <div className="app-panel app-empty-state"><div className="app-empty-state-icon"><span className="data-readout">0</span></div><div><h2>No matching clients</h2><p>Try a different first or last name.</p></div></div>
-      ) : (
-        <>
-          <div className="app-list">
-            {clients.map((client, index) => (
-              <Link
-                key={client.id}
-                href={`/clients/${client.id}`}
-                prefetch={false}
-                className="app-list-row"
-                style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
-              >
-                <span className="app-row-index">{String(index + 1).padStart(2, '0')}</span>
-                <span className="app-row-main">{client.first_name} {client.last_name}</span>
-                <span className="app-row-meta">
-                  {client.date_of_birth
-                    ? `DOB: ${new Date(client.date_of_birth).toLocaleDateString()}`
-                    : `Added ${new Date(client.created_at).toLocaleDateString()}`}
-                </span>
-              </Link>
-            ))}
+      <div className="app-screen-x app-stack">
+        <div className={styles.searchShell}>
+          <div className={styles.searchGradient} />
+          <div className={styles.searchInner}>
+            <Icon name="magnifer-linear" size={17} />
+            <DebouncedSearchInput
+              placeholder="Search name or scan date"
+              ariaLabel="Search clients by name"
+              style={{ minHeight: 44 }}
+              onInputActivity={() => {
+                // Keep the input DOM-owned while cancelling an obsolete settled search.
+                const controller = clientPageController.current
+                if (!controller) return false
+                requestVersion.current += 1
+                controller.abort()
+                clientPageController.current = null
+                return true
+              }}
+              onQueryChange={(query) => {
+                loadMoreController.current?.abort()
+                loadMoreController.current = null
+                setLoadingMore(false)
+                if (query === search) setSearchRevision((current) => current + 1)
+                else setSearch(query)
+                // Results already on screen stay put while the next page lands.
+                if (clients.length > 0) setSearching(true)
+                else setLoading(true)
+                setError(null)
+                setNextCursor(null)
+              }}
+            />
           </div>
-          {nextCursor && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-              <button
-                type="button"
-                className="app-gradient-action"
-                disabled={loadingMore}
-                onClick={loadMoreClients}
-              >
-                <span>{loadingMore ? 'Loading…' : 'Load more clients'}</span>
-              </button>
+        </div>
+
+        <FilterRow label="Filter the directory">
+          {CLIENT_FILTERS.map((entry) => (
+            <FilterChip
+              key={entry.value}
+              label={entry.label}
+              count={counts[entry.value]}
+              active={filter === entry.value}
+              band={entry.band}
+              onClick={() => {
+                if (filter === entry.value) return
+                setNextCursor(null)
+                if (clients.length > 0) setSearching(true)
+                else setLoading(true)
+                setFilter(entry.value)
+              }}
+            />
+          ))}
+        </FilterRow>
+
+        <div className={styles.sortRow}>
+          <span className="t-quiet">Sorted by date added</span>
+          <span className={styles.sortValue}>
+            <Icon name="sort-vertical-linear" size={14} />
+            Newest first
+          </span>
+        </div>
+
+        {erasureNotice === 'complete' && (
+          <Surface tier="tile" pad="rowy">
+            <p role="status" className="t-body">Client data was erased. No external file cleanup remains.</p>
+          </Surface>
+        )}
+        {erasureNotice === 'pending' && (
+          <Surface tier="tile" pad="rowy">
+            <p role="alert" className="t-body" style={{ color: tone('monitor') }}>
+              Client database data was erased. Stored report cleanup is still pending; this page is
+              checking its retry status automatically.
+            </p>
+          </Surface>
+        )}
+
+        {error && (
+          <Surface tier="tile" pad="rowy">
+            <p role="alert" className="t-body" style={{ color: tone('monitor') }}>{error}</p>
+          </Surface>
+        )}
+
+        {searching && !loading && (
+          <p className={styles.status} role="status" aria-live="polite">Searching…</p>
+        )}
+
+        {loading ? (
+          <p className={styles.status} role="status" aria-live="polite">Loading the directory…</p>
+        ) : rows.length === 0 ? (
+          <Surface tier="tile" pad="rowy">
+            <div className={styles.empty}>
+              <p className="t-title">
+                {search.trim()
+                  ? 'No matching clients'
+                  : filter === 'all' ? 'No clients yet' : `Nothing under ${activeLabel.toLowerCase()}`}
+              </p>
+              <p className="t-body">
+                {search.trim()
+                  ? 'Try a different first or last name.'
+                  : filter === 'all'
+                    ? 'Add a client to start their screening history.'
+                    : 'Clear the filter to see the whole directory.'}
+              </p>
             </div>
-          )}
-        </>
-      )}
+          </Surface>
+        ) : (
+          <>
+            {rows.map((row) => (
+              <SurfaceLink key={row.id} href={row.href} tier="row" aria-label={row.trendLabel}>
+                <span className={styles.row}>
+                  <GradeChip grade={row.grade} />
+                  <span className={styles.body}>
+                    <span className={styles.name}>{row.name}</span>
+                    <span className={styles.meta}>{row.meta}</span>
+                  </span>
+                  <span className={styles.trend}>
+                    <span className={styles.trendValue} style={{ color: tone(row.trendBand) }}>
+                      <Icon name={row.trendIcon} size={14} />
+                      {row.trend}
+                    </span>
+                    <span className={styles.chevron}>
+                      <Icon name="alt-arrow-right-linear" size={16} />
+                    </span>
+                  </span>
+                </span>
+              </SurfaceLink>
+            ))}
+            {nextCursor && (
+              <div className={styles.more}>
+                <button type="button" className="a-secondary" disabled={loadingMore} onClick={loadMoreClients}>
+                  {loadingMore ? 'Loading…' : 'Load more clients'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

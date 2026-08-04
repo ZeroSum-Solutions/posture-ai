@@ -13,8 +13,12 @@
   pointer-events: none;
 }
 
+/* SurfaceLink and SurfaceButton use spans for these wrappers, because a <div>
+   is not valid inside an <a> or <button>. Both must still lay out as blocks —
+   an inline box builds a line box around its padding and the row grows. */
 .inner {
   position: relative;
+  display: block;
   background: var(--surface-glass);
 }
 

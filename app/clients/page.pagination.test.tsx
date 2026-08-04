@@ -45,22 +45,35 @@ describe('client directory pagination', () => {
     vi.unstubAllGlobals()
   })
 
-  it('waits for a non-empty settled search before loading the directory', async () => {
+  // The Array directory is a browsable list, not a search box that reveals one:
+  // it loads on arrival so the practitioner sees who is overdue without typing.
+  it('loads the directory on arrival and narrows it on a settled search', async () => {
     render(<ClientsPage />)
 
-    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
-    expect(screen.getByText('Search by first or last name')).toBeTruthy()
-    expect(screen.queryByText('Loading clients')).toBeNull()
+    await screen.findByText('Initial Example')
+    const initialUrls = vi.mocked(fetch).mock.calls.map(([input]) => String(input))
+    expect(initialUrls).toHaveLength(1)
+    expect(initialUrls[0]).toContain('filter=all')
+    expect(initialUrls[0]).not.toContain('search=')
 
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
     fireEvent.change(search, { target: { value: 'Jane' } })
-    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
 
     await screen.findByText('Jane Example')
     const urls = vi.mocked(fetch).mock.calls.map(([input]) => String(input))
-    expect(urls).toHaveLength(1)
-    expect(urls[0]).toContain('search=Jane')
-    expect(urls.some((url) => url === '/api/clients?limit=50')).toBe(false)
+    expect(urls.some((url) => url.includes('search=Jane'))).toBe(true)
+  })
+
+  it('resolves a chosen filter on the server, not over one page in the browser', async () => {
+    render(<ClientsPage />)
+    await screen.findByText('Initial Example')
+
+    fireEvent.click(screen.getByRole('button', { name: /Needs review/ }))
+
+    await waitFor(() => {
+      const urls = vi.mocked(fetch).mock.calls.map(([input]) => String(input))
+      expect(urls.some((url) => url.includes('filter=needs_review'))).toBe(true)
+    })
   })
 
   it('does not leave Load more disabled when search replaces an in-flight page', async () => {

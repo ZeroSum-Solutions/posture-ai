@@ -188,6 +188,9 @@ describe('GET /api/clients pagination', () => {
       p_after_at: client(9).created_at,
       p_after_id: client(9).id,
       p_limit: 11,
+      // The directory filter resolves in SQL, so it travels with every page and
+      // is bound into the cursor's filter key.
+      p_filter: 'all',
     })
   })
 

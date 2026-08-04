@@ -14,7 +14,7 @@ utility class renders unstyled. Checkpoints are internal recovery points.
 | # | Scope | State |
 |---|-------|-------|
 | 1 | Tokens, primitives, island nav, Today | done |
-| 2 | Clients list + `list_owned_clients_page` RPC migration | pending |
+| 2 | Clients list + `list_owned_clients_page` RPC migration | done |
 | 3 | Client detail (drops `recharts`) | pending |
 | 4 | Review — Findings + Evidence (one checkpoint; shared tab/dock state) | pending |
 | 5 | Exercise library (establishes the session-builder contract) | pending |
@@ -31,7 +31,7 @@ no cleanup or dependency removal so a regression stays attributable.
 ## Designed screens → repo files
 
 1. Today → `app/dashboard/` — **done**
-2. Clients → `app/clients/page.tsx`, `app/api/clients/route.ts`, RPC
+2. Clients → `app/clients/page.tsx`, `app/api/clients/route.ts`, RPC — **done**
 3. Capture → `app/assessments/new/FullScreenCapture.tsx`, `LiveGuides.tsx`
 4. Review · Findings → `app/assessments/[id]/`
 5. Review · Evidence → same route, Evidence tab
@@ -66,6 +66,16 @@ forgot-password, update-password, mfa), `components/AuthFrame.tsx`,
 
 **Marketing** — `app/_components/marketing/` keeps its own composition but must stop
 importing v1 tokens.
+
+## Verification harness
+
+`e2e/array-visual.spec.ts` captures each migrated screen on the `mobile-webkit`
+project (iPhone 14) into `docs/screenshots/array/`. It asserts nothing — it exists
+so the build can be graded against the handoff. **Delete it when the redesign lands.**
+
+Populating it locally: `npx supabase start`, `npm run qa:seed`, run the `setup`
+project once to mint an AAL2 practitioner, then re-point the seeded fixtures at that
+practitioner (the seeded QA practitioners and the e2e one are different accounts).
 
 ## Known conflicts and gaps
 
