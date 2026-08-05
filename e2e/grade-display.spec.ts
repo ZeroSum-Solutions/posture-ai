@@ -51,6 +51,20 @@ const GRADE_CASE_GROUPS: ReadonlyArray<{ label: string; cases: readonly GradeCas
   },
 ]
 
+// The band a grade rolls up to on-screen (components/array/severity.ts
+// bandFromGrade): S, A, B -> maintain; C -> monitor; D, E -> review. The
+// display label for each band (reviewModel.ts GRADE_RAIL_STOPS) is
+// Maintain / Monitor / Review -- this is what GradeRail's accessible
+// description names, not the finer-grained per-grade description.
+const BAND_LABEL_BY_GRADE: Record<OverallGrade, string> = {
+  S: 'Maintain',
+  A: 'Maintain',
+  B: 'Maintain',
+  C: 'Monitor',
+  D: 'Review',
+  E: 'Review',
+}
+
 function localService(): SupabaseClient {
   const supabaseUrl = process.env.E2E_SUPABASE_URL
   if (!supabaseUrl?.startsWith('http://127.0.0.1')) {
@@ -94,6 +108,51 @@ async function setStoredGrade(
   expect(data?.id).toBe(assessmentId)
 }
 
+/**
+ * The "Report, share & compare" disclosure is collapsed by default on the
+ * clinical results page and hosts ReviewDock -- anything that needs to read
+ * dock content has to open it first.
+ */
+async function openReportDisclosure(page: Page): Promise<void> {
+  await page.getByText('Report, share & compare', { exact: true }).click()
+}
+
+/**
+ * GradeRail (app/assessments/[id]/GradeRail.tsx) states the grade, deviation
+ * score and its band as a screen-reader-only paragraph built by
+ * reviewModel.ts's buildRail(): "Deviation score N out of 100, grade G, in
+ * <band>." That block is only mounted when the current scoring scale applies
+ * to the stored grade (GradeRail's `scaleApplies` prop) -- it is entirely
+ * absent for a historical grade, so this must only be used for current-scale
+ * cases.
+ */
+async function expectRailDescription(page: Page, fixture: GradeCase): Promise<void> {
+  const pattern = new RegExp(
+    `Deviation score ${fixture.score} out of 100, grade ${fixture.grade}, in ${BAND_LABEL_BY_GRADE[fixture.grade]}\\.`,
+  )
+  await expect(page.getByText(pattern)).toBeAttached()
+}
+
+/**
+ * ReviewDock (app/assessments/[id]/ReviewDock.tsx) is the other place the
+ * grade is stated: an `aria-label="Grade G, deviation N out of 100"` readout
+ * plus the grade's description as visible text. Its props do not depend on
+ * whether the current scale applies, so -- unlike GradeRail's description --
+ * it renders identically for current and historical scans, and is the only
+ * surface carrying the description text for a historical one.
+ */
+async function expectDockGrade(
+  page: Page,
+  fixture: { grade: string; score: number; description: string },
+): Promise<void> {
+  await openReportDisclosure(page)
+  const dock = page.getByTestId('review-dock')
+  await expect(
+    dock.locator(`[aria-label="Grade ${fixture.grade}, deviation ${fixture.score} out of 100"]`),
+  ).toBeVisible()
+  await expect(dock.getByText(fixture.description, { exact: true })).toBeVisible()
+}
+
 async function expectStoredGradeCases(
   page: Page,
   service: SupabaseClient,
@@ -103,13 +162,20 @@ async function expectStoredGradeCases(
   for (const fixture of cases) {
     await setStoredGrade(service, assessmentId, fixture.score, fixture.grade)
     await page.goto(`/assessments/${assessmentId}`)
-    await expect(page.getByRole('img', {
-      name: `Grade ${fixture.grade}: ${fixture.description}; deviation ${fixture.score} out of 100, lower is better`,
-    })).toBeVisible()
-    const selectedBand = page.locator('[aria-current="true"]')
-    await expect(selectedBand).toContainText(fixture.grade)
-    await expect(selectedBand).toContainText(fixture.range)
-    await expect(selectedBand).toContainText(fixture.description)
+    await expectRailDescription(page, fixture)
+    await expectDockGrade(page, fixture)
+
+    // FINDING, not a stale selector: the per-grade numeric range (e.g.
+    // "0–3") that GradeSummary's BandTable used to render is not exposed
+    // anywhere on the clinical results page -- neither GradeRail nor
+    // ReviewDock render it, only the coarser Maintain/Monitor/Review band
+    // survives. Left as a soft assertion (rather than dropped) so the range
+    // contract keeps failing loudly without aborting the rest of this case's
+    // -- and this group's remaining cases' -- coverage.
+    await expect.soft(
+      page.getByTestId('review-dock').getByText(fixture.range, { exact: true }),
+      `grade ${fixture.grade}'s range "${fixture.range}" is not rendered anywhere on the clinical results page`,
+    ).toBeVisible()
   }
 }
 
@@ -127,13 +193,15 @@ test.describe('grade display contract', () => {
     const service = localService()
     const assessmentId = await createAssessment(page)
     await setStoredGrade(service, assessmentId, 14, 'B')
+    const fixture: GradeCase = { score: 14, grade: 'B', range: '8–20', description: 'Mild deviation' }
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 })
       await page.goto(`/assessments/${assessmentId}`)
-      await expect(page.getByRole('img', { name: /Grade B: Mild deviation; deviation 14/ })).toBeVisible()
+      await expectRailDescription(page, fixture)
       const hasHorizontalOverflow = await page.locator('html').evaluate(root => root.scrollWidth > root.clientWidth)
       expect(hasHorizontalOverflow, `grade summary overflowed at ${width}px`).toBe(false)
     }
+    await expectDockGrade(page, fixture)
 
     const approve = await page.request.patch(`/api/assessments/${assessmentId}/approve`, {
       data: { approved: true },
@@ -157,7 +225,11 @@ test.describe('grade display contract', () => {
     await setStoredGrade(service, assessmentId, 14, 'D', '1.0.0')
 
     await page.goto(`/assessments/${assessmentId}`)
-    await expect(page.getByRole('img', { name: /Grade D: Recorded screening grade; deviation 14/ })).toBeVisible()
+    // GradeRail's screen-reader description is only mounted when the current
+    // scale applies (see expectRailDescription's doc comment); for a
+    // historical grade the grade/score/description contract is verified via
+    // ReviewDock instead, whose props do not depend on scaleApplies.
+    await expectDockGrade(page, { grade: 'D', score: 14, description: 'Recorded screening grade' })
     await expect(page.getByText(/current grade scale is not applied/i)).toBeVisible()
     await expect(page.getByText('Grade Reference')).toHaveCount(0)
   })

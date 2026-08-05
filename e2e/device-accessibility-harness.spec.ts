@@ -15,36 +15,57 @@ test.describe('device accessibility browser harness', () => {
     await page.setViewportSize(PHONE_VIEWPORT)
   })
 
-  test('phone-width navigation is keyboard operable and preserves responsive route state', async ({ page, browserName }) => {
+  test('phone-width island navigation is keyboard operable, marks the active destination, and preserves responsive route state', async ({ page, browserName }) => {
+    // IslandNav (components/array/IslandNav.tsx) replaced NavBar's hamburger
+    // with a fixed pill of Link slots — there is no open/closed menu to drive
+    // by keyboard anymore. What survives from the old test: every slot must be
+    // keyboard-reachable in order, the focus indicator must be visible,
+    // activating a slot must navigate, aria-current must track the active
+    // destination, and the phone-width layout must not gain horizontal
+    // overflow after the route change.
     await page.goto('/dashboard')
     // Safari/WebKit uses Option+Tab for full-control traversal unless the host
     // preference that makes plain Tab focus every control is enabled.
     const traversalKey = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
 
-    const menuButton = page.getByRole('button', { name: 'Toggle navigation menu' })
-    await expect(menuButton).toBeVisible()
-    await expect(menuButton).toHaveAttribute('aria-expanded', 'false')
+    const nav = page.getByRole('navigation', { name: 'Primary' })
+    await expect(nav).toBeVisible()
 
-    await tabTo(page, menuButton, traversalKey)
-    await expect(menuButton).toBeFocused()
-    const focusStyle = await menuButton.evaluate(element => {
+    // The clinical-content flag (lib/clinical-content/inventory.ts) is enabled
+    // in this e2e environment — the a11y spec exercises /exercises and
+    // /muscles on the same shell — so islandPolicy.islandSlots() yields all
+    // five slots below. A gated environment would drop Library.
+    const labels = await nav.getByRole('link').evaluateAll(links =>
+      links.map(link => link.getAttribute('aria-label'))
+    )
+    expect(labels).toEqual(['Today', 'Clients', 'Capture', 'Library', 'Profile'])
+
+    const todayLink = nav.getByRole('link', { name: 'Today' })
+    await expect(todayLink).toHaveAttribute('aria-current', 'page')
+    const settingsLink = nav.getByRole('link', { name: 'Profile' })
+    await expect(settingsLink).not.toHaveAttribute('aria-current', 'page')
+
+    // Every slot is reachable by the keyboard, in DOM/focus order.
+    for (const label of labels) {
+      const slot = nav.getByRole('link', { name: label! })
+      await tabTo(page, slot, traversalKey)
+      await expect(slot).toBeFocused()
+    }
+
+    // The loop above leaves focus on the last slot (Profile) — check the
+    // focus indicator there and use it as the activation target.
+    await expect(settingsLink).toBeFocused()
+    const focusStyle = await settingsLink.evaluate(element => {
       const style = getComputedStyle(element)
       return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
     })
     expect(focusStyle).toEqual({ outlineStyle: 'solid', outlineWidth: '2px' })
 
     await page.keyboard.press('Enter')
-    await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
 
-    const mobileMenu = page.locator('.nav-mobile-menu')
-    await expect(mobileMenu).toBeVisible()
-    const clientsLink = mobileMenu.getByRole('link', { name: 'Clients' })
-    await tabTo(page, clientsLink, traversalKey)
-    await expect(clientsLink).toBeFocused()
-    await page.keyboard.press('Enter')
-
-    await expect(page).toHaveURL(/\/clients$/)
-    await expect(page.getByRole('button', { name: 'Toggle navigation menu' })).toHaveAttribute('aria-expanded', 'false')
+    await expect(page).toHaveURL(/\/settings$/)
+    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+    await expect(todayLink).not.toHaveAttribute('aria-current', 'page')
     const hasHorizontalOverflow = await page.locator('html').evaluate(root => root.scrollWidth > root.clientWidth)
     expect(hasHorizontalOverflow).toBe(false)
   })

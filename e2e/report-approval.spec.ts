@@ -58,9 +58,18 @@ test.describe('report approval gate', () => {
     const assessmentId = await createCompleteAssessment(page)
 
     await page.goto(`/assessments/${assessmentId}`)
+    // ReviewDock's controls (approve, PDF, share, compare) sit behind the
+    // "Report, share & compare" disclosure, collapsed by default; the pinned
+    // action bar carries its own always-visible sign-off/PDF pair separately.
+    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
     await expect(page.getByTestId('review-dock')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Approve report' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Practitioner PDF' })).toBeDisabled()
+    // The pinned action bar's icon button ("Generate practitioner PDF") also
+    // matches a case-insensitive substring search for "Practitioner PDF" —
+    // that duplication is intentional (both the dock and the pinned bar carry
+    // report/sign-off controls so they are reachable from anywhere on the
+    // screen), so this must be an exact match to target the dock's control.
+    await expect(page.getByRole('button', { name: 'Practitioner PDF', exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Client report' })).toBeDisabled()
 
     for (const width of [320, 375, 414, 768, 1280]) {
@@ -83,7 +92,8 @@ test.describe('report approval gate', () => {
     expect(approve.ok(), `approve failed: ${approve.status()}`).toBeTruthy()
 
     await page.reload()
-    await expect(page.getByRole('button', { name: 'Practitioner PDF' })).toBeEnabled()
+    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
+    await expect(page.getByRole('button', { name: 'Practitioner PDF', exact: true })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Client report' })).toBeEnabled()
 
     const after = await page.request.post('/api/reports', {

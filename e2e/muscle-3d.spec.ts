@@ -27,8 +27,12 @@ test.describe('3D posture summary', () => {
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
     // The 3D model belongs to the Evidence tab and is intentionally not mounted
-    // while the grade-first Summary tab is active.
+    // while the grade-first Findings tab is active.
     await page.getByRole('tab', { name: 'Evidence' }).click()
+
+    // The viewer card is further nested behind its own "Muscle model" disclosure
+    // (a native <details>/<summary>) inside the Evidence panel — expand it.
+    await page.locator('summary', { hasText: 'Muscle model' }).click()
 
     // Card is present but NOT yet loaded — no GLB request should have fired.
     const showButton = page.getByRole('button', { name: 'Show 3D model' })

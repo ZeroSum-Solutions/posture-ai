@@ -30,7 +30,11 @@ test('a concurrent back-knee finding withholds the seated hamstring stretch', as
 
   // Fixture screens the back knee at maintain — measured within normal range, so there is
   // no hyperextension to protect against and the stretch is warranted.
-  await page.getByRole('tab', { name: /^Exercises/ }).click()
+  // There is no standalone "Exercises" tab: matched exercises live in the
+  // Program tab, behind a "Matched exercises (N)" disclosure that wraps the
+  // exercises-section itself.
+  await page.getByRole('tab', { name: /^Program/ }).click()
+  await page.locator('summary').filter({ hasText: 'Matched exercises' }).click()
   await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
   await page.locator('[data-testid="exercises-section"] > summary').click()
   await expect(page.locator(STRETCH)).toBeVisible()
@@ -48,7 +52,8 @@ test('a concurrent back-knee finding withholds the seated hamstring stretch', as
   await page.reload()
 
   // trunk_lean still warrants a stretch, so the section stays — but not this one.
-  await page.getByRole('tab', { name: /^Exercises/ }).click()
+  await page.getByRole('tab', { name: /^Program/ }).click()
+  await page.locator('summary').filter({ hasText: 'Matched exercises' }).click()
   await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
   await page.locator('[data-testid="exercises-section"] > summary').click()
   await expect(page.locator(STRETCH)).toHaveCount(0)

@@ -143,11 +143,18 @@ test.describe('invitation-only practitioner admission', () => {
       await page.getByLabel('Confirm password').fill(PASSWORD)
       await page.getByRole('button', { name: 'Continue to multi-factor setup' }).click()
       await page.waitForURL(/\/auth\/mfa/)
-      await expect(page.getByAltText(/QR code for Posture AI/i)).toBeVisible()
+      // The MFA enrollment screen (app/auth/mfa/page.tsx) now surfaces the TOTP
+      // secret in three forms — otpauth: link, typed setup key, and QR — so a
+      // practitioner can enroll on the same phone they're reading this on; the
+      // QR alone doesn't work for that case, so it moved behind a collapsed
+      // "Setting up from a different device?" <details> and is no longer
+      // visible by default. The setup-key block IS visible by default, so
+      // assert on it as confirmation that real enrollment material rendered.
+      await expect(page.getByRole('button', { name: 'Copy setup key' })).toBeVisible()
 
-      // The user-facing surface intentionally never prints the TOTP secret. The
-      // local-only E2E driver reads it directly from the local Auth database so
-      // it can submit a real code without adding a production test bypass.
+      // The E2E driver still reads the TOTP secret directly from the local Auth
+      // database rather than scraping the on-screen setup key, so it can submit
+      // a real code without coupling to that key's exact on-screen formatting.
       const factor = await pool.query<{ secret: string }>(
         `SELECT secret FROM auth.mfa_factors
           WHERE user_id = $1 AND factor_type = 'totp' AND status = 'unverified'

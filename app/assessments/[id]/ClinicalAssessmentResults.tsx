@@ -895,7 +895,12 @@ export default function ClinicalAssessmentResults({
           )}
         />
 
-              <details className={styles.disclosure}>
+        {/* Deliberately collapsed. Sign-off does not live here: the pinned
+            action bar below carries "Approve & send report", so this holds only
+            the secondary report, share and compare controls plus the dock's own
+            redundant approve. Anything driving this dock -- e2e specs, the
+            performance journey -- has to open the disclosure first. */}
+        <details className={styles.disclosure}>
           <summary className={styles.disclosureSummary}>Report, share &amp; compare</summary>
           <div className={styles.disclosureBody}>
             <ReviewDock

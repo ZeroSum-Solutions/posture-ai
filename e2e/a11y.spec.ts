@@ -72,17 +72,16 @@ test.describe('accessibility budget', () => {
     }
   })
 
-  test('phone navigation closed and open states pass the axe budget', async ({ page }, testInfo) => {
+  test('phone-width island navigation passes the axe budget', async ({ page }, testInfo) => {
+    // IslandNav (components/array/IslandNav.tsx) replaced the old NavBar
+    // hamburger with a fixed, always-visible pill — there is no closed/open
+    // state left to scan separately, so this is a single scan of the island
+    // as it actually renders at phone width.
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
-    await expectNoSeriousViolations(page, testInfo, 'phone navigation closed')
-
-    const menuButton = page.getByRole('button', { name: 'Toggle navigation menu' })
-    await menuButton.click()
-    await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator('.nav-mobile-menu')).toBeVisible()
-    await expectNoSeriousViolations(page, testInfo, 'phone navigation open')
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible()
+    await expectNoSeriousViolations(page, testInfo, 'phone navigation')
   })
 
   test('client CRUD surfaces pass the axe budget', async ({ page }, testInfo) => {

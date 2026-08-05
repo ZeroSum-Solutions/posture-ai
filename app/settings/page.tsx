@@ -76,6 +76,43 @@ export default function SettingsPage() {
       .catch(() => setToast({ type: 'error', message: 'Could not load organization settings. Refresh to try again.' }))
   }, [])
 
+  const signOutFormRef = useRef<HTMLFormElement>(null)
+
+  // Two sign-out calls happen here on purpose — neither one alone is sufficient:
+  //
+  // - The POST to /api/auth/sign-out runs supabase.auth.signOut() SERVER-SIDE. That's
+  //   what actually revokes the session (GoTrue global scope) and clears the httpOnly
+  //   session cookies this browser client can't touch. Drop it and the session survives.
+  //
+  // - supabase.auth.signOut() called here, in the browser, is what makes GoTrue publish
+  //   on its BroadcastChannel. AuthSessionGuard (components/AuthSessionGuard.tsx) listens
+  //   for that SIGNED_OUT broadcast to clear protected UI in every OTHER open tab. A
+  //   server-only sign-out (which is all the Array redesign originally did here) revokes
+  //   the session but never fires client-side, so other tabs keep rendering protected
+  //   content until they happen to hit the network again. Do NOT simplify this back down
+  //   to a single call — that's the regression e2e/logout.spec.ts exists to catch.
+  //
+  // Server call goes first so it's the one that lands even if the browser call fails.
+  // The browser client's own signOut() then races an already-revoked session — GoTrue
+  // ignores the resulting 401/403/404 from its own admin.signOut() call and still removes
+  // the local session and emits SIGNED_OUT — so the ordering is harmless.
+  async function handleSignOut(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    try {
+      const res = await fetch('/api/auth/sign-out', { method: 'POST' })
+      const supabase = createSupabaseBrowserClient()
+      await supabase.auth.signOut()
+      if (!res.ok) throw new Error('sign-out request failed')
+      window.location.assign('/auth/sign-in')
+    } catch {
+      // Something in the client-side path failed (network blip, GoTrue error) — fall
+      // back to a real form submission rather than leaving the button dead. This is the
+      // exact same request the no-JS path below performs natively, before hydration or
+      // with JS disabled: <form action="/api/auth/sign-out" method="POST">.
+      signOutFormRef.current?.submit()
+    }
+  }
+
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message })
     setTimeout(() => setToast(null), 4000)
@@ -400,7 +437,7 @@ export default function SettingsPage() {
       </Surface>
 
       {/* Sign out */}
-      <form action="/api/auth/sign-out" method="POST">
+      <form ref={signOutFormRef} action="/api/auth/sign-out" method="POST" onSubmit={handleSignOut}>
         <button type="submit" className={`a-quiet ${styles.signOut}`} style={{ color: 'var(--review)' }}>
           Sign Out
         </button>
