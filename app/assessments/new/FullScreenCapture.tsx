@@ -38,6 +38,15 @@ const LIVE_FRAME_INTERVAL_MS = 90
 // clear tracking after this long with no fresh inference result.
 const LIVE_FRESHNESS_MS = 600
 
+// Text sitting ON a near-opaque severity fill. White fails WCAG AA against all
+// three bands — 2.15:1 on monitor, 3.76:1 on review, 2.54:1 on maintain — and
+// these particular overlays are the capture warnings a practitioner reads over
+// live video, so they are the worst place in the app to be hard to read. This
+// near-black clears comfortably: 8.33:1, 4.75:1 and 7.05:1 respectively. It
+// matches the value the marketing finding chips already use on the same bands.
+// Only for solid severity fills; text on the 16% tint() keeps tone() instead.
+const ON_SEVERITY_FILL = '#191524'
+
 interface FullScreenCaptureProps {
   /** Exact server-resolved notice required before the wizard may enter capture. */
   screeningNotice: LegalSnapshot
@@ -965,7 +974,7 @@ export default function FullScreenCapture({
                 over arbitrary camera content. */}
             {showLiveCamera && roll !== null && tiltBand && (
               <div data-testid="level-indicator" style={{
-                pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#fff',
+                pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 700, color: ON_SEVERITY_FILL,
                 background: `color-mix(in srgb, ${tone(tiltBand)} 92%, transparent)`,
               }}>
                 {tiltBand === 'maintain' ? 'Level' : `Tilted ${roll > 0 ? 'right' : 'left'} ${Math.abs(roll).toFixed(1)}°`}
@@ -984,7 +993,10 @@ export default function FullScreenCapture({
                     : poseReadiness.phase === 'ready'
                       ? `color-mix(in srgb, ${tone('maintain')} 88%, transparent)`
                       : 'rgba(0,0,0,0.72)',
-                  color: '#fff', maxWidth: '250px', textAlign: 'right',
+                  // Follows the background: dark on a severity fill, white on
+                  // the black pill. Reading state is not one or the other here.
+                  color: poseModelFailed || poseReadiness.phase === 'ready' ? ON_SEVERITY_FILL : '#fff',
+                  maxWidth: '250px', textAlign: 'right',
                 }}
               >
                 <span>{readinessLabel}</span>
@@ -993,7 +1005,9 @@ export default function FullScreenCapture({
                     type="button"
                     onClick={() => void retryPoseModel()}
                     disabled={retryingModel}
-                    style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.65)', background: 'transparent', color: '#fff', fontWeight: 700, cursor: retryingModel ? 'not-allowed' : 'pointer' }}
+                    // Only rendered when poseModelFailed, so this button always
+                    // sits on the review fill — never on the black pill.
+                    style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 6, border: `1px solid ${ON_SEVERITY_FILL}`, background: 'transparent', color: ON_SEVERITY_FILL, fontWeight: 700, cursor: retryingModel ? 'not-allowed' : 'pointer' }}
                   >{retryingModel ? 'Retrying…' : 'Retry Model'}</button>
                 )}
               </div>
@@ -1012,12 +1026,12 @@ export default function FullScreenCapture({
               </div>
 
               {level.pitchDeg !== null && Math.abs(level.pitchDeg) > 15 && (
-                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 600, color: '#fff' }}>
+                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 600, color: ON_SEVERITY_FILL }}>
                   Aim the camera straight ahead
                 </div>
               )}
               {notPortrait && (
-                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, color: '#fff' }}>
+                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, color: ON_SEVERITY_FILL }}>
                   Hold the phone upright (portrait) to capture
                 </div>
               )}
@@ -1037,12 +1051,12 @@ export default function FullScreenCapture({
                 review fill, not the 16% Chip tint — this sits directly over
                 live camera content and needs a solid backing to stay legible. */}
             {noPersonViews.length > 0 && (
-              <div role="alert" style={{ background: `color-mix(in srgb, ${tone('review')} 90%, transparent)`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+              <div role="alert" style={{ background: `color-mix(in srgb, ${tone('review')} 90%, transparent)`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: ON_SEVERITY_FILL, textAlign: 'center' }}>
                 No person detected — retake {noPersonViews.map(s => SLOT_LABEL[s]).join(', ')}
               </div>
             )}
             {multiplePeopleViews.length > 0 && (
-              <div role="alert" aria-label="More than one person detected" style={{ background: `color-mix(in srgb, ${tone('review')} 90%, transparent)`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+              <div role="alert" aria-label="More than one person detected" style={{ background: `color-mix(in srgb, ${tone('review')} 90%, transparent)`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: ON_SEVERITY_FILL, textAlign: 'center' }}>
                 More than one person detected — use one full-body photo for {multiplePeopleViews.map(s => SLOT_LABEL[s]).join(', ')}
               </div>
             )}
@@ -1150,7 +1164,7 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: badgeColor, color: '#fff', fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: badgeColor, color: ON_SEVERITY_FILL, fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {subjectCountBlocked || modelFailed ? '!' : cap.slotStatus === 'warnings' ? '⚠' : <Icon name="check-circle-bold" size={12} />}
                         </span>
                       )}
