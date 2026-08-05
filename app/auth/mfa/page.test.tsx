@@ -30,7 +30,14 @@ describe('MfaPage', () => {
     listFactors.mockReset()
     unenroll.mockReset().mockResolvedValue({ error: null })
     enroll.mockReset().mockResolvedValue({
-      data: { id: 'new-factor', totp: { qr_code: 'data:image/svg+xml,test' } },
+      data: {
+        id: 'new-factor',
+        totp: {
+          qr_code: 'data:image/svg+xml,test',
+          secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+          uri: 'otpauth://totp/Posture%20AI:u1?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Posture%20AI',
+        },
+      },
       error: null,
     })
     challengeAndVerify.mockReset()
@@ -54,6 +61,43 @@ describe('MfaPage', () => {
     expect(await screen.findByAltText(/QR code for Posture AI/i)).toBeTruthy()
     expect(unenroll).toHaveBeenCalledWith({ factorId: 'stale' })
     expect(enroll).toHaveBeenCalledTimes(1)
+  })
+
+  // The QR alone is unusable when this page and the authenticator app are on the
+  // same phone: nothing can photograph its own screen. These two cover the paths
+  // that do work there.
+  it('offers an otpauth deep link so the authenticator can be enrolled on this device', async () => {
+    listFactors.mockResolvedValue({ data: { all: [] }, error: null })
+
+    render(<MfaPage />)
+
+    const link = await screen.findByRole('link', { name: /open in your authenticator app/i })
+    expect(link.getAttribute('href')).toMatch(/^otpauth:\/\/totp\//)
+    expect(link.getAttribute('href')).toContain('secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP')
+  })
+
+  it('shows the setup key for manual entry and copies it unspaced', async () => {
+    listFactors.mockResolvedValue({ data: { all: [] }, error: null })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    render(<MfaPage />)
+
+    // Grouped for hand-typing, but the clipboard must receive what the app expects.
+    expect((await screen.findByText(/JBSW Y3DP/)).textContent).toBe('JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP')
+    fireEvent.click(screen.getByRole('button', { name: /copy setup key/i }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'))
+  })
+
+  it('keeps the QR available but behind a disclosure for other-device setup', async () => {
+    listFactors.mockResolvedValue({ data: { all: [] }, error: null })
+
+    render(<MfaPage />)
+
+    const qr = await screen.findByAltText(/QR code for Posture AI/i)
+    const disclosure = qr.closest('details')
+    expect(disclosure).toBeTruthy()
+    expect(disclosure!.open).toBe(false)
   })
 
   it('keeps a bad authenticator code retryable without re-enrolling', async () => {

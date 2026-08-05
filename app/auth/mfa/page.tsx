@@ -40,10 +40,22 @@ export function completionMessage(code: string | undefined, fallback?: string): 
   }
 }
 
+/**
+ * TOTP secrets are base32; authenticator apps accept them with or without
+ * spaces. Grouping makes a 32-character key possible to type by hand without
+ * losing your place. The clipboard always gets the unspaced original.
+ */
+export function groupSecret(secret: string): string {
+  return secret.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
+}
+
 export default function MfaPage() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [factorId, setFactorId] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
+  const [secret, setSecret] = useState<string | null>(null)
+  const [otpauthUri, setOtpauthUri] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -137,6 +149,8 @@ export default function MfaPage() {
       if (verifiedTotp) {
         setFactorId(verifiedTotp.id)
         setQrCode(null)
+        setSecret(null)
+        setOtpauthUri(null)
         setPhase('challenge')
         return
       }
@@ -152,7 +166,13 @@ export default function MfaPage() {
       }
 
       setFactorId(enrollment.id)
+      // All three representations carry the same secret. The QR only works when
+      // a second device can photograph this screen, so the otpauth: link and the
+      // typed key are what make enrolling on the phone you are reading this on
+      // possible at all.
       setQrCode(enrollment.totp.qr_code)
+      setSecret(enrollment.totp.secret ?? null)
+      setOtpauthUri(enrollment.totp.uri ?? null)
       setPhase('enroll')
     } finally {
       initializing.current = false
@@ -164,6 +184,26 @@ export default function MfaPage() {
     started.current = true
     void initialize()
   }, [initialize])
+
+  // Clearing through an effect rather than a bare setTimeout keeps the timer from
+  // firing into an unmounted component if the code is verified straight after a copy.
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 2500)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+
+  async function handleCopySecret() {
+    if (!secret) return
+    try {
+      await navigator.clipboard.writeText(secret)
+      setCopied(true)
+    } catch {
+      // Clipboard access is refused outside a secure context and on some mobile
+      // browsers. The key is on screen either way, so say so instead of failing.
+      setError('Could not copy automatically. Select the setup key above and copy it by hand.')
+    }
+  }
 
   async function handleVerify(event: React.FormEvent) {
     event.preventDefault()
@@ -225,23 +265,72 @@ export default function MfaPage() {
 
       {(phase === 'enroll' || phase === 'challenge') && factorId && (
         <form onSubmit={handleVerify} noValidate className="a-form">
-          {phase === 'enroll' && qrCode && (
+          {phase === 'enroll' && (
             <div>
               <p className="a-help">
-                Scan this QR code with your authenticator app, then enter the current 6-digit code.
+                Connect an authenticator app, then enter the 6-digit code it shows.
               </p>
-              {/* Supabase returns a short-lived data URL; it is never persisted. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrCode}
-                alt="QR code for Posture AI authenticator setup"
-                width={220}
-                height={220}
-                style={{
-                  display: 'block', maxWidth: '100%', margin: '16px auto',
-                  background: '#fff', padding: 8, borderRadius: 12,
-                }}
-              />
+
+              {/* The one-tap path, and the only one that works when this page and
+                  the authenticator are on the same phone: the otpauth: scheme is
+                  registered by Google Authenticator, 1Password, Authy and Duo, so
+                  the app opens already holding this account. */}
+              {otpauthUri && (
+                <a href={otpauthUri} className="a-primary a-primary--bar" style={{ marginTop: 14 }}>
+                  Open in your authenticator app
+                </a>
+              )}
+
+              {secret && (
+                <div style={{ marginTop: 18 }}>
+                  <p className="a-label" style={{ marginBottom: 6 }}>Or enter this setup key</p>
+                  <p
+                    className="n"
+                    style={{
+                      margin: 0, padding: '10px 12px', borderRadius: 10,
+                      background: 'var(--surface-glass)', border: '1px solid var(--hairline)',
+                      color: 'var(--text-primary)', fontSize: 15, letterSpacing: '0.08em',
+                      wordBreak: 'break-all', userSelect: 'all',
+                    }}
+                  >
+                    {groupSecret(secret)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopySecret()}
+                    className="a-secondary"
+                    style={{ marginTop: 8 }}
+                  >
+                    Copy setup key
+                  </button>
+                  <span role="status" aria-live="polite" className="a-help">
+                    {copied ? ' Copied to clipboard.' : ''}
+                  </span>
+                  <p className="a-help" style={{ marginTop: 6 }}>
+                    In your authenticator app choose to add an account manually, then paste this key.
+                  </p>
+                </div>
+              )}
+
+              {qrCode && (
+                <details style={{ marginTop: 18 }}>
+                  <summary className="a-help" style={{ cursor: 'pointer' }}>
+                    Setting up from a different device? Show QR code
+                  </summary>
+                  {/* Supabase returns a short-lived data URL; it is never persisted. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrCode}
+                    alt="QR code for Posture AI authenticator setup"
+                    width={220}
+                    height={220}
+                    style={{
+                      display: 'block', maxWidth: '100%', margin: '14px auto',
+                      background: '#fff', padding: 8, borderRadius: 12,
+                    }}
+                  />
+                </details>
+              )}
             </div>
           )}
 
