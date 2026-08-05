@@ -49,9 +49,13 @@ export interface WhyThisBodyProps {
   exerciseName: string
 }
 
-// Section overline: t-label (Medium 500) + the uppercase/tracking treatment
+// Section overline: t-label (Medium 500) plus the uppercase and tracking
 // already established for this folder's small caption labels, see
 // MuscleBodyMap's "Tight"/"Weak"/"Possible" headers.
+//
+// Note: lib/ui-vocabulary.test.ts sweeps this file's source text — comments
+// included — against the screening-vocabulary list. That is the right default
+// for a screening-only tool, so keep clinical-care wording out of here.
 const sectionLabelStyle: React.CSSProperties = {
   color: 'var(--text-tertiary)',
   textTransform: 'uppercase',
