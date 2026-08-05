@@ -158,16 +158,56 @@ Standing delegation: permission calls go to Fable 5 in the owner's place.
 
 Ordered gates before Production:
 
-1. Migrate the remaining screens and the undesigned surfaces below.
-2. Complete the v1-purge checkpoint.
-3. Regenerate `content/clinical-content-inventory.json` once, post-purge.
-4. Send the clinician that single final hash.
+1. ~~Migrate the remaining screens and the undesigned surfaces below.~~ **done**
+2. ~~Complete the v1-purge checkpoint.~~ **done**
+3. ~~Regenerate `content/clinical-content-inventory.json` once, post-purge.~~ **done** (`034a56c`)
+4. Send the clinician that single final hash. **← next action, needs the owner**
 5. On approval, add the `clinical_content_releases` row so the RPC matches.
-6. Re-run the full test, type and lint suite.
+6. ~~Re-run the full test, type and lint suite.~~ **done** — 2113/2113 vitest,
+   `tsc --noEmit` clean, eslint 0 errors / 21 pre-existing warnings, `next build` clean.
 7. Refresh preview; confirm clinical content *activates* (not merely fails safe)
-   and every screen renders styled.
-8. Merge to the default branch.
-9. Promote to Production; confirm the cron and the clinical gate behave identically.
+   and every screen renders styled. **Partially done** — preview is up and every
+   screen renders styled; clinical content still reads `database_activation_mismatch`
+   by design, and can only *activate* once gate 5 lands.
+8. Merge to the default branch. **held**
+9. Promote to Production; confirm the cron and the clinical gate behave identically. **held**
+
+### The hash to send the clinician (gate 4)
+
+```
+inventory_sha256                 72d3140f7edb59211c9261383bd6faeff7c1eae4b767448b043129aa2ecba12d
+algorithm:recommendation-engine  d39b84842febd3fbc0324cdd1971f1fd2fcd700eb208d38a20064458a46eb629
+```
+
+Reviewing this is narrower than it looks, and that is a checkable claim rather
+than a reassurance. Diffing the regenerated inventory against the pre-redesign
+baseline shows **exactly one item hash moved**: `algorithm:recommendation-engine`,
+which digests the governed source files. All 29 muscles, 73 exercises, 46 links,
+119 exercise-muscle rows, 1 contraindication and 12 report-copy entries are
+byte-identical. No authored clinical content changed; what changed is the
+presentation layer inside files the provenance list happens to govern.
+
+Reproduce with:
+
+```bash
+npx vite-node --config vitest.config.ts scripts/generate-clinical-content-inventory.ts
+git show 71245b0~1:content/clinical-content-inventory.json > /tmp/baseline.json
+```
+
+### Preview
+
+`https://posture-1jq73njtn-devin-wiggins-projects.vercel.app` — Vercel Preview on
+project `posture-ai`, behind Deployment Protection (unauthenticated requests 302
+to `vercel.com/sso-api`, verified). `POSTURE_TEST_MODE_ENABLED` and
+`NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` are unset, so the one path that would render
+unreviewed clinical content is closed.
+
+**Stray project — needs cleanup.** A first deploy attempt ran from this worktree,
+which carries no `.vercel/` of its own, so the CLI created a *second* Vercel project
+called `posture-ai-array` and treated the deploy as its production. It is behind the
+team's Deployment Protection (verified 302 to SSO) and was never given environment
+variables, so it cannot reach Supabase and holds no data — but it should be deleted,
+and worktrees should be linked before deploying from them.
 
 ## Production schema is nine migrations behind (found 2026-08-04)
 
