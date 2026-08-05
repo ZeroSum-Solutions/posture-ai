@@ -571,11 +571,24 @@ function journeyDefinitions(fixture) {
       targetId: 'client_history_progress_compare_journey',
       path: clientPath,
       traceId: 'client_history_progress_compare_tabs',
-      ready: (page) => page.getByRole('tab', { name: 'Progress', exact: true }).waitFor({ state: 'visible' }),
+      // The redesign removed the Progress TAB. The score history is no longer
+      // gated behind a tab at all -- TrendChart renders above the tab strip and
+      // reveals its score table from a "Recorded scores" <details>. The tabs are
+      // now Findings / Compare / Details.
+      //
+      // The step keeps its id. docs/qa/performance-budgets.json is frozen under
+      // a hardcoded sha256 and a versioned source id in
+      // generate-production-readiness-inventory.mjs, so renaming a step id there
+      // is a governed re-baseline, not a test fix. What this step has always
+      // measured is "reveal this client's progress"; that interaction still
+      // exists, it is a disclosure now rather than a tab. Driving the real
+      // control keeps the budget measuring the thing it was calibrated on.
+      // Re-baselining the id belongs with the perf release process.
+      ready: (page) => page.locator('summary', { hasText: 'Recorded scores' }).waitFor({ state: 'visible' }),
       run: async (page, entries) => {
         const steps = []
-        const progress = page.getByRole('tab', { name: 'Progress', exact: true })
-        steps.push(await measuredInteraction(page, entries, 'activate_progress_tab', () => progress.click(), () => page.getByRole('tabpanel', { name: 'Progress' }).waitFor()))
+        const progress = page.locator('summary', { hasText: 'Recorded scores' })
+        steps.push(await measuredInteraction(page, entries, 'activate_progress_tab', () => progress.click(), () => page.locator('#client-score-table').waitFor()))
         const compare = page.getByRole('tab', { name: 'Compare', exact: true })
         steps.push(await measuredInteraction(page, entries, 'activate_compare_tab', () => compare.click(), () => page.getByLabel('Before (baseline)').waitFor()))
         const selector = page.getByLabel('Before (baseline)')
@@ -594,10 +607,25 @@ function journeyDefinitions(fixture) {
       targetId: 'assessment_results_journey',
       path: `/assessments/${encodeURIComponent(fixture.assessmentId)}`,
       traceId: 'assessment_results_compare_selection',
-      ready: (page) => page.getByLabel('Compare report').waitFor({ state: 'visible' }),
+      // The review redesign moved ReviewDock inside a collapsed "Report, share
+      // & compare" <details>, so this select is present but hidden on load and
+      // the old ready hook waited on it until it timed out.
+      //
+      // ready only waits for the disclosure to exist; the opening happens at the
+      // top of run(), before the first measuredInteraction. That split matters:
+      // ready is awaited inside measureWebVitalNavigation, before the LCP/CLS
+      // cutoff, and any real user input there would finalize LCP early and
+      // understate it against this journey's frozen baseline. Opening in run()
+      // keeps the navigation vitals input-free while still leaving the two
+      // measured interactions exactly what they always were.
+      ready: (page) => page.locator('summary', { hasText: 'Report, share & compare' }).waitFor({ state: 'visible' }),
       run: async (page, entries) => {
         const selector = page.getByLabel('Compare report')
         const steps = []
+        if (!(await selector.isVisible())) {
+          await page.locator('summary', { hasText: 'Report, share & compare' }).click()
+          await selector.waitFor({ state: 'visible' })
+        }
         steps.push(await measuredInteraction(page, entries, 'open_compare_selector', () => selector.click()))
         const before = await selector.inputValue()
         const optionValues = await selector.locator('option').evaluateAll((options) => options.map((option) => option.value))

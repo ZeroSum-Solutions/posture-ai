@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import { Surface } from '@/components/array/Surface'
+import styles from './RemoteConsentButton.module.css'
 
 /** Practitioner-side entry point for remote subject consent: mints a link + QR
  *  (POST /api/consent/link) that the subject completes at /consent/[token]. */
@@ -38,48 +40,45 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
     }
   }
 
-  const panel: React.CSSProperties = {
-    background: 'rgba(255,137,24,0.08)', border: '1px solid rgba(255,137,24,0.3)',
-    borderRadius: 10, padding: 16,
-  }
-
   if (state === 'ready' && link) {
     return (
-      <div style={panel}>
-        <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+      <Surface tier="tile" innerClassName={styles.panel}>
+        <p className="a-help">
           Consent pending — share this link or QR with the subject. It is single-use and expires in 7 days.
         </p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <div className={styles.linkRow}>
           <input
             readOnly value={link.url} onFocus={e => e.currentTarget.select()}
-            style={{ flex: 1, minWidth: 200, padding: '8px 10px', background: 'var(--background)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)', fontSize: '0.8rem' }}
+            className={`a-input ${styles.linkInput}`}
           />
           <button
             onClick={() => copyLink(link.url)}
-            style={{ padding: '8px 14px', borderRadius: 8, background: 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+            className="a-secondary"
           >
             {copied ? 'Copied' : 'Copy link'}
           </button>
         </div>
-        {error && <p role="alert" style={{ margin: '0 0 12px', color: 'var(--danger)', fontSize: '0.8rem' }}>{error}</p>}
+        {error && <p role="alert" className="a-error">{error}</p>}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={link.qr} alt="Remote consent QR code" width={160} height={160} style={{ borderRadius: 8, background: '#fff', padding: 4 }} />
-      </div>
+        <img src={link.qr} alt="Remote consent QR code" width={160} height={160} className={styles.qr} />
+      </Surface>
     )
   }
 
   return (
-    <div style={panel}>
-      <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+    <Surface tier="tile" innerClassName={styles.panel}>
+      <p className="a-help">
         Subject consent is pending. Capture is blocked until the subject (or their guardian) consents.
       </p>
-      <button
-        onClick={generate} disabled={state === 'loading'}
-        style={{ padding: '9px 16px', borderRadius: 8, background: 'var(--warning)', color: '#1A1205', border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: state === 'loading' ? 'not-allowed' : 'pointer' }}
-      >
-        {state === 'loading' ? 'Generating…' : 'Send remote consent link'}
-      </button>
-      {error && <span role="alert" style={{ marginLeft: 10, color: 'var(--danger)', fontSize: '0.8rem' }}>{error}</span>}
-    </div>
+      <div className={styles.actionRow}>
+        <button
+          onClick={generate} disabled={state === 'loading'}
+          className="a-secondary"
+        >
+          {state === 'loading' ? 'Generating…' : 'Send remote consent link'}
+        </button>
+        {error && <span role="alert" className="a-error">{error}</span>}
+      </div>
+    </Surface>
   )
 }

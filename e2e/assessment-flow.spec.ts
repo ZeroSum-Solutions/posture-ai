@@ -19,25 +19,29 @@ test.describe('assessment golden path (test mode)', () => {
     // Synchronous scoring + status polling ends on the results page.
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
-    // Results open on a grade-first summary. Secondary concerns are separate,
-    // keyboard-accessible tabs rather than one long document.
-    await expect(page.getByRole('tab', { name: 'Summary' })).toHaveAttribute('aria-selected', 'true')
+    // Results open with the grade verdict always on screen (outside the tab
+    // strip) and Findings as the default, keyboard-accessible tab — secondary
+    // concerns (Evidence, Program) are separate tabs rather than one long
+    // document.
+    await expect(page.getByRole('tab', { name: /^Findings/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByText(/Grade C/i).first()).toBeVisible()
     await expect(page.locator('[data-testid="disclaimer"]')).toBeVisible()
 
-    const findings = page.locator('[data-testid^="finding-card-"]')
-    await expect(findings).toHaveCount(0)
-    await page.getByRole('tab', { name: /^Findings/ }).click()
+    // Findings render directly under the (default-active) Findings tab. Rows
+    // carry no data-testid in this layout, so each one is counted by its
+    // heading block, which is unique per row.
+    const findings = page.locator('#review-panel-findings [class*="findingHead"]')
     await expect(findings).toHaveCount(9, { timeout: 15_000 })
-    await expect(page.getByText('Screening estimate').first()).toBeVisible()
 
-    await page.getByRole('tab', { name: /^Exercises/ }).click()
+    // Exercises are no longer their own tab — they are a nested disclosure
+    // inside Program's "Matched exercises" summary.
+    await page.getByRole('tab', { name: /^Program/ }).click()
+    await page.locator('summary', { hasText: /^Matched exercises/ }).click()
     await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
     await expect(page.locator('[data-testid="exercises-section"]')).not.toHaveAttribute('open', '')
 
     // Every coach-side program control needs stable form identity for browser
     // autofill/devtools and explicit label association.
-    await page.getByRole('tab', { name: /^Program/ }).click()
     await expect(page.getByTestId('capability-select')).toBeVisible()
     const firstSwap = page.locator('[data-testid^="swap-"]').first()
     await expect(firstSwap).toBeVisible()

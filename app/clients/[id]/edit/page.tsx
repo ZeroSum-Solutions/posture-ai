@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Icon from '@/components/array/Icon'
 import ClientForm, { type ClientPayload, type ClientFormInitial } from '../../ClientForm'
 
 export default function EditClientPage() {
@@ -45,21 +46,24 @@ export default function EditClientPage() {
   }
 
   return (
-    <div className="app-standard-page app-standard-page--narrow">
-      <div style={{ marginBottom: '24px' }}>
-        <Link href={`/clients/${id}`} style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
-          &#8592; Back to Client
-        </Link>
+    <div className="app-screen">
+      <div className="app-screen-x app-stack" style={{ paddingTop: 24 }}>
+        <div>
+          <Link href={`/clients/${id}`} className="a-quiet" style={{ marginLeft: -12 }}>
+            <Icon name="alt-arrow-left-linear" size={18} />
+            Client
+          </Link>
+          <p className="t-kicker" style={{ marginTop: 12 }}>Client record</p>
+          <h1 className="t-headline">
+            Edit client{name ? <span style={{ color: 'var(--text-secondary)' }}> — {name}</span> : null}
+          </h1>
+        </div>
+        {loading || !initial ? (
+          <p className="t-body" role="status" aria-live="polite">Loading...</p>
+        ) : (
+          <ClientForm mode="edit" initial={initial} cancelHref={`/clients/${id}`} onSubmit={handleSave} />
+        )}
       </div>
-      <p className="app-page-kicker">Client record</p>
-      <h1 className="app-page-heading" style={{ marginBottom: 28 }}>
-        Edit Client{name ? <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}> — {name}</span> : null}
-      </h1>
-      {loading || !initial ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
-      ) : (
-        <ClientForm mode="edit" initial={initial} cancelHref={`/clients/${id}`} onSubmit={handleSave} />
-      )}
     </div>
   )
 }

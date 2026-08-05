@@ -1,6 +1,6 @@
 'use client'
 
-import styles from './AssessmentReviewStudio.module.css'
+import styles from './AssessmentReview.module.css'
 
 export type ReviewSaveState = 'idle' | 'saving' | 'failed'
 export type ReportKind = 'practitioner' | 'client'
@@ -140,8 +140,8 @@ export default function ReviewDock({
           </div>
           <div className={styles.gradeReadout} aria-label={`Grade ${grade}, deviation ${score} out of 100`}>
             <span>Grade</span>
-            <strong className="data-readout">{grade}</strong>
-            <small className="data-readout">{score}/100</small>
+            <strong className="t-readout-md">{grade}</strong>
+            <small className="t-readout-md n">{score}/100</small>
             <em>{gradeDescription}</em>
           </div>
         </div>

@@ -1,0 +1,215 @@
+/* Corrective program — structural rules the type and action utility classes and
+   the Surface/Chip primitives can't express (table layout, hover/focus states,
+   the step pill's raw-hex background). Typography and colour otherwise route
+   through app/globals.css and components/array/severity.ts; see PriorityProgram.tsx.
+
+   Do not write a `t-*` or `a-*` glob in a CSS comment here: the `*` followed by
+   `/` terminates the comment early and silently turns the rest of the file into
+   a parse error. That is what broke the production build once already. */
+
+.root { margin-bottom: 24px; }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.capabilityField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── "Maintaining well" row ────────────────────────────────────────────── */
+
+.positivesRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Priority card ──────────────────────────────────────────────────────── */
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cardTitle { flex: 1; }
+
+.demoteButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: var(--text-tertiary);
+  font: 500 12px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.demoteButton:hover { background: rgba(255, 255, 255, 0.06); }
+
+.principle {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Ramp table ─────────────────────────────────────────────────────────── */
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+}
+
+.table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+}
+
+.theadRow { background: rgba(255, 255, 255, 0.02); }
+
+.th {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.thWeek {
+  min-width: 86px;
+  text-align: center;
+}
+
+/* Same size as the "Week N" line above it (t-kicker) — hierarchy comes from
+   weight and opacity, not a second ad hoc font size. */
+.thTheme {
+  margin-top: 2px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.td {
+  padding: 9px 10px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.tdWeek { text-align: center; }
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+
+.stepPill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  font: 500 11px/1 var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.exerciseButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: 400 14px/1 var(--font-sans);
+  text-decoration: underline dotted rgba(255, 255, 255, 0.3);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.whyThisButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--info);
+  font: 400 12px/1 var(--font-sans);
+  text-decoration: underline dotted rgba(10, 131, 201, 0.4);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.stepMeta { padding-left: 2px; }
+
+.swapRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.swapSelect {
+  max-width: 200px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--background);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-secondary);
+  font: 400 12px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+/* ── Monitor-only list ──────────────────────────────────────────────────── */
+
+.monitoredList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.monitoredRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.promoteButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  font: 500 12px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.promoteButton:hover { opacity: 0.85; }

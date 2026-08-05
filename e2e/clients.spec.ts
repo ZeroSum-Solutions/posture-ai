@@ -35,13 +35,20 @@ test.describe('client list and search', () => {
 
     const rowA = page.getByRole('link', { name: new RegExp(`List-${tokenA}`) })
     const rowB = page.getByRole('link', { name: new RegExp(`List-${tokenB}`) })
-    await expect(page.getByText('Search by first or last name')).toBeVisible()
-    await expect(rowA).toHaveCount(0)
-    await expect(rowB).toHaveCount(0)
 
-    // A shared prefix returns both records without mounting the whole practice
-    // directory before the practitioner has expressed intent.
-    await page.getByPlaceholder('Search clients by name...').fill('List-')
+    // The directory no longer gates on search. It previously mounted nothing
+    // until the practitioner typed, and this test asserted that prompt plus a
+    // zero-row start; app/clients/page.tsx now loads the owned directory on
+    // mount and app/api/clients/route.ts returns it unfiltered for an empty
+    // search. That gated pattern still exists, but on the /assessments/new
+    // client picker, not here. Only the gating premise is dropped -- the
+    // contract this test exists for, that prefix search filters the directory
+    // through the bounded API, is asserted below exactly as before.
+    await expect(rowA).toBeVisible()
+    await expect(rowB).toBeVisible()
+
+    // A shared prefix returns both records.
+    await page.getByPlaceholder('Search by name').fill('List-')
     await expect(rowA).toBeVisible()
     await expect(rowB).toBeVisible()
 
@@ -50,16 +57,16 @@ test.describe('client list and search', () => {
       const url = new URL(response.url())
       return url.pathname === '/api/clients' && url.searchParams.get('search') === `List-${tokenA}`
     })
-    await page.getByPlaceholder('Search clients by name...').fill(`List-${tokenA}`)
+    await page.getByPlaceholder('Search by name').fill(`List-${tokenA}`)
     expect((await searchResponse).ok()).toBeTruthy()
     await expect(rowA).toBeVisible()
     await expect(rowB).toHaveCount(0)
 
-    // Clearing the search returns to the search-first prompt.
-    await page.getByPlaceholder('Search clients by name...').fill('')
-    await expect(page.getByText('Search by first or last name')).toBeVisible()
-    await expect(rowA).toHaveCount(0)
-    await expect(rowB).toHaveCount(0)
+    // Clearing the search restores the unfiltered directory rather than the
+    // old search-first prompt, so the record filtered out above comes back.
+    await page.getByPlaceholder('Search by name').fill('')
+    await expect(rowA).toBeVisible()
+    await expect(rowB).toBeVisible()
   })
 })
 
@@ -77,20 +84,21 @@ test.describe('client archive', () => {
     await page.goto(`/clients/${victim.id}`)
     await expect(page.getByRole('heading', { name: new RegExp(`Archive-${archiveToken}`) })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Archive Client' }).click()
+    await page.getByRole('button', { name: 'Client record actions' }).click()
+    await page.getByRole('button', { name: 'Archive client' }).click()
     await expect(page.getByRole('heading', { name: 'Archive Client?' })).toBeVisible()
     await page.getByRole('button', { name: 'Yes, Archive' }).click()
 
     await page.waitForURL(/\/clients$/, { timeout: 15_000 })
-    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${keepToken}`)
+    await page.getByPlaceholder('Search by name').fill(`Keep-${keepToken}`)
     await expect(page.getByRole('link', { name: new RegExp(`Keep-${keepToken}`) })).toBeVisible()
     const archivedSearch = page.waitForResponse((response) => {
       const url = new URL(response.url())
       return url.pathname === '/api/clients' && url.searchParams.get('search') === `Archive-${archiveToken}`
     })
-    await page.getByPlaceholder('Search clients by name...').fill(`Archive-${archiveToken}`)
+    await page.getByPlaceholder('Search by name').fill(`Archive-${archiveToken}`)
     expect((await archivedSearch).ok()).toBeTruthy()
-    await expect(page.getByRole('heading', { name: 'No matching clients' })).toBeVisible()
+    await expect(page.getByText('No matching clients')).toBeVisible()
     await expect(page.getByRole('link', { name: new RegExp(`Archive-${archiveToken}`) })).toHaveCount(0)
   })
 })
@@ -110,9 +118,9 @@ test.describe('erased client is hidden from the clients list', () => {
 
     // Both present before erasure.
     await page.goto('/clients')
-    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
+    await page.getByPlaceholder('Search by name').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
-    await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
+    await page.getByPlaceholder('Search by name').fill(`Erase-${token}`)
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toBeVisible()
 
     // Right-to-erasure: tombstone + redact + purge.
@@ -123,15 +131,15 @@ test.describe('erased client is hidden from the clients list', () => {
 
     // The erased client's row is gone; the keeper still renders.
     await page.goto('/clients')
-    await page.getByPlaceholder('Search clients by name...').fill(`Keep-${token}`)
+    await page.getByPlaceholder('Search by name').fill(`Keep-${token}`)
     await expect(page.locator(`a[href="/clients/${keeper.id}"]`)).toBeVisible()
     const erasedSearch = page.waitForResponse((response) => {
       const url = new URL(response.url())
       return url.pathname === '/api/clients' && url.searchParams.get('search') === `Erase-${token}`
     })
-    await page.getByPlaceholder('Search clients by name...').fill(`Erase-${token}`)
+    await page.getByPlaceholder('Search by name').fill(`Erase-${token}`)
     expect((await erasedSearch).ok()).toBeTruthy()
-    await expect(page.getByRole('heading', { name: 'No matching clients' })).toBeVisible()
+    await expect(page.getByText('No matching clients')).toBeVisible()
     await expect(page.locator(`a[href="/clients/${victim.id}"]`)).toHaveCount(0)
   })
 })
@@ -148,12 +156,12 @@ test.describe('client detail empty state', () => {
     await page.goto(`/clients/${client.id}`)
     await expect(page.getByRole('heading', { name: new RegExp(`Empty-${token}`) })).toBeVisible()
 
-    await expect(page.getByText(/No assessments yet/)).toBeVisible()
-    await expect(page.getByRole('link', { name: /New Assessment/ })).toBeVisible()
+    await expect(page.getByText(/No scans yet/)).toBeVisible()
+    await expect(page.getByRole('link', { name: /New scan/ })).toBeVisible()
 
-    // Progress/Compare need >= 2 assessments → absent; Assessments/Info always present.
-    await expect(page.getByRole('tab', { name: 'Assessments' })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Info' })).toBeVisible()
+    // Compare needs >= 2 assessments → absent; Findings/Details always present.
+    await expect(page.getByRole('tab', { name: 'Findings' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Details' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: 'Compare' })).toHaveCount(0)
 
@@ -264,27 +272,37 @@ test.describe('client comparison policy', () => {
     await page.getByLabel('After (comparison)').selectOption(sameVersionId)
 
     await expect(page.getByText('Unchanged severity')).toBeVisible()
-    await expect(page.getByText('Within measurement tolerance')).toBeVisible()
-    await expect(page.getByText('Improved — lower severity')).toBeVisible()
-    await expect(page.getByText('Regressed — higher severity')).toBeVisible()
+    // "Within measurement tolerance" is the shared comparisonStatusText() copy for
+    // within_tolerance, used for both the overall verdict and every per-finding
+    // row — so a bare getByText can match more than the "B — tolerance" finding
+    // this assertion means. Scope to that finding's own row (#finding-noise).
+    await expect(page.locator('#finding-noise').getByText('Within measurement tolerance')).toBeVisible()
+    // Same shared comparisonStatusText() copy issue as the tolerance case above:
+    // "Improved — lower severity" / "Regressed — higher severity" each also
+    // appear in the overall verdict, so scope to the finding row this
+    // assertion means.
+    await expect(page.locator('#finding-better').getByText('Improved — lower severity')).toBeVisible()
+    await expect(page.locator('#finding-worse').getByText('Regressed — higher severity')).toBeVisible()
 
     await page.getByLabel('After (comparison)').selectOption(newVersionId)
-    await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
+    // Same shared comparisonStatusText() copy issue: the always-visible
+    // "Deviation score" trend card independently derives its own latest-vs-
+    // previous verdict (also "Not comparable", since the newest fixture is
+    // v3 against a v2 predecessor) alongside the Compare panel's
+    // dropdown-driven verdict. Scope to the Compare panel this assertion means.
+    await expect(page.locator('#client-panel-compare').getByText('Not comparable', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
 
-    const progressTab = page.getByRole('tab', { name: 'Progress' })
-    await progressTab.click()
-    await expect(page.locator('#client-panel-assessments')).toHaveCSS('visibility', 'hidden')
-    await progressTab.focus()
-    await page.keyboard.press('Tab')
-    await expect(page.locator('#client-panel-progress')).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.getByRole('button', { name: 'Load interactive charts' })).toBeFocused()
-    await page.getByRole('button', { name: 'Load interactive charts' }).click()
-    await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
-    await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
-    await expect(page.getByText('v2').first()).toBeVisible()
-    await expect(page.getByText('v3').first()).toBeVisible()
+    // There is no separate "Progress" tab or "Load interactive charts" gate
+    // anymore — TrendChart (recharts LineChart replaced by a hand-drawn SVG,
+    // see app/clients/[id]/TrendChart.tsx) renders inline above the tab strip
+    // and its scoring-version history sits behind a "Recorded scores"
+    // disclosure. Confirm the same underlying facts this test cares about:
+    // the trend surfaces, and both scoring versions are represented.
+    await expect(page.getByRole('heading', { name: 'Deviation score' })).toBeVisible()
+    await page.locator('summary', { hasText: 'Recorded scores' }).click()
+    const scoringVersionCells = page.locator('#client-score-table tbody tr td:nth-child(4)')
+    await expect(scoringVersionCells).toHaveText(['v3', 'v2', 'v2'])
   })
 })
 
@@ -328,7 +346,8 @@ test.describe('client edit', () => {
     const client = await createClient(page, 'E2E', `Edit-${token}`)
 
     await page.goto(`/clients/${client.id}`)
-    await page.getByRole('link', { name: 'Edit Client' }).click()
+    await page.getByRole('button', { name: 'Client record actions' }).click()
+    await page.getByRole('link', { name: 'Edit client' }).click()
     await page.waitForURL(new RegExp(`/clients/${client.id}/edit$`))
 
     const newToken = randomUUID().slice(0, 8)
@@ -341,8 +360,8 @@ test.describe('client edit', () => {
     await page.waitForURL(new RegExp(`/clients/${client.id}$`))
     await expect(page.getByRole('heading', { name: new RegExp(`Edited-${newToken}`) })).toBeVisible()
 
-    // Info tab reflects the edited height + notes.
-    await page.getByRole('tab', { name: 'Info' }).click()
+    // Details tab reflects the edited height + notes.
+    await page.getByRole('tab', { name: 'Details' }).click()
     await expect(page.getByText(`Edited note ${newToken}`)).toBeVisible()
     await expect(page.getByText(/70 in/)).toBeVisible()
 

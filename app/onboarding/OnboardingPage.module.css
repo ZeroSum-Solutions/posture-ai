@@ -1,0 +1,26 @@
+/* Onboarding — a wider prose column than the 430px app frame, since the legal
+   documents read as long-form text rather than a phone-app screen. Still
+   phone-first: the column shrinks to the viewport, never overflows it. */
+
+.page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+}
+
+.header { margin-bottom: 24px; }
+
+.documents {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.acceptRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.acceptRow[data-disabled='true'] { cursor: not-allowed; }

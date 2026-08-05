@@ -38,7 +38,7 @@ export default function SignUpPage() {
           display: 'inline-flex',
           minHeight: '44px',
           alignItems: 'center',
-          color: 'var(--brand)',
+          color: 'var(--text-secondary)',
           textDecoration: 'underline',
           fontSize: '0.9rem',
         }}

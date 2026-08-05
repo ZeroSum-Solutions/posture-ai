@@ -32,8 +32,8 @@ export function CameraGlyph({ size = 32, className }: IconProps) {
 export function CheckGlyph({ size = 32, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true" className={className}>
-      <circle cx="16" cy="16" r="12" stroke="#5BD5AC" strokeWidth="1.5" />
-      <path d="m10.5 16.2 3.5 3.5 7.8-8.1" stroke="#5BD5AC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="16" cy="16" r="12" stroke="var(--maintain)" strokeWidth="1.5" />
+      <path d="m10.5 16.2 3.5 3.5 7.8-8.1" stroke="var(--maintain)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

@@ -2,6 +2,9 @@
 
 // Loaded only after the server-side HG-03 clinical-content gate passes.
 import { useState } from 'react'
+import { FilterChip, FilterRow, Chip } from '@/components/array/Chip'
+import { Surface } from '@/components/array/Surface'
+import { tone, type SeverityBand } from '@/components/array/severity'
 import styles from './ExercisesPage.module.css'
 
 type Exercise = {
@@ -23,15 +26,19 @@ const CATEGORY_LABELS: Record<string, string> = {
   informational: 'Informational',
 }
 
-function getCategoryColor(cat: string): { bg: string; text: string } {
-  const colors: Record<string, { bg: string; text: string }> = {
-    stretch: { bg: 'color-mix(in oklab, var(--maintain) 16%, transparent)', text: 'var(--maintain)' },
-    strengthen: { bg: 'color-mix(in oklab, var(--brand) 16%, transparent)', text: 'var(--brand)' },
-    mobility: { bg: 'color-mix(in oklab, var(--warning) 16%, transparent)', text: 'var(--warning)' },
-    activation: { bg: 'color-mix(in oklab, var(--danger) 16%, transparent)', text: 'var(--danger)' },
-    informational: { bg: 'color-mix(in oklab, var(--text-muted) 16%, transparent)', text: 'var(--text-muted)' },
-  }
-  return colors[cat] || { bg: 'color-mix(in oklab, var(--text-muted) 16%, transparent)', text: 'var(--text-muted)' }
+/** Category is coded through the same severity bands as everywhere else in
+ * the app, not a bespoke palette — stretch reads as calm, activation as the
+ * most demanding, informational as unscored. */
+const CATEGORY_BANDS: Record<string, SeverityBand> = {
+  stretch: 'maintain',
+  strengthen: 'info',
+  mobility: 'monitor',
+  activation: 'review',
+  informational: 'neutral',
+}
+
+function bandForCategory(category: string): SeverityBand {
+  return CATEGORY_BANDS[category] ?? 'neutral'
 }
 
 export default function ExercisesLibrary({ exercises }: { exercises: Exercise[] }) {
@@ -41,83 +48,72 @@ export default function ExercisesLibrary({ exercises }: { exercises: Exercise[] 
   const filtered = activeFilter === 'all' ? exercises : exercises.filter(e => e.category === activeFilter)
 
   return (
-    <div className="app-standard-page">
-      <div className="app-page-header">
+    <div className="app-screen">
+      <header className={styles.header}>
         <div>
-          <p className="app-page-kicker">Movement library</p>
-          <h1 className="app-page-heading">Exercises</h1>
-          <p className="app-page-lede">Browse the movement building blocks used to shape a focused routine.</p>
+          <p className="t-kicker" style={{ marginBottom: 10 }}>Movement library</p>
+          <h1 className="t-headline">Exercises</h1>
         </div>
-        <div className={styles.headerMetric}>
-          <span>Showing</span>
-          <strong className="data-readout">{filtered.length}</strong>
+        <Surface tier="tile" pad="snug" innerClassName={styles.headerMetric}>
+          <span className="t-quiet">Showing</span>
+          <strong className="t-readout-md n">{filtered.length}</strong>
           <em>{filtered.length === 1 ? 'movement' : 'movements'}</em>
-        </div>
-      </div>
+        </Surface>
+      </header>
 
-      <div className={styles.filterBar} role="group" aria-label="Filter exercises by category">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveFilter(cat)}
-            aria-pressed={activeFilter === cat}
-            className={styles.filterButton}
-          >
-            {CATEGORY_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
-            {cat !== 'all' && (
-              <span className="data-readout">
-                ({exercises.filter(e => e.category === cat).length})
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <div className="app-screen-x app-stack">
+        <FilterRow label="Filter exercises by category">
+          {categories.map(cat => (
+            <FilterChip
+              key={cat}
+              label={CATEGORY_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
+              count={cat === 'all' ? undefined : exercises.filter(e => e.category === cat).length}
+              active={activeFilter === cat}
+              onClick={() => setActiveFilter(cat)}
+            />
+          ))}
+        </FilterRow>
 
-      {filtered.length === 0 && (
-        <p className={styles.statePanel}>No exercises found{activeFilter !== 'all' ? ` for category "${activeFilter}"` : ''}.</p>
-      )}
+        {filtered.length === 0 && (
+          <Surface tier="tile" pad="rowy">
+            <p className="t-body">
+              No exercises found{activeFilter !== 'all' ? ` for category "${CATEGORY_LABELS[activeFilter] || activeFilter}"` : ''}.
+            </p>
+          </Surface>
+        )}
 
-      <div className={styles.grid}>
-        {filtered.map((ex) => {
-          const { bg, text } = getCategoryColor(ex.category)
-          const categoryStyle = {
-            '--exercise-accent': text,
-            '--exercise-tint': bg,
-          } as React.CSSProperties
-          return (
-            <article
-              key={ex.id}
-              className={`app-panel exercise-library-card ${styles.card}`}
-              style={categoryStyle}
-            >
-              {ex.poster_url && (
-                <div className={styles.mediaFrame}>
-                  <img
-                    src={ex.poster_url}
-                    alt=""
-                    loading="lazy"
-                  />
+        <div className={styles.grid}>
+          {filtered.map((ex) => {
+            const band = bandForCategory(ex.category)
+            return (
+              <Surface key={ex.id} tier="tile" pad="flush" innerClassName={styles.cardInner}>
+                {ex.poster_url && (
+                  <div className={styles.mediaFrame}>
+                    <img
+                      src={ex.poster_url}
+                      alt=""
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+                <div className={styles.cardHeader}>
+                  <span className="t-title">{ex.name}</span>
+                  <Chip band={band} size="sm">{CATEGORY_LABELS[ex.category] || ex.category}</Chip>
                 </div>
-              )}
-              <div className={styles.cardHeader}>
-                <span>{ex.name}</span>
-                <span className={styles.categoryPill}>
-                  {ex.category}
-                </span>
-              </div>
-              {ex.instructions && (
-                <p className={styles.instructions}>
-                  {ex.instructions.length > 120 ? ex.instructions.slice(0, 117) + '...' : ex.instructions}
-                </p>
-              )}
-              {(ex.sets || ex.hold_seconds) && (
-                <p className={`data-readout ${styles.dosage}`}>
-                  {ex.sets && `${ex.sets} sets`}{ex.sets && ex.hold_seconds && ' · '}{ex.hold_seconds && `${ex.hold_seconds}s hold`}
-                </p>
-              )}
-            </article>
-          )
-        })}
+                {ex.instructions && (
+                  <p className={`t-body ${styles.instructions}`}>
+                    {ex.instructions.length > 120 ? ex.instructions.slice(0, 117) + '...' : ex.instructions}
+                  </p>
+                )}
+                {(ex.sets || ex.hold_seconds) && (
+                  <p className={`n ${styles.dosage}`} style={{ color: tone(band) }}>
+                    {ex.sets && `${ex.sets} sets`}{ex.sets && ex.hold_seconds && ' · '}{ex.hold_seconds && `${ex.hold_seconds}s hold`}
+                  </p>
+                )}
+              </Surface>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

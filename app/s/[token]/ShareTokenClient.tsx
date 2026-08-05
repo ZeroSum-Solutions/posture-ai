@@ -121,7 +121,7 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
         justifyContent: 'center',
         padding: 24,
         textAlign: 'center',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: 'var(--font-sans)',
         fontSize: '0.95rem',
       }}
     >

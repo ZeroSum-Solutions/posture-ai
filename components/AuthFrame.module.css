@@ -1,0 +1,100 @@
+/* Auth shell. One column on a phone: the marketing panel the desktop layout
+   carried is not worth a second scroll region on the screen a practitioner uses
+   to get back into their account. */
+
+.layout {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  width: min(430px, 100%);
+  margin: 0 auto;
+  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.head { display: block; }
+
+.title {
+  margin-top: 10px;
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+}
+
+.description {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.62;
+  color: var(--text-secondary);
+}
+
+.body { display: block; }
+
+@media (min-width: 900px) {
+  /* Wider viewports get the story column back, but the form column keeps the
+     same width it has on a phone so the field metrics never change. */
+  .layout {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 72px;
+    width: min(1080px, 100%);
+    padding: 48px;
+  }
+
+  .story {
+    flex: 1;
+    max-width: 420px;
+  }
+
+  .column {
+    width: 380px;
+    flex-shrink: 0;
+  }
+}
+
+.story { display: none; }
+
+@media (min-width: 900px) {
+  .story { display: block; }
+}
+
+.storyHeading {
+  margin-top: 16px;
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.storyCopy {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

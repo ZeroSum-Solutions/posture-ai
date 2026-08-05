@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Icon from '@/components/array/Icon'
 import ClientForm, { type ClientPayload } from '../ClientForm'
 
 export default function NewClientPage() {
@@ -20,16 +21,19 @@ export default function NewClientPage() {
   }
 
   return (
-    <div className="app-standard-page app-standard-page--narrow">
-      <div style={{ marginBottom: '24px' }}>
-        <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
-          &#8592; Back to Clients
-        </Link>
+    <div className="app-screen">
+      <div className="app-screen-x app-stack" style={{ paddingTop: 24 }}>
+        <div>
+          <Link href="/clients" className="a-quiet" style={{ marginLeft: -12 }}>
+            <Icon name="alt-arrow-left-linear" size={18} />
+            Clients
+          </Link>
+          <p className="t-kicker" style={{ marginTop: 12 }}>Practice directory</p>
+          <h1 className="t-headline">New client</h1>
+          <p className="t-body" style={{ marginTop: 8 }}>Create a clear record and capture consent before the first screen.</p>
+        </div>
+        <ClientForm mode="create" cancelHref="/clients" onSubmit={handleCreate} />
       </div>
-      <p className="app-page-kicker">Practice directory</p>
-      <h1 className="app-page-heading" style={{ marginBottom: 12 }}>New client</h1>
-      <p className="app-page-lede" style={{ marginBottom: 28 }}>Create a clear record and capture consent before the first screen.</p>
-      <ClientForm mode="create" cancelHref="/clients" onSubmit={handleCreate} />
     </div>
   )
 }

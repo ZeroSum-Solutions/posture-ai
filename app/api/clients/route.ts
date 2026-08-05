@@ -29,6 +29,24 @@ interface ClientListRow {
   last_name: string
   date_of_birth: string | null
   created_at: string
+  /** Latest completed scan, and the score before it, for the directory's trend column. */
+  last_scan_at: string | null
+  last_assessment_id: string | null
+  last_grade: string | null
+  last_score: number | null
+  previous_score: number | null
+  awaiting_review: boolean | null
+}
+
+/** Directory filters resolve in SQL, so a page genuinely reflects its chip. */
+const CLIENT_FILTERS = new Set(['all', 'needs_review', 'improving', 'overdue'])
+
+function parseClientFilter(searchParams: URLSearchParams) {
+  const values = searchParams.getAll('filter')
+  if (values.length > 1) return { ok: false as const }
+  const value = values[0] ?? 'all'
+  if (!CLIENT_FILTERS.has(value)) return { ok: false as const }
+  return { ok: true as const, value }
 }
 
 function parseClientSearch(searchParams: URLSearchParams) {
@@ -78,7 +96,13 @@ export async function GET(req: NextRequest) {
   if (!parsedSearch.ok) {
     return NextResponse.json({ error: 'Invalid search' }, { status: 400, headers: NO_STORE })
   }
-  const filterKey = `search=${parsedSearch.value.toLocaleLowerCase('en-US')}`
+  const parsedFilter = parseClientFilter(req.nextUrl.searchParams)
+  if (!parsedFilter.ok) {
+    return NextResponse.json({ error: 'Invalid filter' }, { status: 400, headers: NO_STORE })
+  }
+  // The cursor is bound to the filter as well as the search: paging on with a
+  // cursor minted under a different filter would silently skip rows.
+  const filterKey = `search=${parsedSearch.value.toLocaleLowerCase('en-US')}&filter=${parsedFilter.value}`
   const parsedPage = parseKeysetPageRequest(req.nextUrl.searchParams, {
     scope: CLIENT_LIST_SCOPE,
     filterKey,
@@ -112,6 +136,7 @@ export async function GET(req: NextRequest) {
     p_after_at: page.after?.at ?? null,
     p_after_id: page.after?.id ?? null,
     p_limit: page.limit + 1,
+    p_filter: parsedFilter.value,
   })
   if (error) {
     logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_list_failed' })
@@ -126,9 +151,32 @@ export async function GET(req: NextRequest) {
     // canonical UTC representation so real rows cannot create invalid cursors.
     key: (client) => ({ at: canonicalizeKeysetTimestamp(client.created_at), id: client.id }),
   })
+  // Chip counts describe the whole directory, read once for the first page and
+  // never recomputed while paging — a count that shifted mid-scroll would describe
+  // a moving target. They take the page's own snapshot, so a client created between
+  // the two calls cannot be counted by a chip while being unreachable by the cursor.
+  // A failed summary is omitted, not faked: the chips then render without counts
+  // rather than with wrong ones.
+  let summary: { total: number; needs_review: number; improving: number; overdue: number } | null = null
+  if (!page.after) {
+    const { data: summaryRows, error: summaryError } = await supabase.rpc(
+      'owned_client_directory_summary',
+      { p_snapshot_at: page.snapshotAt },
+    )
+    const row = Array.isArray(summaryRows) ? summaryRows[0] : summaryRows
+    if (!summaryError && row) {
+      summary = {
+        total: Number(row.total ?? 0),
+        needs_review: Number(row.needs_review ?? 0),
+        improving: Number(row.improving ?? 0),
+        overdue: Number(row.overdue ?? 0),
+      }
+    }
+  }
+
   logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_loaded' })
   return NextResponse.json(
-    { clients: result.records, count: result.records.length, pagination: result.pagination },
+    { clients: result.records, count: result.records.length, pagination: result.pagination, summary },
     { headers: NO_STORE },
   )
 }

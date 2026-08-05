@@ -66,8 +66,11 @@ test.describe('red-flag pre-session screen', () => {
     await expect(page.getByText(/up next/i)).toBeVisible({ timeout: 8_000 })
 
     // The practitioner-facing run list reflects the acknowledged pain check.
+    // It lives in the Program tab, behind a "Session runs (N)" disclosure.
     await page.goto(`/assessments/${assessmentId}`)
-    await expect(page.getByText('Pain check: clear')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('tab', { name: /^Program/ }).click()
+    await page.locator('summary').filter({ hasText: 'Session runs' }).click()
+    await expect(page.getByText('Pain check clear')).toBeVisible({ timeout: 10_000 })
   })
 
   test('flow 2: "Yes" shows the stop card and no player timeline appears', async ({ page }) => {

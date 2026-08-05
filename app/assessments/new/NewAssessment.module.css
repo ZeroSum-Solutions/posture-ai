@@ -1,0 +1,47 @@
+/* New-assessment wizard (Step 1 client picker). Replaces the deleted v1
+   `.app-search-shell` utility — the shell needs a real `:focus-within` rule,
+   which an inline style cannot express, so it lives here instead of in
+   globals.css (this pattern is scoped to this one screen). Mirrors the
+   search shell in app/clients/ClientsPage.module.css. */
+
+.searchShell {
+  position: relative;
+  border-radius: 9999px;
+  padding: 1px;
+  overflow: hidden;
+}
+.searchGradient {
+  position: absolute;
+  inset: 0;
+  background: var(--shell-gradient-tile);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.searchInner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 9999px;
+  background: var(--surface-glass);
+  -webkit-backdrop-filter: blur(var(--blur-tile));
+  backdrop-filter: blur(var(--blur-tile));
+  color: rgba(255, 255, 255, 0.5);
+}
+.searchInner input {
+  min-height: 0;
+  height: 44px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-primary);
+}
+.searchInner input:focus-visible { outline: none; }
+.searchShell:focus-within { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }

@@ -4,8 +4,11 @@ import { resolveMarkerRegions, type MuscleLink } from './muscleMap'
 
 // Schematic body silhouette paths (front and back, viewBox 0 0 80 180)
 function BodySilhouette({ view }: { view: 'front' | 'back' }) {
-  const bodyColor = '#2A2A2E'
-  const strokeColor = 'var(--border-strong)'
+  // Raised-but-inert fill: low-opacity white over the black field, the same
+  // idiom used for placeholder/inert shapes elsewhere in the Array system
+  // (e.g. AssessmentReview.module.css .captureFrame).
+  const bodyColor = 'rgba(255,255,255,0.05)'
+  const strokeColor = 'rgba(255,255,255,0.35)'
 
   if (view === 'front') {
     return (
@@ -108,7 +111,7 @@ export default function MuscleBodyMap({
       {/* Front view */}
       {(frontTight.length > 0 || frontWeak.length > 0 || frontPossible.length > 0) && (
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Front</div>
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Front</div>
           <svg viewBox="0 0 80 175" width="72" height="157" style={{ display: 'block', background: 'var(--background)', borderRadius: 6 }}>
             <BodySilhouette view="front"/>
             {frontTight.map((item, i) => (
@@ -116,7 +119,7 @@ export default function MuscleBodyMap({
                 key={'ft-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--danger)" fillOpacity="0.25" stroke="var(--danger)" strokeWidth="1.2"
+                fill="var(--review)" fillOpacity="0.25" stroke="var(--review)" strokeWidth="1.2"
               />
             ))}
             {frontWeak.map((item, i) => (
@@ -124,12 +127,12 @@ export default function MuscleBodyMap({
                 key={'fw-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--brand)" fillOpacity="0.25" stroke="var(--brand)" strokeWidth="1.2"
+                fill="var(--info)" fillOpacity="0.25" stroke="var(--info)" strokeWidth="1.2"
               />
             ))}
             {frontPossible.map((item, i) => (
               <ellipse key={`fp${i}`} cx={item.region.cx} cy={item.region.cy} rx={item.region.rx} ry={item.region.ry}
-                fill="var(--text-muted)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
+                fill="var(--text-tertiary)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
             ))}
           </svg>
         </div>
@@ -138,7 +141,7 @@ export default function MuscleBodyMap({
       {/* Back view */}
       {(backTight.length > 0 || backWeak.length > 0 || backPossible.length > 0) && (
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Back</div>
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Back</div>
           <svg viewBox="0 0 80 175" width="72" height="157" style={{ display: 'block', background: 'var(--background)', borderRadius: 6 }}>
             <BodySilhouette view="back"/>
             {backTight.map((item, i) => (
@@ -146,7 +149,7 @@ export default function MuscleBodyMap({
                 key={'bt-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--danger)" fillOpacity="0.25" stroke="var(--danger)" strokeWidth="1.2"
+                fill="var(--review)" fillOpacity="0.25" stroke="var(--review)" strokeWidth="1.2"
               />
             ))}
             {backWeak.map((item, i) => (
@@ -154,12 +157,12 @@ export default function MuscleBodyMap({
                 key={'bw-' + i}
                 cx={item.region.cx} cy={item.region.cy}
                 rx={item.region.rx} ry={item.region.ry}
-                fill="var(--brand)" fillOpacity="0.25" stroke="var(--brand)" strokeWidth="1.2"
+                fill="var(--info)" fillOpacity="0.25" stroke="var(--info)" strokeWidth="1.2"
               />
             ))}
             {backPossible.map((item, i) => (
               <ellipse key={`bp${i}`} cx={item.region.cx} cy={item.region.cy} rx={item.region.rx} ry={item.region.ry}
-                fill="var(--text-muted)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
+                fill="var(--text-tertiary)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3,3" />
             ))}
           </svg>
         </div>
@@ -170,7 +173,7 @@ export default function MuscleBodyMap({
         <div style={{ width: '100%', display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <svg width="16" height="10">
-              <ellipse cx="8" cy="5" rx="7" ry="4" fill="var(--text-muted)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth="1" strokeDasharray="3,3"/>
+              <ellipse cx="8" cy="5" rx="7" ry="4" fill="var(--text-tertiary)" fillOpacity="0.13" stroke="var(--text-secondary)" strokeWidth="1" strokeDasharray="3,3"/>
             </svg>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Possible involvement</span>
           </div>
@@ -181,47 +184,47 @@ export default function MuscleBodyMap({
       <div style={{ flex: 1, minWidth: 100 }}>
         {(tightMuscles.length > 0 || tightShown.length > 0) && (
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)', display: 'inline-block' }}/>
+            <div className="t-label" style={{ color: 'var(--review)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--review)', display: 'inline-block' }}/>
               Tight
             </div>
             {tightShown.length > 0
               ? tightShown.map((m) => (
                   <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
                     <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
-                      style={{ color: 'var(--danger)', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(239,68,68,0.4)' }}>
+                      style={{ color: 'var(--review)', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(239,68,68,0.4)' }}>
                       • {m.name}
                     </Link>
                   </div>
                 ))
               : tightMuscles.map((m, i) => (
-              <div key={i} style={{ fontSize: '0.72rem', color: 'var(--danger)', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
+              <div key={i} style={{ fontSize: '0.72rem', color: 'var(--review)', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
             ))}
           </div>
         )}
         {(weakMuscles.length > 0 || weakShown.length > 0) && (
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)', display: 'inline-block' }}/>
+            <div className="t-label" style={{ color: 'var(--info)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--info)', display: 'inline-block' }}/>
               Weak
             </div>
             {weakShown.length > 0
               ? weakShown.map((m) => (
                   <div key={m.slug} style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
                     <Link href={`/muscles/${m.slug}`} data-testid={`muscle-chip-${m.slug}`}
-                      style={{ color: 'var(--brand)', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(0,152,243,0.4)' }}>
+                      style={{ color: 'var(--info)', opacity: 0.95, textDecoration: 'underline', textDecorationColor: 'rgba(10,131,201,0.4)' }}>
                       • {m.name}
                     </Link>
                   </div>
                 ))
               : weakMuscles.map((m, i) => (
-              <div key={i} style={{ fontSize: '0.72rem', color: 'var(--brand)', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
+              <div key={i} style={{ fontSize: '0.72rem', color: 'var(--info)', opacity: 0.85, lineHeight: 1.6 }}>• {m}</div>
             ))}
           </div>
         )}
         {possibleLinks.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div className="t-label" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-secondary)', display: 'inline-block' }}/>
               Possible
             </div>

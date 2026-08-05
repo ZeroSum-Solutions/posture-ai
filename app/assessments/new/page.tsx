@@ -16,6 +16,11 @@ import { createSubmissionGuard } from '@/lib/capture/submission-guard'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import useLegalDocument from '@/components/useLegalDocument'
 import DebouncedSearchInput from '@/components/DebouncedSearchInput'
+import Icon from '@/components/array/Icon'
+import { Chip } from '@/components/array/Chip'
+import { Surface } from '@/components/array/Surface'
+import { tone, tint, ring } from '@/components/array/severity'
+import styles from './NewAssessment.module.css'
 
 interface Client {
   id: string
@@ -40,15 +45,17 @@ const ClientResultButton = memo(function ClientResultButton({
   onChoose: (client: Client) => void
 }) {
   return (
+    // Selection reads through weight/ring rather than a brand hue — colour in
+    // this system is reserved for severity (severity.ts), never for "chosen".
     <button onClick={() => onChoose(client)} style={{
       width: '100%', padding: '14px 16px', textAlign: 'left',
-      background: isSelected ? 'rgba(0,152,243,0.15)' : 'rgba(255,255,255,0.03)',
-      border: '1px solid ' + (isSelected ? 'var(--brand)' : 'rgba(255,255,255,0.08)'),
-      borderRadius: '10px', cursor: 'pointer', color: 'var(--text-primary)', minHeight: '44px',
+      background: isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)',
+      border: 0, boxShadow: `inset 0 0 0 ${isSelected ? '2px rgba(255,255,255,0.7)' : '1px var(--hairline)'}`,
+      borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', minHeight: '44px',
     }}>
-      <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.95rem', fontWeight: isSelected ? 600 : 400 }}>
         {client.first_name} {client.last_name}
-        {isSelected && <span style={{ color: 'var(--brand)', marginLeft: '8px' }}>✓ Selected</span>}
+        {isSelected && <Icon name="check-circle-bold" size={15} title="Selected" />}
       </span>
       {client.date_of_birth && (
         <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -135,16 +142,14 @@ function ConsentAdvanceButton({
 
   const unavailable = disabled || checking
   return (
+    // a-primary already dims + disables its own cursor at :disabled — no need
+    // to hand-roll the unavailable-state background/cursor.
     <button
       type="button"
       onClick={handleClick}
       disabled={unavailable}
-      style={{
-        padding: '12px 28px', borderRadius: '10px',
-        background: unavailable ? 'rgba(0,152,243,0.25)' : 'var(--brand-strong)',
-        color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem',
-        cursor: unavailable ? 'not-allowed' : 'pointer', minHeight: '44px',
-      }}
+      className="a-primary"
+      style={{ padding: '0 28px' }}
     >
       {checking ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
     </button>
@@ -850,23 +855,28 @@ export function NewAssessmentWizard() {
   const modelError = Object.values(captures).some(capture => capture.slotStatus === 'model_error')
 
   return (
-    <div className="app-standard-page">
+    <div className="app-screen app-screen-x">
       {!fullScreenCapture && (
         <>
           <div style={{ marginBottom: '24px' }}>
-            <Link href="/clients" style={{ color: 'var(--brand)', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>← Back to Clients</Link>
+            <Link href="/clients" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.875rem', minHeight: '44px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon name="alt-arrow-left-linear" size={16} /> Back to Clients
+            </Link>
           </div>
-          <p className="app-page-kicker">Guided capture</p>
+          <p className="t-kicker" style={{ marginBottom: 10 }}>Guided capture</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-            <h1 className="app-page-heading" style={{ margin: 0 }}>New assessment</h1>
-            {testMode && (
-              <span style={{ padding: '3px 10px', background: 'rgba(0,152,243,0.15)', border: '1px solid rgba(0,152,243,0.35)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand)' }}>
-                TEST MODE
-              </span>
-            )}
+            <h1 className="t-headline" style={{ margin: 0 }}>New assessment</h1>
+            {testMode && <Chip band="info" size="sm">TEST MODE</Chip>}
           </div>
 
-          {/* Progress indicator */}
+          {/* Progress indicator. Progression reads through WEIGHT, not hue:
+              active is the solid white action accent, done is a dimmer white,
+              upcoming is a faint hairline. Done deliberately does not wear
+              --maintain. A wizard step is the operator's position in a form;
+              maintain is the clinical band for "inside range". A green "Capture
+              ✓" beside a client's name reads as an all-clear on the client —
+              which is the same misreading the step-label palette in
+              WorkoutPlayer.tsx exists to prevent. */}
           <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '32px', overflowX: 'auto' }}>
             {STEPS.map((label, i) => {
               const stepNum = i + 1
@@ -877,18 +887,18 @@ export function NewAssessmentWizard() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                     <div style={{
                       width: '32px', height: '32px', borderRadius: '50%',
-                      background: isActive ? 'var(--brand-strong)' : isDone ? '#10B981' : 'rgba(255,255,255,0.08)',
-                      border: '2px solid ' + (isActive ? 'var(--brand)' : isDone ? '#10B981' : 'rgba(255,255,255,0.15)'),
+                      background: isActive ? 'var(--action)' : isDone ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+                      border: '2px solid ' + (isActive ? 'var(--action)' : isDone ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.15)'),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: isActive || isDone ? '#fff' : 'var(--text-muted)',
+                      color: isActive ? 'var(--action-text)' : isDone ? 'var(--text-primary)' : 'var(--text-tertiary)',
                       fontSize: '0.85rem', fontWeight: 700, flexShrink: 0,
                     }}>
                       {isDone ? '✓' : stepNum}
                     </div>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? 'var(--brand)' : isDone ? 'var(--maintain)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? 'var(--text-primary)' : isDone ? 'var(--text-secondary)' : 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{label}</span>
                   </div>
                   {i < STEPS.length - 1 && (
-                    <div style={{ flex: 1, height: '2px', background: isDone ? '#10B981' : 'rgba(255,255,255,0.08)', margin: '14px 8px 0', minWidth: '16px' }} />
+                    <div style={{ flex: 1, height: '2px', background: isDone ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.08)', margin: '14px 8px 0', minWidth: '16px' }} />
                   )}
                 </div>
               )
@@ -901,18 +911,18 @@ export function NewAssessmentWizard() {
       {step === 1 && (
         <div>
           <div style={{ marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>Step 1: Select Client</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>Search and select the client you are assessing.</p>
+            <h2 className="t-title" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 1: Select Client</h2>
+            <p className="t-body" style={{ margin: 0 }}>Search and select the client you are assessing.</p>
           </div>
           {testMode && (
-            <div style={{ background: 'rgba(0,152,243,0.08)', border: '1px solid rgba(0,152,243,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.875rem', color: 'var(--brand)' }}>
-              Test mode active — fixture landmarks will be used instead of MediaPipe.
+            <div style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: '16px' }}>
+              <p className="t-body" style={{ color: tone('info'), margin: 0 }}>Test mode active — fixture landmarks will be used instead of MediaPipe.</p>
             </div>
           )}
-          <div
-            className="app-panel"
-            style={{
-              padding: '24px',
+          <Surface
+            tier="feature"
+            innerStyle={{
+              padding: 24,
               // This interactive list repaints on selection. Sampling the full
               // page through a large live blur made the paint dominate INP on
               // older devices; the existing layered background remains.
@@ -920,43 +930,47 @@ export function NewAssessmentWizard() {
               backdropFilter: 'none',
             }}
           >
-            <div className="app-search-shell">
-            <DebouncedSearchInput
-              placeholder="Search clients by name..."
-              ariaLabel="Search clients by name"
-              initialValue={clientSearch}
-              onInputActivity={() => {
-                // A settled search result must not render over the next query's
-                // keystrokes. Abort it immediately while the input remains
-                // DOM-owned and render-free.
-                const controller = clientPageController.current
-                if (!controller) return false
-                clientRequestVersion.current += 1
-                controller.abort()
-                clientPageController.current = null
-                clientSearchRequestInvalidated.current = true
-                return true
-              }}
-              onQueryChange={(query) => {
-              // Step 1 unmounts while capture is open. A remounted search input
-              // is seeded from this settled query and must not strand the picker
-              // in a loading state by re-emitting an unchanged value.
-              const requestWasInvalidated = clientSearchRequestInvalidated.current
-              clientSearchRequestInvalidated.current = false
-              if (query === clientSearch && !requestWasInvalidated) return
-              loadMoreClientController.current?.abort()
-              loadMoreClientController.current = null
-              setLoadingMoreClients(false)
-              setLoadingClients(true)
-              setNextClientCursor(null)
-              if (query === clientSearch) {
-                setClientSearchRevision((current) => current + 1)
-              } else {
-                setClientSearch(query)
-              }
-              }}
-              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '16px', boxSizing: 'border-box', minHeight: '44px' }}
-            />
+            <div className={styles.searchShell} style={{ marginBottom: 16 }}>
+              <div className={styles.searchGradient} />
+              <div className={styles.searchInner}>
+                <Icon name="magnifer-linear" size={17} />
+                <DebouncedSearchInput
+                  placeholder="Search clients by name..."
+                  ariaLabel="Search clients by name"
+                  initialValue={clientSearch}
+                  onInputActivity={() => {
+                    // A settled search result must not render over the next query's
+                    // keystrokes. Abort it immediately while the input remains
+                    // DOM-owned and render-free.
+                    const controller = clientPageController.current
+                    if (!controller) return false
+                    clientRequestVersion.current += 1
+                    controller.abort()
+                    clientPageController.current = null
+                    clientSearchRequestInvalidated.current = true
+                    return true
+                  }}
+                  onQueryChange={(query) => {
+                  // Step 1 unmounts while capture is open. A remounted search input
+                  // is seeded from this settled query and must not strand the picker
+                  // in a loading state by re-emitting an unchanged value.
+                  const requestWasInvalidated = clientSearchRequestInvalidated.current
+                  clientSearchRequestInvalidated.current = false
+                  if (query === clientSearch && !requestWasInvalidated) return
+                  loadMoreClientController.current?.abort()
+                  loadMoreClientController.current = null
+                  setLoadingMoreClients(false)
+                  setLoadingClients(true)
+                  setNextClientCursor(null)
+                  if (query === clientSearch) {
+                    setClientSearchRevision((current) => current + 1)
+                  } else {
+                    setClientSearch(query)
+                  }
+                  }}
+                  style={{ minHeight: 44 }}
+                />
+              </div>
             </div>
             <div
               role="status"
@@ -964,8 +978,8 @@ export function NewAssessmentWizard() {
               data-testid="selected-client-summary"
               style={{
                 minHeight: '64px', boxSizing: 'border-box',
-                marginBottom: '16px', padding: '12px 14px', borderRadius: '10px',
-                background: 'rgba(0,152,243,0.12)', border: '1px solid rgba(0,152,243,0.35)',
+                marginBottom: '16px', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
+                background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`,
                 color: 'var(--text-primary)', visibility: selectedClient ? 'visible' : 'hidden',
               }}
             >
@@ -975,19 +989,19 @@ export function NewAssessmentWizard() {
               <strong>{selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}` : 'No client selected'}</strong>
             </div>
             {selectedClientError && (
-              <p role="alert" style={{ color: 'var(--danger)', margin: '0 0 16px' }}>{selectedClientError}</p>
+              <p role="alert" className="a-error" style={{ margin: '0 0 16px' }}>{selectedClientError}</p>
             )}
             {loadingClients ? (
-              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
+              <p className="t-body" style={{ textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : clientsError ? (
-              <p role="alert" style={{ color: 'var(--danger)', textAlign: 'center', padding: '24px 0', margin: 0 }}>{clientsError}</p>
+              <p role="alert" className="a-error" style={{ textAlign: 'center', padding: '24px 0', margin: '0 auto', justifyContent: 'center' }}>{clientsError}</p>
             ) : !clientSearch.trim() ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
+              <div className="t-body" style={{ textAlign: 'center', padding: '24px 0' }}>
                 Search by first or last name to select a client.{' '}
-                <Link href="/clients/new" style={{ color: 'var(--brand)' }}>Create a client</Link>
+                <Link href="/clients/new" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>Create a client</Link>
               </div>
             ) : clients.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)' }}>
+              <div className="t-body" style={{ textAlign: 'center', padding: '24px 0' }}>
                 No clients match your search.
               </div>
             ) : (
@@ -1008,32 +1022,30 @@ export function NewAssessmentWizard() {
                     type="button"
                     onClick={loadMoreClientOptions}
                     disabled={loadingMoreClients}
-                    style={{
-                      width: '100%', padding: '12px 16px', borderRadius: '10px', minHeight: '44px',
-                      background: 'rgba(255,255,255,0.05)', color: 'var(--brand)',
-                      border: '1px solid rgba(0,152,243,0.28)', cursor: loadingMoreClients ? 'wait' : 'pointer',
-                      fontWeight: 600,
-                    }}
+                    className="a-secondary"
+                    style={{ width: '100%' }}
                   >
                     {loadingMoreClients ? 'Loading…' : 'Load more clients'}
                   </button>
                 )}
               </div>
             )}
-          </div>
+          </Surface>
           {ageGateError && (
-            <div role="alert" style={{ marginTop: '16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px', color: 'var(--danger)', fontSize: '0.875rem' }}>
-              {ageGateError}
-              {selectedClient && ageGateError.includes('date of birth') && (
-                <>
-                  {' '}
-                  <Link href={`/clients/${selectedClient.id}/edit`} style={{ color: '#FCA5A5', fontWeight: 600, textDecoration: 'underline' }}>
-                    Add it on their profile →
-                  </Link>
-                </>
-              )}
-              {showConsentForm && ' Record consent below to continue.'}
-            </div>
+            <Surface tier="tile" pad="rowy" style={{ marginTop: 16 }}>
+              <p role="alert" className="t-body" style={{ color: tone('review') }}>
+                {ageGateError}
+                {selectedClient && ageGateError.includes('date of birth') && (
+                  <>
+                    {' '}
+                    <Link href={`/clients/${selectedClient.id}/edit`} style={{ color: tone('review'), fontWeight: 600, textDecoration: 'underline' }}>
+                      Add it on their profile →
+                    </Link>
+                  </>
+                )}
+                {showConsentForm && ' Record consent below to continue.'}
+              </p>
+            </Surface>
           )}
           {selectedClient && showConsentForm && (
             <InPersonConsentForm
@@ -1049,7 +1061,7 @@ export function NewAssessmentWizard() {
             style={{
               minHeight: '22px',
               margin: '16px 0 0',
-              color: screeningNotice.error ? 'var(--danger)' : 'var(--text-secondary)',
+              color: screeningNotice.error ? tone('review') : 'var(--text-secondary)',
               fontSize: '0.8rem',
               visibility: selectedClient && !testMode && !screeningNotice.document ? 'visible' : 'hidden',
             }}
@@ -1073,21 +1085,21 @@ export function NewAssessmentWizard() {
         testMode ? (
           <div>
             <div style={{ marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>Step 2: Confirm Test Mode</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>Test mode — no client required</p>
+              <h2 className="t-title" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 2: Confirm Test Mode</h2>
+              <p className="t-body" style={{ margin: 0 }}>Test mode — no client required</p>
             </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-              <div style={{ background: 'rgba(0,152,243,0.08)', border: '1px solid rgba(0,152,243,0.25)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                <p style={{ color: 'var(--brand)', fontWeight: 600, margin: '0 0 8px' }}>Test Mode Active</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
+            <Surface tier="feature">
+              <div style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, borderRadius: 'var(--radius-sm)', padding: '16px' }}>
+                <p className="t-title" style={{ color: tone('info'), margin: '0 0 8px' }}>Test Mode Active</p>
+                <p className="t-body" style={{ margin: 0 }}>
                   Pre-computed fixture landmarks will be injected directly into the scoring engine.
                   Results will be saved to the database and you will be redirected to the results page.
                 </p>
               </div>
-            </div>
+            </Surface>
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <button onClick={returnToSelection} style={{ padding: '12px 24px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', minHeight: '44px' }}>Back</button>
-              <button onClick={validateAndProceed} disabled={submitting} style={{ padding: '12px 28px', borderRadius: '10px', background: submitting ? 'rgba(0,152,243,0.4)' : 'var(--brand-strong)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer', minHeight: '44px' }}>
+              <button onClick={returnToSelection} className="a-secondary">Back</button>
+              <button onClick={validateAndProceed} disabled={submitting} className="a-primary" style={{ padding: '0 28px' }}>
                 {submitting ? 'Submitting...' : 'Run Test Analysis'}
               </button>
             </div>
@@ -1113,28 +1125,24 @@ export function NewAssessmentWizard() {
         <div style={{ textAlign: 'center', padding: '48px 24px' }}>
           {processingError ? (
             // Error state with retry
-            <div>
-              <div style={{
-                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
-                borderRadius: '16px', padding: '24px', marginBottom: '24px', display: 'inline-block', maxWidth: '400px',
-              }}>
-                <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
-                <p style={{ color: 'var(--text-secondary)', margin: '0 0 20px' }}>{processingError}</p>
-                <button onClick={handleRetry} style={{
-                  padding: '12px 24px', borderRadius: '10px', background: 'var(--brand-strong)', color: '#fff',
-                  border: 'none', fontWeight: 600, cursor: 'pointer', minHeight: '44px',
-                }}>Try Again</button>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <Surface tier="tile" style={{ maxWidth: 400 }}>
+                <p className="t-title" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
+                <p className="t-body" style={{ margin: '0 0 20px' }}>{processingError}</p>
+                <button onClick={handleRetry} className="a-primary">Try Again</button>
+              </Surface>
             </div>
           ) : (
-            // Loading spinner + status (announced to screen readers)
+            // Loading spinner + status (announced to screen readers). The
+            // spin keyframe is already stilled site-wide by the reduced-motion
+            // rule in globals.css (`*` gets a 0.01ms !important duration).
             <div role="status" aria-live="polite">
-              <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(0,152,243,0.2)', borderTop: '4px solid var(--brand)', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
+              <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(255,255,255,0.12)', borderTop: '4px solid var(--action)', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
               <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-              <h2 style={{ color: 'var(--text-primary)', fontSize: '1.3rem', fontWeight: 700, marginBottom: '8px' }}>
+              <h2 className="t-headline-sm" style={{ marginBottom: '8px' }}>
                 {testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
               </h2>
-              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              <p className="t-body">
                 {assessmentId
                   ? 'Checking results...'
                   : testMode
@@ -1143,7 +1151,7 @@ export function NewAssessmentWizard() {
                 }
               </p>
               {assessmentId && (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px' }}>
+                <p className="t-quiet" style={{ marginTop: '8px' }}>
                   Assessment ID: {assessmentId}
                 </p>
               )}

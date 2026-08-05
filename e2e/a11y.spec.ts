@@ -72,17 +72,26 @@ test.describe('accessibility budget', () => {
     }
   })
 
-  test('phone navigation closed and open states pass the axe budget', async ({ page }, testInfo) => {
+  test('phone-width island navigation passes the axe budget', async ({ page }, testInfo) => {
+    // IslandNav (components/array/IslandNav.tsx) replaced the old NavBar
+    // hamburger, so there is no closed/open pair left to scan. The island does
+    // still have two materially different rendered states, and those are the
+    // two scanned here: the active slot expands into a labelled white pill
+    // while every other slot stays an icon-only circle, so which destination is
+    // active changes both the contrast pairings and the accessible names on
+    // screen. Two routes, two different active slots — not one scan repeated.
     await page.setViewportSize({ width: 390, height: 844 })
+    const nav = page.getByRole('navigation', { name: 'Primary' })
+
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
-    await expectNoSeriousViolations(page, testInfo, 'phone navigation closed')
+    await expect(nav.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page')
+    await expectNoSeriousViolations(page, testInfo, 'phone navigation today active')
 
-    const menuButton = page.getByRole('button', { name: 'Toggle navigation menu' })
-    await menuButton.click()
-    await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator('.nav-mobile-menu')).toBeVisible()
-    await expectNoSeriousViolations(page, testInfo, 'phone navigation open')
+    await page.goto('/settings')
+    await page.waitForLoadState('networkidle')
+    await expect(nav.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page')
+    await expectNoSeriousViolations(page, testInfo, 'phone navigation profile active')
   })
 
   test('client CRUD surfaces pass the axe budget', async ({ page }, testInfo) => {
@@ -161,8 +170,16 @@ test.describe('accessibility budget', () => {
     await expect(page).toHaveTitle('Assessment Results · Posture AI')
     await expectNoSeriousViolations(page, testInfo, 'results')
 
+    // The rest of this journey drives ReviewDock's own controls (approve, PDF,
+    // comparison select), which live behind the collapsed "Report, share &
+    // compare" disclosure — not the pinned action bar's separate "Approve &
+    // send report" button. Open it first.
+    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
     await page.getByRole('button', { name: 'Approve report' }).click()
-    const pdfButton = page.getByRole('button', { name: 'Practitioner PDF' })
+    // The pinned action bar's icon-only "Generate practitioner PDF" button also
+    // matches the substring "Practitioner PDF" -- scope to ReviewDock's own
+    // control, consistent with the rest of this journey.
+    const pdfButton = page.getByTestId('review-dock').getByRole('button', { name: 'Practitioner PDF' })
     // Approval is a real PATCH; allow the cold route to finish before asserting
     // that the dependent export action has unlocked.
     await expect(pdfButton).toBeEnabled({ timeout: 30_000 })

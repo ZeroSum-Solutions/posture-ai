@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { isPublicPath } from '@/lib/auth/public-paths'
+import { Surface } from '@/components/array/Surface'
 
 export function shouldClearForAuthEvent(event: string, pathname: string): boolean {
   return event === 'SIGNED_OUT' && !isPublicPath(pathname)
@@ -37,13 +38,18 @@ export default function AuthSessionGuard({
 
   if (signedOut) {
     return (
-      <main role="status" aria-live="polite" className="app-standard-page">
-        <div className="app-panel app-empty-state">
-          <div>
-            <h1>Session ended</h1>
-            <p>This device was signed out. Returning to the secure sign-in page…</p>
+      <main
+        role="status"
+        aria-live="polite"
+        className="app-screen app-screen-x"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}
+      >
+        <Surface tier="feature">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
+            <h1 className="t-headline-sm">Session ended</h1>
+            <p className="t-body">This device was signed out. Returning to the secure sign-in page…</p>
           </div>
-        </div>
+        </Surface>
       </main>
     )
   }

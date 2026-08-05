@@ -9,6 +9,9 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useFocusTrap } from './useFocusTrap'
+import { Surface } from '@/components/array/Surface'
+import { Chip } from '@/components/array/Chip'
+import type { SeverityBand } from '@/components/array/severity'
 
 // ─── Evidence badge ───────────────────────────────────────────────────────────
 
@@ -18,10 +21,16 @@ function evidenceBadge(confidence: 'high' | 'medium' | 'low' | undefined): strin
   return 'Moderately supported' // 'medium' and undefined are medium-equivalent
 }
 
-function badgeColor(confidence: 'high' | 'medium' | 'low' | undefined): string {
-  if (confidence === 'high') return 'var(--maintain)'
-  if (confidence === 'low') return 'var(--warning)'
-  return 'var(--brand)'
+/**
+ * The evidence badge borrows the severity band vocabulary purely for its
+ * colour scale — high confidence reads maintain-green, low reads
+ * monitor-amber, medium/ungraded reads info-blue. It is not a clinical
+ * severity signal, just the closest existing three-step colour ramp.
+ */
+function confidenceBand(confidence: 'high' | 'medium' | 'low' | undefined): SeverityBand {
+  if (confidence === 'high') return 'maintain'
+  if (confidence === 'low') return 'monitor'
+  return 'info'
 }
 
 // ─── WhyThisBody (pure) ───────────────────────────────────────────────────────
@@ -40,46 +49,42 @@ export interface WhyThisBodyProps {
   exerciseName: string
 }
 
-export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseName }: WhyThisBodyProps) {
-  const label: React.CSSProperties = {
-    fontSize: '0.66rem',
-    fontWeight: 700,
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    marginBottom: 4,
-  }
+// Section overline: t-label (Medium 500) plus the uppercase and tracking
+// already established for this folder's small caption labels, see
+// MuscleBodyMap's "Tight"/"Weak"/"Possible" headers.
+//
+// Note: lib/ui-vocabulary.test.ts sweeps this file's source text — comments
+// included — against the screening-vocabulary list. That is the right default
+// for a screening-only tool, so keep clinical-care wording out of here.
+const sectionLabelStyle: React.CSSProperties = {
+  color: 'var(--text-tertiary)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  marginBottom: 4,
+}
 
+export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseName }: WhyThisBodyProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Block 1 — finding */}
       <div>
-        <div style={label}>Finding</div>
-        <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>{findingLabel}</div>
+        <div className="t-label" style={sectionLabelStyle}>Finding</div>
+        <div className="t-title">{findingLabel}</div>
       </div>
 
       {/* Block 2 — implicated muscles with evidence grade */}
       {muscles.length > 0 && (
         <div>
-          <div style={label}>Muscles involved in this finding</div>
+          <div className="t-label" style={sectionLabelStyle}>Muscles involved in this finding</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {muscles.map((m) => (
               <div key={m.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                <span className="t-body" style={{ textTransform: 'capitalize' }}>
                   {m.name}
                 </span>
-                <span
-                  style={{
-                    padding: '1px 8px',
-                    borderRadius: 20,
-                    fontSize: '0.68rem',
-                    fontWeight: 600,
-                    background: `color-mix(in srgb, ${badgeColor(m.confidence)} 13%, transparent)`,
-                    color: badgeColor(m.confidence),
-                  }}
-                >
+                <Chip band={confidenceBand(m.confidence)} size="sm">
                   {m.role === 'tight' ? 'tight' : 'weak'} · {evidenceBadge(m.confidence)}
-                </span>
+                </Chip>
               </div>
             ))}
           </div>
@@ -88,8 +93,8 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
 
       {/* Block 3 — movement action */}
       <div>
-        <div style={label}>What this movement does</div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        <div className="t-label" style={sectionLabelStyle}>What this movement does</div>
+        <div className="t-body">
           <strong style={{ color: 'var(--text-primary)' }}>{exerciseName}</strong>{' '}
           {muscles.length > 0
             ? `${movementAction} the relevant muscles in this pattern, helping to address this finding.`
@@ -166,63 +171,49 @@ export default function WhyThisSheet({
         justifyContent: 'center',
       }}
     >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Why ${exerciseName}?`}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 560,
-          maxHeight: '85vh',
-          overflowY: 'auto',
-          background: 'var(--surface)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '16px 16px 0 0',
-          padding: 20,
-        }}
-      >
-        <div
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+      {/* Stops the backdrop's onClose from firing when the click lands on the sheet itself. */}
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560 }}>
+        <Surface
+          tier="feature"
+          /* Bottom sheets sit flush with the viewport edge; flatten the tier-1
+             shell's bottom corners rather than inventing a fourth radius family. */
+          style={{ borderRadius: '24px 24px 0 0' }}
+          innerStyle={{ maxHeight: '85vh', overflowY: 'auto' }}
         >
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>Why this?</h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              width: 44,
-              height: 44,
-              minHeight: 44,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.14)',
-              background: 'rgba(0,0,0,0.35)',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
-          >
-            ✕
-          </button>
-        </div>
+          <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Why ${exerciseName}?`}>
+            <div
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+            >
+              <h3 className="t-headline-sm">Why this?</h3>
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="a-secondary"
+                style={{ width: 44, padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
 
-        {error && (
-          <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>
-            {error}
-          </p>
-        )}
-        {loading && !error && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Loading…</p>
-        )}
+            {error && (
+              <p role="alert" className="a-error">
+                {error}
+              </p>
+            )}
+            {loading && !error && (
+              <p className="t-body">Loading…</p>
+            )}
 
-        {!loading && !error && (
-          <WhyThisBody
-            findingLabel={findingLabel}
-            muscles={muscles}
-            movementAction={movementAction}
-            exerciseName={exerciseName}
-          />
-        )}
+            {!loading && !error && (
+              <WhyThisBody
+                findingLabel={findingLabel}
+                muscles={muscles}
+                movementAction={movementAction}
+                exerciseName={exerciseName}
+              />
+            )}
+          </div>
+        </Surface>
       </div>
     </div>
   )

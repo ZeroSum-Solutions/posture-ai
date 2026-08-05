@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(14);
+SELECT plan(15);
 
 SELECT ok(
   to_regclass('public.clients_active_practitioner_created_id_idx') IS NOT NULL,
@@ -85,26 +85,36 @@ SELECT ok(
   'only authenticated callers can read a keyset snapshot'
 );
 
+-- 20260803000000_client_directory_trend drops the five-argument function and
+-- recreates it with the trailing p_filter text. These assertions name the
+-- signature exactly, so they have to follow it -- and the old five-arg form
+-- must stay gone rather than linger as an ungoverned overload, which is what
+-- the second assertion below now pins.
 SELECT ok(
-  to_regprocedure('public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer)') IS NOT NULL,
+  to_regprocedure('public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer,text)') IS NOT NULL,
   'typed bounded client-search function exists'
 );
 
 SELECT ok(
+  to_regprocedure('public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer)') IS NULL,
+  'the superseded five-argument client-search overload is gone'
+);
+
+SELECT ok(
   NOT (SELECT prosecdef FROM pg_proc
-       WHERE oid = 'public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer)'::regprocedure),
+       WHERE oid = 'public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer,text)'::regprocedure),
   'client-search function is security invoker so caller RLS remains active'
 );
 
 SELECT ok(
   has_function_privilege(
     'authenticated',
-    'public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer)',
+    'public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer,text)',
     'EXECUTE'
   )
   AND NOT has_function_privilege(
     'anon',
-    'public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer)',
+    'public.list_owned_clients_page(text,timestamptz,timestamptz,uuid,integer,text)',
     'EXECUTE'
   ),
   'only authenticated callers can execute client search'

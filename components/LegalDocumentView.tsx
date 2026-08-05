@@ -1,6 +1,8 @@
 import type { ElementType } from 'react'
 
+import { Surface } from '@/components/array/Surface'
 import type { LegalSnapshot } from '@/lib/legal/types'
+import styles from './LegalDocumentView.module.css'
 
 function safeId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -24,85 +26,64 @@ export default function LegalDocumentView({
   }).format(new Date(document.effectiveAt))
 
   return (
-    <article
-      aria-labelledby={titleId}
-      data-legal-document-id={document.documentId}
-      data-legal-document-version={document.version}
-      data-legal-document-body-sha256={document.bodySha256}
-      style={{
-        padding: compact ? 14 : 20,
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 10,
-        background: 'var(--surface)',
-        color: 'var(--text-secondary)',
-      }}
-    >
-      {document.isFixture && (
-        <p
-          role="status"
-          aria-live="polite"
-          style={{
-            margin: '0 0 14px',
-            padding: '8px 10px',
-            border: '1px solid rgba(255,137,24,0.45)',
-            borderRadius: 6,
-            color: 'var(--warning)',
-            fontSize: '0.78rem',
-            fontWeight: 800,
-            letterSpacing: '0.04em',
-          }}
-        >
-          NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY
-        </p>
-      )}
+    <Surface tier="tile" pad={compact ? 'snug' : 'default'}>
+      <article
+        aria-labelledby={titleId}
+        data-legal-document-id={document.documentId}
+        data-legal-document-version={document.version}
+        data-legal-document-body-sha256={document.bodySha256}
+      >
+        {document.isFixture && (
+          <p role="status" aria-live="polite" className={styles.fixtureNotice}>
+            NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY
+          </p>
+        )}
 
-      <header style={{ marginBottom: compact ? 14 : 20 }}>
-        <Heading id={titleId} style={{ margin: '0 0 8px', color: 'var(--text-primary)' }}>
-          {document.title}
-        </Heading>
-        <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.6 }}>
-          Version {document.version} · Effective {effectiveDate}
-          <br />
-          Scope: {document.jurisdiction} · {document.locale} · {document.productScope}
-        </p>
-        <p style={{ margin: '8px 0 0', fontSize: '0.7rem', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-          Document ID: {document.documentId}
-          <br />
-          SHA-256: {document.bodySha256}
-        </p>
-      </header>
+        <header className={compact ? styles.headerCompact : styles.header}>
+          <Heading id={titleId} className={styles.title}>
+            {document.title}
+          </Heading>
+          <p className={styles.meta}>
+            Version {document.version} · Effective {effectiveDate}
+            <br />
+            Scope: {document.jurisdiction} · {document.locale} · {document.productScope}
+          </p>
+          <p className={styles.fingerprint}>
+            Document ID: {document.documentId}
+            <br />
+            SHA-256: {document.bodySha256}
+          </p>
+        </header>
 
-      {document.sections.map((section) => {
-        const sectionId = `legal-section-${safeId(document.documentId)}-${safeId(section.id)}`
-        return (
-          <section
-            key={section.id}
-            {...(section.heading ? { 'aria-labelledby': sectionId } : {})}
-            style={{ marginTop: compact ? 14 : 20 }}
-          >
-            {section.heading && (
-              <SectionHeading
-                id={sectionId}
-                style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: '1rem' }}
-              >
-                {section.heading}
-              </SectionHeading>
-            )}
-            {section.paragraphs.map((paragraph, index) => (
-              <p key={`${section.id}-paragraph-${index}`} style={{ margin: '0 0 10px', lineHeight: 1.65 }}>
-                {paragraph}
-              </p>
-            ))}
-            {section.bullets && section.bullets.length > 0 && (
-              <ul style={{ margin: '8px 0 10px', paddingLeft: 22 }}>
-                {section.bullets.map((bullet, index) => (
-                  <li key={`${section.id}-bullet-${index}`} style={{ marginBottom: 6 }}>{bullet}</li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )
-      })}
-    </article>
+        {document.sections.map((section) => {
+          const sectionId = `legal-section-${safeId(document.documentId)}-${safeId(section.id)}`
+          return (
+            <section
+              key={section.id}
+              {...(section.heading ? { 'aria-labelledby': sectionId } : {})}
+              className={compact ? styles.sectionCompact : styles.section}
+            >
+              {section.heading && (
+                <SectionHeading id={sectionId} className={styles.sectionHeading}>
+                  {section.heading}
+                </SectionHeading>
+              )}
+              {section.paragraphs.map((paragraph, index) => (
+                <p key={`${section.id}-paragraph-${index}`} className={styles.paragraph}>
+                  {paragraph}
+                </p>
+              ))}
+              {section.bullets && section.bullets.length > 0 && (
+                <ul className={styles.bullets}>
+                  {section.bullets.map((bullet, index) => (
+                    <li key={`${section.id}-bullet-${index}`} className={styles.bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )
+        })}
+      </article>
+    </Surface>
   )
 }

@@ -1,4 +1,8 @@
 'use client'
+import { Chip, GradeChip } from '@/components/array/Chip'
+import Icon from '@/components/array/Icon'
+import { Surface } from '@/components/array/Surface'
+import { tone } from '@/components/array/severity'
 import {
   MEASUREMENT_TOLERANCE_COPY,
   comparisonDecisionText,
@@ -6,7 +10,7 @@ import {
   comparisonTone,
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
-import styles from './ClientEvidenceCanvas.module.css'
+import styles from './ClientDetail.module.css'
 import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
 
 export type ComparisonAssessment = {
@@ -61,6 +65,14 @@ function formatMeasurement(value: number | null, unit: string, showSign = false)
   return `${sign}${value.toFixed(1)}${unit}`
 }
 
+/** Comparison tone → severity band. Improvement is emerald, regression is red. */
+function bandFor(status: ComparisonDecision['status']) {
+  const direction = comparisonTone(status)
+  if (direction === 'positive') return 'maintain' as const
+  if (direction === 'negative') return 'review' as const
+  return 'neutral' as const
+}
+
 export default function ComparisonWorkspace({
   assessments,
   baseId,
@@ -82,21 +94,16 @@ export default function ComparisonWorkspace({
       )
   const targetAssessment = chronologicalAssessments.find((assessment) => assessment.id === targetId)
   const overallStatus = overallComparison?.status ?? 'not_comparable'
-  const overallTone = comparisonTone(overallStatus)
   const overallLabel = comparisonStatusText(overallStatus, 'overall')
-  const directionClass = overallTone === 'positive'
-    ? styles.directionImproved
-    : overallTone === 'negative'
-      ? styles.directionRegressed
-      : styles.directionNeutral
 
   return (
-    <section className={styles.comparisonWorkspace} aria-labelledby="comparison-heading">
-      <div className={styles.selectorPanel}>
-        <header className={styles.workspaceHeader}>
-          <h2 id="comparison-heading">Compare two assessments</h2>
-          <p>Select an earlier baseline and a strictly later comparison. Screening measurements remain tied to their assessment dates.</p>
-        </header>
+    <section className="app-stack" aria-labelledby="comparison-heading">
+      <Surface tier="tile">
+        <h2 className="t-title" id="comparison-heading">Compare two assessments</h2>
+        <p className="t-quiet" style={{ marginTop: 4, marginBottom: 14, lineHeight: 1.6 }}>
+          Select an earlier baseline and a strictly later comparison. Screening measurements
+          remain tied to their assessment dates.
+        </p>
         <div className={styles.selectorGrid}>
           <div className={styles.selectorField}>
             <label className={styles.selectorLabel} htmlFor="compare-before">Before (baseline)</label>
@@ -113,7 +120,9 @@ export default function ComparisonWorkspace({
               ))}
             </select>
           </div>
-          <div className={styles.selectorBridge} aria-hidden="true">earlier → later</div>
+          <div className={styles.selectorBridge} aria-hidden="true">
+            <Icon name="arrow-right-linear" size={16} />
+          </div>
           <div className={styles.selectorField}>
             <label className={styles.selectorLabel} htmlFor="compare-after">After (comparison)</label>
             <select
@@ -137,77 +146,121 @@ export default function ComparisonWorkspace({
             No later assessment is available. Choose an earlier Before assessment.
           </p>
         )}
-      </div>
+      </Surface>
+
       {baseAssessment && targetAssessment ? (
-        <div className={styles.comparisonSequence} role="region" aria-label="Selected assessment sequence">
-          <article className={styles.assessmentCard}>
+        /* Before, change, After stay three headed sections in this order. The
+           order is the reading order for assistive technology, so it is a
+           semantic guarantee rather than a layout choice. */
+        <div className={styles.sequenceGrid} role="region" aria-label="Selected assessment sequence">
+          {/* Reading order is Before, Change summary, After. The grid places the
+              two readouts side by side and the summary beneath them without
+              reordering the DOM, so the spoken sequence stays chronological. */}
+          <Surface tier="tile" className={styles.sequenceBefore}>
             <h3 className={styles.cardHeading}>Before assessment</h3>
-            <p className={styles.assessmentDate}>{formatDate(baseAssessment.assessedAt)}</p>
-            <p className={styles.gradeReadout}>Grade {baseAssessment.overallGrade ?? '—'}</p>
-            <p className={styles.statusLabel}>{formatStatus(baseAssessment.status)}</p>
-          </article>
-          <article className={styles.transitionCard}>
-            <h3 className={styles.cardHeading}>Change summary</h3>
-            <p className={`${styles.directionBadge} ${directionClass}`}>{overallLabel}</p>
+            <div className={styles.gradeReadout}>
+              <GradeChip grade={baseAssessment.overallGrade} />
+              <div style={{ minWidth: 0 }}>
+                <p className={styles.assessmentDate} style={{ marginTop: 0 }}>
+                  {formatDate(baseAssessment.assessedAt)}
+                </p>
+                <p className={styles.assessmentDate}>{formatStatus(baseAssessment.status)}</p>
+              </div>
+            </div>
+          </Surface>
+
+          <Surface tier="tile" className={styles.sequenceChange}>
+            <div className={styles.trendHead}>
+              <h3 className="t-title">Change summary</h3>
+              <Chip band={bandFor(overallStatus)} size="sm">{overallLabel}</Chip>
+            </div>
             <p className={styles.transitionNote}>
               {overallComparison?.status === 'not_comparable'
                 ? comparisonDecisionText(overallComparison, 'overall')
                 : MEASUREMENT_TOLERANCE_COPY}
             </p>
-          </article>
-          <article className={styles.assessmentCard}>
+          </Surface>
+
+          <Surface tier="tile" className={styles.sequenceAfter}>
             <h3 className={styles.cardHeading}>After assessment</h3>
-            <p className={styles.assessmentDate}>{formatDate(targetAssessment.assessedAt)}</p>
-            <p className={styles.gradeReadout}>Grade {targetAssessment.overallGrade ?? '—'}</p>
-            <p className={styles.statusLabel}>{formatStatus(targetAssessment.status)}</p>
-          </article>
+            <div className={styles.gradeReadout}>
+              <GradeChip grade={targetAssessment.overallGrade} />
+              <div style={{ minWidth: 0 }}>
+                <p className={styles.assessmentDate} style={{ marginTop: 0 }}>
+                  {formatDate(targetAssessment.assessedAt)}
+                </p>
+                <p className={styles.assessmentDate}>{formatStatus(targetAssessment.status)}</p>
+              </div>
+            </div>
+          </Surface>
         </div>
       ) : (
-        <p className={styles.emptyState} role="status">Choose a chronological Before and After assessment to compare.</p>
+        <Surface tier="tile">
+          <p className={styles.emptyState} role="status">
+            Choose a chronological Before and After assessment to compare.
+          </p>
+        </Surface>
       )}
+
       {deltaRows.length > 0 && (
-        <section className={styles.evidencePanel} aria-labelledby="comparison-evidence-heading">
-          <h3 className={styles.evidenceHeading} id="comparison-evidence-heading">Finding comparison</h3>
-          <p className={styles.evidenceIntro}>Measurements are shown as recorded. Status comes from severity percentage points, where lower is better. Raw measurement deltas never set the status.</p>
-          <ul className={styles.evidenceList} aria-label="Finding comparison evidence">
+        <section aria-labelledby="comparison-evidence-heading" className="app-stack">
+          <div className={styles.sectionHead}>
+            <h3 className="t-headline-sm" id="comparison-evidence-heading">Finding comparison</h3>
+          </div>
+          <p className="t-body" style={{ padding: '0 8px' }}>
+            Measurements are shown as recorded. Status comes from severity percentage points,
+            where lower is better. Raw measurement deltas never set the status.
+          </p>
+          <ul
+            aria-label="Finding comparison evidence"
+            style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}
+          >
             {deltaRows.map((row) => (
-              <li className={styles.evidenceRow} id={`finding-${row.key}`} key={row.key}>
-                <h4>{row.label}</h4>
-                <dl className={styles.evidenceData}>
-                  <div>
-                    <dt>Before</dt>
-                    <dd>{formatMeasurement(row.baseDeviation, row.baseUnit)}</dd>
-                  </div>
-                  <div>
-                    <dt>After</dt>
-                    <dd>{formatMeasurement(row.targetDeviation, row.targetUnit)}</dd>
-                  </div>
-                  <div>
-                    <dt>Delta</dt>
-                    <dd>{formatMeasurement(row.delta, row.unit, true)}</dd>
-                  </div>
-                  <div>
-                    <dt>Status</dt>
-                    <dd className={`${styles.rowStatus} ${
-                      comparisonTone(row.comparison.status) === 'positive'
-                        ? styles.rowImproved
-                        : comparisonTone(row.comparison.status) === 'negative'
-                          ? styles.rowRegressed
-                          : styles.rowNeutral
-                    }`}>
+              <li id={`finding-${row.key}`} key={row.key}>
+                <Surface tier="row" pad="rowy">
+                  <div className={styles.evidenceRow}>
+                    <div className={styles.evidenceBody}>
+                      <h4 className={styles.evidenceLabel}>{row.label}</h4>
+                      {/* The three readings stay individually labelled. Sighted
+                          readers get the labels from position; a screen reader
+                          gets them from the terms. */}
+                      <dl className={`${styles.evidenceData} n`}>
+                        <div>
+                          <dt className="sr-only">Before</dt>
+                          <dd>{formatMeasurement(row.baseDeviation, row.baseUnit)}</dd>
+                        </div>
+                        <div aria-hidden="true" className={styles.evidenceArrow}>→</div>
+                        <div>
+                          <dt className="sr-only">After</dt>
+                          <dd>{formatMeasurement(row.targetDeviation, row.targetUnit)}</dd>
+                        </div>
+                        <div>
+                          <dt className="sr-only">Change</dt>
+                          <dd>{formatMeasurement(row.delta, row.unit, true)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <p
+                      className={styles.rowStatus}
+                      style={{ color: tone(bandFor(row.comparison.status)) }}
+                    >
                       {comparisonDecisionText(row.comparison, 'finding')}
-                    </dd>
+                    </p>
                   </div>
-                </dl>
+                </Surface>
               </li>
             ))}
           </ul>
         </section>
       )}
+
       {baseAssessment && targetAssessment && deltaRows.length === 0 && (
-        <p className={styles.emptyState} role="status">
-          No comparable findings are available for this assessment pair. Open each assessment to review its evidence.
-        </p>
+        <Surface tier="tile">
+          <p className={styles.emptyState} role="status">
+            No comparable findings are available for this assessment pair. Open each assessment
+            to review its evidence.
+          </p>
+        </Surface>
       )}
     </section>
   )

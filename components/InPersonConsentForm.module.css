@@ -1,0 +1,7 @@
+/* Same checkbox-row idiom as ClientForm's subject-consent panel. */
+.consentCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}

@@ -1477,9 +1477,9 @@
     },
     "expected_total": 163,
     "expected_files": 32,
-    "test_ids_sha256": "c6f0c6e20ee3527747efada6d16824df54a3a2354d62ea1c88fc783cadaacc31"
+    "test_ids_sha256": "ce60a7a5f50828dedf3919f0b585398c0017f4356c90e53a5160710b3ff71ad4"
   },
-  "inventory_hash": "51197c36cca272a4f5057915b8c5819812f40bf37bb9271e17ed7b469e4d09a0",
+  "inventory_hash": "a46e39b4757aec756508f142c6c3043f16311517d1497c0756e5856ebf609250",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1905,9 +1905,9 @@
     "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
     "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
     "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_configuration_hash": "dbc89135b0d46058011d64bd7189e70c3660b9199cb73a85d854f2fd47c98d58",
+    "new_configuration_hash": "a49a69b575da37f4d2728367c945d2a13a11745dc2c8d90da2fb53c55e605e45",
     "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_projection_sha256": "dbc89135b0d46058011d64bd7189e70c3660b9199cb73a85d854f2fd47c98d58",
+    "new_projection_sha256": "a49a69b575da37f4d2728367c945d2a13a11745dc2c8d90da2fb53c55e605e45",
     "changed_covered_fields": [
       "ci_contract.global_commands",
       "e2e.approved_skips",
@@ -1923,7 +1923,7 @@
       "executed_playwright_report_contract.report_content_required_fields",
       "executed_playwright_report_contract.required_evidence_values.inventory_id"
     ],
-    "changes_sha256": "6974c4860ee2374bb60f3dc455a1c63aaf18315adbef555930a05045da7b303b",
+    "changes_sha256": "78a0c1841219f517b5490b3b55ab429c693e03c8e28a3bbb2bb3b3703006817c",
     "changes": [
       {
         "path": "ci_contract.global_commands",
@@ -2497,7 +2497,7 @@
       {
         "path": "e2e.inventory_hash",
         "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
-        "new_value": "e29ae93304bf1a317fdb539758c6b2929009bfb59ba9fa5b40b2b2a99e9f183c"
+        "new_value": "0f83015124f5a7588f235860d02d3299f65b339e1b994c40e1ed839f78c5e790"
       },
       {
         "path": "e2e.inventory_id",

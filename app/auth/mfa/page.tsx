@@ -40,10 +40,22 @@ export function completionMessage(code: string | undefined, fallback?: string): 
   }
 }
 
+/**
+ * TOTP secrets are base32; authenticator apps accept them with or without
+ * spaces. Grouping makes a 32-character key possible to type by hand without
+ * losing your place. The clipboard always gets the unspaced original.
+ */
+export function groupSecret(secret: string): string {
+  return secret.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
+}
+
 export default function MfaPage() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [factorId, setFactorId] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
+  const [secret, setSecret] = useState<string | null>(null)
+  const [otpauthUri, setOtpauthUri] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -137,6 +149,8 @@ export default function MfaPage() {
       if (verifiedTotp) {
         setFactorId(verifiedTotp.id)
         setQrCode(null)
+        setSecret(null)
+        setOtpauthUri(null)
         setPhase('challenge')
         return
       }
@@ -152,7 +166,13 @@ export default function MfaPage() {
       }
 
       setFactorId(enrollment.id)
+      // All three representations carry the same secret. The QR only works when
+      // a second device can photograph this screen, so the otpauth: link and the
+      // typed key are what make enrolling on the phone you are reading this on
+      // possible at all.
       setQrCode(enrollment.totp.qr_code)
+      setSecret(enrollment.totp.secret ?? null)
+      setOtpauthUri(enrollment.totp.uri ?? null)
       setPhase('enroll')
     } finally {
       initializing.current = false
@@ -164,6 +184,26 @@ export default function MfaPage() {
     started.current = true
     void initialize()
   }, [initialize])
+
+  // Clearing through an effect rather than a bare setTimeout keeps the timer from
+  // firing into an unmounted component if the code is verified straight after a copy.
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 2500)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+
+  async function handleCopySecret() {
+    if (!secret) return
+    try {
+      await navigator.clipboard.writeText(secret)
+      setCopied(true)
+    } catch {
+      // Clipboard access is refused outside a secure context and on some mobile
+      // browsers. The key is on screen either way, so say so instead of failing.
+      setError('Could not copy automatically. Select the setup key above and copy it by hand.')
+    }
+  }
 
   async function handleVerify(event: React.FormEvent) {
     event.preventDefault()
@@ -204,100 +244,120 @@ export default function MfaPage() {
       description="A second factor is required for every practitioner session."
     >
       {recoveryCopy && (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6, marginBottom: '18px' }}>
-          {recoveryCopy}
-        </p>
+        <p className="a-help" style={{ marginBottom: 18 }}>{recoveryCopy}</p>
       )}
 
       {phase === 'loading' && (
-        <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          Checking your account security…
-        </p>
+        <p className="a-help" role="status">Checking your account security…</p>
       )}
 
       {phase === 'error' && (
-        <div>
-          <div role="alert" style={{ color: 'var(--danger)', marginBottom: '18px', lineHeight: 1.5 }}>
-            {error}
-          </div>
-          <button type="button" onClick={() => void initialize()} style={{ minHeight: '44px', marginRight: '14px' }}>
+        <div className="a-form">
+          <p className="a-error" role="alert">{error}</p>
+          <button type="button" onClick={() => void initialize()} className="a-secondary a-secondary--bar">
             Try again
           </button>
-          <Link href="/auth/sign-in" style={{ color: 'var(--brand)' }}>
+          <Link href="/auth/sign-in" className="a-help" style={{ textAlign: 'center', textDecoration: 'underline' }}>
             Return to sign in
           </Link>
         </div>
       )}
 
       {(phase === 'enroll' || phase === 'challenge') && factorId && (
-        <form onSubmit={handleVerify} noValidate>
-          {phase === 'enroll' && qrCode && (
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
-                Scan this QR code with your authenticator app, then enter the current 6-digit code.
+        <form onSubmit={handleVerify} noValidate className="a-form">
+          {phase === 'enroll' && (
+            <div>
+              <p className="a-help">
+                Connect an authenticator app, then enter the 6-digit code it shows.
               </p>
-              {/* Supabase returns a short-lived data URL; it is never persisted. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrCode}
-                alt="QR code for Posture AI authenticator setup"
-                width={220}
-                height={220}
-                style={{ display: 'block', maxWidth: '100%', margin: '16px auto', background: '#fff', padding: '8px', borderRadius: '8px' }}
-              />
+
+              {/* The one-tap path, and the only one that works when this page and
+                  the authenticator are on the same phone: the otpauth: scheme is
+                  registered by Google Authenticator, 1Password, Authy and Duo, so
+                  the app opens already holding this account. */}
+              {otpauthUri && (
+                <a href={otpauthUri} className="a-primary a-primary--bar" style={{ marginTop: 14 }}>
+                  Open in your authenticator app
+                </a>
+              )}
+
+              {secret && (
+                <div style={{ marginTop: 18 }}>
+                  <p className="a-label" style={{ marginBottom: 6 }}>Or enter this setup key</p>
+                  <p
+                    className="n"
+                    style={{
+                      margin: 0, padding: '10px 12px', borderRadius: 10,
+                      background: 'var(--surface-glass)', border: '1px solid var(--hairline)',
+                      color: 'var(--text-primary)', fontSize: 15, letterSpacing: '0.08em',
+                      wordBreak: 'break-all', userSelect: 'all',
+                    }}
+                  >
+                    {groupSecret(secret)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopySecret()}
+                    className="a-secondary"
+                    style={{ marginTop: 8 }}
+                  >
+                    Copy setup key
+                  </button>
+                  <span role="status" aria-live="polite" className="a-help">
+                    {copied ? ' Copied to clipboard.' : ''}
+                  </span>
+                  <p className="a-help" style={{ marginTop: 6 }}>
+                    In your authenticator app choose to add an account manually, then paste this key.
+                  </p>
+                </div>
+              )}
+
+              {qrCode && (
+                <details style={{ marginTop: 18 }}>
+                  <summary className="a-help" style={{ cursor: 'pointer' }}>
+                    Setting up from a different device? Show QR code
+                  </summary>
+                  {/* Supabase returns a short-lived data URL; it is never persisted. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrCode}
+                    alt="QR code for Posture AI authenticator setup"
+                    width={220}
+                    height={220}
+                    style={{
+                      display: 'block', maxWidth: '100%', margin: '14px auto',
+                      background: '#fff', padding: 8, borderRadius: 12,
+                    }}
+                  />
+                </details>
+              )}
             </div>
           )}
 
           {phase === 'challenge' && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            <p className="a-help">
               Enter the current code from the authenticator app already connected to your account.
             </p>
           )}
 
-          {error && (
-            <div role="alert" aria-live="assertive" style={{ color: 'var(--danger)', margin: '14px 0' }}>
-              {error}
-            </div>
-          )}
+          {error && <p className="a-error" role="alert" aria-live="assertive">{error}</p>}
 
-          <label htmlFor="mfa_code" style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '16px 0 6px' }}>
-            Authenticator code
-          </label>
-          <input
-            id="mfa_code"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="000000"
-            maxLength={7}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              padding: '11px 12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: 'var(--background)',
-              color: 'var(--text-primary)',
-              fontSize: '1rem',
-              letterSpacing: '0.16em',
-              marginBottom: '16px',
-            }}
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              border: 0,
-              borderRadius: '8px',
-              background: submitting ? 'rgba(0,152,243,0.5)' : 'var(--brand-strong)',
-              color: '#fff',
-              fontWeight: 600,
-              cursor: submitting ? 'not-allowed' : 'pointer',
-            }}
-          >
+          <div className="a-field">
+            <label className="a-label" htmlFor="mfa_code">Authenticator code</label>
+            <input
+              id="mfa_code"
+              className="a-input n"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={7}
+              style={{ letterSpacing: '0.16em' }}
+            />
+          </div>
+
+          <button type="submit" disabled={submitting} className="a-primary a-primary--bar">
             {submitting ? 'Verifying…' : 'Verify and continue'}
           </button>
         </form>

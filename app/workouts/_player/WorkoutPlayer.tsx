@@ -19,6 +19,7 @@ import { workoutCoachCueUrl } from '@/lib/workout/voicePack'
 import { CountdownRing } from './CountdownRing'
 import { RateForm, WorkoutLegalNotice } from './RateForm'
 import { AudioGlyph } from '@/components/SignalGlyphs'
+import { Surface } from '@/components/array/Surface'
 import { colorMix, workoutTheme as theme } from './theme'
 
 // ---- public contract ----------------------------------------------------
@@ -52,52 +53,28 @@ export interface WorkoutPlayerProps {
 
 // Step colors mirror the results page (PriorityProgram) so the player's accent
 // traces the same corrective arc: Loosen → Lengthen → Wake up → Strengthen → Connect.
+//
+// Literals, not theme aliases, and they must stay identical to PriorityProgram's
+// STEP_COLOR. Routing them through the theme is what broke this: theme.warning
+// and theme.copper both resolve to --monitor, which collapsed Loosen and
+// "Wake up" onto one colour and borrowed the clinical monitor band for a step
+// label — so "Loosen" read as a finding that needs watching. A step label is the
+// program's own sequence, never a severity.
 const STEP_COLOR: Record<string, string> = {
-  Loosen: theme.warning,
-  Lengthen: theme.primary,
-  'Wake up': theme.copper,
-  Strengthen: theme.maintain,
-  Connect: theme.primary,
+  Loosen: '#818CF8',
+  Lengthen: '#22D3EE',
+  'Wake up': '#F472B6',
+  Strengthen: '#38BDF8',
+  Connect: '#A78BFA',
 }
 const ACCENT_FALLBACK = theme.primary
 const itemColor = (it?: SessionItem): string => (it ? STEP_COLOR[it.stepLabel] ?? ACCENT_FALLBACK : ACCENT_FALLBACK)
 
-const panelStyle: React.CSSProperties = {
-  width: '100%',
-  border: `1px solid ${theme.border}`,
-  borderRadius: theme.radiusCard,
-  background: `linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 42%, rgba(255,255,255,.025)), ${theme.surface}`,
-  boxShadow: 'inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(0,0,0,.52), 0 8px 24px rgba(0,0,0,.38)',
-  WebkitBackdropFilter: 'blur(28px) saturate(145%)',
-  backdropFilter: 'blur(28px) saturate(145%)',
-  padding: '32px',
-}
-
-const uiFont = 'var(--font-ui, Inter), system-ui, sans-serif'
-
-const primaryButtonStyle = (): React.CSSProperties => ({
-  minHeight: 52,
-  border: '1px solid transparent',
-  borderRadius: theme.radiusControl,
-  background: `linear-gradient(#060606,#060606) padding-box, ${theme.gradient} border-box`,
-  color: theme.textPrimary,
-  fontFamily: uiFont,
-  fontSize: '1rem',
-  fontWeight: 700,
-  cursor: 'pointer',
-})
-
-const secondaryButtonStyle = (accent: string): React.CSSProperties => ({
-  minHeight: 52,
-  border: `1px solid ${accent}`,
-  borderRadius: theme.radiusControl,
-  background: theme.surfaceWell,
-  color: theme.textPrimary,
-  fontFamily: uiFont,
-  fontSize: '0.98rem',
-  fontWeight: 600,
-  cursor: 'pointer',
-})
+// Every phase card is the screen's one tier-1 feature surface — the same
+// gradient-shell glass Surface the rest of the app uses, rather than a
+// bespoke panel with its own border/blur recipe (that recipe is where the
+// dead --glass-highlight token used to live).
+const uiFont = 'var(--font-sans)'
 
 function segmentTotalMs(s: PlayerState): number {
   const it = s.items[s.index]
@@ -489,8 +466,10 @@ export function WorkoutPlayer({
           {redFlag === 'clear' && state.phase === 'preroll' && item && (
             <Fade key={`preroll-${state.index}`} reduce={!!reduceMotion}>
               <div>
-                <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.9rem', letterSpacing: 0, textTransform: 'uppercase', color: accent, marginBottom: 8, fontFeatureSettings: '"zero" 1' }}>Get ready</div>
-                <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '7rem', fontWeight: 300, lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"zero" 1' }}>{secs(state.remainingMs)}</div>
+                <p className="t-kicker" style={{ color: accent, marginBottom: 8 }}>Get ready</p>
+                {/* Largest element on screen, tabular-nums via t-readout-xl so the
+                    3-2-1 countdown never reflows as it drops a digit. */}
+                <div className="t-readout-xl">{secs(state.remainingMs)}</div>
                 <div style={{ marginTop: 10, color: theme.textSecondary, fontWeight: 600 }}>{item.name}</div>
               </div>
             </Fade>
@@ -694,10 +673,10 @@ const SegmentedProgress = memo(function SegmentedProgress({ total, index, result
 function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: SessionSnapshot; clientFirstName?: string | null; onBegin: () => void; accent: string }) {
   const mins = Math.max(1, Math.round(snapshot.estimatedDurationSec / 60))
   return (
-    <div style={panelStyle}>
-      {clientFirstName && <div style={{ color: accent, fontFamily: 'var(--font-data, monospace)', fontWeight: 400, letterSpacing: 0, marginBottom: 8, fontFeatureSettings: '"zero" 1' }}>Hi {clientFirstName}</div>}
-      <h1 style={{ fontFamily: uiFont, fontSize: '40px', fontWeight: 700, letterSpacing: 0, lineHeight: 1.08, margin: '0 0 10px' }}>Your guided session</h1>
-      <p style={{ color: theme.textSecondary, fontSize: '0.95rem', margin: '0 0 4px' }}>
+    <Surface tier="feature">
+      {clientFirstName && <p style={{ color: accent, fontSize: 13, fontWeight: 400, margin: '0 0 8px' }}>Hi {clientFirstName}</p>}
+      <h1 className="t-headline" style={{ margin: '0 0 10px' }}>Your guided session</h1>
+      <p className="t-body" style={{ margin: '0 0 4px' }}>
         {snapshot.items.length} movements · about {mins} min
       </p>
       <WorkoutLegalNotice
@@ -705,43 +684,34 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
           ? { legacyDisclaimer: snapshot.disclaimer }
           : { legalNotice: snapshot.legalNotice })}
       />
-      <button
-        onClick={onBegin}
-        style={{
-          ...primaryButtonStyle(),
-          padding: '15px 40px',
-          minHeight: 56,
-        }}
-      >
+      <button onClick={onBegin} className="a-primary" style={{ padding: '0 40px', minHeight: 56, width: '100%' }}>
         Begin session
       </button>
-    </div>
+    </Surface>
   )
 }
 
 // ---- up next ------------------------------------------------------------
 function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; index: number; total: number; accent: string; onStart: () => void }) {
   return (
-    <div style={panelStyle}>
-      <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.78rem', letterSpacing: 0, textTransform: 'uppercase', color: theme.textSecondary, marginBottom: 10, fontFeatureSettings: '"zero" 1' }}>
+    <Surface tier="feature">
+      <p className="t-kicker" style={{ marginBottom: 10 }}>
         Up next · {index + 1} of {total}
-      </div>
+      </p>
       <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, background: colorMix(accent, 14), color: accent, fontWeight: 600, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: 0, marginBottom: 12 }}>
         {item.stepLabel}
       </div>
-      <h2 style={{ fontFamily: uiFont, fontSize: '34px', fontWeight: 700, lineHeight: 1.08, margin: '0 0 8px', letterSpacing: 0 }}>{item.name}</h2>
-      <p style={{ color: theme.textSecondary, fontSize: '0.9rem', margin: '0 0 6px' }}>{timingLabel(item)}</p>
-      <p style={{ color: theme.textSecondary, fontSize: '0.82rem', lineHeight: 1.5, maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
+      <h2 className="t-headline" style={{ margin: '0 0 8px' }}>{item.name}</h2>
+      <p className="t-body" style={{ margin: '0 0 6px' }}>{timingLabel(item)}</p>
+      <p className="t-body" style={{ maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
       {item.steps && item.steps.length > 0 && (
         <ol
+          className="t-body"
           style={{
             textAlign: 'left',
             maxWidth: 380,
             margin: '0 auto 22px',
             padding: '0 0 0 20px',
-            color: theme.textSecondary,
-            fontSize: '0.85rem',
-            lineHeight: 1.55,
             display: 'flex',
             flexDirection: 'column',
             gap: 4,
@@ -752,10 +722,10 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
           ))}
         </ol>
       )}
-      <button onClick={onStart} style={{ ...secondaryButtonStyle(accent), padding: '13px 34px' }}>
+      <button onClick={onStart} className="a-secondary" style={{ padding: '0 34px' }}>
         Start now →
       </button>
-    </div>
+    </Surface>
   )
 }
 
@@ -769,67 +739,55 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
   const ringColor = isRest ? theme.textSecondary : accent
 
   return (
-    <div style={{ ...panelStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+    <Surface tier="feature" innerStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
       <div style={{ minHeight: 22, color: theme.textSecondary, fontWeight: 600, fontSize: '0.95rem' }}>
         {isRest ? 'Rest' : item.name}
         {!isRest && <span style={{ color: theme.textSecondary }}> · set {state.set} of {item.timing.sets}</span>}
       </div>
 
       {isRest || isHold ? (
+        // The seconds readout is the largest thing on screen — legible from arm's
+        // length — and tabular-nums (baked into t-readout-xl) keeps its box fixed
+        // width so a counting-down timer never reflows digit to digit.
         <CountdownRing progress={progress} color={ringColor} dimmed={isRest}>
-          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '4.4rem', fontWeight: 300, lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"zero" 1' }}>{secs(state.remainingMs)}</div>
-          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.78rem', letterSpacing: 0, textTransform: 'uppercase', color: theme.textSecondary, fontFeatureSettings: '"zero" 1' }}>{isRest ? 'seconds' : 'hold'}</div>
+          <div className="t-readout-xl">{secs(state.remainingMs)}</div>
+          <p className="t-kicker">{isRest ? 'seconds' : 'hold'}</p>
         </CountdownRing>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '0.78rem', letterSpacing: 0, textTransform: 'uppercase', color: theme.textSecondary, fontFeatureSettings: '"zero" 1' }}>Target</div>
-          <div style={{ fontFamily: 'var(--font-data, monospace)', fontSize: '4.6rem', fontWeight: 300, lineHeight: 1, color: accent, fontFeatureSettings: '"zero" 1' }}>×{repsPerSet}</div>
-          <div style={{ fontSize: '0.9rem', color: theme.textSecondary }}>controlled reps</div>
+          <p className="t-kicker">Target</p>
+          <div className="t-readout-xl" style={{ color: accent }}>×{repsPerSet}</div>
+          <div className="t-body">controlled reps</div>
         </div>
       )}
 
       {/* caption (mirrors the voice cue added in the voice pass) */}
-      <p aria-live="polite" style={{ minHeight: 20, maxWidth: 360, color: theme.textSecondary, fontSize: '0.82rem', lineHeight: 1.5, margin: 0 }}>
+      <p aria-live="polite" className="t-body" style={{ minHeight: 20, maxWidth: 360, margin: 0 }}>
         {captionText}
       </p>
 
       {!isRest && !isHold && (
-        <button
-          onClick={onNext}
-          style={{ ...primaryButtonStyle(), padding: '13px 40px' }}
-        >
+        <button onClick={onNext} className="a-primary" style={{ padding: '0 40px', minHeight: 52 }}>
           Done, next →
         </button>
       )}
-    </div>
+    </Surface>
   )
 }
 
 function Transport({ paused, onBack, onPauseToggle, onSkip, atStart, isVisible }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean; isVisible: boolean }) {
+  // The Pause/Resume control is the screen's one primary action; Back/Skip are
+  // secondary. a-primary already sets color: var(--action-text) against its
+  // white fill — the hand-rolled version here previously paired that same
+  // white background with var(--text-primary), which is white-on-white.
   const btn = (label: string, onClick: () => void, opts: { primary?: boolean; disabled?: boolean; icon?: string } = {}) => (
     <button
       onClick={onClick}
       aria-label={label}
       disabled={opts.disabled}
       tabIndex={isVisible ? 0 : -1}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        minWidth: opts.primary ? 108 : 64,
-        minHeight: 52,
-        padding: '0 18px',
-        borderRadius: theme.radiusControl,
-        border: `1px solid ${opts.primary ? theme.primary : theme.border}`,
-        background: opts.primary ? theme.primaryStrong : theme.surfaceWell,
-        color: opts.disabled ? theme.textSecondary : theme.textPrimary,
-        fontFamily: uiFont,
-        fontWeight: 600,
-        fontSize: '0.9rem',
-        cursor: opts.disabled ? 'not-allowed' : 'pointer',
-        opacity: opts.disabled ? 0.5 : 1,
-      }}
+      className={opts.primary ? 'a-primary' : 'a-secondary'}
+      style={{ minWidth: opts.primary ? 108 : 64, minHeight: 52 }}
     >
       {opts.icon && <span aria-hidden="true">{opts.icon}</span>}
       {label}
@@ -864,63 +822,49 @@ function roundToggle(on: boolean): React.CSSProperties {
 // ---- red-flag pre-session safety screen ---------------------------------
 function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () => void; onStop: () => void }) {
   return (
-    <div style={panelStyle}>
-      <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: 0, margin: '0 0 20px', lineHeight: 1.12 }}>
+    <Surface tier="feature">
+      <h2 className="t-headline" style={{ margin: '0 0 20px' }}>
         Before you start — are you feeling any sharp or worsening pain right now?
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
         <button
           onClick={onClear}
           data-testid="red-flag-no"
-          style={{
-            padding: '15px 40px',
-            minHeight: 56,
-            width: '100%',
-            maxWidth: 320,
-            ...primaryButtonStyle(),
-          }}
+          className="a-primary"
+          style={{ minHeight: 56, width: '100%', maxWidth: 320 }}
         >
           No, I feel okay
         </button>
         <button
           onClick={onStop}
           data-testid="red-flag-yes"
-          style={{
-            padding: '13px 40px',
-            minHeight: 52,
-            width: '100%',
-            maxWidth: 320,
-            ...secondaryButtonStyle(accent),
-          }}
+          className="a-secondary"
+          style={{ width: '100%', maxWidth: 320, color: accent }}
         >
           Yes
         </button>
       </div>
-    </div>
+    </Surface>
   )
 }
 
 // ---- stop card (shown when user reports pain) ----------------------------
 function StopCard({ onDismiss }: { onDismiss?: () => void }) {
   return (
-    <div data-testid="stop-card" style={panelStyle}>
-      <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: 0, margin: '0 0 16px', lineHeight: 1.12 }}>
-        Let&apos;s pause here.
-      </h2>
-      <p style={{ color: theme.textSecondary, fontSize: '0.97rem', lineHeight: 1.6, margin: '0 auto 28px', maxWidth: 360 }}>
-        Sharp pain is worth checking with a movement professional before continuing.
-      </p>
-      <button
-        onClick={onDismiss}
-        data-testid="stop-card-dismiss"
-        style={{
-          padding: '13px 34px',
-          minHeight: 52,
-          ...secondaryButtonStyle(theme.textSecondary),
-        }}
-      >
-        End session
-      </button>
+    // data-testid lives on this wrapper — Surface doesn't forward arbitrary
+    // props, so the e2e hook has to sit outside it.
+    <div data-testid="stop-card">
+      <Surface tier="feature">
+        <h2 className="t-headline" style={{ margin: '0 0 16px' }}>
+          Let&apos;s pause here.
+        </h2>
+        <p className="t-body" style={{ margin: '0 auto 28px', maxWidth: 360 }}>
+          Sharp pain is worth checking with a movement professional before continuing.
+        </p>
+        <button onClick={onDismiss} data-testid="stop-card-dismiss" className="a-secondary" style={{ padding: '0 34px' }}>
+          End session
+        </button>
+      </Surface>
     </div>
   )
 }

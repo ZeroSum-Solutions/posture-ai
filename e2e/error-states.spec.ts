@@ -86,7 +86,8 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
       return route.continue()
     })
 
-    await page.getByRole('button', { name: 'Archive Client' }).click()
+    await page.getByRole('button', { name: 'Client record actions' }).click()
+    await page.getByRole('button', { name: 'Archive client' }).click()
     await expect(page.getByRole('heading', { name: 'Archive Client?' })).toBeVisible()
     await page.getByRole('button', { name: 'Yes, Archive' }).click()
 
@@ -135,7 +136,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
     await page.goto(`/assessments/${assessmentId}`)
     // Wait for results to load
-    await expect(page.getByRole('tab', { name: 'Summary' })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('tab', { name: 'Findings' })).toBeVisible({ timeout: 15_000 })
 
     await page.route('**/api/reports**', route =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'PDF generation failed' }) })

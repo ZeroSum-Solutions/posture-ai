@@ -1,37 +1,26 @@
 import Link from 'next/link'
+import Icon from '@/components/array/Icon'
+import { Surface } from '@/components/array/Surface'
 
 export default function NotFound() {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '60vh',
-      padding: '32px',
-      textAlign: 'center',
-    }}>
-      <h1 className="data-readout" style={{ fontSize: '4rem', fontWeight: 300, color: 'var(--brand)', marginBottom: '8px' }}>404</h1>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
-        Page Not Found
-      </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '28px', maxWidth: '360px' }}>
-        The page you are looking for does not exist or has been moved.
-      </p>
-      <Link
-        href="/dashboard"
-        style={{
-          padding: '10px 24px',
-          background: 'var(--brand)',
-          color: 'var(--background)',
-          borderRadius: 'var(--radius-control, 10px)',
-          textDecoration: 'none',
-          fontWeight: 600,
-          fontSize: '0.9rem',
-        }}
-      >
-        Go to Dashboard
-      </Link>
+    <div
+      className="app-screen app-screen-x"
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}
+    >
+      <Surface tier="feature">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
+          <Icon name="magnifer-linear" size={32} />
+          <h1 className="t-readout-xl n">404</h1>
+          <h2 className="t-headline-sm">Page Not Found</h2>
+          <p className="t-body">
+            The page you are looking for does not exist or has been moved.
+          </p>
+          <Link href="/dashboard" className="a-primary" style={{ marginTop: 8 }}>
+            Go to Dashboard
+          </Link>
+        </div>
+      </Surface>
     </div>
   )
 }

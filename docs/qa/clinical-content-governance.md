@@ -18,10 +18,10 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`d5ed7b8a26c908a03848d69f91ba083263ea9569740d797e5e3b9d6cc8d4a176`.
+`fa5a29696e519b27dced7316c8939d3229068fe7171385a5412e3a2f01946410`.
 
 Recommendation algorithm SHA-256:
-`12d75aaa6f2ba0717693e4ff5b513b08dc00ed3e375c6471ff376e6bd2f92b71`.
+`b142f1b7944991190a207a8ae5a1b2598b43bd2a7579a9a615226fe12d098394`.
 
 PR-09 regenerated this hash because the governed source list deliberately includes
 `ClinicalAssessmentResults.tsx` and the shared `loadAssessmentResults.ts` projection

@@ -2,17 +2,18 @@ import { test, expect } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { totpCode } from '../scripts/testing/totp'
 
-// Logout via the primary nav control (components/NavBar.tsx → client-side
-// supabase.auth.signOut() then router.push('/auth/sign-in')). The app signs out
-// with the default GLOBAL scope, which GoTrue invalidates server-side
-// immediately (not just at JWT expiry), so it would poison the shared
-// practitioner session that every other spec loads from e2e/.auth/user.json.
-// To stay isolated, this spec re-signs-in and re-saves that storage state in
-// afterEach — which also runs on failure, so a logout failure never cascades
-// into the rest of the suite.
+// Logout via the Settings screen (app/settings/page.tsx → a plain
+// `<form action="/api/auth/sign-out" method="POST">`; app/api/auth/sign-out/route.ts
+// calls the server-side supabase.auth.signOut()). The app signs out with the
+// default GLOBAL scope, which GoTrue invalidates server-side immediately (not
+// just at JWT expiry), so it would poison the shared practitioner session that
+// every other spec loads from e2e/.auth/user.json. To stay isolated, this spec
+// re-signs-in and re-saves that storage state in afterEach — which also runs on
+// failure, so a logout failure never cascades into the rest of the suite.
 //
-// Responsive: desktop shows a visible "Sign out" button; the mobile (webkit)
-// layout hides it behind the hamburger menu, so open that first.
+// The island nav (components/array/IslandNav.tsx) is the only navigation now;
+// it carries no sign-out control of its own, only a "Profile" slot linking to
+// /settings, where the sign-out button lives on every viewport.
 test.describe('logout', () => {
   test('signing out invalidates the practitioner session in both open tabs', async ({ page, context }) => {
     await page.goto('/dashboard')
@@ -23,11 +24,8 @@ test.describe('logout', () => {
     await secondTab.goto('/dashboard')
     await expect(secondTab).toHaveURL(/\/dashboard/)
 
-    const hamburger = page.getByRole('button', { name: 'Toggle navigation menu' })
-    if (await hamburger.isVisible().catch(() => false)) {
-      await hamburger.click()
-    }
-    await page.getByRole('button', { name: 'Sign out' }).click()
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Sign Out' }).click()
 
     await page.waitForURL(/\/auth\/sign-in/, { timeout: 15_000 })
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()

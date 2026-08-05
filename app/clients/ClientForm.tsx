@@ -3,7 +3,9 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import LegalDocumentView from '@/components/LegalDocumentView'
 import useLegalDocument from '@/components/useLegalDocument'
+import { Surface } from '@/components/array/Surface'
 import { inchesToCm, cmToInches, poundsToKg, kgToPounds, round1 } from '@/lib/units'
+import styles from './ClientForm.module.css'
 
 type UnitSystem = 'us' | 'metric'
 
@@ -184,95 +186,74 @@ export default function ClientForm({
     }
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', background: 'var(--background)',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
-    color: 'var(--text-primary)', fontSize: '0.9rem', boxSizing: 'border-box',
-    minHeight: '44px',
-  }
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '6px',
-  }
-  const fieldStyle: React.CSSProperties = { marginBottom: '16px' }
-  const errorStyle: React.CSSProperties = {
-    fontSize: '0.78rem', color: 'var(--danger)', marginTop: '4px',
-  }
-
   const submitLabel = mode === 'create'
     ? (loading ? 'Creating...' : 'Create Client')
     : (loading ? 'Saving...' : 'Save Changes')
 
   return (
-    <div className="app-panel" style={{ padding: '28px 24px' }}>
-      <form onSubmit={handleSubmit} noValidate aria-label={mode === 'create' ? 'New client form' : 'Edit client form'}>
+    <Surface tier="feature">
+      <form onSubmit={handleSubmit} noValidate aria-label={mode === 'create' ? 'New client form' : 'Edit client form'} className="a-form">
         {error && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            style={{
-              background: 'rgba(239,68,68,0.12)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '8px', padding: '12px',
-              color: 'var(--danger)', fontSize: '0.875rem', marginBottom: '20px',
-            }}
-          >
-            {error}
-          </div>
+          <p className="a-error" role="alert" aria-live="assertive">{error}</p>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '4px' }}>
-          <div>
-            <label htmlFor="first_name" style={labelStyle}>
-              First Name <span style={{ color: 'var(--danger)' }} aria-hidden="true">*</span>
+        <div className={styles.grid2}>
+          <div className="a-field">
+            <label className="a-label" htmlFor="first_name">
+              First Name <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
             </label>
             <input
               id="first_name"
+              className="a-input"
               type="text" name="first_name" value={form.first_name}
               onChange={handleChange} placeholder="First name"
               aria-required="true"
+              aria-invalid={Boolean(fieldErrors.first_name)}
               aria-describedby={fieldErrors.first_name ? 'error-first-name' : undefined}
-              style={{ ...inputStyle, borderColor: fieldErrors.first_name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
             />
             {fieldErrors.first_name && (
-              <p id="error-first-name" data-testid="error-first-name" style={errorStyle} role="alert">{fieldErrors.first_name}</p>
+              <p id="error-first-name" data-testid="error-first-name" className="a-error" role="alert">{fieldErrors.first_name}</p>
             )}
           </div>
-          <div>
-            <label htmlFor="last_name" style={labelStyle}>
-              Last Name <span style={{ color: 'var(--danger)' }} aria-hidden="true">*</span>
+          <div className="a-field">
+            <label className="a-label" htmlFor="last_name">
+              Last Name <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
             </label>
             <input
               id="last_name"
+              className="a-input"
               type="text" name="last_name" value={form.last_name}
               onChange={handleChange} placeholder="Last name"
               aria-required="true"
+              aria-invalid={Boolean(fieldErrors.last_name)}
               aria-describedby={fieldErrors.last_name ? 'error-last-name' : undefined}
-              style={{ ...inputStyle, borderColor: fieldErrors.last_name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
             />
             {fieldErrors.last_name && (
-              <p id="error-last-name" data-testid="error-last-name" style={errorStyle} role="alert">{fieldErrors.last_name}</p>
+              <p id="error-last-name" data-testid="error-last-name" className="a-error" role="alert">{fieldErrors.last_name}</p>
             )}
           </div>
         </div>
 
-        <div style={{ ...fieldStyle, marginTop: '16px' }}>
-          <label htmlFor="date_of_birth" style={labelStyle}>Date of Birth</label>
+        <div className="a-field">
+          <label className="a-label" htmlFor="date_of_birth">Date of Birth</label>
           <input
             id="date_of_birth"
             ref={dobRef}
+            className="a-input"
             type="date" name="date_of_birth" value={form.date_of_birth}
             onChange={handleChange}
+            style={{ colorScheme: 'dark' }}
+            aria-invalid={Boolean(fieldErrors.date_of_birth)}
             aria-describedby={fieldErrors.date_of_birth ? 'error-date-of-birth' : undefined}
-            style={{ ...inputStyle, colorScheme: 'dark', borderColor: fieldErrors.date_of_birth ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
           />
           {fieldErrors.date_of_birth && (
-            <p id="error-date-of-birth" data-testid="error-date-of-birth" style={errorStyle} role="alert">{fieldErrors.date_of_birth}</p>
+            <p id="error-date-of-birth" data-testid="error-date-of-birth" className="a-error" role="alert">{fieldErrors.date_of_birth}</p>
           )}
         </div>
 
-        <div style={fieldStyle}>
-          <label htmlFor="sex_at_birth" style={labelStyle}>Sex at Birth</label>
-          <select id="sex_at_birth" name="sex_at_birth" value={form.sex_at_birth} onChange={handleChange} style={inputStyle}>
+        <div className="a-field">
+          <label className="a-label" htmlFor="sex_at_birth">Sex at Birth</label>
+          <select id="sex_at_birth" className="a-select" name="sex_at_birth" value={form.sex_at_birth} onChange={handleChange}>
             <option value="">Select...</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
@@ -281,20 +262,15 @@ export default function ClientForm({
           </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginTop: '16px', marginBottom: '8px' }}>
-          <span style={{ ...labelStyle, marginBottom: 0 }}>Measurements</span>
-          <div role="group" aria-label="Measurement units" style={{ display: 'inline-flex', background: 'var(--background)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '2px' }}>
+        <div className={styles.unitRow}>
+          <span className="a-label" style={{ marginBottom: 0 }}>Measurements</span>
+          <div role="group" aria-label="Measurement units" className={styles.unitToggle}>
             {([['us', 'US (in / lb)'], ['metric', 'Metric (cm / kg)']] as const).map(([val, lbl]) => {
               const active = unitSystem === val
               return (
                 <button
                   key={val} type="button" onClick={() => handleUnitChange(val)} aria-pressed={active}
-                  style={{
-                    padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                    fontSize: '0.8rem', fontWeight: 600, minHeight: 'unset',
-                    background: active ? 'var(--brand-strong)' : 'transparent',
-                    color: active ? '#fff' : 'var(--text-secondary)',
-                  }}
+                  className={styles.unitButton}
                 >
                   {lbl}
                 </button>
@@ -303,42 +279,44 @@ export default function ClientForm({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px', marginBottom: '4px' }}>
-          <div>
-            <label htmlFor="height" style={labelStyle}>Height ({heightUnit})</label>
+        <div className={styles.grid2}>
+          <div className="a-field">
+            <label className="a-label" htmlFor="height">Height ({heightUnit})</label>
             <input
               id="height"
+              className="a-input"
               type="number" name="height" value={form.height}
               onChange={handleChange} placeholder={heightPlaceholder} step="0.1"
+              aria-invalid={Boolean(fieldErrors.height)}
               aria-describedby={fieldErrors.height ? 'error-height' : undefined}
-              style={{ ...inputStyle, borderColor: fieldErrors.height ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
             />
             {fieldErrors.height && (
-              <p id="error-height" data-testid="error-height" style={errorStyle} role="alert">{fieldErrors.height}</p>
+              <p id="error-height" data-testid="error-height" className="a-error" role="alert">{fieldErrors.height}</p>
             )}
           </div>
-          <div>
-            <label htmlFor="weight" style={labelStyle}>Weight ({weightUnit})</label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="weight">Weight ({weightUnit})</label>
             <input
               id="weight"
+              className="a-input"
               type="number" name="weight" value={form.weight}
               onChange={handleChange} placeholder={weightPlaceholder} step="0.1"
+              aria-invalid={Boolean(fieldErrors.weight)}
               aria-describedby={fieldErrors.weight ? 'error-weight' : undefined}
-              style={{ ...inputStyle, borderColor: fieldErrors.weight ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
             />
             {fieldErrors.weight && (
-              <p id="error-weight" data-testid="error-weight" style={errorStyle} role="alert">{fieldErrors.weight}</p>
+              <p id="error-weight" data-testid="error-weight" className="a-error" role="alert">{fieldErrors.weight}</p>
             )}
           </div>
         </div>
 
-        <div style={{ ...fieldStyle, marginTop: '16px' }}>
-          <label htmlFor="notes" style={labelStyle}>Notes</label>
+        <div className="a-field">
+          <label className="a-label" htmlFor="notes">Notes</label>
           <textarea
             id="notes"
+            className="a-textarea"
             name="notes" value={form.notes} onChange={handleChange}
             placeholder="Optional notes about this client" rows={3}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', minHeight: '80px' }}
           />
         </div>
 
@@ -347,26 +325,20 @@ export default function ClientForm({
             Remote consent (subject not present) is available from the client page. */}
         {mode === 'create' && (
           <>
-            <div style={{
-              background: fieldErrors.consent ? 'rgba(239,68,68,0.08)' : 'rgba(0,152,243,0.08)',
-              border: '1px solid ' + (fieldErrors.consent ? 'rgba(239,68,68,0.4)' : 'rgba(0,152,243,0.25)'),
-              borderRadius: '10px', padding: '16px', marginBottom: '8px',
-            }}>
-              {legal.isLoading && <p role="status" aria-live="polite">Loading consent terms…</p>}
+            <div className={styles.consentPanel} data-error={fieldErrors.consent ? 'true' : undefined}>
+              {legal.isLoading && <p role="status" aria-live="polite" className="a-help">Loading consent terms…</p>}
               {legal.error && (
-                <p role="alert" aria-live="assertive" style={{ color: 'var(--danger)', fontSize: '0.84rem' }}>
-                  {legal.error}
-                </p>
+                <p role="alert" aria-live="assertive" className="a-error">{legal.error}</p>
               )}
               {legal.document && (
-                <div style={{ marginBottom: 16 }}>
+                <div className={styles.consentDocument}>
                   <LegalDocumentView document={legal.document} headingLevel={3} compact />
                 </div>
               )}
 
-              <div style={{ marginBottom: '12px' }}>
-                <label htmlFor="signer_relationship" style={labelStyle}>Who is giving consent?</label>
-                <select id="signer_relationship" name="signer_relationship" value={form.signer_relationship} onChange={handleChange} style={inputStyle}>
+              <div className="a-field">
+                <label className="a-label" htmlFor="signer_relationship">Who is giving consent?</label>
+                <select id="signer_relationship" className="a-select" name="signer_relationship" value={form.signer_relationship} onChange={handleChange}>
                   <option value="self">The client (self)</option>
                   <option value="parent">Parent of the client</option>
                   <option value="legal_guardian">Legal guardian of the client</option>
@@ -374,23 +346,23 @@ export default function ClientForm({
                 </select>
               </div>
 
-              <div style={{ marginBottom: '12px' }}>
-                <label htmlFor="signer_name" style={labelStyle}>
-                  Type full name to sign <span style={{ color: 'var(--danger)' }} aria-hidden="true">*</span>
+              <div className="a-field">
+                <label className="a-label" htmlFor="signer_name">
+                  Type full name to sign <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
                 </label>
                 <input
-                  id="signer_name" type="text" name="signer_name" value={form.signer_name}
+                  id="signer_name" className="a-input" type="text" name="signer_name" value={form.signer_name}
                   onChange={handleChange} placeholder="Signer’s full name"
                   aria-required="true"
+                  aria-invalid={Boolean(fieldErrors.signer_name)}
                   aria-describedby={fieldErrors.signer_name ? 'error-signer-name' : undefined}
-                  style={{ ...inputStyle, borderColor: fieldErrors.signer_name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)' }}
                 />
                 {fieldErrors.signer_name && (
-                  <p id="error-signer-name" data-testid="error-signer-name" style={errorStyle} role="alert">{fieldErrors.signer_name}</p>
+                  <p id="error-signer-name" data-testid="error-signer-name" className="a-error" role="alert">{fieldErrors.signer_name}</p>
                 )}
               </div>
 
-              <label htmlFor="consent_checkbox" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+              <label htmlFor="consent_checkbox" className={styles.consentCheck}>
                 <input
                   id="consent_checkbox"
                   type="checkbox"
@@ -401,47 +373,34 @@ export default function ClientForm({
                     if (e.target.checked) setFieldErrors(prev => { const next = { ...prev }; delete next.consent; return next })
                   }}
                   aria-required="true"
+                  aria-invalid={Boolean(fieldErrors.consent)}
                   aria-describedby={fieldErrors.consent ? 'error-consent' : undefined}
-                  style={{ marginTop: '2px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0, minHeight: 'unset' }}
                 />
-                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <span className="t-body">
                   By typing the name above and checking this box, I confirm I have read and agree to the
                   posture-screening consent on behalf of the client.
                 </span>
               </label>
             </div>
             {fieldErrors.consent && (
-              <p id="error-consent" data-testid="error-consent" style={{ ...errorStyle, marginBottom: '16px' }} role="alert">{fieldErrors.consent}</p>
+              <p id="error-consent" data-testid="error-consent" className="a-error" role="alert">{fieldErrors.consent}</p>
             )}
           </>
         )}
 
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' }}>
-          <Link href={cancelHref} style={{
-            flex: 1, padding: '11px', background: 'rgba(255,255,255,0.06)',
-            color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px', fontWeight: 600, fontSize: '0.95rem',
-            textAlign: 'center', textDecoration: 'none', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', minWidth: '100px',
-          }}>
+        <div className={styles.actions}>
+          <Link href={cancelHref} className="a-secondary">
             Cancel
           </Link>
           <button
             type="submit"
             disabled={loading || (mode === 'create' && !legal.document)}
-            className="app-gradient-action"
-            style={{
-            flex: 2, padding: '3px',
-            background: loading || (mode === 'create' && !legal.document) ? 'rgba(0,152,243,0.3)' : undefined,
-            color: loading || (mode === 'create' && !legal.document) ? 'var(--text-muted)' : '#fff',
-            border: 'none', borderRadius: '8px', fontWeight: 600,
-            fontSize: '0.95rem', cursor: loading || (mode === 'create' && !legal.document) ? 'not-allowed' : 'pointer',
-            minWidth: '120px',
-          }}>
-            <span>{submitLabel}</span>
+            className="a-primary"
+          >
+            {submitLabel}
           </button>
         </div>
       </form>
-    </div>
+    </Surface>
   )
 }

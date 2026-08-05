@@ -1,0 +1,31 @@
+/* Both states (idle and ready) share this tile's inner layout. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.linkRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.linkInput {
+  flex: 1;
+  min-width: 200px;
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.qr {
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px;
+}

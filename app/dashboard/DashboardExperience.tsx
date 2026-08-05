@@ -1,142 +1,189 @@
-'use client'
-
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { Chip, DeltaChip, GradeChip } from '@/components/array/Chip'
+import Icon from '@/components/array/Icon'
+import { Surface, SurfaceLink } from '@/components/array/Surface'
+import { tone } from '@/components/array/severity'
+import type { TodayModel } from './todayModel'
 import styles from './DashboardExperience.module.css'
-import { deriveDashboardMetrics } from './dashboardMetrics'
 
-type Assessment = {
-  id: string
-  overall_grade: string | null
-  overall_score: number | null
-  created_at: string
-  client_id: string
-  clients: { first_name: string; last_name: string }[] | { first_name: string; last_name: string } | null
-}
-
-type Props = {
-  clientCount: number
-  weekAssessments: number
-  recentAssessments: Assessment[]
-  loadError?: string | null
-}
-
-function clientName(assessment: Assessment) {
-  const client = assessment.clients
-  if (!client) return 'Unknown Client'
-  if (Array.isArray(client)) return client[0] ? `${client[0].first_name} ${client[0].last_name}` : 'Unknown Client'
-  return `${client.first_name} ${client.last_name}`
-}
-
-function gradeTone(grade: string | null) {
-  if (grade === 'S' || grade === 'A') return styles.gradeGood
-  if (grade === 'B' || grade === 'C') return styles.gradeReview
-  return styles.gradeAlert
-}
-
-export default function DashboardExperience({ clientCount, weekAssessments, recentAssessments, loadError }: Props) {
-  const router = useRouter()
-  const { averageScore, scoredCount, pulse, pulseLine } = deriveDashboardMetrics(recentAssessments)
-
+/**
+ * Today — the triage screen. It answers one question before any chrome: whose
+ * report is waiting, and which one to open first.
+ */
+export default function DashboardExperience({
+  model,
+  practitionerInitials,
+  todayLabel,
+  loadError,
+}: {
+  model: TodayModel
+  practitionerInitials: string
+  todayLabel: string
+  loadError: string | null
+}) {
+  // A failed query and an empty practice are indistinguishable once the counts
+  // fall back to zero, so a Supabase blip would otherwise render as "no clients,
+  // queue clear" — the most dangerous possible reading of a triage screen. Bail
+  // out before any of that is drawn, and say so assertively.
+  //
+  // The retry is a plain anchor rather than a Link: this is a server component,
+  // so recovery needs a fresh document request, and the client router would be
+  // happy to serve the same failed render back from its cache.
   if (loadError) {
     return (
-      <div className={styles.page}>
-        <section className={styles.hero} role="alert" style={{ alignItems: 'flex-start' }}>
-          <div>
-            <p className={styles.eyebrow}><span /> Dashboard unavailable</p>
-            <h1>Practice data could not load.</h1>
-            <p className={styles.heroCopy}>{loadError}</p>
-          </div>
-          <button type="button" className={styles.primaryAction} onClick={() => router.refresh()} style={{ border: 0, cursor: 'pointer', font: 'inherit' }}>
-            <span>Refresh dashboard</span><b aria-hidden="true">↻</b>
-          </button>
+      <div className="app-screen app-screen-x">
+        <section className={styles.verdict} role="alert">
+          <p className="t-kicker" style={{ marginBottom: 12 }}>Dashboard unavailable</p>
+          <h1 className="t-headline">Practice data could not load.</h1>
         </section>
+        <Surface tier="feature">
+          <p className="t-body">{loadError}</p>
+          <a href="/dashboard" className="a-primary a-primary--bar" style={{ marginTop: 16 }}>
+            Refresh dashboard
+          </a>
+        </Surface>
       </div>
     )
   }
 
   return (
-    <div className={styles.page}>
-      <section className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}><span /> Practitioner console</p>
-          <h1>See what needs attention next.</h1>
-          <p className={styles.heroCopy}>Review recent screening signals, keep client context close, and start the next baseline when you are ready.</p>
-        </div>
-        <Link href="/assessments/new" className={styles.primaryAction}>
-          <span>New assessment</span><b aria-hidden="true">↗</b>
-        </Link>
-      </section>
-
-      <section className={styles.metrics} aria-label="Practice overview">
-        <article className={styles.metricCard}>
-          <div className={styles.metricTop}><span>Active clients</span><i aria-hidden="true">01</i></div>
-          <strong className="data-readout">{String(clientCount).padStart(2, '0')}</strong>
-          <p>Client records in your active practice view</p>
-        </article>
-        <article className={styles.metricCard}>
-          <div className={styles.metricTop}><span>Completed this week</span><i aria-hidden="true">02</i></div>
-          <strong className="data-readout">{String(weekAssessments).padStart(2, '0')}</strong>
-          <p>Completed screening sessions</p>
-        </article>
-        <article className={`${styles.metricCard} ${styles.metricHighlight}`}>
-          <div className={styles.metricTop}><span>Recent screen average</span><i aria-hidden="true">03</i></div>
-          <strong className="data-readout">{averageScore === null ? '—' : averageScore}</strong>
-          <p>{averageScore === null ? 'Appears after your first assessment' : 'Across your latest five screens'}</p>
-        </article>
-      </section>
-
-      <section className={styles.contentGrid}>
-        <article className={styles.pulseCard}>
-          <header className={styles.panelHeader}>
-            <div><span className={styles.panelKicker}>Assessment pulse</span><h2>Recent screening signal</h2></div>
-            <span className={styles.liveTag}><i /> Live record</span>
-          </header>
-          <div className={styles.pulseGraphic} aria-label={scoredCount > 0 ? `Recent screening average is ${averageScore}` : 'No scored screening data yet'}>
-            <svg viewBox="0 0 120 86" role="img" aria-hidden="true" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="pulseStroke" x1="0" x2="1"><stop stopColor="#FF8918" /><stop offset="0.56" stopColor="#DA4E24" /><stop offset="1" stopColor="#0098F3" /></linearGradient>
-                <linearGradient id="pulseFill" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#0098F3" stopOpacity="0.26" /><stop offset="1" stopColor="#0098F3" stopOpacity="0" /></linearGradient>
-              </defs>
-              <path d="M0 72H120M0 50H120M0 28H120" className={styles.gridLine} />
-              {pulseLine && <path d={`M ${pulseLine} L ${pulse[pulse.length - 1].x},86 L ${pulse[0].x},86 Z`} fill="url(#pulseFill)" />}
-              {pulseLine && <polyline points={pulseLine} fill="none" stroke="url(#pulseStroke)" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />}
-              {pulse.map((point, index) => <circle key={`${point.x}-${point.y}`} cx={point.x} cy={point.y} r="2.6" className={styles.pulsePoint} style={{ animationDelay: `${index * 80}ms` }} />)}
-            </svg>
-            <div className={styles.pulseMeta}><span>Scored screens</span><b className="data-readout">{scoredCount || '—'}</b></div>
+    <div className="app-screen">
+      <header className={styles.header}>
+        <div className={styles.identity}>
+          <span className={styles.avatar} aria-hidden="true">{practitionerInitials}</span>
+          <div>
+            <p className={styles.wordmark}>
+              <span className={styles.live} aria-hidden="true" />
+              Posture AI
+            </p>
+            <p className={styles.today}>
+              {todayLabel}
+              {' · '}
+              <span className={styles.todayQuiet}>{model.queueTotal} awaiting review</span>
+            </p>
           </div>
-          <p className={styles.panelFoot}>Scores are screening signals, not a clinical conclusion.</p>
-        </article>
+        </div>
+      </header>
 
-        <article className={styles.quickStart}>
-          <span className={styles.panelKicker}>Next move</span>
-          <h2>Start with a clear baseline.</h2>
-          <p>Guide a consent-led capture, confirm camera readiness, then move into a focused review.</p>
-          <Link href="/assessments/new" className={styles.textAction}>Open capture <span aria-hidden="true">→</span></Link>
-        </article>
+      <section className={styles.verdict}>
+        <p className="t-kicker" style={{ marginBottom: 12 }}>{model.kicker}</p>
+        <h1 className="t-headline">
+          {model.headline.lead}
+          {model.headline.tail ? <> <em>{model.headline.tail}</em></> : null}
+        </h1>
       </section>
 
-      <section className={styles.activity}>
-        <header className={styles.panelHeader}>
-          <div><span className={styles.panelKicker}>Practice log</span><h2>Recent activity</h2></div>
-          <Link href="/clients" className={styles.quietLink}>View clients <span aria-hidden="true">→</span></Link>
-        </header>
-        {recentAssessments.length > 0 ? (
-          <ul className={styles.activityList}>
-            {recentAssessments.map((assessment, index) => (
-              <li key={assessment.id}>
-                <Link href={`/assessments/${assessment.id}`}>
-                  <span className={styles.activityIndex}>0{index + 1}</span>
-                  <span className={styles.clientDetails}><b>{clientName(assessment)}</b><small>Assessment · {new Date(assessment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</small></span>
-                  <span className={styles.activityResult}>{assessment.overall_grade && <em className={gradeTone(assessment.overall_grade)}>Grade {assessment.overall_grade}</em>}<i aria-hidden="true">→</i></span>
+      <div className="app-screen-x app-stack">
+        {/* Tier 1 — the screen's subject. */}
+        <Surface tier="feature">
+          <div className={styles.queueHead}>
+            <h2 className="t-title">Awaiting your sign-off</h2>
+            {model.queueTotal > 0
+              ? <Chip band="monitor" size="sm"><span className="n">{model.queueTotal}</span> due</Chip>
+              : <Chip band="maintain" size="sm" icon="check-circle-linear">Clear</Chip>}
+          </div>
+
+          {model.queue.length === 0 ? (
+            <div className={styles.empty}>
+              <p className="t-body">Every completed scan has been signed off.</p>
+              <p className="t-quiet">New captures land here the moment scoring finishes.</p>
+            </div>
+          ) : (
+            <div>
+              {model.queue.map(item => (
+                <Link key={item.id} href={item.href} className={styles.queueRow}>
+                  <span className={styles.queueAvatar} aria-hidden="true">{item.initials}</span>
+                  <span className={styles.queueBody}>
+                    <span className={styles.queueName} style={{ display: 'block' }}>{item.name}</span>
+                    <span className={styles.queueMeta} style={{ display: 'block' }}>{item.meta}</span>
+                  </span>
+                  {item.wait ? (
+                    <span
+                      className={`${styles.queueWait} n`}
+                      style={{ color: item.oldest ? tone('monitor') : 'rgba(255,255,255,0.6)' }}
+                    >
+                      {item.wait}
+                    </span>
+                  ) : null}
                 </Link>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+          )}
+
+          {model.primaryAction ? (
+            <div className={styles.queueAction}>
+              <Link href={model.primaryAction.href} className={`a-primary ${styles.fullBar}`}>
+                {model.primaryAction.label}
+              </Link>
+            </div>
+          ) : null}
+        </Surface>
+
+        {/* This product has no scheduling table, so the slot the design gives to
+            "next booked session" carries the truthful equivalent: the client who
+            has gone longest without a scan. Never presented as a booking. */}
+        {model.rescan ? (
+          <SurfaceLink href={model.rescan.href} tier="tile" pad="rowy">
+            <span className={styles.infoRow}>
+              <span className={styles.infoIcon} aria-hidden="true">
+                <Icon name="calendar-linear" size={20} />
+              </span>
+              <span className={styles.infoBody}>
+                <span className={styles.scanName} style={{ display: 'block' }}>{model.rescan.name}</span>
+                <span className={styles.scanMeta} style={{ display: 'block' }}>{model.rescan.meta}</span>
+              </span>
+              <span className="t-quiet" style={{ flexShrink: 0 }}>{model.rescan.readout}</span>
+            </span>
+          </SurfaceLink>
+        ) : null}
+
+        <div className={styles.metrics}>
+          {model.metrics.map(metric => (
+            <Surface key={metric.key} tier="tile" innerClassName={styles.metric}>
+              <div className={styles.metricTop}>
+                <Icon name={metric.icon} size={17} />
+                {metric.delta
+                  ? <DeltaChip band={metric.deltaBand} icon={metric.deltaIcon}>{metric.delta}</DeltaChip>
+                  : null}
+              </div>
+              <div>
+                <p className={`${styles.metricValue} n`}>{metric.value}</p>
+                <p className={styles.metricLabel}>{metric.label}</p>
+              </div>
+            </Surface>
+          ))}
+        </div>
+
+        <div className={styles.sectionHead}>
+          <h2 className="t-headline-sm">Recent scans</h2>
+          <Link href="/clients" className={styles.seeAll}>
+            See all
+            <Icon name="arrow-right-up-linear" size={14} />
+          </Link>
+        </div>
+
+        {model.recent.length === 0 ? (
+          <Surface tier="row" pad="rowy">
+            <p className="t-body">No completed scans yet. Capture one to start a history.</p>
+          </Surface>
         ) : (
-          <div className={styles.emptyState}><span>01</span><div><h3>No assessments yet</h3><p>Your first completed screen will appear here with its score and review path.</p></div><Link href="/assessments/new">Run a scan <span aria-hidden="true">→</span></Link></div>
+          model.recent.map(scan => (
+            <SurfaceLink key={scan.id} href={scan.href} tier="row">
+              <span className={styles.scanRow}>
+                <GradeChip grade={scan.grade} />
+                <span className={styles.scanBody}>
+                  <span className={styles.scanName} style={{ display: 'block' }}>{scan.name}</span>
+                  <span className={styles.scanMeta} style={{ display: 'block' }}>{scan.meta}</span>
+                </span>
+                <span style={{ flexShrink: 0, color: tone(scan.band) }}>
+                  <Icon name={scan.icon} size={19} />
+                </span>
+              </span>
+            </SurfaceLink>
+          ))
         )}
-      </section>
+
+      </div>
     </div>
   )
 }

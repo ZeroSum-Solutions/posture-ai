@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import type { RatingPace, RatingDifficulty } from '@/lib/workout/rating'
 import type { RatingPayload } from './WorkoutPlayer'
 import { CheckGlyph } from '@/components/SignalGlyphs'
+import { Surface } from '@/components/array/Surface'
 import { colorMix, workoutTheme as theme } from './theme'
 import LegalNotice from '@/components/LegalNotice'
 import type { LegalSnapshot } from '@/lib/legal/types'
@@ -74,25 +75,25 @@ export function RateForm({
 
   if (thanks) {
     return (
-      <div style={{ ...cardStyle, textAlign: 'center' }}>
+      <Surface tier="feature" style={{ textAlign: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><CheckGlyph size={48} /></div>
-        <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: 0, margin: '0 0 6px', lineHeight: 1.12 }}>Thanks for the feedback</h2>
-        <p style={{ color: theme.textSecondary, margin: '0 0 22px' }}>It helps tune your next session.</p>
-        {onExit && <button onClick={onExit} style={primaryBtn}>Done</button>}
-      </div>
+        <h2 className="t-headline" style={{ margin: '0 0 6px' }}>Thanks for the feedback</h2>
+        <p className="t-body" style={{ margin: '0 0 22px' }}>It helps tune your next session.</p>
+        {onExit && <button onClick={onExit} className="a-primary" style={{ padding: '0 32px', minHeight: 52 }}>Done</button>}
+      </Surface>
     )
   }
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void onSubmit() }} style={{ width: '100%', textAlign: 'center' }}>
-      <h2 style={{ fontSize: '40px', fontWeight: 700, margin: '0 0 14px', letterSpacing: 0, lineHeight: 1.08 }}>Nice work</h2>
+      <h2 className="t-headline" style={{ margin: '0 0 14px' }}>Nice work</h2>
       <div style={{ display: 'inline-flex', gap: 18, marginBottom: 22, color: theme.textSecondary, fontSize: '0.9rem' }}>
         <span><strong style={{ color: theme.maintain }}>{done}</strong> / {total} done</span>
         {skipped > 0 && <span><strong style={{ color: theme.textSecondary }}>{skipped}</strong> skipped</span>}
         <span><strong>{Math.max(1, Math.round(durationSec / 60))}</strong> min</span>
       </div>
 
-      <div style={cardStyle}>
+      <Surface tier="feature">
         <Row label="How clear were the cues?">
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
             {[1, 2, 3, 4, 5].map((n) => (
@@ -141,18 +142,18 @@ export function RateForm({
             />
           </Row>
         )}
-      </div>
+      </Surface>
 
       <WorkoutLegalNotice legalNotice={legalNotice} legacyDisclaimer={legacyDisclaimer} />
 
       {error && <div role="alert" style={{ color: theme.danger, fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button type="submit" disabled={!canSubmit || submitting} style={{ ...primaryBtn, opacity: canSubmit && !submitting ? 1 : 0.5, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
+        <button type="submit" disabled={!canSubmit || submitting} className="a-primary" style={{ padding: '0 32px', minHeight: 52 }}>
           {submitting ? 'Saving…' : 'Submit feedback'}
         </button>
         {onExit && (
-          <button type="button" onClick={onExit} style={ghostBtn}>
+          <button type="button" onClick={onExit} className="a-secondary" style={{ padding: '0 24px', minHeight: 52 }}>
             Skip
           </button>
         )}
@@ -209,17 +210,6 @@ function Chips<T extends string>({ options, selected, onSelect }: { options: { v
   )
 }
 
-const cardStyle: React.CSSProperties = {
-  background: `linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 42%, rgba(255,255,255,.025)), ${theme.surface}`,
-  border: `1px solid ${theme.border}`,
-  borderRadius: theme.radiusCard,
-  padding: 18,
-  boxShadow: 'inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(0,0,0,.52), 0 8px 24px rgba(0,0,0,.38)',
-  WebkitBackdropFilter: 'blur(28px) saturate(145%)',
-  backdropFilter: 'blur(28px) saturate(145%)',
-}
 const starBtn: React.CSSProperties = { background: 'none', border: 'none', fontSize: '1.9rem', cursor: 'pointer', lineHeight: 1, padding: 2, minHeight: 44 }
 const chip: React.CSSProperties = { padding: '8px 14px', minHeight: 44, borderRadius: theme.radiusControl, border: `1px solid ${theme.border}`, background: theme.surfaceWell, color: theme.textSecondary, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }
 const chipOn: React.CSSProperties = { background: colorMix(theme.primary, 18), borderColor: colorMix(theme.primary, 54), color: theme.primary }
-const primaryBtn: React.CSSProperties = { padding: '13px 32px', minHeight: 52, borderRadius: theme.radiusControl, border: '1px solid transparent', background: `linear-gradient(#060606,#060606) padding-box, ${theme.gradient} border-box`, color: theme.textPrimary, fontWeight: 700, fontSize: '1rem', cursor: 'pointer' }
-const ghostBtn: React.CSSProperties = { padding: '13px 24px', minHeight: 52, borderRadius: theme.radiusControl, border: `1px solid ${theme.border}`, background: theme.surfaceWell, color: theme.textSecondary, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }
