@@ -82,10 +82,13 @@ importing v1 tokens.
 
 ## Verification harness
 
-`scripts/testing/array-visual/` captures each migrated screen on an iPhone 14 viewport
-into `docs/screenshots/array/`. Set `ARRAY_VISUAL_CLIENT_ID` to a seeded client with
-several completed scans so client detail captures a real trend rather than one dot. It asserts nothing — it exists so the build can be
-graded against the handoff. **Delete the whole directory when the redesign lands.**
+**Removed when the redesign landed, as this section always said it would be.**
+`scripts/testing/array-visual/` captured each migrated screen on an iPhone 14
+viewport into `docs/screenshots/array/`, which are kept as the visual record. The
+harness asserted nothing — it existed so the build could be graded against the
+handoff — and its `vitest.config.ts` exclusion went with it. The notes below are
+retained because they explain why it was placed where it was, which is worth
+knowing if a future redesign wants the same scaffolding.
 
 It lives outside `e2e/` on purpose: that directory's spec list feeds the
 production-readiness gate, which compares a live `playwright --list` against a signed
@@ -169,8 +172,13 @@ Ordered gates before Production:
    and every screen renders styled. **Partially done** — preview is up and every
    screen renders styled; clinical content still reads `database_activation_mismatch`
    by design, and can only *activate* once gate 5 lands.
-8. Merge to the default branch. **held**
-9. Promote to Production; confirm the cron and the clinical gate behave identically. **held**
+8. Merge to the default branch. **done — decoupled from gate 4 by owner decision,
+   2026-08-04.** The gate fails closed, so merging ships a correctly-styled app
+   whose clinical surfaces read `database_activation_mismatch` — the state
+   production is already in. Gates 4 and 5 continue as their own scoped work.
+9. Promote to Production; confirm the cron and the clinical gate behave identically.
+   **held** — and note it changes nothing about clinical availability until HG-03
+   lands, because production has no active release today either.
 
 ### Correction: there is no currently-approved release to invalidate
 
