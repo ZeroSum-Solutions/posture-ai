@@ -594,7 +594,19 @@ function journeyDefinitions(fixture) {
       targetId: 'assessment_results_journey',
       path: `/assessments/${encodeURIComponent(fixture.assessmentId)}`,
       traceId: 'assessment_results_compare_selection',
-      ready: (page) => page.getByLabel('Compare report').waitFor({ state: 'visible' }),
+      // The review redesign moved ReviewDock inside a collapsed "Report, share
+      // & compare" <details>, so this select is now present but hidden on load
+      // and the old ready hook waited on it until it timed out. Open the
+      // disclosure here in ready rather than as a step: ready runs before
+      // measurement, so the frozen budgets keep measuring the same two
+      // interactions they always did.
+      ready: async (page) => {
+        const disclosure = page.locator('summary', { hasText: 'Report, share & compare' })
+        await disclosure.waitFor({ state: 'visible' })
+        const selector = page.getByLabel('Compare report')
+        if (!(await selector.isVisible())) await disclosure.click()
+        await selector.waitFor({ state: 'visible' })
+      },
       run: async (page, entries) => {
         const selector = page.getByLabel('Compare report')
         const steps = []
