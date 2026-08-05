@@ -17,11 +17,20 @@ utility class renders unstyled. Checkpoints are internal recovery points.
 | 2 | Clients list + `list_owned_clients_page` RPC migration | done |
 | 3 | Client detail (dropped `recharts`) | done |
 | 4 | Review — Findings + Evidence + Program, 3 tabs | done |
-| 5 | Exercise library (establishes the session-builder contract) | pending |
-| 6 | Workout player (consumes that contract) | pending |
-| 7 | Capture — characterization tests first, presentation only | pending |
-| 8 | Repository-wide v1 purge | pending |
-| 9 | External audit (Kimi K3) + applied findings | pending |
+| 5 | Exercise library (establishes the session-builder contract) | done |
+| 6 | Workout player (consumes that contract) | done |
+| 7 | Capture — characterization tests first, presentation only | done |
+| 8 | Repository-wide v1 purge | done |
+| 9 | External audit (Kimi K3) + applied findings | done |
+
+Checkpoints 5, 6 and 8 landed together in `988e383`; 7 in `d90e4f4`. The purge is
+verified two ways rather than by inspection: no source file references any of the
+nine deleted v1 Tailwind tokens (`--color-surface{,-elevated,-strong}`,
+`--color-border{,-strong}`, `--color-brand`, `--color-danger`, `--color-warning`,
+`--radius-control`), and every `var(--x)` referenced anywhere under `app/`,
+`components/` or `lib/` resolves against a CSS file — the sole exception being
+`--font-ui`, which `next/font` injects onto `<html>` at runtime and which
+`globals.css` already reads through a `'Roboto'` fallback.
 
 Capture is last because it is safety-sensitive, not because it is optional: camera
 lifecycle, pose-worker messaging, shutter gating and sensor-roll thresholds are

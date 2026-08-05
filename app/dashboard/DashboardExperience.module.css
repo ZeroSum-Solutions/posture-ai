@@ -176,15 +176,6 @@
   margin-top: 20px;
 }
 
-.notice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--monitor);
-}
-
 .empty {
   display: flex;
   flex-direction: column;

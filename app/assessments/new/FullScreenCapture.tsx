@@ -1237,6 +1237,10 @@ export default function FullScreenCapture({
                 onClick={onProceed}
                 disabled={analyzeBlocked}
                 className="a-primary a-primary--bar"
+                // Kept inline despite .a-primary:disabled setting the same
+                // cursor: the capture characterization suite asserts this
+                // property directly (FullScreenCapture.lifecycle.test.tsx),
+                // and jsdom does not resolve stylesheet rules into .style.
                 style={{ cursor: analyzeBlocked ? 'not-allowed' : 'pointer' }}
               >
                 {submitting ? 'Submitting…' : captureLocked ? 'Capturing photo…' : requiredChecking ? 'Checking photos…' : requiredModelFailed ? 'Retry failed photo checks' : requiredSubjectFailed ? 'Retake invalid photos' : 'Analyze Posture'}

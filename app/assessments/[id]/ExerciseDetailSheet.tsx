@@ -6,6 +6,8 @@
  */
 import { useEffect, useState } from 'react'
 import { useFocusTrap } from './useFocusTrap'
+import { Surface } from '@/components/array/Surface'
+import { Chip } from '@/components/array/Chip'
 
 type Detail = {
   name: string
@@ -58,50 +60,56 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
     >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${name} details`}
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', background: 'var(--surface-glass)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px 16px 0 0', padding: 20 }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>{name}</h3>
-          <button onClick={onClose} aria-label="Close" style={{ width: 44, height: 44, minHeight: 44, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(0,0,0,0.35)', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
-        </div>
+      {/* Stops the backdrop's onClose from firing when the click lands on the sheet itself. */}
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560 }}>
+        <Surface
+          tier="feature"
+          /* Bottom sheets sit flush with the viewport edge; flatten the tier-1
+             shell's bottom corners rather than inventing a fourth radius family. */
+          style={{ borderRadius: '24px 24px 0 0' }}
+          innerStyle={{ maxHeight: '85vh', overflowY: 'auto' }}
+        >
+          <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${name} details`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h3 className="t-headline-sm">{name}</h3>
+              <button onClick={onClose} aria-label="Close" className="a-secondary" style={{ width: 44, padding: 0 }}>✕</button>
+            </div>
 
-        {error && <p role="alert" style={{ color: 'var(--review)', fontSize: '0.85rem' }}>{error}</p>}
-        {!detail && !error && <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Loading…</p>}
+            {error && <p role="alert" className="a-error">{error}</p>}
+            {!detail && !error && <p className="t-body">Loading…</p>}
 
-        {detail && (
-          <>
-            {detail.video_url ? (
-              <video src={detail.video_url} poster={detail.poster_url ?? undefined} muted loop playsInline autoPlay controls={false} style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 10, background: 'var(--background)', marginBottom: 14 }} />
-            ) : detail.poster_url ? (
-              <img src={detail.poster_url} alt="" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 10, background: 'var(--background)', marginBottom: 14 }} />
-            ) : null}
+            {detail && (
+              <>
+                {detail.video_url ? (
+                  <video src={detail.video_url} poster={detail.poster_url ?? undefined} muted loop playsInline autoPlay controls={false} style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 'var(--radius-sm)', background: 'var(--background)', marginBottom: 14 }} />
+                ) : detail.poster_url ? (
+                  <img src={detail.poster_url} alt="" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 'var(--radius-sm)', background: 'var(--background)', marginBottom: 14 }} />
+                ) : null}
 
-            {(detail.sets || detail.hold_seconds) && (
-              <p style={{ fontSize: '0.8rem', color: 'var(--info)', margin: '0 0 10px' }}>
-                {detail.sets && `${detail.sets} sets`}{detail.sets && detail.hold_seconds && ' · '}{detail.hold_seconds && `${detail.hold_seconds}s hold`}
-              </p>
+                {(detail.sets || detail.hold_seconds) && (
+                  <p className="t-body" style={{ color: 'var(--info)', margin: '0 0 10px' }}>
+                    {detail.sets && `${detail.sets} sets`}{detail.sets && detail.hold_seconds && ' · '}{detail.hold_seconds && `${detail.hold_seconds}s hold`}
+                  </p>
+                )}
+                {detail.instructions && (
+                  <p className="t-body" style={{ margin: '0 0 14px' }}>{detail.instructions}</p>
+                )}
+                {muscles.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {muscles.map((m) => (
+                      // Muscle-role tint mirrors the pre-migration mapping (stretch → maintain
+                      // green, strengthen → info blue), now routed through the Chip primitive
+                      // instead of ad hoc rgba fills.
+                      <Chip key={m.muscle_slug} band={m.role === 'stretch' ? 'maintain' : 'info'} size="sm">
+                        <span style={{ textTransform: 'capitalize' }}>{prettyMuscle(m.muscle_slug)} · {m.role}</span>
+                      </Chip>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
-            {detail.instructions && (
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px' }}>{detail.instructions}</p>
-            )}
-            {muscles.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {muscles.map((m) => (
-                  <span key={m.muscle_slug} style={{ padding: '2px 10px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 600, textTransform: 'capitalize', background: m.role === 'stretch' ? 'rgba(16,185,129,0.15)' : 'rgba(10,131,201,0.15)', color: m.role === 'stretch' ? 'var(--maintain)' : 'var(--info)' }}>
-                    {prettyMuscle(m.muscle_slug)} · {m.role}
-                  </span>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+          </div>
+        </Surface>
       </div>
     </div>
   )

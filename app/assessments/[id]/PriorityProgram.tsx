@@ -13,19 +13,25 @@ import type {
 } from '../../../lib/program/clinicalProjection'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
-import { bandFromZone, tone } from '@/components/array/severity'
+import { Surface } from '@/components/array/Surface'
+import { Chip } from '@/components/array/Chip'
+import { bandFromZone, ring, tint, tone, type SeverityBand } from '@/components/array/severity'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
 import WhyThisSheet from './WhyThisSheet'
+import styles from './PriorityProgram.module.css'
 
-// priority.zone is the engine's warning/danger severity, so its colour comes
-// from the shared severity module.
-const ZONE_COLOR: Record<'warning' | 'danger', string> = {
-  warning: tone(bandFromZone('warning')),
-  danger: tone(bandFromZone('danger')),
+// priority.zone is the engine's warning/danger severity, so its band comes
+// from the shared severity module — the Chip, the rank badge and the "add to
+// program" control all key off the same map.
+const ZONE_BAND: Record<'warning' | 'danger', SeverityBand> = {
+  warning: bandFromZone('warning'),
+  danger: bandFromZone('danger'),
 }
 // Step labels (Loosen/Lengthen/.../Connect) are the program's own sequence,
 // not a severity — reusing maintain/monitor/review here would make "Loosen"
-// misread as a warning and "Strengthen" misread as an all-clear.
+// misread as a warning and "Strengthen" misread as an all-clear. These stay
+// literal hex, byte-identical to WorkoutPlayer's copy, and are never routed
+// through severity.ts.
 const STEP_COLOR: Record<string, string> = {
   Loosen: '#818CF8',
   Lengthen: '#22D3EE',
@@ -53,19 +59,20 @@ interface OverrideHandlers {
   onSwap: (primaryKey: string, baseSlug: string, toSlug: string | null) => void
 }
 
-function Pill({ text, color }: { text: string; color: string }) {
+/**
+ * The step-sequence pill. Visually it matches the Chip's 16%-tint/42%-ring
+ * convention, but it takes a raw hex from STEP_COLOR rather than a
+ * SeverityBand — see the comment on STEP_COLOR for why a step label must
+ * never be able to resolve to a clinical band colour.
+ */
+function StepPill({ text, color }: { text: string; color: string }) {
   return (
     <span
+      className={styles.stepPill}
       style={{
-        padding: '2px 10px',
-        borderRadius: 20,
-        fontSize: '0.72rem',
-        fontWeight: 700,
-        background: `color-mix(in srgb, ${color} 13%, transparent)`,
+        background: `color-mix(in srgb, ${color} 16%, transparent)`,
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 42%, transparent)`,
         color,
-        textTransform: 'uppercase',
-        letterSpacing: '0.04em',
-        whiteSpace: 'nowrap',
       }}
     >
       {text}
@@ -88,24 +95,22 @@ function SwapControl({
   const swapped = step.slug !== step.baseSlug
   const controlId = `swap-${priority.primaryKey}-${step.baseSlug}`
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-      <label htmlFor={controlId} style={{ fontSize: '0.64rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Swap</label>
+    <div className={styles.swapRow}>
+      <label htmlFor={controlId} className="t-kicker">Swap</label>
       <select
         id={controlId}
         name={controlId}
         data-testid={controlId}
         value={step.slug}
         onChange={(e) => onSwap(priority.primaryKey, step.baseSlug, e.target.value === step.baseSlug ? null : e.target.value)}
-        style={{
-          padding: '3px 6px',
-          borderRadius: 6,
-          background: 'var(--background)',
-          border: `1px solid ${swapped ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.12)'}`,
-          color: swapped ? 'var(--info)' : 'var(--text-secondary)',
-          fontSize: '0.7rem',
-          cursor: 'pointer',
-          maxWidth: 200,
-        }}
+        className={styles.swapSelect}
+        /* A swapped exercise is an informational state, not a severity — it
+           borrows the shared `info` band the rest of this file already uses
+           for "Why this?" and "Add to program", replacing the pre-migration
+           border that was an unrouted violet paired with the `info` text. */
+        style={swapped
+          ? { background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, color: tone('info') }
+          : undefined}
       >
         {alts.map((a) => (
           <option key={a.slug} value={a.slug}>
@@ -129,36 +134,16 @@ function RampTable({
   onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
 }) {
-  const th: React.CSSProperties = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    fontSize: '0.68rem',
-    fontWeight: 700,
-    color: 'var(--text-tertiary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    borderBottom: '1px solid var(--hairline)',
-  }
-  const wkTh: React.CSSProperties = { ...th, textAlign: 'center', minWidth: 86 }
-  const td: React.CSSProperties = {
-    padding: '9px 10px',
-    fontSize: '0.82rem',
-    color: 'var(--text-secondary)',
-    borderBottom: '1px solid rgba(255,255,255,0.05)',
-    verticalAlign: 'top',
-  }
-  const wkTd: React.CSSProperties = { ...td, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
-
   return (
-    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--hairline)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 460 }}>
+    <div className={styles.tableWrap}>
+      <table className={styles.table}>
         <thead>
-          <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-            <th style={{ ...th, width: '46%' }}>Step &amp; Exercise</th>
+          <tr className={styles.theadRow}>
+            <th className={`${styles.th} t-kicker`} style={{ width: '46%' }}>Step &amp; Exercise</th>
             {WEEK_THEME.map((theme, i) => (
-              <th key={i} style={wkTh}>
-                <div style={{ color: 'var(--text-secondary)' }}>Week {i + 1}</div>
-                <div style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: 0 }}>{theme}</div>
+              <th key={i} className={`${styles.th} ${styles.thWeek} t-kicker`}>
+                <div>Week {i + 1}</div>
+                <div className={styles.thTheme}>{theme}</div>
               </th>
             ))}
           </tr>
@@ -168,25 +153,25 @@ function RampTable({
             const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--info)'
             return (
               <tr key={s.baseSlug}>
-                <td style={td}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
-                    <Pill text={s.stepLabel} color={stepColor} />
+                <td className={styles.td}>
+                  <div className={styles.stepRow}>
+                    <StepPill text={s.stepLabel} color={stepColor} />
                     <button
                       data-testid={`exercise-detail-${s.slug}`}
                       onClick={() => onOpenDetail(s.slug, s.name)}
-                      style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: 'inherit', cursor: 'pointer', textDecoration: 'underline dotted rgba(255,255,255,0.3)', textUnderlineOffset: 3 }}
+                      className={styles.exerciseButton}
                     >
                       {s.name}
                     </button>
                     <button
                       data-testid={`why-this-${s.slug}`}
                       onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
-                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.72rem', color: 'var(--info)', cursor: 'pointer', textDecoration: 'underline dotted rgba(10,131,201,0.4)', textUnderlineOffset: 3 }}
+                      className={styles.whyThisButton}
                     >
                       Why this?
                     </button>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', paddingLeft: 2 }}>
+                  <div className={`${styles.stepMeta} t-quiet`}>
                     {s.freq}
                     {s.repRange ? ` · target ${s.repRange.min}–${s.repRange.max} reps` : ''}
                     {s.isIntegrative ? ' · new in week 3' : ''}
@@ -194,7 +179,11 @@ function RampTable({
                   <SwapControl priority={priority} step={s} onSwap={onSwap} />
                 </td>
                 {s.weeks.map((dose, i) => (
-                  <td key={i} style={{ ...wkTd, color: dose ? 'var(--text-primary)' : 'var(--text-quiet)' }}>
+                  <td
+                    key={i}
+                    className={`${styles.td} ${styles.tdWeek} n`}
+                    style={{ color: dose ? 'var(--text-primary)' : 'var(--text-quiet)' }}
+                  >
                     {renderDose(dose)}
                   </td>
                 ))}
@@ -218,79 +207,45 @@ function PriorityCard({
   onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
 } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
-  const zoneColor = ZONE_COLOR[priority.zone]
+  const band = ZONE_BAND[priority.zone]
   const principle = priority.hasConnect ? 'Loosen → Strengthen → Connect' : 'Loosen → Strengthen'
 
   return (
-    <div
-      data-testid={`priority-card-${priority.primaryKey}`}
-      style={{
-        background: 'var(--surface-glass)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 12,
-        padding: 18,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-        <span
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: '50%',
-            background: `color-mix(in srgb, ${zoneColor} 13%, transparent)`,
-            color: zoneColor,
-            fontWeight: 800,
-            fontSize: '0.95rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {priority.rank}
-        </span>
-        <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)', flex: 1 }}>{priority.label}</span>
-        <Pill text={`${priority.severityWord} · ${priority.zone}`} color={zoneColor} />
-        <button
-          data-testid={`demote-${priority.primaryKey}`}
-          onClick={() => onDemote(priority.primaryKey)}
-          title="Demote to monitor only — removes the program for this focus"
-          style={{
-            padding: '4px 10px',
-            borderRadius: 8,
-            background: 'none',
-            border: '1px solid rgba(255,255,255,0.12)',
-            color: 'var(--text-tertiary)',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          Monitor only
-        </button>
-      </div>
+    <div data-testid={`priority-card-${priority.primaryKey}`}>
+      <Surface tier="tile">
+        <div className={styles.cardHead}>
+          <span
+            className={styles.rank}
+            style={{ background: tint(band), boxShadow: `inset 0 0 0 1px ${ring(band)}`, color: tone(band) }}
+          >
+            {priority.rank}
+          </span>
+          <span className={`t-title ${styles.cardTitle}`}>{priority.label}</span>
+          <Chip band={band} size="sm">{priority.severityWord} · {priority.zone}</Chip>
+          <button
+            data-testid={`demote-${priority.primaryKey}`}
+            onClick={() => onDemote(priority.primaryKey)}
+            title="Demote to monitor only — removes the program for this focus"
+            className={styles.demoteButton}
+          >
+            Monitor only
+          </button>
+        </div>
 
-      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 14px' }}>{priority.copy.whatItMeans}</p>
+        <p className="t-body" style={{ marginBottom: 14 }}>{priority.copy.whatItMeans}</p>
 
-      <div
-        style={{
-          fontSize: '0.72rem',
-          fontWeight: 700,
-          color: 'var(--info)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          marginBottom: 8,
-        }}
-      >
-        {principle} <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>— the order is what makes it stick</span>
-      </div>
+        <p className={styles.principle}>
+          <span style={{ color: tone('info') }}>{principle}</span>{' '}
+          <span className="t-quiet">— the order is what makes it stick</span>
+        </p>
 
-      <RampTable
-        priority={priority}
-        onSwap={onSwap}
-        onOpenDetail={onOpenDetail}
-        onWhyThis={onWhyThis}
-      />
+        <RampTable
+          priority={priority}
+          onSwap={onSwap}
+          onOpenDetail={onOpenDetail}
+          onWhyThis={onWhyThis}
+        />
+      </Surface>
     </div>
   )
 }
@@ -318,51 +273,21 @@ export default function PriorityProgram({
     movementAction: string
   } | null>(null)
   return (
-    <div data-testid="corrective-program" style={{ marginBottom: 24 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          gap: 12,
-          marginBottom: 14,
-          flexWrap: 'wrap',
-        }}
-      >
+    <div data-testid="corrective-program" className={`app-stack ${styles.root}`}>
+      <div className={styles.header}>
         <div>
-          <h3
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              margin: 0,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            Corrective Program
-          </h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{report.screeningSummary}</p>
+          <h3 className="t-kicker">Corrective Program</h3>
+          <p className="t-body" style={{ marginTop: 4 }}>{report.screeningSummary}</p>
         </div>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Client capability
-          </span>
+        <label className={styles.capabilityField}>
+          <span className="t-kicker">Client capability</span>
           <select
             id="client-capability"
             name="client-capability"
             data-testid="capability-select"
             value={capability}
             onChange={(e) => onCapabilityChange(e.target.value as Capability)}
-            style={{
-              padding: '7px 10px',
-              borderRadius: 8,
-              background: 'var(--background)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: 'var(--text-primary)',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-            }}
+            className="a-select"
           >
             {CAP_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -374,32 +299,23 @@ export default function PriorityProgram({
       </div>
 
       {report.positives.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexWrap: 'wrap',
-            background: 'rgba(34,197,94,0.06)',
-            border: '1px solid rgba(34,197,94,0.2)',
-            borderRadius: 10,
-            padding: '8px 12px',
-            marginBottom: 14,
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--maintain)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Maintaining well
-          </span>
+        <Surface tier="tile" pad="rowy" innerClassName={styles.positivesRow}>
+          {/* Was a hardcoded rgba(34,197,94,...) wash — Tailwind green-500, not
+              the Array maintain band (#10B981). The label now carries the
+              colour as a Chip; the finding names sit on the tile's plain
+              glass, per the contract's "never a filled block behind body
+              text" rule. */}
+          <Chip band="maintain" size="sm">Maintaining well</Chip>
           {report.positives.map((p) => (
-            <span key={p} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            <span key={p} className="t-body">
               {p}
             </span>
           ))}
-        </div>
+        </Surface>
       )}
 
       {report.hasPlan ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="app-stack">
           {report.priorities.map((p) => (
             <PriorityCard
               key={p.primaryKey}
@@ -414,100 +330,53 @@ export default function PriorityProgram({
           ))}
         </div>
       ) : (
-        <div
-          style={{
-            background: 'var(--surface-glass)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 12,
-            padding: 18,
-            fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.5,
-          }}
-        >
-          No active corrective priorities. Either every reliable finding is in the maintain zone, or all focuses are set to
-          monitor only — share a maintenance plan and re-screen in ~6 weeks.
-        </div>
+        <Surface tier="tile">
+          <p className="t-body">
+            No active corrective priorities. Either every reliable finding is in the maintain zone, or all focuses are set to
+            monitor only — share a maintenance plan and re-screen in ~6 weeks.
+          </p>
+        </Surface>
       )}
 
       {report.monitored.length > 0 && (
-        <div
-          style={{
-            marginTop: 14,
-            background: 'var(--surface-glass-strong)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            borderRadius: 10,
-            padding: '12px 14px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              color: 'var(--text-tertiary)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: 8,
-            }}
-          >
+        <Surface tier="tile">
+          <p className="t-kicker" style={{ marginBottom: 8 }}>
             Monitor only — no program ({report.monitored.length})
+          </p>
+          <div className={styles.monitoredList}>
+            {report.monitored.map((m) => {
+              const band = ZONE_BAND[m.zone]
+              return (
+                <div key={m.primaryKey} className={styles.monitoredRow}>
+                  <Chip band={band} size="sm">{m.severityWord} · {m.zone}</Chip>
+                  <span className="t-body" style={{ flex: 1 }}>{m.label}</span>
+                  {report.priorities.length < 3 && (
+                    <button
+                      data-testid={`promote-${m.primaryKey}`}
+                      onClick={() => onPromote(m.primaryKey)}
+                      className={styles.promoteButton}
+                      style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, color: tone('info') }}
+                    >
+                      Add to program
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {report.monitored.map((m) => (
-              <div key={m.primaryKey} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <Pill text={`${m.severityWord} · ${m.zone}`} color={ZONE_COLOR[m.zone]} />
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', flex: 1 }}>{m.label}</span>
-                {report.priorities.length < 3 && (
-                  <button
-                    data-testid={`promote-${m.primaryKey}`}
-                    onClick={() => onPromote(m.primaryKey)}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: 8,
-                      background: 'rgba(10,131,201,0.12)',
-                      border: '1px solid rgba(10,131,201,0.3)',
-                      color: 'var(--info)',
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Add to program
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        </Surface>
       )}
 
       {unreliable.length > 0 && (
-        <div
-          style={{
-            marginTop: 14,
-            background: 'var(--surface-glass-strong)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: 10,
-            padding: '10px 14px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: 4,
-            }}
-          >
+        <Surface tier="tile">
+          <p className="t-kicker" style={{ marginBottom: 4 }}>
             Couldn&apos;t be read reliably ({unreliable.length})
-          </div>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+          </p>
+          <p className="t-body">
             {unreliable.map((u) => u.label).join(', ')} — not shown to the client. Re-capture front/side photos for a fuller
             picture.
           </p>
-        </div>
+        </Surface>
       )}
 
       {detail && <ExerciseDetailSheet slug={detail.slug} name={detail.name} onClose={() => setDetail(null)} />}

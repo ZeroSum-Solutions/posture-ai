@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useId, useRef } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { tint, ring } from '@/components/array/severity'
 
 /**
  * Accessible confirmation modal: role="dialog" + aria-modal, labelled by its
@@ -69,7 +70,17 @@ export function ConfirmDialog({
         <Surface tier="feature">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId}>
             <h2 id={titleId} className="t-headline-sm" style={{ marginBottom: 12 }}>{title}</h2>
-            <div className="t-body" style={{ marginBottom: 24 }}>{children}</div>
+            {/* A destructive confirm carries its weight in the consequence, not
+                in a red button — the contract in /DESIGN.md forbids one outright.
+                The review band appears the way every other severity does: a 16%
+                tint behind a ring, stating the consequence directly above the
+                action rather than colouring the action itself. */}
+            <div
+              className="t-body"
+              style={danger
+                ? { marginBottom: 24, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 'var(--radius-sm)', padding: '12px 14px' }
+                : { marginBottom: 24 }}
+            >{children}</div>
             {error && <p role="alert" className="a-error" style={{ marginBottom: 16 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 12 }}>
               <button
@@ -85,11 +96,7 @@ export function ConfirmDialog({
                 onClick={onConfirm}
                 disabled={busy}
                 className="a-primary"
-                style={{
-                  flex: 1,
-                  background: danger ? 'var(--review)' : 'var(--action)',
-                  color: danger ? '#fff' : 'var(--action-text)',
-                }}
+                style={{ flex: 1 }}
               >
                 {confirmLabel}
               </button>

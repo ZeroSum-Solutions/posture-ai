@@ -869,9 +869,14 @@ export function NewAssessmentWizard() {
             {testMode && <Chip band="info" size="sm">TEST MODE</Chip>}
           </div>
 
-          {/* Progress indicator. Colour marks only two states — active (the
-              one white "primary" accent) and done (maintain, the severity
-              band for "clear to proceed") — never a brand hue. */}
+          {/* Progress indicator. Progression reads through WEIGHT, not hue:
+              active is the solid white action accent, done is a dimmer white,
+              upcoming is a faint hairline. Done deliberately does not wear
+              --maintain. A wizard step is the operator's position in a form;
+              maintain is the clinical band for "inside range". A green "Capture
+              ✓" beside a client's name reads as an all-clear on the client —
+              which is the same misreading the step-label palette in
+              WorkoutPlayer.tsx exists to prevent. */}
           <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '32px', overflowX: 'auto' }}>
             {STEPS.map((label, i) => {
               const stepNum = i + 1
@@ -882,18 +887,18 @@ export function NewAssessmentWizard() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                     <div style={{
                       width: '32px', height: '32px', borderRadius: '50%',
-                      background: isActive ? 'var(--action)' : isDone ? 'var(--maintain)' : 'rgba(255,255,255,0.08)',
-                      border: '2px solid ' + (isActive ? 'var(--action)' : isDone ? 'var(--maintain)' : 'rgba(255,255,255,0.15)'),
+                      background: isActive ? 'var(--action)' : isDone ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+                      border: '2px solid ' + (isActive ? 'var(--action)' : isDone ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.15)'),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: isActive ? 'var(--action-text)' : isDone ? '#fff' : 'var(--text-tertiary)',
+                      color: isActive ? 'var(--action-text)' : isDone ? 'var(--text-primary)' : 'var(--text-tertiary)',
                       fontSize: '0.85rem', fontWeight: 700, flexShrink: 0,
                     }}>
                       {isDone ? '✓' : stepNum}
                     </div>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? 'var(--text-primary)' : isDone ? 'var(--maintain)' : 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isActive ? 'var(--text-primary)' : isDone ? 'var(--text-secondary)' : 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{label}</span>
                   </div>
                   {i < STEPS.length - 1 && (
-                    <div style={{ flex: 1, height: '2px', background: isDone ? 'var(--maintain)' : 'rgba(255,255,255,0.08)', margin: '14px 8px 0', minWidth: '16px' }} />
+                    <div style={{ flex: 1, height: '2px', background: isDone ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.08)', margin: '14px 8px 0', minWidth: '16px' }} />
                   )}
                 </div>
               )

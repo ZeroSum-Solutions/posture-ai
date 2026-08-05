@@ -4,7 +4,10 @@ import { resolveMarkerRegions, type MuscleLink } from './muscleMap'
 
 // Schematic body silhouette paths (front and back, viewBox 0 0 80 180)
 function BodySilhouette({ view }: { view: 'front' | 'back' }) {
-  const bodyColor = '#2A2A2E'
+  // Raised-but-inert fill: low-opacity white over the black field, the same
+  // idiom used for placeholder/inert shapes elsewhere in the Array system
+  // (e.g. AssessmentReview.module.css .captureFrame).
+  const bodyColor = 'rgba(255,255,255,0.05)'
   const strokeColor = 'rgba(255,255,255,0.35)'
 
   if (view === 'front') {
@@ -181,7 +184,7 @@ export default function MuscleBodyMap({
       <div style={{ flex: 1, minWidth: 100 }}>
         {(tightMuscles.length > 0 || tightShown.length > 0) && (
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--review)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div className="t-label" style={{ color: 'var(--review)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--review)', display: 'inline-block' }}/>
               Tight
             </div>
@@ -201,7 +204,7 @@ export default function MuscleBodyMap({
         )}
         {(weakMuscles.length > 0 || weakShown.length > 0) && (
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--info)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div className="t-label" style={{ color: 'var(--info)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--info)', display: 'inline-block' }}/>
               Weak
             </div>
@@ -221,7 +224,7 @@ export default function MuscleBodyMap({
         )}
         {possibleLinks.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div className="t-label" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-secondary)', display: 'inline-block' }}/>
               Possible
             </div>
