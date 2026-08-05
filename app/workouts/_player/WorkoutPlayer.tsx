@@ -53,12 +53,19 @@ export interface WorkoutPlayerProps {
 
 // Step colors mirror the results page (PriorityProgram) so the player's accent
 // traces the same corrective arc: Loosen → Lengthen → Wake up → Strengthen → Connect.
+//
+// Literals, not theme aliases, and they must stay identical to PriorityProgram's
+// STEP_COLOR. Routing them through the theme is what broke this: theme.warning
+// and theme.copper both resolve to --monitor, which collapsed Loosen and
+// "Wake up" onto one colour and borrowed the clinical monitor band for a step
+// label — so "Loosen" read as a finding that needs watching. A step label is the
+// program's own sequence, never a severity.
 const STEP_COLOR: Record<string, string> = {
-  Loosen: theme.warning,
-  Lengthen: theme.primary,
-  'Wake up': theme.copper,
-  Strengthen: theme.maintain,
-  Connect: theme.primary,
+  Loosen: '#818CF8',
+  Lengthen: '#22D3EE',
+  'Wake up': '#F472B6',
+  Strengthen: '#38BDF8',
+  Connect: '#A78BFA',
 }
 const ACCENT_FALLBACK = theme.primary
 const itemColor = (it?: SessionItem): string => (it ? STEP_COLOR[it.stepLabel] ?? ACCENT_FALLBACK : ACCENT_FALLBACK)

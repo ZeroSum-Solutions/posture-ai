@@ -21,6 +21,31 @@ export default function DashboardExperience({
   todayLabel: string
   loadError: string | null
 }) {
+  // A failed query and an empty practice are indistinguishable once the counts
+  // fall back to zero, so a Supabase blip would otherwise render as "no clients,
+  // queue clear" — the most dangerous possible reading of a triage screen. Bail
+  // out before any of that is drawn, and say so assertively.
+  //
+  // The retry is a plain anchor rather than a Link: this is a server component,
+  // so recovery needs a fresh document request, and the client router would be
+  // happy to serve the same failed render back from its cache.
+  if (loadError) {
+    return (
+      <div className="app-screen app-screen-x">
+        <section className={styles.verdict} role="alert">
+          <p className="t-kicker" style={{ marginBottom: 12 }}>Dashboard unavailable</p>
+          <h1 className="t-headline">Practice data could not load.</h1>
+        </section>
+        <Surface tier="feature">
+          <p className="t-body">{loadError}</p>
+          <a href="/dashboard" className="a-primary a-primary--bar" style={{ marginTop: 16 }}>
+            Refresh dashboard
+          </a>
+        </Surface>
+      </div>
+    )
+  }
+
   return (
     <div className="app-screen">
       <header className={styles.header}>
@@ -49,15 +74,6 @@ export default function DashboardExperience({
       </section>
 
       <div className="app-screen-x app-stack">
-        {loadError ? (
-          <Surface tier="tile">
-            <p className={styles.notice} role="status">
-              <Icon name="clock-circle-linear" size={16} />
-              {loadError}
-            </p>
-          </Surface>
-        ) : null}
-
         {/* Tier 1 — the screen's subject. */}
         <Surface tier="feature">
           <div className={styles.queueHead}>
