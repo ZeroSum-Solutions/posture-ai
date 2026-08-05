@@ -172,6 +172,49 @@ Ordered gates before Production:
 8. Merge to the default branch. **held**
 9. Promote to Production; confirm the cron and the clinical gate behave identically. **held**
 
+### Correction: there is no currently-approved release to invalidate
+
+An earlier note in this file said the redesign "invalidates the currently-approved
+`clinical_content_releases` row." Verified against both the repo and the live
+production schema, that is wrong, and the error understates gate 4 considerably.
+
+- **No HG-03 approval has ever existed.** The only release row anywhere is
+  `clinical-content-test-fixture-v1`, `release_kind = 'local_test_fixture'`, in
+  `supabase/seed.sql`, pointing at a fake receipt (`repeat('f', 64)`).
+  `supabase/tests/clinical_content_governance_test.sql:163` actively asserts the
+  local seed fabricates **zero** `hg03_approved` releases.
+- **Production has none of the governance tables.** `list_tables` on
+  `dhrkezfypzutiwtmcmof` returns 21 tables and none of
+  `clinical_content_review_receipts`, `clinical_content_releases`, or
+  `clinical_content_release_items`. `20260720020000_clinical_content_governance`
+  is unapplied there, as the migration-gap section below already records.
+
+So gate 4 is not a delta re-approval. It is the **first** HG-03 clinical approval,
+and it needs, per `20260720020000`:
+
+1. That migration applied to production first — which is not inert. It privatizes
+   the `exercise-media` bucket, revokes anon/authenticated read on the exercise,
+   muscle and imbalance tables, and stubs `finalize_report_upload` /
+   `create_workout_session_governed`.
+2. A `clinical_content_review_receipts` row with `attestation = 'licensed_clinician'`,
+   which the table's CHECK constraint requires be accompanied by a real
+   `reviewer_name`, `license_jurisdiction` and `license_identifier`.
+3. A `clinical_content_releases` row of kind `hg03_approved`.
+4. `clinical_content_release_items` rows — one per item, each carrying its own
+   `review_status` and `reviewer_note_sha256`. The workbook at
+   `docs/qa/hg03/review-items.csv` (regenerate with
+   `node scripts/generate-hg03-review-workbook.mjs`) enumerates all **281**.
+5. Installed via a reviewed migration: the migration header states production
+   "has no active release by default; only a later reviewed migration may install one."
+
+**This is separable from landing the redesign.** The clinical gate fails closed —
+`serverClinicalContentAccess()` disables clinical surfaces on a hash mismatch — so
+merging the UI work does not expose unreviewed clinical content. It ships a
+correctly-styled app whose clinical surfaces read `database_activation_mismatch`,
+which is the state production is already in today for the same reason. Coupling
+the redesign's merge to a first-ever clinical approval is a choice, not a
+constraint imposed by the gate.
+
 ### The hash to send the clinician (gate 4)
 
 ```
