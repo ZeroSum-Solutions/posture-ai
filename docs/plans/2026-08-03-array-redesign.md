@@ -107,17 +107,72 @@ The seeded QA practitioners and the e2e practitioner are different accounts, so 
 seeded fixtures have to be re-pointed at the e2e practitioner id for the screens to
 show populated data.
 
-## RELEASE BLOCKER — clinical content re-review required
+## Clinical content — PROTOTYPE MODE (owner decision, 2026-08-05)
+
+**Superseding the release-blocker framing below: no clinician sign-off is required
+to build, demo or iterate on this. The owner's ruling is that the prototype must be
+shown to work first, and a licensed clinician signs off before anyone uses it on a
+real client.** That is a sequencing decision, not a weakening of the gate — the gate
+itself is untouched and still fails closed in production.
+
+No HG-03 receipt was created, and none should be. `clinical_content_review_receipts`
+requires `attestation = 'licensed_clinician'` with a real `reviewer_name`,
+`license_jurisdiction` and `license_identifier`; writing one before an actual review
+would put a false sign-off into an append-only ledger and would then have to be
+un-picked when the genuine review happens. The ledger stays empty until a clinician
+really reviews.
+
+Instead the prototype uses the non-clinical path the system already provides.
+`clinicalContentAccess()` (`lib/clinical-content/runtime.ts`) enables the full
+catalog when **all three** hold:
+
+```
+VERCEL_ENV !== 'production'
+POSTURE_TEST_MODE_ENABLED === '1'
+NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT === '1'
+```
+
+That path returns before `serverClinicalContentAccess()` reaches the database, so it
+needs **no `clinical_content_releases` row, no HG-03 migration, and no change to any
+Supabase project**. Content renders with its "Pending review" badge, which is exactly
+the right label for a prototype.
+
+Two properties worth keeping in mind:
+
+- **Production cannot be switched on this way.** The `VERCEL_ENV !== 'production'`
+  term is in the code, not the config, so setting these variables on Production is
+  inert. Turning clinical content on for real users still requires the HG-03 path.
+- **This does not fake capture.** The wizard's fixture-landmark mode reads
+  `NEXT_PUBLIC_POSTURE_TEST_MODE`, a different variable that is not being set. Real
+  MediaPipe pose detection still runs; only an explicit `?testMode=1` uses fixtures.
+  `POSTURE_TEST_MODE_ENABLED` merely *permits* a fixture submission when the client
+  asks for one, which is acceptable on a prototype behind Vercel SSO.
+
+The local stack already demonstrates the whole thing working today, via the
+conspicuously labelled `local_test_fixture` release in `supabase/seed.sql`
+(`attestation = 'local_test_fixture_not_clinical_approval'`) — the mechanism the
+migration header describes as existing "so the approved path can be exercised
+without creating production approval evidence."
+
+### What is still owed before real use
+
+Unchanged, just deferred: a licensed clinician reviews the 281-item workbook at
+`docs/qa/hg03/review-items.csv`, a genuine receipt is recorded with their licence
+details, and a `clinical_content_releases` row carries the final
+`inventory_sha256`. Regenerate the workbook first — the hash has moved since it was
+written.
+
+The original analysis is kept below because it is still accurate about *how* the
+gate works.
+
+## Original release-blocker analysis (superseded as a blocker, still accurate)
 
 The Array redesign rewrote `app/layout.tsx` and `components/AppShell.tsx`, both of
 which are in `lib/clinical-content/inventory.ts`'s `algorithmSourcePaths` because they
 carry the `clinicalContentEnabled` gating flag down to `NavBar`/`IslandNav`. This
-changes `inventory_sha256` and invalidates the currently-approved
-`clinical_content_releases` row. Clinical content (recommendations, programs, workouts,
-knowledge links) will render as disabled (`database_activation_mismatch`) in any
-environment until a licensed clinician reviews the regenerated inventory and a new
-approved release row is added with the updated hash. **This branch must not go to an
-environment with clinical content live until that re-approval lands.**
+changes `inventory_sha256`. Clinical content (recommendations, programs, workouts,
+knowledge links) renders as disabled (`database_activation_mismatch`) in any
+environment that relies on the database activation path.
 
 The local QA bindings were regenerated to match (`supabase/seed.sql`,
 `supabase/tests/*.sql`, `docs/qa/clinical-content-governance.md`) so the local stack
@@ -164,8 +219,11 @@ Ordered gates before Production:
 1. ~~Migrate the remaining screens and the undesigned surfaces below.~~ **done**
 2. ~~Complete the v1-purge checkpoint.~~ **done**
 3. ~~Regenerate `content/clinical-content-inventory.json` once, post-purge.~~ **done** (`HEAD`)
-4. Send the clinician that single final hash. **← next action, needs the owner**
+4. Send the clinician that single final hash. **DEFERRED by owner ruling 2026-08-05**
+   — not a prerequisite for building or demoing. Due before the first real client use.
 5. On approval, add the `clinical_content_releases` row so the RPC matches.
+   **DEFERRED with gate 4.** Until then the prototype runs on the non-clinical
+   fixture path described above, which never touches this table.
 6. ~~Re-run the full test, type and lint suite.~~ **done** — 2113/2113 vitest,
    `tsc --noEmit` clean, eslint 0 errors / 21 pre-existing warnings, `next build` clean.
 7. Refresh preview; confirm clinical content *activates* (not merely fails safe)
