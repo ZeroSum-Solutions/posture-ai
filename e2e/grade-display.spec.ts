@@ -165,16 +165,19 @@ async function expectStoredGradeCases(
     await expectRailDescription(page, fixture)
     await expectDockGrade(page, fixture)
 
-    // FINDING, not a stale selector: the per-grade numeric range (e.g.
-    // "0–3") that GradeSummary's BandTable used to render is not exposed
-    // anywhere on the clinical results page -- neither GradeRail nor
-    // ReviewDock render it, only the coarser Maintain/Monitor/Review band
-    // survives. Left as a soft assertion (rather than dropped) so the range
-    // contract keeps failing loudly without aborting the rest of this case's
-    // -- and this group's remaining cases' -- coverage.
-    await expect.soft(
-      page.getByTestId('review-dock').getByText(fixture.range, { exact: true }),
-      `grade ${fixture.grade}'s range "${fixture.range}" is not rendered anywhere on the clinical results page`,
+    // The redesign briefly dropped the per-grade numeric range that
+    // GradeSummary's BandTable used to carry, leaving the deviation score with
+    // nothing to be read against -- which /DESIGN.md forbids ("a measurement is
+    // always shown with its reference range, never alone"). GradeRail now
+    // renders it beside the score, so this is asserted, not soft-flagged.
+    //
+    // Scoped to the rail rather than the dock on purpose: the range qualifies
+    // the readout it sits next to, and GradeRail only draws it when the current
+    // scale applies to this scan -- which is the guarantee the historical-grade
+    // case below depends on.
+    await expect(
+      page.getByText(fixture.range, { exact: true }),
+      `grade ${fixture.grade}'s range "${fixture.range}" is not rendered beside the deviation score`,
     ).toBeVisible()
   }
 }

@@ -1739,7 +1739,7 @@
     },
     "expected_total": 163,
     "expected_files": 32,
-    "inventory_hash": "e29ae93304bf1a317fdb539758c6b2929009bfb59ba9fa5b40b2b2a99e9f183c",
+    "inventory_hash": "0f83015124f5a7588f235860d02d3299f65b339e1b994c40e1ed839f78c5e790",
     "inventory_hash_contract": {
       "algorithm": "sha256",
       "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
@@ -1861,19 +1861,19 @@
           }
         },
         {
-          "surface": "phone navigation closed",
+          "surface": "phone navigation today active",
           "path": "/dashboard",
           "originating_test": {
             "file": "e2e/a11y.spec.ts",
-            "title": "accessibility budget › phone navigation closed and open states pass the axe budget"
+            "title": "accessibility budget › phone-width island navigation passes the axe budget"
           }
         },
         {
-          "surface": "phone navigation open",
-          "path": "/dashboard",
+          "surface": "phone navigation profile active",
+          "path": "/settings",
           "originating_test": {
             "file": "e2e/a11y.spec.ts",
-            "title": "accessibility budget › phone navigation closed and open states pass the axe budget"
+            "title": "accessibility budget › phone-width island navigation passes the axe budget"
           }
         },
         {
@@ -2694,7 +2694,7 @@
   "configuration_hash_contract": {
     "algorithm": "sha256",
     "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash": "dbc89135b0d46058011d64bd7189e70c3660b9199cb73a85d854f2fd47c98d58",
+    "expected_hash": "a49a69b575da37f4d2728367c945d2a13a11745dc2c8d90da2fb53c55e605e45",
     "covered_fields": [
       "release_boundary",
       "release_configuration",
@@ -2752,5 +2752,5 @@
     "owner_approval_required": true,
     "owner_approval_task": "HG-10"
   },
-  "configuration_hash": "dbc89135b0d46058011d64bd7189e70c3660b9199cb73a85d854f2fd47c98d58"
+  "configuration_hash": "a49a69b575da37f4d2728367c945d2a13a11745dc2c8d90da2fb53c55e605e45"
 }

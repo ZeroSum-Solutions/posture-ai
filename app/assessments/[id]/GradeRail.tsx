@@ -1,6 +1,7 @@
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { ring, tint, tone } from '@/components/array/severity'
+import { GRADE_DISPLAY_BANDS } from '@/lib/scoring/grade-display'
 import type { GradeRailModel } from './reviewModel'
 import styles from './AssessmentReview.module.css'
 
@@ -25,6 +26,12 @@ export default function GradeRail({
    */
   scaleApplies: boolean
 }) {
+  // Looked up rather than asserted: rail.grade is a plain string off the stored
+  // assessment, and getGradeDisplayBand throws on anything it does not know. A
+  // grade letter this build has no band for is exactly the case where a range
+  // must not be invented, so an unknown grade renders no range at all.
+  const gradeRange = GRADE_DISPLAY_BANDS.find(band => band.grade === rail.grade)?.range ?? null
+
   return (
     <Surface tier="feature">
       <div className={styles.railHead}>
@@ -65,6 +72,20 @@ export default function GradeRail({
 
       {scaleApplies ? (
         <>
+          {/* /DESIGN.md: "A measurement is always shown with its reference range
+              — never alone." The redesign kept the coarse Maintain/Monitor/Review
+              band but dropped the grade's own numeric range, leaving 14 /100 with
+              nothing to read it against. It sits inside the scaleApplies branch
+              deliberately: these bounds describe the CURRENT scale only, and
+              printing them beside a score recorded by another scoring version is
+              exactly the misattribution usesCurrentGradeScale() exists to stop. */}
+          {gradeRange ? (
+            <p className={styles.railRange}>
+              grade <span className="n">{rail.grade}</span> range{' '}
+              <span className="n">{gradeRange}</span>
+            </p>
+          ) : null}
+
           <p className="sr-only">{rail.description}</p>
 
           <div className={styles.rail} aria-hidden="true">

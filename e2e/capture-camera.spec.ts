@@ -172,6 +172,9 @@ test.describe('full-screen camera capture', () => {
 
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
     await page.getByRole('tab', { name: /^Findings/ }).click()
-    await expect(page.locator('[data-testid^="finding-card-"]')).toHaveCount(9, { timeout: 15_000 })
+    // The clinical results page renders ReviewFindings, not
+    // AssessmentOnlyResults — its rows carry no data-testid, so count them by
+    // heading block under the findings tab panel, same as assessment-flow.spec.ts.
+    await expect(page.locator('#review-panel-findings [class*="findingHead"]')).toHaveCount(9, { timeout: 15_000 })
   })
 })

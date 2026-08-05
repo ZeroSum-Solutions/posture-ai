@@ -163,7 +163,7 @@ Ordered gates before Production:
 
 1. ~~Migrate the remaining screens and the undesigned surfaces below.~~ **done**
 2. ~~Complete the v1-purge checkpoint.~~ **done**
-3. ~~Regenerate `content/clinical-content-inventory.json` once, post-purge.~~ **done** (`034a56c`)
+3. ~~Regenerate `content/clinical-content-inventory.json` once, post-purge.~~ **done** (`HEAD`)
 4. Send the clinician that single final hash. **← next action, needs the owner**
 5. On approval, add the `clinical_content_releases` row so the RPC matches.
 6. ~~Re-run the full test, type and lint suite.~~ **done** — 2113/2113 vitest,
@@ -226,8 +226,8 @@ constraint imposed by the gate.
 ### The hash to send the clinician (gate 4)
 
 ```
-inventory_sha256                 72d3140f7edb59211c9261383bd6faeff7c1eae4b767448b043129aa2ecba12d
-algorithm:recommendation-engine  d39b84842febd3fbc0324cdd1971f1fd2fcd700eb208d38a20064458a46eb629
+inventory_sha256                 fa5a29696e519b27dced7316c8939d3229068fe7171385a5412e3a2f01946410
+algorithm:recommendation-engine  b142f1b7944991190a207a8ae5a1b2598b43bd2a7579a9a615226fe12d098394
 ```
 
 Reviewing this is narrower than it looks, and that is a checkable claim rather

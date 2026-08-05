@@ -242,6 +242,7 @@ function ClientDetailRoute({
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuContainerRef = useRef<HTMLDivElement>(null)
   // Compare selectors: older = "before", newer = "after"
   const [compareBaseId, setCompareBaseId] = useState<string>(initialSelection.baseId)
   const [compareTargetId, setCompareTargetId] = useState<string>(initialSelection.targetId)
@@ -359,10 +360,23 @@ function ClientDetailRoute({
   // The overflow menu is a disclosure, not an ARIA menu: it holds two links to
   // other routes. Escape and an outside click close it so it cannot be left
   // hanging over the trend card.
+  //
+  // Next.js App Router hydrates the React root onto `document` itself, so
+  // this listener and React's own delegated pointerdown dispatch both live on
+  // the same node. A child's `event.stopPropagation()` only blocks
+  // propagation to *other* nodes, not other listeners already registered on
+  // the node it's called from -- so it cannot stop this handler from firing.
+  // Check containment via a ref instead of relying on propagation order.
   useEffect(() => {
     if (!menuOpen) return
     function close(event: Event) {
       if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (
+        event.target instanceof Node &&
+        menuContainerRef.current?.contains(event.target)
+      ) {
+        return
+      }
       setMenuOpen(false)
     }
     document.addEventListener('keydown', close)
@@ -645,7 +659,7 @@ function ClientDetailRoute({
           <Icon name="alt-arrow-left-linear" size={18} />
           Clients
         </Link>
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} ref={menuContainerRef}>
           <button
             type="button"
             className={styles.iconButton}

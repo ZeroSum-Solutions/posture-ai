@@ -35,12 +35,19 @@ test.describe('client list and search', () => {
 
     const rowA = page.getByRole('link', { name: new RegExp(`List-${tokenA}`) })
     const rowB = page.getByRole('link', { name: new RegExp(`List-${tokenB}`) })
-    await expect(page.getByText('Search by first or last name')).toBeVisible()
-    await expect(rowA).toHaveCount(0)
-    await expect(rowB).toHaveCount(0)
 
-    // A shared prefix returns both records without mounting the whole practice
-    // directory before the practitioner has expressed intent.
+    // The directory no longer gates on search. It previously mounted nothing
+    // until the practitioner typed, and this test asserted that prompt plus a
+    // zero-row start; app/clients/page.tsx now loads the owned directory on
+    // mount and app/api/clients/route.ts returns it unfiltered for an empty
+    // search. That gated pattern still exists, but on the /assessments/new
+    // client picker, not here. Only the gating premise is dropped -- the
+    // contract this test exists for, that prefix search filters the directory
+    // through the bounded API, is asserted below exactly as before.
+    await expect(rowA).toBeVisible()
+    await expect(rowB).toBeVisible()
+
+    // A shared prefix returns both records.
     await page.getByPlaceholder('Search by name').fill('List-')
     await expect(rowA).toBeVisible()
     await expect(rowB).toBeVisible()
@@ -55,11 +62,11 @@ test.describe('client list and search', () => {
     await expect(rowA).toBeVisible()
     await expect(rowB).toHaveCount(0)
 
-    // Clearing the search returns to the search-first prompt.
+    // Clearing the search restores the unfiltered directory rather than the
+    // old search-first prompt, so the record filtered out above comes back.
     await page.getByPlaceholder('Search by name').fill('')
-    await expect(page.getByText('Search by first or last name')).toBeVisible()
-    await expect(rowA).toHaveCount(0)
-    await expect(rowB).toHaveCount(0)
+    await expect(rowA).toBeVisible()
+    await expect(rowB).toBeVisible()
   })
 })
 
@@ -270,26 +277,32 @@ test.describe('client comparison policy', () => {
     // row — so a bare getByText can match more than the "B — tolerance" finding
     // this assertion means. Scope to that finding's own row (#finding-noise).
     await expect(page.locator('#finding-noise').getByText('Within measurement tolerance')).toBeVisible()
-    await expect(page.getByText('Improved — lower severity')).toBeVisible()
-    await expect(page.getByText('Regressed — higher severity')).toBeVisible()
+    // Same shared comparisonStatusText() copy issue as the tolerance case above:
+    // "Improved — lower severity" / "Regressed — higher severity" each also
+    // appear in the overall verdict, so scope to the finding row this
+    // assertion means.
+    await expect(page.locator('#finding-better').getByText('Improved — lower severity')).toBeVisible()
+    await expect(page.locator('#finding-worse').getByText('Regressed — higher severity')).toBeVisible()
 
     await page.getByLabel('After (comparison)').selectOption(newVersionId)
-    await expect(page.getByText('Not comparable', { exact: true })).toBeVisible()
+    // Same shared comparisonStatusText() copy issue: the always-visible
+    // "Deviation score" trend card independently derives its own latest-vs-
+    // previous verdict (also "Not comparable", since the newest fixture is
+    // v3 against a v2 predecessor) alongside the Compare panel's
+    // dropdown-driven verdict. Scope to the Compare panel this assertion means.
+    await expect(page.locator('#client-panel-compare').getByText('Not comparable', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
 
-    const progressTab = page.getByRole('tab', { name: 'Progress' })
-    await progressTab.click()
-    await expect(page.locator('#client-panel-assessments')).toHaveCSS('visibility', 'hidden')
-    await progressTab.focus()
-    await page.keyboard.press('Tab')
-    await expect(page.locator('#client-panel-progress')).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.getByRole('button', { name: 'Load interactive charts' })).toBeFocused()
-    await page.getByRole('button', { name: 'Load interactive charts' }).click()
-    await expect(page.getByRole('heading', { name: 'Recorded screening score over time' })).toBeVisible()
-    await expect(page.getByText(/Lines stop at every scoring-version boundary/)).toBeVisible()
-    await expect(page.getByText('v2').first()).toBeVisible()
-    await expect(page.getByText('v3').first()).toBeVisible()
+    // There is no separate "Progress" tab or "Load interactive charts" gate
+    // anymore — TrendChart (recharts LineChart replaced by a hand-drawn SVG,
+    // see app/clients/[id]/TrendChart.tsx) renders inline above the tab strip
+    // and its scoring-version history sits behind a "Recorded scores"
+    // disclosure. Confirm the same underlying facts this test cares about:
+    // the trend surfaces, and both scoring versions are represented.
+    await expect(page.getByRole('heading', { name: 'Deviation score' })).toBeVisible()
+    await page.locator('summary', { hasText: 'Recorded scores' }).click()
+    const scoringVersionCells = page.locator('#client-score-table tbody tr td:nth-child(4)')
+    await expect(scoringVersionCells).toHaveText(['v3', 'v2', 'v2'])
   })
 })
 

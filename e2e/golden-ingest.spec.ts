@@ -29,10 +29,14 @@ test.describe('golden ingest page', () => {
       'Back',
       'Side right',
     ])
-    await expect(page.locator('#golden-view option')).toHaveAttribute(
-      'data-engine-view',
-      /^(front|side|back)$/,
-    )
+    const goldenViewOptions = page.locator('#golden-view option')
+    const goldenViewOptionCount = await goldenViewOptions.count()
+    for (let i = 0; i < goldenViewOptionCount; i++) {
+      await expect(goldenViewOptions.nth(i)).toHaveAttribute(
+        'data-engine-view',
+        /^(front|side|back)$/,
+      )
+    }
     expect(await page.locator('#golden-view option').evaluateAll((options) =>
       options.map((option) => ({
         value: (option as HTMLOptionElement).value,

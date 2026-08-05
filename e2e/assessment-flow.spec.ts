@@ -36,7 +36,7 @@ test.describe('assessment golden path (test mode)', () => {
     // Exercises are no longer their own tab — they are a nested disclosure
     // inside Program's "Matched exercises" summary.
     await page.getByRole('tab', { name: /^Program/ }).click()
-    await page.locator('summary', { hasText: 'Matched exercises' }).click()
+    await page.locator('summary', { hasText: /^Matched exercises/ }).click()
     await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
     await expect(page.locator('[data-testid="exercises-section"]')).not.toHaveAttribute('open', '')
 
