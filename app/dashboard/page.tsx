@@ -161,11 +161,16 @@ export default async function DashboardPage() {
     }]
   })
 
-  const { data: practitioner } = await supabase
+  const { data: practitioner, error: practitionerErr } = await supabase
     .from('practitioners')
     .select('first_name, last_name')
     .eq('id', user.id)
     .maybeSingle()
+  // Deliberately outside the `failed`/loadError gate above: the only visible
+  // effect of this query failing is the avatar initials falling back to '—',
+  // which doesn't warrant the full-page "some data could not load" banner
+  // that the 10 Promise.all queries share. Still logged so the miss isn't silent.
+  if (practitionerErr) console.error(`[dashboard/${user.id}] practitioner lookup failed:`, practitionerErr.message)
 
   const model = buildTodayModel({
     awaiting,

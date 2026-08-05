@@ -157,3 +157,25 @@ describe('client directory pagination', () => {
     expect(searchRequestCount).toBe(2)
   })
 })
+
+describe('client directory error state', () => {
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
+
+  // A failed fetch and a genuinely empty directory must never render the same
+  // way: to a practitioner scanning the list, "no clients yet" reads as
+  // reassurance, not as a warning that the query broke.
+  it('never renders the friendly empty state when the directory fetch fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ error: 'boom' }), { status: 500 })),
+    ))
+
+    render(<ClientsPage />)
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Could not load clients. Refresh to try again.')
+    expect(screen.queryByText('No clients yet')).toBeNull()
+    expect(screen.queryByText('Add a client to start their screening history.')).toBeNull()
+  })
+})

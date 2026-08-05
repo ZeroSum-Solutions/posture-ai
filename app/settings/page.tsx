@@ -92,25 +92,56 @@ export default function SettingsPage() {
   //   content until they happen to hit the network again. Do NOT simplify this back down
   //   to a single call — that's the regression e2e/logout.spec.ts exists to catch.
   //
-  // Server call goes first so it's the one that lands even if the browser call fails.
-  // The browser client's own signOut() then races an already-revoked session — GoTrue
-  // ignores the resulting 401/403/404 from its own admin.signOut() call and still removes
-  // the local session and emits SIGNED_OUT — so the ordering is harmless.
+  // The ordering below is NOT "fire both, then check the response" — that was the bug.
+  // /api/auth/sign-out can return 503 without revoking anything (see its own "does not
+  // claim success when provider signout fails" test): the httpOnly cookie survives.
+  // Firing the browser signOut() broadcast before checking res.ok told every other open
+  // tab "session's gone" while it demonstrably was not. On a device that may be showing
+  // PHI, that false-safety broadcast is the worse of our two failure modes — a session
+  // that outlives its "signed out" UI is a PHI risk, whereas a tab that's merely slow to
+  // notice a real sign-out is only a stale-UI risk (AuthSessionGuard already holds the
+  // server as authoritative on the next request; the broadcast is a UX head start, not
+  // the security boundary). So every ambiguous case below resolves in favor of NOT
+  // broadcasting rather than risk lying about it:
+  //
+  //   - res.ok           -> server confirmed the session is revoked. Only now call the
+  //                         browser client's signOut() to fire the real broadcast.
+  //   - res not ok (503) -> server confirmed the session is STILL VALID. Never call
+  //                         signOut() here; tell the user instead of lying to every tab.
+  //   - fetch() throws    -> genuine network failure; we never learned whether the server
+  //                         revoked anything, so fall back to the same native form POST
+  //                         the no-JS path below performs. We still call signOut() first:
+  //                         @supabase/auth-js's signOut() never throws, and only clears
+  //                         local state + broadcasts when its own revoke call actually
+  //                         succeeded or came back 401/403/404 (session already dead) —
+  //                         a true network failure inside it resolves to
+  //                         {error: AuthRetryableFetchError} and leaves local state and
+  //                         the broadcast untouched (see _signOut()/admin.signOut() in
+  //                         @supabase/auth-js). So this call can only ever broadcast
+  //                         something true, even offline — it's a bonus catch for the
+  //                         common case where our own same-origin fetch failed (blocked
+  //                         extension, CORS misconfig) without the SDK's request failing
+  //                         the same way.
   async function handleSignOut(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    let res: Response
     try {
-      const res = await fetch('/api/auth/sign-out', { method: 'POST' })
+      res = await fetch('/api/auth/sign-out', { method: 'POST' })
+    } catch {
       const supabase = createSupabaseBrowserClient()
       await supabase.auth.signOut()
-      if (!res.ok) throw new Error('sign-out request failed')
-      window.location.assign('/auth/sign-in')
-    } catch {
-      // Something in the client-side path failed (network blip, GoTrue error) — fall
-      // back to a real form submission rather than leaving the button dead. This is the
-      // exact same request the no-JS path below performs natively, before hydration or
-      // with JS disabled: <form action="/api/auth/sign-out" method="POST">.
       signOutFormRef.current?.submit()
+      return
     }
+
+    if (!res.ok) {
+      showToast('error', 'Could not sign out. Please try again.')
+      return
+    }
+
+    const supabase = createSupabaseBrowserClient()
+    await supabase.auth.signOut()
+    window.location.assign('/auth/sign-in')
   }
 
   function showToast(type: 'success' | 'error', message: string) {

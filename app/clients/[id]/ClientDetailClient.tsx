@@ -243,6 +243,7 @@ function ClientDetailRoute({
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuContainerRef = useRef<HTMLDivElement>(null)
+  const menuToggleRef = useRef<HTMLButtonElement>(null)
   // Compare selectors: older = "before", newer = "after"
   const [compareBaseId, setCompareBaseId] = useState<string>(initialSelection.baseId)
   const [compareTargetId, setCompareTargetId] = useState<string>(initialSelection.targetId)
@@ -370,7 +371,17 @@ function ClientDetailRoute({
   useEffect(() => {
     if (!menuOpen) return
     function close(event: Event) {
-      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (event instanceof KeyboardEvent) {
+        if (event.key !== 'Escape') return
+        // Containment does not apply here: for a keydown, event.target is
+        // whatever has focus, which is normally a menu item itself (that's
+        // the whole point of tabbing in). Gating Escape on containment would
+        // make it close everything except the one place a keyboard user is
+        // standing when they press it.
+        setMenuOpen(false)
+        menuToggleRef.current?.focus()
+        return
+      }
       if (
         event.target instanceof Node &&
         menuContainerRef.current?.contains(event.target)
@@ -662,6 +673,7 @@ function ClientDetailRoute({
         <div style={{ position: 'relative' }} ref={menuContainerRef}>
           <button
             type="button"
+            ref={menuToggleRef}
             className={styles.iconButton}
             aria-expanded={menuOpen}
             aria-label="Client record actions"

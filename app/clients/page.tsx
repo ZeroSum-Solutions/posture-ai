@@ -309,6 +309,12 @@ export default function ClientsPage() {
 
         {loading ? (
           <p className={styles.status} role="status" aria-live="polite">Loading the directory…</p>
+        ) : error && rows.length === 0 ? (
+          // A failed fetch must never fall through to the empty-directory copy
+          // below: to a practitioner scanning the list, "no clients yet" and
+          // "the directory is broken" look identical unless this is kept
+          // separate. The error banner above is already the full explanation.
+          null
         ) : rows.length === 0 ? (
           <Surface tier="tile" pad="rowy">
             <div className={styles.empty}>

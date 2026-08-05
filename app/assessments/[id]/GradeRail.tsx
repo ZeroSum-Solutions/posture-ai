@@ -131,10 +131,27 @@ export default function GradeRail({
           </p>
         </>
       ) : (
-        <p className={styles.railNote}>
-          Recorded with a different or unknown scoring version, so the current grade
-          scale is not applied to it.
-        </p>
+        <>
+          {/* The badge above stays aria-hidden here too, but unlike the
+              scaleApplies branch nothing else on this path names the grade —
+              there is no rail.description paragraph and no range line, both
+              of which live inside the true branch on purpose. Without this,
+              a screen-reader user got the score and the caveat but never the
+              letter itself: the actual regression this component shipped.
+              The grade letter is stored data, safe under any engine version,
+              so it is stated plainly. What is NOT said is anything the
+              current scale would have to supply to make sense — no band
+              name (Maintain/Monitor/Review) and no numeric range — since
+              those are exactly the interpretations usesCurrentGradeScale()
+              gates. "As recorded" stands in for both. */}
+          <p className="sr-only">
+            {`Grade ${rail.grade}, deviation score ${Math.round(rail.score)} out of 100, as recorded.`}
+          </p>
+          <p className={styles.railNote}>
+            Recorded with a different or unknown scoring version, so the current grade
+            scale is not applied to it.
+          </p>
+        </>
       )}
     </Surface>
   )
