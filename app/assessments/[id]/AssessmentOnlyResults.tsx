@@ -127,8 +127,8 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
     }
   }
 
-  if (loading) return <div className="app-standard-page"><p>Loading assessment…</p></div>
-  if (error && !assessment) return <div className="app-standard-page"><p role="alert">{error}</p></div>
+  if (loading) return <div className="app-screen app-screen-x"><p className="t-body" role="status">Loading assessment…</p></div>
+  if (error && !assessment) return <div className="app-screen app-screen-x"><p className="a-error" role="alert">{error}</p></div>
   if (!assessment) return null
 
   const usesCurrentScale = usesCurrentGradeScale(assessment.scoring_engine_version)
@@ -144,7 +144,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
     <div className={styles.reviewPage} data-testid="assessment-only-results">
       <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to client</Link>
       <header className={styles.studioHeader}>
-        <p className="app-page-kicker">Screening review</p>
+        <p className="t-kicker">Screening review</p>
         <h1>Screening results</h1>
         <p>Start with the grade, then open the practitioner findings when you are ready to review them.</p>
       </header>
@@ -204,17 +204,17 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                       <div className={styles.findingSnapshot} aria-label="Finding summary">
                         <div className={styles.snapshotCard}>
                           <span>Review</span>
-                          <strong className="data-readout">{findingsNeedingReview}</strong>
+                          <strong className="t-readout-md n">{findingsNeedingReview}</strong>
                           <small>flagged findings</small>
                         </div>
                         <div className={styles.snapshotCard}>
                           <span>Maintain</span>
-                          <strong className="data-readout">{maintainingFindings}</strong>
+                          <strong className="t-readout-md n">{maintainingFindings}</strong>
                           <small>within maintain range</small>
                         </div>
                         <div className={styles.snapshotCard}>
                           <span>Unavailable</span>
-                          <strong className="data-readout">{unavailableFindings}</strong>
+                          <strong className="t-readout-md n">{unavailableFindings}</strong>
                           <small>readings to recheck</small>
                         </div>
                       </div>
