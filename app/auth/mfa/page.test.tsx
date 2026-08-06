@@ -118,6 +118,39 @@ describe('MfaPage', () => {
     expect((screen.getByRole('button', { name: /verify and continue/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('focuses the code field so the only action on the page needs no hunting', async () => {
+    listFactors.mockResolvedValue({
+      data: { all: [{ id: 'verified', factor_type: 'totp', status: 'verified' }] },
+      error: null,
+    })
+
+    render(<MfaPage />)
+
+    const input = await screen.findByLabelText('Authenticator code')
+    await waitFor(() => expect(document.activeElement).toBe(input))
+  })
+
+  // maxLength is 7 rather than 6 on purpose: authenticators display the code
+  // grouped as "123 456", and handleVerify strips whitespace before validating
+  // /^\d{6}$/. Narrowing the attribute to 6 truncates a pasted grouped code to
+  // "123 45" and silently breaks the paste path, so this pins the intent.
+  it('accepts a space-separated code as pasted from an authenticator', async () => {
+    listFactors.mockResolvedValue({
+      data: { all: [{ id: 'verified', factor_type: 'totp', status: 'verified' }] },
+      error: null,
+    })
+    challengeAndVerify.mockResolvedValue({ error: { message: 'bad code' } })
+
+    render(<MfaPage />)
+    const input = await screen.findByLabelText('Authenticator code')
+    expect(input.getAttribute('maxlength')).toBe('7')
+
+    fireEvent.change(input, { target: { value: '123 456' } })
+    fireEvent.click(screen.getByRole('button', { name: /verify and continue/i }))
+
+    await waitFor(() => expect(challengeAndVerify).toHaveBeenCalledWith({ factorId: 'verified', code: '123456' }))
+  })
+
   it('explains that recovery cannot bypass an existing factor', async () => {
     window.history.replaceState({}, '', '/auth/mfa?mode=recovery')
     listFactors.mockResolvedValue({
