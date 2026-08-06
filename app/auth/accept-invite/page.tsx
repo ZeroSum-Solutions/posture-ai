@@ -6,17 +6,6 @@ import AuthFrame from '@/components/AuthFrame'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { MIN_PASSWORD_LENGTH, validatePasswordReset } from '@/lib/auth/password'
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  background: 'var(--background)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: '8px',
-  color: 'var(--text-primary)',
-  fontSize: '0.9rem',
-  boxSizing: 'border-box',
-}
-
 export default function AcceptInvitePage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -65,81 +54,52 @@ export default function AcceptInvitePage() {
       description="Protect your invited account before entering the practitioner workspace."
     >
       {checking ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+        <p className="a-help">
           Verifying your secure invitation…
         </p>
       ) : !hasInviteSession ? (
         <div role="alert">
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          <p className="a-help" style={{ marginBottom: '16px' }}>
             This invitation link is invalid, expired, or has already been used.
           </p>
-          <Link href="/auth/sign-in" style={{ color: 'var(--text-secondary)' }}>
+          <Link href="/auth/sign-in" className="a-label" style={{ textDecoration: 'underline' }}>
             Return to sign in
           </Link>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} noValidate>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '20px' }}>
+        <form onSubmit={handleSubmit} noValidate className="a-form">
+          <p className="a-help">
             First choose a password. You will then connect an authenticator app before access is activated.
           </p>
           {error && (
-            <div
-              role="alert"
-              aria-live="assertive"
-              style={{
-                background: 'rgba(239,68,68,0.12)',
-                border: '1px solid rgba(239,68,68,0.3)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: 'var(--review)',
-                fontSize: '0.85rem',
-                marginBottom: '16px',
-              }}
-            >
+            <p className="a-error" role="alert" aria-live="assertive">
               {error}
-            </div>
+            </p>
           )}
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="invite_password" style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '6px' }}>
-              Password
-            </label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="invite_password">Password</label>
             <input
               id="invite_password"
+              className="a-input"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="new-password"
               placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-              style={inputStyle}
             />
           </div>
-          <div style={{ marginBottom: '24px' }}>
-            <label htmlFor="invite_password_confirm" style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '6px' }}>
-              Confirm password
-            </label>
+          <div className="a-field">
+            <label className="a-label" htmlFor="invite_password_confirm">Confirm password</label>
             <input
               id="invite_password_confirm"
+              className="a-input"
               type="password"
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
               autoComplete="new-password"
-              style={inputStyle}
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              border: 0,
-              borderRadius: '8px',
-              background: loading ? 'rgba(255,255,255,0.45)' : 'var(--action)',
-              color: 'var(--action-text)',
-              fontWeight: 600,
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-          >
+          <button type="submit" disabled={loading} className="a-primary a-primary--bar" style={{ marginTop: 6 }}>
             {loading ? 'Saving password…' : 'Continue to multi-factor setup'}
           </button>
         </form>

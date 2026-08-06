@@ -287,7 +287,7 @@ export default function MfaPage() {
                   <p
                     className="n"
                     style={{
-                      margin: 0, padding: '10px 12px', borderRadius: 10,
+                      margin: 0, padding: '10px 12px', borderRadius: 12,
                       background: 'var(--surface-glass)', border: '1px solid var(--hairline)',
                       color: 'var(--text-primary)', fontSize: 15, letterSpacing: '0.08em',
                       wordBreak: 'break-all', userSelect: 'all',

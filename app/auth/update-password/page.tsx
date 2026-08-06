@@ -5,17 +5,6 @@ import Link from 'next/link'
 import { validatePasswordReset, MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
 import AuthFrame from '@/components/AuthFrame'
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  background: 'var(--background)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: '8px',
-  color: 'var(--text-primary)',
-  fontSize: '0.9rem',
-  boxSizing: 'border-box',
-}
-
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -58,48 +47,32 @@ export default function UpdatePasswordPage() {
     <AuthFrame title="Choose a new password" description="Create a fresh password for your practitioner account.">
 
         {hasSession === null ? (
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Verifying reset link…</p>
+          <p className="a-help">Verifying reset link…</p>
         ) : hasSession === false ? (
           <>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+            <p className="a-help" style={{ marginBottom: '24px' }}>
               This reset link is invalid or has expired. Request a new one to continue.
             </p>
-            <Link href="/auth/forgot-password" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <Link href="/auth/forgot-password" className="a-label" style={{ textDecoration: 'underline' }}>
               ← Request a new link
             </Link>
           </>
         ) : (
           <>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+            <p className="a-help" style={{ marginBottom: '24px' }}>
               Enter a new password for your account.
             </p>
             {error && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                style={{
-                  background: 'rgba(239,68,68,0.12)',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  color: 'var(--review)',
-                  fontSize: '0.85rem',
-                  marginBottom: '16px',
-                }}
-              >
+              <p className="a-error" role="alert" aria-live="assertive" style={{ marginBottom: 16 }}>
                 {error}
-              </div>
+              </p>
             )}
-            <form onSubmit={handleSubmit} noValidate>
-              <div style={{ marginBottom: '16px' }}>
-                <label
-                  htmlFor="new_password"
-                  style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
-                >
-                  New password
-                </label>
+            <form onSubmit={handleSubmit} noValidate className="a-form">
+              <div className="a-field">
+                <label className="a-label" htmlFor="new_password">New password</label>
                 <input
                   id="new_password"
+                  className="a-input"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -107,18 +80,13 @@ export default function UpdatePasswordPage() {
                   placeholder={`New password (min ${MIN_PASSWORD_LENGTH} characters)`}
                   aria-label="New password"
                   autoComplete="new-password"
-                  style={inputStyle}
                 />
               </div>
-              <div style={{ marginBottom: '24px' }}>
-                <label
-                  htmlFor="confirm_password"
-                  style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}
-                >
-                  Confirm password
-                </label>
+              <div className="a-field">
+                <label className="a-label" htmlFor="confirm_password">Confirm password</label>
                 <input
                   id="confirm_password"
+                  className="a-input"
                   type="password"
                   value={confirm}
                   onChange={e => setConfirm(e.target.value)}
@@ -126,24 +94,9 @@ export default function UpdatePasswordPage() {
                   placeholder="Re-enter new password"
                   aria-label="Confirm password"
                   autoComplete="new-password"
-                  style={inputStyle}
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  background: loading ? 'rgba(255,255,255,0.45)' : 'var(--action)',
-                  color: 'var(--action-text)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                }}
-              >
+              <button type="submit" disabled={loading} className="a-primary a-primary--bar" style={{ marginTop: 6 }}>
                 {loading ? 'Updating...' : 'Update password'}
               </button>
             </form>
