@@ -352,6 +352,12 @@ export default function MfaPage() {
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="000000"
+              // The page exists to collect this one value, and the code expires
+              // on a 30s window, so the caret starts here rather than making a
+              // keyboard or screen-reader user tab to the only field present.
+              autoFocus
+              // 7, not 6: authenticators show "123 456" and handleVerify strips
+              // whitespace before validating. See page.test.tsx.
               maxLength={7}
               style={{ letterSpacing: '0.16em' }}
             />
