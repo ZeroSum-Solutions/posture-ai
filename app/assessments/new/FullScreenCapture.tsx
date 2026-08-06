@@ -17,6 +17,16 @@ import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from
 import { CameraGlyph } from '@/components/SignalGlyphs'
 import LiveGuides from './LiveGuides'
 import CaptureTelemetryPanel from './CaptureTelemetryPanel'
+import CameraPermissionGuidance from './CameraPermissionGuidance'
+import {
+  cameraErrorName,
+  detectBrowser,
+  detectPlatform,
+  getPermissionGuidance,
+  queryCameraPermissionState,
+  readUAEnvironment,
+} from '@/lib/capture/permission-guidance'
+import type { PermissionGuidance, PermissionState } from '@/lib/capture/permission-guidance'
 import LegalNotice from '@/components/LegalNotice'
 import type { LegalSnapshot } from '@/lib/legal/types'
 import { Surface } from '@/components/array/Surface'
@@ -81,6 +91,19 @@ function getErrorMessage(err: unknown): string {
     if (name === 'SecurityError') return 'Camera requires a secure (HTTPS) connection.'
   }
   return 'Could not access the camera. Please try again.'
+}
+
+/** Only NotAllowedError is a permission problem the guidance module can act
+ *  on — NotFoundError/NotReadableError/SecurityError/etc. are real camera
+ *  problems and keep their existing plain-copy panel with no guidance below. */
+function buildGuidanceForNotAllowed(permissionState: PermissionState): PermissionGuidance {
+  const env = readUAEnvironment()
+  return getPermissionGuidance({
+    browser: detectBrowser(env),
+    platform: detectPlatform(env),
+    permissionState,
+    errorName: 'NotAllowedError',
+  })
 }
 
 function screenIsNotPortrait(): boolean {
@@ -162,6 +185,15 @@ export default function FullScreenCapture({
   // transitions. A stale permission result must never replace or fail a newer
   // successful stream.
   const cameraRequestGenerationRef = useRef(0)
+  // Most recent navigator.permissions.query('camera') read, carried from the
+  // preflight (in startCamera) into openStream's catch — lets the macOS
+  // "site allowed, OS blocked the browser" guidance branch fire without
+  // openStream itself touching the Permissions API. 'unsupported' by default
+  // (Firefox/Safari, or any engine without a preflight yet).
+  const permissionStateRef = useRef<PermissionState>('unsupported')
+  // Focus target for the camera-unavailable alert panel (§ accessibility —
+  // focus must move to it when it appears; see the cameraFailed effect below).
+  const cameraErrorPanelRef = useRef<HTMLDivElement>(null)
   // The shutter burst (object URLs) awaiting commit; the middle one is the review still.
   const burstRef = useRef<string[]>([])
   // Pixel-quality result for the representative (burst[0]) frame, scored after
@@ -191,6 +223,10 @@ export default function FullScreenCapture({
   const [ready, setReady] = useState(false)
   const [cameraFailed, setCameraFailed] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  // Structured browser-specific recovery steps for a permission-related
+  // failure; null for every other camera failure (device missing, in use,
+  // disconnected, capture-time encode failure) — those keep the plain panel.
+  const [guidance, setGuidance] = useState<PermissionGuidance | null>(null)
   const [runtime] = useState(getCaptureRuntime)
   const [poseReadiness, setPoseReadiness] = useState<PoseReadiness>(() => runtime.readiness())
   const [retryingModel, setRetryingModel] = useState(false)
@@ -315,6 +351,7 @@ export default function FullScreenCapture({
         readyRef.current = false
         setReady(false)
         setErrorMsg('Camera disconnected — restart or upload instead.')
+        setGuidance(null) // hardware loss, not a permission problem
         setCameraFailed(true)
       })
       if (videoRef.current) {
@@ -335,6 +372,7 @@ export default function FullScreenCapture({
       ) return
       readyRef.current = false
       setErrorMsg(getErrorMessage(err))
+      setGuidance(cameraErrorName(err) === 'NotAllowedError' ? buildGuidanceForNotAllowed(permissionStateRef.current) : null)
       setCameraFailed(true)
     }
   }, [acquireWakeLock, stopCameraStream])
@@ -390,13 +428,33 @@ export default function FullScreenCapture({
     }
   }
 
+  // Preflight navigator.permissions.query('camera') (feature-detected — a
+  // no-op everywhere it's unsupported) before ever calling getUserMedia, so a
+  // returning user whose origin is already durably denied sees the recovery
+  // steps immediately instead of a silent failure round-trip. A 'granted' or
+  // 'prompt' read (or no support at all) falls straight through to the
+  // existing openStream path, unchanged.
+  const startCamera = useCallback(async () => {
+    const state = await queryCameraPermissionState()
+    permissionStateRef.current = state
+    if (!mountedRef.current) return
+    if (state === 'denied') {
+      setErrorMsg('Camera access denied. Please allow camera permission and try again.')
+      setGuidance(buildGuidanceForNotAllowed(state))
+      setCameraFailed(true)
+      return
+    }
+    void openStream()
+  }, [openStream])
+
   function retryCamera() {
     readyRef.current = false
     setReady(false)
     setCameraFailed(false)
     setErrorMsg(null)
+    setGuidance(null)
     setPhase('live')
-    void openStream()
+    void startCamera()
   }
 
   // The wake-lock hook owns visible-page reacquisition. This listener owns the
@@ -518,6 +576,15 @@ export default function FullScreenCapture({
     ;(root.querySelector<HTMLElement>(sel) ?? root).focus()
   }, [phase])
 
+  // The camera-unavailable alert panel isn't covered by the phase-keyed focus
+  // effect above (phase stays 'live'/'countdown' while cameraFailed flips) —
+  // move focus to it explicitly whenever it appears, so a screen-reader user
+  // lands on the alert (and its guidance, when present) instead of the outer
+  // container's fallback focus.
+  useEffect(() => {
+    if (cameraFailed) cameraErrorPanelRef.current?.focus()
+  }, [cameraFailed])
+
   // Escape closes the overlay; Tab is trapped within it (SC 2.1.2 / 2.4.3).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -545,7 +612,7 @@ export default function FullScreenCapture({
     setPhase('live')
     // Must be called from this user gesture (iOS DeviceOrientation permission).
     if (level.permission === 'needs-request') void level.requestAccess()
-    void openStream()
+    void startCamera()
   }
 
   // ---- capture ----
@@ -567,6 +634,7 @@ export default function FullScreenCapture({
       cancelActiveCapture(id)
       if (surfaceError) {
         setErrorMsg('Capture failed — try again or upload instead.')
+        setGuidance(null) // an encode failure, not a permission problem
         setCameraFailed(true)
       }
     }
@@ -952,11 +1020,17 @@ export default function FullScreenCapture({
             {/* Camera-unavailable panel — non-blocking: the upload fallback and
                 proceed controls below stay usable (they render above this stage). */}
             {cameraFailed && (
-              <div role="alert" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px' }}>
+              <div
+                ref={cameraErrorPanelRef}
+                tabIndex={-1}
+                role="alert"
+                aria-live="assertive"
+                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px', overflowY: 'auto', outline: 'none' }}
+              >
                 <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
                 <p style={{ color: tone('review'), fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
                 <p data-testid="camera-error-msg" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
-                <button onClick={retryCamera} className="a-primary">Try Again</button>
+                <CameraPermissionGuidance guidance={guidance} onRetry={retryCamera} />
               </div>
             )}
           </div>

@@ -5,11 +5,11 @@
 .fixtureNotice {
   margin: 0 0 14px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--monitor) 45%, transparent);
   color: var(--monitor);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.04em;
 }
 

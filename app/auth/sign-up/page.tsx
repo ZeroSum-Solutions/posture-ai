@@ -15,9 +15,9 @@ export default function SignUpPage() {
       <div
         role="status"
         style={{
-          background: 'rgba(0,152,243,0.1)',
-          border: '1px solid rgba(0,152,243,0.3)',
-          borderRadius: '8px',
+          background: 'color-mix(in srgb, var(--info) 12%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--info) 30%, transparent)',
+          borderRadius: 'var(--radius-sm)',
           padding: '16px',
           color: 'var(--text-primary)',
           fontSize: '0.9rem',
