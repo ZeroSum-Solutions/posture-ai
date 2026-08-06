@@ -9,6 +9,17 @@ import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { WASM_URL, LITE_MODEL_URL, assertPoseOnlyModel, mapLandmarks } from './pose-model'
 import { admitFrame, type FrameGateState } from './live-frame-gate'
 import { settleBeforeDeadline } from './async-deadline'
+import { installImportScriptsFallback } from './import-scripts-fallback'
+
+// Must run before any call that can reach the vendored @mediapipe/tasks-vision
+// wasm-glue loader — that's createLandmarker() below, invoked from init() in
+// response to the worker's 'init' message. Module evaluation of this whole
+// file (everything above and below this line) always finishes, top to
+// bottom, before the 'message' listener registered further down can be
+// invoked, so placing this right after the imports is sufficient. See
+// import-scripts-fallback.ts for exactly which upstream call this guards
+// against and why it is safe.
+installImportScriptsFallback()
 
 // Structural view of the DedicatedWorkerGlobalScope (the project's tsconfig lib
 // omits "webworker", so we avoid its global types).
@@ -50,7 +61,23 @@ async function init(preferCpu = false) {
   ctx.postMessage({ type: 'phase', phase: 'downloading', message: 'Downloading live pose runtime.' })
   try {
     assertPoseOnlyModel(LITE_MODEL_URL)
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL)
+    // isModule:true (2nd arg) requests the ES-module-shaped wasm-glue file
+    // (vision_wasm_module_internal.js) instead of the classic one. Required
+    // alongside installImportScriptsFallback() above, not optional: once
+    // that shim routes the vendored loader into its `await import(...)`
+    // fallback, only the module-shaped file actually completes — it
+    // self-registers via `globalThis.ModuleFactory = ModuleFactory`, which
+    // is how `createFromOptions`'s continuation finds it. The classic file
+    // has no such registration (a plain top-level `var ModuleFactory = ...`,
+    // which — loaded as an ES module by `import()` — stays scoped to that
+    // module and never reaches `globalThis` at all), so loading it via
+    // `import()` throws the vendored loader's own "ModuleFactory not set."
+    // immediately afterward: confirmed by direct execution against the real
+    // vendored bundle and both real wasm-glue files during this
+    // investigation, not assumed. Passing isModule:true does not change
+    // which loading mechanism run (that's what the shim controls) — only
+    // which filename gets requested, per the vendored resolver's own logic.
+    const vision = await FilesetResolver.forVisionTasks(WASM_URL, true)
     if (preferCpu) {
       ctx.postMessage({ type: 'phase', phase: 'initializing', delegate: 'cpu', message: 'Recovering live pose tracking on CPU.' })
       try {
