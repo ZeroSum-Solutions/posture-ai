@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // resolver at the real vendored files drives MediaPipe's actual loader; the
 // later model URL failure is the deterministic proof that wasm bootstrap got
 // past both the document crash and ModuleFactory registration.
-const REAL_WASM_DIR = fileURLToPath(new URL('../../public/mediapipe/wasm', import.meta.url))
+// Read the package source directly so this test stays hermetic in a clean
+// checkout. `public/mediapipe/wasm` is ignored build output created only by
+// predev/prebuild; the copy script sources this exact vendored directory.
+const REAL_WASM_DIR = fileURLToPath(new URL('../../node_modules/@mediapipe/tasks-vision/wasm', import.meta.url))
 
 vi.mock('./pose-model', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./pose-model')>()
