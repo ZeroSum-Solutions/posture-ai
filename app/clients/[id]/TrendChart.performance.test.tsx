@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
+import { renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import TrendChart from './TrendChart'
 import type { TrendInputPoint } from './trendModel'
@@ -21,11 +22,24 @@ afterEach(() => {
 })
 
 describe('TrendChart recorded-score disclosure', () => {
+  it('keeps its server-rendered control inert until the pointer guard is installed', () => {
+    const markup = renderToString(<TrendChart history={history(2)} tableId="client-score-table" />)
+
+    expect(markup).toContain('disabled=""')
+    expect(markup).toContain('aria-busy="true"')
+    expect(markup).toContain('aria-label="Preparing recorded scores…"')
+    expect(markup).toContain('>Preparing recorded scores…</button>')
+  })
+
   it('uses a button disclosure with explicit expanded state', () => {
     render(<TrendChart history={history(2)} tableId="client-score-table" />)
 
     const disclosure = screen.getByRole('button', { name: 'Recorded scores' })
     expect(disclosure.getAttribute('aria-expanded')).toBe('false')
+    expect(disclosure.hasAttribute('disabled')).toBe(false)
+    expect(disclosure.getAttribute('aria-busy')).toBe('false')
+    expect(disclosure.getAttribute('aria-label')).toBe('Recorded scores')
+    expect(disclosure.textContent).toBe('Recorded scores')
     expect(disclosure.getAttribute('aria-controls')).toBe('client-score-table-panel')
     expect(document.getElementById('client-score-table-panel')).not.toBeNull()
 

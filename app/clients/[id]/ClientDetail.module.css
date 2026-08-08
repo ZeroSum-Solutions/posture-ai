@@ -290,6 +290,9 @@
   text-align: left;
 }
 
+.dataSummary:disabled { cursor: progress; }
+.dataSummary:disabled::after { content: ''; }
+
 .dataSummary::after { content: ' ↓'; color: var(--text-quiet); }
 .dataDetails[data-open='true'] .dataSummary::after { content: ' ↑'; }
 
