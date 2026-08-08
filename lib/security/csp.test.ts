@@ -16,6 +16,20 @@ describe('application Content Security Policy', () => {
     expect(policy).toContain("object-src 'none'")
   })
 
+  test('permits framework-managed inline style elements without weakening scripts', () => {
+    const policy = buildApplicationCsp({
+      nonce: 'request-nonce',
+      nodeEnv: 'production',
+      supabaseUrl: 'https://example.supabase.co',
+    })
+
+    const styleElementPolicy = policy.split('; ').find((directive) => directive.startsWith('style-src-elem'))
+    const scriptPolicy = policy.split('; ').find((directive) => directive.startsWith('script-src'))
+
+    expect(styleElementPolicy).toBe("style-src-elem 'self' 'unsafe-inline'")
+    expect(scriptPolicy).not.toContain("'unsafe-inline'")
+  })
+
   test('permits React development eval without permitting arbitrary inline scripts', () => {
     const policy = buildApplicationCsp({
       nonce: 'request-nonce',

@@ -34,9 +34,13 @@ export function buildApplicationCsp({ nonce, nodeEnv, supabaseUrl }: Application
   return [
     "default-src 'self'",
     `script-src ${scriptSources}`,
-    // Next-generated style elements receive the request nonce. React style
-    // attributes remain allowed separately without weakening script execution.
+    // Server-rendered Next style elements receive the request nonce. React
+    // style attributes remain allowed separately without weakening scripts.
     `style-src 'self' 'nonce-${nonce}'`,
+    // Next/React can also insert framework-managed style elements during a
+    // client transition without propagating the request nonce. Scope the
+    // compatibility allowance to style elements; script-src remains nonce-only.
+    "style-src-elem 'self' 'unsafe-inline'",
     "style-src-attr 'unsafe-inline'",
     `img-src ${sources("'self'", 'data:', 'blob:', supabaseOrigin)}`,
     `media-src ${sources("'self'", 'blob:', supabaseOrigin)}`,
