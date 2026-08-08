@@ -15,28 +15,35 @@
 //     }
 //   }
 //
-// `PoseLandmarker.createFromOptions` pulls in that loader once per delegate
-// attempt (live-worker.ts's init() calls it once for GPU, once for CPU).
-// The assumption holds in a Chromium `type:'module'` Worker — calling
-// `importScripts` there throws a TypeError the loader catches, and it falls
-// back to a dynamic `import()` — but not in a WebKit `type:'module'`
-// Worker, where `importScripts` is not defined as a global at all. There,
-// the loader falls into the branch written for the main thread and throws a
-// ReferenceError on the bare `document` identifier: this project's
-// real-iPhone production crash, "Can't find variable: document", on both
-// the GPU and CPU delegate attempts.
+// In the reported WebKit module worker, importScripts is missing, so the
+// main-thread branch throws "Can't find variable: document". Supplying a
+// throwing importScripts function enters MediaPipe's worker fallback. Its
+// explicit self.import hook then lets us redirect only that WebKit fallback
+// from the classic wasm loader to the module-shaped sibling. Chromium keeps
+// the classic loader, avoiding its "Cannot use import.meta outside a module"
+// startup regression.
 //
-// Fix: make the loader's own probe (`typeof importScripts !== 'function'`)
-// come back exactly the way it already does in Chromium, so the loader
-// takes the branch it already knows how to handle and never touches
-// `document`.
-//
-// Scope: only live-worker.ts (a genuine `type:'module'` Worker) calls this.
-// It is a no-op unless explicitly called — importing this module alone does
-// nothing — and the runtime guard below is a second, independent layer that
-// refuses to run anywhere a `window` exists, so even a future accidental
-// call from main-thread code cannot touch it.
-export function installImportScriptsFallback(): void {
+// Scope: only live-worker.ts calls this. It is a no-op unless explicitly
+// called, and the runtime guard refuses to run anywhere a document exists, so
+// even a future accidental call from main-thread code cannot touch it. The
+// guard also survives Turbopack's worker compilation; unlike `typeof window`,
+// it is not constant-folded away.
+type ModuleLoader = (url: string) => Promise<unknown>
+
+const loadModule: ModuleLoader = url => import(/* webpackIgnore: true */ url)
+
+export function mediaPipeModuleLoaderUrl(url: string): string {
+  const moduleUrl = url.replace(
+    /vision_wasm_internal\.js(?=([?#]|$))/u,
+    'vision_wasm_module_internal.js',
+  )
+  if (moduleUrl === url) {
+    throw new Error(`[pose] unsupported MediaPipe worker loader "${url}"`)
+  }
+  return moduleUrl
+}
+
+export function installImportScriptsFallback(importModule: ModuleLoader = loadModule): void {
   // Target `globalThis`, not `self`: inside every real Worker `self ===
   // globalThis`, so this is identical there, but the vendored loader's
   // `typeof importScripts` check reads the bare global identifier, which
@@ -44,18 +51,31 @@ export function installImportScriptsFallback(): void {
   // happens to have assigned to a `self` property (e.g. in a non-browser
   // harness that stands up its own `self` stand-in). `globalThis` is the
   // one object guaranteed to back that lookup everywhere.
-  const scope = globalThis as unknown as { importScripts?: (...urls: string[]) => void }
+  const scope = globalThis as unknown as {
+    document?: unknown
+    importScripts?: (...urls: string[]) => void
+    import?: ModuleLoader
+  }
 
-  // `typeof window === 'undefined'` is the standard "this is a Worker, not
-  // the main thread" check (Workers never have `window`). Combined with the
-  // loader's own "is importScripts already callable" check, this installs
+  // A real main thread exposes document and a Worker does not. Use a runtime
+  // property test instead of `typeof window`: Turbopack constant-folds the
+  // latter while compiling the worker dependency graph and previously erased
+  // this entire compatibility branch from the production worker chunk.
+  // Combined with the loader's own "is importScripts already callable" check,
+  // this installs
   // the fallback only in the one scope that needs it — never on the main
   // thread (a real DOM already makes the loader's other branch work there,
   // per lib/pose/detect.ts), and never over a real, working `importScripts`
   // (classic workers, and Chromium's module workers) — zero behavior change
   // in either of those cases.
-  if (typeof window !== 'undefined' || typeof scope.importScripts === 'function') return
+  if ('document' in scope || typeof scope.importScripts === 'function') return
 
+  // MediaPipe checks this explicit hook after a module worker rejects
+  // importScripts and before it falls back to native import(). Its resolver
+  // still needs to return the classic loader for Chromium, where importScripts
+  // succeeds. Only the WebKit fallback redirects that filename to the
+  // module-shaped sibling that self-registers ModuleFactory.
+  scope.import = url => importModule(mediaPipeModuleLoaderUrl(url))
   scope.importScripts = () => {
     throw new TypeError('[pose] importScripts is unavailable in this module worker; use dynamic import() instead')
   }

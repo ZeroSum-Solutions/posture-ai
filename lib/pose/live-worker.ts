@@ -54,30 +54,27 @@ function createLandmarker(
     DELEGATE_INIT_TIMEOUT_MS,
     late => { try { late.close() } catch { /* lifecycle already moved on */ } },
     `${delegate} live pose-model initialization timed out.`,
-  )
+  ).then(nextLandmarker => {
+    if (
+      !nextLandmarker
+      || typeof nextLandmarker.detectForVideo !== 'function'
+      || typeof nextLandmarker.close !== 'function'
+    ) {
+      try { nextLandmarker?.close?.() } catch { /* invalid instance is discarded */ }
+      throw new Error(`${delegate} live pose-model initialization returned an invalid landmarker.`)
+    }
+    return nextLandmarker
+  })
 }
 
 async function init(preferCpu = false) {
   ctx.postMessage({ type: 'phase', phase: 'downloading', message: 'Downloading live pose runtime.' })
   try {
     assertPoseOnlyModel(LITE_MODEL_URL)
-    // isModule:true (2nd arg) requests the ES-module-shaped wasm-glue file
-    // (vision_wasm_module_internal.js) instead of the classic one. Required
-    // alongside installImportScriptsFallback() above, not optional: once
-    // that shim routes the vendored loader into its `await import(...)`
-    // fallback, only the module-shaped file actually completes — it
-    // self-registers via `globalThis.ModuleFactory = ModuleFactory`, which
-    // is how `createFromOptions`'s continuation finds it. The classic file
-    // has no such registration (a plain top-level `var ModuleFactory = ...`,
-    // which — loaded as an ES module by `import()` — stays scoped to that
-    // module and never reaches `globalThis` at all), so loading it via
-    // `import()` throws the vendored loader's own "ModuleFactory not set."
-    // immediately afterward: confirmed by direct execution against the real
-    // vendored bundle and both real wasm-glue files during this
-    // investigation, not assumed. Passing isModule:true does not change
-    // which loading mechanism run (that's what the shim controls) — only
-    // which filename gets requested, per the vendored resolver's own logic.
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL, true)
+    // Keep the classic fileset for Chromium, where MediaPipe loads it through
+    // importScripts. The WebKit-only compatibility hook installed above maps
+    // this loader to its module-shaped sibling after importScripts rejects.
+    const vision = await FilesetResolver.forVisionTasks(WASM_URL)
     if (preferCpu) {
       ctx.postMessage({ type: 'phase', phase: 'initializing', delegate: 'cpu', message: 'Recovering live pose tracking on CPU.' })
       try {
