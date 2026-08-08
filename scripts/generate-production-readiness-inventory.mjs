@@ -30,7 +30,7 @@ const PERFORMANCE_BUDGET_SOURCE_SHA256 = '13d2331f4fa4fe11fe98b9a98fbb631ac73404
 const PERFORMANCE_BUDGET_SCHEMA_SOURCE_SHA256 = '159d652df8b9b070681a5a49aa88d385ea6d6505d8d739311c6fe753fa26aa94'
 const PERFORMANCE_BUDGET_VALIDATOR_SOURCE_SHA256 = 'de8d6504c9953ec3563c63ce0c5946d627310df47e711967c7febac66098bb9a'
 const TIER_B_DOCUMENT_SOURCES = [
-  ['docs/qa/AUDIT.md', 'posture-ai-production-readiness-audit-2026-07-24-pr10', 'c19e929124988636c2471bc2cfcfb64a6a812b00a853868624fb57bb43feb899'],
+  ['docs/qa/AUDIT.md', 'posture-ai-deep-audit-2026-08-07', '1013e7706094571a0106b90f6f221a068313c6719c5ced188480e74d53299d0d'],
   ['docs/plans/2026-07-19-production-readiness-goal-spec.md', 'posture-ai-production-readiness-spec-v2-2026-07-24-pr10', '217b4d06681b711c7653594cd3ce396f0d60640976121101d22244002301ce56'],
   ['docs/qa/tierb-reliability/protocol.md', 'posture-ai-tierb-reliability-protocol-v2-r8-pr10', '7c6281396beb5ff1f4cfbc78c7d31d0d37ceb471a2a5b5b7e7916d511b8a79d3'],
   ['docs/qa/tierb-reliability/prepared.packet.json', 'posture-ai-tierb-prepared-packet-v1-pr10', 'a2805a4618628f8230f4f836f8c0813706e0f070a191d82ed8a0324a1a631d13'],
