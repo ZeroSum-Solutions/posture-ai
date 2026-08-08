@@ -139,6 +139,7 @@ class MutableOrientation extends EventTarget {
 }
 
 const originalMediaDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+const originalPermissions = Object.getOwnPropertyDescriptor(navigator, 'permissions')
 const originalWakeLock = Object.getOwnPropertyDescriptor(navigator, 'wakeLock')
 const originalOrientation = Object.getOwnPropertyDescriptor(window.screen, 'orientation')
 const originalVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState')
@@ -225,6 +226,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   restoreDescriptor(navigator, 'mediaDevices', originalMediaDevices)
+  restoreDescriptor(navigator, 'permissions', originalPermissions)
   restoreDescriptor(navigator, 'wakeLock', originalWakeLock)
   restoreDescriptor(window.screen, 'orientation', originalOrientation)
   restoreDescriptor(document, 'visibilityState', originalVisibility)
@@ -258,6 +260,25 @@ async function setVisibility(next: DocumentVisibilityState) {
 }
 
 describe('FullScreenCapture device lifecycle', () => {
+  it('does not reacquire the camera when a permission preflight resolves while hidden', async () => {
+    const permission = deferred<PermissionStatus>()
+    const query = vi.fn().mockReturnValue(permission.promise)
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query } })
+
+    render(<CaptureHarness />)
+    fireEvent.click(screen.getByTestId('capture-disclaimer-dismiss'))
+    expect(query).toHaveBeenCalledOnce()
+    expect(getUserMedia).not.toHaveBeenCalled()
+
+    await setVisibility('hidden')
+    await act(async () => {
+      permission.resolve({ state: 'granted' } as PermissionStatus)
+      await permission.promise
+    })
+
+    expect(getUserMedia).not.toHaveBeenCalled()
+  })
+
   it('updates portrait guidance after rotation without restarting the stream or losing the selected view', async () => {
     await mountLive()
     fireEvent.click(screen.getByRole('button', { name: 'Left Side (required), pending' }))

@@ -60,9 +60,11 @@ export async function GET(
   const includeFindings = includeFindingsParam.value
   const approvedOnly = approvedOnlyParam.value
   const beforeAt = beforeAtParam.value
-  const boundedRequest = req.nextUrl.searchParams.has('limit')
-  if (!boundedRequest && req.nextUrl.searchParams.has('cursor')) {
-    return NextResponse.json({ error: 'A cursor requires an explicit limit' }, { status: 400, headers: NO_STORE })
+  // Retire the no-limit compatibility read. A server-capped PostgREST response
+  // cannot honestly represent a complete history, so every caller must use the
+  // existing snapshot-bound keyset contract.
+  if (!req.nextUrl.searchParams.has('limit')) {
+    return NextResponse.json({ error: 'An explicit limit is required' }, { status: 400, headers: NO_STORE })
   }
   const filterKey = clientAssessmentHistoryFilterKey({
     clientId,
@@ -71,17 +73,15 @@ export async function GET(
     approvedOnly,
     beforeAt,
   })
-  const parsedPage = boundedRequest
-    ? parseKeysetPageRequest(req.nextUrl.searchParams, {
-        scope: CLIENT_ASSESSMENT_LIST_SCOPE,
-        filterKey,
-        isValidId: isCanonicalUuid,
-      })
-    : null
-  if (parsedPage && !parsedPage.ok) {
+  const parsedPage = parseKeysetPageRequest(req.nextUrl.searchParams, {
+    scope: CLIENT_ASSESSMENT_LIST_SCOPE,
+    filterKey,
+    isValidId: isCanonicalUuid,
+  })
+  if (!parsedPage.ok) {
     return NextResponse.json({ error: parsedPage.error }, { status: 400, headers: NO_STORE })
   }
-  let page = parsedPage?.ok ? parsedPage.value : null
+  let page = parsedPage.value
 
   // Verify client belongs to this practitioner
   const { data: client, error: clientError } = await supabase
@@ -107,7 +107,7 @@ export async function GET(
     return NextResponse.json({ error: 'Client not found' }, { status: 404, headers: NO_STORE })
   }
 
-  if (page && !page.after) {
+  if (!page.after) {
     const { data: preciseSnapshot, error: snapshotError } = await supabase.rpc('current_keyset_snapshot')
     if (snapshotError || typeof preciseSnapshot !== 'string') {
       logEvent({
@@ -134,7 +134,7 @@ export async function GET(
       return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
     }
   }
-  if (page && !page.snapshotAt) {
+  if (!page.snapshotAt) {
     logEvent({
       route: 'GET /api/clients/[id]/assessments',
       outcome: 'server_error',
@@ -145,9 +145,7 @@ export async function GET(
     })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
   }
-  const boundedPage = page?.snapshotAt
-    ? { ...page, snapshotAt: page.snapshotAt }
-    : null
+  const boundedPage = { ...page, snapshotAt: page.snapshotAt }
 
   let query = supabase
     .from('assessments')
@@ -169,25 +167,17 @@ export async function GET(
   if (beforeAt) {
     query = query.lt('assessed_at', beforeAt)
   }
-  if (boundedPage?.after) {
+  if (boundedPage.after) {
     query = query.or(
       `assessed_at.lt.${boundedPage.after.at},and(assessed_at.eq.${boundedPage.after.at},id.lt.${boundedPage.after.id})`,
     )
   }
 
-  // One-version compatibility window: callers deployed before PR-09 omit
-  // `limit` and still receive the complete oldest-to-newest history. Every
-  // current caller opts into the bounded contract. Remove this branch after
-  // one deployed app version, following docs/qa/pr09-performance-runbook.md.
-  query = boundedPage
-    ? query
-        .order('assessed_at', { ascending: false })
-        .order('id', { ascending: false })
-        .lte('assessed_at', boundedPage.snapshotAt)
-        .limit(boundedPage.limit + 1)
-    : query
-        .order('assessed_at', { ascending: true })
-        .order('id', { ascending: true })
+  query = query
+    .order('assessed_at', { ascending: false })
+    .order('id', { ascending: false })
+    .lte('assessed_at', boundedPage.snapshotAt)
+    .limit(boundedPage.limit + 1)
 
   const { data: assessments, error } = await query
   if (error) {
@@ -205,10 +195,6 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
   }
 
-  if (!boundedPage) {
-    return NextResponse.json({ assessments: assessments ?? [] }, { headers: NO_STORE })
-  }
-
   const result = finalizeKeysetPage((assessments ?? []) as unknown as Array<{ id: string; assessed_at: string }>, {
     scope: CLIENT_ASSESSMENT_LIST_SCOPE,
     filterKey,
@@ -216,9 +202,8 @@ export async function GET(
     limit: boundedPage.limit,
     key: (assessment) => ({ at: canonicalizeKeysetTimestamp(assessment.assessed_at), id: assessment.id }),
   })
-  // Preserve the prior endpoint's oldest-to-newest response ordering for one
-  // deployed client version. The keyset cursor still advances over the bounded
-  // newest-first database page; current consumers normalize all loaded pages.
+  // Preserve oldest-to-newest ordering within each response page. The keyset
+  // cursor still advances over the bounded newest-first database page.
   const compatibilityOrderedRecords = [...result.records].reverse()
   return NextResponse.json(
     { assessments: compatibilityOrderedRecords, pagination: result.pagination },

@@ -66,24 +66,13 @@ describe('GET /api/clients pagination', () => {
     fromSpy.mockReturnValue(legacyQuery)
   })
 
-  it('keeps parameterless legacy requests complete with the prior response shape for one version', async () => {
-    legacyQueryResult = {
-      data: Array.from({ length: 75 }, (_, index) => ({
-        ...client(index),
-        sex_at_birth: 'other',
-        height_cm: 170,
-        weight_kg: 70,
-        notes: `Legacy note ${index}`,
-      })),
-      error: null,
-    }
+  it('rejects parameterless legacy requests before an unbounded directory read', async () => {
     const response = await get()
     const body = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(body.clients).toHaveLength(75)
-    expect(body.pagination).toBeUndefined()
-    expect(body.clients[0]).toMatchObject({ sex_at_birth: 'other', notes: 'Legacy note 0' })
+    expect(response.status).toBe(400)
+    expect(body).toEqual({ error: 'An explicit limit is required' })
+    expect(fromSpy).not.toHaveBeenCalled()
     expect(rpcSpy).not.toHaveBeenCalled()
   })
 

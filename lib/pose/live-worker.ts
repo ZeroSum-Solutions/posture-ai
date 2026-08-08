@@ -9,6 +9,17 @@ import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { WASM_URL, LITE_MODEL_URL, assertPoseOnlyModel, mapLandmarks } from './pose-model'
 import { admitFrame, type FrameGateState } from './live-frame-gate'
 import { settleBeforeDeadline } from './async-deadline'
+import { installImportScriptsFallback } from './import-scripts-fallback'
+
+// Must run before any call that can reach the vendored @mediapipe/tasks-vision
+// wasm-glue loader — that's createLandmarker() below, invoked from init() in
+// response to the worker's 'init' message. Module evaluation of this whole
+// file (everything above and below this line) always finishes, top to
+// bottom, before the 'message' listener registered further down can be
+// invoked, so placing this right after the imports is sufficient. See
+// import-scripts-fallback.ts for exactly which upstream call this guards
+// against and why it is safe.
+installImportScriptsFallback()
 
 // Structural view of the DedicatedWorkerGlobalScope (the project's tsconfig lib
 // omits "webworker", so we avoid its global types).
@@ -43,13 +54,26 @@ function createLandmarker(
     DELEGATE_INIT_TIMEOUT_MS,
     late => { try { late.close() } catch { /* lifecycle already moved on */ } },
     `${delegate} live pose-model initialization timed out.`,
-  )
+  ).then(nextLandmarker => {
+    if (
+      !nextLandmarker
+      || typeof nextLandmarker.detectForVideo !== 'function'
+      || typeof nextLandmarker.close !== 'function'
+    ) {
+      try { nextLandmarker?.close?.() } catch { /* invalid instance is discarded */ }
+      throw new Error(`${delegate} live pose-model initialization returned an invalid landmarker.`)
+    }
+    return nextLandmarker
+  })
 }
 
 async function init(preferCpu = false) {
   ctx.postMessage({ type: 'phase', phase: 'downloading', message: 'Downloading live pose runtime.' })
   try {
     assertPoseOnlyModel(LITE_MODEL_URL)
+    // Keep the classic fileset for Chromium, where MediaPipe loads it through
+    // importScripts. The WebKit-only compatibility hook installed above maps
+    // this loader to its module-shaped sibling after importScripts rejects.
     const vision = await FilesetResolver.forVisionTasks(WASM_URL)
     if (preferCpu) {
       ctx.postMessage({ type: 'phase', phase: 'initializing', delegate: 'cpu', message: 'Recovering live pose tracking on CPU.' })

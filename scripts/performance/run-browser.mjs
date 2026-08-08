@@ -573,7 +573,7 @@ function journeyDefinitions(fixture) {
       traceId: 'client_history_progress_compare_tabs',
       // The redesign removed the Progress TAB. The score history is no longer
       // gated behind a tab at all -- TrendChart renders above the tab strip and
-      // reveals its score table from a "Recorded scores" <details>. The tabs are
+      // reveals its score table from a "Recorded scores" button. The tabs are
       // now Findings / Compare / Details.
       //
       // The step keeps its id. docs/qa/performance-budgets.json is frozen under
@@ -584,10 +584,10 @@ function journeyDefinitions(fixture) {
       // exists, it is a disclosure now rather than a tab. Driving the real
       // control keeps the budget measuring the thing it was calibrated on.
       // Re-baselining the id belongs with the perf release process.
-      ready: (page) => page.locator('summary', { hasText: 'Recorded scores' }).waitFor({ state: 'visible' }),
+      ready: (page) => page.getByRole('button', { name: 'Recorded scores', exact: true }).waitFor({ state: 'visible' }),
       run: async (page, entries) => {
         const steps = []
-        const progress = page.locator('summary', { hasText: 'Recorded scores' })
+        const progress = page.getByRole('button', { name: 'Recorded scores', exact: true })
         steps.push(await measuredInteraction(page, entries, 'activate_progress_tab', () => progress.click(), () => page.locator('#client-score-table').waitFor()))
         const compare = page.getByRole('tab', { name: 'Compare', exact: true })
         steps.push(await measuredInteraction(page, entries, 'activate_compare_tab', () => compare.click(), () => page.getByLabel('Before (baseline)').waitFor()))

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -98,7 +99,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Logo must be 2 MB or smaller.' }, { status: 413 })
   }
 
-  const path = `${user.id}/logo.${ext}`
+  // Read the previous pointer before creating a new object. A unique path keeps
+  // the currently referenced logo intact until the metadata write succeeds;
+  // overwriting `${user.id}/logo.ext` first made that update impossible to roll
+  // back safely.
+  const { data: currentPractitioner, error: currentPathError } = await supabase
+    .from('practitioners')
+    .select('logo_storage_path')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (currentPathError || !currentPractitioner) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_load_failed' })
+    return NextResponse.json({ error: 'Failed to upload logo.' }, { status: 500 })
+  }
+
+  const path = `${user.id}/logo-${randomUUID()}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
@@ -118,15 +133,75 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to upload logo.' }, { status: 500 })
   }
 
-  // Update practitioners table with logo path — checked: an unchecked failure
-  // here means the logo "uploads" but vanishes on the next page load.
-  const { error: pathErr } = await supabase
+  // Compare-and-swap the pointer from the value read before upload. Without the
+  // old-value predicate, two requests can both report success while the later
+  // write strands the earlier request's unique object.
+  let pointerUpdate = supabase
     .from('practitioners')
     .update({ logo_storage_path: path, updated_at: new Date().toISOString() })
     .eq('id', user.id)
-  if (pathErr) {
-    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_save_failed' })
-    return NextResponse.json({ error: 'Failed to save logo.' }, { status: 500 })
+  pointerUpdate = currentPractitioner.logo_storage_path === null
+    ? pointerUpdate.is('logo_storage_path', null)
+    : pointerUpdate.eq('logo_storage_path', currentPractitioner.logo_storage_path)
+  const { data: savedPointer, error: pathErr } = await pointerUpdate
+    .select('logo_storage_path')
+    .maybeSingle()
+
+  const removeUploadedObject = async () => {
+    const { error: cleanupError } = await serviceClient.storage
+      .from('practitioner-assets')
+      .remove([path])
+    if (cleanupError) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_rollback_failed' })
+      return false
+    }
+    return true
+  }
+
+  // A clean no-row result is a lost CAS: the uploaded object was never
+  // referenced and can be compensated immediately.
+  if (!pathErr && !savedPointer) {
+    const removed = await removeUploadedObject()
+    return NextResponse.json(
+      { error: removed ? 'Logo changed during upload. Try again.' : 'Failed to save logo.' },
+      { status: removed ? 409 : 500 },
+    )
+  }
+
+  // Re-read after the write. This resolves ambiguous write responses and also
+  // detects a later successful replacement before this request returns.
+  const { data: currentPointer, error: reconcileError } = await supabase
+    .from('practitioners')
+    .select('logo_storage_path')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (reconcileError || !currentPointer) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_reconcile_failed' })
+    return NextResponse.json({ error: 'Failed to verify saved logo.' }, { status: 500 })
+  }
+  if (currentPointer.logo_storage_path !== path) {
+    const removed = await removeUploadedObject()
+    if (pathErr) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_save_failed' })
+    }
+    return NextResponse.json(
+      { error: removed && !pathErr ? 'Logo changed during upload. Try again.' : 'Failed to save logo.' },
+      { status: removed && !pathErr ? 409 : 500 },
+    )
+  }
+
+  // Once the new pointer is durable, the previous practitioner-owned object is
+  // no longer reachable. Its cleanup is best-effort because deleting it must not
+  // roll back a successful replacement, and a corrupt cross-tenant path must
+  // never be honored by the service-role client.
+  const previousPath = currentPractitioner.logo_storage_path
+  if (previousPath && previousPath !== path && previousPath.startsWith(`${user.id}/`)) {
+    const { error: cleanupError } = await serviceClient.storage
+      .from('practitioner-assets')
+      .remove([previousPath])
+    if (cleanupError) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'previous_logo_cleanup_failed' })
+    }
   }
 
   // Return signed URL

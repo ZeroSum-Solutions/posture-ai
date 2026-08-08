@@ -48,7 +48,7 @@ test.describe('assessment wizard navigation', () => {
     // No assessment was created for the client we abandoned on. Assert via the
     // wizard's own data API (deterministic; avoids a webkit client-side getUser
     // race when chaining /clients -> /clients/[id] navigations).
-    const res = await page.request.get(`/api/clients/${client.id}/assessments`)
+    const res = await page.request.get(`/api/clients/${client.id}/assessments?limit=50`)
     expect(res.ok(), `assessments fetch failed: ${res.status()}`).toBeTruthy()
     const json = await res.json()
     expect(json.assessments ?? []).toHaveLength(0)

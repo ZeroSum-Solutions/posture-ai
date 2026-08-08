@@ -348,8 +348,11 @@ export async function POST(req: NextRequest) {
     .single()
 
   // Extract client info
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const clientsData = (assessment as any).clients
+  const clientsData = (assessment as unknown as {
+    clients: { first_name: string | null; last_name: string | null }
+      | { first_name: string | null; last_name: string | null }[]
+      | null
+  }).clients
   const clientFirst = Array.isArray(clientsData) ? clientsData[0]?.first_name : clientsData?.first_name
   const clientLast = Array.isArray(clientsData) ? clientsData[0]?.last_name : clientsData?.last_name
 

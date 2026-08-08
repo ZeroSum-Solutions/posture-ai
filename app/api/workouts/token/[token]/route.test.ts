@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 const state = vi.hoisted(() => ({
   rpc: vi.fn(),
   insert: vi.fn(),
+  strictRateLimit: vi.fn(),
   clinicalEnabled: true,
 }))
 
@@ -13,7 +14,10 @@ vi.mock('@/lib/supabase/server', () => ({
     from: () => ({ insert: state.insert }),
   }),
 }))
-vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
+vi.mock('@/lib/rate-limit', () => ({
+  enforceRateLimit: async () => true,
+  enforceRateLimitStrict: state.strictRateLimit,
+}))
 vi.mock('@/lib/log', () => ({ hashIp: () => 'f'.repeat(64), logEvent: vi.fn() }))
 vi.mock('@/lib/workout/token', () => ({ hashShareToken: () => 'a'.repeat(64) }))
 vi.mock('@/lib/workout/tokenProjection', () => ({
@@ -45,7 +49,18 @@ describe('GET /api/workouts/token/[token]', () => {
   beforeEach(() => {
     state.rpc.mockReset().mockResolvedValue({ data: [resolved], error: null })
     state.insert.mockReset().mockResolvedValue({ error: null })
+    state.strictRateLimit.mockReset().mockResolvedValue(true)
     state.clinicalEnabled = true
+  })
+
+  test('fails closed when the public-token limiter is unavailable', async () => {
+    state.strictRateLimit.mockResolvedValueOnce(false)
+
+    const response = await invoke()
+
+    expect(response.status).toBe(429)
+    expect(state.strictRateLimit).toHaveBeenCalledOnce()
+    expect(state.rpc).not.toHaveBeenCalled()
   })
 
   test('denies a direct historical token request while assessment-only', async () => {

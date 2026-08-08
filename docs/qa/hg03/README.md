@@ -7,18 +7,16 @@ Codex, and other software reviewers cannot satisfy HG-03.
 
 - Inventory: `content/clinical-content-inventory.json`
 - Inventory SHA-256:
-  `d5ed7b8a26c908a03848d69f91ba083263ea9569740d797e5e3b9d6cc8d4a176`
+  `74b1bd594fb5162a7e0a36ef9b04dd63e19ec3838d3b53baa98da527568329f4`
 - Recommendation-algorithm item SHA-256:
-  `12d75aaa6f2ba0717693e4ff5b513b08dc00ed3e375c6471ff376e6bd2f92b71`
+  `bd496a9e79ee170bcec9a1ce8ff4b02a4eb1b955f246a2360d5e7084c1ca232e`
 - Item count: 281
-- Source branch: `codex/ui-screening-results-loop`
-- Draft PR: <https://github.com/wiggdevin/posture-ai/pull/139>
+- Source branch: `codex/tighten-posture-ai`
 
-Compared with the prior generated inventory, the item count and 280 catalog-item
-hashes are unchanged. The only changed item is
-`algorithm:recommendation-engine`, because the governed browser rendering path now
-uses grade-first results and separate Summary, Findings, Program, Exercises, and
-Evidence tabs. This hash change does not itself approve clinical content.
+Compared with the prior worksheet, the item count and 280 catalog-item hashes are
+unchanged. The only changed row is `algorithm:recommendation-engine`, reflecting
+changes within its governed source-file set. This hash change does not itself
+approve clinical content.
 
 ## UI evidence
 

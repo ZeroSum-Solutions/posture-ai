@@ -71,9 +71,10 @@ is exactly how the assessment-detail / report routes silently broke once).
    ```
 4. Note: the cloud ledger stamps its own version numbers; keep names matching
    the local files so the chains stay reconcilable.
-5. Verify: `GET /api/health` returns `"schema":"ready"`. It probes representative
+5. Verify: `GET /api/health` returns HTTP 200 with `"schema":"ready"`. It probes representative
    later-migration **tables and columns**, so a skipped *schema* migration (a new
-   table or column) shows `"pending_migration"`. Data-only migrations (row
+   table or column) returns HTTP 503 with `"pending_migration"`; deployment health
+   checks must treat that response as non-ready. Data-only migrations (row
    inserts/updates) aren't fully covered by the probe — CI's `supabase db reset`
    (the full chain) and the startup seed-count log are the backstop for those.
 

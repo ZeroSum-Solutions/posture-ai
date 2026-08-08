@@ -11,12 +11,12 @@
   },
   "source_contracts": [
     {
-      "id": "posture-ai-production-readiness-audit-2026-07-24-pr10",
+      "id": "posture-ai-deep-audit-2026-08-07",
       "path": "docs/qa/AUDIT.md",
       "anchor": "production-readiness-re-audit--2026-07-19",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "c19e929124988636c2471bc2cfcfb64a6a812b00a853868624fb57bb43feb899"
+      "sha256": "1013e7706094571a0106b90f6f221a068313c6719c5ced188480e74d53299d0d"
     },
     {
       "id": "posture-ai-production-readiness-spec-v2-2026-07-24-pr10",

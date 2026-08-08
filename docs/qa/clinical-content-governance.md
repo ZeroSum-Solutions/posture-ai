@@ -18,22 +18,18 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`fa5a29696e519b27dced7316c8939d3229068fe7171385a5412e3a2f01946410`.
+`74b1bd594fb5162a7e0a36ef9b04dd63e19ec3838d3b53baa98da527568329f4`.
 
 Recommendation algorithm SHA-256:
-`b142f1b7944991190a207a8ae5a1b2598b43bd2a7579a9a615226fe12d098394`.
+`bd496a9e79ee170bcec9a1ce8ff4b02a4eb1b955f246a2360d5e7084c1ca232e`.
 
-PR-09 regenerated this hash because the governed source list deliberately includes
-`ClinicalAssessmentResults.tsx` and the shared `loadAssessmentResults.ts` projection
-loader. The same review closed a pre-existing coverage gap by explicitly hashing the
-measurement modules imported by the engine entry point, the complete-surface predicate,
-and the assessment-override write helpers. A final precision correction also preserves
-PostgreSQL microseconds when deciding whether one assessment is strictly earlier than
-another. The runtime changes release the
-already-authoritative primary review before optional comparison history arrives and
-centralize the existing authenticated API projection; they do not alter measured
-findings, scoring, recommendation inputs, clinical copy, or release eligibility. The
-hash change still invalidates any prior approval and does not itself approve content.
+This inventory was regenerated for the workout-run persistence fix. The governed
+run route now uses a revision compare-and-swap, so an older concurrent request cannot
+overwrite newer progress. The authenticated player adapter serializes requests,
+retries failed saves three times, and shows an unsaved-progress alert with a manual
+retry action. These changes do not alter measured findings, scoring, recommendation
+inputs, clinical copy, or release eligibility. The hash change still invalidates any
+prior approval and does not itself approve content.
 
 The algorithm item hashes dosage, prioritization, relationship coherence,
 evidence weighting, program construction, server projection, exercise matching,

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { safeNextPath } from '@/lib/auth/safe-next'
+import { completionMessage, groupSecret } from './mfa-format'
 
 type Phase = 'loading' | 'enroll' | 'challenge' | 'error'
 
@@ -18,35 +19,6 @@ type CompletionBody = {
   ok?: boolean
   code?: string
   error?: string
-}
-
-export function completionMessage(code: string | undefined, fallback?: string): string {
-  switch (code) {
-    case 'expired':
-      return 'This invitation has expired. Request a replacement invitation.'
-    case 'revoked':
-      return 'Practitioner access has been revoked. Contact your beta administrator.'
-    case 'not_invited':
-    case 'email_mismatch':
-      return 'This account does not match an active practitioner invitation.'
-    case 'recovery_not_authorized':
-      return 'MFA recovery has not been authorized. Contact your beta administrator before trying again.'
-    case 'mfa_required':
-      return 'The server did not receive the new MFA session. Verify again or reload this page.'
-    case 'unauthorized':
-      return 'Your secure session has expired. Open the invitation or sign in again.'
-    default:
-      return fallback || 'Could not activate practitioner access. Please try again.'
-  }
-}
-
-/**
- * TOTP secrets are base32; authenticator apps accept them with or without
- * spaces. Grouping makes a 32-character key possible to type by hand without
- * losing your place. The clipboard always gets the unspaced original.
- */
-export function groupSecret(secret: string): string {
-  return secret.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
 }
 
 export default function MfaPage() {
@@ -287,7 +259,7 @@ export default function MfaPage() {
                   <p
                     className="n"
                     style={{
-                      margin: 0, padding: '10px 12px', borderRadius: 10,
+                      margin: 0, padding: '10px 12px', borderRadius: 12,
                       background: 'var(--surface-glass)', border: '1px solid var(--hairline)',
                       color: 'var(--text-primary)', fontSize: 15, letterSpacing: '0.08em',
                       wordBreak: 'break-all', userSelect: 'all',
@@ -352,6 +324,12 @@ export default function MfaPage() {
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="000000"
+              // The page exists to collect this one value, and the code expires
+              // on a 30s window, so the caret starts here rather than making a
+              // keyboard or screen-reader user tab to the only field present.
+              autoFocus
+              // 7, not 6: authenticators show "123 456" and handleVerify strips
+              // whitespace before validating. See page.test.tsx.
               maxLength={7}
               style={{ letterSpacing: '0.16em' }}
             />

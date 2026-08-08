@@ -110,7 +110,10 @@ body {
 
 /* ── Screen scaffold ───────────────────────────────────────────────────── */
 
-.app-screen { width: min(430px, 100%); margin: 0 auto; padding-bottom: var(--island-clearance); }
+/* The inset is not optional: the island is positioned at 12px + safe-area, so a
+   flat clearance leaves the last row under it by exactly the home-indicator
+   height. `.app-screen--bar` and `.app-footer` already add it. */
+.app-screen { width: min(430px, 100%); margin: 0 auto; padding-bottom: calc(var(--island-clearance) + env(safe-area-inset-bottom)); }
 .app-screen--bar { padding-bottom: calc(var(--bar-clearance) + env(safe-area-inset-bottom)); }
 .app-screen-x { padding-inline: 16px; }
 .app-prose-x { padding-inline: 24px; }

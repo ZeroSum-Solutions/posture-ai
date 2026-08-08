@@ -4,6 +4,7 @@ import { classifyAuthPath } from '@/lib/auth/public-paths'
 import { practitionerLegalAcceptanceStatus } from '@/lib/auth/requirePractitioner'
 import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
 import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { buildApplicationCsp } from '@/lib/security/csp'
 
 type CookieToSet = {
   name: string
@@ -63,7 +64,28 @@ function jsonWithAuthCookies(
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
-  let supabaseResponse = NextResponse.next({ request })
+  const isMuscleViewer = pathname === '/muscle-viewer' || pathname.startsWith('/muscle-viewer/')
+  const nonce = crypto.randomUUID()
+  const applicationCsp = isMuscleViewer
+    ? null
+    : buildApplicationCsp({
+        nonce,
+        nodeEnv: process.env.NODE_ENV,
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      })
+  const withApplicationCsp = (response: NextResponse): NextResponse => {
+    if (applicationCsp) response.headers.set('Content-Security-Policy', applicationCsp)
+    return response
+  }
+  const nextApplicationResponse = (): NextResponse => {
+    const requestHeaders = new Headers(request.headers)
+    if (applicationCsp) {
+      requestHeaders.set('Content-Security-Policy', applicationCsp)
+      requestHeaders.set('x-nonce', nonce)
+    }
+    return withApplicationCsp(NextResponse.next({ request: { headers: requestHeaders } }))
+  }
+  let supabaseResponse = nextApplicationResponse()
   const refreshedCookies: CookieToSet[] = []
 
   const supabase = createServerClient(
@@ -81,7 +103,7 @@ export async function proxy(request: NextRequest) {
           }
           // Recreate the pass-through response with the refreshed request cookies
           // and then mirror them to the browser response below.
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = nextApplicationResponse()
           applyAuthCookies(supabaseResponse, refreshedCookies)
         },
       },
@@ -89,16 +111,16 @@ export async function proxy(request: NextRequest) {
   )
 
   const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
-  if (pathname === '/muscle-viewer' || pathname.startsWith('/muscle-viewer/')) {
+  if (isMuscleViewer) {
     if (!clinicalAccess.surfaces.knowledgeLinks) {
-      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+      return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
     }
     // The anatomy viewer is practitioner-only. Continue through normal auth,
     // MFA, admission, and legal gates after both release authorities agree.
   }
   if (pathname.startsWith('/audio/workout-coach-river/')) {
     if (!clinicalAccess.surfaces.workouts) {
-      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+      return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
     }
     // Token-bound workout players are public, so their reviewed audio remains
     // public too. The exact source + database release tuple still gates access.
@@ -106,7 +128,7 @@ export async function proxy(request: NextRequest) {
   }
   if (pathname === '/demos' || pathname.startsWith('/demos/')) {
     if (!clinicalAccess.surfaces.recommendations) {
-      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } })
+      return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
     }
     // Exercise demonstrations are practitioner-only until a future token-bound
     // media projection exists for public workout shares.
@@ -121,18 +143,18 @@ export async function proxy(request: NextRequest) {
 
   if (userError || !user) {
     if (isApiPath(pathname)) {
-      return jsonWithAuthCookies(
+      return withApplicationCsp(jsonWithAuthCookies(
         { error: 'Unauthorized', code: 'unauthorized' },
         401,
         refreshedCookies,
-      )
+      ))
     }
-    return redirectWithAuthCookies(
+    return withApplicationCsp(redirectWithAuthCookies(
       request,
       '/auth/sign-in',
       refreshedCookies,
       { next: requestedPath(request) },
-    )
+    ))
   }
 
   // The narrow setup/recovery corridor is intentionally available to an
@@ -144,18 +166,18 @@ export async function proxy(request: NextRequest) {
     await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   if (assuranceError || assurance?.currentLevel !== 'aal2') {
     if (isApiPath(pathname)) {
-      return jsonWithAuthCookies(
+      return withApplicationCsp(jsonWithAuthCookies(
         { error: 'Multi-factor authentication is required.', code: 'mfa_required' },
         403,
         refreshedCookies,
-      )
+      ))
     }
-    return redirectWithAuthCookies(
+    return withApplicationCsp(redirectWithAuthCookies(
       request,
       '/auth/mfa',
       refreshedCookies,
       { next: requestedPath(request) },
-    )
+    ))
   }
 
   // The normal practitioners policy hides invited/recovery/revoked rows by
@@ -184,24 +206,24 @@ export async function proxy(request: NextRequest) {
     }
 
     if (isApiPath(pathname)) {
-      return jsonWithAuthCookies(
+      return withApplicationCsp(jsonWithAuthCookies(
         { error: 'Practitioner access required.', code: 'practitioner_access_required' },
         403,
         refreshedCookies,
-      )
+      ))
     }
 
     if (!practitionerError && mayCompleteAdmission) {
       // An AAL2 invite/recovery session may still need its atomic activation RPC.
-      return redirectWithAuthCookies(
+      return withApplicationCsp(redirectWithAuthCookies(
         request,
         '/auth/mfa',
         refreshedCookies,
         { next: requestedPath(request) },
-      )
+      ))
     }
 
-    return redirectWithAuthCookies(
+    return withApplicationCsp(redirectWithAuthCookies(
       request,
       '/auth/sign-in',
       refreshedCookies,
@@ -216,7 +238,7 @@ export async function proxy(request: NextRequest) {
               ? 'access_unavailable'
               : 'access_denied',
       },
-    )
+    ))
   }
 
   // This is the only protected corridor before governed acceptance. The API
@@ -226,29 +248,29 @@ export async function proxy(request: NextRequest) {
   const legalStatus = await practitionerLegalAcceptanceStatus(supabase, user.id)
   if (legalStatus === 'unavailable') {
     if (isApiPath(pathname)) {
-      return jsonWithAuthCookies(
+      return withApplicationCsp(jsonWithAuthCookies(
         { error: 'Legal documents are temporarily unavailable.', code: 'legal_unavailable' },
         503,
         refreshedCookies,
-      )
+      ))
     }
-    return redirectWithAuthCookies(
+    return withApplicationCsp(redirectWithAuthCookies(
       request,
       '/onboarding',
       refreshedCookies,
       { reason: 'legal_unavailable' },
-    )
+    ))
   }
 
   if (legalStatus === 'required') {
     if (isApiPath(pathname)) {
-      return jsonWithAuthCookies(
+      return withApplicationCsp(jsonWithAuthCookies(
         { error: 'Legal acceptance required.', code: 'legal_acceptance_required' },
         403,
         refreshedCookies,
-      )
+      ))
     }
-    return redirectWithAuthCookies(request, '/onboarding', refreshedCookies)
+    return withApplicationCsp(redirectWithAuthCookies(request, '/onboarding', refreshedCookies))
   }
 
   return supabaseResponse

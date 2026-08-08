@@ -6,27 +6,10 @@ const nextConfig: NextConfig = {
   // dev chunks/HMR as cross-origin and pages never hydrate (dev-only setting).
   allowedDevOrigins: ['127.0.0.1'],
   async headers() {
-    const supabaseOrigin = (() => {
-      try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').origin } catch { return '' }
-    })()
-    const supabaseWs = supabaseOrigin.replace(/^http/, 'ws')
-    const csp = [
-      "default-src 'self'",
-      // unsafe-inline/unsafe-eval: Next.js hydration + dev runtime; wasm-unsafe-eval: MediaPipe
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob: ${supabaseOrigin}`.trim(),
-      `media-src 'self' blob: ${supabaseOrigin}`.trim(),
-      "worker-src 'self' blob:",
-      "font-src 'self' data:",
-      `connect-src 'self' ${supabaseOrigin} ${supabaseWs}`.trim(),
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; ')
     // Self-contained CSP for the embedded muscle-viewer (public/muscle-viewer/**). It must
-    // NOT inherit the global CSP, whose `frame-ancestors 'none'` would blank the same-origin
-    // iframe on the results page. Vite emits external module scripts only (no inline, no eval).
+    // NOT inherit the application's nonce CSP from proxy.ts, whose
+    // `frame-ancestors 'none'` would blank the same-origin iframe on the results page.
+    // Vite emits external module scripts only (no inline, no eval).
     const viewerCsp = [
       "default-src 'self'",
       "script-src 'self' 'wasm-unsafe-eval'",
@@ -73,13 +56,12 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }],
       },
       {
-        // Everything EXCEPT the viewer sub-app. Non-overlapping with the block above so the
-        // viewer's `frame-ancestors 'self'` can never be overwritten by a header-merge reorder.
+        // Everything EXCEPT the viewer sub-app. The application's per-request CSP is added
+        // by proxy.ts; these static headers remain safe to configure globally.
         // Segment-anchored ((?:/|$)) so a phantom path like /muscle-viewerX is NOT excluded and
         // still receives the global security headers.
         source: '/((?!muscle-viewer(?:/|$)).*)',
         headers: [
-          { key: 'Content-Security-Policy', value: csp },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },

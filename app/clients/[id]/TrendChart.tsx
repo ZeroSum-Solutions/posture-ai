@@ -1,8 +1,79 @@
+'use client'
+import { startTransition, useEffect, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone, ring } from '@/components/array/severity'
 import { buildTrendChart, CHART_VIEWBOX, type TrendInputPoint } from './trendModel'
 import styles from './ClientDetail.module.css'
+
+const DEFERRED_SCORE_TABLE_MOUNT_MS = 300
+
+function RecordedScoreDisclosure({
+  history,
+  tableId,
+}: {
+  history: readonly TrendInputPoint[]
+  tableId: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isTableMounted, setIsTableMounted] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen || isTableMounted) return
+    // Let the disclosure paint first, then retain the table so later closes and
+    // reopens do no additional mount work.
+    const timer = window.setTimeout(() => {
+      startTransition(() => setIsTableMounted(true))
+    }, DEFERRED_SCORE_TABLE_MOUNT_MS)
+    return () => window.clearTimeout(timer)
+  }, [isOpen, isTableMounted])
+
+  return (
+    <div className={styles.dataDetails} data-open={isOpen}>
+      <button
+        type="button"
+        className={styles.dataSummary}
+        aria-label="Recorded scores"
+        aria-expanded={isOpen}
+        aria-controls={`${tableId}-panel`}
+        onClick={() => setIsOpen(open => !open)}
+      >
+        Recorded scores
+      </button>
+      <div id={`${tableId}-panel`} hidden={!isOpen}>
+        {isTableMounted ? (
+          <table className={styles.dataTable} id={tableId}>
+            <caption className="sr-only">
+              Every recorded screening score for this client, with its grade and scoring version.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Grade</th>
+                <th scope="col">Score</th>
+                <th scope="col">Scoring version</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...history].reverse().map(point => (
+                <tr key={point.id}>
+                  <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
+                    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+                  })}</td>
+                  <td>{point.grade ?? '—'}</td>
+                  <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
+                  <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : isOpen ? (
+          <p className={styles.loadingPanel} role="status">Preparing recorded scores…</p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
 
 /**
  * The deviation-score trend, drawn by hand.
@@ -186,34 +257,7 @@ export default function TrendChart({
 
       <p className={styles.trendFootnote}>{model.footnote}</p>
 
-      <details className={styles.dataDetails}>
-        <summary className={styles.dataSummary}>Recorded scores</summary>
-        <table className={styles.dataTable} id={tableId}>
-          <caption className="sr-only">
-            Every recorded screening score for this client, with its grade and scoring version.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Grade</th>
-              <th scope="col">Score</th>
-              <th scope="col">Scoring version</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...history].reverse().map(point => (
-              <tr key={point.id}>
-                <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-                })}</td>
-                <td>{point.grade ?? '—'}</td>
-                <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
-                <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
+      <RecordedScoreDisclosure history={history} tableId={tableId} />
     </Surface>
   )
 }
