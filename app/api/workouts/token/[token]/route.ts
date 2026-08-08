@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceRateLimitStrict } from '@/lib/rate-limit'
 import { logEvent, hashIp } from '@/lib/log'
 import { hashShareToken } from '@/lib/workout/token'
 import { redactSessionForPublic, type ResolvedSession } from '@/lib/workout/tokenProjection'
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   // is the fallback — see hashIp.
   const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
 
-  const allowed = await enforceRateLimit(service, { route: 'workouts_token', userId: ipHash ?? 'anon', limit: 30, windowSeconds: 60 })
+  const allowed = await enforceRateLimitStrict(service, { route: 'workouts_token', userId: ipHash ?? 'anon', limit: 30, windowSeconds: 60 })
   if (!allowed) {
     logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429 })
     return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429, headers: NO_STORE })

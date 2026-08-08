@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 const token = 'a-long-enough-public-workout-token'
 const state = vi.hoisted(() => ({
+  strictRateLimit: vi.fn(),
   rpc: vi.fn(),
   upsert: vi.fn(),
 }))
@@ -13,16 +14,26 @@ vi.mock('@/lib/supabase/server', () => ({
     from: () => ({ upsert: state.upsert }),
   }),
 }))
-vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
-vi.mock('@/lib/log', () => ({ hashIp: () => 'ip-hash', logEvent: vi.fn() }))
-vi.mock('@/lib/workout/token', () => ({ hashShareToken: () => 'token-hash' }))
+vi.mock('@/lib/rate-limit', () => ({
+  enforceRateLimit: async () => true,
+  enforceRateLimitStrict: state.strictRateLimit,
+}))
+vi.mock('@/lib/log', () => ({ hashIp: () => 'f'.repeat(64), logEvent: vi.fn() }))
+vi.mock('@/lib/workout/token', () => ({ hashShareToken: () => 'a'.repeat(64) }))
 vi.mock('@/lib/clinical-content/runtime', () => ({
-  clinicalContentAccess: () => ({ surfaces: { workouts: true } }),
+  clinicalContentAccess: () => ({
+    surfaces: { workouts: true },
+    contentVersion: 'clinical-content-test-fixture-v1',
+    inventorySha256: 'd'.repeat(64),
+  }),
+}))
+vi.mock('@/lib/clinical-content/database', () => ({
+  verifyClinicalContentAccess: async (access: unknown) => access,
 }))
 
 import { POST } from './route'
 
-function invoke(body: unknown) {
+function invoke(body: unknown = { clarity: 4, pace: 'just_right', feedback_tags: [] }) {
   return POST(new NextRequest(`http://localhost/api/workouts/token/${token}/rate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -32,6 +43,7 @@ function invoke(body: unknown) {
 
 describe('POST /api/workouts/token/[token]/rate', () => {
   beforeEach(() => {
+    state.strictRateLimit.mockReset().mockResolvedValue(true)
     state.rpc.mockReset().mockResolvedValue({
       data: [{
         session_run_id: 'run-1',
@@ -42,6 +54,15 @@ describe('POST /api/workouts/token/[token]/rate', () => {
       error: null,
     })
     state.upsert.mockReset().mockResolvedValue({ error: null })
+  })
+
+  test('fails closed before token work when the public-token limiter is unavailable', async () => {
+    state.strictRateLimit.mockResolvedValueOnce(false)
+    const response = await invoke()
+    expect(response.status).toBe(429)
+    expect(state.strictRateLimit).toHaveBeenCalledOnce()
+    expect(state.rpc).not.toHaveBeenCalled()
+    expect(state.upsert).not.toHaveBeenCalled()
   })
 
   test('keeps an unavailable token response uniform and does not write', async () => {

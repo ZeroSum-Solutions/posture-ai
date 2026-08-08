@@ -127,6 +127,21 @@ describe('proxy PR-04 admission boundary', () => {
     expect(response.cookies.get('sb-session')?.value).toBe('rotated')
   })
 
+  test('adds a unique nonce policy to application responses', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const first = await proxy(new NextRequest('http://localhost/auth/sign-in'))
+    const second = await proxy(new NextRequest('http://localhost/auth/sign-in'))
+    const firstPolicy = first.headers.get('content-security-policy') ?? ''
+    const secondPolicy = second.headers.get('content-security-policy') ?? ''
+
+    expect(firstPolicy).toContain("script-src 'self' 'nonce-")
+    expect(firstPolicy).toContain("'strict-dynamic' 'wasm-unsafe-eval'")
+    expect(firstPolicy).not.toContain("script-src 'self' 'unsafe-inline'")
+    expect(firstPolicy).toContain("object-src 'none'")
+    expect(secondPolicy).not.toBe(firstPolicy)
+  })
+
   test('lets the secret-authenticated privacy cron reach its own auth boundary without a user session', async () => {
     getUser.mockResolvedValueOnce({ data: { user: null }, error: null })
 

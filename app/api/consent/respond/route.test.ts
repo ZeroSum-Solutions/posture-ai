@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const { maybeSingle, rpc } = vi.hoisted(() => ({
+const { maybeSingle, rpc, strictRateLimit } = vi.hoisted(() => ({
   maybeSingle: vi.fn(),
   rpc: vi.fn(),
+  strictRateLimit: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -20,7 +21,10 @@ vi.mock('@/lib/supabase/server', () => ({
     rpc,
   }),
 }))
-vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
+vi.mock('@/lib/rate-limit', () => ({
+  enforceRateLimit: async () => true,
+  enforceRateLimitStrict: strictRateLimit,
+}))
 
 import { POST } from './route'
 
@@ -59,6 +63,17 @@ describe('POST /api/consent/respond governed remote consent', () => {
     process.env.VERCEL_ENV = 'preview'
     maybeSingle.mockReset().mockResolvedValue({ data: governedToken, error: null })
     rpc.mockReset().mockResolvedValue({ data: 'ok', error: null })
+    strictRateLimit.mockReset().mockResolvedValue(true)
+  })
+
+  test('fails closed when the public-token limiter is unavailable', async () => {
+    strictRateLimit.mockResolvedValueOnce(false)
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(429)
+    expect(strictRateLimit).toHaveBeenCalledOnce()
+    expect(maybeSingle).not.toHaveBeenCalled()
   })
 
   test('hashes the token-pinned snapshot and invokes the governed RPC', async () => {

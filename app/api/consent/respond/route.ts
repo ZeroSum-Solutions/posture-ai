@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceRateLimitStrict } from '@/lib/rate-limit'
 import { logEvent, hashIp } from '@/lib/log'
 import {
   hashConsent,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   // Public endpoint — same IP rate limit as the other token-credential routes.
   const ipHash = hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for'))
-  const allowed = await enforceRateLimit(service, { route: 'consent_respond', userId: ipHash ?? 'anon', limit: 10, windowSeconds: 60 })
+  const allowed = await enforceRateLimitStrict(service, { route: 'consent_respond', userId: ipHash ?? 'anon', limit: 10, windowSeconds: 60 })
   if (!allowed) {
     logEvent({ route: ROUTE, outcome: 'rate_limited', status: 429, userHash: ipHash ?? 'anon' })
     return NextResponse.json({ error: 'Too many requests — try again shortly.' }, { status: 429 })
