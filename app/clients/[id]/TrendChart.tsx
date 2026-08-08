@@ -17,6 +17,7 @@ function RecordedScoreDisclosure({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isTableMounted, setIsTableMounted] = useState(false)
+  const [isPointerGuardReady, setIsPointerGuardReady] = useState(false)
   const disclosureRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -32,6 +33,10 @@ function RecordedScoreDisclosure({
       }
     }
     disclosure.addEventListener('pointerdown', skipMouseFocus)
+    // The server-rendered control stays inert until hydration has installed the
+    // native pointer guard. Otherwise its first pointerdown pays React's
+    // selective-hydration cost as part of the interaction itself.
+    setIsPointerGuardReady(true)
     return () => disclosure.removeEventListener('pointerdown', skipMouseFocus)
   }, [])
 
@@ -53,7 +58,9 @@ function RecordedScoreDisclosure({
         className={styles.dataSummary}
         aria-label="Recorded scores"
         aria-expanded={isOpen}
+        aria-busy={!isPointerGuardReady}
         aria-controls={`${tableId}-panel`}
+        disabled={!isPointerGuardReady}
         onClick={() => setIsOpen(open => !open)}
       >
         Recorded scores
