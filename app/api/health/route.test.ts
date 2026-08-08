@@ -113,8 +113,12 @@ describe('GET /api/health schema readiness', () => {
 
     const response = await GET()
 
-    expect(response.status).toBe(200)
-    expect((await response.json()).schema).toBe('pending_migration')
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({
+      status: 'error',
+      database: 'connected',
+      schema: 'pending_migration',
+    })
   })
 
   test.each(['PGRST204', 'PGRST205'])(
@@ -126,7 +130,7 @@ describe('GET /api/health schema readiness', () => {
 
       const response = await GET()
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(503)
       expect((await response.json()).schema).toBe('pending_migration')
     },
   )
@@ -142,7 +146,7 @@ describe('GET /api/health schema readiness', () => {
 
     const response = await GET()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(503)
     expect((await response.json()).schema).toBe('pending_migration')
   })
 
@@ -153,7 +157,7 @@ describe('GET /api/health schema readiness', () => {
 
     const response = await GET()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(503)
     expect((await response.json()).schema).toBe('pending_migration')
   })
 })

@@ -63,11 +63,16 @@ export async function GET() {
 
     const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
 
-    // Log confirmation for server log watchers (satisfies feature test step)
-    logEvent({ route: 'GET /api/health', outcome: 'ok', status: 200, detailCode: 'database_connected' })
+    const responseStatus = schemaApplied ? 200 : 503
+    logEvent({
+      route: 'GET /api/health',
+      outcome: schemaApplied ? 'ok' : 'server_error',
+      status: responseStatus,
+      detailCode: schemaApplied ? 'database_connected' : 'schema_pending_migration',
+    })
 
     return NextResponse.json({
-      status: 'ok',
+      status: schemaApplied ? 'ok' : 'error',
       database: 'connected',
       schema: schemaApplied ? 'ready' : 'pending_migration',
       clinical_content: {
@@ -75,7 +80,7 @@ export async function GET() {
         reason: clinicalAccess.reason,
       },
       timestamp: new Date().toISOString(),
-    })
+    }, { status: responseStatus })
   } catch {
     // Detail goes to the server log only — this is a public endpoint, so the
     // response body must not echo raw DB error text (schema/connection internals).
