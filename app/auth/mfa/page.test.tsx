@@ -18,7 +18,8 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }))
 
-import MfaPage, { completionMessage } from './page'
+import MfaPage from './page'
+import { completionMessage } from './mfa-format'
 
 describe('MfaPage', () => {
   beforeEach(() => {
