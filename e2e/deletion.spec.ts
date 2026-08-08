@@ -25,7 +25,7 @@ test.describe('client data deletion', () => {
     const assessmentId = (await a.json()).id as string
 
     // Appears in the active list before deletion.
-    const before = await (await page.request.get('/api/clients')).json()
+    const before = await (await page.request.get('/api/clients?limit=50')).json()
     expect((before.clients as { id: string }[]).some((x) => x.id === c.id)).toBeTruthy()
 
     // Delete + purge.
@@ -36,7 +36,7 @@ test.describe('client data deletion', () => {
     expect((await del.json()).assessments_purged).toBeGreaterThanOrEqual(1)
 
     // Gone from the active list.
-    const after = await (await page.request.get('/api/clients')).json()
+    const after = await (await page.request.get('/api/clients?limit=50')).json()
     expect((after.clients as { id: string }[]).some((x) => x.id === c.id)).toBeFalsy()
 
     // Its assessment data is purged.

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import DashboardExperience from './DashboardExperience'
-import { averageOf, buildTodayModel, initialsOf, type AwaitingRow, type RecentRow, type RescanRow } from './todayModel'
+import { buildTodayModel, initialsOf, type AwaitingRow, type RecentRow, type RescanRow } from './todayModel'
 
 type ClientName = { first_name: string; last_name: string }
 
@@ -28,8 +28,8 @@ export default async function DashboardPage() {
     clientsAddedResult,
     weekScansResult,
     priorWeekScansResult,
-    weekScoresResult,
-    priorWeekScoresResult,
+    weekScoreAverageResult,
+    priorWeekScoreAverageResult,
     awaitingResult,
     awaitingCountResult,
     recentResult,
@@ -64,19 +64,18 @@ export default async function DashboardPage() {
       .eq('status', 'complete')
       .gte('created_at', twoWeeksAgo)
       .lt('created_at', weekAgo),
-    supabase
-      .from('assessments')
-      .select('overall_score')
-      .eq('practitioner_id', user.id)
-      .eq('status', 'complete')
-      .gte('created_at', weekAgo),
-    supabase
-      .from('assessments')
-      .select('overall_score')
-      .eq('practitioner_id', user.id)
-      .eq('status', 'complete')
-      .gte('created_at', twoWeeksAgo)
-      .lt('created_at', weekAgo),
+    loadAssessmentScoreAverage(supabase, {
+      practitionerId: user.id,
+      startAt: weekAgo,
+      endAt: new Date(now).toISOString(),
+      endInclusive: true,
+    }),
+    loadAssessmentScoreAverage(supabase, {
+      practitionerId: user.id,
+      startAt: twoWeeksAgo,
+      endAt: weekAgo,
+      endInclusive: false,
+    }),
     // The queue: scored but unsigned, oldest first — the button commits to the
     // head of this list. !inner + deleted_at drops tombstoned clients (QA-001).
     supabase
@@ -111,7 +110,7 @@ export default async function DashboardPage() {
 
   const failed = [
     clientCountResult, clientsAddedResult, weekScansResult, priorWeekScansResult,
-    weekScoresResult, priorWeekScoresResult, awaitingResult, awaitingCountResult,
+    weekScoreAverageResult, priorWeekScoreAverageResult, awaitingResult, awaitingCountResult,
     recentResult, rescanResult,
   ].some(result => result.error)
   const loadError = failed ? 'Some dashboard data could not load. Refresh to try again.' : null
@@ -182,8 +181,8 @@ export default async function DashboardPage() {
       clientsAddedThisWeek: clientsAddedResult.count ?? 0,
       scansThisWeek: weekScansResult.count ?? 0,
       scansPriorWeek: priorWeekScansResult.count ?? 0,
-      averageScoreThisWeek: averageOf((weekScoresResult.data ?? []).map(row => row.overall_score)),
-      averageScorePriorWeek: averageOf((priorWeekScoresResult.data ?? []).map(row => row.overall_score)),
+      averageScoreThisWeek: weekScoreAverageResult.data,
+      averageScorePriorWeek: priorWeekScoreAverageResult.data,
     },
     now,
   })
@@ -196,6 +195,70 @@ export default async function DashboardPage() {
       loadError={loadError}
     />
   )
+}
+
+const SCORE_PAGE_SIZE = 500
+type DashboardSupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
+
+/**
+ * Read every score page before calculating the displayed average. PostgREST's
+ * server row cap applies to each response, so a single unbounded select can
+ * silently omit the 1,001st assessment while still returning HTTP 200.
+ */
+async function loadAssessmentScoreAverage(
+  supabase: DashboardSupabaseClient,
+  {
+    practitionerId,
+    startAt,
+    endAt,
+    endInclusive,
+  }: {
+    practitionerId: string
+    startAt: string
+    endAt: string
+    endInclusive: boolean
+  },
+) {
+  let offset = 0
+  let expectedCount: number | null = null
+  let scoreCount = 0
+  let scoreSum = 0
+
+  while (expectedCount === null || offset < expectedCount) {
+    let query = supabase
+      .from('assessments')
+      .select('overall_score', { count: 'exact' })
+      .eq('practitioner_id', practitionerId)
+      .eq('status', 'complete')
+      .gte('created_at', startAt)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + SCORE_PAGE_SIZE - 1)
+    query = endInclusive
+      ? query.lte('created_at', endAt)
+      : query.lt('created_at', endAt)
+
+    const { data, error, count } = await query
+    if (error) return { data: null, error }
+    if (expectedCount === null && typeof count === 'number') expectedCount = count
+
+    const rows = data ?? []
+    for (const row of rows) {
+      const score = row.overall_score
+      if (typeof score === 'number' && Number.isFinite(score)) {
+        scoreSum += score
+        scoreCount += 1
+      }
+    }
+
+    offset += rows.length
+    if (rows.length === 0 || (expectedCount === null && rows.length < SCORE_PAGE_SIZE)) break
+  }
+
+  return {
+    data: scoreCount === 0 ? null : Math.round(scoreSum / scoreCount),
+    error: null,
+  }
 }
 
 /** Unwrap the single row owned_client_longest_since_scan returns, if any. */

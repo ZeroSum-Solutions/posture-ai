@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -98,7 +99,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Logo must be 2 MB or smaller.' }, { status: 413 })
   }
 
-  const path = `${user.id}/logo.${ext}`
+  // Read the previous pointer before creating a new object. A unique path keeps
+  // the currently referenced logo intact until the metadata write succeeds;
+  // overwriting `${user.id}/logo.ext` first made that update impossible to roll
+  // back safely.
+  const { data: currentPractitioner, error: currentPathError } = await supabase
+    .from('practitioners')
+    .select('logo_storage_path')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (currentPathError || !currentPractitioner) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_load_failed' })
+    return NextResponse.json({ error: 'Failed to upload logo.' }, { status: 500 })
+  }
+
+  const path = `${user.id}/logo-${randomUUID()}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
@@ -124,9 +139,33 @@ export async function POST(req: NextRequest) {
     .from('practitioners')
     .update({ logo_storage_path: path, updated_at: new Date().toISOString() })
     .eq('id', user.id)
+    .select('logo_storage_path')
+    .single()
   if (pathErr) {
+    // The new object is not referenced unless the metadata write commits. Remove
+    // it on failure so retries cannot accumulate practitioner-owned orphans.
+    const { error: cleanupError } = await serviceClient.storage
+      .from('practitioner-assets')
+      .remove([path])
+    if (cleanupError) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_rollback_failed' })
+    }
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'logo_path_save_failed' })
     return NextResponse.json({ error: 'Failed to save logo.' }, { status: 500 })
+  }
+
+  // Once the new pointer is durable, the previous practitioner-owned object is
+  // no longer reachable. Its cleanup is best-effort because deleting it must not
+  // roll back a successful replacement, and a corrupt cross-tenant path must
+  // never be honored by the service-role client.
+  const previousPath = currentPractitioner.logo_storage_path
+  if (previousPath && previousPath !== path && previousPath.startsWith(`${user.id}/`)) {
+    const { error: cleanupError } = await serviceClient.storage
+      .from('practitioner-assets')
+      .remove([previousPath])
+    if (cleanupError) {
+      logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'previous_logo_cleanup_failed' })
+    }
   }
 
   // Return signed URL

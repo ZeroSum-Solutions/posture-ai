@@ -64,42 +64,25 @@ describe('GET /api/clients/[id]/assessments', () => {
 
   test('returns 500 when the assessments query errors — a DB failure must NOT be masked as an empty history', async () => {
     tableResult.assessments = { data: null, error: { message: 'connection reset' } }
-    const res = await GET(req(), { params: params() })
+    const res = await GET(req('?limit=50'), { params: params() })
     expect(res.status).toBe(500)
   })
 
   test('returns 500 when the ownership check fails instead of masking it as a 404', async () => {
     tableResult.clients = { data: null, error: { message: 'connection reset' } }
-    const res = await GET(req(), { params: params() })
+    const res = await GET(req('?limit=50'), { params: params() })
     expect(res.status).toBe(500)
     expect(queryCalls.assessments).toBeUndefined()
   })
 
-  test('returns 200 with the assessments on success', async () => {
-    tableResult.assessments = { data: [{ id: 'a1', scoring_engine_version: '2.0.0' }], error: null }
-    const res = await GET(req(), { params: params() })
-    expect(res.status).toBe(200)
-    expect((await res.json()).assessments).toEqual([{ id: 'a1', scoring_engine_version: '2.0.0' }])
-  })
-
-  test('keeps the one-version no-limit compatibility response complete and ascending', async () => {
-    tableResult.assessments = {
-      data: Array.from({ length: 75 }, (_, index) => ({
-        id: assessmentId(index),
-        assessed_at: new Date(Date.UTC(2026, 6, 20, 12, 0, 0) + index * 1000).toISOString(),
-      })),
-      error: null,
-    }
+  test('rejects no-limit compatibility requests before an unbounded history read', async () => {
     const res = await GET(req(), { params: params() })
     const body = await res.json()
 
-    expect(body.assessments).toHaveLength(75)
-    expect(body.pagination).toBeUndefined()
-    expect(queryCalls.assessments.filter((call) => call.method === 'order')).toEqual([
-      { method: 'order', args: ['assessed_at', { ascending: true }] },
-      { method: 'order', args: ['id', { ascending: true }] },
-    ])
-    expect(queryCalls.assessments.some((call) => call.method === 'limit')).toBe(false)
+    expect(res.status).toBe(400)
+    expect(body).toEqual({ error: 'An explicit limit is required' })
+    expect(queryCalls.clients).toBeUndefined()
+    expect(queryCalls.assessments).toBeUndefined()
   })
 
   test('uses a descending keyset while preserving the prior ascending response order', async () => {

@@ -73,23 +73,11 @@ export async function GET(req: NextRequest) {
   if (gate) return gate
   const userHash = hashUser(user.id)
 
-  // One-version compatibility window: the pre-PR-09 API accepted a parameterless
-  // request and returned the complete directory with the legacy field set. Current
-  // callers always send `limit`. Remove this branch with the assessment-history
-  // compatibility path after the window in docs/qa/pr09-performance-runbook.md.
-  if (req.nextUrl.searchParams.size === 0) {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('id, first_name, last_name, date_of_birth, sex_at_birth, height_cm, weight_kg, notes, created_at')
-      .is('archived_at', null)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-    if (error) {
-      logEvent({ route: 'GET /api/clients', outcome: 'server_error', status: 500, userHash, detailCode: 'client_list_failed' })
-      return NextResponse.json({ error: 'Failed to load clients.' }, { status: 500, headers: NO_STORE })
-    }
-    logEvent({ route: 'GET /api/clients', outcome: 'ok', status: 200, userHash, detailCode: 'client_list_legacy_compatibility' })
-    return NextResponse.json({ clients: data ?? [], count: data?.length ?? 0 }, { headers: NO_STORE })
+  // Every list read must opt into the keyset contract. The retired compatibility
+  // path performed an unbounded PostgREST read, which could silently return only
+  // the first server-capped page while claiming it was the complete directory.
+  if (!req.nextUrl.searchParams.has('limit')) {
+    return NextResponse.json({ error: 'An explicit limit is required' }, { status: 400, headers: NO_STORE })
   }
 
   const parsedSearch = parseClientSearch(req.nextUrl.searchParams)
