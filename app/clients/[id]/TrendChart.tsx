@@ -1,5 +1,5 @@
 'use client'
-import { startTransition, useEffect, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone, ring } from '@/components/array/severity'
@@ -17,6 +17,23 @@ function RecordedScoreDisclosure({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isTableMounted, setIsTableMounted] = useState(false)
+  const disclosureRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const disclosure = disclosureRef.current
+    if (!disclosure) return
+    // Chromium can spend most of this interaction repainting the glass-backed
+    // chart while assigning mouse focus. Attach at the target so the native
+    // focus path is cancelled before React's delegated event phase. Touch and
+    // keyboard focus keep their normal semantics.
+    const skipMouseFocus = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse' && event.button === 0 && event.isPrimary) {
+        event.preventDefault()
+      }
+    }
+    disclosure.addEventListener('pointerdown', skipMouseFocus)
+    return () => disclosure.removeEventListener('pointerdown', skipMouseFocus)
+  }, [])
 
   useEffect(() => {
     if (!isOpen || isTableMounted) return
@@ -31,6 +48,7 @@ function RecordedScoreDisclosure({
   return (
     <div className={styles.dataDetails} data-open={isOpen}>
       <button
+        ref={disclosureRef}
         type="button"
         className={styles.dataSummary}
         aria-label="Recorded scores"

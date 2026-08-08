@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import TrendChart from './TrendChart'
 import type { TrendInputPoint } from './trendModel'
@@ -27,12 +27,64 @@ describe('TrendChart recorded-score disclosure', () => {
     const disclosure = screen.getByRole('button', { name: 'Recorded scores' })
     expect(disclosure.getAttribute('aria-expanded')).toBe('false')
     expect(disclosure.getAttribute('aria-controls')).toBe('client-score-table-panel')
+    expect(document.getElementById('client-score-table-panel')).not.toBeNull()
 
     disclosure.focus()
     expect(document.activeElement).toBe(disclosure)
 
     fireEvent.click(disclosure)
     expect(disclosure.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('suppresses mouse focus work without blocking touch or keyboard focus', () => {
+    render(<TrendChart history={history(2)} tableId="client-score-table" />)
+
+    const disclosure = screen.getByRole('button', { name: 'Recorded scores' })
+    const mousePress = createEvent.pointerDown(disclosure)
+    Object.defineProperties(mousePress, {
+      pointerType: { value: 'mouse' },
+      button: { value: 0 },
+      isPrimary: { value: true },
+    })
+    expect(fireEvent(disclosure, mousePress)).toBe(false)
+
+    const touchPress = createEvent.pointerDown(disclosure)
+    Object.defineProperties(touchPress, {
+      pointerType: { value: 'touch' },
+      button: { value: 0 },
+      isPrimary: { value: true },
+    })
+    expect(fireEvent(disclosure, touchPress)).toBe(true)
+
+    const penPress = createEvent.pointerDown(disclosure)
+    Object.defineProperties(penPress, {
+      pointerType: { value: 'pen' },
+      button: { value: 0 },
+      isPrimary: { value: true },
+    })
+    expect(fireEvent(disclosure, penPress)).toBe(true)
+
+    const secondaryMousePress = createEvent.pointerDown(disclosure)
+    Object.defineProperties(secondaryMousePress, {
+      pointerType: { value: 'mouse' },
+      button: { value: 2 },
+      isPrimary: { value: true },
+    })
+    expect(fireEvent(disclosure, secondaryMousePress)).toBe(true)
+
+    const nonPrimaryMousePress = createEvent.pointerDown(disclosure)
+    Object.defineProperties(nonPrimaryMousePress, {
+      pointerType: { value: 'mouse' },
+      button: { value: 0 },
+      isPrimary: { value: false },
+    })
+    expect(fireEvent(disclosure, nonPrimaryMousePress)).toBe(true)
+
+    fireEvent.click(disclosure)
+    expect(disclosure.getAttribute('aria-expanded')).toBe('true')
+
+    disclosure.focus()
+    expect(document.activeElement).toBe(disclosure)
   })
 
   it('presents the disclosure before mounting its table work', () => {

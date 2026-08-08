@@ -184,7 +184,7 @@ test.describe('client comparison policy', () => {
     })
   }
 
-  test('shows all tolerance states and fails closed across scoring versions', async ({ page }) => {
+  test('shows all tolerance states and fails closed across scoring versions', async ({ page, browserName }) => {
     const token = randomUUID().slice(0, 8)
     const client = await createClient(page, 'E2E', `Compare-${token}`)
     const finding = (key: string, label: string, severity: number, deviation: number) => ({
@@ -300,8 +300,22 @@ test.describe('client comparison policy', () => {
     // disclosure. Confirm the same underlying facts this test cares about:
     // the trend surfaces, and both scoring versions are represented.
     await expect(page.getByRole('heading', { name: 'Deviation score' })).toBeVisible()
-    await page.getByRole('button', { name: 'Recorded scores', exact: true }).click()
+    const recordedScores = page.getByRole('button', { name: 'Recorded scores', exact: true })
+    await recordedScores.focus()
+    if (browserName === 'chromium') {
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('Tab')
+      expect(await recordedScores.evaluate(element => element.matches(':focus-visible'))).toBe(true)
+    }
+    await expect(recordedScores).toBeFocused()
+    await recordedScores.press('Enter')
+    await expect(recordedScores).toHaveAttribute('aria-expanded', 'true')
     const scoringVersionCells = page.locator('#client-score-table tbody tr td:nth-child(4)')
+    await expect(scoringVersionCells).toHaveText(['v3', 'v2', 'v2'])
+    await recordedScores.press('Space')
+    await expect(recordedScores).toHaveAttribute('aria-expanded', 'false')
+    await recordedScores.press('Space')
+    await expect(recordedScores).toHaveAttribute('aria-expanded', 'true')
     await expect(scoringVersionCells).toHaveText(['v3', 'v2', 'v2'])
   })
 })
