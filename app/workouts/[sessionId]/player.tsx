@@ -11,11 +11,12 @@ import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 interface RunSaveResult {
   ok: boolean
   revision?: number
+  conflict?: boolean
   conflictRevision?: number
   error?: string
 }
 
-type RunSaveStatus = 'saved' | 'saving' | 'unsaved'
+type RunSaveStatus = 'saved' | 'saving' | 'unsaved' | 'conflict'
 const RUN_SAVE_ATTEMPTS = 3
 const RUN_SAVE_RETRY_MS = [250, 750] as const
 
@@ -36,6 +37,7 @@ export async function saveWorkoutRun(sessionId: string, patch: RunPatch): Promis
       return {
         ok: false,
         error: body.error ?? 'Failed to save progress.',
+        ...(response.status === 409 ? { conflict: true } : {}),
         ...(response.status === 409 && typeof body.current_revision === 'number'
           ? { conflictRevision: body.current_revision }
           : {}),
@@ -62,6 +64,7 @@ function useRunSaveQueue(
 } {
   const queueRef = useRef<RunPatch[]>([])
   const isDrainingRef = useRef(false)
+  const hasConflictRef = useRef(false)
   const acknowledgedRevisionRef = useRef(initialRevision)
   const mountedRef = useRef(true)
   const [status, setStatus] = useState<RunSaveStatus>('saved')
@@ -75,7 +78,7 @@ function useRunSaveQueue(
   }, [])
 
   const drain = useCallback(async () => {
-    if (isDrainingRef.current || queueRef.current.length === 0) return
+    if (isDrainingRef.current || hasConflictRef.current || queueRef.current.length === 0) return
     isDrainingRef.current = true
     if (mountedRef.current) {
       setStatus('saving')
@@ -98,11 +101,18 @@ function useRunSaveQueue(
         }
 
         lastError = result.error ?? lastError
-        if (
-          typeof result.conflictRevision === 'number'
-          && result.conflictRevision > acknowledgedRevisionRef.current
-        ) {
-          acknowledgedRevisionRef.current = result.conflictRevision
+        if (result.conflict) {
+          // Revisioned patches are full authoritative snapshots, not deltas.
+          // Promoting this rejected snapshot above the server's revision could
+          // replace newer progress from another tab/device, so conflict is a
+          // terminal queue state until the latest server row is reloaded.
+          hasConflictRef.current = true
+          isDrainingRef.current = false
+          if (mountedRef.current) {
+            setError('Progress changed in another tab or device. Reload the latest progress before continuing.')
+            setStatus('conflict')
+          }
+          return
         }
         if (attempt < RUN_SAVE_ATTEMPTS - 1) {
           await waitForRetry(RUN_SAVE_RETRY_MS[attempt] ?? RUN_SAVE_RETRY_MS[1])
@@ -195,8 +205,8 @@ export default function AuthedPlayer({
       />
       {saveStatus !== 'saved' && (
         <div
-          role={saveStatus === 'unsaved' ? 'alert' : 'status'}
-          aria-live={saveStatus === 'unsaved' ? 'assertive' : 'polite'}
+          role={saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'alert' : 'status'}
+          aria-live={saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'assertive' : 'polite'}
           style={{
             position: 'fixed',
             top: 'max(12px, env(safe-area-inset-top, 0px))',
@@ -205,7 +215,7 @@ export default function AuthedPlayer({
             maxWidth: 300,
             padding: '10px 12px',
             borderRadius: 'var(--radius-sm)',
-            border: `1px solid ${saveStatus === 'unsaved' ? 'var(--review)' : 'var(--hairline)'}`,
+            border: `1px solid ${saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'var(--review)' : 'var(--hairline)'}`,
             background: 'var(--surface-glass-strong)',
             color: 'var(--text-primary)',
             fontSize: 13,
@@ -213,6 +223,18 @@ export default function AuthedPlayer({
         >
           {saveStatus === 'saving' ? (
             'Saving workout progress…'
+          ) : saveStatus === 'conflict' ? (
+            <>
+              <div>{saveError}</div>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="a-secondary"
+                style={{ marginTop: 8, minHeight: 36 }}
+              >
+                Reload latest progress
+              </button>
+            </>
           ) : (
             <>
               <div>Progress is not saved. {saveError}</div>
