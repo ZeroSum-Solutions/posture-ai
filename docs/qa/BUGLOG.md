@@ -232,3 +232,67 @@ generated inventory first.
 PASS-07 clarification: the literals updated by this branch are explicitly labeled
 local/test-only fixtures and are not HG-03 evidence. Production activation remains
 separate and unmodified.
+
+## QA-011 — Recorded-score disclosure blocks interaction under CPU slowdown
+severity: S2 · status: FIXED (PR #144) · found: PASS-08 · item: PRG-01, XC-04
+root cause: opening the native disclosure synchronously mounted and painted the full
+recorded-score table on the long client page. Official failure p95 was 304 ms.
+FIX: present the disclosure immediately, defer table mount for 300 ms, and retain it
+after first mount. The focused 4× CPU Chromium probe measured p95 64 ms.
+
+## QA-012 — Hidden/unmounted camera can continue a stale permission preflight
+severity: S2 · status: FIXED (consolidated branch) · found: PASS-08 · item: CAM-REAL, WIZ-02
+root cause: the request generation was established after awaiting Permissions API state.
+FIX: establish generation before the await and reject hidden, unmounted, or superseded
+work before changing permission state or calling `getUserMedia`.
+
+## QA-013 — WebKit worker fallback breaks Chromium worker startup
+severity: S2 · status: FIXED (consolidated branch) · found: PASS-08 · item: CAM-REAL, WIZ-02
+root cause: a module WASM loader was selected even when Turbopack emitted a classic worker.
+FIX: retain the Chromium classic fileset, install the supported import hook only for the
+WebKit-shaped scope, and require a valid landmarker before emitting ready.
+
+## QA-014 — Health reports ready while required directory RPCs are absent
+severity: S2 · status: FIXED (consolidated branch) · found: PASS-08 · item: XC-02, MSC-02
+root cause: readiness probed current tables and columns but not three required RPC
+signatures. FIX: row-free probes now classify missing PostgREST/Postgres functions as
+`pending_migration`.
+
+## QA-015 — Workout progress saves fail invisibly and can commit out of order
+severity: S2 · status: FIXED (consolidated branch) · found: PASS-08 · item: WKT-05
+root cause: fire-and-forget client writes advanced the local watermark before
+acknowledgement, while the server's revision read/update was not atomic.
+FIX: practitioner-scoped CAS plus one acknowledged retrying client queue with conflict
+rebase, visible unsaved state, and manual retry. Abrupt process termination before the
+latest acknowledgement remains a documented memory-queue limit.
+
+## QA-016 — Public bearer-token rate limits fail open and global script CSP is permissive
+severity: S3 · status: FIXED (consolidated branch) · found: PASS-08 · item: CON-03, SHR-01, SHR-02, XC-02
+root cause: three anonymous token routes used the availability-oriented limiter, while
+production CSP allowed inline/eval scripts. FIX: those routes use strict denial before
+token work; nonce/strict-dynamic CSP removes script inline/eval allowances in production,
+adds `object-src 'none'`, and preserves only the MediaPipe WASM exception.
+
+## QA-017 — Failed logo metadata persistence can orphan storage objects
+severity: S3 · status: FIXED (consolidated branch) · found: PASS-08 · item: SET-01
+root cause: upload completed before practitioner metadata update and had no compensation.
+FIX: unique user-prefixed objects, compensating delete on metadata failure, and scoped
+cleanup of the prior object after success.
+
+## QA-018 — Legacy reads and dashboard averages can truncate at the API row cap
+severity: S3 · status: FIXED (consolidated branch) · found: PASS-08 · item: CLI-01, PRG-01, MSC-02
+root cause: compatibility requests omitted limits and the dashboard averaged a single
+unbounded response. FIX: no-limit compatibility calls fail before DB access; dashboard
+scores use deterministic 500-row pages and fail visibly on any partial-page error.
+
+## QA-019 — Named route-file exports break the optional webpack production build
+severity: S3 · status: FIXED (consolidated branch) · found: PASS-08 · item: XC-02
+root cause: tests imported named helpers from Next Page modules. FIX: implementations and
+helpers moved to non-route modules. Turbopack and webpack production builds both pass.
+
+## QA-020 — Genu varum/valgum share direction-specific muscle and program links
+severity: S2 · status: APPROVAL REQUIRED · found: PASS-08 · item: RES-02, RES-04
+root cause: the reserved `direction_applicability` field is unpopulated and render/program
+paths do not gate links by finding direction. Correcting this requires a governed
+schema/content migration, regenerated hashes, and the existing clinician-review boundary.
+Clinical surfaces remain disabled by default; no migration or activation was inferred.
