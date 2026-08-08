@@ -27,6 +27,8 @@ describe('TrendChart recorded-score disclosure', () => {
 
     expect(markup).toContain('disabled=""')
     expect(markup).toContain('aria-busy="true"')
+    expect(markup).toContain('aria-label="Preparing recorded scores…"')
+    expect(markup).toContain('>Preparing recorded scores…</button>')
   })
 
   it('uses a button disclosure with explicit expanded state', () => {
@@ -36,6 +38,8 @@ describe('TrendChart recorded-score disclosure', () => {
     expect(disclosure.getAttribute('aria-expanded')).toBe('false')
     expect(disclosure.hasAttribute('disabled')).toBe(false)
     expect(disclosure.getAttribute('aria-busy')).toBe('false')
+    expect(disclosure.getAttribute('aria-label')).toBe('Recorded scores')
+    expect(disclosure.textContent).toBe('Recorded scores')
     expect(disclosure.getAttribute('aria-controls')).toBe('client-score-table-panel')
     expect(document.getElementById('client-score-table-panel')).not.toBeNull()
 
