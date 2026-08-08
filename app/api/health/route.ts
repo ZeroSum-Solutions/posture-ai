@@ -12,11 +12,12 @@ export async function GET() {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Probe a representative slice of the schema: a base table, a later-migration
-    // table (muscle KB), and a later-migration column (report dosage). The app no
-    // longer self-applies migrations — supabase/migrations is the sole source of
-    // truth — so a skipped migration must surface as 'pending_migration' here
-    // rather than a misleading 'ready'.
+    // Probe a representative slice of the schema plus the exact RPC signatures
+    // used by current application paths. RPC probes use HEAD and an epoch snapshot,
+    // so PostgREST resolves the named arguments without returning or matching live
+    // application rows. The app no longer self-applies migrations —
+    // supabase/migrations is the sole source of truth — so a skipped migration must
+    // surface as 'pending_migration' here rather than a misleading 'ready'.
     const probes = await Promise.all([
       supabase.from('practitioners').select('id, role, access_status, invitation_id, session_valid_after').limit(0),
       supabase.from('muscles').select('slug').limit(0),
@@ -31,13 +32,28 @@ export async function GET() {
       supabase.from('clinical_content_release_items').select('release_id, item_id, item_sha256, review_status').limit(0),
       supabase.from('reports').select('report_scope, clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256').limit(0),
       supabase.from('workout_sessions').select('clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256').limit(0),
+      supabase.rpc('list_owned_clients_page', {
+        p_search: '',
+        p_snapshot_at: '1970-01-01T00:00:00.000Z',
+        p_after_at: '1970-01-01T00:00:00.000Z',
+        p_after_id: '00000000-0000-0000-0000-000000000000',
+        p_limit: 1,
+        p_filter: 'all',
+      }, { head: true }),
+      supabase.rpc('owned_client_directory_summary', {
+        p_snapshot_at: '1970-01-01T00:00:00.000Z',
+      }, { head: true }),
+      supabase.rpc('owned_client_longest_since_scan', {
+        p_snapshot_at: '1970-01-01T00:00:00.000Z',
+      }, { head: true }),
     ])
 
     // PostgreSQL and PostgREST surface missing schema through different codes:
-    // 42P01 / PGRST205 = missing table, 42703 / PGRST204 = missing column.
-    // These mean the connection works but migrations are behind. PGRST116 is
-    // merely "no rows" and does not affect readiness.
-    const SCHEMA_MISSING = new Set(['42P01', '42703', 'PGRST204', 'PGRST205'])
+    // 42P01 / PGRST205 = missing table, 42703 / PGRST204 = missing column, and
+    // 42883 / PGRST202 = missing function signature. These mean the connection
+    // works but migrations are behind. PGRST116 is merely "no rows" and does not
+    // affect readiness.
+    const SCHEMA_MISSING = new Set(['42P01', '42703', '42883', 'PGRST202', 'PGRST204', 'PGRST205'])
     let schemaApplied = true
     for (const { error: probeError } of probes) {
       if (!probeError || probeError.code === 'PGRST116') continue

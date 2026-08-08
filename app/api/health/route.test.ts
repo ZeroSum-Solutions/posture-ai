@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 type ProbeResult = { error: { code?: string; message: string } | null }
+type RpcProbe = {
+  name: string
+  args: Record<string, unknown>
+  options: { head?: boolean } | undefined
+}
 
 const probeResults: Record<string, ProbeResult> = {}
+const rpcProbeResults: Record<string, ProbeResult> = {}
 const observedProbes: string[] = []
+const observedRpcProbes: RpcProbe[] = []
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -16,6 +23,14 @@ vi.mock('@supabase/supabase-js', () => ({
         },
       }),
     }),
+    rpc: async (
+      name: string,
+      args: Record<string, unknown>,
+      options?: { head?: boolean },
+    ) => {
+      observedRpcProbes.push({ name, args, options })
+      return rpcProbeResults[name] ?? { error: null }
+    },
   }),
 }))
 
@@ -24,10 +39,12 @@ import { GET } from './route'
 describe('GET /api/health schema readiness', () => {
   beforeEach(() => {
     observedProbes.length = 0
+    observedRpcProbes.length = 0
     for (const key of Object.keys(probeResults)) delete probeResults[key]
+    for (const key of Object.keys(rpcProbeResults)) delete rpcProbeResults[key]
   })
 
-  test('probes every column required by the current assessment write path', async () => {
+  test('probes every schema contract required by current application paths', async () => {
     const response = await GET()
 
     expect(response.status).toBe(200)
@@ -45,6 +62,30 @@ describe('GET /api/health schema readiness', () => {
       'clinical_content_release_items.release_id, item_id, item_sha256, review_status',
       'reports.report_scope, clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256',
       'workout_sessions.clinical_content_version, clinical_inventory_sha256, clinical_review_receipt_sha256',
+    ]))
+    expect(observedRpcProbes).toEqual(expect.arrayContaining([
+      {
+        name: 'list_owned_clients_page',
+        args: {
+          p_search: '',
+          p_snapshot_at: '1970-01-01T00:00:00.000Z',
+          p_after_at: '1970-01-01T00:00:00.000Z',
+          p_after_id: '00000000-0000-0000-0000-000000000000',
+          p_limit: 1,
+          p_filter: 'all',
+        },
+        options: { head: true },
+      },
+      {
+        name: 'owned_client_directory_summary',
+        args: { p_snapshot_at: '1970-01-01T00:00:00.000Z' },
+        options: { head: true },
+      },
+      {
+        name: 'owned_client_longest_since_scan',
+        args: { p_snapshot_at: '1970-01-01T00:00:00.000Z' },
+        options: { head: true },
+      },
     ]))
     expect(await response.json()).toMatchObject({
       schema: 'ready',
@@ -89,4 +130,30 @@ describe('GET /api/health schema readiness', () => {
       expect((await response.json()).schema).toBe('pending_migration')
     },
   )
+
+  test.each([
+    'list_owned_clients_page',
+    'owned_client_directory_summary',
+    'owned_client_longest_since_scan',
+  ])('reports pending_migration when RPC %s is missing', async (rpc) => {
+    rpcProbeResults[rpc] = {
+      error: { code: 'PGRST202', message: 'function is missing from the schema cache' },
+    }
+
+    const response = await GET()
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).schema).toBe('pending_migration')
+  })
+
+  test('reports pending_migration for PostgreSQL missing-function errors', async () => {
+    rpcProbeResults.owned_client_longest_since_scan = {
+      error: { code: '42883', message: 'function does not exist' },
+    }
+
+    const response = await GET()
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).schema).toBe('pending_migration')
+  })
 })
