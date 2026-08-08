@@ -181,9 +181,9 @@ export default function FullScreenCapture({
   // Guards async work in openStream from touching a torn-down component (e.g. the
   // user leaves while the camera-permission prompt is open).
   const mountedRef = useRef(true)
-  // Invalidates pending getUserMedia calls across visibility/retry/unmount
-  // transitions. A stale permission result must never replace or fail a newer
-  // successful stream.
+  // Invalidates pending permission preflights and getUserMedia calls across
+  // visibility/retry/unmount transitions. Stale camera work must never replace
+  // or fail a newer successful stream.
   const cameraRequestGenerationRef = useRef(0)
   // Most recent navigator.permissions.query('camera') read, carried from the
   // preflight (in startCamera) into openStream's catch — lets the macOS
@@ -435,9 +435,14 @@ export default function FullScreenCapture({
   // 'prompt' read (or no support at all) falls straight through to the
   // existing openStream path, unchanged.
   const startCamera = useCallback(async () => {
+    const requestGeneration = ++cameraRequestGenerationRef.current
     const state = await queryCameraPermissionState()
+    if (
+      !mountedRef.current
+      || document.visibilityState === 'hidden'
+      || cameraRequestGenerationRef.current !== requestGeneration
+    ) return
     permissionStateRef.current = state
-    if (!mountedRef.current) return
     if (state === 'denied') {
       setErrorMsg('Camera access denied. Please allow camera permission and try again.')
       setGuidance(buildGuidanceForNotAllowed(state))
