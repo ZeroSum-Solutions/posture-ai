@@ -30,6 +30,7 @@ export async function saveWorkoutRun(sessionId: string, patch: RunPatch): Promis
     })
     const body = await response.json().catch(() => ({})) as {
       error?: string
+      stale?: boolean
       revision?: number
       current_revision?: number
     }
@@ -41,6 +42,18 @@ export async function saveWorkoutRun(sessionId: string, patch: RunPatch): Promis
         ...(response.status === 409 && typeof body.current_revision === 'number'
           ? { conflictRevision: body.current_revision }
           : {}),
+      }
+    }
+    if (body.stale === true) {
+      // The route uses a successful stale response for idempotent server-side
+      // writes, but this client queues full authoritative snapshots. Handle that
+      // response as a conflict so a queued stale snapshot cannot advance above
+      // newer progress using the returned server revision.
+      return {
+        ok: false,
+        error: 'Workout progress changed in another request.',
+        conflict: true,
+        ...(typeof body.revision === 'number' ? { conflictRevision: body.revision } : {}),
       }
     }
     return { ok: true, revision: body.revision ?? patch.revision }

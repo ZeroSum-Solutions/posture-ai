@@ -101,6 +101,20 @@ describe('authenticated workout run adapter', () => {
       conflictRevision: 9,
     })
   })
+
+  test('reports a stale 200 response as a conflict at the authoritative server revision', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ ok: true, stale: true, revision: 9 }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )))
+
+    await expect(saveWorkoutRun('session-1', { revision: 4 })).resolves.toEqual({
+      ok: false,
+      error: 'Workout progress changed in another request.',
+      conflict: true,
+      conflictRevision: 9,
+    })
+  })
 })
 
 describe('authenticated workout run queue', () => {
@@ -203,6 +217,40 @@ describe('authenticated workout run queue', () => {
       current_item_index: 0,
       items: [{ slug: 'wall-slide', completed: false, skipped: false }],
     })
+    expect(screen.getByRole('alert').textContent).toContain('Progress changed in another tab or device')
+    expect(screen.getByRole('button', { name: 'Reload latest progress' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Retry saving' })).toBeNull()
+  })
+
+  test('stops queued full-state saves when the server reports a stale 200 response', async () => {
+    const staleSave = deferred<Response>()
+    const fetchMock = vi.fn()
+      .mockReturnValueOnce(staleSave.promise)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, revision: 6 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(
+      <AuthedPlayer
+        sessionId="session-1"
+        snapshot={snapshot}
+        backHref="/assessments/assessment-1"
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId('red-flag-no'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Begin session' }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(runRequestBody(fetchMock, 0)).toMatchObject({ red_flag_acknowledged: true, revision: 1 })
+
+    await act(async () => staleSave.resolve(new Response(JSON.stringify({
+      ok: true,
+      stale: true,
+      revision: 5,
+    }), { status: 200, headers: { 'content-type': 'application/json' } })))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('alert').textContent).toContain('Progress changed in another tab or device')
     expect(screen.getByRole('button', { name: 'Reload latest progress' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Retry saving' })).toBeNull()
