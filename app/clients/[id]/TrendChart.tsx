@@ -1,5 +1,5 @@
 'use client'
-import { startTransition, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone, ring } from '@/components/array/severity'
@@ -17,20 +17,6 @@ function RecordedScoreDisclosure({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isTableMounted, setIsTableMounted] = useState(false)
-  const summaryRef = useRef<HTMLElement>(null)
-
-  useEffect(() => {
-    const summary = summaryRef.current
-    if (!summary) return
-    // React delegates pointer events at the root, after Chromium has already
-    // begun the native focus path for <summary>. A target-level listener runs
-    // early enough to avoid repainting the SVG-backed glass card during the
-    // press. Keyboard focus remains native and the controlled click still owns
-    // disclosure state.
-    const skipPointerFocus = (event: PointerEvent) => event.preventDefault()
-    summary.addEventListener('pointerdown', skipPointerFocus)
-    return () => summary.removeEventListener('pointerdown', skipPointerFocus)
-  }, [])
 
   useEffect(() => {
     if (!isOpen || isTableMounted) return
@@ -43,47 +29,49 @@ function RecordedScoreDisclosure({
   }, [isOpen, isTableMounted])
 
   return (
-    <details className={styles.dataDetails} open={isOpen}>
-      <summary
-        ref={summaryRef}
+    <div className={styles.dataDetails} data-open={isOpen}>
+      <button
+        type="button"
         className={styles.dataSummary}
-        onClick={(event) => {
-          event.preventDefault()
-          setIsOpen(open => !open)
-        }}
+        aria-label="Recorded scores"
+        aria-expanded={isOpen}
+        aria-controls={`${tableId}-panel`}
+        onClick={() => setIsOpen(open => !open)}
       >
         Recorded scores
-      </summary>
-      {isTableMounted ? (
-        <table className={styles.dataTable} id={tableId}>
-          <caption className="sr-only">
-            Every recorded screening score for this client, with its grade and scoring version.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Grade</th>
-              <th scope="col">Score</th>
-              <th scope="col">Scoring version</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...history].reverse().map(point => (
-              <tr key={point.id}>
-                <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-                })}</td>
-                <td>{point.grade ?? '—'}</td>
-                <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
-                <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
+      </button>
+      <div id={`${tableId}-panel`} hidden={!isOpen}>
+        {isTableMounted ? (
+          <table className={styles.dataTable} id={tableId}>
+            <caption className="sr-only">
+              Every recorded screening score for this client, with its grade and scoring version.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Grade</th>
+                <th scope="col">Score</th>
+                <th scope="col">Scoring version</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : isOpen ? (
-        <p className={styles.loadingPanel} role="status">Preparing recorded scores…</p>
-      ) : null}
-    </details>
+            </thead>
+            <tbody>
+              {[...history].reverse().map(point => (
+                <tr key={point.id}>
+                  <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
+                    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+                  })}</td>
+                  <td>{point.grade ?? '—'}</td>
+                  <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
+                  <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : isOpen ? (
+          <p className={styles.loadingPanel} role="status">Preparing recorded scores…</p>
+        ) : null}
+      </div>
+    </div>
   )
 }
 

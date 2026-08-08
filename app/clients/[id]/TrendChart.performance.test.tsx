@@ -21,15 +21,18 @@ afterEach(() => {
 })
 
 describe('TrendChart recorded-score disclosure', () => {
-  it('avoids native mouse-focus work while preserving keyboard focus', () => {
+  it('uses a button disclosure with explicit expanded state', () => {
     render(<TrendChart history={history(2)} tableId="client-score-table" />)
 
-    const summary = screen.getByText('Recorded scores')
-    expect(fireEvent.pointerDown(summary)).toBe(false)
-    expect(document.activeElement).not.toBe(summary)
+    const disclosure = screen.getByRole('button', { name: 'Recorded scores' })
+    expect(disclosure.getAttribute('aria-expanded')).toBe('false')
+    expect(disclosure.getAttribute('aria-controls')).toBe('client-score-table-panel')
 
-    summary.focus()
-    expect(document.activeElement).toBe(summary)
+    disclosure.focus()
+    expect(document.activeElement).toBe(disclosure)
+
+    fireEvent.click(disclosure)
+    expect(disclosure.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('presents the disclosure before mounting its table work', () => {

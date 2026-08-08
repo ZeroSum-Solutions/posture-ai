@@ -300,7 +300,7 @@ test.describe('client comparison policy', () => {
     // disclosure. Confirm the same underlying facts this test cares about:
     // the trend surfaces, and both scoring versions are represented.
     await expect(page.getByRole('heading', { name: 'Deviation score' })).toBeVisible()
-    await page.locator('summary', { hasText: 'Recorded scores' }).click()
+    await page.getByRole('button', { name: 'Recorded scores', exact: true }).click()
     const scoringVersionCells = page.locator('#client-score-table tbody tr td:nth-child(4)')
     await expect(scoringVersionCells).toHaveText(['v3', 'v2', 'v2'])
   })

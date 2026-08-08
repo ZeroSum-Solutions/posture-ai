@@ -276,18 +276,22 @@
 }
 
 .dataSummary {
+  display: block;
+  width: 100%;
   min-height: 44px;
   padding: 13px 16px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  list-style: none;
+  text-align: left;
 }
 
-.dataSummary::-webkit-details-marker { display: none; }
 .dataSummary::after { content: ' ↓'; color: var(--text-quiet); }
-.dataDetails[open] .dataSummary::after { content: ' ↑'; }
+.dataDetails[data-open='true'] .dataSummary::after { content: ' ↑'; }
 
 .dataTable {
   width: 100%;
