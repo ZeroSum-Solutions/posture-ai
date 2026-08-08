@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const update = buildRunUpdate(existing as RunRow, parsed.data, new Date().toISOString())
   if (!update) {
     // Stale/duplicate revision — already superseded by a newer write. Not an error.
-    return NextResponse.json({ ok: true, stale: true })
+    return NextResponse.json({ ok: true, stale: true, revision: existing.revision ?? 0 })
   }
 
   // Safety control: completion is refused, not silently absorbed, when the
@@ -97,12 +97,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     )
   }
 
-  const { error } = await service.from('session_runs').update(update).eq('id', existing.id)
+  // Compare-and-swap closes the gap between the read above and this write. Two
+  // requests may both derive from revision N, but only one can replace N; the
+  // loser receives the committed revision and can retry from that new base.
+  const expectedRevision = (existing.revision as number | null) ?? 0
+  const { data: saved, error } = await service
+    .from('session_runs')
+    .update(update)
+    .eq('id', existing.id)
+    .eq('practitioner_id', user.id)
+    .eq('revision', expectedRevision)
+    .select('revision')
+    .maybeSingle()
   if (error) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: error.message })
     return NextResponse.json({ error: 'Failed to save progress.' }, { status: 500 })
   }
+  if (!saved) {
+    const { data: current } = await service
+      .from('session_runs')
+      .select('revision')
+      .eq('id', existing.id)
+      .eq('practitioner_id', user.id)
+      .maybeSingle()
+    logEvent({ route: ROUTE, outcome: 'client_error', status: 409, userHash, detail: 'revision_conflict' })
+    return NextResponse.json(
+      {
+        error: 'Workout progress changed in another request. Retrying is safe.',
+        current_revision: (current?.revision as number | null) ?? expectedRevision,
+      },
+      { status: 409 },
+    )
+  }
 
   logEvent({ route: ROUTE, outcome: 'ok', status: 200, userHash })
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, revision: saved.revision })
 }
