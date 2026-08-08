@@ -1,5 +1,5 @@
 'use client'
-import { startTransition, useEffect, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone, ring } from '@/components/array/severity'
@@ -7,6 +7,85 @@ import { buildTrendChart, CHART_VIEWBOX, type TrendInputPoint } from './trendMod
 import styles from './ClientDetail.module.css'
 
 const DEFERRED_SCORE_TABLE_MOUNT_MS = 300
+
+function RecordedScoreDisclosure({
+  history,
+  tableId,
+}: {
+  history: readonly TrendInputPoint[]
+  tableId: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isTableMounted, setIsTableMounted] = useState(false)
+  const summaryRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const summary = summaryRef.current
+    if (!summary) return
+    // React delegates pointer events at the root, after Chromium has already
+    // begun the native focus path for <summary>. A target-level listener runs
+    // early enough to avoid repainting the SVG-backed glass card during the
+    // press. Keyboard focus remains native and the controlled click still owns
+    // disclosure state.
+    const skipPointerFocus = (event: PointerEvent) => event.preventDefault()
+    summary.addEventListener('pointerdown', skipPointerFocus)
+    return () => summary.removeEventListener('pointerdown', skipPointerFocus)
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen || isTableMounted) return
+    // Let the disclosure paint first, then retain the table so later closes and
+    // reopens do no additional mount work.
+    const timer = window.setTimeout(() => {
+      startTransition(() => setIsTableMounted(true))
+    }, DEFERRED_SCORE_TABLE_MOUNT_MS)
+    return () => window.clearTimeout(timer)
+  }, [isOpen, isTableMounted])
+
+  return (
+    <details className={styles.dataDetails} open={isOpen}>
+      <summary
+        ref={summaryRef}
+        className={styles.dataSummary}
+        onClick={(event) => {
+          event.preventDefault()
+          setIsOpen(open => !open)
+        }}
+      >
+        Recorded scores
+      </summary>
+      {isTableMounted ? (
+        <table className={styles.dataTable} id={tableId}>
+          <caption className="sr-only">
+            Every recorded screening score for this client, with its grade and scoring version.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Grade</th>
+              <th scope="col">Score</th>
+              <th scope="col">Scoring version</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...history].reverse().map(point => (
+              <tr key={point.id}>
+                <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
+                  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+                })}</td>
+                <td>{point.grade ?? '—'}</td>
+                <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
+                <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : isOpen ? (
+        <p className={styles.loadingPanel} role="status">Preparing recorded scores…</p>
+      ) : null}
+    </details>
+  )
+}
 
 /**
  * The deviation-score trend, drawn by hand.
@@ -29,20 +108,6 @@ export default function TrendChart({
 }) {
   const model = buildTrendChart(history)
   const verdict = model.verdict
-  const [isScoreTableOpen, setIsScoreTableOpen] = useState(false)
-  const [isScoreTableMounted, setIsScoreTableMounted] = useState(false)
-
-  useEffect(() => {
-    if (!isScoreTableOpen || isScoreTableMounted) return
-    // Expanding a populated table inside the glass feature card made the native
-    // summary interaction synchronously lay out and repaint the rest of this
-    // long page. Let the open disclosure paint first, then retain the table so
-    // later closes and reopens do no additional mount work.
-    const timer = window.setTimeout(() => {
-      startTransition(() => setIsScoreTableMounted(true))
-    }, DEFERRED_SCORE_TABLE_MOUNT_MS)
-    return () => window.clearTimeout(timer)
-  }, [isScoreTableMounted, isScoreTableOpen])
 
   if (model.points.length === 0) {
     return (
@@ -204,46 +269,7 @@ export default function TrendChart({
 
       <p className={styles.trendFootnote}>{model.footnote}</p>
 
-      <details className={styles.dataDetails} open={isScoreTableOpen}>
-        <summary
-          className={styles.dataSummary}
-          onClick={(event) => {
-            event.preventDefault()
-            setIsScoreTableOpen(open => !open)
-          }}
-        >
-          Recorded scores
-        </summary>
-        {isScoreTableMounted ? (
-          <table className={styles.dataTable} id={tableId}>
-            <caption className="sr-only">
-              Every recorded screening score for this client, with its grade and scoring version.
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Date</th>
-                <th scope="col">Grade</th>
-                <th scope="col">Score</th>
-                <th scope="col">Scoring version</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...history].reverse().map(point => (
-                <tr key={point.id}>
-                  <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-                  })}</td>
-                  <td>{point.grade ?? '—'}</td>
-                  <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
-                  <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : isScoreTableOpen ? (
-          <p className={styles.loadingPanel} role="status">Preparing recorded scores…</p>
-        ) : null}
-      </details>
+      <RecordedScoreDisclosure history={history} tableId={tableId} />
     </Surface>
   )
 }
