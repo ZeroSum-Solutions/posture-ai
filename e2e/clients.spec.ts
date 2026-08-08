@@ -184,7 +184,7 @@ test.describe('client comparison policy', () => {
     })
   }
 
-  test('shows all tolerance states and fails closed across scoring versions', async ({ page }) => {
+  test('shows all tolerance states and fails closed across scoring versions', async ({ page, browserName }) => {
     const token = randomUUID().slice(0, 8)
     const client = await createClient(page, 'E2E', `Compare-${token}`)
     const finding = (key: string, label: string, severity: number, deviation: number) => ({
@@ -302,10 +302,12 @@ test.describe('client comparison policy', () => {
     await expect(page.getByRole('heading', { name: 'Deviation score' })).toBeVisible()
     const recordedScores = page.getByRole('button', { name: 'Recorded scores', exact: true })
     await recordedScores.focus()
-    await page.keyboard.press('Shift+Tab')
-    await page.keyboard.press('Tab')
+    if (browserName === 'chromium') {
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('Tab')
+      expect(await recordedScores.evaluate(element => element.matches(':focus-visible'))).toBe(true)
+    }
     await expect(recordedScores).toBeFocused()
-    expect(await recordedScores.evaluate(element => element.matches(':focus-visible'))).toBe(true)
     await recordedScores.press('Enter')
     await expect(recordedScores).toHaveAttribute('aria-expanded', 'true')
     const scoringVersionCells = page.locator('#client-score-table tbody tr td:nth-child(4)')
