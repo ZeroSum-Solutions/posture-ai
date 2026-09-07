@@ -31,7 +31,10 @@ test.describe('scan upload and model recovery', () => {
       buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01, 0x02]),
     })
 
-    await expect(page.getByRole('alert')).toContainText(/Front: The selected image could not be decoded|Front: The file contents do not match/)
+    const frontUploadError = page.getByRole('alert').filter({
+      hasText: /^Front: (The selected image could not be decoded|The file contents do not match)/,
+    })
+    await expect(frontUploadError).toBeVisible()
     await expect(page.getByRole('button', { name: 'Front (required), current' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Left Side (required), pending' })).not.toHaveAttribute('aria-current', 'step')
     await testInfo.attach('decode-error-recovery', {

@@ -18,8 +18,8 @@ type RecoveryHarness = {
   stats(): RecoveryStats
 }
 
-async function installRecoveryBrowserBoundary(page: Page) {
-  await page.addInitScript(() => {
+async function installRecoveryBrowserBoundary(page: Page, emulatePlayableFrame: boolean) {
+  await page.addInitScript((shouldEmulatePlayableFrame: boolean) => {
     const counters: RecoveryStats = {
       cameraRequests: 0,
       trackStops: 0,
@@ -30,14 +30,40 @@ async function installRecoveryBrowserBoundary(page: Page) {
       browserWakeReleases: 0,
     }
 
+    if (shouldEmulatePlayableFrame) {
+      // Headless WebKit exposes a canvas capture track but does not advance a
+      // video element's intrinsic dimensions. Supply that browser boundary for
+      // this device-independent lifecycle proxy; Chromium consumes the real
+      // painted canvas frame below.
+      const nativePlay = HTMLMediaElement.prototype.play
+      HTMLMediaElement.prototype.play = function () {
+        if (this instanceof HTMLVideoElement && this.srcObject) {
+          Object.defineProperties(this, {
+            readyState: { configurable: true, get: () => HTMLMediaElement.HAVE_ENOUGH_DATA },
+            videoWidth: { configurable: true, get: () => 720 },
+            videoHeight: { configurable: true, get: () => 960 },
+          })
+          queueMicrotask(() => {
+            this.dispatchEvent(new Event('loadeddata'))
+            this.dispatchEvent(new Event('canplay'))
+          })
+          return Promise.resolve()
+        }
+        return nativePlay.call(this)
+      }
+    }
+
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
         getUserMedia: async () => {
           counters.cameraRequests += 1
           const canvas = document.createElement('canvas')
-          canvas.width = 2
-          canvas.height = 2
+          canvas.width = 720
+          canvas.height = 960
+          const context = canvas.getContext('2d')!
+          context.fillStyle = '#12202e'
+          context.fillRect(0, 0, canvas.width, canvas.height)
           const stream = (canvas as HTMLCanvasElement & { captureStream(): MediaStream }).captureStream()
           const videoTrack = stream.getVideoTracks()[0]
           const stopTrack = videoTrack.stop.bind(videoTrack)
@@ -114,7 +140,7 @@ async function installRecoveryBrowserBoundary(page: Page) {
       stats: () => ({ ...counters }),
     }
     Object.defineProperty(window, '__deviceRecoveryHarness', { configurable: false, value: harness })
-  })
+  }, emulatePlayableFrame)
 }
 
 async function stats(page: Page): Promise<RecoveryStats> {
@@ -129,8 +155,8 @@ async function continuePastCaptureDisclaimer(page: Page) {
 }
 
 test.describe('device-independent capture recovery proxy', () => {
-  test('preserves capture state and bounded resource ownership across 12 recovery cycles', async ({ page }) => {
-    await installRecoveryBrowserBoundary(page)
+  test('preserves capture state and bounded resource ownership across 12 recovery cycles', async ({ page, browserName }) => {
+    await installRecoveryBrowserBoundary(page, browserName === 'webkit')
     const stamp = Date.now().toString().slice(-7)
     await createClient(page, 'E2E', `Recovery${stamp}`)
 

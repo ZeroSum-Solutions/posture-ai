@@ -14,8 +14,11 @@ test.describe('camera error handling and quality preflight', () => {
     await page.addInitScript(() => {
       let attempts = 0
       const canvas = document.createElement('canvas')
-      canvas.width = 2
-      canvas.height = 2
+      canvas.width = 720
+      canvas.height = 960
+      const context = canvas.getContext('2d')!
+      context.fillStyle = '#12202e'
+      context.fillRect(0, 0, canvas.width, canvas.height)
       const stream = (canvas as HTMLCanvasElement & { captureStream(): MediaStream }).captureStream()
       Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
         value: async function () {
@@ -59,11 +62,15 @@ test.describe('camera error handling and quality preflight', () => {
     // DeviceOrientationEvent fires no events in desktop Chromium → the
     // useCameraLevel hook degrades to 'unsupported' → roll stays null.
     await page.addInitScript(() => {
-      // Minimal fake MediaStream: a canvas capture track is enough for the
-      // video element to enter the live phase without a real camera.
+      // Paint a concrete frame before creating the stream. A blank, untouched
+      // canvas exposes a track but never advances the video's playable-frame
+      // state, which is intentionally required before the shutter enables.
       const canvas = document.createElement('canvas')
-      canvas.width = 2
-      canvas.height = 2
+      canvas.width = 720
+      canvas.height = 960
+      const context = canvas.getContext('2d')!
+      context.fillStyle = '#12202e'
+      context.fillRect(0, 0, canvas.width, canvas.height)
       const fakeStream: MediaStream = (canvas as HTMLCanvasElement & { captureStream(): MediaStream }).captureStream()
       Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
         value: async () => fakeStream,
