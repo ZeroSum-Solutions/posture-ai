@@ -866,6 +866,13 @@ export default function ClinicalAssessmentResults({
                       Practitioner approval is required before launch.
                     </p>
                   )}
+                  <Link
+                    href={`/workouts?assessment_id=${assessmentId}`}
+                    className="a-secondary"
+                    style={{ display: 'inline-flex', minHeight: 42, padding: '0 16px', marginTop: 12 }}
+                  >
+                    Customize workout
+                  </Link>
                 </Surface>
               ) : (
                 <Surface tier="tile">

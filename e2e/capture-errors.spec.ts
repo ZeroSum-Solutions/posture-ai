@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import path from 'node:path'
-import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './helpers'
+import { createClient, selectClientInWizard, dismissCaptureDisclaimer, setCaptureUpload } from './helpers'
 
 // Camera error handling and no-person-detection flows in the full-screen capture.
 // Desktop-Chromium only — camera permission APIs and MediaPipe WASM tests
@@ -105,7 +105,7 @@ test.describe('camera error handling and quality preflight', () => {
     await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
 
     // Upload the no-person fixture to the front slot (index 0)
-    await inputs.nth(0).setInputFiles(nopersonPhoto)
+    await setCaptureUpload(page, 0, nopersonPhoto)
 
     // Wait for the preflight to complete — the no-person banner appears
     // (MediaPipe WASM detects no person in a plain gray image)
@@ -116,9 +116,9 @@ test.describe('camera error handling and quality preflight', () => {
     // required slots are all present and the Analyze action gates only on the
     // front slot's no_person (otherwise it blocks earlier on a missing required slot).
     const photos = path.join(__dirname, 'fixtures', 'photos')
-    await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
+    await setCaptureUpload(page, 1, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 2, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 3, path.join(photos, 'back_standing.jpg'))
 
     // Only the front slot stays no_person (the sides complete as ok or warnings)
     await expect(page.locator('text=No person detected — retake')).toHaveCount(1, { timeout: 90_000 })
@@ -149,10 +149,10 @@ test.describe('camera error handling and quality preflight', () => {
 
     // Front gets the degraded (blurry) fixture; both side slots get the normal
     // side fixture used elsewhere in this file as a valid, person-detected photo.
-    await inputs.nth(0).setInputFiles(path.join(photos, 'front_standing_blurry.jpg'))
-    await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
+    await setCaptureUpload(page, 0, path.join(photos, 'front_standing_blurry.jpg'))
+    await setCaptureUpload(page, 1, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 2, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 3, path.join(photos, 'back_standing.jpg'))
 
     // Wait for all three preflights to settle: the Front tile's accessible name
     // gains the "— quality warning" suffix (page.tsx runPreflight → slotStatus

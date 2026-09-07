@@ -356,6 +356,21 @@ describe('client detail progressive rendering', () => {
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
   })
 
+  it('keeps the scan action available without consent controls in prototype operation', () => {
+    const initialData = {
+      ...seededInitialData(),
+      operationMode: 'prototype' as const,
+      consentStatus: 'not_required' as const,
+    }
+    render(<ClientDetailPage initialData={initialData} />)
+
+    expect(screen.getByRole('link', { name: /New scan/i }).getAttribute('href'))
+      .toBe('/assessments/new?client_id=client-1')
+    expect(screen.getByText('Prototype operation')).toBeTruthy()
+    expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
+    expect(screen.queryByText(/Consent active|Consent not recorded|New consent required/)).toBeNull()
+  })
+
   it('merges older pages by id, advances the cursor, and clears it at the end', async () => {
     const duplicateUpdate = {
       ...assessments[1],

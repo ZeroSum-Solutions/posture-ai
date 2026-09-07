@@ -1,12 +1,12 @@
 import { notFound } from 'next/navigation'
-import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import ExercisesLibrary from './ExercisesLibrary'
 import { approvedClinicalExercises } from '@/lib/clinical-content/catalog'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ExercisesPage() {
-  const access = await serverClinicalContentAccess()
+  const access = await currentPractitionerClinicalContentAccess()
   if (!access.surfaces.recommendations) notFound()
   const exercises = approvedClinicalExercises(access)
     .map((exercise) => ({

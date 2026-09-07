@@ -26,6 +26,7 @@ import { buildHistoryRows } from './historyRows'
 import { buildClientComparison } from '@/lib/reports/clientComparison'
 import { segmentTrendHistory } from '@/lib/comparison/trends'
 import styles from './ClientDetail.module.css'
+import type { OperationMode } from '@/lib/prototype/runtime'
 
 const RetainedFindingsTrend = memo(FindingsTrend)
 const RetainedComparisonWorkspace = memo(ComparisonWorkspace)
@@ -65,9 +66,10 @@ interface Assessment {
 }
 
 export interface ClientDetailInitialData {
+  operationMode?: OperationMode
   client: Client
   assessments: Assessment[]
-  consentStatus: 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable'
+  consentStatus: 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable' | 'not_required'
   pagination: {
     has_more: boolean
     next_cursor: string | null
@@ -222,6 +224,9 @@ function ClientDetailRoute({
 }) {
   const router = useRouter()
   const ownsInitialData = initialData?.client.id === id
+  const operationMode: OperationMode = ownsInitialData
+    ? initialData.operationMode ?? 'governed'
+    : 'governed'
   const initialAssessments = ownsInitialData
     ? sortAssessmentsChronologically<Assessment>(initialData.assessments)
     : []
@@ -250,7 +255,7 @@ function ClientDetailRoute({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [archiveError, setArchiveError] = useState<string | null>(null)
   const [consentStatus, setConsentStatus] = useState<
-    'checking' | 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable'
+    'checking' | 'valid' | 'missing' | 'withdrawn' | 'reconsent_required' | 'unavailable' | 'not_required'
   >(() => ownsInitialData ? initialData.consentStatus : 'checking')
 
   useEffect(() => {
@@ -647,7 +652,9 @@ function ClientDetailRoute({
   // State only, no date. The one date available here is clients.consent_recorded_at,
   // which is not the record the legal-consent decision is made from — showing it
   // beside "Consent active" would attribute the decision to the wrong evidence.
-  const consentSummary = consentStatus === 'checking'
+  const consentSummary = operationMode === 'prototype'
+    ? { text: 'Prototype operation', band: 'neutral' as const, icon: 'shield-check-linear' as const }
+    : consentStatus === 'checking'
     ? { text: 'Checking consent', band: 'neutral' as const, icon: 'clock-circle-linear' as const }
     : consentStatus === 'valid'
       ? { text: 'Consent active', band: 'maintain' as const, icon: 'shield-check-linear' as const }
@@ -739,7 +746,7 @@ function ClientDetailRoute({
           </Surface>
         ) : null}
 
-        {consentStatus === 'missing' && (
+        {operationMode === 'governed' && consentStatus === 'missing' && (
           <>
             <InPersonConsentForm
               clientId={client.id}
@@ -885,7 +892,7 @@ function ClientDetailRoute({
                 </div>
                 {consentStatus !== 'checking' && (
                   <div>
-                    <p className={styles.factLabel}>Consent</p>
+                    <p className={styles.factLabel}>{operationMode === 'prototype' ? 'Operation' : 'Consent'}</p>
                     <p className={styles.factValue} style={{ color: tone(consentSummary.band) }}>
                       {consentSummary.text}
                     </p>
@@ -900,7 +907,11 @@ function ClientDetailRoute({
               )}
             </Surface>
           )}
-          privacyPanel={(
+          privacyPanel={operationMode === 'prototype' ? (
+            <Surface tier="tile">
+              <p className="t-body">Workout sharing and consent controls are off for prototype records.</p>
+            </Surface>
+          ) : (
             <div style={{ marginTop: 12 }}>
               <PrivacyLifecycleControls
                 clientId={client.id}

@@ -46,6 +46,7 @@ const testSpies = vi.hoisted(() => ({
     return Buffer.from('%PDF-1.4\n%mock')
   }),
   clinicalEnabled: { value: true },
+  prototype: { value: false },
 }))
 
 // Per-table result for the authed server client. supabase-js resolves to
@@ -110,6 +111,21 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
+vi.mock('@/lib/prototype/runtime', () => ({
+  operationForPractitioner: (practitionerId: string) => ({
+    practitionerId, isPrototype: testSpies.prototype.value,
+    mode: testSpies.prototype.value ? 'prototype' : 'governed',
+  }),
+}))
+vi.mock('@/lib/clinical-content/database', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/clinical-content/database')>()),
+  serverClinicalContentAccessForPractitioner: async () => ({
+    mode: 'prototype', contentVersion: 'clinical-content-prototype-v1',
+    inventorySha256: 'd'.repeat(64),
+    surfaces: { recommendations: true, programs: true, workouts: true, knowledgeLinks: true },
+    approvedExerciseSlugs: [], approvedLinkIds: [], approvedReportCopyIds: [],
+  }),
+}))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
 vi.mock('@/lib/log', () => ({
   logEvent: testSpies.logEvent,
@@ -163,6 +179,7 @@ const approvedAssessment = {
 
 describe('POST /api/reports', () => {
   beforeEach(() => {
+    testSpies.prototype.value = false
     uploadSpy.mockClear()
     removeSpy.mockReset().mockResolvedValue({ error: null })
     reportInsertSpy.mockReset().mockImplementation(async () => reportsInsert)
@@ -182,6 +199,25 @@ describe('POST /api/reports', () => {
     outboxWrite.data = null
     outboxWrite.error = null
     testSpies.clinicalEnabled.value = true
+  })
+
+  test('exports prototype reports without claiming a signed legal notice', async () => {
+    testSpies.prototype.value = true
+    legalTest.resolution.value = { ok: false, code: 'no_eligible_document', message: 'Unavailable' }
+
+    const response = await POST(req({ assessment_id: 'a1', variant: 'practitioner' }))
+
+    expect(response.status).toBe(200)
+    expect(legalTest.snapshotSpy).not.toHaveBeenCalled()
+    const document = renderToBufferSpy.mock.calls[0]?.[0] as { props: Record<string, unknown> }
+    expect(document.props.legalNotice).toMatchObject({ kind: 'prototype_notice' })
+    expect(reportInsertSpy).toHaveBeenCalledWith('finalize_report_upload_prototype', expect.objectContaining({
+      p_assessment_id: 'a1', p_practitioner_id: 'u1',
+      p_clinical_content_version: 'clinical-content-prototype-v1',
+    }))
+    const args = reportInsertSpy.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(Object.keys(args).some((key) => key.includes('legal') || key.includes('notice'))).toBe(false)
+    expect(outboxInsertSpy).toHaveBeenCalled()
   })
 
   test('denies direct client-program export while assessment-only', async () => {

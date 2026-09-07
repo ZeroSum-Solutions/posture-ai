@@ -14,6 +14,7 @@ interface StoredAssessment {
 
 const mockState = vi.hoisted(() => ({
   service: null as unknown,
+  getConsentStatus: vi.fn(),
   consent: {
     hasConsent: true,
     signerRelationship: 'self',
@@ -33,11 +34,12 @@ const mockState = vi.hoisted(() => ({
       isFixture: true,
     },
   } as Record<string, unknown>,
+  clientDob: { value: '1990-01-01' as string | null },
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
+    auth: { getUser: async () => ({ data: { user: { id: '91000000-0000-4000-8000-000000000001' } } }) },
     from: () => ({}),
   }),
   createSupabaseServiceClient: () => mockState.service,
@@ -45,7 +47,7 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
 vi.mock('@/lib/consent/record', () => ({
-  getConsentStatus: async () => mockState.consent,
+  getConsentStatus: (...args: unknown[]) => mockState.getConsentStatus(...args),
   captureEligibility: () => ({ ok: mockState.consent.hasConsent === true, reason: 'Subject consent is required before screening can begin.' }),
 }))
 
@@ -56,6 +58,8 @@ const SUBMISSION_A = '6a76a8b9-df1d-4e93-a65b-33419bb01bb4'
 const SUBMISSION_B = '65a5f322-0d90-4ba2-bf2e-2201958dd668'
 
 beforeEach(() => {
+  delete process.env.POSTURE_OPERATION_MODE
+  delete process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS
   mockState.consent = {
     hasConsent: true,
     signerRelationship: 'self',
@@ -75,6 +79,8 @@ beforeEach(() => {
       isFixture: true,
     },
   }
+  mockState.getConsentStatus.mockReset().mockImplementation(async () => mockState.consent)
+  mockState.clientDob.value = '1990-01-01'
 })
 
 function validFrames() {
@@ -102,8 +108,16 @@ function makeAssessmentService() {
   let captureInsertCount = 0
   let findingInsertCount = 0
   let hiddenExistingReads = 0
+  const rpcCalls: { name: string; args: Record<string, unknown> }[] = []
 
   const service = {
+    async rpc(name: string, args: Record<string, unknown>) {
+      rpcCalls.push({ name, args })
+      return {
+        data: { status: 'complete', assessment_id: 'assessment-prototype', replayed: false },
+        error: null,
+      }
+    },
     from(table: string) {
       if (table === 'clients') {
         return {
@@ -111,7 +125,7 @@ function makeAssessmentService() {
             const query = {
               eq() { return query },
               is() { return query },
-              async maybeSingle() { return { data: { id: CLIENT_ID, date_of_birth: '1990-01-01' }, error: null } },
+              async maybeSingle() { return { data: { id: CLIENT_ID, date_of_birth: mockState.clientDob.value }, error: null } },
             }
             return query
           },
@@ -176,7 +190,7 @@ function makeAssessmentService() {
 
   return {
     service,
-    snapshot: () => ({ assessments, captureInsertCount, findingInsertCount }),
+    snapshot: () => ({ assessments, captureInsertCount, findingInsertCount, rpcCalls }),
     hideNextExistingRead: () => { hiddenExistingReads++ },
   }
 }
@@ -253,6 +267,93 @@ describe('POST /api/assessments governed consent provenance', () => {
     expect(response.status).toBe(503)
     await expect(response.json()).resolves.toMatchObject({ code: 'legal_unavailable' })
     expect(db.snapshot()).toMatchObject({ assessments: [], captureInsertCount: 0, findingInsertCount: 0 })
+  })
+})
+
+describe('POST /api/assessments prototype operation', () => {
+  test('scores first and commits the assessment, captures, and findings through one prototype RPC', async () => {
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = '91000000-0000-4000-8000-000000000001'
+    mockState.consent = {
+      hasConsent: false,
+      signerRelationship: null,
+      legalState: 'missing',
+      document: null,
+    }
+    const db = makeAssessmentService()
+    mockState.service = db.service
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      id: 'assessment-prototype',
+      status: 'complete',
+      replayed: false,
+    })
+    expect(mockState.getConsentStatus).not.toHaveBeenCalled()
+    expect(db.snapshot()).toMatchObject({ assessments: [], captureInsertCount: 0, findingInsertCount: 0 })
+    expect(db.snapshot().rpcCalls).toEqual([
+      {
+        name: 'create_assessment_prototype',
+        args: expect.objectContaining({
+          p_client_id: CLIENT_ID,
+          p_practitioner_id: '91000000-0000-4000-8000-000000000001',
+          p_submission_id: SUBMISSION_A,
+          p_submission_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+          p_captures: expect.any(Array),
+          p_findings: expect.any(Array),
+          p_overall_grade: expect.stringMatching(/^[SABCDE]$/),
+        }),
+      },
+    ])
+  })
+
+  test('a non-allowlisted practitioner remains on the governed consent path', async () => {
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = '91000000-0000-4000-8000-000000000002'
+    mockState.consent = {
+      hasConsent: false,
+      signerRelationship: null,
+      legalState: 'missing',
+      document: null,
+    }
+    const db = makeAssessmentService()
+    mockState.service = db.service
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(403)
+    expect(mockState.getConsentStatus).toHaveBeenCalledOnce()
+    expect(db.snapshot().rpcCalls).toHaveLength(0)
+  })
+
+  test('retains the explicit under-13 server age gate without subject paperwork', async () => {
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = '91000000-0000-4000-8000-000000000001'
+    mockState.clientDob.value = '2020-01-01'
+    const db = makeAssessmentService()
+    mockState.service = db.service
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ error: expect.stringMatching(/under 13/i) })
+    expect(mockState.getConsentStatus).not.toHaveBeenCalled()
+    expect(db.snapshot().rpcCalls).toHaveLength(0)
+  })
+
+  test('keeps date of birth optional for an otherwise admitted prototype client', async () => {
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = '91000000-0000-4000-8000-000000000001'
+    mockState.clientDob.value = null
+    const db = makeAssessmentService()
+    mockState.service = db.service
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(200)
+    expect(db.snapshot().rpcCalls).toHaveLength(1)
   })
 })
 

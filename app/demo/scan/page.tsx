@@ -1,7 +1,6 @@
-import ScanExperience from '@/components/demo/scan/ScanExperience'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Scan · Posture AI Demo' }
-
-export default function DemoScanPage() {
-  return <ScanExperience />
+/** Keep previously shared links pointed at the original application. */
+export default function PreviousDemoLink() {
+  redirect('/assessments/new')
 }

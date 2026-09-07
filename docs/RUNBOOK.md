@@ -34,44 +34,40 @@ connector is OAuth-scoped to a different org — use the Management API
 
 ## Deploy
 
-### Demonstration workspace
+### Original application prototype operation
 
-The prototype starts at `/demo`, linked from the marketing header. It has its own
-navigation, `/demo/scan`, and `/demo/workouts`. These routes use browser-local
-scans and workouts and do not require practitioner admission or signed documents.
-They do not activate the governed practitioner application or its real-data APIs.
+The prototype uses the original authenticated application: `/dashboard`, `/clients`,
+`/assessments/new`, assessment results, and `/workouts`. The former `/demo` links
+redirect to these original routes. Clients, scans, workouts, and progress use the
+existing database tables. There is no separate browser-local application.
 
-Capture accepts front and side camera images or uploads. MediaPipe detection and
-the existing scoring engine run locally. Photos remain in memory and disappear
-when the page reloads; validated landmarks and re-scored findings persist in local
-storage. The labeled Alex sample uses the same authored coordinates every time.
-The results viewer keeps the image and overlay in the same uncropped coordinate
-plane. Clearing browser data clears prototype scans, workouts, and progress.
+For the unused demonstration deployment, set server-only `POSTURE_OPERATION_MODE`
+to `prototype` and `POSTURE_PROTOTYPE_PRACTITIONER_IDS` to a comma-separated list
+of existing practitioner UUIDs. Invalid configuration retains the governed path.
+Authentication, MFA, active practitioner admission, and record ownership still apply.
+The selected practitioners can use the application without signing documents;
+new records explicitly carry prototype provenance with no invented consent,
+legal approval, or clinical-review receipt. Historical rows remain unchanged.
+Prototype workout sessions do not mint public share tokens.
 
-The workout builder offers a goal, time ceiling, movement level, and equipment.
-Users can preview, remove exercises, rename, save, edit a copy, and follow a plan.
-The guided player saves exercise progress and completion in this browser. Prototype
-voice uses browser speech where supported; exercise demonstration videos are not
-included. A resumed session repeats the pain check and restarts the current exercise.
+Apply the additive workout metadata and prototype-operation migrations before
+releasing the corresponding application. Do not reset or replace existing records.
+The original four-view capture accepts camera frames and image uploads, then
+persists scored assessments and findings through the original results workflow.
 
-`POST /api/demo/workouts/generate` accepts bounded findings and preferences. Only
-the resulting eligible exercise catalog and preferences go to OpenRouter; no
-photos, raw landmarks, or account identity are sent. Set server-only
-`POSTURE_DEMO_OPENROUTER_API_KEY` and `POSTURE_DEMO_OPENROUTER_MODEL` for live AI.
-The server validates model selections against authored exercises and timing.
-Missing or failed AI yields an explicitly labeled scan-based plan; the local
-**Build from scan** action also works without a provider.
+The workout builder uses an owned assessment and preferences for goal, duration,
+level, and equipment. Users can preview, customize, name, save, follow, and archive
+workouts. Editing a completed or saved session creates a new copy to preserve
+its history. For DeepSeek, set server-only `POSTURE_WORKOUT_AI_PROVIDER=deepseek`,
+`POSTURE_WORKOUT_DEEPSEEK_API_KEY`, and `POSTURE_WORKOUT_DEEPSEEK_MODEL`.
+For OpenRouter, select `openrouter` and set `POSTURE_WORKOUT_OPENROUTER_API_KEY`
+and `POSTURE_WORKOUT_OPENROUTER_MODEL`. Only the selected provider is called. Provider failure returns
+an explicitly labeled scan-based plan. No global test-mode flag is needed.
 
-The public AI endpoint requires a matching Origin and JSON request. The existing
-Postgres rate limiter enforces 12 requests per address per hour and 150 shared
-requests per day. A rate-limiter outage denies paid generation. No real client
-table is used by the prototype. Do not enable global test-mode flags to deploy it.
-
-Run `npm run test:demo` for the isolated desktop/mobile browser journey and failure
-recovery checks. The command starts a local server if needed. Set `DEMO_BASE_URL`
-to test an already running candidate. Production verification must check the exact
-public alias: a READY Vercel deployment can exist while the alias still serves an
-older commit. Record the deployment ID, Git SHA, and alias mapping together.
+Verify the original authenticated scan-to-workout journey, including reload,
+progress persistence, camera/upload recovery, and report download. Production
+verification must check the exact public alias and record its deployment ID and
+Git SHA; a READY build alone does not prove the alias serves that revision.
 
 ### Application release
 

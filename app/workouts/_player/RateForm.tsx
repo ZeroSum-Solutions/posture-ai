@@ -37,6 +37,7 @@ export function RateForm({
   durationSec,
   legalNotice,
   legacyDisclaimer,
+  prototypeDisclaimer,
   allowNotes,
   submitRating,
   onExit,
@@ -47,6 +48,7 @@ export function RateForm({
   durationSec: number
   legalNotice?: LegalSnapshot
   legacyDisclaimer?: string
+  prototypeDisclaimer?: string
   allowNotes: boolean
   submitRating: (payload: RatingPayload) => Promise<{ ok: boolean; error?: string }>
   onExit?: () => void
@@ -144,7 +146,7 @@ export function RateForm({
         )}
       </Surface>
 
-      <WorkoutLegalNotice legalNotice={legalNotice} legacyDisclaimer={legacyDisclaimer} />
+      <WorkoutLegalNotice legalNotice={legalNotice} legacyDisclaimer={legacyDisclaimer} prototypeDisclaimer={prototypeDisclaimer} />
 
       {error && <div role="alert" style={{ color: theme.danger, fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>}
 
@@ -165,14 +167,28 @@ export function RateForm({
 export function WorkoutLegalNotice({
   legalNotice,
   legacyDisclaimer,
+  prototypeDisclaimer,
 }: {
   legalNotice?: LegalSnapshot
   legacyDisclaimer?: string
+  prototypeDisclaimer?: string
 }) {
   if (legalNotice) {
     return (
       <div style={{ margin: '14px auto 18px', maxWidth: 440, textAlign: 'left' }}>
         <LegalNotice document={legalNotice} compact />
+      </div>
+    )
+  }
+
+  if (prototypeDisclaimer) {
+    return (
+      <div
+        data-legal-provenance="prototype"
+        style={{ color: theme.textMuted, fontSize: '0.72rem', lineHeight: 1.5, margin: '14px auto 18px', maxWidth: 380 }}
+      >
+        <p style={{ margin: '0 0 6px' }}>{prototypeDisclaimer}</p>
+        <p style={{ margin: 0, fontWeight: 700 }}>Prototype catalog · practitioner review required before use.</p>
       </div>
     )
   }

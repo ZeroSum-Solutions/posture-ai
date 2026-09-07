@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import path from 'node:path'
-import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './helpers'
+import { createClient, selectClientInWizard, dismissCaptureDisclaimer, setCaptureUpload } from './helpers'
 
 // Uploads real standing-posture photos through the actual detectPose path
 // (MediaPipe WASM in the browser) — no test mode. Chromium-only via project
@@ -33,10 +33,10 @@ test.describe('real pose detection through the wizard', () => {
 
     // Slot order matches the wizard's four free-order slots: front, side-left,
     // side-right, back. The single side fixture stands in for both profiles.
-    await inputs.nth(0).setInputFiles(path.join(photos, 'front_standing.jpg'))
-    await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
+    await setCaptureUpload(page, 0, path.join(photos, 'front_standing.jpg'))
+    await setCaptureUpload(page, 1, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 2, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 3, path.join(photos, 'back_standing.jpg'))
 
     // Proceed once all four required views pass preflight.
     await page.getByRole('button', { name: 'Analyze Posture' }).click()

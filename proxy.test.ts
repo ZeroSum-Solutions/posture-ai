@@ -30,6 +30,8 @@ describe('proxy PR-04 admission boundary', () => {
     process.env.POSTURE_TEST_MODE_ENABLED = '1'
     delete process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT
     process.env.VERCEL_ENV = 'preview'
+    delete process.env.POSTURE_OPERATION_MODE
+    delete process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS
     getUser.mockReset().mockImplementation(async () => {
       cookieAdapter.setAll([
         { name: 'sb-session', value: 'rotated', options: { httpOnly: true, path: '/' } },
@@ -81,6 +83,45 @@ describe('proxy PR-04 admission boundary', () => {
     from.mockReset().mockReturnValue({
       select: () => ({ eq: () => ({ order: legalOrder }) }),
     })
+  })
+
+  function configurePrototypeOperator() {
+    const id = '11111111-1111-4111-8111-111111111111'
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = id
+    process.env.VERCEL_ENV = 'production'
+    getUser.mockResolvedValue({ data: { user: { id } }, error: null })
+  }
+
+  test('lets an admitted prototype operator open the original app without document acceptance', async () => {
+    configurePrototypeOperator()
+    const response = await proxy(new NextRequest('http://localhost/dashboard'))
+    expect(response.status).toBe(200)
+    expect(legalOrder).not.toHaveBeenCalled()
+  })
+
+  test('still requires MFA in prototype operation', async () => {
+    configurePrototypeOperator()
+    getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: 'aal1' }, error: null })
+    const response = await proxy(new NextRequest('http://localhost/dashboard'))
+    expect(response.headers.get('location')).toContain('/auth/mfa')
+  })
+
+  test('does not grant prototype access to a different practitioner', async () => {
+    configurePrototypeOperator()
+    getUser.mockResolvedValue({ data: { user: { id: '22222222-2222-4222-8222-222222222222' } }, error: null })
+    const response = await proxy(new NextRequest('http://localhost/dashboard'))
+    expect(response.headers.get('location')).toContain('/onboarding')
+  })
+
+  test('serves original anatomy assets only after prototype operator admission', async () => {
+    configurePrototypeOperator()
+    const allowed = await proxy(new NextRequest('http://localhost/muscle-viewer/model.glb'))
+    expect(allowed.status).toBe(200)
+    expect(maybeSingle).toHaveBeenCalled()
+    maybeSingle.mockResolvedValue({ data: { access_status: 'revoked', role: 'practitioner' }, error: null })
+    const denied = await proxy(new NextRequest('http://localhost/muscle-viewer/model.glb'))
+    expect(denied.status).not.toBe(200)
   })
 
   test.each([

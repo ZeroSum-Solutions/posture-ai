@@ -162,7 +162,7 @@ export default async function DashboardPage() {
 
   const { data: practitioner, error: practitionerErr } = await supabase
     .from('practitioners')
-    .select('first_name, last_name')
+    .select('display_name')
     .eq('id', user.id)
     .maybeSingle()
   // Deliberately outside the `failed`/loadError gate above: the only visible
@@ -170,6 +170,9 @@ export default async function DashboardPage() {
   // which doesn't warrant the full-page "some data could not load" banner
   // that the 10 Promise.all queries share. Still logged so the miss isn't silent.
   if (practitionerErr) console.error(`[dashboard/${user.id}] practitioner lookup failed:`, practitionerErr.message)
+
+  const nameParts = (practitioner?.display_name ?? '').trim().split(/\s+/)
+  const practitionerInitials = initialsOf(nameParts[0] ?? '', nameParts.length > 1 ? nameParts.at(-1)! : '')
 
   const model = buildTodayModel({
     awaiting,
@@ -190,7 +193,7 @@ export default async function DashboardPage() {
   return (
     <DashboardExperience
       model={model}
-      practitionerInitials={initialsOf(practitioner?.first_name ?? '', practitioner?.last_name ?? '')}
+      practitionerInitials={practitionerInitials}
       todayLabel={new Date(now).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
       loadError={loadError}
     />

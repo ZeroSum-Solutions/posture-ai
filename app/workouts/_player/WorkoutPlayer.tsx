@@ -496,9 +496,11 @@ export function WorkoutPlayer({
                 skipped={skipped}
                 total={total}
                 durationSec={state.elapsedMs > 0 ? Math.round(state.elapsedMs / 1000) : snapshot.estimatedDurationSec}
-                {...(snapshot.version === 1
-                  ? { legacyDisclaimer: snapshot.disclaimer }
-                  : { legalNotice: snapshot.legalNotice })}
+                {...(snapshot.version === 4
+                  ? { prototypeDisclaimer: snapshot.disclaimer }
+                  : snapshot.version === 1
+                    ? { legacyDisclaimer: snapshot.disclaimer }
+                    : { legalNotice: snapshot.legalNotice })}
                 allowNotes={allowNotes}
                 submitRating={submitRating}
                 onExit={onExit}
@@ -688,9 +690,11 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
         {snapshot.items.length} movements · about {mins} min
       </p>
       <WorkoutLegalNotice
-        {...(snapshot.version === 1
-          ? { legacyDisclaimer: snapshot.disclaimer }
-          : { legalNotice: snapshot.legalNotice })}
+        {...(snapshot.version === 4
+          ? { prototypeDisclaimer: snapshot.disclaimer }
+          : snapshot.version === 1
+            ? { legacyDisclaimer: snapshot.disclaimer }
+            : { legalNotice: snapshot.legalNotice })}
       />
       <button onClick={onBegin} className="a-primary" style={{ padding: '0 40px', minHeight: 56, width: '100%' }}>
         Begin session

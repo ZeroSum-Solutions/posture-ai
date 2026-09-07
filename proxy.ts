@@ -5,7 +5,8 @@ import { practitionerLegalAcceptanceStatus } from '@/lib/auth/requirePractitione
 import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
 import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
 import { buildApplicationCsp } from '@/lib/security/csp'
-import { isDemoRequest } from '@/lib/demo/paths'
+import { isPublicPoseAsset } from '@/lib/pose/public-assets'
+import { configuredOperationMode, operationForPractitioner } from '@/lib/prototype/runtime'
 
 type CookieToSet = {
   name: string
@@ -89,9 +90,8 @@ export async function proxy(request: NextRequest) {
   let supabaseResponse = nextApplicationResponse()
   const refreshedCookies: CookieToSet[] = []
 
-  // The prototype reads browser-local scans, never practitioner data. Its sole
-  // AI endpoint independently validates requests and enforces a shared quota.
-  if (isDemoRequest(pathname)) return supabaseResponse
+  // These exact immutable pose assets contain no account or scan data.
+  if (isPublicPoseAsset(pathname)) return supabaseResponse
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -116,25 +116,30 @@ export async function proxy(request: NextRequest) {
   )
 
   const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  const prototypeDeployment = configuredOperationMode() === 'prototype'
+  let needsPrototypeAssetAccess = false
   if (isMuscleViewer) {
-    if (!clinicalAccess.surfaces.knowledgeLinks) {
+    if (!clinicalAccess.surfaces.knowledgeLinks && !prototypeDeployment) {
       return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
     }
+    needsPrototypeAssetAccess ||= !clinicalAccess.surfaces.knowledgeLinks
     // The anatomy viewer is practitioner-only. Continue through normal auth,
     // MFA, admission, and legal gates after both release authorities agree.
   }
   if (pathname.startsWith('/audio/workout-coach-river/')) {
-    if (!clinicalAccess.surfaces.workouts) {
+    if (!clinicalAccess.surfaces.workouts && !prototypeDeployment) {
       return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
     }
-    // Token-bound workout players are public, so their reviewed audio remains
-    // public too. The exact source + database release tuple still gates access.
-    return supabaseResponse
+    // Reviewed shared-session audio remains public. Prototype audio needs the
+    // same authenticated operator admission as the original application.
+    if (clinicalAccess.surfaces.workouts) return supabaseResponse
+    needsPrototypeAssetAccess = true
   }
   if (pathname === '/demos' || pathname.startsWith('/demos/')) {
-    if (!clinicalAccess.surfaces.recommendations) {
+    if (!clinicalAccess.surfaces.recommendations && !prototypeDeployment) {
       return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
     }
+    needsPrototypeAssetAccess ||= !clinicalAccess.surfaces.recommendations
     // Exercise demonstrations are practitioner-only until a future token-bound
     // media projection exists for public workout shares.
   }
@@ -244,6 +249,19 @@ export async function proxy(request: NextRequest) {
               : 'access_denied',
       },
     ))
+  }
+
+  // Prototype operation is an explicit operator-scoped business policy. It is
+  // considered only after authentication, MFA, admission and revocation checks.
+  const prototypeOperator = operationForPractitioner(user.id).isPrototype
+  if (needsPrototypeAssetAccess && !prototypeOperator) {
+    return withApplicationCsp(new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }))
+  }
+  if (prototypeOperator) {
+    if (isOnboardingPath(pathname)) {
+      return withApplicationCsp(redirectWithAuthCookies(request, '/dashboard', refreshedCookies))
+    }
+    return supabaseResponse
   }
 
   // This is the only protected corridor before governed acceptance. The API

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import path from 'node:path'
 import sharp from 'sharp'
-import { createClient, selectClientInWizard } from './helpers'
+import { createClient, selectClientInWizard, setCaptureUpload } from './helpers'
 
 // The full scoring model's synchronous multi-pose inference exceeds the app's
 // fixed 10-second fail-closed deadline under headless Chromium on the release
@@ -52,7 +52,7 @@ test.describe('WebKit real-model capture hard blocks', () => {
 
     const inputs = page.locator('input[type="file"]')
     await expect(inputs.first()).toBeAttached({ timeout: 10_000 })
-    await inputs.nth(0).setInputFiles(await generatedTwoPersonFixture())
+    await setCaptureUpload(page, 0, await generatedTwoPersonFixture())
 
     const multiplePeopleAlert = page.getByRole('alert', { name: 'More than one person detected' })
     const retryModel = page.getByRole('button', { name: 'Retry Model' })
@@ -64,9 +64,9 @@ test.describe('WebKit real-model capture hard blocks', () => {
     await expect(multiplePeopleAlert).toContainText('use one full-body photo for Front', { timeout: 90_000 })
 
     const photos = path.join(__dirname, 'fixtures', 'photos')
-    await inputs.nth(1).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(2).setInputFiles(path.join(photos, 'side_standing.jpg'))
-    await inputs.nth(3).setInputFiles(path.join(photos, 'back_standing.jpg'))
+    await setCaptureUpload(page, 1, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 2, path.join(photos, 'side_standing.jpg'))
+    await setCaptureUpload(page, 3, path.join(photos, 'back_standing.jpg'))
 
     const blockedAction = page.getByRole('button', { name: 'Retake invalid photos' })
     await expect(blockedAction).toBeVisible({ timeout: 90_000 })

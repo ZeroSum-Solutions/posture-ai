@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, it, expect } from 'vitest'
 import {
   classifyAuthPath,
   isAal1CorridorPath,
@@ -111,5 +111,18 @@ describe('proxy public-path allowlist', () => {
         expect(root.startsWith(pub), `public "${pub}" would shadow gated "${root}"`).toBe(false)
       }
     }
+  })
+})
+
+// AI generation belongs to the authenticated original workout workflow.
+describe('original workout and model asset boundaries', () => {
+  it.each(['/api/workouts/preview', '/api/workouts', '/api/demo/workouts/generate'])(
+    'keeps %s protected', (pathname) => {
+      expect(classifyAuthPath(pathname, 'production')).toBe('protected')
+    },
+  )
+  it('allows an exact pose runtime asset without opening neighboring routes', () => {
+    expect(classifyAuthPath('/mediapipe/wasm/vision_wasm_internal.wasm', 'production')).toBe('public')
+    expect(classifyAuthPath('/mediapipe/wasm/vision_wasm_internal.wasm/admin', 'production')).toBe('protected')
   })
 })

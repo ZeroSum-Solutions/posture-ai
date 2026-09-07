@@ -18,10 +18,10 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`0c4eceb456d4863d8a98f630793604d1faeacf417c82a5a9ae6fa34b05fdfcea`.
+`dce6161854d79ed62e9788c6f119f53d706b8ae5e5093ae01dbdf27d05c6e759`.
 
 Recommendation algorithm SHA-256:
-`0dfa7fe9abc92d16f9d77b1b428dbf573eaf3debb6340023d8d036858974612b`.
+`2f647e323e1dc6b39961dd02d38deb754a463ebba4cd5b5c8431510032a978e6`.
 
 This inventory was regenerated for the workout-run persistence fix. The governed
 run route now uses a revision compare-and-swap, so an older concurrent request cannot

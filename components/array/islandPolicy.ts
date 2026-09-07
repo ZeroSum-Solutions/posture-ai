@@ -11,17 +11,17 @@ export interface IslandSlot {
 const TODAY: IslandSlot = { href: '/dashboard', label: 'Today', icon: 'home-smile-linear', kind: 'destination' }
 const CLIENTS: IslandSlot = { href: '/clients', label: 'Clients', icon: 'users-group-rounded-linear', kind: 'destination' }
 const CAPTURE: IslandSlot = { href: '/assessments/new', label: 'Capture', icon: 'scanner-linear', kind: 'action' }
-const LIBRARY: IslandSlot = { href: '/exercises', label: 'Library', icon: 'dumbbell-small-linear', kind: 'destination' }
+const WORKOUTS: IslandSlot = { href: '/workouts', label: 'Workouts', icon: 'dumbbell-small-linear', kind: 'destination' }
 const PROFILE: IslandSlot = { href: '/settings', label: 'Profile', icon: 'user-circle-linear', kind: 'destination' }
 
 /**
- * The island's slots. Library is dropped when clinical content is gated off:
- * the exercise library is the route behind that flag, and the island must never
+ * The island's slots. Workouts is dropped when clinical content is gated off:
+ * workout generation is behind that flag, and the island must never
  * offer a destination the practitioner is not entitled to open.
  */
 export function islandSlots(clinicalContentEnabled: boolean): IslandSlot[] {
   return clinicalContentEnabled
-    ? [TODAY, CLIENTS, CAPTURE, LIBRARY, PROFILE]
+    ? [TODAY, CLIENTS, CAPTURE, WORKOUTS, PROFILE]
     : [TODAY, CLIENTS, CAPTURE, PROFILE]
 }
 
@@ -45,8 +45,9 @@ export function isIslandHidden(pathname: string): boolean {
 export function activeSlotHref(pathname: string, slots: IslandSlot[]): string | null {
   if (pathname.startsWith('/assessments/new')) return '/assessments/new'
   if (pathname.startsWith('/assessments')) return '/clients'
-  if (pathname.startsWith('/muscles')) return '/exercises'
-  if (pathname.startsWith('/workouts')) return '/exercises'
+  if (pathname.startsWith('/muscles') || pathname.startsWith('/exercises')) {
+    return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
+  }
   const match = slots
     .filter(slot => pathname === slot.href || pathname.startsWith(`${slot.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]

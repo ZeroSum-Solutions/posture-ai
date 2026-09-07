@@ -1,15 +1,27 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextResponse } from 'next/server'
 
-const { getUser, gate, maybeSingle, download, clinicalEnabled } = vi.hoisted(() => ({
+const { getUser, gate, maybeSingle, download, clinicalEnabled, prototype } = vi.hoisted(() => ({
   getUser: vi.fn(),
   gate: vi.fn(),
   maybeSingle: vi.fn(),
   download: vi.fn(),
   clinicalEnabled: { value: false },
+  prototype: { value: false },
 }))
 
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: gate }))
+vi.mock('@/lib/prototype/runtime', () => ({
+  operationForPractitioner: () => ({ isPrototype: prototype.value }),
+}))
+vi.mock('@/lib/clinical-content/database', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/clinical-content/database')>()),
+  serverClinicalContentAccessForPractitioner: async () => ({
+    mode: 'prototype', contentVersion: 'clinical-content-prototype-v1',
+    inventorySha256: 'a'.repeat(64),
+    surfaces: { recommendations: true, programs: true, workouts: true, knowledgeLinks: true },
+  }),
+}))
 vi.mock('@/lib/clinical-content/runtime', () => ({
   clinicalContentAccess: () => ({
     contentVersion: clinicalEnabled.value ? 'clinical-v1' : null,
@@ -56,6 +68,22 @@ describe('GET /api/reports/[id]/download', () => {
       error: null,
     })
     clinicalEnabled.value = false
+    prototype.value = false
+  })
+
+  test.each([true, false])('prototype report requires prototype access: %s', async (enabled) => {
+    prototype.value = enabled
+    maybeSingle.mockResolvedValueOnce({ data: {
+      operation_mode: 'prototype', storage_path: 'u1/a1/prototype.pdf',
+      report_scope: 'clinical_client',
+      clinical_content_version: 'clinical-content-prototype-v1',
+      clinical_inventory_sha256: 'a'.repeat(64),
+    }, error: null })
+
+    const response = await GET(request, context)
+
+    expect(response.status).toBe(enabled ? 200 : 404)
+    expect(download).toHaveBeenCalledTimes(enabled ? 1 : 0)
   })
 
   test('fails before storage access when practitioner admission is denied', async () => {

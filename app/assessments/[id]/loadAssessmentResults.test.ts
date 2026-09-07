@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   assessmentEq: vi.fn(),
   findingsEq: vi.fn(),
   practitionerGate: vi.fn(),
+  clinicalAccessForPractitioner: vi.fn(),
   logEvent: vi.fn(),
 }))
 
@@ -77,11 +78,8 @@ vi.mock('@/lib/log', () => ({
   hashUser: () => 'user-hash',
   hashResource: () => 'assessment-hash',
 }))
-vi.mock('@/lib/clinical-content/runtime', () => ({
-  clinicalContentAccess: () => access,
-}))
 vi.mock('@/lib/clinical-content/database', () => ({
-  verifyClinicalContentAccess: async () => access,
+  serverClinicalContentAccessForPractitioner: state.clinicalAccessForPractitioner,
 }))
 vi.mock('@/lib/clinical-content/catalog', () => ({
   approvedClinicalLinks: () => [],
@@ -139,6 +137,8 @@ describe('loadAssessmentResults authorization and read contracts', () => {
     state.findingsEq.mockReset()
     state.practitionerGate.mockReset()
     state.practitionerGate.mockImplementation(async () => state.gate)
+    state.clinicalAccessForPractitioner.mockReset()
+    state.clinicalAccessForPractitioner.mockResolvedValue(access)
     state.logEvent.mockReset()
   })
 
@@ -158,6 +158,7 @@ describe('loadAssessmentResults authorization and read contracts', () => {
 
     expect(state.practitionerGate).toHaveBeenCalledWith(expect.anything(), state.user!.id)
     expect(state.serverFrom).not.toHaveBeenCalled()
+    expect(state.clinicalAccessForPractitioner).not.toHaveBeenCalled()
   })
 
   test('returns 404 only after the practitioner-scoped assessment query has no row', async () => {
@@ -179,6 +180,19 @@ describe('loadAssessmentResults authorization and read contracts', () => {
       detailCode: 'findings_load_failed',
     }))
     expect(state.serviceFrom).not.toHaveBeenCalled()
+  })
+
+  test('returns 500 instead of an incomplete report when captures fail to load', async () => {
+    state.assessmentResult = { data: assessment, error: null }
+    state.capturesResult = { data: [], error: { message: 'captures unavailable' } }
+
+    await expectFailureStatus(500, 'Internal server error')
+
+    expect(state.logEvent).toHaveBeenCalledWith(expect.objectContaining({
+      route: 'GET /api/assessments/[id]',
+      status: 500,
+      detailCode: 'captures_load_failed',
+    }))
   })
 
   test('returns the same complete payload consumed by the page and API route', async () => {
@@ -204,5 +218,6 @@ describe('loadAssessmentResults authorization and read contracts', () => {
         },
       },
     })
+    expect(state.clinicalAccessForPractitioner).toHaveBeenCalledWith(state.user!.id)
   })
 })

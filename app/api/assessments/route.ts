@@ -11,6 +11,8 @@ import { logEvent, hashUser } from '@/lib/log'
 import { buildFindingRow } from '@/lib/findings/buildFindingRow'
 import { buildCaptureRow } from '@/lib/captures/buildCaptureRow'
 import { assessmentSubmissionDigest } from '@/lib/assessments/submission'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
+import { ageBand, captureBlockReason } from '@/lib/clients/age'
 
 const ROUTE = 'POST /api/assessments'
 const TEST_MODE_ENABLED = process.env.POSTURE_TEST_MODE_ENABLED === '1'
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const gate = await practitionerGate(supabase, user.id)
     if (gate) return gate
+    const operation = operationForPractitioner(user.id)
     const userHash = hashUser(user.id)
 
     // Enforce the size cap on the ACTUAL received body, not the client-supplied
@@ -78,6 +81,90 @@ export async function POST(req: NextRequest) {
       .is('deleted_at', null)
       .maybeSingle()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+    if (operation.isPrototype) {
+      // Prototype operation removes the consent-document business gate, not the
+      // product's age boundary. Keep this server-side so a caller cannot bypass
+      // the wizard and persist a screening for an ineligible client.
+      const band = ageBand(client.date_of_birth)
+      if (band === 'under_13') {
+        const reason = captureBlockReason(band, false)
+        logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: reason ?? 'capture blocked' })
+        return NextResponse.json({ error: reason }, { status: 403 })
+      }
+      try {
+        const frames = (useFixture ? testLandmarksFrames : parsed.data.frames) as PoseFrame[]
+        const result = assessPosture(frames)
+        // The RPC ignores embedded ownership fields and supplies both ids from
+        // its trusted scalar arguments. Reusing the existing mappers keeps the
+        // same face minimization and finding provenance as governed capture.
+        const captures = frames.map((frame) =>
+          buildCaptureRow(frame, submission_id, user.id, { useFixture }),
+        )
+        const findings = result.findings.map((finding) =>
+          buildFindingRow(finding, submission_id, user.id),
+        )
+        const { data, error } = await service.rpc('create_assessment_prototype', {
+          p_client_id: client_id,
+          p_practitioner_id: user.id,
+          p_submission_id: submission_id,
+          p_submission_digest: submissionDigest,
+          p_captures: captures,
+          p_findings: findings,
+          p_overall_score: result.overallScore,
+          p_overall_grade: result.overallGrade,
+          p_scoring_engine_version: result.engineVersion,
+          p_tilt_corrected: result.tiltCorrected,
+          p_level_verified: result.levelVerified,
+          p_capture_stability: result.captureStability ?? null,
+        })
+        if (error || !data || typeof data !== 'object') {
+          throw new Error(error?.message ?? 'prototype assessment transaction failed')
+        }
+        const outcome = data as Record<string, unknown>
+        const status = typeof outcome.status === 'string' ? outcome.status : ''
+        const assessmentId = typeof outcome.assessment_id === 'string'
+          ? outcome.assessment_id
+          : null
+        if (status === 'submission_conflict') {
+          return NextResponse.json(
+            { error: 'submission_id was already used for a different assessment payload' },
+            { status: 409 },
+          )
+        }
+        if (status === 'not_found') {
+          return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+        }
+        if (status === 'practitioner_unavailable') {
+          return NextResponse.json({ error: 'Active practitioner access is required.' }, { status: 403 })
+        }
+        if (status === 'invalid_input') {
+          return NextResponse.json({ error: 'Assessment data could not be saved.' }, { status: 422 })
+        }
+        if (assessmentId && ['processing', 'complete', 'failed'].includes(status)) {
+          logEvent({
+            route: ROUTE,
+            outcome: 'ok',
+            status: 200,
+            userHash,
+            assessmentId,
+            durationMs: Date.now() - started,
+            detail: outcome.replayed === true ? 'idempotent replay' : 'prototype transaction',
+          })
+          return NextResponse.json({
+            id: assessmentId,
+            status,
+            ...(outcome.replayed === true ? { replayed: true } : { replayed: false }),
+          })
+        }
+        throw new Error(`unexpected prototype assessment status: ${status || 'missing'}`)
+      } catch (scoreErr) {
+        // No assessment id exists when scoring or a child insert fails: the RPC
+        // is one transaction, so there is no partial processing row to repair.
+        logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: String(scoreErr) })
+        return NextResponse.json({ error: 'Scoring failed' }, { status: 500 })
+      }
+    }
 
     // Compliance gate (authoritative): a valid subject consent + the age policy
     // must be satisfied before any capture is persisted/scored. (BIPA pre-capture

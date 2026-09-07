@@ -4,8 +4,7 @@ import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { logEvent, hashResource, hashUser } from '@/lib/log'
 import { isNoRows } from '@/lib/api/query-error'
 import { dedupeCapturesByViewSide } from '@/lib/captures/dedupeCaptures'
-import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
-import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
 import { approvedClinicalLinks } from '@/lib/clinical-content/catalog'
 import { hasCompleteClinicalSurfaces } from '@/lib/clinical-content/surfaces'
 import type { ClinicalContentAccess } from '@/lib/clinical-content/policy'
@@ -86,7 +85,7 @@ export async function loadAssessmentResults(
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return { ok: false, response: gate }
   const clinicalAccess = verifiedClinicalAccess
-    ?? await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+    ?? await serverClinicalContentAccessForPractitioner(user.id)
   const completeClinicalSurface = hasCompleteClinicalSurfaces(clinicalAccess)
   const logBase = { userHash: hashUser(user.id), resourceHash: hashResource(id) }
 
@@ -157,6 +156,10 @@ export async function loadAssessmentResults(
       : Promise.resolve({ data: [] as { key: string; causes_text: string; tight_muscles: unknown; weak_muscles: unknown }[] }),
     service.from('captures').select('id, view, profile_side, storage_path, source, pose_frame').eq('assessment_id', id),
   ])
+  if (capturesRes.error) {
+    logEvent({ route: 'GET /api/assessments/[id]', outcome: 'server_error', status: 500, ...logBase, detailCode: 'captures_load_failed' })
+    return { ok: false, response: NextResponse.json({ error: 'Internal server error' }, { status: 500 }) }
+  }
 
   const defMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
   for (const definition of defsRes.data ?? []) {

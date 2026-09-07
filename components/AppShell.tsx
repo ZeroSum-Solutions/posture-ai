@@ -9,8 +9,6 @@ import IslandNav from './array/IslandNav'
 import { shouldRenderAmbientField } from './array/fieldPolicy'
 import MotionOrchestrator from './MotionOrchestrator'
 import AuthSessionGuard from './AuthSessionGuard'
-import DemoShell from './demo/DemoShell'
-import { isDemoPage } from '@/lib/demo/paths'
 
 export default function AppShell({
   children,
@@ -21,16 +19,6 @@ export default function AppShell({
 }) {
   const pathname = usePathname() ?? ''
 
-  if (isDemoPage(pathname)) {
-    return (
-      <MotionConfig reducedMotion="user">
-        <div className="app-shell">
-          <AmbientField />
-          <DemoShell>{children}</DemoShell>
-        </div>
-      </MotionConfig>
-    )
-  }
 
   return (
     <MotionConfig reducedMotion="user">

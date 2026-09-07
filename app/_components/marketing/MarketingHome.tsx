@@ -25,7 +25,7 @@ export function MarketingHome() {
           </Link>
           <nav className={styles.actions} aria-label="Marketing navigation">
             <Link href="/auth/sign-in" className={styles.signIn}>Sign in</Link>
-            <Link href="/demo" className={styles.headerCta}>Try the prototype <span aria-hidden="true">↗</span></Link>
+            <Link href="/dashboard" className={styles.headerCta}>Open workspace <span aria-hidden="true">↗</span></Link>
           </nav>
         </div>
       </header>

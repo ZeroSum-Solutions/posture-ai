@@ -5,8 +5,7 @@ import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { logEvent, hashUser } from '@/lib/log'
 import { validateRating } from '@/lib/workout/rating'
-import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
-import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
 import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 const ROUTE = 'POST /api/workouts/[id]/rate'
@@ -22,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
-  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  const clinicalAccess = await serverClinicalContentAccessForPractitioner(user.id)
   if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
   const userHash = hashUser(user.id)
 

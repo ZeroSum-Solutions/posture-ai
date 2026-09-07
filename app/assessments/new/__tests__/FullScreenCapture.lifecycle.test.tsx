@@ -146,6 +146,7 @@ const originalVisibility = Object.getOwnPropertyDescriptor(document, 'visibility
 const originalPlay = HTMLMediaElement.prototype.play
 const originalVideoWidth = Object.getOwnPropertyDescriptor(HTMLVideoElement.prototype, 'videoWidth')
 const originalVideoHeight = Object.getOwnPropertyDescriptor(HTMLVideoElement.prototype, 'videoHeight')
+const originalVideoReadyState = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'readyState')
 const originalCreateImageBitmap = globalThis.createImageBitmap
 const originalRequestAnimationFrame = globalThis.requestAnimationFrame
 const originalCancelAnimationFrame = globalThis.cancelAnimationFrame
@@ -165,6 +166,9 @@ let nextAnimationFrameId: number
 let now: number
 let drawImage: ReturnType<typeof vi.fn>
 let objectUrlId: number
+let videoWidth: number
+let videoHeight: number
+let videoReadyState: number
 
 function restoreDescriptor(target: object, property: string, descriptor: PropertyDescriptor | undefined) {
   if (descriptor) Object.defineProperty(target, property, descriptor)
@@ -201,8 +205,12 @@ beforeEach(() => {
   Object.defineProperty(window.screen, 'orientation', { configurable: true, value: orientation })
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility })
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve()) as unknown as typeof HTMLMediaElement.prototype.play
-  Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => 720 })
-  Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => 960 })
+  videoWidth = 720
+  videoHeight = 960
+  videoReadyState = HTMLMediaElement.HAVE_CURRENT_DATA
+  Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => videoWidth })
+  Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => videoHeight })
+  Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { configurable: true, get: () => videoReadyState })
 
   animationFrames = new Map()
   nextAnimationFrameId = 1
@@ -233,6 +241,7 @@ afterEach(() => {
   HTMLMediaElement.prototype.play = originalPlay
   restoreDescriptor(HTMLVideoElement.prototype, 'videoWidth', originalVideoWidth)
   restoreDescriptor(HTMLVideoElement.prototype, 'videoHeight', originalVideoHeight)
+  restoreDescriptor(HTMLMediaElement.prototype, 'readyState', originalVideoReadyState)
   globalThis.createImageBitmap = originalCreateImageBitmap
   globalThis.requestAnimationFrame = originalRequestAnimationFrame
   globalThis.cancelAnimationFrame = originalCancelAnimationFrame
@@ -260,6 +269,55 @@ async function setVisibility(next: DocumentVisibilityState) {
 }
 
 describe('FullScreenCapture device lifecycle', () => {
+  it('keeps the shutter disabled until the camera has a playable video frame', async () => {
+    videoWidth = 0
+    videoHeight = 0
+    videoReadyState = HTMLMediaElement.HAVE_METADATA
+
+    render(<CaptureHarness />)
+    fireEvent.click(screen.getByTestId('capture-disclaimer-dismiss'))
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledOnce())
+
+    const shutter = screen.getByRole('button', { name: 'Capture photo' }) as HTMLButtonElement
+    expect(shutter.disabled).toBe(true)
+
+    videoWidth = 720
+    videoHeight = 960
+    videoReadyState = HTMLMediaElement.HAVE_CURRENT_DATA
+    fireEvent.loadedData(screen.getByTestId('capture-video'))
+
+    await waitFor(() => expect(shutter.disabled).toBe(false))
+  })
+
+  it('waits for an asynchronous upload before advancing to the next view', async () => {
+    const upload = deferred<void>()
+    const onFileUpload = vi.fn(() => upload.promise)
+    await mountLive({ onFileUpload })
+
+    const input = screen.getByLabelText('Upload Front photo') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['frame'], 'front.jpg', { type: 'image/jpeg' })] } })
+
+    expect(onFileUpload).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Front (required), current' })).toBeTruthy()
+    expect(input.disabled).toBe(true)
+
+    await act(async () => { upload.resolve(); await upload.promise })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Left Side (required), current' }).getAttribute('aria-current')).toBe('step'))
+  })
+
+  it('keeps the active view selected when upload preparation rejects', async () => {
+    const onFileUpload = vi.fn().mockRejectedValue(new Error('The selected file could not be decoded.'))
+    await mountLive({ onFileUpload })
+
+    fireEvent.change(screen.getByLabelText('Upload Front photo'), {
+      target: { files: [new File(['broken'], 'front.jpg', { type: 'image/jpeg' })] },
+    })
+
+    await waitFor(() => expect(onFileUpload).toHaveBeenCalledOnce())
+    expect(screen.getByRole('button', { name: 'Front (required), current' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Left Side (required), pending' }).getAttribute('aria-current')).toBeNull()
+  })
+
   it('does not reacquire the camera when a permission preflight resolves while hidden', async () => {
     const permission = deferred<PermissionStatus>()
     const query = vi.fn().mockReturnValue(permission.promise)

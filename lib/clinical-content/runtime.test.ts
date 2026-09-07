@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest'
-import { clinicalContentAccess } from './runtime'
+import { clinicalContentAccess, clinicalContentAccessForOperation } from './runtime'
 
 const original = {
   vercelEnv: process.env.VERCEL_ENV,
@@ -33,5 +33,19 @@ describe('clinicalContentAccess production fixture boundary', () => {
     const access = clinicalContentAccess()
     expect(access.mode).toBe('disabled')
     expect(Object.values(access.surfaces).every((enabled) => !enabled)).toBe(true)
+  })
+
+  test('an authorized prototype operation can use unreviewed content on a production deployment', () => {
+    process.env.VERCEL_ENV = 'production'
+
+    const access = clinicalContentAccessForOperation({
+      mode: 'prototype',
+      isPrototype: true,
+      practitionerId: '00000000-0000-4000-8000-000000000001',
+    })
+
+    expect(access.mode).toBe('prototype')
+    expect(access.reason).toBe('explicit_prototype_operation')
+    expect(Object.values(access.surfaces).every(Boolean)).toBe(true)
   })
 })

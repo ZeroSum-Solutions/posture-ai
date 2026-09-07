@@ -23,7 +23,9 @@ import { logEvent, hashResource, hashUser } from '@/lib/log'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import { snapshotLegalDocument } from '@/lib/legal/policy'
 import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
-import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { verifyClinicalContentAccess, serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
+import { PROTOTYPE_REPORT_NOTICE, type ReportNotice } from '@/lib/pdf/notice'
 import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 
 export async function POST(req: NextRequest) {
@@ -32,7 +34,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
-  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  const operation = operationForPractitioner(user.id)
+  const clinicalAccess = operation.isPrototype
+    ? await serverClinicalContentAccessForPractitioner(user.id)
+    : await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
 
   const allowed = await enforceRateLimit(createSupabaseServiceClient(), {
     route: 'reports', userId: user.id, limit: 10, windowSeconds: 60,
@@ -87,17 +92,20 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // A generated report is a new governed artifact. Resolve and freeze the
-  // applicable notice before doing any rendering or storage work so production
-  // fails closed when no approved legal document is available.
-  const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
-  if (!legalResolution.ok) {
-    return NextResponse.json(
-      { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
-      { status: 503 },
-    )
+  // Prototype reports carry an honest notice, never a fabricated legal snapshot.
+  let legalNotice: ReportNotice
+  if (operation.isPrototype) {
+    legalNotice = PROTOTYPE_REPORT_NOTICE
+  } else {
+    const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
+    if (!legalResolution.ok) {
+      return NextResponse.json(
+        { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
+    }
+    legalNotice = snapshotLegalDocument(legalResolution.document)
   }
-  const legalNotice = snapshotLegalDocument(legalResolution.document)
 
   // A comparison assessment's findings also get exported (deltas), so it must
   // belong to this practitioner AND be approved too — otherwise its data could be
@@ -481,7 +489,7 @@ export async function POST(req: NextRequest) {
       ? 'clinical_practitioner'
       : 'assessment_only'
   const { data: finalizeData, error: reportErr } = await serviceSupabase.rpc(
-    'finalize_report_upload_v2',
+    operation.isPrototype ? 'finalize_report_upload_prototype' : 'finalize_report_upload_v2',
     {
       p_assessment_id: assessment_id,
       p_practitioner_id: user.id,
@@ -490,12 +498,14 @@ export async function POST(req: NextRequest) {
       p_compared_to_assessment_id: variant === 'client'
         ? (clientComparison ? compared_to_assessment_id : null)
         : (compared_to_assessment_id || null),
-      p_document_id: legalNotice.documentId,
-      p_document_version: legalNotice.version,
-      p_document_body_sha256: legalNotice.bodySha256,
-      p_document_effective_at: legalNotice.effectiveAt,
-      p_jurisdiction: legalNotice.jurisdiction,
-      p_product_scope: legalNotice.productScope,
+      ...(legalNotice.kind === 'prototype_notice' ? {} : {
+        p_document_id: legalNotice.documentId,
+        p_document_version: legalNotice.version,
+        p_document_body_sha256: legalNotice.bodySha256,
+        p_document_effective_at: legalNotice.effectiveAt,
+        p_jurisdiction: legalNotice.jurisdiction,
+        p_product_scope: legalNotice.productScope,
+      }),
       p_report_scope: reportScope,
       p_clinical_content_version: reportScope === 'assessment_only' ? null : clinicalAccess.contentVersion,
       p_clinical_inventory_sha256: reportScope === 'assessment_only' ? null : clinicalAccess.inventorySha256,

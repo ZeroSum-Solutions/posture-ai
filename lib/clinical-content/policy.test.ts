@@ -101,6 +101,20 @@ describe('resolveClinicalContentAccess', () => {
     expect(Object.values(result.surfaces).every(Boolean)).toBe(true)
   })
 
+  test('prototype operation exposes the complete catalog without claiming clinical approval', () => {
+    const result = resolveClinicalContentAccess({
+      inventory: inventoryJson,
+      ledger: { schema_version: 1, releases: [] },
+      prototypeEnabled: true,
+    })
+
+    expect(result.mode).toBe('prototype')
+    expect(result.reason).toBe('explicit_prototype_operation')
+    expect(result.contentVersion).toBe('clinical-content-prototype-v1')
+    expect(result.approvedExerciseSlugs).toHaveLength(73)
+    expect(Object.values(result.surfaces).every(Boolean)).toBe(true)
+  })
+
   test('an exact approved subset enables only its reviewed items', () => {
     const muscle = 'muscle:hamstrings'
     const link = 'link:hamstrings:knee_extension_back_knee:weak'

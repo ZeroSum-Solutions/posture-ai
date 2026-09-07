@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { verifyClinicalContentAccess } from './database'
+import { serverClinicalContentAccessForPractitioner, verifyClinicalContentAccess } from './database'
 import type { ClinicalContentAccess } from './policy'
 
 const approved: ClinicalContentAccess = {
@@ -60,5 +60,19 @@ describe('verifyClinicalContentAccess', () => {
 
     await expect(verifyClinicalContentAccess(disabled, { rpc } as never)).resolves.toEqual(disabled)
     expect(rpc).not.toHaveBeenCalled()
+  })
+
+  test('does not invent a database approval check for an authorized prototype catalog', async () => {
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = '00000000-0000-4000-8000-000000000001'
+
+    const access = await serverClinicalContentAccessForPractitioner(
+      '00000000-0000-4000-8000-000000000001',
+    )
+
+    expect(access.mode).toBe('prototype')
+    expect(access.reason).toBe('explicit_prototype_operation')
+    delete process.env.POSTURE_OPERATION_MODE
+    delete process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS
   })
 })
