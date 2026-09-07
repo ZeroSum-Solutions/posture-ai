@@ -62,12 +62,19 @@ const FRONT_SPANS: ReadonlyArray<{ at: number; centre: number; halfWidth: number
   { at: 0.98, centre: 0.50, halfWidth: 0.12 },
 ]
 
-function spanAt(
+export function spanAt(
   spans: ReadonlyArray<{ at: number; centre: number; halfWidth: number }>,
   at: number,
 ): { centre: number; halfWidth: number } {
   const upperIndex = spans.findIndex(span => span.at >= at)
-  if (upperIndex <= 0) return spans[0]
+  if (upperIndex === -1) {
+    const last = spans[spans.length - 1]
+    return { centre: last.centre, halfWidth: last.halfWidth }
+  }
+  if (upperIndex === 0) {
+    const first = spans[0]
+    return { centre: first.centre, halfWidth: first.halfWidth }
+  }
   const lower = spans[upperIndex - 1]
   const upper = spans[upperIndex]
   const span = upper.at - lower.at
@@ -99,7 +106,7 @@ function makeRandom(seed: number): () => number {
   }
 }
 
-function buildParticles(view: 'side' | 'front'): Particle[] {
+export function buildParticles(view: 'side' | 'front'): Particle[] {
   const random = makeRandom(view === 'side' ? 0x5eed : 0xf00d)
   const spans = view === 'side' ? SIDE_SPANS : FRONT_SPANS
   const particles: Particle[] = []

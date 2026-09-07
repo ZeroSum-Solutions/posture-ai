@@ -6,6 +6,7 @@ Verified locally on 2026-09-07 against the original Posture AI application and a
 
 - Original dashboard, clients, four-view capture, assessment findings/evidence/program tabs, and guided player remain the application. Former `/demo` routes redirect into it; the separate shell, localStorage records, and anonymous generation endpoint were removed.
 - Original client form creates persistent prototype clients without fabricating consent dates. Authentication, MFA, active practitioner admission, and record ownership remain required.
+- Scan point-cloud positions remain deterministic across view switching and reload; terminal foot particles use the final silhouette span.
 - Four real standing-photo uploads ran through MediaPipe and saved an assessment with nine findings. Upload validation, camera playable-frame readiness, model-startup failure recovery, bounded analysis, and cancellation have regression coverage.
 - Workout creation uses owned, completed, approved assessment findings and bounded preferences. Users can create an AI or scan-based plan, customize it, save it, follow it, resume after reload, rate it, edit a copy, and archive it. Existing historical sessions retain a regeneration path.
 - Live DeepSeek generation returned `source: ai` and persisted. Only the selected approved provider is called; provider failure is visibly labeled as a scan-based fallback.
@@ -14,7 +15,7 @@ Verified locally on 2026-09-07 against the original Posture AI application and a
 
 ## Checks
 
-- Full unit/integration suite: **245 files, 2,292 tests passed**.
+- Full unit/integration suite: **246 files, 2,294 tests passed**.
 - Production build and TypeScript checks passed. ESLint reported no errors; existing warnings remain.
 - Database contracts: workout metadata **9/9**, prototype operation **25/25** pgTAP checks passed. The prototype transaction rolls back child-write failures, rejects cross-owner writes and cross-operation replay, and does not mint public share tokens.
 - Desktop/mobile portrait evidence ordering and a simulated-camera playable-frame/review flow passed. These checks do not establish physical iOS/Android camera lifecycle or thermal behavior.
