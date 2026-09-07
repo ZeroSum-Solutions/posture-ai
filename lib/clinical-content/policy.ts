@@ -82,7 +82,7 @@ export type ClinicalInventory = z.infer<typeof clinicalInventorySchema>
 export type ClinicalReviewLedger = z.infer<typeof clinicalReviewLedgerSchema>
 
 export interface ClinicalContentAccess {
-  mode: 'disabled' | 'test_fixture' | 'approved'
+  mode: 'disabled' | 'test_fixture' | 'prototype' | 'approved'
   reason: string
   contentVersion: string | null
   inventorySha256: string
@@ -103,6 +103,7 @@ export interface ResolveClinicalContentInput {
   releaseId?: string | null
   hg03ReceiptSha256?: string | null
   testFixtureEnabled?: boolean
+  prototypeEnabled?: boolean
 }
 
 const DISABLED_SURFACES: ClinicalSurfaceAccess = {
@@ -179,12 +180,13 @@ export function resolveClinicalContentAccess(input: ResolveClinicalContentInput)
   }
   const inventory = inventoryResult.data
 
-  if (input.testFixtureEnabled === true) {
+  if (input.prototypeEnabled === true || input.testFixtureEnabled === true) {
     const allIds = new Set(inventory.items.map((item) => item.id))
+    const prototype = input.prototypeEnabled === true
     return {
-      mode: 'test_fixture',
-      reason: 'explicit_test_fixture',
-      contentVersion: 'clinical-content-test-fixture-v1',
+      mode: prototype ? 'prototype' : 'test_fixture',
+      reason: prototype ? 'explicit_prototype_operation' : 'explicit_test_fixture',
+      contentVersion: prototype ? 'clinical-content-prototype-v1' : 'clinical-content-test-fixture-v1',
       inventorySha256: inventory.inventory_sha256,
       surfaces: {
         recommendations: true,

@@ -1,5 +1,6 @@
 import inventory from '@/content/clinical-content-inventory.json'
 import ledger from '@/content/clinical-review-ledger.json'
+import type { PractitionerOperation } from '@/lib/prototype/runtime'
 import { resolveClinicalContentAccess, type ClinicalContentAccess } from './policy'
 
 /**
@@ -18,5 +19,17 @@ export function clinicalContentAccess(): ClinicalContentAccess {
     releaseId: process.env.CLINICAL_CONTENT_RELEASE_ID,
     hg03ReceiptSha256: process.env.CLINICAL_CONTENT_HG03_RECEIPT_SHA256,
     testFixtureEnabled,
+  })
+}
+
+/** Resolve the catalog for an already-admitted practitioner's operation. */
+export function clinicalContentAccessForOperation(
+  operation: PractitionerOperation,
+): ClinicalContentAccess {
+  if (!operation.isPrototype || operation.mode !== 'prototype') return clinicalContentAccess()
+  return resolveClinicalContentAccess({
+    inventory,
+    ledger,
+    prototypeEnabled: true,
   })
 }

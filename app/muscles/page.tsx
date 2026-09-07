@@ -1,14 +1,14 @@
 import { Disclaimer } from '@/components/Disclaimer'
 import { MuscleLibrary } from './MuscleLibrary'
 import { notFound } from 'next/navigation'
-import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import { approvedClinicalMuscles } from '@/lib/clinical-content/catalog'
 
 export const metadata = { title: 'Muscle Guide — Posture AI' }
 export const dynamic = 'force-dynamic'
 
 export default async function MusclesPage() {
-  const access = await serverClinicalContentAccess()
+  const access = await currentPractitionerClinicalContentAccess()
   if (!access.surfaces.knowledgeLinks) notFound()
   const muscles = approvedClinicalMuscles(access)
     .map((muscle) => ({

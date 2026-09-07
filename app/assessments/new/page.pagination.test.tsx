@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routerPush = vi.fn()
 const router = { push: routerPush }
+const poseRuntime = vi.hoisted(() => ({
+  detect: vi.fn(),
+  dispose: vi.fn().mockResolvedValue(undefined),
+}))
 const legalDocumentState = vi.hoisted(() => ({
   enabledCalls: [] as boolean[],
   value: {
@@ -22,18 +26,42 @@ vi.mock('./FullScreenCapture', () => ({
   default: ({
     captures,
     onCameraCapture,
+    onFileUpload,
+    onProceed,
     onExit,
+    uploadError,
   }: {
-    captures: { front: { rawRepresentativeUrl: string | null; slotStatus: string } }
-    onCameraCapture: (slot: 'front', burst: string[], roll: null, pixelQuality: null) => void
+    captures: Record<'front' | 'side-left' | 'side-right' | 'back', { rawRepresentativeUrl: string | null; slotStatus: string }>
+    onCameraCapture: (slot: 'front' | 'side-left' | 'side-right' | 'back', burst: string[], roll: null, pixelQuality: null) => void
+    onFileUpload: (slot: 'front', file: File) => Promise<void>
+    onProceed: () => Promise<void>
     onExit: () => void
+    uploadError: string | null
   }) => (
     <div data-testid="capture-step">
       <span data-testid="front-capture">{captures.front.rawRepresentativeUrl ?? 'empty'}</span>
       <span data-testid="front-capture-status">{captures.front.slotStatus}</span>
+      <span data-testid="all-capture-status">{Object.values(captures).map(capture => capture.slotStatus).join(',')}</span>
+      {(['front', 'side-left', 'side-right', 'back'] as const).map(slot => (
+        <button key={slot} type="button" onClick={() => onCameraCapture(slot, [`fixture:${slot}:representative`, `fixture:${slot}:extra`], null, null)}>
+          Record {slot} burst
+        </button>
+      ))}
       <button type="button" onClick={() => onCameraCapture('front', ['fixture:manual-front'], null, null)}>
         Record front fixture
       </button>
+      <button type="button" onClick={() => { void onFileUpload('front', new File([new Uint8Array([0xff, 0xd8, 0xff, 0x00])], 'broken.jpg', { type: 'image/jpeg' })).catch(() => {}) }}>
+        Upload broken fixture
+      </button>
+      <button type="button" onClick={() => {
+        for (const slot of ['front', 'side-left', 'side-right', 'back'] as const) {
+          onCameraCapture(slot, [`fixture:${slot}:representative`, `fixture:${slot}:extra`], null, null)
+        }
+      }}>
+        Record all fixtures
+      </button>
+      <button type="button" onClick={() => { void onProceed() }}>Analyze fixtures</button>
+      {uploadError && <p role="alert">{uploadError}</p>}
       <button type="button" onClick={onExit}>Exit capture</button>
     </div>
   ),
@@ -47,20 +75,31 @@ vi.mock('@/components/useLegalDocument', () => ({
 }))
 vi.mock('@/lib/pose/capture-runtime', () => ({
   getCaptureRuntime: () => ({
-    detect: vi.fn(async () => ({
+    detect: poseRuntime.detect,
+    dispose: poseRuntime.dispose,
+  }),
+}))
+
+function detectedFrame() {
+  return {
       view: 'front',
       source: 'camera',
       detectedPoseCount: 1,
       landmarks: {
-        left_shoulder: { x: 0.4, y: 0.3, visibility: 1 },
-        left_hip: { x: 0.4, y: 0.5, visibility: 1 },
-        left_knee: { x: 0.4, y: 0.7, visibility: 1 },
-        left_ankle: { x: 0.4, y: 0.9, visibility: 1 },
+        nose: { x: 0.5, y: 0.1, visibility: 1 },
+        left_ear: { x: 0.48, y: 0.12, visibility: 1 },
+        right_ear: { x: 0.52, y: 0.12, visibility: 1 },
+        left_shoulder: { x: 0.4, y: 0.25, visibility: 1 },
+        right_shoulder: { x: 0.6, y: 0.25, visibility: 1 },
+        left_hip: { x: 0.43, y: 0.5, visibility: 1 },
+        right_hip: { x: 0.57, y: 0.5, visibility: 1 },
+        left_knee: { x: 0.43, y: 0.7, visibility: 1 },
+        right_knee: { x: 0.57, y: 0.7, visibility: 1 },
+        left_ankle: { x: 0.43, y: 0.88, visibility: 1 },
+        right_ankle: { x: 0.57, y: 0.88, visibility: 1 },
       },
-    })),
-    dispose: vi.fn(),
-  }),
-}))
+    }
+}
 
 import { NewAssessmentWizard } from './NewAssessmentWizard'
 
@@ -80,6 +119,9 @@ const deepClient = {
 describe('new assessment paginated client picker', () => {
   beforeEach(() => {
     routerPush.mockReset()
+    poseRuntime.detect.mockReset()
+    poseRuntime.detect.mockResolvedValue(detectedFrame())
+    poseRuntime.dispose.mockClear()
     legalDocumentState.enabledCalls = []
     legalDocumentState.value = { document: {}, isLoading: false, error: null }
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -254,6 +296,113 @@ describe('new assessment paginated client picker', () => {
       await Promise.resolve()
     })
     expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
+  })
+
+  it('enters capture in prototype mode without loading or checking consent documents', async () => {
+    legalDocumentState.value = { document: null, isLoading: false, error: 'legal service unavailable' }
+    render(<NewAssessmentWizard operationMode="prototype" />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    const next = screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement
+    expect(next.disabled).toBe(false)
+    expect(legalDocumentState.enabledCalls.every(enabled => enabled === false)).toBe(true)
+
+    fireEvent.click(next)
+
+    await screen.findByTestId('capture-step')
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).startsWith('/api/consent?'))).toBe(false)
+    expect(screen.queryByText('legal service unavailable')).toBeNull()
+  })
+
+  it('allows a prototype client without a date of birth to enter capture', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return new Response(JSON.stringify({ client: { ...deepClient, date_of_birth: null } }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ clients: [], pagination: { has_more: false, next_cursor: null } }), { status: 200 })
+    }))
+    render(<NewAssessmentWizard operationMode="prototype" />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+
+    await screen.findByTestId('capture-step')
+    expect(screen.queryByText('Add a date of birth for this client before screening.')).toBeNull()
+  })
+
+  it('keeps a known under-13 prototype client out of capture', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) {
+        return new Response(JSON.stringify({ client: { ...deepClient, date_of_birth: '2020-01-01' } }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ clients: [], pagination: { has_more: false, next_cursor: null } }), { status: 200 })
+    }))
+    render(<NewAssessmentWizard operationMode="prototype" />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+
+    expect(await screen.findByText('Posture AI cannot be used to screen anyone under 13.')).toBeTruthy()
+    expect(screen.queryByTestId('capture-step')).toBeNull()
+  })
+
+  it('surfaces a decode error and keeps the broken upload out of capture state', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockRejectedValue(new DOMException('decode failed', 'EncodingError')))
+    render(<NewAssessmentWizard operationMode="prototype" />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    await screen.findByTestId('capture-step')
+    fireEvent.click(screen.getByRole('button', { name: 'Upload broken fixture' }))
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Front: The selected image could not be decoded'))
+    expect(screen.getByTestId('front-capture').textContent).toBe('empty')
+  })
+
+  it('cancels an in-flight local analysis and returns to the captured views', async () => {
+    poseRuntime.detect.mockImplementation((url: string) => (
+      url.endsWith(':extra') ? new Promise(() => {}) : Promise.resolve(detectedFrame())
+    ))
+    render(<NewAssessmentWizard operationMode="prototype" />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    await screen.findByTestId('capture-step')
+    for (const [slot, expected] of [
+      ['front', 'ok,idle,idle,idle'],
+      ['side-left', 'ok,ok,idle,idle'],
+      ['side-right', 'ok,ok,ok,idle'],
+      ['back', 'ok,ok,ok,ok'],
+    ] as const) {
+      fireEvent.click(screen.getByRole('button', { name: `Record ${slot} burst` }))
+      await waitFor(() => expect(screen.getByTestId('all-capture-status').textContent).toBe(expected))
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze fixtures' }))
+    await screen.findByRole('button', { name: 'Cancel analysis' })
+    expect(screen.getByText(/Analyzed 1 of 8 frames/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel analysis' }))
+
+    await screen.findByTestId('capture-step')
+    expect(screen.getByTestId('all-capture-status').textContent).toBe('ok,ok,ok,ok')
+    expect(vi.mocked(fetch).mock.calls.some(([input, init]) => String(input) === '/api/assessments' && init?.method === 'POST')).toBe(false)
+  })
+
+  it('fails queued photo checks together after one model startup failure', async () => {
+    poseRuntime.detect.mockRejectedValueOnce(new Error('model startup failed'))
+    render(<NewAssessmentWizard operationMode="prototype" />)
+
+    await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    await screen.findByTestId('capture-step')
+    fireEvent.click(screen.getByRole('button', { name: 'Record all fixtures' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('all-capture-status').textContent).toBe('model_error,model_error,model_error,model_error')
+    })
+    expect(poseRuntime.detect).toHaveBeenCalledTimes(1)
   })
 
   it('does not apply an allowed consent response after the selected client changes', async () => {

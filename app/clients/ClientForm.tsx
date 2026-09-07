@@ -6,6 +6,7 @@ import useLegalDocument from '@/components/useLegalDocument'
 import { Surface } from '@/components/array/Surface'
 import { inchesToCm, cmToInches, poundsToKg, kgToPounds, round1 } from '@/lib/units'
 import styles from './ClientForm.module.css'
+import type { OperationMode } from '@/lib/prototype/runtime'
 
 type UnitSystem = 'us' | 'metric'
 
@@ -50,11 +51,13 @@ type FieldErrors = {
 
 export default function ClientForm({
   mode,
+  operationMode = 'governed',
   initial,
   cancelHref,
   onSubmit,
 }: {
   mode: 'create' | 'edit'
+  operationMode?: OperationMode
   initial?: ClientFormInitial
   cancelHref: string
   /** Resolve to navigate away on success; throw an Error to surface its message. */
@@ -65,7 +68,8 @@ export default function ClientForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [consentChecked, setConsentChecked] = useState(false)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('us')
-  const legal = useLegalDocument('subject_consent', mode === 'create')
+  const requiresConsent = mode === 'create' && operationMode === 'governed'
+  const legal = useLegalDocument('subject_consent', requiresConsent)
   // Inputs hold the displayed unit (default US); stored values are metric, so
   // convert any initial height/weight from cm/kg to in/lb for the initial US view.
   const [form, setForm] = useState({
@@ -135,7 +139,7 @@ export default function ClientForm({
     if (form.weight !== '' && parseFloat(form.weight) < 0) {
       errors.weight = `Weight must be a positive number (${weightUnit}).`
     }
-    if (mode === 'create') {
+    if (requiresConsent) {
       if (!legal.document) {
         errors.consent = legal.error ?? 'Consent terms are unavailable. Client creation is disabled.'
       }
@@ -165,7 +169,7 @@ export default function ClientForm({
         ? (unitSystem === 'us' ? round1(poundsToKg(parseFloat(form.weight))) : parseFloat(form.weight))
         : null,
       notes: form.notes.trim() ? form.notes.trim() : null,
-      ...(mode === 'create'
+      ...(requiresConsent
         ? {
             signer_name: form.signer_name.trim(),
             signer_relationship: form.signer_relationship,
@@ -323,7 +327,7 @@ export default function ClientForm({
         {/* Subject consent — required at creation (the subject or their guardian
             signs via typed name). Immutable afterward, so hidden when editing.
             Remote consent (subject not present) is available from the client page. */}
-        {mode === 'create' && (
+        {requiresConsent && (
           <>
             <div className={styles.consentPanel} data-error={fieldErrors.consent ? 'true' : undefined}>
               {legal.isLoading && <p role="status" aria-live="polite" className="a-help">Loading consent terms…</p>}
@@ -394,7 +398,7 @@ export default function ClientForm({
           </Link>
           <button
             type="submit"
-            disabled={loading || (mode === 'create' && !legal.document)}
+            disabled={loading || (requiresConsent && !legal.document)}
             className="a-primary"
           >
             {submitLabel}

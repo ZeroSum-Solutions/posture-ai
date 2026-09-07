@@ -3,7 +3,7 @@ import { Roboto } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
 import { siteOrigin } from '@/lib/site-origin'
-import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 
 // Clinical release activation is runtime authority. Never bake a fixture-enabled
 // navigation shell or gated child page into a build artifact.
@@ -43,7 +43,7 @@ export const viewport: Viewport = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const clinicalAccess = await serverClinicalContentAccess()
+  const clinicalAccess = await currentPractitionerClinicalContentAccess()
   const clinicalContentEnabled = clinicalAccess.surfaces.recommendations
     || clinicalAccess.surfaces.knowledgeLinks
   return (

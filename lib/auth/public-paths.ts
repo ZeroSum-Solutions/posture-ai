@@ -3,11 +3,15 @@
  * unit-testable (see public-paths.test.ts): a typo here either exposes every
  * gated page or breaks the public share/consent links.
  */
+import { isPublicPoseAsset } from '@/lib/pose/public-assets'
+
 export type AuthPathClass = 'public' | 'aal1-corridor' | 'protected'
 
 export function publicPaths(nodeEnv: string | undefined = process.env.NODE_ENV): string[] {
   return [
     '/',
+    // Previously shared demo links redirect into the protected original app.
+    '/demo',
     '/auth/sign-in',
     '/auth/sign-up',
     '/auth/callback',
@@ -83,6 +87,7 @@ export function classifyAuthPath(
   pathname: string,
   nodeEnv: string | undefined = process.env.NODE_ENV,
 ): AuthPathClass {
+  if (isPublicPoseAsset(pathname)) return 'public'
   if (isPublicPath(pathname, publicPaths(nodeEnv))) return 'public'
   if (isAal1CorridorPath(pathname)) return 'aal1-corridor'
   return 'protected'

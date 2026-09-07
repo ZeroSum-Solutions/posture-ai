@@ -1,0 +1,25 @@
+.header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 26px 24px 20px; }
+.header a { min-height: 42px; padding: 0 15px; }
+.main { padding-bottom: 96px; }
+.builder { display: grid; grid-template-columns: minmax(250px, .85fr) minmax(0, 1.15fr); gap: 14px; align-items: start; }
+.stack { display: grid; gap: 16px; }
+.stack label { display: grid; gap: 7px; color: var(--text-secondary); font-size: 13px; }
+.fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.fieldset legend { color: var(--text-secondary); font-size: 13px; margin-bottom: 7px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.actions button, .actions a { min-height: 42px; padding: 0 16px; }
+.chip { border: 1px solid var(--hairline); border-radius: 999px; min-height: 40px; padding: 0 13px; background: var(--surface-glass); color: var(--text-secondary); }
+.chip[aria-pressed='true'] { color: var(--text-primary); border-color: var(--text-secondary); }
+.empty { min-height: 260px; display: grid; align-content: center; gap: 12px; }
+.items { list-style: none; padding: 0; margin: 0; }
+.item { display: grid; grid-template-columns: 34px 1fr auto; align-items: start; gap: 10px; padding: 15px 0; border-top: 1px solid var(--hairline-soft); }
+.item p { margin: 5px 0 0; }
+.number { color: var(--text-tertiary); font-size: 20px; font-weight: 300; }
+.remove { border: 0; background: transparent; color: var(--text-secondary); font-size: 22px; cursor: pointer; }
+.sectionHeader { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.library { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 12px; }
+.error, .notice, .warning { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.5; }
+.error { border: 1px solid var(--review); color: var(--text-primary); }
+.notice { border: 1px solid var(--hairline); color: var(--text-secondary); }
+.warning { margin: 0; background: var(--surface-glass); color: var(--text-secondary); }
+@media (max-width: 760px) { .builder { grid-template-columns: 1fr; } .header { align-items: flex-start; } }

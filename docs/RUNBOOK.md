@@ -34,6 +34,43 @@ connector is OAuth-scoped to a different org — use the Management API
 
 ## Deploy
 
+### Original application prototype operation
+
+The prototype uses the original authenticated application: `/dashboard`, `/clients`,
+`/assessments/new`, assessment results, and `/workouts`. The former `/demo` links
+redirect to these original routes. Clients, scans, workouts, and progress use the
+existing database tables. There is no separate browser-local application.
+
+For the unused demonstration deployment, set server-only `POSTURE_OPERATION_MODE`
+to `prototype` and `POSTURE_PROTOTYPE_PRACTITIONER_IDS` to a comma-separated list
+of existing practitioner UUIDs. Invalid configuration retains the governed path.
+Authentication, MFA, active practitioner admission, and record ownership still apply.
+The selected practitioners can use the application without signing documents;
+new records explicitly carry prototype provenance with no invented consent,
+legal approval, or clinical-review receipt. Historical rows remain unchanged.
+Prototype workout sessions do not mint public share tokens.
+
+Apply the additive workout metadata and prototype-operation migrations before
+releasing the corresponding application. Do not reset or replace existing records.
+The original four-view capture accepts camera frames and image uploads, then
+persists scored assessments and findings through the original results workflow.
+
+The workout builder uses an owned assessment and preferences for goal, duration,
+level, and equipment. Users can preview, customize, name, save, follow, and archive
+workouts. Editing a completed or saved session creates a new copy to preserve
+its history. For DeepSeek, set server-only `POSTURE_WORKOUT_AI_PROVIDER=deepseek`,
+`POSTURE_WORKOUT_DEEPSEEK_API_KEY`, and `POSTURE_WORKOUT_DEEPSEEK_MODEL`.
+For OpenRouter, select `openrouter` and set `POSTURE_WORKOUT_OPENROUTER_API_KEY`
+and `POSTURE_WORKOUT_OPENROUTER_MODEL`. Only the selected provider is called. Provider failure returns
+an explicitly labeled scan-based plan. No global test-mode flag is needed.
+
+Verify the original authenticated scan-to-workout journey, including reload,
+progress persistence, camera/upload recovery, and report download. Production
+verification must check the exact public alias and record its deployment ID and
+Git SHA; a READY build alone does not prove the alias serves that revision.
+
+### Application release
+
 - **Normal**: merge PR into `main`. Vercel builds (`prebuild` copies MediaPipe
   WASM from the pinned package into `public/mediapipe/wasm/`) and promotes.
 - **Manual**: `npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"`.

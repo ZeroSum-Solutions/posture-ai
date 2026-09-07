@@ -11,7 +11,7 @@ import {
   comparisonTone,
   type ComparisonStatus,
 } from '@/lib/comparison/policy'
-import type { LegalSnapshot } from '@/lib/legal/types'
+import { reportNoticeCaption, type ReportNotice } from './notice'
 
 // Dark palette (matches the app design tokens) with high-contrast text.
 // Solid hex throughout — react-pdf mis-renders rgba() border/background colors.
@@ -125,14 +125,14 @@ function Header({ clientName, practitioner, dateStr }: { clientName: string; pra
   )
 }
 
-function Footer({ legalNotice }: { legalNotice: LegalSnapshot }) {
+function Footer({ legalNotice }: { legalNotice: ReportNotice }) {
   return (
     <View style={s.footer} fixed>
-      {legalNotice.isFixture ? (
+      {legalNotice.kind !== 'prototype_notice' && legalNotice.isFixture ? (
         <Text style={[s.footerText, { color: C.amber, fontFamily: 'Helvetica-Bold' }]}>NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY</Text>
       ) : null}
       <Text style={s.footerText}>{legalNotice.text}</Text>
-      <Text style={s.footerText}>{`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}</Text>
+      <Text style={s.footerText}>{reportNoticeCaption(legalNotice)}</Text>
     </View>
   )
 }
@@ -180,7 +180,7 @@ export interface ClientReportProps {
   report: ProgramReport
   /** Optional "since last time" progress vs an approved, same-client prior screening. */
   comparison?: ClientComparison | null
-  legalNotice: LegalSnapshot
+  legalNotice: ReportNotice
 }
 
 export function ClientReport({ clientName, practitioner, dateStr, report, comparison, legalNotice }: ClientReportProps) {

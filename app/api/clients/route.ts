@@ -17,6 +17,7 @@ import {
   parseKeysetPageRequest,
 } from '@/lib/pagination/keyset'
 import { NextRequest, NextResponse } from 'next/server'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
 
 const SIGNER_RELATIONSHIPS = new Set(['self', 'parent', 'legal_guardian', 'other'])
 const ROUTE = 'POST /api/clients'
@@ -175,6 +176,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
+  const operation = operationForPractitioner(user.id)
   const userHash = hashUser(user.id)
 
   const service = createSupabaseServiceClient()
@@ -216,12 +218,12 @@ export async function POST(req: NextRequest) {
   // client with consent pending and send a remote link afterward. Either way the
   // subject (not just the practitioner) is the one who consents.
   const remote = consent_mode === 'remote'
-  if (!remote && (!signer_name?.trim() || !signer_relationship || !SIGNER_RELATIONSHIPS.has(signer_relationship))) {
+  if (!operation.isPrototype && !remote && (!signer_name?.trim() || !signer_relationship || !SIGNER_RELATIONSHIPS.has(signer_relationship))) {
     return NextResponse.json({ error: 'Subject consent is required: provide a signer name and relationship, or choose remote consent.' }, { status: 400 })
   }
 
   let consentDocument: LegalSnapshot | null = null
-  if (!remote) {
+  if (!operation.isPrototype && !remote) {
     const resolution = resolveRuntimeLegalDocument({ kind: 'subject_consent' })
     if (!resolution.ok) {
       return NextResponse.json(
@@ -239,6 +241,7 @@ export async function POST(req: NextRequest) {
   }
 
   const row: Record<string, unknown> = { practitioner_id: user.id, first_name, last_name }
+  if (operation.isPrototype) row.operation_mode = 'prototype'
   if (date_of_birth) row.date_of_birth = date_of_birth
   if (sex_at_birth) row.sex_at_birth = sex_at_birth
   if (height_cm != null) row.height_cm = height_cm
@@ -250,7 +253,7 @@ export async function POST(req: NextRequest) {
   // (regulatory_hardening_v2), so the API is the sole writer and the gates above
   // are the real enforcement. Ownership is set/scoped on every write since
   // service-role bypasses RLS.
-  if (!remote && consentDocument) {
+  if (!operation.isPrototype && !remote && consentDocument) {
     const signedAt = new Date().toISOString()
     const consentHash = hashConsent({
       document: consentDocument,

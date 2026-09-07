@@ -4,13 +4,13 @@ import { activeSlotHref, islandSlots, isIslandHidden } from './islandPolicy'
 describe('islandSlots', () => {
   it('offers five slots with Capture in the middle when clinical content is live', () => {
     const slots = islandSlots(true)
-    expect(slots.map(slot => slot.label)).toEqual(['Today', 'Clients', 'Capture', 'Library', 'Profile'])
+    expect(slots.map(slot => slot.label)).toEqual(['Today', 'Clients', 'Capture', 'Workouts', 'Profile'])
     expect(slots[2].kind).toBe('action')
   })
 
-  it('drops Library rather than linking to a gated route', () => {
+  it('drops Workouts rather than linking to a gated route', () => {
     const slots = islandSlots(false)
-    expect(slots.map(slot => slot.href)).not.toContain('/exercises')
+    expect(slots.map(slot => slot.href)).not.toContain('/workouts')
     expect(slots.map(slot => slot.label)).toEqual(['Today', 'Clients', 'Capture', 'Profile'])
   })
 
@@ -52,9 +52,9 @@ describe('activeSlotHref', () => {
     expect(activeSlotHref('/assessments/abc-123', slots)).toBe('/clients')
   })
 
-  it('lights Library for muscles and workouts, which hang off the library', () => {
-    expect(activeSlotHref('/muscles/deltoid', slots)).toBe('/exercises')
-    expect(activeSlotHref('/workouts/session-1', slots)).toBe('/exercises')
+  it('lights Workouts for the exercise library, muscles and guided sessions', () => {
+    expect(activeSlotHref('/muscles/deltoid', slots)).toBe('/workouts')
+    expect(activeSlotHref('/workouts/session-1', slots)).toBe('/workouts')
   })
 
   it('matches nested client routes to Clients', () => {
@@ -65,7 +65,7 @@ describe('activeSlotHref', () => {
     expect(activeSlotHref('/dev/golden-ingest', slots)).toBeNull()
   })
 
-  it('never returns the Library slot when clinical content is gated off', () => {
+  it('never returns the Workouts slot when clinical content is gated off', () => {
     expect(activeSlotHref('/exercises', islandSlots(false))).toBeNull()
   })
 })

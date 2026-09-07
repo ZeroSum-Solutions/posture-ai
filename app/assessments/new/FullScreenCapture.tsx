@@ -47,6 +47,7 @@ const LIVE_FRAME_INTERVAL_MS = 90
 // last pose (that would flicker the gate to tilt-only on slower devices). Only
 // clear tracking after this long with no fresh inference result.
 const LIVE_FRESHNESS_MS = 600
+const CAMERA_FRAME_TIMEOUT_MS = 10_000
 
 // Text sitting ON a near-opaque severity fill. White fails WCAG AA against all
 // three bands — 2.15:1 on monitor, 3.76:1 on review, 2.54:1 on maintain — and
@@ -59,11 +60,11 @@ const ON_SEVERITY_FILL = '#191524'
 
 interface FullScreenCaptureProps {
   /** Exact server-resolved notice required before the wizard may enter capture. */
-  screeningNotice: LegalSnapshot
+  screeningNotice: LegalSnapshot | null
   captures: Captures
   /** raw burst object URLs; [0] is the representative still. */
   onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) => void
-  onFileUpload: (slot: CaptureSlotKey, file: File) => void
+  onFileUpload: (slot: CaptureSlotKey, file: File) => Promise<void> | void
   onProceed: () => void
   onExit: () => void
   modelError: boolean
@@ -83,6 +84,9 @@ const DIRECTION: Record<CaptureSlotKey, { title: string; cue: string }> = {
 }
 
 function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.name === 'CameraFrameTimeoutError') {
+    return 'The camera opened but did not deliver a usable frame. Restart the camera or upload a photo instead.'
+  }
   if (err instanceof DOMException || (err && typeof err === 'object' && 'name' in err)) {
     const name = (err as { name: string }).name
     if (name === 'NotAllowedError') return 'Camera access denied. Please allow camera permission and try again.'
@@ -91,6 +95,45 @@ function getErrorMessage(err: unknown): string {
     if (name === 'SecurityError') return 'Camera requires a secure (HTTPS) connection.'
   }
   return 'Could not access the camera. Please try again.'
+}
+
+function waitForPlayableFrame(video: HTMLVideoElement, signal: AbortSignal): Promise<void> {
+  const isPlayable = () => (
+    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+    && video.videoWidth > 0
+    && video.videoHeight > 0
+  )
+  if (isPlayable()) return Promise.resolve()
+
+  return new Promise((resolve, reject) => {
+    let videoFrameCallbackId: number | null = null
+    const timeout = window.setTimeout(() => {
+      const error = new Error('Camera frame readiness timed out')
+      error.name = 'CameraFrameTimeoutError'
+      finish(() => reject(error))
+    }, CAMERA_FRAME_TIMEOUT_MS)
+    const events: Array<keyof HTMLMediaElementEventMap> = ['loadeddata', 'canplay', 'playing', 'resize']
+    const onFrameCandidate = () => {
+      if (isPlayable()) finish(resolve)
+    }
+    const onAbort = () => finish(() => reject(new DOMException('Camera start cancelled', 'AbortError')))
+    const finish = (settle: () => void) => {
+      window.clearTimeout(timeout)
+      for (const event of events) video.removeEventListener(event, onFrameCandidate)
+      signal.removeEventListener('abort', onAbort)
+      if (videoFrameCallbackId !== null && typeof video.cancelVideoFrameCallback === 'function') {
+        video.cancelVideoFrameCallback(videoFrameCallbackId)
+      }
+      settle()
+    }
+
+    for (const event of events) video.addEventListener(event, onFrameCandidate)
+    signal.addEventListener('abort', onAbort, { once: true })
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      videoFrameCallbackId = video.requestVideoFrameCallback(onFrameCandidate)
+    }
+    onFrameCandidate()
+  })
 }
 
 /** Only NotAllowedError is a permission problem the guidance module can act
@@ -185,6 +228,7 @@ export default function FullScreenCapture({
   // visibility/retry/unmount transitions. Stale camera work must never replace
   // or fail a newer successful stream.
   const cameraRequestGenerationRef = useRef(0)
+  const cameraFrameAbortRef = useRef<AbortController | null>(null)
   // Most recent navigator.permissions.query('camera') read, carried from the
   // preflight (in startCamera) into openStream's catch — lets the macOS
   // "site allowed, OS blocked the browser" guidance branch fire without
@@ -210,6 +254,7 @@ export default function FullScreenCapture({
   // close same-tick races from hidden file inputs / visibility events before a
   // render can publish the disabled controls.
   const captureBusyRef = useRef(false)
+  const uploadBusyRef = useRef(false)
   const readyRef = useRef(false)
   // Live-tracking: a generation token (bumped per view/phase change so stale
   // worker results are dropped) + a frame throttle timestamp + the last real
@@ -237,6 +282,7 @@ export default function FullScreenCapture({
   // True while a shutter burst is being grabbed — locks tile nav + the shutter so
   // the burst can't be re-targeted mid-flight.
   const [isCapturing, setIsCapturing] = useState(false)
+  const [uploadingSlot, setUploadingSlot] = useState<CaptureSlotKey | null>(null)
 
   const [reviewUrl, setReviewUrl] = useState<string | null>(null)
   const [rollAtCapture, setRollAtCapture] = useState<number | null>(null)
@@ -315,6 +361,8 @@ export default function FullScreenCapture({
 
   // ---- camera lifecycle ----
   const stopCameraStream = useCallback(() => {
+    cameraFrameAbortRef.current?.abort()
+    cameraFrameAbortRef.current = null
     const stream = streamRef.current
     if (!stream) return
     // Clear ownership before stopping tracks so any delayed `ended` event from
@@ -339,7 +387,7 @@ export default function FullScreenCapture({
       // permission prompt — stop the stream instead of orphaning hardware.
       if (
         !mountedRef.current
-        || document.visibilityState === 'hidden'
+        || String(document.visibilityState) === 'hidden'
         || cameraRequestGenerationRef.current !== requestGeneration
       ) {
         stream.getTracks().forEach(track => track.stop())
@@ -355,12 +403,20 @@ export default function FullScreenCapture({
         setCameraFailed(true)
       })
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        // Fire-and-forget: don't gate readiness on play() resolving — a static
-        // fake MediaStream (tests) never fully "plays", and real cameras stream
-        // frames as soon as getUserMedia resolves.
-        void videoRef.current.play().catch(() => { /* autoplay block is non-fatal */ })
+        const video = videoRef.current
+        video.srcObject = stream
+        const frameController = new AbortController()
+        cameraFrameAbortRef.current = frameController
+        void video.play().catch(() => { /* the frame timeout provides recovery */ })
+        await waitForPlayableFrame(video, frameController.signal)
+        if (cameraFrameAbortRef.current === frameController) cameraFrameAbortRef.current = null
       }
+      if (
+        !mountedRef.current
+        || String(document.visibilityState) === 'hidden'
+        || cameraRequestGenerationRef.current !== requestGeneration
+        || streamRef.current !== stream
+      ) return
       readyRef.current = true
       setReady(true)
       void acquireWakeLock()
@@ -371,6 +427,7 @@ export default function FullScreenCapture({
         || cameraRequestGenerationRef.current !== requestGeneration
       ) return
       readyRef.current = false
+      if (streamRef.current) stopCameraStream()
       setErrorMsg(getErrorMessage(err))
       setGuidance(cameraErrorName(err) === 'NotAllowedError' ? buildGuidanceForNotAllowed(permissionStateRef.current) : null)
       setCameraFailed(true)
@@ -752,6 +809,7 @@ export default function FullScreenCapture({
       || !readyRef.current
       || document.visibilityState !== 'visible'
       || captureBusyRef.current
+      || uploadBusyRef.current
     ) return
     const id = ++captureIdRef.current
     captureSlotRef.current = activeSlot
@@ -872,7 +930,7 @@ export default function FullScreenCapture({
   function selectSlot(slot: CaptureSlotKey) {
     // Freeze navigation from shutter click through countdown + burst. The ref
     // also blocks same-tick/programmatic races before disabled state renders.
-    if (captureBusyRef.current) return
+    if (captureBusyRef.current || uploadBusyRef.current) return
     // A new view must earn its own "capture anyway" — override never carries over.
     setOverrideGate(false)
     setActiveSlot(slot)
@@ -880,18 +938,29 @@ export default function FullScreenCapture({
   }
 
   function triggerUpload() {
-    if (captureBusyRef.current) return
+    if (captureBusyRef.current || uploadBusyRef.current) return
     fileInputRefs.current[activeSlot]?.click()
   }
 
   // Uploading a slot commits it and advances to the next uncaptured slot, so the
   // upload-only path (no camera) still walks through every required slot.
-  function handleUpload(slot: CaptureSlotKey, file: File) {
-    if (captureBusyRef.current) return
-    onFileUpload(slot, file)
-    setLastCommittedSlot(slot)
-    const next = nextUncapturedAfter(slot)
-    if (next) { setOverrideGate(false); setActiveSlot(next) }
+  async function handleUpload(slot: CaptureSlotKey, file: File) {
+    if (captureBusyRef.current || uploadBusyRef.current) return
+    uploadBusyRef.current = true
+    setUploadingSlot(slot)
+    try {
+      await onFileUpload(slot, file)
+      if (!mountedRef.current) return
+      setLastCommittedSlot(slot)
+      const next = nextUncapturedAfter(slot)
+      if (next) { setOverrideGate(false); setActiveSlot(next) }
+    } catch {
+      // The parent owns the slot-specific error copy. Keep this view selected
+      // so the practitioner can choose a replacement immediately.
+    } finally {
+      uploadBusyRef.current = false
+      if (mountedRef.current) setUploadingSlot(null)
+    }
   }
 
   // ---- derived UI state ----
@@ -906,7 +975,7 @@ export default function FullScreenCapture({
     && (captures[s].slotStatus === 'no_person' || captures[s].slotStatus === 'multiple_people'))
   const noPersonViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'no_person')
   const multiplePeopleViews = SLOT_ORDER.filter(s => isCaptured(captures[s]) && captures[s].slotStatus === 'multiple_people')
-  const captureLocked = phase === 'countdown' || isCapturing
+  const captureLocked = phase === 'countdown' || isCapturing || uploadingSlot !== null
   const analyzeBlocked = submitting || captureLocked || requiredChecking || requiredModelFailed || requiredSubjectFailed
   const direction = DIRECTION[activeSlot]
 
@@ -961,7 +1030,7 @@ export default function FullScreenCapture({
           aria-label={`Upload ${SLOT_LABEL[slot]} photo`}
           onChange={e => {
             const file = e.target.files?.[0]
-            if (file) handleUpload(slot, file)
+            if (file) void handleUpload(slot, file)
             e.target.value = ''
           }}
         />
@@ -971,9 +1040,16 @@ export default function FullScreenCapture({
       {/* ---------- Disclaimer (first open only) ---------- */}
       {phase === 'disclaimer' ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div role="dialog" aria-modal="true" aria-label="Screening notice" data-testid="capture-disclaimer">
+          <div role="dialog" aria-modal="true" aria-label={screeningNotice ? 'Screening notice' : 'Capture setup'} data-testid="capture-disclaimer">
             <Surface tier="feature" style={{ maxWidth: 420 }}>
-              <LegalNotice document={screeningNotice} compact />
+              {screeningNotice ? (
+                <LegalNotice document={screeningNotice} compact />
+              ) : (
+                <div>
+                  <h2 className="t-title" style={{ margin: '0 0 8px' }}>Ready to capture four views</h2>
+                  <p className="t-body" style={{ margin: 0 }}>Use a well-lit space and keep the client’s full body in frame.</p>
+                </div>
+              )}
               <button
                 data-testid="capture-disclaimer-dismiss"
                 onClick={dismissDisclaimer}
@@ -998,6 +1074,7 @@ export default function FullScreenCapture({
           <div style={{ position: 'absolute', inset: 0, background: 'var(--background)' }}>
             {/* Live video (kept mounted so the stream never restarts between views) */}
             <video
+              data-testid="capture-video"
               ref={videoRef}
               autoPlay
               playsInline
@@ -1278,7 +1355,7 @@ export default function FullScreenCapture({
             {showLiveCamera && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '8px' }}>
                 <div style={{ justifySelf: 'start' }}>
-                  <button onClick={triggerUpload} disabled={captureLocked} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'underline', cursor: captureLocked ? 'not-allowed' : 'pointer', padding: '8px', minHeight: '44px' }}>Upload photo instead</button>
+                  <button onClick={triggerUpload} disabled={captureLocked} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'underline', cursor: captureLocked ? 'not-allowed' : 'pointer', padding: '8px', minHeight: '44px' }}>{uploadingSlot ? `Preparing ${SLOT_LABEL[uploadingSlot]} photo…` : 'Upload photo instead'}</button>
                 </div>
                 <button
                   data-autofocus="shutter"
@@ -1297,7 +1374,7 @@ export default function FullScreenCapture({
                 />
                 <div style={{ justifySelf: 'end' }}>
                   <button
-                    onClick={() => { if (!captureBusyRef.current) setTimerOn(t => !t) }}
+                    onClick={() => { if (!captureBusyRef.current && !uploadBusyRef.current) setTimerOn(t => !t) }}
                     disabled={captureLocked}
                     aria-label="Self-timer"
                     aria-pressed={timerOn}

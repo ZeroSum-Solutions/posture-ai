@@ -5,7 +5,7 @@ import Icon from '@/components/array/Icon'
 import { Chip } from '@/components/array/Chip'
 import { Surface } from '@/components/array/Surface'
 import { tone, type SeverityBand } from '@/components/array/severity'
-import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
+import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import {
   approvedClinicalExercises,
   approvedClinicalLinks,
@@ -51,7 +51,7 @@ interface ExerciseMuscleRow {
 
 export default async function MusclePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const access = await serverClinicalContentAccess()
+  const access = await currentPractitionerClinicalContentAccess()
   if (!access.surfaces.knowledgeLinks || !access.approvedMuscleSlugs.includes(slug)) notFound()
   const muscle = approvedClinicalMuscles(access).find((candidate) => candidate.slug === slug)
   if (!muscle) notFound()

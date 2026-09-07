@@ -23,7 +23,9 @@ function query(table: string) {
     order() { return q },
     limit() { return q },
     range(rangeFrom: number, rangeTo: number) { from = rangeFrom; to = rangeTo; return q },
-    maybeSingle: async () => ({ data: { first_name: 'Ada', last_name: 'Lovelace' }, error: null }),
+    maybeSingle: async () => selected === 'display_name'
+      ? { data: { display_name: 'Ada Lovelace' }, error: null }
+      : { data: null, error: { message: 'column practitioners.first_name does not exist' } },
     then(onFulfilled: (value: QueryResult) => unknown, onRejected: (reason: unknown) => unknown) {
       let result: QueryResult = { data: [], error: null, count: 0 }
       if (table === 'assessments' && selected === 'overall_score') {
@@ -72,6 +74,11 @@ describe('DashboardPage score averages', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  test('uses the practitioner display name supported by the database for avatar initials', async () => {
+    const page = await DashboardPage() as ReactElement<{ practitionerInitials: string }>
+    expect(page.props.practitionerInitials).toBe('AL')
   })
 
   test('includes the 1,001st weekly score instead of averaging one PostgREST page', async () => {

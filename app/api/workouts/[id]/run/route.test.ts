@@ -96,9 +96,8 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
 vi.mock('@/lib/log', () => ({ hashUser: () => 'user-hash', logEvent: vi.fn() }))
-vi.mock('@/lib/clinical-content/runtime', () => ({ clinicalContentAccess: () => ({ surfaces: { workouts: true } }) }))
 vi.mock('@/lib/clinical-content/database', () => ({
-  verifyClinicalContentAccess: async () => ({ surfaces: { workouts: true } }),
+  serverClinicalContentAccessForPractitioner: async () => ({ surfaces: { workouts: true } }),
 }))
 vi.mock('@/lib/clinical-content/http', () => ({ clinicalContentUnavailableResponse: vi.fn() }))
 

@@ -45,4 +45,13 @@ describe('WorkoutLegalNotice', () => {
     expect(screen.getByText('Legacy screening notice.')).toBeTruthy()
     expect(screen.getByText('Legacy notice — version and effective date unavailable.')).toBeTruthy()
   })
+
+  test('labels prototype content explicitly without inventing legal provenance', () => {
+    render(<WorkoutLegalNotice prototypeDisclaimer="Screening support only." />)
+
+    expect(screen.getByText('Screening support only.')).toBeTruthy()
+    expect(screen.getByText(/Prototype catalog · practitioner review required/i)).toBeTruthy()
+    expect(screen.queryByText(/Legacy notice/i)).toBeNull()
+    expect(screen.queryByText(/Version/i)).toBeNull()
+  })
 })

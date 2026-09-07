@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 // The clients INSERT result (service-role). Set per test.
 let insertResult: { data: unknown; error: unknown } = { data: { id: 'c1' }, error: null }
+const practitionerId = '00000000-0000-4000-8000-000000000001'
 const insertSpy = vi.fn(() => ({
   select: () => ({ single: async () => insertResult }),
 }))
@@ -14,7 +15,7 @@ const rpcSpy = vi.fn(async (): Promise<{ data: unknown; error: unknown }> => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
+    auth: { getUser: async () => ({ data: { user: { id: practitionerId } } }) },
     from: () => ({}),
   }),
   createSupabaseServiceClient: () => ({
@@ -40,6 +41,8 @@ describe('POST /api/clients validation', () => {
   beforeEach(() => {
     process.env.POSTURE_TEST_MODE_ENABLED = '1'
     process.env.VERCEL_ENV = 'preview'
+    delete process.env.POSTURE_OPERATION_MODE
+    delete process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS
     insertSpy.mockClear()
     fromSpy.mockClear()
     rpcSpy.mockClear()
@@ -89,7 +92,7 @@ describe('POST /api/clients validation', () => {
     expect(rpcSpy).toHaveBeenCalledWith(
       'create_client_with_inperson_consent_governed',
       expect.objectContaining({
-        p_practitioner_id: 'u1',
+        p_practitioner_id: practitionerId,
         p_first_name: 'A',
         p_last_name: 'B',
         p_document_id: 'subject-consent-test-fixture-v1',
@@ -134,6 +137,22 @@ describe('POST /api/clients validation', () => {
     expect(res.status).toBe(409)
     await expect(res.json()).resolves.toMatchObject({ code: 'superseded' })
     expect(insertSpy).not.toHaveBeenCalled()
+    expect(rpcSpy).not.toHaveBeenCalled()
+  })
+
+  test('creates an allowlisted prototype record without accepting signature evidence', async () => {
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = practitionerId
+
+    const res = await POST(req({ first_name: 'Ada', last_name: 'Lovelace' }))
+
+    expect(res.status).toBe(201)
+    expect(insertSpy).toHaveBeenCalledWith(expect.objectContaining({
+      practitioner_id: practitionerId,
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      operation_mode: 'prototype',
+    }))
     expect(rpcSpy).not.toHaveBeenCalled()
   })
 })

@@ -3,8 +3,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import type { RunItem } from '@/lib/workout/runState'
 import AuthedPlayer from './player'
-import { serverClinicalContentAccess } from '@/lib/clinical-content/database'
-import { isClinicalSnapshotForRelease } from '@/lib/workout/tokenProjection'
+import { serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
+import { isSessionSnapshotForOperation } from '@/lib/workout/operationSnapshot'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,14 +17,15 @@ export const dynamic = 'force-dynamic'
  * erased client leaves no residual PHI), and hydrates resume state from the run.
  */
 export default async function WorkoutSessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
-  const clinicalAccess = await serverClinicalContentAccess()
-  if (!clinicalAccess.surfaces.workouts || !clinicalAccess.contentVersion) notFound()
   const { sessionId } = await params
   const supabase = await createSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect(`/auth/sign-in?next=/workouts/${sessionId}`)
+  const clinicalAccess = await serverClinicalContentAccessForPractitioner(user.id)
+  if (!clinicalAccess.surfaces.workouts || !clinicalAccess.contentVersion) notFound()
+  const operation = operationForPractitioner(user.id)
 
   const { data: session } = await supabase
     .from('workout_sessions')
@@ -30,10 +33,28 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
     .eq('id', sessionId)
     .maybeSingle()
   if (!session) notFound()
-  if (!isClinicalSnapshotForRelease(session.program_snapshot, {
+  if (!isSessionSnapshotForOperation(session.program_snapshot, operation, {
     version: clinicalAccess.contentVersion,
     inventorySha256: clinicalAccess.inventorySha256,
-  })) notFound()
+  })) {
+    return (
+      <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+        <p className="t-kicker">Saved workout</p>
+        <h1 className="t-headline">This plan needs a current copy.</h1>
+        <p className="t-body">
+          Its saved catalog provenance does not match the current operation. The original remains in your library.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <Link className="a-primary" href={`/workouts?assessment_id=${session.assessment_id}`} style={{ minHeight: 44, padding: '0 16px' }}>
+            Regenerate copy
+          </Link>
+          <Link className="a-secondary" href="/workouts" style={{ minHeight: 44, padding: '0 16px' }}>
+            Back to workouts
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   const [{ data: client }, { data: run, error: runErr }] = await Promise.all([
     supabase.from('clients').select('first_name').eq('id', session.client_id).maybeSingle(),

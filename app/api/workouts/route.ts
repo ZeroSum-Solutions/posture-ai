@@ -11,9 +11,16 @@ import { generateShareToken } from '@/lib/workout/token'
 import { governSessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import { resolveRuntimeLegalDocument } from '@/lib/legal/runtime'
 import { snapshotLegalDocument } from '@/lib/legal/policy'
-import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
-import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
 import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
+import {
+  DEFAULT_WORKOUT_PREFERENCES,
+  personalizeWorkout,
+  workoutPreferencesSchema,
+  WORKOUT_GOALS,
+} from '@/lib/workout/personalize'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
+import { mintPrototypeSessionSnapshot } from '@/lib/workout/operationSnapshot'
 
 const ROUTE = 'POST /api/workouts'
 const SHARE_TTL_DAYS = 7
@@ -22,7 +29,23 @@ const bodySchema = z.object({
   assessment_id: z.string().uuid(),
   week: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   share: z.boolean().optional(),
-}).strict()
+  name: z.string().trim().min(1).max(80).optional(),
+  preferences: workoutPreferencesSchema.optional(),
+  selected_slugs: z.array(z.string().min(1).max(90)).min(1).max(40).optional(),
+  generation_source: z.enum(['scan', 'ai']).optional(),
+}).strict().superRefine((value, context) => {
+  const personalized = value.name !== undefined
+    || value.preferences !== undefined
+    || value.selected_slugs !== undefined
+    || value.generation_source !== undefined
+  if (!personalized) return
+  if (!value.name || !value.preferences || !value.selected_slugs || !value.generation_source) {
+    context.addIssue({
+      code: 'custom',
+      message: 'Personalized workouts require a name, preferences, selected exercises, and source.',
+    })
+  }
+})
 
 /**
  * Mint a guided workout session from an APPROVED assessment. The frozen
@@ -38,7 +61,8 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
-  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  const operation = operationForPractitioner(user.id)
+  const clinicalAccess = await serverClinicalContentAccessForPractitioner(user.id)
   if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
   const userHash = hashUser(user.id)
 
@@ -50,7 +74,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: `Invalid payload: ${parsed.error.issues[0]?.message ?? 'malformed'}` }, { status: 422 })
   }
-  const { assessment_id, week = 1, share = false } = parsed.data
+  const {
+    assessment_id,
+    week = 1,
+    share = false,
+    name,
+    preferences,
+    selected_slugs: selectedSlugs,
+    generation_source: generationSource,
+  } = parsed.data
+  if (operation.isPrototype && share) {
+    return NextResponse.json({ error: 'Prototype workouts are available in clinic only.' }, { status: 422 })
+  }
 
   const service = createSupabaseServiceClient()
 
@@ -74,17 +109,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Approve the assessment before launching a session.' }, { status: 403 })
   }
 
-  // A workout snapshot is a new shareable artifact. Resolve the applicable
-  // notice before generating or persisting anything so an ungoverned workout
-  // can never be minted in production.
-  const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
-  if (!legalResolution.ok) {
-    return NextResponse.json(
-      { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
-      { status: 503 },
-    )
+  let legalNotice: ReturnType<typeof snapshotLegalDocument> | null = null
+  if (!operation.isPrototype) {
+    // Governed snapshots must bind the active notice before content is built.
+    const legalResolution = resolveRuntimeLegalDocument({ kind: 'screening_notice' })
+    if (!legalResolution.ok) {
+      return NextResponse.json(
+        { error: 'The screening notice is unavailable.', code: 'legal_unavailable' },
+        { status: 503 },
+      )
+    }
+    legalNotice = snapshotLegalDocument(legalResolution.document)
   }
-  const legalNotice = snapshotLegalDocument(legalResolution.document)
 
   const { data: findings, error: findingsErr } = await service
     .from('assessment_findings')
@@ -96,8 +132,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to load findings.' }, { status: 500 })
   }
 
-  const draftSnapshot = buildSessionFromAssessment(
-    assessment,
+  const candidateSnapshot = buildSessionFromAssessment(
+    preferences ? { ...assessment, capability: preferences.capability } : assessment,
     (findings ?? []) as StoredFinding[],
     week,
     {
@@ -106,20 +142,45 @@ export async function POST(req: NextRequest) {
       approvedReportCopyIds: clinicalAccess.approvedReportCopyIds,
     },
   )
-  if (!draftSnapshot) {
+  if (!candidateSnapshot) {
     // Empty-session floor — nothing reliable to build a workout from.
     logEvent({ route: ROUTE, outcome: 'client_error', status: 422, userHash, detail: 'no playable session' })
     return NextResponse.json({ error: 'This screening has no reliable findings to build a workout from — re-capture and try again.' }, { status: 422 })
   }
-  const snapshot = governSessionSnapshot(draftSnapshot, legalNotice, {
+  let draftSnapshot = candidateSnapshot
+  if (preferences && selectedSlugs) {
+    try {
+      draftSnapshot = personalizeWorkout(candidateSnapshot, preferences, selectedSlugs)
+    } catch (cause) {
+      return NextResponse.json({
+        error: cause instanceof Error ? cause.message : 'This workout selection is unavailable.',
+      }, { status: 422 })
+    }
+  }
+  const catalogIdentity = {
     version: clinicalAccess.contentVersion!,
     inventorySha256: clinicalAccess.inventorySha256,
-  })
+  }
+  const snapshot = operation.isPrototype
+    ? mintPrototypeSessionSnapshot(draftSnapshot, catalogIdentity)
+    : governSessionSnapshot(draftSnapshot, legalNotice!, catalogIdentity)
 
-  const shareToken = share ? generateShareToken() : null
-  const expiresAt = share ? new Date(Date.now() + SHARE_TTL_DAYS * 86_400_000).toISOString() : null
+  const effectivePreferences = preferences ?? {
+    ...DEFAULT_WORKOUT_PREFERENCES,
+    capability: snapshot.capability,
+  }
+  const effectiveName = name ?? WORKOUT_GOALS[effectivePreferences.goal]
+  const effectiveGenerationSource = generationSource ?? 'scan'
 
-  const { data: created, error: createError } = await service.rpc('create_workout_session_clinical_governed', {
+  const shareToken = !operation.isPrototype && share ? generateShareToken() : null
+  const expiresAt = shareToken ? new Date(Date.now() + SHARE_TTL_DAYS * 86_400_000).toISOString() : null
+
+  const rpcName = operation.isPrototype
+    ? 'create_workout_session_prototype'
+    : name
+      ? 'create_personalized_workout_session_clinical_governed'
+      : 'create_workout_session_clinical_governed'
+  const commonRpc = {
     p_assessment_id: assessment_id,
     p_client_id: assessment.client_id,
     p_practitioner_id: user.id,
@@ -127,19 +188,35 @@ export async function POST(req: NextRequest) {
     p_capability: snapshot.capability,
     p_program_snapshot: snapshot,
     p_estimated_duration_sec: snapshot.estimatedDurationSec,
-    p_token_hash: shareToken?.tokenHash ?? null,
-    p_expires_at: expiresAt,
     p_operation_id: randomUUID(),
-    p_ip_hash: hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')),
-    p_document_id: legalNotice.documentId,
-    p_document_version: legalNotice.version,
-    p_document_body_sha256: legalNotice.bodySha256,
-    p_document_effective_at: legalNotice.effectiveAt,
-    p_jurisdiction: legalNotice.jurisdiction,
-    p_product_scope: legalNotice.productScope,
     p_clinical_content_version: clinicalAccess.contentVersion,
     p_clinical_inventory_sha256: clinicalAccess.inventorySha256,
-  })
+  }
+  const rpcParams = operation.isPrototype
+    ? {
+        ...commonRpc,
+        p_name: effectiveName,
+        p_preferences: effectivePreferences,
+        p_generation_source: effectiveGenerationSource,
+      }
+    : {
+        ...commonRpc,
+        p_token_hash: shareToken?.tokenHash ?? null,
+        p_expires_at: expiresAt,
+        p_ip_hash: hashIp(req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')),
+        p_document_id: legalNotice!.documentId,
+        p_document_version: legalNotice!.version,
+        p_document_body_sha256: legalNotice!.bodySha256,
+        p_document_effective_at: legalNotice!.effectiveAt,
+        p_jurisdiction: legalNotice!.jurisdiction,
+        p_product_scope: legalNotice!.productScope,
+        ...(name && preferences && generationSource ? {
+          p_name: name,
+          p_preferences: preferences,
+          p_generation_source: generationSource,
+        } : {}),
+      }
+  const { data: created, error: createError } = await service.rpc(rpcName, rpcParams)
   const createResult = created as { status?: string; session_id?: string } | null
   if (createError || !createResult?.status) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detailCode: 'session_transaction_failed' })
@@ -182,7 +259,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return gate
-  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), supabase)
+  const clinicalAccess = await serverClinicalContentAccessForPractitioner(user.id)
   if (!clinicalAccess.surfaces.workouts) return clinicalContentUnavailableResponse()
 
   const assessmentId = req.nextUrl.searchParams.get('assessment_id')

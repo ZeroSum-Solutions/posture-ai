@@ -90,3 +90,17 @@ export async function dismissCaptureDisclaimer(page: Page) {
   await expect(dismiss).toBeVisible({ timeout: 10_000 })
   await dismiss.click()
 }
+
+/** Upload one capture and wait for the async normalize/validate commit before
+ * addressing the next hidden input. The UI intentionally locks every capture
+ * control while that operation owns the selected slot. */
+export async function setCaptureUpload(page: Page, index: number, file: string | Parameters<ReturnType<Page['locator']>['setInputFiles']>[0]) {
+  const labels = ['Front', 'Left Side', 'Right Side', 'Back'] as const
+  const input = page.locator('input[type="file"]').nth(index)
+  await expect(input).toBeEnabled()
+  await input.setInputFiles(file)
+  await expect(page.getByRole('button', { name: new RegExp(`${labels[index]}.*captured`) })).toBeVisible({ timeout: 30_000 })
+  if (index < labels.length - 1) {
+    await expect(page.getByRole('button', { name: `${labels[index + 1]} (required), current` })).toBeVisible()
+  }
+}

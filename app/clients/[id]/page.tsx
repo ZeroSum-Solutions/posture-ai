@@ -9,6 +9,7 @@ import { canonicalizeKeysetTimestamp, finalizeKeysetPage } from '@/lib/paginatio
 import { getConsentStatus } from '@/lib/consent/record'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import ClientDetailClient, { type ClientDetailInitialData } from './ClientDetailClient'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
   // rendering any owned health record into the navigation response.
   const gate = await practitionerGate(supabase, user.id)
   if (gate) return null
+  const operation = operationForPractitioner(user.id)
 
   const { data: preciseSnapshot, error: snapshotError } = await supabase.rpc('current_keyset_snapshot')
   let snapshotAt: string
@@ -59,7 +61,7 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
       .order('assessed_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(INITIAL_HISTORY_PAGE_SIZE + 1),
-    getConsentStatus(supabase, id),
+    operation.isPrototype ? Promise.resolve(null) : getConsentStatus(supabase, id),
   ])
 
   if (clientResult.error || historyResult.error) {
@@ -97,17 +99,20 @@ async function loadInitialClientDetail(id: string): Promise<ClientDetailInitialD
   )
 
   return {
+    operationMode: operation.mode,
     client: clientResult.data as unknown as ClientDetailInitialData['client'],
     // The client workspace owns one chronological representation even though
     // the bounded database page and cursor advance newest-first.
     assessments: [...page.records].reverse(),
-    consentStatus: consent.hasConsent && consent.legalState === 'current'
+    consentStatus: operation.isPrototype
+      ? 'not_required'
+      : consent?.hasConsent && consent.legalState === 'current'
       ? 'valid'
-      : consent.legalState === 'withdrawn'
+      : consent?.legalState === 'withdrawn'
         ? 'withdrawn'
-        : consent.legalState === 'reconsent_required'
+        : consent?.legalState === 'reconsent_required'
           ? 'reconsent_required'
-          : consent.legalState === 'missing'
+          : consent?.legalState === 'missing'
             ? 'missing'
             : 'unavailable',
     pagination: page.pagination,

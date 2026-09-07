@@ -3,16 +3,20 @@ import { memo, startTransition, useState, useEffect, useRef, useCallback, Suspen
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
+import type { OperationMode } from '@/lib/prototype/runtime'
 import { ageBand } from '@/lib/clients/age'
 import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
-import { buildFramePlan, stampFrame, toScoringFrame } from './framePlan'
+import { analyzeCaptureFrames } from './analyzeFrames'
+import type { AnalysisProgress } from './analyzeFrames'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
 import { syncPixelQualityTestHooks } from '@/lib/capture/pixel-quality-test-hooks'
 import { createSubmissionGuard } from '@/lib/capture/submission-guard'
+import type { SubmissionAttempt } from '@/lib/capture/submission-guard'
+import { validateCaptureUpload } from '@/lib/capture/upload-validation'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import useLegalDocument from '@/components/useLegalDocument'
 import DebouncedSearchInput from '@/components/DebouncedSearchInput'
@@ -73,6 +77,7 @@ const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
 const CONSENT_WORK_AFTER_FEEDBACK_MS = 250
+const LOCAL_ANALYSIS_TIMEOUT_MS = 90_000
 
 function initialCaptures(): Captures {
   return {
@@ -100,11 +105,13 @@ function afterBusyStatePaint(): Promise<void> {
 function ConsentAdvanceButton({
   disabled,
   testMode,
+  skipConsent,
   onTestAdvance,
   onProceed,
 }: {
   disabled: boolean
   testMode: boolean
+  skipConsent: boolean
   onTestAdvance: () => void
   onProceed: () => Promise<void>
 }) {
@@ -123,6 +130,15 @@ function ConsentAdvanceButton({
     if (disabled || checkingLock.current) return
     if (testMode) {
       onTestAdvance()
+      return
+    }
+    if (skipConsent) {
+      checkingLock.current = true
+      try {
+        await onProceed()
+      } finally {
+        checkingLock.current = false
+      }
       return
     }
 
@@ -157,7 +173,7 @@ function ConsentAdvanceButton({
 }
 
 // ---- Main Wizard ----
-export function NewAssessmentWizard() {
+export function NewAssessmentWizard({ operationMode = 'governed' }: { operationMode?: OperationMode }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClientId = searchParams.get('client_id')
@@ -171,7 +187,7 @@ export function NewAssessmentWizard() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const screeningNotice = useLegalDocument(
     'screening_notice',
-    Boolean(selectedClient) && !testMode,
+    Boolean(selectedClient) && !testMode && operationMode === 'governed',
   )
   const [selectedClientError, setSelectedClientError] = useState<string | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
@@ -194,9 +210,17 @@ export function NewAssessmentWizard() {
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   // A synchronous lock closes the pre-render double-click window. Its stable ID
   // is also the server idempotency key for retries of unchanged capture content.
   const [submissionGuard] = useState(createSubmissionGuard)
+  const analysisControlRef = useRef<{
+    controller: AbortController
+    attempt: SubmissionAttempt
+    timeoutId: number
+    cancelledByUser: boolean
+    timedOut: boolean
+  } | null>(null)
 
   // Stable browser-performance boundary: entering the real capture step starts
   // camera readiness. This is deliberately not route navigation because the
@@ -456,6 +480,11 @@ export function NewAssessmentWizard() {
   // normalization — discards its result instead of overwriting the newer one.
   const commitSeq = useRef<Record<string, number>>({})
   const nextOp = (slot: CaptureSlotKey) => (commitSeq.current[slot] = (commitSeq.current[slot] ?? 0) + 1)
+  // Uploads can arrive faster than the IMAGE landmarker initializes. Keep their
+  // checks in one wizard-owned queue so one failed model startup does not cause
+  // every waiting slot to repeat the full GPU→CPU startup deadline in turn.
+  const preflightQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const preflightUnavailableRef = useRef(false)
 
   // Mirror the latest captures for revocation + unmount cleanup, so object-URL
   // teardown never reads a stale closure.
@@ -473,6 +502,13 @@ export function NewAssessmentWizard() {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
+      const analysis = analysisControlRef.current
+      if (analysis) {
+        window.clearTimeout(analysis.timeoutId)
+        analysis.controller.abort()
+        submissionGuard.release(analysis.attempt)
+        analysisControlRef.current = null
+      }
       for (const slot of Object.values(ref.current)) {
         revokeStaleUrls([slot.rawRepresentativeUrl, slot.displayPreviewUrl, ...(slot.rawBurstUrls ?? [])], new Set())
       }
@@ -480,7 +516,7 @@ export function NewAssessmentWizard() {
       // backend outlives the wizard (§11.1 error/unmount path).
       void import('@/lib/pose/capture-runtime').then(m => m.getCaptureRuntime().dispose()).catch(() => {})
     }
-  }, [])
+  }, [submissionGuard])
 
   // Revoke a slot's object URLs (raw + display + burst) that aren't reused, so a
   // re-capture/re-upload never leaks the superseded blobs.
@@ -525,42 +561,53 @@ export function NewAssessmentWizard() {
 
     setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'checking' } }))
 
-    try {
-      const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
-      const { assessFrameQuality } = await import('@/lib/pose/quality')
-
-      // Route through the runtime owner: it closes the live worker and warms the
-      // IMAGE landmarker first, and serializes so a concurrent enterLive can't
-      // close the landmarker mid-detection (§11.1).
-      const detected = await getCaptureRuntime().detect(rawUrl, view, source)
+    const check = preflightQueueRef.current.then(async () => {
       if (isStale()) return
-      const rawPoseFrame: PoseFrame = {
-        ...detected,
-        ...(profileSide ? { profileSide } : {}),
-        ...(captureRollDeg !== null ? { captureRollDeg } : {}),
+      if (preflightUnavailableRef.current) {
+        setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'model_error' } }))
+        return
       }
-      // Merge in the slot's precomputed pixel-quality metrics (T2) — synchronous,
-      // no new await; the merge is pure and total over these input types, so it
-      // can never throw and never trips the catch below into setModelError(true)
-      // (Product constraints: sampling/scoring failure fails open, never blocks).
-      const quality = mergePreflightQuality(assessFrameQuality(rawPoseFrame, view), pixelQuality)
+      try {
+        const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
+        const { assessFrameQuality } = await import('@/lib/pose/quality')
 
-      const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
-        : quality.status === 'multiple_people' ? 'multiple_people'
-        : quality.status === 'warnings' ? 'warnings'
-        : 'ok'
+        // Route through the runtime owner: it closes the live worker and warms the
+        // IMAGE landmarker first, and serializes so a concurrent enterLive can't
+        // close the landmarker mid-detection (§11.1).
+        const detected = await getCaptureRuntime().detect(rawUrl, view, source)
+        if (isStale()) return
+        const rawPoseFrame: PoseFrame = {
+          ...detected,
+          ...(profileSide ? { profileSide } : {}),
+          ...(captureRollDeg !== null ? { captureRollDeg } : {}),
+        }
+        // Merge in the slot's precomputed pixel-quality metrics (T2) — synchronous,
+        // no new await; the merge is pure and total over these input types, so it
+        // can never throw and never trips the catch below into setModelError(true)
+        // (Product constraints: sampling/scoring failure fails open, never blocks).
+        const quality = mergePreflightQuality(assessFrameQuality(rawPoseFrame, view), pixelQuality)
 
-      setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], rawPoseFrame, quality, slotStatus } }))
-    } catch (err) {
-      console.error('[wizard] preflight error:', err)
-      if (isStale()) return
-      // A model failure is a hard validation failure. Keep the capture and reason
-      // so the user can retry without losing the photo, but never submit it unchecked.
-      setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'model_error' } }))
-    }
+        const slotStatus: SlotStatus = quality.status === 'no_person' ? 'no_person'
+          : quality.status === 'multiple_people' ? 'multiple_people'
+          : quality.status === 'warnings' ? 'warnings'
+          : 'ok'
+
+        setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], rawPoseFrame, quality, slotStatus } }))
+      } catch (err) {
+        console.error('[wizard] preflight error:', err)
+        if (isStale()) return
+        preflightUnavailableRef.current = true
+        // A model failure is a hard validation failure. Keep the capture and reason
+        // so the user can retry without losing the photo, but never submit it unchecked.
+        setCaptures(prev => ({ ...prev, [slot]: { ...prev[slot], slotStatus: 'model_error' } }))
+      }
+    })
+    preflightQueueRef.current = check.catch(() => {})
+    return check
   }
 
   async function retryFailedChecks() {
+    preflightUnavailableRef.current = false
     for (const slot of REQUIRED_SLOTS) {
       const capture = capturesRef.current[slot]
       if (capture.slotStatus !== 'model_error' || !capture.rawRepresentativeUrl || !capture.source || capture.captureId === null) continue
@@ -577,26 +624,42 @@ export function NewAssessmentWizard() {
 
   async function handleFileUpload(slot: CaptureSlotKey, file: File) {
     const op = nextOp(slot)
-    const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
-    const normalized = await normalizeUploadedImage(file)
-    const rawUrl = normalized?.dataUrl ?? URL.createObjectURL(file)
-    const pixelQuality = normalized?.pixelQuality ?? null
-    // Superseded by a newer capture/upload for this slot, or the wizard unmounted,
-    // while we were normalizing — discard this one (and its blob) instead of
-    // clobbering the newer result or committing to an unmounted tree.
-    if (!mountedRef.current || commitSeq.current[slot] !== op) {
-      if (rawUrl.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
-      return
+    let rawUrl: string | null = null
+    try {
+      await validateCaptureUpload(file)
+
+      const bitmapDecoderAvailable = typeof createImageBitmap === 'function'
+      const { normalizeUploadedImage } = await import('@/lib/pose/normalize-upload')
+      const normalized = await normalizeUploadedImage(file)
+      if (!normalized && bitmapDecoderAvailable) {
+        throw new Error('The selected image could not be decoded. Choose another JPEG or PNG.')
+      }
+      rawUrl = normalized?.dataUrl ?? URL.createObjectURL(file)
+      const pixelQuality = normalized?.pixelQuality ?? null
+      // Superseded by a newer capture/upload for this slot, or the wizard unmounted,
+      // while we were normalizing — discard this one (and its blob) instead of
+      // clobbering the newer result or committing to an unmounted tree.
+      if (!mountedRef.current || commitSeq.current[slot] !== op) {
+        if (rawUrl.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
+        return
+      }
+      const prevSlot = capturesRef.current[slot]
+      setCaptures(prev => ({
+        ...prev,
+        [slot]: { ...emptySlot(), file, source: 'upload', captureId: op, rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality },
+      }))
+      submissionGuard.contentChanged()
+      revokeSlotUrls(prevSlot, new Set([rawUrl]))
+      setUploadError(null)
+      if (!testMode) void runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality)
+    } catch (caught) {
+      if (rawUrl?.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
+      const message = caught instanceof Error && caught.message
+        ? caught.message
+        : 'The selected image could not be prepared.'
+      setUploadError(`${SLOT_LABEL[slot]}: ${message}`)
+      throw caught
     }
-    const prevSlot = capturesRef.current[slot]
-    setCaptures(prev => ({
-      ...prev,
-      [slot]: { ...emptySlot(), file, source: 'upload', captureId: op, rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality },
-    }))
-    submissionGuard.contentChanged()
-    revokeSlotUrls(prevSlot, new Set([rawUrl]))
-    setUploadError(null)
-    if (!testMode) runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality)
   }
 
   function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) {
@@ -642,7 +705,22 @@ export function NewAssessmentWizard() {
     setUploadError(null)
     setProcessingError(null)
     setSubmitting(true)
+    setAnalysisProgress(null)
     setStep(3)
+
+    const controller = new AbortController()
+    const control = {
+      controller,
+      attempt,
+      timeoutId: 0,
+      cancelledByUser: false,
+      timedOut: false,
+    }
+    control.timeoutId = window.setTimeout(() => {
+      control.timedOut = true
+      controller.abort()
+    }, LOCAL_ANALYSIS_TIMEOUT_MS)
+    analysisControlRef.current = control
 
     try {
       const clientId = selectedClient?.id
@@ -652,53 +730,36 @@ export function NewAssessmentWizard() {
       // send a single frame. Landmarks only — no image bytes leave the device.
       let frames: unknown[] | undefined = undefined
       if (!testMode) {
-        frames = []
         const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
         const { assessFrameQuality } = await import('@/lib/pose/quality')
         const runtime = getCaptureRuntime()
-        // Detect + stamp per the pure plan (framePlan.ts). It reads ONLY the raw
-        // channel, so both side slots POST as distinct `{view:'side', profileSide}`
-        // groups (Slice 1) and a corrected display image can never reach detection.
-        // All scoring detection goes through the runtime owner so the live worker
-        // is closed and exactly one landmarker is resident (§11.1). The IMAGE
-        // landmarker is released in `finally` even if a detection throws.
         try {
-          for (const p of buildFramePlan(captures)) {
-            if (p.burstUrls) {
-              // Detect every frame of the burst (the representative was already
-              // detected in preflight; re-detecting it here keeps the set uniform).
-              for (const url of p.burstUrls) {
-                const detected = await runtime.detect(url, p.view, 'camera')
-                const quality = assessFrameQuality(detected, p.view)
-                if (quality.status === 'no_person' || quality.status === 'multiple_people') {
-                  throw new Error(`${SLOT_LABEL[p.slot]} must show exactly one person. Retake that view.`)
-                }
-                frames.push(stampFrame(detected, p.profileSide, p.roll))
-              }
-            } else if (p.cachedFrame) {
-              // Single frame from preflight — already carries profileSide + roll.
-              frames.push(toScoringFrame(p.cachedFrame))
-            } else if (p.fallbackUrl) {
-              // Preflight was skipped or failed — detect now.
-              const detected = await runtime.detect(p.fallbackUrl, p.view, p.source ?? 'upload')
-              const quality = assessFrameQuality(detected, p.view)
-              if (quality.status === 'no_person' || quality.status === 'multiple_people') {
-                throw new Error(`${SLOT_LABEL[p.slot]} must show exactly one person. Retake that view.`)
-              }
-              frames.push(stampFrame(detected, p.profileSide, p.roll))
-            }
-          }
+          frames = await analyzeCaptureFrames({
+            captures,
+            runtime,
+            assessFrameQuality,
+            signal: controller.signal,
+            onProgress: progress => {
+              if (!controller.signal.aborted) setAnalysisProgress(progress)
+            },
+          })
         } finally {
           // Release the IMAGE landmarker whether scoring succeeded or threw — no
-          // backend stays resident while we navigate to results.
-          await runtime.dispose()
+          // backend stays resident while we navigate to results. On cancellation,
+          // queue teardown without delaying the immediate return to capture.
+          if (controller.signal.aborted) void runtime.dispose()
+          else await runtime.dispose()
         }
       }
+
+      if (controller.signal.aborted) throw new DOMException('Analysis cancelled', 'AbortError')
+      setAnalysisProgress(null)
 
       const response = await fetch('/api/assessments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: clientId, test_mode: testMode, frames, submission_id: attempt.submissionId }),
+        signal: controller.signal,
       })
 
       if (!response.ok) {
@@ -729,13 +790,35 @@ export function NewAssessmentWizard() {
       setAssessmentId(data.id)
       // Polling useEffect will take over from here
     } catch (err) {
-      console.error('[wizard] Fetch error:', err)
       submissionGuard.release(attempt)
-      setProcessingError(err instanceof Error && err.message
-        ? err.message
-        : 'Network or posture-model error. Please try again.')
+      if (control.cancelledByUser) return
+      if (control.timedOut) {
+        setProcessingError('Posture processing timed out after 90 seconds. Return to the photos and try again.')
+      } else {
+        console.error('[wizard] Fetch error:', err)
+        setProcessingError(err instanceof Error && err.message
+          ? err.message
+          : 'Network or posture-model error. Please try again.')
+      }
+    } finally {
+      window.clearTimeout(control.timeoutId)
+      if (analysisControlRef.current === control) analysisControlRef.current = null
+      setSubmitting(false)
     }
+  }
+
+  function cancelAnalysis() {
+    const control = analysisControlRef.current
+    if (!control) return
+    control.cancelledByUser = true
+    window.clearTimeout(control.timeoutId)
+    control.controller.abort()
+    submissionGuard.release(control.attempt)
+    setAnalysisProgress(null)
     setSubmitting(false)
+    setProcessingError(null)
+    setAssessmentId(null)
+    advanceToCapture()
   }
 
   function handleRetry() {
@@ -788,6 +871,12 @@ export function NewAssessmentWizard() {
     const consentClient = selectedClient
     const band = ageBand(consentClient.date_of_birth)
     if (band === 'under_13') { setShowConsentForm(false); setAgeGateError('Posture AI cannot be used to screen anyone under 13.'); return }
+    if (operationMode === 'prototype') {
+      setAgeGateError(null)
+      setShowConsentForm(false)
+      advanceToCapture()
+      return
+    }
     if (band === 'unknown') { setShowConsentForm(false); setAgeGateError('Add a date of birth for this client before screening.'); return }
     setAgeGateError(null)
     // Close the duplicate-click window synchronously. The isolated button owns
@@ -1047,7 +1136,7 @@ export function NewAssessmentWizard() {
               </p>
             </Surface>
           )}
-          {selectedClient && showConsentForm && (
+          {operationMode === 'governed' && selectedClient && showConsentForm && (
             <InPersonConsentForm
               clientId={selectedClient.id}
               subjectName={`${selectedClient.first_name} ${selectedClient.last_name}`}
@@ -1057,13 +1146,13 @@ export function NewAssessmentWizard() {
           )}
           <p
             role={screeningNotice.error ? 'alert' : 'status'}
-            aria-hidden={!selectedClient || testMode || Boolean(screeningNotice.document)}
+            aria-hidden={!selectedClient || testMode || operationMode === 'prototype' || Boolean(screeningNotice.document)}
             style={{
               minHeight: '22px',
               margin: '16px 0 0',
               color: screeningNotice.error ? tone('review') : 'var(--text-secondary)',
               fontSize: '0.8rem',
-              visibility: selectedClient && !testMode && !screeningNotice.document ? 'visible' : 'hidden',
+              visibility: selectedClient && !testMode && operationMode === 'governed' && !screeningNotice.document ? 'visible' : 'hidden',
             }}
           >
             {screeningNotice.error ?? 'Loading required screening notice…'}
@@ -1071,8 +1160,9 @@ export function NewAssessmentWizard() {
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
             <ConsentAdvanceButton
               key={selectedClient?.id ?? 'no-client'}
-              disabled={!selectedClient || (!testMode && !screeningNotice.document)}
+              disabled={!selectedClient || (!testMode && operationMode === 'governed' && !screeningNotice.document)}
               testMode={testMode}
+              skipConsent={operationMode === 'prototype'}
               onTestAdvance={advanceToCapture}
               onProceed={proceedToCapture}
             />
@@ -1106,7 +1196,7 @@ export function NewAssessmentWizard() {
           </div>
         ) : (
           <FullScreenCapture
-            screeningNotice={screeningNotice.document!}
+            screeningNotice={operationMode === 'prototype' ? null : screeningNotice.document!}
             captures={captures}
             onCameraCapture={handleCameraCapture}
             onFileUpload={handleFileUpload}
@@ -1147,9 +1237,24 @@ export function NewAssessmentWizard() {
                   ? 'Checking results...'
                   : testMode
                     ? 'Submitting assessment to server...'
-                    : 'Processing images for ' + clientName
+                    : analysisProgress
+                      ? `Analyzed ${analysisProgress.completed} of ${analysisProgress.total} frames — ${SLOT_LABEL[analysisProgress.slot]} view`
+                      : 'Preparing local analysis for ' + clientName
                 }
               </p>
+              {!assessmentId && !testMode && analysisProgress && (
+                <progress
+                  aria-label="Local analysis progress"
+                  value={analysisProgress.completed}
+                  max={analysisProgress.total}
+                  style={{ width: 'min(320px, 100%)', marginTop: 12 }}
+                />
+              )}
+              {!assessmentId && !testMode && submitting && (
+                <div style={{ marginTop: 20 }}>
+                  <button type="button" onClick={cancelAnalysis} className="a-secondary">Cancel analysis</button>
+                </div>
+              )}
               {assessmentId && (
                 <p className="t-quiet" style={{ marginTop: '8px' }}>
                   Assessment ID: {assessmentId}

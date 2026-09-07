@@ -14,6 +14,7 @@ import type {
   LegalDocumentKind,
   ResolvedLegalDocument,
 } from '@/lib/legal/types'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
 
 export type AdmittedPractitioner = {
   id: string
@@ -212,6 +213,11 @@ export async function practitionerGate(
   const admission = await practitionerAdmission(supabase, userId)
   if (admission.response) return admission.response
   const prac = admission.practitioner
+
+  // Prototype operation removes paperwork as a business gate only. Admission
+  // above still enforces AAL2 and an active practitioner account.
+  if (operationForPractitioner(userId).isPrototype) return null
+
   const service = createSupabaseServiceClient()
 
   if (prac.organization_id) {

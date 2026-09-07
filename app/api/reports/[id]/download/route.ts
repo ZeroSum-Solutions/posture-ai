@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
 import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
-import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
+import { verifyClinicalContentAccess, serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
 import type { ClinicalContentAccess } from '@/lib/clinical-content/policy'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 
 type StoredReport = {
+  operation_mode?: 'legacy' | 'governed' | 'prototype'
   storage_path: string | null
   report_scope: 'assessment_only' | 'clinical_practitioner' | 'clinical_client' | null
   clinical_content_version: string | null
@@ -13,6 +15,7 @@ type StoredReport = {
 }
 
 function isReportAvailable(report: StoredReport, access: ClinicalContentAccess): boolean {
+  if (report.operation_mode === 'prototype' && access.mode !== 'prototype') return false
   if (report.report_scope === 'assessment_only') {
     return report.clinical_content_version === null && report.clinical_inventory_sha256 === null
   }
@@ -42,10 +45,12 @@ export async function GET(
 
   const { id } = await params
   const service = createSupabaseServiceClient()
-  const clinicalAccess = await verifyClinicalContentAccess(clinicalContentAccess(), service)
+  const clinicalAccess = operationForPractitioner(user.id).isPrototype
+    ? await serverClinicalContentAccessForPractitioner(user.id)
+    : await verifyClinicalContentAccess(clinicalContentAccess(), service)
   const { data: report, error } = await service
     .from('reports')
-    .select('storage_path, report_scope, clinical_content_version, clinical_inventory_sha256')
+    .select('operation_mode, storage_path, report_scope, clinical_content_version, clinical_inventory_sha256')
     .eq('id', id)
     .eq('practitioner_id', user.id)
     .maybeSingle()

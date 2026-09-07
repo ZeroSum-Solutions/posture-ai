@@ -76,7 +76,23 @@ export interface ClinicalGovernedSessionSnapshot extends SessionSnapshotBase {
   }
 }
 
-export type SessionSnapshot = LegacySessionSnapshot | GovernedSessionSnapshot | ClinicalGovernedSessionSnapshot
+export interface PrototypeSessionSnapshot extends SessionSnapshotBase {
+  version: 4
+  operationMode: 'prototype'
+  contentState: 'prototype_unreviewed'
+  disclaimer: string
+  /** Catalog identity only. This tuple is not an HG-03 approval receipt. */
+  clinicalContent: {
+    version: string
+    inventorySha256: string
+  }
+}
+
+export type SessionSnapshot =
+  | LegacySessionSnapshot
+  | GovernedSessionSnapshot
+  | ClinicalGovernedSessionSnapshot
+  | PrototypeSessionSnapshot
 
 // Session order mirrors the builder's authored arc; interleaving by band means
 // the client warms up globally once instead of once per priority.

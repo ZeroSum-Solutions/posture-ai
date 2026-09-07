@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { disabledClinicalContent, type ClinicalContentAccess } from './policy'
-import { clinicalContentAccess } from './runtime'
+import { operationForPractitioner } from '@/lib/prototype/runtime'
+import { clinicalContentAccess, clinicalContentAccessForOperation } from './runtime'
 
 /**
  * Cross-check the source-controlled HG-03 release against the independent DB
@@ -32,6 +33,20 @@ export async function verifyClinicalContentAccess(
 
 export async function serverClinicalContentAccess(): Promise<ClinicalContentAccess> {
   const access = clinicalContentAccess()
+  if (access.mode !== 'approved') return access
+  const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
+  return verifyClinicalContentAccess(access, createSupabaseServiceClient())
+}
+
+/**
+ * Resolve content for one already-admitted practitioner. Prototype catalog
+ * access is explicit provenance, so it must not be represented as a clinical
+ * release or passed through the HG-03 activation verifier.
+ */
+export async function serverClinicalContentAccessForPractitioner(
+  practitionerId: string,
+): Promise<ClinicalContentAccess> {
+  const access = clinicalContentAccessForOperation(operationForPractitioner(practitionerId))
   if (access.mode !== 'approved') return access
   const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
   return verifyClinicalContentAccess(access, createSupabaseServiceClient())

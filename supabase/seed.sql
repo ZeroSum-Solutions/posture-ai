@@ -33,7 +33,7 @@ INSERT INTO public.clinical_content_releases (
   knowledge_links_enabled
 ) VALUES (
   'clinical-content-test-fixture-v1',
-  '74b1bd594fb5162a7e0a36ef9b04dd63e19ec3838d3b53baa98da527568329f4',
+  'dce6161854d79ed62e9788c6f119f53d706b8ae5e5093ae01dbdf27d05c6e759',
   repeat('f', 64),
   'local_test_fixture',
   '2026-07-20T00:00:00Z',
@@ -57,7 +57,7 @@ INSERT INTO public.clinical_content_release_items (
   'algorithm:recommendation-engine',
   'algorithm',
   'recommendation-engine-v1',
-  'bd496a9e79ee170bcec9a1ce8ff4b02a4eb1b955f246a2360d5e7084c1ca232e',
+  '2f647e323e1dc6b39961dd02d38deb754a463ebba4cd5b5c8431510032a978e6',
   'approved',
   '2026-07-20T00:00:00Z',
   repeat('e', 64)
@@ -73,7 +73,7 @@ INSERT INTO private.clinical_content_activation (
 ) VALUES (
   true,
   'clinical-content-test-fixture-v1',
-  '74b1bd594fb5162a7e0a36ef9b04dd63e19ec3838d3b53baa98da527568329f4',
+  'dce6161854d79ed62e9788c6f119f53d706b8ae5e5093ae01dbdf27d05c6e759',
   repeat('f', 64),
   '2026-07-20T00:00:00Z',
   'local-test-seed-only'

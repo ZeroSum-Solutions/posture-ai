@@ -19,6 +19,7 @@ export default function AppShell({
 }) {
   const pathname = usePathname() ?? ''
 
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="app-shell">

@@ -33,8 +33,8 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
 vi.mock('@/lib/log', () => ({ logEvent: vi.fn(), hashUser: () => 'user-hash' }))
-vi.mock('@/lib/clinical-content/runtime', () => ({
-  clinicalContentAccess: () => ({ surfaces: { workouts: true } }),
+vi.mock('@/lib/clinical-content/database', () => ({
+  serverClinicalContentAccessForPractitioner: async () => ({ surfaces: { workouts: true } }),
 }))
 
 import { POST } from './route'

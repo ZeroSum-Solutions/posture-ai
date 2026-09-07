@@ -78,6 +78,13 @@ function baseCaptures(overrides: Partial<Captures> = {}): Captures {
  * Returns a `urlFor(i)` helper for asserting on the resulting object URLs.
  */
 function stubBrowserBoundary(failAtIndex: number | null | 'all') {
+  const originalVideoWidth = Object.getOwnPropertyDescriptor(HTMLVideoElement.prototype, 'videoWidth')
+  const originalVideoHeight = Object.getOwnPropertyDescriptor(HTMLVideoElement.prototype, 'videoHeight')
+  const originalReadyState = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'readyState')
+  Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => 720 })
+  Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => 1280 })
+  Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { configurable: true, get: () => HTMLMediaElement.HAVE_CURRENT_DATA })
+
   const originalGetUserMedia = (navigator as unknown as { mediaDevices?: unknown }).mediaDevices
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
@@ -115,6 +122,12 @@ function stubBrowserBoundary(failAtIndex: number | null | 'all') {
   return {
     urlFor: (i: number) => `blob:frame-${i}`,
     restore: () => {
+      if (originalVideoWidth) Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', originalVideoWidth)
+      else delete (HTMLVideoElement.prototype as unknown as Record<string, unknown>).videoWidth
+      if (originalVideoHeight) Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', originalVideoHeight)
+      else delete (HTMLVideoElement.prototype as unknown as Record<string, unknown>).videoHeight
+      if (originalReadyState) Object.defineProperty(HTMLMediaElement.prototype, 'readyState', originalReadyState)
+      else delete (HTMLMediaElement.prototype as unknown as Record<string, unknown>).readyState
       Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: originalGetUserMedia })
       HTMLMediaElement.prototype.play = originalPlay
       HTMLCanvasElement.prototype.getContext = originalGetContext

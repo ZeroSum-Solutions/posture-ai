@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { DEFAULT_WORKOUT_PREFERENCES } from '@/lib/workout/personalize'
 
 const testState = vi.hoisted(() => ({
   resolution: { value: { ok: true, document: { id: 'screening-notice-v1' } } as Record<string, unknown> },
@@ -25,6 +26,7 @@ const testState = vi.hoisted(() => ({
   runInsert: vi.fn(),
   rpc: vi.fn(),
   clinicalEnabled: { value: true },
+  prototype: { value: false },
 }))
 
 const assessmentId = '11111111-1111-4111-8111-111111111111'
@@ -45,6 +47,23 @@ const legacySnapshot = {
   items: [],
   estimatedDurationSec: 720,
   disclaimer: 'Legacy screening notice.',
+}
+const playableSnapshot = {
+  ...legacySnapshot,
+  priorities: [{ primaryKey: 'forward_head', label: 'Forward head', zone: 'warning' as const, severityWord: 'moderate' }],
+  items: [{
+    index: 0,
+    slug: 'wall-slide',
+    baseSlug: 'wall-slide',
+    name: 'Wall slide',
+    category: 'strengthen' as const,
+    stepLabel: 'Strengthen',
+    priorityKey: 'forward_head',
+    priorityLabel: 'Forward head',
+    isIntegrative: false,
+    instructions: 'Keep contact with the wall and move through a comfortable range.',
+    timing: { kind: 'reps' as const, sets: 2, repsPerSet: 8, restSeconds: 20 },
+  }],
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,15 +105,22 @@ vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceClient: () => ({ from: serviceQuery, rpc: testState.rpc }),
 }))
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: async () => null }))
-vi.mock('@/lib/clinical-content/runtime', () => ({
-  clinicalContentAccess: () => ({
-    mode: 'test_fixture',
+vi.mock('@/lib/clinical-content/database', () => ({
+  serverClinicalContentAccessForPractitioner: async () => ({
+    mode: testState.prototype.value ? 'prototype' : 'approved',
     contentVersion: 'clinical-content-test-fixture-v1',
     inventorySha256: 'd'.repeat(64),
     surfaces: { recommendations: true, programs: true, workouts: testState.clinicalEnabled.value, knowledgeLinks: true },
     approvedExerciseSlugs: [],
     approvedLinkIds: [],
     approvedReportCopyIds: [],
+  }),
+}))
+vi.mock('@/lib/prototype/runtime', () => ({
+  operationForPractitioner: (practitionerId: string) => ({
+    mode: testState.prototype.value ? 'prototype' : 'governed',
+    isPrototype: testState.prototype.value,
+    practitionerId,
   }),
 }))
 vi.mock('@/lib/rate-limit', () => ({ enforceRateLimit: async () => true }))
@@ -132,6 +158,7 @@ describe('POST /api/workouts', () => {
     testState.rpc.mockReset().mockResolvedValue({ data: { status: 'created', session_id: 'session-1' }, error: null })
     testState.resolution.value = { ok: true, document: { id: 'screening-notice-v1' } }
     testState.clinicalEnabled.value = true
+    testState.prototype.value = false
   })
 
   test('denies direct workout minting before reading assessment content when HG-03 is absent', async () => {
@@ -210,5 +237,94 @@ describe('POST /api/workouts', () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: 'Subject consent is no longer active.' })
+  })
+
+  test('rebuilds and stores personalized metadata instead of trusting a browser snapshot', async () => {
+    testState.build.mockReturnValue(playableSnapshot)
+
+    const response = await POST(request({
+      name: 'Tuesday movement',
+      preferences: DEFAULT_WORKOUT_PREFERENCES,
+      selected_slugs: ['wall-slide'],
+      generation_source: 'ai',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(testState.build).toHaveBeenCalledWith(
+      expect.objectContaining({ capability: DEFAULT_WORKOUT_PREFERENCES.capability }),
+      expect.any(Array),
+      1,
+      expect.any(Object),
+    )
+    expect(testState.rpc).toHaveBeenCalledWith(
+      'create_personalized_workout_session_clinical_governed',
+      expect.objectContaining({
+        p_name: 'Tuesday movement',
+        p_preferences: DEFAULT_WORKOUT_PREFERENCES,
+        p_generation_source: 'ai',
+        p_program_snapshot: expect.objectContaining({
+          version: 3,
+          items: [expect.objectContaining({ slug: 'wall-slide' })],
+        }),
+      }),
+    )
+  })
+
+  test('rejects selected exercises outside the rebuilt assessment candidates', async () => {
+    testState.build.mockReturnValue(playableSnapshot)
+
+    const response = await POST(request({
+      name: 'Unsafe copy',
+      preferences: DEFAULT_WORKOUT_PREFERENCES,
+      selected_slugs: ['invented-exercise'],
+      generation_source: 'scan',
+    }))
+
+    expect(response.status).toBe(422)
+    expect(testState.rpc).not.toHaveBeenCalled()
+  })
+
+  test('mints a prototype snapshot without legal provenance or a share token', async () => {
+    testState.prototype.value = true
+    testState.build.mockReturnValue(playableSnapshot)
+
+    const response = await POST(request({
+      share: true,
+      name: 'Tuesday movement',
+      preferences: DEFAULT_WORKOUT_PREFERENCES,
+      selected_slugs: ['wall-slide'],
+      generation_source: 'scan',
+    }))
+
+    expect(response.status).toBe(422)
+    expect(testState.rpc).not.toHaveBeenCalled()
+    expect(testState.snapshot).not.toHaveBeenCalled()
+  })
+
+  test('persists an authenticated in-clinic prototype without resolving a legal document', async () => {
+    testState.prototype.value = true
+    testState.build.mockReturnValue(playableSnapshot)
+
+    const response = await POST(request({
+      name: 'Tuesday movement',
+      preferences: DEFAULT_WORKOUT_PREFERENCES,
+      selected_slugs: ['wall-slide'],
+      generation_source: 'scan',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(testState.snapshot).not.toHaveBeenCalled()
+    expect(testState.rpc).toHaveBeenCalledWith('create_workout_session_prototype', expect.objectContaining({
+      p_name: 'Tuesday movement',
+      p_preferences: DEFAULT_WORKOUT_PREFERENCES,
+      p_generation_source: 'scan',
+      p_program_snapshot: expect.objectContaining({
+        version: 4,
+        operationMode: 'prototype',
+        contentState: 'prototype_unreviewed',
+      }),
+    }))
+    const rpcPayload = testState.rpc.mock.calls[0][1]
+    expect(Object.keys(rpcPayload).some((key) => key.includes('token') || key.includes('document'))).toBe(false)
   })
 })

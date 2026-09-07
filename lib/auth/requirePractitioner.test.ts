@@ -247,4 +247,36 @@ describe('practitionerGate BAA enforcement', () => {
     expect(response?.status).toBe(503)
     expect(await responseBody(response)).toMatchObject({ code: 'legal_unavailable' })
   })
+
+  test('an allowlisted prototype operator bypasses paperwork gates but still passes admission', async () => {
+    const practitionerId = '00000000-0000-4000-8000-000000000001'
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = practitionerId
+    serviceOrgResult.data = { is_covered_entity: true, baa_status: 'pending' }
+    serviceAcceptanceResult.data = []
+
+    await expect(practitionerGate(
+      fakeSupabase({ practitioner: { ...activePractitioner, id: practitionerId, organization_id: 'org1' } }),
+      practitionerId,
+    )).resolves.toBeNull()
+
+    delete process.env.POSTURE_OPERATION_MODE
+    delete process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS
+  })
+
+  test('prototype configuration does not bypass MFA admission', async () => {
+    const practitionerId = '00000000-0000-4000-8000-000000000001'
+    process.env.POSTURE_OPERATION_MODE = 'prototype'
+    process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS = practitionerId
+
+    const response = await practitionerGate(
+      fakeSupabase({ assurance: { currentLevel: 'aal1', nextLevel: 'aal2' } }),
+      practitionerId,
+    )
+
+    expect(response?.status).toBe(403)
+    expect(await responseBody(response)).toMatchObject({ code: 'mfa_required' })
+    delete process.env.POSTURE_OPERATION_MODE
+    delete process.env.POSTURE_PROTOTYPE_PRACTITIONER_IDS
+  })
 })

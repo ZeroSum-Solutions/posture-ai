@@ -17,7 +17,7 @@ import {
   comparisonTone,
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
-import type { LegalSnapshot } from '@/lib/legal/types'
+import { reportNoticeCaption, type ReportNotice } from './notice'
 
 const ZONE_COLORS: Record<string, string> = {
   maintain: '#5BD5AC',
@@ -285,17 +285,17 @@ interface Props {
   practitioner?: { display_name?: string; practice_name?: string }
   hasDelta: boolean
   engineVersionMismatch?: boolean
-  legalNotice: LegalSnapshot
+  legalNotice: ReportNotice
 }
 
-function Footer({ legalNotice }: { legalNotice: LegalSnapshot }) {
+function Footer({ legalNotice }: { legalNotice: ReportNotice }) {
   return (
     <View style={styles.footer} fixed>
-      {legalNotice.isFixture ? (
+      {legalNotice.kind !== 'prototype_notice' && legalNotice.isFixture ? (
         <Text style={[styles.footerText, { color: '#FF8918', fontFamily: 'Helvetica-Bold' }]}>NON-PRODUCTION LEGAL FIXTURE — TEST USE ONLY</Text>
       ) : null}
       <Text style={styles.footerText}>{legalNotice.text}</Text>
-      <Text style={styles.footerText}>{`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}</Text>
+      <Text style={styles.footerText}>{reportNoticeCaption(legalNotice)}</Text>
     </View>
   )
 }
@@ -473,7 +473,7 @@ export function PostureReportPdf({ assessment, findings, exercises, practitioner
         <View style={{ marginTop: 20, backgroundColor: 'rgba(0,152,243,0.08)', borderRadius: 8, padding: 10 }}>
           <Text style={{ fontSize: 8, color: '#CCCCCC', lineHeight: 1.5 }}>{legalNotice.text}</Text>
           <Text style={{ fontSize: 7, color: '#949494', marginTop: 4 }}>
-            {`Version ${legalNotice.version} · Effective ${legalNotice.effectiveAt}`}
+            {reportNoticeCaption(legalNotice)}
           </Text>
         </View>
       </Page>

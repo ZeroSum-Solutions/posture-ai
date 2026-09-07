@@ -44,14 +44,12 @@ test.describe('device accessibility browser harness', () => {
     const nav = page.getByRole('navigation', { name: 'Primary' })
     await expect(nav).toBeVisible()
 
-    // The clinical-content flag (lib/clinical-content/inventory.ts) is enabled
-    // in this e2e environment — the a11y spec exercises /exercises and
-    // /muscles on the same shell — so islandPolicy.islandSlots() yields all
-    // five slots below. A gated environment would drop Library.
+    // Workouts is the primary destination; the exercise library is available
+    // within it. All five original application slots remain keyboard reachable.
     const labels = await nav.getByRole('link').evaluateAll(links =>
       links.map(link => link.getAttribute('aria-label'))
     )
-    expect(labels).toEqual(['Today', 'Clients', 'Capture', 'Library', 'Profile'])
+    expect(labels).toEqual(['Today', 'Clients', 'Capture', 'Workouts', 'Profile'])
 
     const todayLink = nav.getByRole('link', { name: 'Today' })
     await expect(todayLink).toHaveAttribute('aria-current', 'page')
