@@ -34,6 +34,47 @@ connector is OAuth-scoped to a different org — use the Management API
 
 ## Deploy
 
+### Demonstration workspace
+
+The prototype starts at `/demo`, linked from the marketing header. It has its own
+navigation, `/demo/scan`, and `/demo/workouts`. These routes use browser-local
+scans and workouts and do not require practitioner admission or signed documents.
+They do not activate the governed practitioner application or its real-data APIs.
+
+Capture accepts front and side camera images or uploads. MediaPipe detection and
+the existing scoring engine run locally. Photos remain in memory and disappear
+when the page reloads; validated landmarks and re-scored findings persist in local
+storage. The labeled Alex sample uses the same authored coordinates every time.
+The results viewer keeps the image and overlay in the same uncropped coordinate
+plane. Clearing browser data clears prototype scans, workouts, and progress.
+
+The workout builder offers a goal, time ceiling, movement level, and equipment.
+Users can preview, remove exercises, rename, save, edit a copy, and follow a plan.
+The guided player saves exercise progress and completion in this browser. Prototype
+voice uses browser speech where supported; exercise demonstration videos are not
+included. A resumed session repeats the pain check and restarts the current exercise.
+
+`POST /api/demo/workouts/generate` accepts bounded findings and preferences. Only
+the resulting eligible exercise catalog and preferences go to OpenRouter; no
+photos, raw landmarks, or account identity are sent. Set server-only
+`POSTURE_DEMO_OPENROUTER_API_KEY` and `POSTURE_DEMO_OPENROUTER_MODEL` for live AI.
+The server validates model selections against authored exercises and timing.
+Missing or failed AI yields an explicitly labeled scan-based plan; the local
+**Build from scan** action also works without a provider.
+
+The public AI endpoint requires a matching Origin and JSON request. The existing
+Postgres rate limiter enforces 12 requests per address per hour and 150 shared
+requests per day. A rate-limiter outage denies paid generation. No real client
+table is used by the prototype. Do not enable global test-mode flags to deploy it.
+
+Run `npm run test:demo` for the isolated desktop/mobile browser journey and failure
+recovery checks. The command starts a local server if needed. Set `DEMO_BASE_URL`
+to test an already running candidate. Production verification must check the exact
+public alias: a READY Vercel deployment can exist while the alias still serves an
+older commit. Record the deployment ID, Git SHA, and alias mapping together.
+
+### Application release
+
 - **Normal**: merge PR into `main`. Vercel builds (`prebuild` copies MediaPipe
   WASM from the pinned package into `public/mediapipe/wasm/`) and promotes.
 - **Manual**: `npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"`.

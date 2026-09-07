@@ -44,6 +44,8 @@ export interface WorkoutPlayerProps {
   clientFirstName?: string | null
   /** Practitioner path allows a lint-checked note; the public client path does not. */
   allowNotes: boolean
+  /** Browser speech keeps public prototype playback independent of gated audio assets. */
+  voiceMode?: 'recorded' | 'browser'
   resume?: { index: number; items?: { slug: string; completed: boolean; skipped: boolean }[]; revision?: number } | null
   /** Fire-and-forget playback persistence (PATCH /run, or localStorage on the token path). */
   saveRun?: (patch: RunPatch) => void
@@ -98,6 +100,7 @@ export function WorkoutPlayer({
   snapshot,
   clientFirstName,
   allowNotes,
+  voiceMode = 'recorded',
   resume,
   saveRun,
   submitRating,
@@ -202,6 +205,11 @@ export function WorkoutPlayer({
       }
     }
 
+    if (voiceMode === 'browser') {
+      fallbackToWebSpeech()
+      return () => { cancelled = true; stopCoachVoice() }
+    }
+
     const audio = new Audio(workoutCoachCueUrl(cue.speech))
     audio.preload = 'auto'
     voiceAudioRef.current = audio
@@ -222,7 +230,7 @@ export function WorkoutPlayer({
     // state.items is intentionally omitted: the reducer sets it once at init and
     // never replaces it, so it is a permanently stable reference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, state.index, state.set, voiceMuted, redFlag, stopCoachVoice])
+  }, [state.phase, state.index, state.set, voiceMuted, redFlag, voiceMode, stopCoachVoice])
 
   // Stop any in-flight speech when the player unmounts.
   useEffect(() => () => stopCoachVoice(), [stopCoachVoice])

@@ -16,6 +16,7 @@
     "lint:vocab": "vitest run content",
     "test": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
+    "test:demo": "playwright test --config playwright.demo.config.ts",
     "calibrate": "CALIBRATION_WRITE=1 node scripts/run-e2e.mjs --project=calibration",
     "calibrate:check": "CALIBRATION_CHECK=1 node scripts/run-e2e.mjs --project=calibration",
     "typecheck": "tsc --noEmit",

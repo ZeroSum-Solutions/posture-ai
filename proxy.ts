@@ -5,6 +5,7 @@ import { practitionerLegalAcceptanceStatus } from '@/lib/auth/requirePractitione
 import { clinicalContentAccess } from '@/lib/clinical-content/runtime'
 import { verifyClinicalContentAccess } from '@/lib/clinical-content/database'
 import { buildApplicationCsp } from '@/lib/security/csp'
+import { isDemoRequest } from '@/lib/demo/paths'
 
 type CookieToSet = {
   name: string
@@ -87,6 +88,10 @@ export async function proxy(request: NextRequest) {
   }
   let supabaseResponse = nextApplicationResponse()
   const refreshedCookies: CookieToSet[] = []
+
+  // The prototype reads browser-local scans, never practitioner data. Its sole
+  // AI endpoint independently validates requests and enforces a shared quota.
+  if (isDemoRequest(pathname)) return supabaseResponse
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
