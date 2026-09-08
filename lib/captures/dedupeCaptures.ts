@@ -2,6 +2,7 @@
 export interface ViewSideRow {
   view: string
   profile_side?: 'left' | 'right' | null
+  storage_path?: string | null
 }
 
 /**
@@ -13,11 +14,11 @@ export interface ViewSideRow {
  * NULL profile, so they still yield exactly one row per view (back-compat).
  */
 export function dedupeCapturesByViewSide<T extends ViewSideRow>(rows: T[]): T[] {
-  const seen = new Set<string>()
-  return rows.filter((r) => {
+  const chosen = new Map<string, T>()
+  for (const r of rows) {
     const key = `${r.view}:${r.profile_side ?? ''}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+    const previous = chosen.get(key)
+    if (!previous || (!previous.storage_path && r.storage_path)) chosen.set(key, r)
+  }
+  return [...chosen.values()]
 }

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextResponse } from 'next/server'
 
-const { getUser, gate, maybeSingle, download } = vi.hoisted(() => ({
+const { getUser, gate, maybeSingle, download, filters } = vi.hoisted(() => ({
   getUser: vi.fn(),
   gate: vi.fn(),
   maybeSingle: vi.fn(),
   download: vi.fn(),
+  filters: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/requirePractitioner', () => ({ practitionerGate: gate }))
@@ -13,7 +14,8 @@ vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({ auth: { getUser } }),
   createSupabaseServiceClient: () => ({
     from: () => {
-      const query = { select: () => query, eq: () => query, maybeSingle }
+      const filter = (...args: unknown[]) => { filters(...args); return query }
+      const query = { select: () => query, eq: filter, is: filter, maybeSingle }
       return query
     },
     storage: { from: () => ({ download }) },
@@ -27,6 +29,7 @@ const context = { params: Promise.resolve({ id: 'c1' }) }
 
 describe('GET /api/captures/[id]/image', () => {
   beforeEach(() => {
+    filters.mockReset()
     getUser.mockReset().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
     gate.mockReset().mockResolvedValue(null)
     maybeSingle.mockReset().mockResolvedValue({
@@ -64,6 +67,10 @@ describe('GET /api/captures/[id]/image', () => {
     const response = await GET(request, context)
 
     expect(response.status).toBe(200)
+    expect(filters).toHaveBeenCalledWith('practitioner_id', 'u1')
+    expect(filters).toHaveBeenCalledWith('assessments.practitioner_id', 'u1')
+    expect(filters).toHaveBeenCalledWith('assessments.clients.practitioner_id', 'u1')
+    expect(filters).toHaveBeenCalledWith('assessments.clients.deleted_at', null)
     expect(response.headers.get('content-type')).toBe('image/jpeg')
     expect(response.headers.get('cache-control')).toBe('private, no-store')
     expect(await response.text()).toBe('image-bytes')

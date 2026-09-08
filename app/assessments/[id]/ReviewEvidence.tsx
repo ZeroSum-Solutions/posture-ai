@@ -1,12 +1,13 @@
 'use client'
-import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone } from '@/components/array/severity'
 import PointScanBody from './PointScanBody'
+import CapturePhoto from './CapturePhoto'
 import { buildScanView, viewsWithMarkers, type ScanFindingInput, type ScanView } from './scanMarkers'
 import styles from './AssessmentReview.module.css'
+import photoStyles from './CapturePhoto.module.css'
 
 const SCAN_CAPTION =
   'Schematic only — markers show regions of interest, not literal anatomy. '
@@ -110,7 +111,7 @@ export default function ReviewEvidence({
         {captures.length === 0 ? (
           <p className={styles.emptyState}>No captures are stored for this screening.</p>
         ) : (
-          <div className={styles.captureGrid}>
+          <div className={`${styles.captureGrid} ${photoStyles.gallery}`}>
             {captures.map(capture => {
               const label = capture.profile_side
                 ? `${capture.view} ${capture.profile_side}`
@@ -122,24 +123,13 @@ export default function ReviewEvidence({
               return (
                 <div key={capture.id} className={styles.captureTile}>
                   <div className={styles.captureFrame}>
-                    {capture.signed_url ? (
-                      <Image
-                        src={capture.signed_url}
-                        alt={`${label} capture`}
-                        className={styles.captureImage}
-                        width={132}
-                        height={176}
-                        unoptimized
-                      />
-                    ) : (
-                      <Icon name="user-linear" size={22} />
-                    )}
-                    <span className={styles.captureBadge} aria-hidden="true">
+                    <CapturePhoto key={capture.signed_url ?? capture.id} url={capture.signed_url} label={label} />
+                    {capture.capture_roll_deg !== null ? <span className={styles.captureBadge} aria-hidden="true">
                       <Icon
                         name={rolled ? 'flag-linear' : 'check-circle-bold'}
                         size={14}
                       />
-                    </span>
+                    </span> : null}
                   </div>
                   <span className={styles.captureLabel}>
                     {label}

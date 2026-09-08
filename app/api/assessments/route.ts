@@ -262,7 +262,8 @@ export async function POST(req: NextRequest) {
       // Persist the captured pose frames (reproducible / re-scorable), with the
       // unused face-region keypoints stripped first (data minimization, BIPA).
       // Scoring above/below runs on the full in-memory frame; only what is saved
-      // is minimized. storage_path is never set — no raw image bytes at rest.
+      // is minimized. Photo storage is handled by the separate authenticated
+      // capture-image upload after this assessment has been created.
       const capturesToInsert = frames.map((f) =>
         buildCaptureRow(f, assessmentId, user.id, { useFixture }),
       )

@@ -18,7 +18,8 @@ export interface CaptureRow {
 /**
  * Pure mapper from a validated PoseFrame to its persisted capture row. Strips
  * the unused face-region keypoints (data minimization, BIPA) and never sets a
- * storage_path — no raw image bytes at rest. `profile_side` is meaningful only
+ * storage_path. A separate authenticated upload attaches the acquisition photo
+ * after the assessment exists. `profile_side` is meaningful only
  * on a side view; the DB CHECK (captures_profile_side_only_side) enforces the
  * same rule, so front/back stay null.
  */

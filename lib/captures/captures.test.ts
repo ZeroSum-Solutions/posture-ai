@@ -66,6 +66,14 @@ describe('buildCaptureRow — profile_side persistence', () => {
 })
 
 describe('dedupeCapturesByViewSide — laterality preserved', () => {
+  it('prefers the saved representative photo within a burst without mixing side views', () => {
+    const rows = [
+      { id: 'left-frame', view: 'side', profile_side: 'left' as const, storage_path: null },
+      { id: 'right-photo', view: 'side', profile_side: 'right' as const, storage_path: 'right.jpg' },
+      { id: 'left-photo', view: 'side', profile_side: 'left' as const, storage_path: 'left.jpg' },
+    ]
+    expect(dedupeCapturesByViewSide(rows).map(row => row.id)).toEqual(['left-photo', 'right-photo'])
+  })
   it('keeps left and right side captures as two DISTINCT rows', () => {
     const rows = [
       { id: '1', view: 'front', profile_side: null },

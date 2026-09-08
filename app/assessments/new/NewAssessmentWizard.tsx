@@ -9,6 +9,7 @@ import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
 import { analyzeCaptureFrames } from './analyzeFrames'
+import { saveCaptureImages } from './saveCaptureImages'
 import type { AnalysisProgress } from './analyzeFrames'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
@@ -210,6 +211,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [savingCaptureImages, setSavingCaptureImages] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   // A synchronous lock closes the pre-render double-click window. Its stable ID
   // is also the server idempotency key for retries of unchanged capture content.
@@ -760,7 +762,8 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
 
       // Build the frame payload. A camera capture sends its whole shutter burst
       // (engine 1.3.0 medians them + scores within-capture stability); uploads
-      // send a single frame. Landmarks only — no image bytes leave the device.
+      // send a single frame. Representative photographs are saved separately
+      // after the server confirms the assessment identity.
       let frames: unknown[] | undefined = undefined
       if (!testMode) {
         const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
@@ -815,6 +818,11 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         return
       }
       if (!submissionGuard.isCurrent(attempt)) return
+      if (!testMode) {
+        setSavingCaptureImages(true)
+        await saveCaptureImages({ assessmentId: data.id, captures, signal: controller.signal })
+      }
+      if (!submissionGuard.isCurrent(attempt)) return
       // The transport completed and returned the authoritative assessment id.
       // The synchronous lock is no longer needed while polling. Preserve the
       // same key so an ambiguous poll failure can replay this exact row.
@@ -837,6 +845,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       window.clearTimeout(control.timeoutId)
       if (analysisControlRef.current === control) analysisControlRef.current = null
       setSubmitting(false)
+      setSavingCaptureImages(false)
     }
   }
 
@@ -1250,7 +1259,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
             // Error state with retry
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <Surface tier="tile" style={{ maxWidth: 400 }}>
-                <p className="t-title" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
+                <p className="t-title" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Screening needs attention</p>
                 <p className="t-body" style={{ margin: '0 0 20px' }}>{processingError}</p>
                 <button onClick={handleRetry} className="a-primary">Try Again</button>
               </Surface>
@@ -1263,10 +1272,12 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
               <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(255,255,255,0.12)', borderTop: '4px solid var(--action)', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
               <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
               <h2 className="t-headline-sm" style={{ marginBottom: '8px' }}>
-                {testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
+                {savingCaptureImages ? 'Saving capture photos…' : testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
               </h2>
               <p className="t-body">
-                {assessmentId
+                {savingCaptureImages
+                  ? 'Saving your selected views with this screening…'
+                  : assessmentId
                   ? 'Checking results...'
                   : testMode
                     ? 'Submitting assessment to server...'

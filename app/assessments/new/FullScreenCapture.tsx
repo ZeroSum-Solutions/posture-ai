@@ -1434,6 +1434,9 @@ export default function FullScreenCapture({
             )}
 
             {/* Proceed only after all four required views pass preflight. */}
+            {requiredReady && phase !== 'review' && <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '8px 0', textAlign: 'center' }}>
+              Your selected photos will be saved privately with this screening for later review.
+            </p>}
             {requiredReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
