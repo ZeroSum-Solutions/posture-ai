@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   compareLoadIncreaseToRatio,
+  compareEnteredLoadQuantities,
+  compareEnteredLoadToCanonicalKg,
   createLoadQuantity,
   derivePairedTotal,
   isEnteredLoadAtMostCanonicalKg,
@@ -207,5 +209,17 @@ describe('isEnteredLoadAtMostCanonicalKg', () => {
   it('validates both the entered load and canonical maximum', () => {
     expect(() => isEnteredLoadAtMostCanonicalKg({ value: '1e3', unit: 'kg' }, '1000')).toThrow()
     expect(() => isEnteredLoadAtMostCanonicalKg({ value: '1', unit: 'kg' }, '-1')).toThrow('Invalid canonical load limit')
+  })
+})
+
+describe('compareEnteredLoadQuantities', () => {
+  it('orders exact physical loads across entered units without float conversion', () => {
+    expect(compareEnteredLoadQuantities({ value: '100000', unit: 'lb' }, { value: '45359.237', unit: 'kg' })).toBe(0)
+    expect(compareEnteredLoadQuantities({ value: '12.5', unit: 'kg' }, { value: '25', unit: 'lb' })).toBe(1)
+    expect(compareEnteredLoadQuantities({ value: '0', unit: 'kg' }, { value: '0.001', unit: 'lb' })).toBe(-1)
+  })
+
+  it('compares entered load to an exact canonical bound beyond entered precision', () => {
+    expect(compareEnteredLoadToCanonicalKg({ value: '100', unit: 'lb' }, '45.359237')).toBe(0)
   })
 })

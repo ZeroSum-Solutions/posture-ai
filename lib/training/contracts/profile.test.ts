@@ -112,6 +112,10 @@ describe('AthleteTrainingProfileV1Schema', () => {
       ...validProfile,
       localTimezone: 'America/New_York',
     }).success).toBe(true)
+    expect(AthleteTrainingProfileV1Schema.safeParse({
+      ...validProfile,
+      localTimezone: 'UTC',
+    }).success).toBe(true)
     for (const localTimezone of ['', 'PST', 'UTC-8', 'Mars/Olympus']) {
       expect(AthleteTrainingProfileV1Schema.safeParse({
         ...validProfile,
@@ -212,6 +216,59 @@ describe('AthleteTrainingProfileV1Schema', () => {
           path: ['startingHistory', 0, 'equipmentLoad', 'basis'],
         }),
       ]))
+    }
+  })
+
+  it('accepts one exact dumbbell denomination as a single implement load', () => {
+    const history = validProfile.startingHistory[0]
+    const parsed = AthleteTrainingProfileV1Schema.parse({
+      ...validProfile,
+      startingHistory: [{
+        ...history,
+        equipmentLoad: {
+          ...history.equipmentLoad,
+          basis: 'dumbbell_single_implement',
+        },
+      }],
+    })
+
+    expect(parsed.startingHistory[0].equipmentLoad).toMatchObject({
+      equipmentId: 'dumbbells-home',
+      basis: 'dumbbell_single_implement',
+      quantity: { entered: { value: '10', unit: 'kg' } },
+    })
+  })
+
+  it('rejects the single-implement basis for barbell and machine inventory', () => {
+    const history = validProfile.startingHistory[0]
+    for (const inventory of [
+      {
+        kind: 'barbell',
+        equipmentId: 'rack-a',
+        unit: 'kg',
+        barWeight: '20',
+        collarsTotalWeight: '0',
+        plates: [],
+      },
+      {
+        kind: 'machine',
+        equipmentId: 'stack-a',
+        unit: 'kg',
+        stackLoads: ['10', '20'],
+      },
+    ]) {
+      expect(AthleteTrainingProfileV1Schema.safeParse({
+        ...validProfile,
+        equipmentInventory: [inventory],
+        startingHistory: [{
+          ...history,
+          equipmentLoad: {
+            ...history.equipmentLoad,
+            equipmentId: inventory.equipmentId,
+            basis: 'dumbbell_single_implement',
+          },
+        }],
+      }).success).toBe(false)
     }
   })
 

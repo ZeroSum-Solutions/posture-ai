@@ -36,10 +36,30 @@ export interface ClientAccountAccessRecord {
   revokedAt: string | null
 }
 
+export interface PractitionerAccessRecord {
+  id: string
+  role: 'practitioner' | string
+  accessStatus: 'active' | 'review_required' | 'invited' | 'recovery_pending' | 'suspended' | 'revoked'
+  sessionIsCurrent: boolean
+}
+
+export interface CoachingRelationshipAccessRecord {
+  id: string
+  subjectId: string
+  practitionerId: string
+  status: 'active' | 'revoked'
+  permissions: readonly TrainingAction[]
+  startedAt: string
+  endedAt: string | null
+  revision: number
+}
+
 export interface AuthorizeTrainingActorInput {
   principal: TrainingPrincipal
   subject: TrainingSubjectAccessRecord
   clientAccount: ClientAccountAccessRecord | null
+  practitioner?: PractitionerAccessRecord | null
+  coachingRelationship?: CoachingRelationshipAccessRecord | null
   action: TrainingAction
 }
 
@@ -50,6 +70,9 @@ export type TrainingAuthorizationDenial =
   | 'subject_forbidden'
   | 'action_forbidden'
   | 'invalid_client_bridge'
+  | 'practitioner_unavailable'
+  | 'relationship_unavailable'
+  | 'invalid_coaching_relationship'
 
 export type TrainingAuthorization =
   | {
@@ -59,6 +82,17 @@ export type TrainingAuthorization =
       subjectId: string
       clientId: string | null
       practitionerId: null
+      permissions: TrainingAction[]
+    }
+  | {
+      ok: true
+      actorKind: 'coach'
+      userId: string
+      subjectId: string
+      clientId: string | null
+      practitionerId: string
+      relationshipId: string
+      relationshipRevision: number
       permissions: TrainingAction[]
     }
   | {
@@ -77,6 +111,17 @@ const ATHLETE_ACTIONS = new Set<TrainingAction>([
   'relationship:revoke',
 ])
 
+const COACH_ACTIONS = new Set<TrainingAction>([
+  'profile:read',
+  'profile:write',
+  'program:coach_publish',
+  'session:read',
+  'set_log:write',
+  'session:complete',
+  'history:read',
+  'relationship:revoke',
+])
+
 /**
  * Applies the identity-foundation authorization rules to trusted rows already
  * loaded by server code. Database adapters remain responsible for loading the
@@ -86,7 +131,14 @@ const ATHLETE_ACTIONS = new Set<TrainingAction>([
 export function authorizeTrainingActor(
   input: AuthorizeTrainingActorInput,
 ): TrainingAuthorization {
-  const { principal, subject, clientAccount, action } = input
+  const {
+    principal,
+    subject,
+    clientAccount,
+    practitioner = null,
+    coachingRelationship = null,
+    action,
+  } = input
 
   if (principal.kind !== 'user') {
     return { ok: false, code: 'authenticated_user_required' }
@@ -104,14 +156,6 @@ export function authorizeTrainingActor(
     return { ok: false, code: 'subject_unavailable' }
   }
 
-  if (subject.ownerUserId !== principal.userId) {
-    return { ok: false, code: 'subject_forbidden' }
-  }
-
-  if (!ATHLETE_ACTIONS.has(action)) {
-    return { ok: false, code: 'action_forbidden' }
-  }
-
   if (clientAccount !== null && clientAccount.subjectId !== subject.id) {
     return { ok: false, code: 'invalid_client_bridge' }
   }
@@ -121,13 +165,66 @@ export function authorizeTrainingActor(
     ? clientAccount.clientId
     : null
 
+  if (subject.ownerUserId === principal.userId) {
+    if (!ATHLETE_ACTIONS.has(action)) {
+      return { ok: false, code: 'action_forbidden' }
+    }
+
+    return {
+      ok: true,
+      actorKind: 'athlete',
+      userId: principal.userId,
+      subjectId: subject.id,
+      clientId,
+      practitionerId: null,
+      permissions: [action],
+    }
+  }
+
+  if (practitioner === null) {
+    return { ok: false, code: 'subject_forbidden' }
+  }
+  if (
+    practitioner.id !== principal.userId
+    || practitioner.role !== 'practitioner'
+    || practitioner.accessStatus !== 'active'
+    || !practitioner.sessionIsCurrent
+  ) {
+    return { ok: false, code: 'practitioner_unavailable' }
+  }
+  if (coachingRelationship === null) {
+    return { ok: false, code: 'relationship_unavailable' }
+  }
+  if (
+    coachingRelationship.subjectId !== subject.id
+    || coachingRelationship.practitionerId !== practitioner.id
+  ) {
+    return { ok: false, code: 'invalid_coaching_relationship' }
+  }
+  if (
+    coachingRelationship.status !== 'active'
+    || coachingRelationship.endedAt !== null
+    || !Number.isSafeInteger(coachingRelationship.revision)
+    || coachingRelationship.revision < 1
+  ) {
+    return { ok: false, code: 'relationship_unavailable' }
+  }
+  if (
+    !COACH_ACTIONS.has(action)
+    || !coachingRelationship.permissions.includes(action)
+  ) {
+    return { ok: false, code: 'action_forbidden' }
+  }
+
   return {
     ok: true,
-    actorKind: 'athlete',
+    actorKind: 'coach',
     userId: principal.userId,
     subjectId: subject.id,
     clientId,
-    practitionerId: null,
+    practitionerId: practitioner.id,
+    relationshipId: coachingRelationship.id,
+    relationshipRevision: coachingRelationship.revision,
     permissions: [action],
   }
 }

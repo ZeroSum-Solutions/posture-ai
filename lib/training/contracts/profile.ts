@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { createLoadQuantity, type LoadUnit } from '../quantity'
-import type { EquipmentInventory, EquipmentLoad } from '../equipment'
+import type { EquipmentInventory } from '../equipment'
 
 export const ATHLETE_TRAINING_PROFILE_SCHEMA_VERSION = 'athlete-training-profile.v1' as const
 
@@ -136,9 +136,14 @@ export const EquipmentInventoryV1Schema: z.ZodType<EquipmentInventory> = z.discr
   machineInventorySchema,
 ])
 
-const equipmentLoadSchema: z.ZodType<EquipmentLoad> = z.object({
+const equipmentLoadSchema = z.object({
   equipmentId: stableIdSchema,
-  basis: z.enum(['barbell_total', 'dumbbell_per_hand', 'machine_stack']),
+  basis: z.enum([
+    'barbell_total',
+    'dumbbell_per_hand',
+    'dumbbell_single_implement',
+    'machine_stack',
+  ]),
   quantity: exactLoadQuantitySchema,
 }).strict()
 
@@ -180,7 +185,7 @@ const weekdaySchema = z.enum([
 ])
 
 function isIanaTimezone(value: string): boolean {
-  if (!value.includes('/')) return value === 'Etc/UTC'
+  if (!value.includes('/') && value !== 'UTC') return false
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: value }).format()
     return true
@@ -221,12 +226,12 @@ export const AthleteTrainingProfileV1Schema = z.object({
       ctx.addIssue({ code: 'custom', message: 'Starting history must reference available equipment', path: ['startingHistory', index, 'equipmentLoad', 'equipmentId'] })
       return
     }
-    const expectedBasis = inventory.kind === 'barbell'
-      ? 'barbell_total'
+    const allowedBases = inventory.kind === 'barbell'
+      ? ['barbell_total']
       : inventory.kind === 'dumbbell'
-        ? 'dumbbell_per_hand'
-        : 'machine_stack'
-    if (entry.equipmentLoad.basis !== expectedBasis) {
+        ? ['dumbbell_per_hand', 'dumbbell_single_implement']
+        : ['machine_stack']
+    if (!allowedBases.includes(entry.equipmentLoad.basis)) {
       ctx.addIssue({ code: 'custom', message: 'History load basis does not match equipment', path: ['startingHistory', index, 'equipmentLoad', 'basis'] })
     }
     if (entry.equipmentLoad.quantity.entered.unit !== inventory.unit) {

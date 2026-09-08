@@ -1,6 +1,18 @@
-import { createLoadQuantity, type ExactLoadQuantity, type LoadUnit } from './quantity'
+import {
+  compareEnteredLoadQuantities,
+  compareCanonicalKgDecimals,
+  compareEnteredLoadToCanonicalKg,
+  createLoadQuantity,
+  isEnteredLoadAtMostCanonicalKg,
+  type ExactLoadQuantity,
+  type LoadUnit,
+} from './quantity'
 
-export type EquipmentLoadBasis = 'barbell_total' | 'dumbbell_per_hand' | 'machine_stack'
+export type EquipmentLoadBasis =
+  | 'barbell_total'
+  | 'dumbbell_per_hand'
+  | 'dumbbell_single_implement'
+  | 'machine_stack'
 
 export interface EquipmentLoad {
   readonly equipmentId: string
@@ -25,6 +37,7 @@ export interface BarbellInventory extends InventoryBase {
 
 export interface DumbbellInventory extends InventoryBase {
   readonly kind: 'dumbbell'
+  /** Exact individual dumbbell denominations usable for one implement or one per hand. */
   readonly perHandLoads: readonly string[]
 }
 
@@ -90,6 +103,9 @@ function multiplyBySmallInteger(value: string, factor: number): string {
 
 function toThousandths(value: string, unit: LoadUnit): string {
   createLoadQuantity({ value, unit })
+  if (!isEnteredLoadAtMostCanonicalKg({ value, unit }, '1000')) {
+    throw new Error('Equipment load exceeds 1000 kg')
+  }
   const [whole, fraction = ''] = value.split('.')
   return normalizeInteger(`${whole}${fraction.padEnd(3, '0')}`)
 }
@@ -101,17 +117,23 @@ function fromThousandths(value: string): string {
   return fraction.length > 0 ? `${whole}.${fraction}` : whole
 }
 
-function expectedBasis(inventory: EquipmentInventory): EquipmentLoadBasis {
-  if (inventory.kind === 'barbell') return 'barbell_total'
-  if (inventory.kind === 'dumbbell') return 'dumbbell_per_hand'
-  if (inventory.kind === 'machine') return 'machine_stack'
-  throw new Error('Unsupported equipment inventory kind')
+function basisMatchesInventory(basis: EquipmentLoadBasis, inventory: EquipmentInventory): boolean {
+  if (inventory.kind === 'barbell') return basis === 'barbell_total'
+  if (inventory.kind === 'dumbbell') {
+    return basis === 'dumbbell_per_hand' || basis === 'dumbbell_single_implement'
+  }
+  if (inventory.kind === 'machine') return basis === 'machine_stack'
+  return false
 }
 
 function assertInventoryShape(inventory: EquipmentInventory): void {
   if (typeof inventory !== 'object' || inventory === null) {
     throw new Error('Unsupported equipment inventory kind')
   }
+  if (typeof inventory.equipmentId !== 'string' || inventory.equipmentId.trim().length === 0) {
+    throw new Error('Equipment ID is required')
+  }
+  if (inventory.unit !== 'kg' && inventory.unit !== 'lb') throw new Error('Load unit must be kg or lb')
   if (inventory.kind === 'barbell') {
     if (!Array.isArray(inventory.plates)) throw new Error('Barbell plates must be an array')
     return
@@ -132,12 +154,15 @@ function assertCurrentMatches(current: EquipmentLoad, inventory: EquipmentInvent
   if (reconstructed.canonicalKg !== current.quantity.canonicalKg) {
     throw new Error('Current load quantity is not canonical')
   }
+  if (!isEnteredLoadAtMostCanonicalKg(current.quantity.entered, '1000')) {
+    throw new Error('Equipment load exceeds 1000 kg')
+  }
   if (typeof inventory.equipmentId !== 'string' || inventory.equipmentId.trim().length === 0) {
     throw new Error('Equipment ID is required')
   }
   if (current.equipmentId !== inventory.equipmentId) throw new Error('Equipment ID does not match inventory')
   if (current.quantity.entered.unit !== inventory.unit) throw new Error('Load unit does not match inventory')
-  if (current.basis !== expectedBasis(inventory)) throw new Error('Load basis does not match inventory')
+  if (!basisMatchesInventory(current.basis, inventory)) throw new Error('Load basis does not match inventory')
 }
 
 function withinFivePercent(candidate: string, current: string): boolean {
@@ -160,9 +185,9 @@ function findNextExplicitLoad(
   return best
 }
 
-function barbellLoadsWithinCap(
+function barbellLoadsWithinLimit(
   inventory: BarbellInventory,
-  current: string,
+  isWithinUpperLimit: (total: string) => boolean,
 ): Set<string> {
   if (inventory.plates.length > MAX_INVENTORY_ENTRIES) {
     throw new Error('Equipment inventory exceeds 1000 entries')
@@ -197,7 +222,7 @@ function barbellLoadsWithinCap(
       for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
         added = addIntegers(added, pairValue)
         const total = addIntegers(base, added)
-        if (!withinFivePercent(total, current)) break
+        if (!isWithinUpperLimit(total)) break
         nextAdditions.add(added)
         if (nextAdditions.size > MAX_BAR_LOAD_STATES) {
           throw new Error('Equipment load search exceeded 50000 states')
@@ -208,6 +233,16 @@ function barbellLoadsWithinCap(
   }
 
   return new Set(Array.from(additions, addition => addIntegers(base, addition)))
+}
+
+function barbellLoadsWithinCap(inventory: BarbellInventory, current: string): Set<string> {
+  return barbellLoadsWithinLimit(inventory, total => (
+    withinFivePercent(total, current)
+    && isEnteredLoadAtMostCanonicalKg(
+      { value: fromThousandths(total), unit: inventory.unit },
+      '1000',
+    )
+  ))
 }
 
 export function findNextEquipmentLoad(
@@ -232,7 +267,57 @@ export function findNextEquipmentLoad(
   if (nextValue === null) return null
   return Object.freeze({
     equipmentId: inventory.equipmentId,
-    basis: expectedBasis(inventory),
+    basis: current.basis,
     quantity: createLoadQuantity({ value: fromThousandths(nextValue), unit: inventory.unit }),
   })
+}
+
+export interface EquipmentLoadBounds {
+  readonly minimumCanonicalKg: string
+  readonly maximumCanonicalKg: string
+}
+
+function loadFromThousandths(
+  inventory: EquipmentInventory,
+  basis: EquipmentLoadBasis,
+  value: string,
+): EquipmentLoad {
+  return Object.freeze({
+    equipmentId: inventory.equipmentId,
+    basis,
+    quantity: createLoadQuantity({ value: fromThousandths(value), unit: inventory.unit }),
+  })
+}
+
+export function enumerateEquipmentLoadsWithinBounds(
+  inventory: EquipmentInventory,
+  basis: EquipmentLoadBasis,
+  bounds: EquipmentLoadBounds,
+): readonly EquipmentLoad[] {
+  assertInventoryShape(inventory)
+  if (!basisMatchesInventory(basis, inventory)) throw new Error('Load basis does not match inventory')
+  if (compareCanonicalKgDecimals(bounds.minimumCanonicalKg, bounds.maximumCanonicalKg) > 0) {
+    throw new Error('Equipment load bounds are inverted')
+  }
+  if (compareCanonicalKgDecimals(bounds.maximumCanonicalKg, '1000') > 0) {
+    throw new Error('Equipment load maximum exceeds 1000 kg')
+  }
+
+  let candidateValues: Set<string>
+  if (inventory.kind === 'barbell') {
+    candidateValues = barbellLoadsWithinLimit(inventory, (total) => {
+      const candidate = createLoadQuantity({ value: fromThousandths(total), unit: inventory.unit })
+      return compareEnteredLoadToCanonicalKg(candidate.entered, bounds.maximumCanonicalKg) <= 0
+    })
+  } else {
+    const values = inventory.kind === 'dumbbell' ? inventory.perHandLoads : inventory.stackLoads
+    if (values.length > MAX_INVENTORY_ENTRIES) throw new Error('Equipment inventory exceeds 1000 entries')
+    candidateValues = new Set(values.map(value => toThousandths(value, inventory.unit)))
+  }
+
+  const loads = Array.from(candidateValues, value => loadFromThousandths(inventory, basis, value))
+    .filter(load => compareEnteredLoadToCanonicalKg(load.quantity.entered, bounds.minimumCanonicalKg) >= 0
+      && compareEnteredLoadToCanonicalKg(load.quantity.entered, bounds.maximumCanonicalKg) <= 0)
+    .sort((left, right) => compareEnteredLoadQuantities(left.quantity.entered, right.quantity.entered))
+  return Object.freeze(loads)
 }

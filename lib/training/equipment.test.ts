@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createLoadQuantity } from './quantity'
-import { findNextEquipmentLoad, type EquipmentInventory, type EquipmentLoad } from './equipment'
+import {
+  enumerateEquipmentLoadsWithinBounds,
+  findNextEquipmentLoad,
+  type EquipmentInventory,
+  type EquipmentLoad,
+} from './equipment'
 
 function currentLoad(
   value: string,
@@ -75,6 +80,21 @@ describe('findNextEquipmentLoad', () => {
       equipmentId: 'db-set-a',
       basis: 'dumbbell_per_hand',
       quantity: createLoadQuantity({ value: '20.5', unit: 'kg' }),
+    })
+  })
+
+  it('progresses a single dumbbell implement without doubling its entered load', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'dumbbell',
+      equipmentId: 'db-set-a',
+      unit: 'kg',
+      perHandLoads: ['10', '10.5', '12.5'],
+    }
+
+    expect(findNextEquipmentLoad(currentLoad('10', 'kg', 'dumbbell_single_implement', 'db-set-a'), inventory)).toEqual({
+      equipmentId: 'db-set-a',
+      basis: 'dumbbell_single_implement',
+      quantity: createLoadQuantity({ value: '10.5', unit: 'kg' }),
     })
   })
 
@@ -191,6 +211,20 @@ describe('findNextEquipmentLoad', () => {
     expect(() => findNextEquipmentLoad(forged, inventory)).toThrow()
   })
 
+  it('enforces the 1000 kg equipment boundary on direct callers and generated totals', () => {
+    const machine: EquipmentInventory = {
+      kind: 'machine', equipmentId: 'stack-a', unit: 'kg', stackLoads: ['1000.001'],
+    }
+    expect(() => findNextEquipmentLoad(currentLoad('1000', 'kg', 'machine_stack', 'stack-a'), machine))
+      .toThrow('Equipment load exceeds 1000 kg')
+
+    const barbell: EquipmentInventory = {
+      kind: 'barbell', equipmentId: 'rack-a', unit: 'kg', barWeight: '999', collarsTotalWeight: '0',
+      plates: [{ value: '1', count: 2 }],
+    }
+    expect(findNextEquipmentLoad(currentLoad('999', 'kg', 'barbell_total', 'rack-a'), barbell)).toBeNull()
+  })
+
   it('fails closed when bounded barbell enumeration exceeds 50,000 states', () => {
     const inventory: EquipmentInventory = {
       kind: 'barbell',
@@ -199,12 +233,12 @@ describe('findNextEquipmentLoad', () => {
       barWeight: '0',
       collarsTotalWeight: '0',
       plates: Array.from({ length: 16 }, (_, index) => ({
-        value: String(2 ** index),
+        value: String(2 ** index / 1000),
         count: 2,
       })),
     }
 
-    expect(() => findNextEquipmentLoad(currentLoad('100000', 'kg', 'barbell_total', 'rack-a'), inventory))
+    expect(() => findNextEquipmentLoad(currentLoad('1000', 'kg', 'barbell_total', 'rack-a'), inventory))
       .toThrow('Equipment load search exceeded 50000 states')
   })
 
@@ -243,5 +277,67 @@ describe('findNextEquipmentLoad', () => {
 
     expect(result).not.toBeNull()
     expect(Object.isFrozen(result)).toBe(true)
+  })
+})
+
+describe('enumerateEquipmentLoadsWithinBounds', () => {
+  it('returns exact single-implement dumbbell denominations without pair doubling', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'dumbbell', equipmentId: 'db-a', unit: 'kg', perHandLoads: ['20', '10', '12.5', '10.000'],
+    }
+
+    const loads = enumerateEquipmentLoadsWithinBounds(inventory, 'dumbbell_single_implement', {
+      minimumCanonicalKg: '10',
+      maximumCanonicalKg: '15',
+    })
+
+    expect(loads.map(load => load.quantity.entered.value)).toEqual(['10', '12.5'])
+    expect(loads.every(load => load.basis === 'dumbbell_single_implement')).toBe(true)
+    expect(loads.map(load => load.quantity.canonicalKg)).not.toContain('20')
+    expect(Object.isFrozen(loads)).toBe(true)
+  })
+
+  it('enumerates bar, collars, symmetric microplate pairs within exact bounds', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'barbell', equipmentId: 'rack-a', unit: 'kg', barWeight: '20', collarsTotalWeight: '0.5',
+      plates: [{ value: '20', count: 2 }, { value: '1', count: 2 }, { value: '0.25', count: 2 }],
+    }
+
+    expect(enumerateEquipmentLoadsWithinBounds(inventory, 'barbell_total', {
+      minimumCanonicalKg: '60',
+      maximumCanonicalKg: '63',
+    }).map(load => load.quantity.entered.value)).toEqual(['60.5', '61', '62.5', '63'])
+  })
+
+  it('applies mixed-unit physical bounds and rejects inverted bounds', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'machine', equipmentId: 'stack-lb', unit: 'lb', stackLoads: ['100', '101', '102'],
+    }
+    expect(enumerateEquipmentLoadsWithinBounds(inventory, 'machine_stack', {
+      minimumCanonicalKg: '45.359237',
+      maximumCanonicalKg: '46',
+    }).map(load => load.quantity.entered.value)).toEqual(['100', '101'])
+    expect(() => enumerateEquipmentLoadsWithinBounds(inventory, 'machine_stack', {
+      minimumCanonicalKg: '46',
+      maximumCanonicalKg: '45',
+    })).toThrow('Equipment load bounds are inverted')
+  })
+
+  it('keeps bases tied to the matching equipment convention', () => {
+    const dumbbells: EquipmentInventory = { kind: 'dumbbell', equipmentId: 'db-a', unit: 'kg', perHandLoads: ['10'] }
+    const machine: EquipmentInventory = { kind: 'machine', equipmentId: 'stack-a', unit: 'kg', stackLoads: ['10'] }
+    expect(() => enumerateEquipmentLoadsWithinBounds(dumbbells, 'machine_stack', {
+      minimumCanonicalKg: '0', maximumCanonicalKg: '100',
+    })).toThrow('Load basis does not match inventory')
+    expect(() => enumerateEquipmentLoadsWithinBounds(machine, 'dumbbell_single_implement', {
+      minimumCanonicalKg: '0', maximumCanonicalKg: '100',
+    })).toThrow('Load basis does not match inventory')
+  })
+
+  it('rejects an enumeration maximum above the V1 parser boundary', () => {
+    const inventory: EquipmentInventory = { kind: 'machine', equipmentId: 'stack-a', unit: 'kg', stackLoads: ['10'] }
+    expect(() => enumerateEquipmentLoadsWithinBounds(inventory, 'machine_stack', {
+      minimumCanonicalKg: '0', maximumCanonicalKg: '1000.001',
+    })).toThrow('Equipment load maximum exceeds 1000 kg')
   })
 })

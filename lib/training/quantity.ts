@@ -35,6 +35,7 @@ const ENTERED_DECIMAL = /^\d+(?:\.\d{1,3})?$/
 const EXACT_DECIMAL = /^\d+(?:\.\d+)?$/
 const LB_TO_KG: ScaledInteger = { digits: '45359237', scale: 8 }
 const MAX_ENTERED_LENGTH = 16
+const MAX_CANONICAL_LENGTH = 64
 const MAX_INTEGER_DIGITS = 12
 const MAX_RATIO_COMPONENT = 1_000_000
 
@@ -159,10 +160,35 @@ export function isEnteredLoadAtMostCanonicalKg(
   entered: EnteredLoadQuantity,
   maximumCanonicalKg: string,
 ): boolean {
-  if (typeof maximumCanonicalKg !== 'string' || !EXACT_DECIMAL.test(maximumCanonicalKg)) {
+  return compareEnteredLoadToCanonicalKg(entered, maximumCanonicalKg) <= 0
+}
+
+export function compareCanonicalKgDecimals(left: string, right: string): -1 | 0 | 1 {
+  if (typeof left !== 'string' || typeof right !== 'string'
+    || left.length > MAX_CANONICAL_LENGTH || right.length > MAX_CANONICAL_LENGTH
+    || !EXACT_DECIMAL.test(left) || !EXACT_DECIMAL.test(right)) {
     throw new Error('Invalid canonical load limit')
   }
-  const maximum = parseDecimal(maximumCanonicalKg, EXACT_DECIMAL)
-  const load = createLoadQuantity(entered)
-  return compareScaledIntegers(parseDecimal(load.canonicalKg, EXACT_DECIMAL), maximum) <= 0
+  const comparison = compareScaledIntegers(
+    parseDecimal(left, EXACT_DECIMAL),
+    parseDecimal(right, EXACT_DECIMAL),
+  )
+  return comparison < 0 ? -1 : comparison > 0 ? 1 : 0
+}
+
+export function compareEnteredLoadToCanonicalKg(
+  entered: EnteredLoadQuantity,
+  canonicalKg: string,
+): -1 | 0 | 1 {
+  return compareCanonicalKgDecimals(createLoadQuantity(entered).canonicalKg, canonicalKg)
+}
+
+export function compareEnteredLoadQuantities(
+  left: EnteredLoadQuantity,
+  right: EnteredLoadQuantity,
+): -1 | 0 | 1 {
+  const leftCanonical = parseDecimal(createLoadQuantity(left).canonicalKg, EXACT_DECIMAL)
+  const rightCanonical = parseDecimal(createLoadQuantity(right).canonicalKg, EXACT_DECIMAL)
+  const comparison = compareScaledIntegers(leftCanonical, rightCanonical)
+  return comparison < 0 ? -1 : comparison > 0 ? 1 : 0
 }
