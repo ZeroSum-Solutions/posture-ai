@@ -12,6 +12,8 @@ import {
   WORKOUT_GOALS,
 } from '@/lib/workout/personalize'
 import type { WorkoutBuilderSeed, WorkoutLibraryItem } from './WorkoutLibrary.model'
+import StrengthBuilderLauncher, { type StrengthBuilderClient } from './_strength/StrengthBuilderLauncher'
+import TrainingSessionPlayer from './_strength/TrainingSessionPlayer'
 import styles from './WorkoutsPage.module.css'
 
 type Draft = {
@@ -28,10 +30,14 @@ export default function WorkoutLibrary({
   initialLibrary,
   seed,
   loadError,
+  strengthClients = [],
+  trainingSessionId,
 }: {
   initialLibrary: WorkoutLibraryItem[]
   seed?: WorkoutBuilderSeed | null
   loadError?: string | null
+  strengthClients?: readonly StrengthBuilderClient[]
+  trainingSessionId?: string | null
 }) {
   const router = useRouter()
   const [library, setLibrary] = useState(initialLibrary)
@@ -113,6 +119,7 @@ export default function WorkoutLibrary({
   function prepareCopy(workout: WorkoutLibraryItem) {
     const nextSeed = {
       assessmentId: workout.assessmentId,
+      clientId: workout.clientId,
       clientName: workout.clientName,
       capability: workout.preferences.capability,
       approved: true,
@@ -178,6 +185,18 @@ export default function WorkoutLibrary({
     }
   }
 
+  if (trainingSessionId) return (
+    <div className={`app-screen ${styles.screen}`}>
+      <header className={styles.header}>
+        <div><p className="t-kicker">Training program</p><h1 className="t-headline">Session</h1></div>
+        <Link href="/workouts" className="a-secondary">Back to workouts</Link>
+      </header>
+      <main className={`app-screen-x app-stack ${styles.main}`}>
+        <TrainingSessionPlayer key={trainingSessionId} sessionId={trainingSessionId} />
+      </main>
+    </div>
+  )
+
   return (
     <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
@@ -192,6 +211,8 @@ export default function WorkoutLibrary({
         {loadError && <p role="alert" className={styles.error}>{loadError}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {message && <p role="status" className={styles.notice}>{message}</p>}
+
+        <StrengthBuilderLauncher clients={strengthClients} initialClientId={activeSeed?.clientId} />
 
         {activeSeed && (
           <section className={styles.builder} aria-labelledby="builder-heading">

@@ -7,6 +7,12 @@ import { DEFAULT_WORKOUT_PREFERENCES } from '@/lib/workout/personalize'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }))
+vi.mock('./_strength/StrengthBuilderEntry', () => ({
+  default: ({ source }: { source: { kind: 'client'; client: { id: string; name: string } } }) => <div data-testid="strength-builder-entry">{source.kind}:{source.client.id}:{source.client.name}</div>,
+}))
+vi.mock('./_strength/TrainingSessionPlayer', () => ({
+  default: ({ sessionId }: { sessionId: string }) => <div data-testid="training-session-player">{sessionId}</div>,
+}))
 
 const snapshot = {
   version: 1 as const,
@@ -53,10 +59,31 @@ describe('original workout library', () => {
     expect(workoutLibraryKey([item], null)).not.toBe(empty)
     expect(workoutLibraryKey([], {
       assessmentId: item.assessmentId,
+      clientId: item.clientId,
       clientName: item.clientName,
       capability: 'standard',
       approved: true,
     })).not.toBe(empty)
+  })
+
+  test('opens the strength builder for the client selected by the assessment seed', () => {
+    render(<WorkoutLibrary initialLibrary={[]} strengthClients={[{ id: item.clientId, name: item.clientName }]} seed={{
+      assessmentId: item.assessmentId,
+      clientId: item.clientId,
+      clientName: item.clientName,
+      capability: 'standard',
+      approved: true,
+    }} />)
+
+    expect(screen.getByTestId('strength-builder-entry').textContent).toBe(`client:${item.clientId}:${item.clientName}`)
+  })
+
+  test('opens an owned training session in the original Workouts surface', () => {
+    render(<WorkoutLibrary initialLibrary={[]} trainingSessionId="strength-session-1" />)
+
+    expect(screen.getByTestId('training-session-player').textContent).toBe('strength-session-1')
+    expect(screen.getByRole('link', { name: 'Back to workouts' }).getAttribute('href')).toBe('/workouts')
+    expect(screen.queryByText('Build strength program for')).toBeNull()
   })
 
   test('plays again by minting a new owned session instead of resetting the saved run', async () => {

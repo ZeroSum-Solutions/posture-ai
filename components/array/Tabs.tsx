@@ -18,7 +18,10 @@ import styles from './Tabs.module.css'
 
 export interface TabOption<T extends string> {
   value: T
+  /** Full accessible name. */
   label: string
+  /** Optional compact visible copy for narrow surfaces. */
+  displayLabel?: string
 }
 
 export function tabId(idBase: string, value: string): string {
@@ -81,12 +84,13 @@ export function TabStrip<T extends string>({
             role="tab"
             aria-selected={active}
             aria-controls={tabPanelId(idBase, option.value)}
+            aria-label={option.displayLabel ? option.label : undefined}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={event => handleKeyDown(event, option.value)}
             className={[styles.tab, active ? styles.tabActive : ''].filter(Boolean).join(' ')}
           >
-            {option.label}
+            {option.displayLabel ?? option.label}
           </button>
         )
       })}

@@ -65,6 +65,19 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  if (type === 'invite') {
+    const { data: actor, error: actorError } = await supabase
+      .rpc('current_application_actor')
+      .maybeSingle()
+    const actorKind = (actor as { actor_kind?: unknown } | null)?.actor_kind
+    if (actorError || (actorKind !== 'athlete' && actorKind !== 'practitioner')) {
+      return redirectWithCookies('/auth/sign-in?reason=invite_invalid', cookiesToSet)
+    }
+    if (actorKind === 'athlete') {
+      return redirectWithCookies('/train/accept-invite', cookiesToSet)
+    }
+  }
+
   return redirectWithCookies(
     type === 'recovery' ? '/auth/update-password' : '/auth/accept-invite',
     cookiesToSet,

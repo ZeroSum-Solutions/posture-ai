@@ -13,6 +13,7 @@ const makeLoad = (value: string) => ({
 const baseInput = (): StrengthProgressionInputV1 => ({
   policyVersion: 'strength-progression-v1',
   now: '2026-09-07T18:00:00.000Z',
+  executionContext: { kind: 'live' },
   subjectId: 'subject-a',
   sourceProfileRevisionId: 'profile-r1',
   programRevisionId: 'program-r1',
@@ -68,6 +69,7 @@ function exposure(
   const input = baseInput()
   return {
     sourceRevisionId: revision,
+    executionContext: { kind: 'live' },
     provenance: { kind: 'in_app', sourceVersion: 'training-log.v1' },
     acceptedPrescription: { sourceRevisionId: `accepted-${revision}`, load: makeLoad('60') },
     sessionState: 'completed',
@@ -104,6 +106,35 @@ function exposure(
 }
 
 describe('decideStrengthProgression', () => {
+  it('permits same-run synthetic evidence and rejects live or cross-run contamination', () => {
+    const context = {
+      kind: 'synthetic_simulation' as const,
+      simulationRunId: '11111111-1111-4111-8111-111111111111',
+      fixtureId: 'starter-v1',
+      fixtureHash: 'a'.repeat(64),
+      label: 'Practice data' as const,
+    }
+    const first = exposure('log-r1', '2026-09-04T18:00:00.000Z', [8, 8, 8], [2, 2, 2])
+    first.executionContext = context
+    const synthetic = {
+      ...baseInput(),
+      executionContext: context,
+      eligibility: {
+        ...baseInput().eligibility,
+        source: {
+          kind: 'synthetic_fixture' as const,
+          sourceVersion: 'synthetic-eligibility-fixture.v1' as const,
+          fixtureId: 'starter-v1',
+          label: 'Synthetic starter eligibility',
+        },
+      },
+      exposures: [first],
+    }
+    expect(decideStrengthProgression(synthetic)).toMatchObject({ executionContext: context })
+    expect(() => decideStrengthProgression({ ...synthetic, executionContext: { ...context, simulationRunId: '22222222-2222-4222-8222-222222222222' } }))
+      .toThrow()
+    expect(() => decideStrengthProgression({ ...synthetic, executionContext: { kind: 'live' } })).toThrow()
+  })
   it('proposes the smallest achievable load after two same-load ceiling successes', () => {
     const input = {
       ...baseInput(),
@@ -550,6 +581,30 @@ describe('decideStrengthProgression', () => {
     })
   })
 
+  it.each([
+    ['subject', (input: StrengthProgressionInputV1) => { input.eligibilityAuthorization!.subjectId = 'different-subject' }],
+    ['exercise', (input: StrengthProgressionInputV1) => { input.eligibilityAuthorization!.exerciseVersionId = 'different-exercise@1' }],
+    ['program', (input: StrengthProgressionInputV1) => { input.eligibilityAuthorization!.programRevisionId = 'different-program' }],
+    ['policy', (input: StrengthProgressionInputV1) => { input.eligibilityAuthorization!.policyVersion = 'different-policy' }],
+  ] as const)('fails closed when constrained authorization mismatches %s', (_name, mutate) => {
+    const input = baseInput()
+    input.eligibility.state = 'cleared_with_constraints'
+    input.eligibilityAuthorization = {
+      decision: 'authorized',
+      subjectId: input.subjectId,
+      exerciseVersionId: input.prescription.exerciseVersionId,
+      programRevisionId: input.programRevisionId,
+      policyVersion: input.eligibility.policyVersion,
+      sourceRevisionId: input.eligibility.sourceRevisionId,
+      effectiveFrom: '2026-09-01T00:00:00.000Z',
+      effectiveUntil: '2026-10-01T00:00:00.000Z',
+    }
+    mutate(input)
+    expect(decideStrengthProgression(input)).toMatchObject({
+      kind: 'review', reasonCodes: ['eligibility_constraints_unavailable'],
+    })
+  })
+
   it('distinguishes an exact upstream block from an absent or expired authorization', () => {
     const input = baseInput()
     input.eligibility.state = 'cleared_with_constraints'
@@ -695,9 +750,55 @@ describe('decideStrengthProgression', () => {
     expect(() => decideStrengthProgression(input)).toThrowError(ProgressionInputValidationError)
   })
 
-  it('rejects synthetic, expired, superseded, and not-yet-effective general eligibility snapshots', () => {
+  it('accepts the exact 1000 kg parser boundary without treating it as a suggested dose', () => {
+    const input = baseInput()
+    input.prescription.prescribedLoad = makeLoad('1000')
+    input.equipmentInventory = {
+      kind: 'barbell', equipmentId: 'rack-a', unit: 'kg', barWeight: '1000', collarsTotalWeight: '0', plates: [],
+    }
+    const latest = exposure('log-boundary', '2026-09-06T18:00:00.000Z', [7, 7, 7], [2, 2, 2])
+    latest.sets.forEach(set => { set.load = makeLoad('1000') })
+    latest.acceptedPrescription.load = makeLoad('1000')
+    input.exposures = [latest]
+
+    expect(decideStrengthProgression(input)).toMatchObject({
+      kind: 'rep_proposal', reasonCodes: ['one_rep_progression'], proposal: { load: makeLoad('1000') },
+    })
+  })
+
+  it('keeps single-implement dumbbell progression on the entered implement load', () => {
+    const input = baseInput()
+    const singleLoad = {
+      equipmentId: 'db-a', basis: 'dumbbell_single_implement' as const,
+      quantity: createLoadQuantity({ value: '10', unit: 'kg' }),
+    }
+    input.prescription = {
+      ...input.prescription,
+      prescribedLoad: singleLoad,
+      equipmentId: 'db-a',
+      loadBasis: 'dumbbell_single_implement',
+    }
+    input.equipmentInventory = { kind: 'dumbbell', equipmentId: 'db-a', unit: 'kg', perHandLoads: ['10', '10.5'] }
+    const latest = exposure('log-single', '2026-09-06T18:00:00.000Z', [7, 7, 7], [2, 2, 2])
+    latest.comparator.equipmentId = 'db-a'
+    latest.comparator.loadBasis = 'dumbbell_single_implement'
+    latest.sets.forEach(set => { set.load = singleLoad })
+    latest.acceptedPrescription.load = singleLoad
+
+    expect(decideStrengthProgression({ ...input, exposures: [latest] })).toMatchObject({
+      kind: 'rep_proposal', proposal: { load: singleLoad, targetReps: [8, 7, 7] },
+    })
+  })
+
+  it('rejects synthetic eligibility in live context and holds inactive trusted decisions', () => {
+    const liveWithSynthetic = baseInput()
+    liveWithSynthetic.eligibility.source = {
+      kind: 'synthetic_fixture', sourceVersion: 'synthetic-eligibility-fixture.v1',
+      fixtureId: 'fixture-1', label: 'Synthetic eligibility fixture',
+    }
+    expect(() => decideStrengthProgression(liveWithSynthetic)).toThrowError(ProgressionInputValidationError)
+
     const mutations: Array<(input: StrengthProgressionInputV1) => void> = [
-      input => { input.eligibility.source = { kind: 'synthetic_fixture', sourceVersion: 'synthetic-eligibility-fixture.v1', fixtureId: 'fixture-1', label: 'Synthetic eligibility fixture' } },
       input => { input.eligibility.effectiveUntil = '2026-09-07T17:59:59.999Z' },
       input => { input.eligibility.supersededAt = '2026-09-07T17:00:00.000Z' },
       input => { input.eligibility.effectiveFrom = '2026-09-07T18:00:00.001Z' },

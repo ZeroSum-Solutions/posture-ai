@@ -14,10 +14,13 @@ type CookieToSet = {
   options?: Record<string, unknown>
 }
 
-type PractitionerAccessState = {
+type ApplicationActorState = {
+  actor_kind: 'practitioner' | 'athlete' | 'ambiguous'
+  subject_id: string | null
   access_status: string
-  role: string
+  role: string | null
   session_is_current: boolean
+  invitation_mode: 'self_directed' | 'coach_invited' | null
 }
 
 const isOnboardingPath = (pathname: string) =>
@@ -28,6 +31,10 @@ const isLegalAcceptanceCorridor = (pathname: string) =>
 
 const isApiPath = (pathname: string) =>
   pathname === '/api' || pathname.startsWith('/api/')
+
+const isAthletePath = (pathname: string) =>
+  pathname === '/train' || pathname.startsWith('/train/') ||
+  pathname === '/api/training' || pathname.startsWith('/api/training/')
 
 function requestedPath(request: NextRequest): string {
   return `${request.nextUrl.pathname}${request.nextUrl.search}`
@@ -190,16 +197,66 @@ export async function proxy(request: NextRequest) {
     ))
   }
 
-  // The normal practitioners policy hides invited/recovery/revoked rows by
-  // design. This no-argument definer RPC returns only auth.uid()'s own admission
-  // state, so middleware can route those states without weakening table RLS.
-  const { data: practitionerRow, error: practitionerError } = await supabase
-    .rpc('current_practitioner_access_state')
+  // The no-argument definer RPC derives the actor from auth.uid(). It returns an
+  // explicit ambiguous state when one UID has both identity classes.
+  const { data: actorRow, error: actorError } = await supabase
+    .rpc('current_application_actor')
     .maybeSingle()
-  const practitioner = practitionerRow as PractitionerAccessState | null
+  const actor = actorRow as ApplicationActorState | null
+
+  if (!actorError && actor?.actor_kind === 'athlete') {
+    const accessRevoked = actor.access_status === 'revoked' || actor.access_status === 'suspended'
+    const mayCompleteAdmission = actor.access_status === 'invited'
+    const sessionStale = actor.access_status === 'active' && !actor.session_is_current
+    const admitted = actor.access_status === 'active' && actor.session_is_current
+
+    if (!admitted) {
+      if (accessRevoked || sessionStale) await supabase.auth.signOut({ scope: 'local' })
+      if (isApiPath(pathname)) {
+        return withApplicationCsp(jsonWithAuthCookies(
+          { error: 'Athlete access required.', code: 'athlete_access_required' },
+          403,
+          refreshedCookies,
+        ))
+      }
+      if (mayCompleteAdmission) {
+        return withApplicationCsp(redirectWithAuthCookies(
+          request,
+          '/auth/mfa',
+          refreshedCookies,
+          { mode: 'athlete-invite', next: '/train' },
+        ))
+      }
+      return withApplicationCsp(redirectWithAuthCookies(
+        request,
+        '/auth/sign-in',
+        refreshedCookies,
+        { reason: accessRevoked ? 'access_revoked' : sessionStale ? 'session_stale' : 'access_denied' },
+      ))
+    }
+
+    if (!isAthletePath(pathname)) {
+      if (isApiPath(pathname)) {
+        return withApplicationCsp(jsonWithAuthCookies(
+          { error: 'This route is outside the athlete workspace.', code: 'athlete_scope_denied' },
+          403,
+          refreshedCookies,
+        ))
+      }
+      return withApplicationCsp(redirectWithAuthCookies(
+        request,
+        '/train',
+        refreshedCookies,
+        { reason: 'scope_denied' },
+      ))
+    }
+    return supabaseResponse
+  }
+
+  const practitioner = actor?.actor_kind === 'practitioner' ? actor : null
 
   const admitted =
-    !practitionerError &&
+    !actorError &&
     practitioner?.access_status === 'active' &&
     practitioner?.role === 'practitioner' &&
     practitioner?.session_is_current === true
@@ -209,7 +266,7 @@ export async function proxy(request: NextRequest) {
     const accessRevoked = status === 'revoked' || status === 'suspended'
     const mayCompleteAdmission = status === 'invited' || status === 'recovery_pending'
     const sessionStale = status === 'active' && practitioner?.session_is_current === false
-    if (accessRevoked || (!practitionerError && !mayCompleteAdmission)) {
+    if (accessRevoked || (!actorError && !mayCompleteAdmission)) {
       // Clear this browser's cookie immediately. Database status remains the
       // authoritative revocation check because issued JWTs can outlive signout.
       await supabase.auth.signOut({ scope: 'local' })
@@ -223,7 +280,7 @@ export async function proxy(request: NextRequest) {
       ))
     }
 
-    if (!practitionerError && mayCompleteAdmission) {
+    if (!actorError && mayCompleteAdmission) {
       // An AAL2 invite/recovery session may still need its atomic activation RPC.
       return withApplicationCsp(redirectWithAuthCookies(
         request,
@@ -244,7 +301,7 @@ export async function proxy(request: NextRequest) {
             ? 'session_stale'
           : status === 'review_required'
             ? 'access_review_required'
-            : practitionerError
+            : actorError
               ? 'access_unavailable'
               : 'access_denied',
       },

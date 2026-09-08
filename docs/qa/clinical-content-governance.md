@@ -18,13 +18,14 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`d977d507373380076554e523c6a97a59f180882e39abc81996939d2b27c9ec45`.
+`2265d8cfadd904a9d888617c3876b714dc65e01aec354c2efd84e264d78fe563`.
 
 Recommendation algorithm SHA-256:
-`e20b0883088f587df36e615502efc6540692e4c8d34be9ffc6a743979045f752`.
+`c5c56a5c424b1a7c64dabd45414a814adde9e8cb0515909e3210270131d9076e`.
 
-The latest inventory refresh (2026-09-07) follows additive capture-provenance
-metadata in the engine types and neutral comparison/within-burst presentation.
+The latest inventory refresh (2026-09-08) includes the athlete auth routing changes
+in the tracked application boundary, following the capture-provenance and neutral
+comparison updates.
 Only the recommendation-engine item fingerprint and
 aggregate inventory fingerprint changed; content counts and item identities stayed
 the same. Local test-fixture bindings were refreshed without changing review

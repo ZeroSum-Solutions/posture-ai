@@ -39,8 +39,10 @@ describe('proxy public-path allowlist', () => {
   test('AAL1 corridor is authenticated but does not require active AAL2 admission', () => {
     for (const p of [
       '/auth/accept-invite',
+      '/train/accept-invite',
       '/auth/mfa',
       '/api/auth/complete-invitation',
+      '/api/training/auth/complete-invitation',
       '/api/auth/sign-out',
     ]) {
       expect(isPublicPath(p, prod), `${p} must not be public`).toBe(false)

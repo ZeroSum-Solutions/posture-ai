@@ -55,11 +55,12 @@ The integrating lead accepted these as implementation clarifications in `docs/pl
 
 | Area | Files | Responsibility / exported boundary |
 | --- | --- | --- |
-| Versioned contracts | `lib/training/contracts/{common,eligibility,screening,profile,catalog,program,session,logs,decisions}.ts`, `lib/training/contracts/index.ts` | Zod schemas and inferred types for `TrainingProfileV1`, `ScreeningContextV1`, `ExerciseEligibilityV1`, `TrainingExerciseV1`, `ProgramTemplateV1`, compiled plans/sessions/logs, `ProgressionDecisionV1`, and `ConditioningDecisionV1` |
+| Shared profile/eligibility contracts (athlete-identity owner) | `lib/training/contracts/{profile,eligibility}.ts` | Capability-free profile schemas plus the five eligibility states/scope/snapshot. Wave 1B imports these exact exports and does not duplicate or infer clinical policy |
+| Wave 1B contracts | `lib/training/contracts/{common,screening,catalog,program,session,logs,decisions}.ts`, `lib/training/contracts/index.ts` | Zod schemas and inferred types for screening context, catalog/program/session/log boundaries, `ProgressionDecisionV1`, and `ConditioningDecisionV1` |
 | Exact quantity foundation | `lib/training/quantity.ts` | Parse exact decimal input, preserve entered unit/value, convert kg/lb with fixed-point arithmetic, and distinguish per-side/per-hand totals without policy decisions |
-| Equipment/load policy | `lib/training/engine/load.ts` | Consume exact quantities, derive achievable loads by equipment inventory/load basis, and calculate proposal/outlier caps |
+| Equipment/load policy | `lib/training/equipment.ts` | Consume exact quantities, derive achievable loads by equipment inventory/load basis, and enforce the automatic proposal cap |
 | Compiler | `lib/training/engine/{duration,schedule,compileProgram}.ts` | Validate roster/slot selection, expand the 8-week structure, enforce coverage/rest/time/equipment rules, and return `CompiledProgramV1 | CompilationFailureV1` |
-| Strength progression | `lib/training/engine/{comparability,progression}.ts` | Build series/load-epoch keys, select qualifying evidence, apply the ordered PRD decision table, and return immutable proposals/holds/reviews |
+| Strength progression | `lib/training/progression/{types,validation,decision}.ts` | Validate the engine boundary, build comparator/load-epoch keys, select qualifying evidence, apply the ordered PRD decision table, and return auditable proposals/holds/reviews |
 | Conditioning | `lib/training/engine/conditioning.ts` | Apply only the two-comparable-bout duration rule and modality comparability |
 | Authored content | `content/training/{schema,registry,eight-week-template}.ts`, `content/training/index.ts` | Validate reviewed versioned exercise metadata and the single 8-week template; do not import the corrective `ALL_EXERCISES` registry as strength authority |
 | Test fixtures | `lib/training/testing/{fixtures,seededHistories}.ts` | Synthetic catalog, profiles, eligibility/screening states, equipment, logs, and deterministic seeded histories; never exported by production barrels |
@@ -68,17 +69,17 @@ The core call signatures are:
 
 ```ts
 compileProgramV1(input: CompileProgramInputV1): CompilationResultV1
-decideStrengthProgressionV1(input: StrengthDecisionInputV1): ProgressionDecisionV1
+decideStrengthProgression(input: unknown): StrengthProgressionDecisionV1
 decideConditioningV1(input: ConditioningDecisionInputV1): ConditioningDecisionV1
 ```
 
-`CompilationResultV1` is `{ ok: true; program: CompiledProgramV1 } | { ok: false; reasons: CompilationReasonV1[]; alternatives: FeasibleScheduleV1[] }`. Decision results are discriminated by `kind: 'stop' | 'hold' | 'review' | 'recalibrate' | 'rep_proposal' | 'load_proposal'`; each carries `policyVersion`, `reasonCodes`, source revision IDs, and an input hash. Persistence and proposal acceptance are Wave 1C responsibilities; Wave 1B supplies stable keys and freshness predicates only.
+`CompilationResultV1` is `{ ok: true; program: CompiledProgramV1 } | { ok: false; reasons: CompilationReasonV1[]; alternatives: FeasibleScheduleV1[] }`. Decision results are discriminated by `kind: 'stop' | 'hold' | 'review' | 'recalibrate' | 'rep_proposal' | 'load_proposal'`; each carries `policyVersion`, stable decision/series identity, reason codes, and source revision IDs. Persistence records the full input hash and proposal acceptance in Wave 1C; Wave 1B supplies deterministic keys and freshness inputs.
 
 ### Task 1: Freeze boundary contracts and invalid-input behavior
 
 **PRD coverage:** Sections 3, 4 eligibility states, 5 progression state/log domains/numeric contract, and 8; SC-05/06 and the contract portions of PR-04/06/07/08/11/13/14/15.
 
-**Files:** Create `lib/training/contracts/**`; create `lib/training/contracts/contracts.test.ts`.
+**Files:** Import the athlete-identity owner's frozen `lib/training/contracts/{profile,eligibility}.ts`; create the remaining `lib/training/contracts/**` files and focused tests without redefining shared eligibility/profile enums.
 
 - [ ] Define strict Zod schemas (`.strict()`) and inferred types for all interfaces in the file map. Use ISO datetime strings, stable string IDs, explicit schema/policy versions, and discriminated unions for strength versus conditioning items.
 - [ ] Represent load input as `{ value: string; unit: 'kg' | 'lb'; basis: 'barbell_total' | 'dumbbell_per_hand' | 'external_bodyweight' | 'machine_stack' | 'assistance' }`; reject exponent syntax, negative values, more than three entered decimals, non-finite equivalents, and canonical values above 1000 kg.
@@ -90,7 +91,7 @@ decideConditioningV1(input: ConditioningDecisionInputV1): ConditioningDecisionV1
 Run:
 
 ```bash
-mise exec node@22.23.2 -- npm exec --no -- vitest run lib/training/contracts
+mise exec node@22.23.2 -- npm test -- --run lib/training/contracts
 mise exec node@22.23.2 -- npm run typecheck
 ```
 
@@ -152,25 +153,25 @@ Expected: all 8-week feasibility combinations return either a valid nonempty pro
 Run:
 
 ```bash
-mise exec node@22.23.2 -- npm exec --no -- vitest run lib/training/quantity.test.ts
+mise exec node@22.23.2 -- npm test -- --run lib/training/quantity.test.ts
 ```
 
 Expected: exact PR-04 quantity fixtures pass and preserved input objects remain immutable.
 
-### Task 4B: Implement equipment and progression arithmetic
+### Task 4B: Implement exact equipment inventory arithmetic
 
-**Files:** Create `lib/training/engine/load.ts` and `lib/training/engine/load.test.ts`.
+**Files:** Create `lib/training/equipment.ts` and `lib/training/equipment.test.ts`.
 
 - [ ] Consume `lib/training/quantity.ts`; do not duplicate decimal parsing or conversion.
-- [ ] Model bar weight/collars, symmetric plate-pair counts, fixed per-hand dumbbells, exact-ID machine stack values, and assistance ranges, then enumerate and deterministically deduplicate achievable next loads.
+- [ ] Model bar weight/collars, symmetric plate-pair counts, fixed per-hand dumbbells, and exact-ID machine stack values, then enumerate and deterministically deduplicate achievable next loads. Reject bodyweight/assistance because their V1 progression policy is outside this arithmetic boundary.
 - [ ] Choose the smallest greater achievable value within the 5% automatic proposal cap. Never force a larger jump; 20 kg with only +2.5 kg available holds because 12.5% exceeds the cap.
 - [ ] Assert 60 kg with 1.25 kg plates per side yields 62.5 kg (4.166…%, presented as 4.17%).
-- [ ] Keep the automatic 5% proposal cap separate from voluntary-actual outlier confirmation: 60→70 kg is 16.67% and not a >20% outlier; 60→75 kg is 25% and is excluded until confirmed. Apply per-exercise/equipment limits separately from the 1000 kg parser maximum.
+- [ ] Enforce only the automatic 5% proposal cap here. A generic exact-ratio helper in `quantity.ts` lets progression compute voluntary-actual outliers from preserved entries; 60→70 kg is 16.67% and not a >20% outlier, while 60→75 kg is 25% and is excluded until a separately authorized acknowledgement matches the exact source revisions.
 
 Run:
 
 ```bash
-mise exec node@22.23.2 -- npm exec --no -- vitest run lib/training/engine/load.test.ts
+mise exec node@22.23.2 -- npm test -- --run lib/training/equipment.test.ts
 ```
 
 Expected: PR-02/04/05 and the frozen P5 fixtures pass without floating-point arithmetic.
@@ -179,11 +180,11 @@ Expected: PR-02/04/05 and the frozen P5 fixtures pass without floating-point ari
 
 **PRD coverage:** Section 5 “Next-exposure decision policy V1” through numeric examples; PR-02/03/05/06/07/08/09/10/11/13/14/15.
 
-**Files:** Create `lib/training/engine/{comparability,progression}.ts`; create matching `.test.ts` files.
+**Files:** Create `lib/training/progression/{types,validation,decision}.ts` and `lib/training/progression/decision.test.ts`.
 
 - [ ] Build a progression-series key from athlete, exercise/content version, equipment, load basis, side/ROM/tempo, prescribed set count, rep range, effort band, and exposure type. Add a load epoch and require the two latest completed, acknowledged, non-conflicted exposures at the same performed load after the last applied change.
 - [ ] Exclude warm-ups, unscheduled extra sets, substitutions, changed machines/ROM/basis, unresolved sync, missing required actuals, unknown/`6_plus` RIR, unconfirmed outliers, and symptom-affected evidence. Evaluate completion per exercise series: active/aborted sessions and incomplete instances do not progress, while explicit terminal completion-with-omissions may preserve completed instances and stores omissions. Preserve distinct reason codes.
-- [ ] Apply the PRD decision-table order exactly: eligibility/symptom stop; data/comparability hold; recovery review; phase constraints; performance; equipment rounding; time/volume validation; explanation. The first matching branch wins and increase is never the fallback.
+- [ ] Apply the frozen PRD table in order: global eligibility/acute stop; affected-series symptom hold; stale unfinished session (>24h); active/aborted session hold; incomplete/conflicted/invalid/outlier hold; unknown-effort hold; `6_plus` recalibration; mixed-load review; return review (>=14d since latest comparable completion); comparator calibration; difficult/performance branches; exact equipment increment. The first matching branch wins and increase is never the fallback.
 - [ ] Assert two 60 kg 3×8 successes at 2-3 RIR propose 62.5 kg and reset the next target to the low end; a second call with the same ordered log revisions produces the same key/proposal, and an applied decision cannot consume those logs again.
 - [ ] Assert 60 kg 8/7/6 in the latest qualifying exposure proposes 8/8/6; 8/8/8 then 8/8/7 proposes 8/8/8 rather than load. Add `mixed_working_load_review` and terminal-omission fixtures. Ceiling reps at 0-1 RIR hold; one below-range exposure holds; two propose review without decrement; missing RIR/set, stale/active/aborted session, conflict, symptom, ≥14-day gap, changed comparator, or only one exposure at a new load cannot earn a load increase.
 - [ ] Distinguish ceiling `6_plus` as `effort_too_easy_recalibration` from unknown RIR as `effort_unknown_hold`; neither may propose a load.
@@ -195,7 +196,7 @@ Expected: PR-02/04/05 and the frozen P5 fixtures pass without floating-point ari
 Run:
 
 ```bash
-mise exec node@22.23.2 -- npm exec --no -- vitest run lib/training/engine/comparability.test.ts lib/training/engine/progression.test.ts
+mise exec node@22.23.2 -- npm test -- --run lib/training/progression/decision.test.ts
 ```
 
 Expected: every total-decision-table row has at least one exact input/output fixture; no invalid or ambiguous state produces a load/rep increase.

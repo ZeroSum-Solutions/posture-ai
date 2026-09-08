@@ -61,6 +61,7 @@ function decisionKey(
 ): string {
   const digest = hashCanonicalDecisionIdentity({
     policyVersion: input.policyVersion,
+    executionContext: input.executionContext,
     kind,
     reasonCodes: [reason],
     subjectId: input.subjectId,
@@ -87,6 +88,7 @@ function noChange(
     kind,
     status: 'not_proposed',
     policyVersion: input.policyVersion,
+    executionContext: input.executionContext,
     decisionKey: decisionKey(input, kind, reason, sourceIds, acknowledgementIds),
     subjectId: input.subjectId,
     prescriptionId: input.prescription.prescriptionId,
@@ -117,6 +119,7 @@ function proposal(
     kind,
     status: 'proposed',
     policyVersion: input.policyVersion,
+    executionContext: input.executionContext,
     decisionKey: decisionKey(input, kind, reason, sourceIds, acknowledgementIds, proposalOutcome),
     subjectId: input.subjectId,
     prescriptionId: input.prescription.prescriptionId,
@@ -161,8 +164,11 @@ function eligibilityDecision(
     const eligibilityEffectiveUntil = input.eligibility.effectiveUntil === null
       ? null
       : timestamp(input.eligibility.effectiveUntil)
-    const sourceIsAvailable = input.eligibility.source.kind !== 'synthetic_fixture'
-      && eligibilityEffectiveFrom <= now
+    const sourceIsAvailable = (
+      input.executionContext.kind === 'synthetic_simulation'
+        ? input.eligibility.source.kind === 'synthetic_fixture'
+        : input.eligibility.source.kind !== 'synthetic_fixture'
+    ) && eligibilityEffectiveFrom <= now
       && (eligibilityEffectiveUntil === null || eligibilityEffectiveUntil >= now)
       && input.eligibility.supersededAt === null
     return sourceIsAvailable ? null : noChange(input, 'stop', 'eligibility_source_unavailable')

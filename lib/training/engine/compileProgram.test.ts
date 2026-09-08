@@ -10,7 +10,10 @@ function catalog(preparationSeconds = 0): TrainingCatalogV1 {
   return {
     schemaVersion: 'training-catalog.v1',
     catalogVersion: 'synthetic-compiler-catalog.v1',
-    origin: { kind: 'synthetic_fixture', fixtureId: 'compiler-fixture', label: 'Synthetic compiler fixture catalog' },
+    origin: {
+      kind: 'synthetic_fixture', source: 'server_fixture', fixtureId: 'compiler-fixture',
+      fixtureHash: 'a'.repeat(64), label: 'Synthetic compiler fixture catalog',
+    },
     exercises: patterns.map((movementPattern, index) => ({
       exerciseId: `synthetic-${movementPattern}`,
       exerciseVersionId: `synthetic-${movementPattern}.v1`,
@@ -23,6 +26,12 @@ function catalog(preparationSeconds = 0): TrainingCatalogV1 {
       mediaStatus: 'reviewed_static_fixture',
       preparationSeconds,
       secondsPerRep: 4,
+      progressionDefaults: {
+        side: 'bilateral' as const,
+        rom: 'catalog_default',
+        tempo: 'self_selected_controlled',
+        exposureType: 'standard',
+      },
       equipmentCompatibility: [{
         kind: 'machine',
         basis: 'machine_stack',
@@ -44,7 +53,7 @@ function catalog(preparationSeconds = 0): TrainingCatalogV1 {
 function profile(strengthDays: AthleteTrainingProfileV1['strengthDays'], overrides: Partial<AthleteTrainingProfileV1> = {}): AthleteTrainingProfileV1 {
   return {
     schemaVersion: 'athlete-training-profile.v1',
-    origin: { kind: 'synthetic_fixture', fixtureId: 'compiler-profile', label: 'Synthetic compiler fixture profile' },
+    origin: { kind: 'synthetic_fixture', fixtureId: 'compiler-fixture', label: 'Synthetic compiler fixture profile' },
     goal: 'strength',
     experience: 'beginner',
     recentConsistency: 'consistent',
@@ -65,6 +74,10 @@ const baseIds = {
   programRevisionId: 'program-revision-1',
   cycleStartLocalDate: '2026-03-02',
   conditioningModalityId: 'synthetic-walk.v1',
+  executionContext: {
+    kind: 'synthetic_simulation', simulationRunId: '33333333-3333-4333-8333-333333333333', fixtureId: 'compiler-fixture',
+    fixtureHash: 'a'.repeat(64), label: 'Practice data',
+  },
 } as const
 
 describe('compileEightWeekProgram', () => {
@@ -96,6 +109,7 @@ describe('compileEightWeekProgram', () => {
     if (result.kind !== 'draft_program') return
     expect(result.status).toBe('requires_explicit_acceptance')
     expect(result).toMatchObject({
+      compilerPolicyVersion: 'eight-week-compiler.v2',
       goal: 'strength',
       cycleStartLocalDate: '2026-03-02',
       athleteTimezone: 'America/Los_Angeles',
@@ -118,6 +132,20 @@ describe('compileEightWeekProgram', () => {
     expect(result.weeks[0].conditioningBouts.every(bout => !days.includes(bout.weekday as never))).toBe(true)
     expect(Object.isFrozen(result)).toBe(true)
     expect(Object.isFrozen(result.weeks[0].strengthSessions[0].exercises[0].setIds)).toBe(true)
+    for (const movementPattern of patterns) {
+      const instances = result.weeks.flatMap(week => week.strengthSessions)
+        .flatMap(session => session.exercises)
+        .filter(exercise => exercise.movementPattern === movementPattern)
+      expect(new Set(instances.map(exercise => exercise.progression.progressionSeriesId)))
+        .toEqual(new Set([`strength-slot:${movementPattern}`]))
+      expect(instances.every(exercise => (
+        exercise.progression.side === 'bilateral'
+        && exercise.progression.rom === 'catalog_default'
+        && exercise.progression.tempo === 'self_selected_controlled'
+        && exercise.progression.exposureType === 'standard'
+        && exercise.progression.loadEpoch === 1
+      ))).toBe(true)
+    }
   })
 
   it('uses goal-specific rep ceilings and stable exercise/set identities on replay', () => {
@@ -132,6 +160,12 @@ describe('compileEightWeekProgram', () => {
     expect(stableKeyLifts[1]).toEqual(stableKeyLifts[0])
     expect(stableKeyLifts[2]).toEqual(stableKeyLifts[0])
     expect(new Set(first.weeks.flatMap(week => week.strengthSessions.flatMap(session => session.exercises.flatMap(exercise => exercise.setIds)))).size).toBe(128)
+    const allGeneratedIds = first.weeks.flatMap(week => [
+      ...week.strengthSessions.flatMap(session => [session.sessionId, ...session.exercises.flatMap(exercise => [exercise.exerciseInstanceId, ...exercise.setIds])]),
+      ...week.conditioningBouts.map(bout => bout.boutId),
+    ])
+    expect(allGeneratedIds.every(id => id.length <= 64)).toBe(true)
+    expect(new Set(allGeneratedIds).size).toBe(allGeneratedIds.length)
   })
 
   it('keeps recalled load history out of the compiled prescription', () => {
@@ -149,7 +183,7 @@ describe('compileEightWeekProgram', () => {
     expect(result.kind).toBe('draft_program')
     if (result.kind !== 'draft_program') return
     const knee = result.weeks[0].strengthSessions[0].exercises.find(exercise => exercise.movementPattern === 'knee_dominant')
-    expect(knee?.loadSelection).toEqual({ status: 'requires_explicit_acceptance', familiarizationHistoryAvailable: true })
+    expect(knee?.loadSelection).toMatchObject({ status: 'requires_explicit_acceptance', familiarizationHistoryAvailable: true })
     expect(JSON.stringify(knee)).not.toContain('60')
   })
 
@@ -175,11 +209,22 @@ describe('compileEightWeekProgram', () => {
   it('fails closed when a required compatible reviewed exercise is unavailable', () => {
     const missing = catalog()
     missing.exercises = missing.exercises.filter(exercise => exercise.movementPattern !== 'hinge')
-    expect(compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: missing })).toEqual({
+    expect(compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: missing })).toMatchObject({
       kind: 'needs_template_adjustment',
       reason: 'required_movement_unavailable',
       missingMovementPatterns: ['hinge'],
     })
+  })
+
+  it('does not compile an exercise without authored progression defaults', () => {
+    const missing = catalog()
+    delete missing.exercises[0].progressionDefaults
+    expect(compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: missing }))
+      .toMatchObject({
+        kind: 'needs_template_adjustment',
+        reason: 'required_movement_unavailable',
+        missingMovementPatterns: ['knee_dominant'],
+      })
   })
 
   it('does not select an empty or out-of-bounds explicit-load inventory', () => {
@@ -206,7 +251,7 @@ describe('compileEightWeekProgram', () => {
       profile: profile(['monday', 'thursday']),
       catalog: catalog(),
     })
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       kind: 'needs_template_adjustment',
       reason: 'conditioning_modality_unavailable',
       missingMovementPatterns: [],
@@ -245,9 +290,14 @@ describe('compileEightWeekProgram', () => {
     expect(east.weeks[0].strengthSessions[0].athleteTimezone).toBe('America/New_York')
   })
 
-  it('rejects unsupported cycle lengths and malformed catalog runtime input', () => {
-    expect(() => compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday'], { cycleLengthWeeks: 6 }), catalog: catalog() }))
-      .toThrow('Only the eight-week compiler is supported')
+  it('returns structured unsupported-cycle and invalid-anchor results', () => {
+    expect(compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday'], { cycleLengthWeeks: 6 }), catalog: catalog() }))
+      .toMatchObject({ kind: 'unsupported_cycle', reason: 'only_eight_week_cycle_supported', requestedCycleLengthWeeks: 6 })
+    expect(compileEightWeekProgram({ ...baseIds, cycleStartLocalDate: '2026-02-30', profile: profile(['monday', 'thursday']), catalog: catalog() }))
+      .toMatchObject({ kind: 'invalid_anchor_date', reason: 'invalid_local_cycle_start', requestedValue: '2026-02-30' })
+  })
+
+  it('rejects malformed catalog runtime input', () => {
     expect(() => compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: { ...catalog(), exercises: 'forged' } as never }))
       .toThrow('Invalid compiler input')
     expect(() => compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: catalog(), scanGrade: 'poor' } as never))
@@ -258,4 +308,71 @@ describe('compileEightWeekProgram', () => {
     expect(() => compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: invertedBounds }))
       .toThrow('Invalid compiler input')
   })
+
+  it('compiles exact barbell inventory and preserves one- versus two-dumbbell semantics', () => {
+    const variants = catalog()
+    variants.exercises.forEach((exercise) => {
+      if (exercise.movementPattern === 'knee_dominant') {
+        exercise.equipmentCompatibility = [{
+          kind: 'dumbbell', basis: 'dumbbell_single_implement', implementCount: 1,
+          holdingConfiguration: 'two_hands_single_implement', minimumCanonicalKg: '5', maximumCanonicalKg: '20',
+        }]
+      } else if (exercise.movementPattern === 'hinge') {
+        exercise.equipmentCompatibility = [{
+          kind: 'dumbbell', basis: 'dumbbell_per_hand', implementCount: 2,
+          holdingConfiguration: 'one_per_hand', minimumCanonicalKg: '5', maximumCanonicalKg: '20',
+        }]
+      } else if (exercise.movementPattern === 'push') {
+        exercise.equipmentCompatibility = [{
+          kind: 'barbell', basis: 'barbell_total', minimumCanonicalKg: '10', maximumCanonicalKg: '30',
+        }]
+      }
+    })
+    const result = compileEightWeekProgram({
+      ...baseIds,
+      profile: profile(['monday', 'thursday'], {
+        equipmentInventory: [
+          { kind: 'dumbbell', equipmentId: 'db-set', unit: 'kg', perHandLoads: ['10', '20'] },
+          { kind: 'barbell', equipmentId: 'rack', unit: 'kg', barWeight: '10', collarsTotalWeight: '0', plates: [{ value: '5', count: 2 }] },
+          { kind: 'machine', equipmentId: 'synthetic-machine', unit: 'kg', stackLoads: ['20'] },
+        ],
+      }),
+      catalog: variants,
+    })
+    expect(result.kind).toBe('draft_program')
+    if (result.kind !== 'draft_program') return
+    const exercises = result.weeks[0].strengthSessions[0].exercises
+    expect(exercises.find(item => item.movementPattern === 'knee_dominant')).toMatchObject({
+      loadBasis: 'dumbbell_single_implement', implementCount: 1, holdingConfiguration: 'two_hands_single_implement',
+    })
+    expect(exercises.find(item => item.movementPattern === 'hinge')).toMatchObject({
+      loadBasis: 'dumbbell_per_hand', implementCount: 2, holdingConfiguration: 'one_per_hand',
+    })
+    expect(exercises.find(item => item.movementPattern === 'push')).toMatchObject({ loadBasis: 'barbell_total' })
+  })
+
+  it('binds generated identities and catalog provenance to the execution context', () => {
+    const first = compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday']), catalog: catalog() })
+    const second = compileEightWeekProgram({
+      ...baseIds,
+      executionContext: { ...baseIds.executionContext, simulationRunId: '44444444-4444-4444-8444-444444444444' },
+      profile: profile(['monday', 'thursday']), catalog: catalog(),
+    })
+    expect(first.kind).toBe('draft_program')
+    expect(second.kind).toBe('draft_program')
+    if (first.kind !== 'draft_program' || second.kind !== 'draft_program') return
+    expect(first.catalogOrigin).toEqual(catalog().origin)
+    expect(first.weeks[0].strengthSessions[0].sessionId).not.toBe(second.weeks[0].strengthSessions[0].sessionId)
+    expect(first.weeks[0].strengthSessions[0].exercises[0].exerciseInstanceId)
+      .not.toBe(second.weeks[0].strengthSessions[0].exercises[0].exerciseInstanceId)
+    expect(first.weeks[0].conditioningBouts[0].boutId).not.toBe(second.weeks[0].conditioningBouts[0].boutId)
+  })
+
+  it('rejects synthetic profile provenance that does not match the active fixture', () => {
+    const mismatched = profile(['monday', 'thursday'])
+    mismatched.origin = { kind: 'synthetic_fixture', fixtureId: 'other-fixture', label: 'Synthetic other fixture' }
+    expect(() => compileEightWeekProgram({ ...baseIds, profile: mismatched, catalog: catalog() }))
+      .toThrow('Invalid compiler input')
+  })
+
 })

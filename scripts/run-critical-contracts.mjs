@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
 
@@ -148,9 +148,9 @@ export function validateCriticalContractInventory(root = ROOT) {
   return errors
 }
 
-function run(command, args) {
+function run(command, args, env = process.env) {
   process.stdout.write(`\n[critical-contracts] ${command} ${args.join(' ')}\n`)
-  const result = spawnSync(command, args, { cwd: ROOT, stdio: 'inherit', env: process.env })
+  const result = spawnSync(command, args, { cwd: ROOT, stdio: 'inherit', env })
   if (result.error) throw result.error
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
@@ -167,6 +167,14 @@ export function main() {
   run('npx', ['vitest', 'run', ...unitFiles])
   run('npm', ['test', '-w', '@posture-ai/engine', '--', '--run'])
   run('npx', ['supabase', 'test', 'db'])
+  const localStatus = execFileSync('npx', ['supabase', 'status', '-o', 'env'], {
+    cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const databaseUrl = localStatus.match(/^DB_URL="([^"]+)"$/m)?.[1]
+  if (!databaseUrl) throw new Error('Local test database URL unavailable; credentials withheld')
+  run(process.execPath, ['supabase/tests/training_revision_locking_race.mjs'], {
+    ...process.env, SUPABASE_DB_URL: databaseUrl,
+  })
   process.stdout.write('\n[critical-contracts] PASS\n')
 }
 

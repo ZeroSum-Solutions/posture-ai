@@ -263,7 +263,7 @@ SELECT throws_ok(
       '{"schemaVersion":"athlete-training-profile.v1"}'::jsonb
     )
   $$,
-  '40001',
+  'PT409',
   NULL,
   'a stale profile revision cannot overwrite the current pointer'
 );
@@ -831,7 +831,7 @@ SELECT throws_ok(
     SET current_profile_revision = 1
     WHERE id = '42000000-0000-4000-8000-000000000001'
   $$,
-  '40001',
+  'PT409',
   'current profile pointer must advance exactly once',
   'the mutable profile pointer cannot rewind immutable evidence'
 );
@@ -842,7 +842,7 @@ SELECT throws_ok(
     SET current_profile_revision = 4
     WHERE id = '42000000-0000-4000-8000-000000000001'
   $$,
-  '40001',
+  'PT409',
   'current profile pointer must advance exactly once',
   'the mutable profile pointer cannot skip an immutable revision'
 );
@@ -853,7 +853,7 @@ SELECT throws_ok(
     SET current_eligibility_decision_source_revision_id = NULL
     WHERE id = '42000000-0000-4000-8000-000000000001'
   $$,
-  '40001',
+  'PT409',
   'current eligibility pointer must follow the supersession chain',
   'the mutable decision pointer cannot discard authoritative provenance'
 );
@@ -864,7 +864,7 @@ SELECT throws_ok(
     SET permissions = ARRAY['subject:read']::public.training_coach_permission[]
     WHERE id = '44000000-0000-4000-8000-000000000001'
   $$,
-  '40001',
+  'PT409',
   'coaching relationship revision must advance exactly once',
   'permission edits require an optimistic revision advance'
 );

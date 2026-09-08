@@ -54,4 +54,13 @@ describe('expandLocalDates', () => {
   it('rejects impossible calendar dates', () => {
     expect(() => expandLocalDates('2026-02-30', 'monday', 8)).toThrow('Invalid local date')
   })
+
+  it('treats a non-Monday anchor as the start of its own seven-day local window', () => {
+    expect(expandLocalDates('2026-03-04', 'monday', 2)).toEqual(['2026-03-09', '2026-03-16'])
+    expect(expandLocalDates('2026-03-04', 'wednesday', 2)).toEqual(['2026-03-04', '2026-03-11'])
+  })
+
+  it('validates runtime weekday input at the public boundary', () => {
+    expect(() => expandLocalDates('2026-03-04', 'funday' as never, 2)).toThrow('Invalid weekday')
+  })
 })

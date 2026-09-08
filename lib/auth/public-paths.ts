@@ -58,8 +58,10 @@ export const PUBLIC_PATHS = publicPaths()
  */
 export const AAL1_CORRIDOR_PATHS = [
   '/auth/accept-invite',
+  '/train/accept-invite',
   '/auth/mfa',
   '/api/auth/complete-invitation',
+  '/api/training/auth/complete-invitation',
   '/api/auth/sign-out',
 ] as const
 

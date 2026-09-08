@@ -147,11 +147,23 @@ npx vitest run proxy.test.ts lib/auth/public-paths.test.ts app/api/auth/complete
 Run schema and real-actor gates after each migration group, against local Supabase only:
 
 ```bash
-npx supabase db reset
-npx supabase test db
-npm run test:e2e -- e2e/athlete-identity.spec.ts e2e/training-online-log.spec.ts
-npm run test:e2e -- e2e/auth-admission.spec.ts e2e/workout-player.spec.ts
+ATHLETE_DB_WORKDIR=/tmp/posture-ai-athlete-training-identity
+ATHLETE_DB_PROJECT=posture-ai-athlete-training-identity
+test "$(awk -F'\"' '/^project_id = / {print $2; exit}' "$ATHLETE_DB_WORKDIR/supabase/config.toml")" = "$ATHLETE_DB_PROJECT"
+test "$(awk '/^\[db\]$/ {in_db=1; next} /^\[/ {in_db=0} in_db && /^port = / {print $3; exit}' "$ATHLETE_DB_WORKDIR/supabase/config.toml")" = "55422"
+test "$(docker inspect "supabase_db_$ATHLETE_DB_PROJECT" --format '{{index .Config.Labels "com.supabase.cli.project"}}')" = "$ATHLETE_DB_PROJECT"
+mise exec node@22.23.2 -- npm exec --no -- supabase db reset --local --workdir "$ATHLETE_DB_WORKDIR"
+
+test "$(awk -F'\"' '/^project_id = / {print $2; exit}' "$ATHLETE_DB_WORKDIR/supabase/config.toml")" = "$ATHLETE_DB_PROJECT"
+test "$(awk '/^\[db\]$/ {in_db=1; next} /^\[/ {in_db=0} in_db && /^port = / {print $3; exit}' "$ATHLETE_DB_WORKDIR/supabase/config.toml")" = "55422"
+test "$(docker inspect "supabase_db_$ATHLETE_DB_PROJECT" --format '{{index .Config.Labels "com.supabase.cli.project"}}')" = "$ATHLETE_DB_PROJECT"
+test "$(docker inspect "supabase_db_$ATHLETE_DB_PROJECT" --format '{{.State.Health.Status}}')" = "healthy"
+mise exec node@22.23.2 -- npm exec --no -- supabase test db --local --workdir "$ATHLETE_DB_WORKDIR"
+mise exec node@22.23.2 -- npm run test:e2e -- e2e/athlete-identity.spec.ts e2e/training-online-log.spec.ts
+mise exec node@22.23.2 -- npm run test:e2e -- e2e/auth-admission.spec.ts e2e/workout-player.spec.ts
 ```
+
+The explicit workdir, project ID, port and Docker-label checks are mandatory before every database reset or test. A bare `supabase db reset` from the repository checkout is unsafe because it can target unrelated local development data.
 
 Before the integration checkpoint, run fresh full gates on the unchanged merge candidate:
 
@@ -161,7 +173,12 @@ npm run typecheck
 npx vitest run
 npm test -w @posture-ai/engine
 npm run build
-npx supabase db reset
+ATHLETE_DB_WORKDIR=/tmp/posture-ai-athlete-training-identity
+ATHLETE_DB_PROJECT=posture-ai-athlete-training-identity
+test "$(awk -F'\"' '/^project_id = / {print $2; exit}' "$ATHLETE_DB_WORKDIR/supabase/config.toml")" = "$ATHLETE_DB_PROJECT"
+test "$(awk '/^\[db\]$/ {in_db=1; next} /^\[/ {in_db=0} in_db && /^port = / {print $3; exit}' "$ATHLETE_DB_WORKDIR/supabase/config.toml")" = "55422"
+test "$(docker inspect "supabase_db_$ATHLETE_DB_PROJECT" --format '{{index .Config.Labels "com.supabase.cli.project"}}')" = "$ATHLETE_DB_PROJECT"
+mise exec node@22.23.2 -- npm exec --no -- supabase db reset --local --workdir "$ATHLETE_DB_WORKDIR"
 CI=1 npm run test:e2e
 ```
 

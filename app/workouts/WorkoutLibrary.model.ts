@@ -17,6 +17,7 @@ export type WorkoutLibraryItem = {
 
 export type WorkoutBuilderSeed = {
   assessmentId: string
+  clientId: string
   clientName: string
   capability: WorkoutPreferences['capability']
   approved: boolean
@@ -25,4 +26,3 @@ export type WorkoutBuilderSeed = {
 export function workoutLibraryKey(library: WorkoutLibraryItem[], seed?: WorkoutBuilderSeed | null): string {
   return `${seed?.assessmentId ?? 'library'}:${library.map((entry) => entry.id).join(',')}`
 }
-

@@ -1,15 +1,27 @@
 import { z } from 'zod'
+import { createHash } from 'node:crypto'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from '../contracts/profile'
+import { ExecutionContextV1Schema, type ExecutionContextV1 } from '../contracts/program'
 import {
   MovementPatternV1Schema,
   TrainingCatalogV1Schema,
   type ConditioningModeV1,
+  type ExerciseProgressionDefaultsV1,
   type MovementPatternV1,
+  type TrainingCatalogOriginV1,
   type TrainingCatalogV1,
   type TrainingExerciseV1,
 } from '../catalog/types'
-import type { EquipmentLoadBasis, EquipmentInventory } from '../equipment'
-import { createLoadQuantity, isEnteredLoadAtMostCanonicalKg } from '../quantity'
+import {
+  SYNTHETIC_STARTER_CATALOG,
+  SYNTHETIC_STARTER_CATALOG_FIXTURE_HASH,
+  SYNTHETIC_STARTER_PROGRESSION_DEFAULTS,
+} from '../catalog/syntheticStarter'
+import {
+  enumerateEquipmentLoadsWithinBounds,
+  type EquipmentLoadBasis,
+  type EquipmentInventory,
+} from '../equipment'
 import { estimateDynamicSessionDuration } from './duration'
 import {
   WEEKDAYS,
@@ -21,7 +33,7 @@ import {
 } from './schedule'
 
 export const COMPILED_PROGRAM_SCHEMA_VERSION = 'compiled-program.v1' as const
-export const PROGRAM_COMPILER_POLICY_VERSION = 'eight-week-compiler.v1' as const
+export const PROGRAM_COMPILER_POLICY_VERSION = 'eight-week-compiler.v2' as const
 
 const stableIdSchema = z.string()
   .trim()
@@ -33,11 +45,34 @@ const compileInputSchema = z.object({
   subjectId: stableIdSchema,
   profileRevisionId: stableIdSchema,
   programRevisionId: stableIdSchema,
-  cycleStartLocalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  cycleStartLocalDate: z.string().max(32),
   conditioningModalityId: stableIdSchema,
+  executionContext: ExecutionContextV1Schema,
   profile: AthleteTrainingProfileV1Schema,
   catalog: TrainingCatalogV1Schema,
-}).strict()
+}).strict().superRefine((input, ctx) => {
+  if (input.executionContext.kind === 'live' && input.catalog.origin.kind === 'synthetic_fixture') {
+    ctx.addIssue({ code: 'custom', message: 'Live compilation cannot consume a synthetic catalog', path: ['catalog', 'origin'] })
+  }
+  if (input.executionContext.kind === 'live' && input.profile.origin.kind === 'synthetic_fixture') {
+    ctx.addIssue({ code: 'custom', message: 'Live compilation cannot consume a synthetic profile', path: ['profile', 'origin'] })
+  }
+  if (input.executionContext.kind === 'synthetic_simulation') {
+    if (
+      input.catalog.origin.kind !== 'synthetic_fixture'
+      || input.catalog.origin.fixtureId !== input.executionContext.fixtureId
+      || input.catalog.origin.fixtureHash !== input.executionContext.fixtureHash
+    ) {
+      ctx.addIssue({ code: 'custom', message: 'Simulation catalog does not match its execution context', path: ['catalog', 'origin'] })
+    }
+    if (
+      input.profile.origin.kind !== 'synthetic_fixture'
+      || input.profile.origin.fixtureId !== input.executionContext.fixtureId
+    ) {
+      ctx.addIssue({ code: 'custom', message: 'Simulation profile does not match its execution context', path: ['profile', 'origin'] })
+    }
+  }
+})
 
 const REQUIRED_PATTERNS = MovementPatternV1Schema.options
 const PHASES = [
@@ -50,6 +85,11 @@ interface SelectedExercise {
   readonly exercise: TrainingExerciseV1
   readonly equipmentId: string
   readonly basis: EquipmentLoadBasis
+  readonly implementCount: 1 | 2
+  readonly holdingConfiguration: 'two_hands_single_implement' | 'one_per_hand' | 'both_hands_barbell' | 'machine_defined'
+  readonly minimumCanonicalKg: string
+  readonly maximumCanonicalKg: string
+  readonly progressionDefaults: ExerciseProgressionDefaultsV1
 }
 
 export interface CompiledExerciseV1 {
@@ -58,13 +98,25 @@ export interface CompiledExerciseV1 {
   readonly movementPattern: MovementPatternV1
   readonly equipmentId: string
   readonly loadBasis: EquipmentLoadBasis
+  readonly implementCount: 1 | 2
+  readonly holdingConfiguration: SelectedExercise['holdingConfiguration']
   readonly setIds: readonly string[]
   readonly repRange: { readonly minimum: number; readonly maximum: number }
   readonly targetRir: { readonly minimum: 2; readonly maximum: 3 }
   readonly restSeconds: 120
+  readonly progression: {
+    readonly progressionSeriesId: string
+    readonly side: 'bilateral' | 'left' | 'right' | 'not_applicable'
+    readonly rom: string
+    readonly tempo: string
+    readonly exposureType: string
+    readonly loadEpoch: 1
+  }
   readonly loadSelection: {
     readonly status: 'requires_explicit_acceptance'
     readonly familiarizationHistoryAvailable: boolean
+    readonly minimumCanonicalKg: string
+    readonly maximumCanonicalKg: string
   }
 }
 
@@ -99,7 +151,19 @@ export interface CompiledWeekV1 {
   readonly conditioningBouts: readonly CompiledConditioningBoutV1[]
 }
 
-export type CompilationResultV1 =
+export type CompilationResultV1 = {
+  readonly executionContext: ExecutionContextV1
+} & (
+  | {
+    readonly kind: 'unsupported_cycle'
+    readonly reason: 'only_eight_week_cycle_supported'
+    readonly requestedCycleLengthWeeks: 4 | 6 | 12
+  }
+  | {
+    readonly kind: 'invalid_anchor_date'
+    readonly reason: 'invalid_local_cycle_start'
+    readonly requestedValue: string
+  }
   | {
     readonly kind: 'draft_program'
     readonly schemaVersion: typeof COMPILED_PROGRAM_SCHEMA_VERSION
@@ -109,6 +173,7 @@ export type CompilationResultV1 =
     readonly profileRevisionId: string
     readonly programRevisionId: string
     readonly catalogVersion: string
+    readonly catalogOrigin: TrainingCatalogOriginV1
     readonly goal: AthleteTrainingProfileV1['goal']
     readonly cycleStartLocalDate: string
     readonly athleteTimezone: string
@@ -143,17 +208,27 @@ export type CompilationResultV1 =
     readonly reason: 'conditioning_modality_unavailable'
     readonly missingMovementPatterns: readonly []
   }
+)
 
-function expectedBasis(inventory: EquipmentInventory): EquipmentLoadBasis {
-  if (inventory.kind === 'barbell') return 'barbell_total'
-  if (inventory.kind === 'dumbbell') return 'dumbbell_per_hand'
-  return 'machine_stack'
+function authoredProgressionDefaults(
+  exercise: TrainingExerciseV1,
+  catalog: TrainingCatalogV1,
+): ExerciseProgressionDefaultsV1 | undefined {
+  if (exercise.progressionDefaults) return exercise.progressionDefaults
+  if (catalog.catalogVersion !== SYNTHETIC_STARTER_CATALOG.catalogVersion
+    || catalog.origin.kind !== 'synthetic_fixture'
+    || catalog.origin.fixtureHash !== SYNTHETIC_STARTER_CATALOG_FIXTURE_HASH) return undefined
+  return SYNTHETIC_STARTER_PROGRESSION_DEFAULTS[
+    exercise.exerciseVersionId as keyof typeof SYNTHETIC_STARTER_PROGRESSION_DEFAULTS
+  ]
 }
 
 function isSelectableExercise(exercise: TrainingExerciseV1, catalog: TrainingCatalogV1): boolean {
-  if (exercise.lifecycle !== 'active') return false
+  if (exercise.lifecycle !== 'active' || !authoredProgressionDefaults(exercise, catalog)) return false
   if (catalog.origin.kind === 'synthetic_fixture') {
-    return exercise.contentReviewStatus === 'reviewed_fixture' && exercise.mediaStatus === 'reviewed_static_fixture'
+    return exercise.contentReviewStatus === 'reviewed_fixture'
+      && (exercise.mediaStatus === 'reviewed_static_fixture'
+        || (exercise.mediaStatus === 'missing' && typeof exercise.textInstruction === 'string'))
   }
   return exercise.contentReviewStatus === 'reviewed' && exercise.mediaStatus === 'reviewed_exact_variant'
 }
@@ -165,20 +240,11 @@ function isSelectableConditioning(mode: ConditioningModeV1, catalog: TrainingCat
     : mode.contentReviewStatus === 'reviewed'
 }
 
-function inventoryHasExplicitLoadInBounds(
-  inventory: EquipmentInventory,
-  minimumCanonicalKg: string,
-  maximumCanonicalKg: string,
-): boolean {
-  // Barbell combinations must come from the equipment enumerator in the next
-  // equipment slice; this compiler does not duplicate plate-pair arithmetic.
-  if (inventory.kind === 'barbell') return false
-  const values = inventory.kind === 'dumbbell' ? inventory.perHandLoads : inventory.stackLoads
-  return values.some((value) => {
-    const load = createLoadQuantity({ value, unit: inventory.unit })
-    return isEnteredLoadAtMostCanonicalKg({ value: minimumCanonicalKg, unit: 'kg' }, load.canonicalKg)
-      && isEnteredLoadAtMostCanonicalKg(load.entered, maximumCanonicalKg)
-  })
+function implementSemantics(basis: EquipmentLoadBasis): Pick<SelectedExercise, 'implementCount' | 'holdingConfiguration'> {
+  if (basis === 'dumbbell_per_hand') return { implementCount: 2, holdingConfiguration: 'one_per_hand' }
+  if (basis === 'dumbbell_single_implement') return { implementCount: 1, holdingConfiguration: 'two_hands_single_implement' }
+  if (basis === 'barbell_total') return { implementCount: 1, holdingConfiguration: 'both_hands_barbell' }
+  return { implementCount: 1, holdingConfiguration: 'machine_defined' }
 }
 
 function selectExercise(
@@ -192,14 +258,24 @@ function selectExercise(
   const sortedInventory = [...inventory].sort((left, right) => left.equipmentId.localeCompare(right.equipmentId))
 
   for (const exercise of sortedExercises) {
-    for (const equipment of sortedInventory) {
-      const basis = expectedBasis(equipment)
-      if (exercise.equipmentCompatibility.some(option => (
-        option.kind === equipment.kind
-        && option.basis === basis
-        && inventoryHasExplicitLoadInBounds(equipment, option.minimumCanonicalKg, option.maximumCanonicalKg)
-      ))) {
-        return { exercise, equipmentId: equipment.equipmentId, basis }
+    const progressionDefaults = authoredProgressionDefaults(exercise, catalog)
+    if (!progressionDefaults) continue
+    for (const option of exercise.equipmentCompatibility) {
+      for (const equipment of sortedInventory) {
+        if (option.kind === equipment.kind && enumerateEquipmentLoadsWithinBounds(equipment, option.basis, {
+          minimumCanonicalKg: option.minimumCanonicalKg,
+          maximumCanonicalKg: option.maximumCanonicalKg,
+        }).length > 0) {
+          return {
+            exercise,
+            equipmentId: equipment.equipmentId,
+            basis: option.basis,
+            ...implementSemantics(option.basis),
+            minimumCanonicalKg: option.minimumCanonicalKg,
+            maximumCanonicalKg: option.maximumCanonicalKg,
+            progressionDefaults,
+          }
+        }
       }
     }
   }
@@ -251,24 +327,37 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
+function stableGeneratedId(prefix: 'sess' | 'bout' | 'ex' | 'set', parts: readonly unknown[]): string {
+  const digest = createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 32)
+  return `${prefix}_${digest}`
+}
+
 function compileExercise(
   selection: SelectedExercise,
   profile: AthleteTrainingProfileV1,
   programRevisionId: string,
   week: number,
   sessionOrdinal: number,
+  executionContext: ExecutionContextV1,
 ): CompiledExerciseV1 {
-  const exerciseInstanceId = `${programRevisionId}:w${week}:s${sessionOrdinal}:${selection.exercise.exerciseVersionId}`
+  const exerciseInstanceId = stableGeneratedId('ex', [executionContext, programRevisionId, week, sessionOrdinal, selection.exercise.exerciseVersionId])
   return {
     exerciseInstanceId,
     exerciseVersionId: selection.exercise.exerciseVersionId,
     movementPattern: selection.exercise.movementPattern,
     equipmentId: selection.equipmentId,
     loadBasis: selection.basis,
-    setIds: [1, 2].map(set => `${exerciseInstanceId}:set${set}`),
+    implementCount: selection.implementCount,
+    holdingConfiguration: selection.holdingConfiguration,
+    setIds: [1, 2].map(set => stableGeneratedId('set', [executionContext, exerciseInstanceId, set])),
     repRange: repRange(profile),
     targetRir: { minimum: 2, maximum: 3 },
     restSeconds: 120,
+    progression: {
+      progressionSeriesId: `strength-slot:${selection.exercise.movementPattern}`,
+      ...selection.progressionDefaults,
+      loadEpoch: 1,
+    },
     loadSelection: {
       status: 'requires_explicit_acceptance',
       familiarizationHistoryAvailable: profile.startingHistory.some(history => (
@@ -276,6 +365,8 @@ function compileExercise(
         && history.equipmentLoad.equipmentId === selection.equipmentId
         && history.equipmentLoad.basis === selection.basis
       )),
+      minimumCanonicalKg: selection.minimumCanonicalKg,
+      maximumCanonicalKg: selection.maximumCanonicalKg,
     },
   }
 }
@@ -284,14 +375,28 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
   const parsed = compileInputSchema.safeParse(input)
   if (!parsed.success) throw new Error('Invalid compiler input')
   const { profile, catalog } = parsed.data
-  if (profile.cycleLengthWeeks !== 8) throw new Error('Only the eight-week compiler is supported')
+  const resultContext = { executionContext: parsed.data.executionContext } as const
+  if (profile.cycleLengthWeeks !== 8) return deepFreeze({
+    ...resultContext,
+    kind: 'unsupported_cycle', reason: 'only_eight_week_cycle_supported',
+    requestedCycleLengthWeeks: profile.cycleLengthWeeks,
+  })
 
   // Validate the local calendar anchor without converting it to an athlete instant.
-  expandLocalDates(parsed.data.cycleStartLocalDate, 'monday', 1)
+  try {
+    expandLocalDates(parsed.data.cycleStartLocalDate, 'monday', 1)
+  } catch {
+    return deepFreeze({
+      ...resultContext,
+      kind: 'invalid_anchor_date', reason: 'invalid_local_cycle_start',
+      requestedValue: parsed.data.cycleStartLocalDate,
+    })
+  }
 
   const schedule = resolveStrengthSchedule(profile.strengthDays)
   if (schedule.kind === 'adjustment_required') {
     return deepFreeze({
+      ...resultContext,
       kind: 'schedule_adjustment_required',
       reason: 'nonconsecutive_schedule_required',
       requestedDays: schedule.requestedDays,
@@ -307,14 +412,14 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
     else missingMovementPatterns.push(pattern)
   }
   if (missingMovementPatterns.length > 0) {
-    return deepFreeze({ kind: 'needs_template_adjustment', reason: 'required_movement_unavailable', missingMovementPatterns })
+    return deepFreeze({ ...resultContext, kind: 'needs_template_adjustment', reason: 'required_movement_unavailable', missingMovementPatterns })
   }
 
   const conditioningMode = catalog.conditioningModes.find(mode => (
     mode.modalityId === parsed.data.conditioningModalityId && isSelectableConditioning(mode, catalog)
   ))
   if (!conditioningMode) {
-    return deepFreeze({ kind: 'needs_template_adjustment', reason: 'conditioning_modality_unavailable', missingMovementPatterns: [] })
+    return deepFreeze({ ...resultContext, kind: 'needs_template_adjustment', reason: 'conditioning_modality_unavailable', missingMovementPatterns: [] })
   }
 
   const requiredDurationSeconds = Math.max(...schedule.days.map(day => sessionDuration(day.sessionType, selections, profile)))
@@ -323,6 +428,7 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
       minutes > profile.sessionTimeBudgetMinutes && requiredDurationSeconds <= minutes * 60
     )) ?? null
     return deepFreeze({
+      ...resultContext,
       kind: 'time_budget_insufficient',
       reason: 'required_session_does_not_fit',
       requestedBudgetMinutes: profile.sessionTimeBudgetMinutes,
@@ -335,7 +441,7 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
   const weeks: CompiledWeekV1[] = PHASES.map((phase, weekIndex) => {
     const week = weekIndex + 1
     const strengthSessions = schedule.days.map((day, sessionIndex): CompiledStrengthSessionV1 => ({
-      sessionId: `${parsed.data.programRevisionId}:w${week}:strength${sessionIndex + 1}`,
+      sessionId: stableGeneratedId('sess', [parsed.data.executionContext, parsed.data.programRevisionId, week, sessionIndex + 1, day.weekday]),
       sessionType: day.sessionType,
       weekday: day.weekday,
       scheduledLocalDate: scheduledDate(parsed.data.cycleStartLocalDate, day.weekday, weekIndex),
@@ -349,10 +455,11 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
         parsed.data.programRevisionId,
         week,
         sessionIndex + 1,
+        parsed.data.executionContext,
       )),
     }))
     const conditioningBouts = offDays.map((weekday, boutIndex): CompiledConditioningBoutV1 => ({
-      boutId: `${parsed.data.programRevisionId}:w${week}:conditioning${boutIndex + 1}`,
+      boutId: stableGeneratedId('bout', [parsed.data.executionContext, parsed.data.programRevisionId, week, boutIndex + 1, weekday]),
       modalityId: conditioningMode.modalityId,
       weekday,
       scheduledLocalDate: scheduledDate(parsed.data.cycleStartLocalDate, weekday, weekIndex),
@@ -366,6 +473,7 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
   })
 
   return deepFreeze({
+    ...resultContext,
     kind: 'draft_program',
     schemaVersion: COMPILED_PROGRAM_SCHEMA_VERSION,
     compilerPolicyVersion: PROGRAM_COMPILER_POLICY_VERSION,
@@ -374,6 +482,7 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
     profileRevisionId: parsed.data.profileRevisionId,
     programRevisionId: parsed.data.programRevisionId,
     catalogVersion: catalog.catalogVersion,
+    catalogOrigin: catalog.origin,
     goal: profile.goal,
     cycleStartLocalDate: parsed.data.cycleStartLocalDate,
     athleteTimezone: profile.localTimezone,

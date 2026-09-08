@@ -1,5 +1,6 @@
 import type { EquipmentInventory, EquipmentLoad } from '../equipment'
 import type { EligibilitySnapshotV1 } from '../contracts/eligibility'
+import type { ExecutionContextV1 } from '../contracts/program'
 
 export type { EligibilitySnapshotV1, EligibilityStateV1 } from '../contracts/eligibility'
 
@@ -65,6 +66,7 @@ export interface OutlierAcknowledgementV1 {
 
 export interface StrengthExposureV1 {
   sourceRevisionId: string
+  executionContext: ExecutionContextV1
   provenance:
     | { kind: 'in_app'; sourceVersion: 'training-log.v1' }
     | { kind: 'recalled'; sourceVersion: 'athlete-recall.v1' }
@@ -87,6 +89,7 @@ export interface StrengthExposureV1 {
 export interface StrengthProgressionInputV1 {
   policyVersion: 'strength-progression-v1'
   now: string
+  executionContext: ExecutionContextV1
   subjectId: string
   sourceProfileRevisionId: string
   programRevisionId: string
@@ -133,6 +136,7 @@ interface DecisionAuditV1 {
   kind: 'stop' | 'hold' | 'review' | 'recalibrate' | 'rep_proposal' | 'load_proposal'
   status: 'not_proposed' | 'proposed'
   policyVersion: 'strength-progression-v1'
+  executionContext: ExecutionContextV1
   decisionKey: string
   subjectId: string
   prescriptionId: string

@@ -45,7 +45,7 @@ describe('proxy PR-04 admission boundary', () => {
     signOut.mockReset().mockResolvedValue({ error: null })
     rpc.mockReset().mockReturnValue({ maybeSingle })
     maybeSingle.mockReset().mockResolvedValue({
-      data: { access_status: 'active', role: 'practitioner', session_is_current: true, non_diagnostic_ack_at: '2026-07-19T00:00:00Z' },
+      data: { actor_kind: 'practitioner', subject_id: null, access_status: 'active', role: 'practitioner', session_is_current: true, invitation_mode: null },
       error: null,
     })
     legalOrder.mockReset().mockResolvedValue({
@@ -119,7 +119,7 @@ describe('proxy PR-04 admission boundary', () => {
     const allowed = await proxy(new NextRequest('http://localhost/muscle-viewer/model.glb'))
     expect(allowed.status).toBe(200)
     expect(maybeSingle).toHaveBeenCalled()
-    maybeSingle.mockResolvedValue({ data: { access_status: 'revoked', role: 'practitioner' }, error: null })
+    maybeSingle.mockResolvedValue({ data: { actor_kind: 'practitioner', subject_id: null, access_status: 'revoked', role: 'practitioner', session_is_current: true, invitation_mode: null }, error: null })
     const denied = await proxy(new NextRequest('http://localhost/muscle-viewer/model.glb'))
     expect(denied.status).not.toBe(200)
   })
@@ -216,7 +216,7 @@ describe('proxy PR-04 admission boundary', () => {
 
   test('requires active practitioner role after AAL2', async () => {
     maybeSingle.mockResolvedValueOnce({
-      data: { access_status: 'revoked', role: 'practitioner', session_is_current: true, non_diagnostic_ack_at: null },
+      data: { actor_kind: 'practitioner', subject_id: null, access_status: 'revoked', role: 'practitioner', session_is_current: true, invitation_mode: null },
       error: null,
     })
 
@@ -237,7 +237,7 @@ describe('proxy PR-04 admission boundary', () => {
 
   test('allows invited and recovery-pending AAL2 sessions to finish atomically', async () => {
     maybeSingle.mockResolvedValueOnce({
-      data: { access_status: 'recovery_pending', role: 'practitioner', session_is_current: false, non_diagnostic_ack_at: null },
+      data: { actor_kind: 'practitioner', subject_id: null, access_status: 'recovery_pending', role: 'practitioner', session_is_current: false, invitation_mode: null },
       error: null,
     })
 
@@ -249,7 +249,7 @@ describe('proxy PR-04 admission boundary', () => {
 
   test('rejects an active account when the JWT predates its recovery cutoff', async () => {
     maybeSingle.mockResolvedValueOnce({
-      data: { access_status: 'active', role: 'practitioner', session_is_current: false, non_diagnostic_ack_at: null },
+      data: { actor_kind: 'practitioner', subject_id: null, access_status: 'active', role: 'practitioner', session_is_current: false, invitation_mode: null },
       error: null,
     })
 
@@ -257,6 +257,68 @@ describe('proxy PR-04 admission boundary', () => {
 
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
     expect(response.headers.get('location')).toContain('/auth/sign-in?reason=session_stale')
+  })
+
+  test('allows an active current athlete only into the athlete workspace', async () => {
+    maybeSingle.mockResolvedValue({
+      data: {
+        actor_kind: 'athlete',
+        subject_id: '11111111-1111-4111-8111-111111111111',
+        access_status: 'active',
+        role: 'athlete',
+        session_is_current: true,
+        invitation_mode: 'coach_invited',
+      },
+      error: null,
+    })
+
+    expect((await proxy(new NextRequest('http://localhost/train'))).status).toBe(200)
+    expect((await proxy(new NextRequest('http://localhost/api/training/profile?subjectId=1'))).status).toBe(200)
+    const pageDenied = await proxy(new NextRequest('http://localhost/dashboard'))
+    expect(pageDenied.headers.get('location')).toBe('http://localhost/train?reason=scope_denied')
+    const apiDenied = await proxy(new NextRequest('http://localhost/api/clients'))
+    expect(apiDenied.status).toBe(403)
+    await expect(apiDenied.json()).resolves.toMatchObject({ code: 'athlete_scope_denied' })
+    expect(legalOrder).not.toHaveBeenCalled()
+  })
+
+  test('routes an invited athlete through its own completion mode and fails stale sessions closed', async () => {
+    maybeSingle.mockResolvedValueOnce({
+      data: {
+        actor_kind: 'athlete', subject_id: '11111111-1111-4111-8111-111111111111',
+        access_status: 'invited', role: 'athlete', session_is_current: true,
+        invitation_mode: 'self_directed',
+      },
+      error: null,
+    })
+    const invited = await proxy(new NextRequest('http://localhost/train'))
+    expect(invited.headers.get('location')).toContain('/auth/mfa?mode=athlete-invite&next=%2Ftrain')
+    expect(signOut).not.toHaveBeenCalled()
+
+    maybeSingle.mockResolvedValueOnce({
+      data: {
+        actor_kind: 'athlete', subject_id: '11111111-1111-4111-8111-111111111111',
+        access_status: 'active', role: 'athlete', session_is_current: false,
+        invitation_mode: 'self_directed',
+      },
+      error: null,
+    })
+    const stale = await proxy(new NextRequest('http://localhost/train'))
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
+    expect(stale.headers.get('location')).toContain('/auth/sign-in?reason=session_stale')
+  })
+
+  test('fails a same-UID dual identity closed', async () => {
+    maybeSingle.mockResolvedValueOnce({
+      data: {
+        actor_kind: 'ambiguous', subject_id: null, access_status: 'denied',
+        role: null, session_is_current: false, invitation_mode: null,
+      },
+      error: null,
+    })
+    const response = await proxy(new NextRequest('http://localhost/train'))
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
+    expect(response.headers.get('location')).toContain('/auth/sign-in?reason=access_denied')
   })
 
   test.each(['/onboarding', '/api/legal/accept'])(
@@ -273,7 +335,7 @@ describe('proxy PR-04 admission boundary', () => {
 
   test('rejects a legacy timestamp when governed acceptance evidence is absent', async () => {
     maybeSingle.mockResolvedValueOnce({
-      data: { access_status: 'active', role: 'practitioner', session_is_current: true, non_diagnostic_ack_at: '2026-07-19T00:00:00Z' },
+      data: { actor_kind: 'practitioner', subject_id: null, access_status: 'active', role: 'practitioner', session_is_current: true, invitation_mode: null },
       error: null,
     })
     legalOrder.mockResolvedValueOnce({ data: [], error: null })

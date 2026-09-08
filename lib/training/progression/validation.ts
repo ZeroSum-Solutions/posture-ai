@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { EligibilitySnapshotV1Schema } from '../contracts/eligibility'
+import { ExecutionContextV1Schema } from '../contracts/program'
 import { createLoadQuantity, isEnteredLoadAtMostCanonicalKg } from '../quantity'
 import type { StrengthProgressionInputV1 } from './types'
 
@@ -10,7 +11,7 @@ const MAX_INVENTORY_ENTRIES = 1_000
 const nonemptyString = z.string().refine(value => value.trim().length > 0)
 const utcTimestamp = z.string().datetime({ offset: true }).refine(value => value.endsWith('Z'))
 const loadUnit = z.enum(['kg', 'lb'])
-const loadBasis = z.enum(['barbell_total', 'dumbbell_per_hand', 'machine_stack'])
+const loadBasis = z.enum(['barbell_total', 'dumbbell_per_hand', 'dumbbell_single_implement', 'machine_stack'])
 
 const enteredQuantity = z.strictObject({
   value: z.string(),
@@ -149,6 +150,7 @@ const outlierAcknowledgement = z.strictObject({
 
 const exposure = z.strictObject({
   sourceRevisionId: nonemptyString,
+  executionContext: ExecutionContextV1Schema,
   provenance: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('in_app'), sourceVersion: z.literal('training-log.v1') }),
     z.strictObject({ kind: z.literal('recalled'), sourceVersion: z.literal('athlete-recall.v1') }),
@@ -183,6 +185,7 @@ const eligibilityAuthorization = z.strictObject({
 export const strengthProgressionInputV1Schema = z.strictObject({
   policyVersion: z.literal('strength-progression-v1'),
   now: utcTimestamp,
+  executionContext: ExecutionContextV1Schema,
   subjectId: nonemptyString,
   sourceProfileRevisionId: nonemptyString,
   programRevisionId: nonemptyString,
@@ -194,6 +197,9 @@ export const strengthProgressionInputV1Schema = z.strictObject({
 }).superRefine((input, context) => {
   const now = Date.parse(input.now)
   input.exposures.forEach((item, index) => {
+    if (JSON.stringify(item.executionContext) !== JSON.stringify(input.executionContext)) {
+      context.addIssue({ code: 'custom', path: ['exposures', index, 'executionContext'], message: 'Exposure execution context does not match progression context' })
+    }
     const startedAt = Date.parse(item.startedAt)
     const completedAt = item.completedAt === null ? null : Date.parse(item.completedAt)
     if (startedAt > now) {
@@ -206,15 +212,26 @@ export const strengthProgressionInputV1Schema = z.strictObject({
       context.addIssue({ code: 'custom', path: ['exposures', index, 'completedAt'], message: 'Exposure completion cannot precede start' })
     }
   })
+  if (input.executionContext.kind === 'synthetic_simulation') {
+    if (
+      input.eligibility.source.kind !== 'synthetic_fixture'
+      || input.eligibility.source.fixtureId !== input.executionContext.fixtureId
+    ) {
+      context.addIssue({ code: 'custom', path: ['eligibility', 'source'], message: 'Simulation eligibility fixture does not match the active run fixture' })
+    }
+  } else if (input.eligibility.source.kind === 'synthetic_fixture') {
+    context.addIssue({ code: 'custom', path: ['eligibility', 'source'], message: 'Live progression cannot consume synthetic eligibility' })
+  }
   if (input.prescription.equipmentId !== input.equipmentInventory.equipmentId) {
     context.addIssue({ code: 'custom', path: ['equipmentInventory', 'equipmentId'], message: 'Equipment ID does not match prescription' })
   }
-  const expectedBasis = input.equipmentInventory.kind === 'barbell'
-    ? 'barbell_total'
+  const basisMatchesInventory = input.equipmentInventory.kind === 'barbell'
+    ? input.prescription.loadBasis === 'barbell_total'
     : input.equipmentInventory.kind === 'dumbbell'
-      ? 'dumbbell_per_hand'
-      : 'machine_stack'
-  if (input.prescription.loadBasis !== expectedBasis) {
+      ? input.prescription.loadBasis === 'dumbbell_per_hand'
+        || input.prescription.loadBasis === 'dumbbell_single_implement'
+      : input.prescription.loadBasis === 'machine_stack'
+  if (!basisMatchesInventory) {
     context.addIssue({ code: 'custom', path: ['prescription', 'loadBasis'], message: 'Load basis does not match equipment inventory' })
   }
   if (input.prescription.prescribedLoad.equipmentId !== input.prescription.equipmentId

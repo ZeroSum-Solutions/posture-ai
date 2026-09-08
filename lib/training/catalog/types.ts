@@ -28,21 +28,41 @@ const boundedCanonicalKgSchema = z.string()
 export const MovementPatternV1Schema = z.enum(['knee_dominant', 'hinge', 'push', 'pull'])
 export type MovementPatternV1 = z.infer<typeof MovementPatternV1Schema>
 
-const catalogOriginSchema = z.discriminatedUnion('kind', [
+export const ExerciseProgressionDefaultsV1Schema = z.object({
+  side: z.enum(['bilateral', 'left', 'right', 'not_applicable']),
+  rom: stableIdSchema,
+  tempo: stableIdSchema,
+  exposureType: stableIdSchema,
+}).strict()
+
+export const TrainingCatalogOriginV1Schema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('authored_catalog') }).strict(),
   z.object({
     kind: z.literal('synthetic_fixture'),
+    source: z.literal('server_fixture'),
     fixtureId: stableIdSchema,
+    fixtureHash: z.string().regex(/^[a-f0-9]{64}$/),
     label: syntheticLabelSchema,
   }).strict(),
 ])
 
-const equipmentCompatibilitySchema = z.object({
-  kind: z.enum(['barbell', 'dumbbell', 'machine']),
-  basis: z.enum(['barbell_total', 'dumbbell_per_hand', 'machine_stack']),
+const compatibilityBounds = {
   minimumCanonicalKg: boundedCanonicalKgSchema,
   maximumCanonicalKg: boundedCanonicalKgSchema,
-}).strict()
+}
+
+export const EquipmentCompatibilityV1Schema = z.discriminatedUnion('basis', [
+  z.object({ kind: z.literal('barbell'), basis: z.literal('barbell_total'), ...compatibilityBounds }).strict(),
+  z.object({
+    kind: z.literal('dumbbell'), basis: z.literal('dumbbell_per_hand'),
+    implementCount: z.literal(2), holdingConfiguration: z.literal('one_per_hand'), ...compatibilityBounds,
+  }).strict(),
+  z.object({
+    kind: z.literal('dumbbell'), basis: z.literal('dumbbell_single_implement'),
+    implementCount: z.literal(1), holdingConfiguration: z.literal('two_hands_single_implement'), ...compatibilityBounds,
+  }).strict(),
+  z.object({ kind: z.literal('machine'), basis: z.literal('machine_stack'), ...compatibilityBounds }).strict(),
+])
 
 export const TrainingExerciseV1Schema = z.object({
   exerciseId: stableIdSchema,
@@ -56,7 +76,9 @@ export const TrainingExerciseV1Schema = z.object({
   mediaStatus: z.enum(['reviewed_exact_variant', 'reviewed_static_fixture', 'missing']),
   preparationSeconds: z.number().int().min(0).max(3_600),
   secondsPerRep: z.number().int().min(1).max(60),
-  equipmentCompatibility: z.array(equipmentCompatibilitySchema).min(1).max(20),
+  textInstruction: z.string().trim().min(1).max(1_000).optional(),
+  progressionDefaults: ExerciseProgressionDefaultsV1Schema.optional(),
+  equipmentCompatibility: z.array(EquipmentCompatibilityV1Schema).min(1).max(20),
 }).strict()
 
 export const ConditioningModeV1Schema = z.object({
@@ -71,7 +93,7 @@ export const ConditioningModeV1Schema = z.object({
 export const TrainingCatalogV1Schema = z.object({
   schemaVersion: z.literal(TRAINING_CATALOG_SCHEMA_VERSION),
   catalogVersion: stableIdSchema,
-  origin: catalogOriginSchema,
+  origin: TrainingCatalogOriginV1Schema,
   exercises: z.array(TrainingExerciseV1Schema).max(200),
   conditioningModes: z.array(ConditioningModeV1Schema).max(50),
 }).strict().superRefine((catalog, ctx) => {
@@ -94,14 +116,6 @@ export const TrainingCatalogV1Schema = z.object({
     }
     exerciseIds.add(exercise.exerciseVersionId)
     exercise.equipmentCompatibility.forEach((compatibility, compatibilityIndex) => {
-      const expectedBasis = compatibility.kind === 'barbell'
-        ? 'barbell_total'
-        : compatibility.kind === 'dumbbell'
-          ? 'dumbbell_per_hand'
-          : 'machine_stack'
-      if (compatibility.basis !== expectedBasis) {
-        ctx.addIssue({ code: 'custom', message: 'Load basis must match equipment kind', path: ['exercises', index, 'equipmentCompatibility', compatibilityIndex, 'basis'] })
-      }
       if (!isEnteredLoadAtMostCanonicalKg(
         { value: compatibility.minimumCanonicalKg, unit: 'kg' },
         compatibility.maximumCanonicalKg,
@@ -121,5 +135,8 @@ export const TrainingCatalogV1Schema = z.object({
 })
 
 export type TrainingExerciseV1 = z.infer<typeof TrainingExerciseV1Schema>
+export type ExerciseProgressionDefaultsV1 = z.infer<typeof ExerciseProgressionDefaultsV1Schema>
+export type EquipmentCompatibilityV1 = z.infer<typeof EquipmentCompatibilityV1Schema>
+export type TrainingCatalogOriginV1 = z.infer<typeof TrainingCatalogOriginV1Schema>
 export type ConditioningModeV1 = z.infer<typeof ConditioningModeV1Schema>
 export type TrainingCatalogV1 = z.infer<typeof TrainingCatalogV1Schema>

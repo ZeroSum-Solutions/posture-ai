@@ -114,10 +114,14 @@ function formatLocalDate(value: Date): string {
 
 export function expandLocalDates(cycleStartLocalDate: string, weekday: Weekday, weekCount: number): string[] {
   const start = parseLocalDate(cycleStartLocalDate)
+  const parsedWeekday = weekdaySchema.safeParse(weekday)
+  if (!parsedWeekday.success) throw new Error('Invalid weekday')
   if (!Number.isInteger(weekCount) || weekCount < 1 || weekCount > 52) throw new Error('Invalid week count')
   const jsDay = start.getUTCDay()
   const mondayBasedStart = (jsDay + 6) % 7
-  const firstOffset = (dayIndex(weekday) - mondayBasedStart + 7) % 7
+  // The anchor starts a seven-day local-calendar window. A requested weekday
+  // resolves to its first occurrence on or after that anchor.
+  const firstOffset = (dayIndex(parsedWeekday.data) - mondayBasedStart + 7) % 7
   return Array.from({ length: weekCount }, (_, index) => {
     const date = new Date(start)
     date.setUTCDate(start.getUTCDate() + firstOffset + index * 7)
