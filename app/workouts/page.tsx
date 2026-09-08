@@ -6,7 +6,8 @@ import { operationForPractitioner } from '@/lib/prototype/runtime'
 import { isSessionSnapshotForOperation } from '@/lib/workout/operationSnapshot'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import { DEFAULT_WORKOUT_PREFERENCES, workoutPreferencesSchema } from '@/lib/workout/personalize'
-import WorkoutLibrary, { type WorkoutBuilderSeed, type WorkoutLibraryItem, workoutLibraryKey } from './WorkoutLibrary'
+import WorkoutLibrary from './WorkoutLibrary'
+import { type WorkoutBuilderSeed, type WorkoutLibraryItem, workoutLibraryKey } from './WorkoutLibrary.model'
 
 export const dynamic = 'force-dynamic'
 

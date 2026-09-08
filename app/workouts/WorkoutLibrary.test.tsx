@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import WorkoutLibrary, { type WorkoutLibraryItem, workoutLibraryKey } from './WorkoutLibrary'
+import WorkoutLibrary from './WorkoutLibrary'
+import { type WorkoutLibraryItem, workoutLibraryKey } from './WorkoutLibrary.model'
 import { DEFAULT_WORKOUT_PREFERENCES } from '@/lib/workout/personalize'
 
 const push = vi.fn()
