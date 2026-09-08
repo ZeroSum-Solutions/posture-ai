@@ -15,6 +15,17 @@ export interface PairedLoadTotal {
   readonly source: ExactLoadQuantity
 }
 
+export interface ExactRatio {
+  readonly numerator: number
+  readonly denominator: number
+}
+
+export type LoadIncreaseRatioComparison =
+  | 'calibration_required'
+  | 'not_increase'
+  | 'within_limit'
+  | 'exceeds_limit'
+
 interface ScaledInteger {
   digits: string
   scale: number
@@ -25,6 +36,7 @@ const EXACT_DECIMAL = /^\d+(?:\.\d+)?$/
 const LB_TO_KG: ScaledInteger = { digits: '45359237', scale: 8 }
 const MAX_ENTERED_LENGTH = 16
 const MAX_INTEGER_DIGITS = 12
+const MAX_RATIO_COMPONENT = 1_000_000
 
 function parseDecimal(value: string, pattern: RegExp): ScaledInteger {
   if (!pattern.test(value)) throw new Error('Invalid exact decimal')
@@ -73,6 +85,15 @@ function multiply(left: ScaledInteger, right: ScaledInteger): ScaledInteger {
   }
 }
 
+function compareScaledIntegers(left: ScaledInteger, right: ScaledInteger): number {
+  const scale = Math.max(left.scale, right.scale)
+  const leftDigits = left.digits.padEnd(left.digits.length + scale - left.scale, '0').replace(/^0+(?=\d)/, '')
+  const rightDigits = right.digits.padEnd(right.digits.length + scale - right.scale, '0').replace(/^0+(?=\d)/, '')
+  if (leftDigits.length !== rightDigits.length) return leftDigits.length < rightDigits.length ? -1 : 1
+  if (leftDigits === rightDigits) return 0
+  return leftDigits < rightDigits ? -1 : 1
+}
+
 export function createLoadQuantity(input: EnteredLoadQuantity): ExactLoadQuantity {
   if (input.unit !== 'kg' && input.unit !== 'lb') throw new Error('Load unit must be kg or lb')
   if (typeof input.value !== 'string') throw new Error('Load value must be a string')
@@ -102,4 +123,46 @@ export function derivePairedTotal(quantity: ExactLoadQuantity): PairedLoadTotal 
     totalKg: formatDecimal(multiply(canonicalKg, { digits: '2', scale: 0 })),
     source,
   })
+}
+
+export function compareLoadIncreaseToRatio(
+  prior: ExactLoadQuantity | null,
+  actual: ExactLoadQuantity,
+  ratio: ExactRatio,
+): LoadIncreaseRatioComparison {
+  if (!Number.isInteger(ratio.numerator)
+    || ratio.numerator < 0
+    || ratio.numerator > MAX_RATIO_COMPONENT
+    || !Number.isInteger(ratio.denominator)
+    || ratio.denominator < 1
+    || ratio.denominator > MAX_RATIO_COMPONENT) {
+    throw new Error('Invalid exact ratio')
+  }
+
+  const actualSource = createLoadQuantity(actual.entered)
+  if (prior === null) return 'calibration_required'
+  const priorSource = createLoadQuantity(prior.entered)
+  const actualKg = parseDecimal(actualSource.canonicalKg, EXACT_DECIMAL)
+  const priorKg = parseDecimal(priorSource.canonicalKg, EXACT_DECIMAL)
+  if (compareScaledIntegers(priorKg, { digits: '0', scale: 0 }) === 0) return 'calibration_required'
+  if (compareScaledIntegers(actualKg, priorKg) <= 0) return 'not_increase'
+
+  const weightedActual = multiply(actualKg, { digits: String(ratio.denominator), scale: 0 })
+  const weightedLimit = multiply(priorKg, {
+    digits: String(ratio.denominator + ratio.numerator),
+    scale: 0,
+  })
+  return compareScaledIntegers(weightedActual, weightedLimit) > 0 ? 'exceeds_limit' : 'within_limit'
+}
+
+export function isEnteredLoadAtMostCanonicalKg(
+  entered: EnteredLoadQuantity,
+  maximumCanonicalKg: string,
+): boolean {
+  if (typeof maximumCanonicalKg !== 'string' || !EXACT_DECIMAL.test(maximumCanonicalKg)) {
+    throw new Error('Invalid canonical load limit')
+  }
+  const maximum = parseDecimal(maximumCanonicalKg, EXACT_DECIMAL)
+  const load = createLoadQuantity(entered)
+  return compareScaledIntegers(parseDecimal(load.canonicalKg, EXACT_DECIMAL), maximum) <= 0
 }

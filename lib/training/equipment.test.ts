@@ -207,4 +207,41 @@ describe('findNextEquipmentLoad', () => {
     expect(() => findNextEquipmentLoad(currentLoad('100000', 'kg', 'barbell_total', 'rack-a'), inventory))
       .toThrow('Equipment load search exceeded 50000 states')
   })
+
+  it('rejects an unknown inventory kind with a stable validation error', () => {
+    const inventory = {
+      kind: 'cable',
+      equipmentId: 'cable-a',
+      unit: 'kg',
+      stackLoads: ['20', '21'],
+    } as unknown as EquipmentInventory
+
+    expect(() => findNextEquipmentLoad(currentLoad('20', 'kg', 'machine_stack', 'cable-a'), inventory))
+      .toThrow('Unsupported equipment inventory kind')
+  })
+
+  it.each([
+    [{ kind: 'barbell', equipmentId: 'rack-a', unit: 'kg', barWeight: '20', collarsTotalWeight: '0' }, 'Barbell plates must be an array'],
+    [{ kind: 'dumbbell', equipmentId: 'db-a', unit: 'kg' }, 'Dumbbell per-hand loads must be an array'],
+    [{ kind: 'machine', equipmentId: 'stack-a', unit: 'kg' }, 'Machine stack loads must be an array'],
+  ])('rejects malformed inventory arrays with a stable validation error %#', (inventory, message) => {
+    expect(() => findNextEquipmentLoad(
+      currentLoad('20', 'kg', inventory.kind === 'barbell' ? 'barbell_total' : inventory.kind === 'dumbbell' ? 'dumbbell_per_hand' : 'machine_stack', inventory.equipmentId),
+      inventory as unknown as EquipmentInventory,
+    )).toThrow(message)
+  })
+
+  it('freezes the returned equipment-load wrapper', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'machine',
+      equipmentId: 'stack-a',
+      unit: 'kg',
+      stackLoads: ['20', '21'],
+    }
+
+    const result = findNextEquipmentLoad(currentLoad('20', 'kg', 'machine_stack', 'stack-a'), inventory)
+
+    expect(result).not.toBeNull()
+    expect(Object.isFrozen(result)).toBe(true)
+  })
 })

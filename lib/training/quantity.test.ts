@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createLoadQuantity, derivePairedTotal } from './quantity'
+import {
+  compareLoadIncreaseToRatio,
+  createLoadQuantity,
+  derivePairedTotal,
+  isEnteredLoadAtMostCanonicalKg,
+} from './quantity'
 
 describe('createLoadQuantity', () => {
   it('converts pounds to canonical kilograms with the exact PRD factor', () => {
@@ -125,5 +130,82 @@ describe('derivePairedTotal', () => {
       source: createLoadQuantity({ value: '10', unit: 'kg' }),
     })
     expect(paired.source).not.toBe(forged)
+  })
+})
+
+describe('compareLoadIncreaseToRatio', () => {
+  it.each([
+    ['70', 'within_limit'],
+    ['72', 'within_limit'],
+    ['73', 'exceeds_limit'],
+    ['75', 'exceeds_limit'],
+  ] as const)('compares 60 kg to %s kg against an exact 1/5 increase', (actual, expected) => {
+    expect(compareLoadIncreaseToRatio(
+      createLoadQuantity({ value: '60', unit: 'kg' }),
+      createLoadQuantity({ value: actual, unit: 'kg' }),
+      { numerator: 1, denominator: 5 },
+    )).toBe(expected)
+  })
+
+  it('compares mixed units by their exact physical quantities', () => {
+    expect(compareLoadIncreaseToRatio(
+      createLoadQuantity({ value: '100000', unit: 'lb' }),
+      createLoadQuantity({ value: '45359.237', unit: 'kg' }),
+      { numerator: 1, denominator: 5 },
+    )).toBe('not_increase')
+  })
+
+  it('requires calibration for a missing or zero prior quantity', () => {
+    const actual = createLoadQuantity({ value: '60', unit: 'kg' })
+
+    expect(compareLoadIncreaseToRatio(null, actual, { numerator: 1, denominator: 5 }))
+      .toBe('calibration_required')
+    expect(compareLoadIncreaseToRatio(
+      createLoadQuantity({ value: '0', unit: 'kg' }),
+      actual,
+      { numerator: 1, denominator: 5 },
+    )).toBe('calibration_required')
+  })
+
+  it.each(['55', '60'] as const)('does not flag a lower or unchanged actual of %s kg', actual => {
+    expect(compareLoadIncreaseToRatio(
+      createLoadQuantity({ value: '60', unit: 'kg' }),
+      createLoadQuantity({ value: actual, unit: 'kg' }),
+      { numerator: 1, denominator: 5 },
+    )).toBe('not_increase')
+  })
+
+  it('recomputes both quantities from entered values instead of trusting forged canonical fields', () => {
+    const prior = { entered: { value: '60', unit: 'kg' as const }, canonicalKg: '1' }
+    const actual = { entered: { value: '75', unit: 'kg' as const }, canonicalKg: '1' }
+
+    expect(compareLoadIncreaseToRatio(prior, actual, { numerator: 1, denominator: 5 }))
+      .toBe('exceeds_limit')
+  })
+
+  it.each([
+    { numerator: -1, denominator: 5 },
+    { numerator: 1.5, denominator: 5 },
+    { numerator: 1, denominator: 0 },
+    { numerator: 1, denominator: 1_000_001 },
+  ])('rejects an invalid or unbounded ratio %#', ratio => {
+    const prior = createLoadQuantity({ value: '60', unit: 'kg' })
+    const actual = createLoadQuantity({ value: '75', unit: 'kg' })
+
+    expect(() => compareLoadIncreaseToRatio(prior, actual, ratio)).toThrow('Invalid exact ratio')
+  })
+})
+
+describe('isEnteredLoadAtMostCanonicalKg', () => {
+  it('enforces an exact canonical bound across kg and lb entries', () => {
+    expect(isEnteredLoadAtMostCanonicalKg({ value: '1000', unit: 'kg' }, '1000')).toBe(true)
+    expect(isEnteredLoadAtMostCanonicalKg({ value: '1000.001', unit: 'kg' }, '1000')).toBe(false)
+    expect(isEnteredLoadAtMostCanonicalKg({ value: '2204.622', unit: 'lb' }, '1000')).toBe(true)
+    expect(isEnteredLoadAtMostCanonicalKg({ value: '2500', unit: 'lb' }, '1000')).toBe(false)
+  })
+
+  it('validates both the entered load and canonical maximum', () => {
+    expect(() => isEnteredLoadAtMostCanonicalKg({ value: '1e3', unit: 'kg' }, '1000')).toThrow()
+    expect(() => isEnteredLoadAtMostCanonicalKg({ value: '1', unit: 'kg' }, '-1')).toThrow('Invalid canonical load limit')
   })
 })

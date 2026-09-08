@@ -104,7 +104,27 @@ function fromThousandths(value: string): string {
 function expectedBasis(inventory: EquipmentInventory): EquipmentLoadBasis {
   if (inventory.kind === 'barbell') return 'barbell_total'
   if (inventory.kind === 'dumbbell') return 'dumbbell_per_hand'
-  return 'machine_stack'
+  if (inventory.kind === 'machine') return 'machine_stack'
+  throw new Error('Unsupported equipment inventory kind')
+}
+
+function assertInventoryShape(inventory: EquipmentInventory): void {
+  if (typeof inventory !== 'object' || inventory === null) {
+    throw new Error('Unsupported equipment inventory kind')
+  }
+  if (inventory.kind === 'barbell') {
+    if (!Array.isArray(inventory.plates)) throw new Error('Barbell plates must be an array')
+    return
+  }
+  if (inventory.kind === 'dumbbell') {
+    if (!Array.isArray(inventory.perHandLoads)) throw new Error('Dumbbell per-hand loads must be an array')
+    return
+  }
+  if (inventory.kind === 'machine') {
+    if (!Array.isArray(inventory.stackLoads)) throw new Error('Machine stack loads must be an array')
+    return
+  }
+  throw new Error('Unsupported equipment inventory kind')
 }
 
 function assertCurrentMatches(current: EquipmentLoad, inventory: EquipmentInventory): void {
@@ -194,6 +214,7 @@ export function findNextEquipmentLoad(
   current: EquipmentLoad,
   inventory: EquipmentInventory,
 ): EquipmentLoad | null {
+  assertInventoryShape(inventory)
   assertCurrentMatches(current, inventory)
   const currentValue = toThousandths(current.quantity.entered.value, inventory.unit)
 
@@ -209,9 +230,9 @@ export function findNextEquipmentLoad(
   }
 
   if (nextValue === null) return null
-  return {
+  return Object.freeze({
     equipmentId: inventory.equipmentId,
     basis: expectedBasis(inventory),
     quantity: createLoadQuantity({ value: fromThousandths(nextValue), unit: inventory.unit }),
-  }
+  })
 }
