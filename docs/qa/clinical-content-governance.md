@@ -18,13 +18,18 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`114cb22aff54821d0a9aaa79af2448dbc2b8005070f129f2ee5bd1edcf19458b`.
+`a3cc09311b946abf64f58765057eb4c1106391492f751cede2328375f1dd827d`.
 
 Recommendation algorithm SHA-256:
-`3a17eca1318badb97f3d552f0ec0b8dedb1ee532ae3c102e9178ee9d066dc93d`.
+`e2ca7b44f3a5445e620bd249817d6a399592639794a2b19b1bea10fddb288dd0`.
 
-This inventory was regenerated after the workout-run persistence fix and the
-assessment-completion guard. The governed run route uses a revision compare-and-swap,
+The latest inventory refresh (2026-09-07) follows additive capture-provenance
+metadata in the engine types. Only the recommendation-engine item fingerprint and
+aggregate inventory fingerprint changed; content counts and item identities stayed
+the same. Local test-fixture bindings were refreshed without changing review
+statuses or live activation data.
+
+The earlier workout-run persistence fix and assessment-completion guard remain. The governed run route uses a revision compare-and-swap,
 so an older concurrent request cannot overwrite newer progress. The authenticated
 player adapter serializes requests, retries failed saves three times, and shows an
 unsaved-progress alert with a manual retry action. Assessment approval, preview, and
