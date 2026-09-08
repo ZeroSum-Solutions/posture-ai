@@ -87,15 +87,15 @@ describe('review verdict', () => {
     expect(result.verdict.headline.tail).toBe('One finding drives the score.')
   })
 
-  it('claims "improving" only when the policy returns a direction', () => {
-    expect(model({ prior: prior() }).verdict.headline.lead).toBe('Grade C, improving.')
+  it('describes a lower score only when the policy returns a direction', () => {
+    expect(model({ prior: prior() }).verdict.headline.lead).toBe('Grade C, score decreased.')
     expect(model({ prior: null }).verdict.headline.lead).toBe('Grade C.')
     const drift = FIXED_COMPARISON_TOLERANCE.overallScorePoints - 1
     expect(model({ prior: prior({ overall_score: 46 + drift }) }).verdict.headline.lead).toBe('Grade C.')
   })
 
-  it('says "worsening" when the deviation score rose past the tolerance', () => {
-    expect(model({ prior: prior({ overall_score: 20 }) }).verdict.headline.lead).toBe('Grade C, worsening.')
+  it('describes a higher deviation score without claiming clinical worsening', () => {
+    expect(model({ prior: prior({ overall_score: 20 }) }).verdict.headline.lead).toBe('Grade C, score increased.')
   })
 })
 

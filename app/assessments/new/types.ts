@@ -1,6 +1,7 @@
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
+import type { PoseInputProvenance } from '@/lib/pose/detect'
 
 /** Engine/detection view — what `detectPose` and `assessFrameQuality` consume. */
 export type ViewKey = 'front' | 'side' | 'back'
@@ -22,6 +23,8 @@ export interface CaptureSlot {
   slotStatus: SlotStatus
   /** Sensor-measured camera roll for camera captures; null for uploads/no-sensor. */
   captureRollDeg: number | null
+  /** Pixel-source and orientation facts stamped onto every detected frame. */
+  poseInput: PoseInputProvenance | null
   /**
    * Pixel-quality metrics sampled at acquisition time (camera: the
    * representative burst frame's canvas; upload: the decoded-and-resized
@@ -93,6 +96,7 @@ export function slotToDomain(slot: CaptureSlotKey): { view: ViewKey; profileSide
 export function emptySlot(): CaptureSlot {
   return {
     file: null, source: null, quality: null, slotStatus: 'idle', captureRollDeg: null,
+    poseInput: null,
     pixelQuality: null,
     captureId: null, rawRepresentativeUrl: null, rawBurstUrls: null, rawPoseFrame: null,
     displayPreviewUrl: null,

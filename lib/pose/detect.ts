@@ -5,11 +5,13 @@
 // (snake_case landmark names, normalized 0-1 coords + visibility, relative z).
 
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
-import type { PoseFrame, ViewLabel } from '@posture-ai/engine/types'
+import type { PoseFrame, PoseFrameMetaV1, ViewLabel } from '@posture-ai/engine/types'
 import {
   WASM_URL,
   SCORING_MODEL_URL as MODEL_URL,
   SCORING_MODEL_VARIANT as modelVariant,
+  SCORING_MODEL_SHA256 as modelSha256,
+  POSE_RUNTIME_VERSION as runtimeVersion,
   assertPoseOnlyModel,
   mapLandmarks,
 } from './pose-model'
@@ -26,6 +28,17 @@ import {
 export interface DetectedPoseFrame extends PoseFrame {
   detectedPoseCount: number
 }
+
+export type PoseInputProvenance = Pick<
+  PoseFrameMetaV1,
+  | 'sourceWidthPx'
+  | 'sourceHeightPx'
+  | 'orientationNormalization'
+  | 'analysisMirrored'
+  | 'displayMirrored'
+  | 'requestedCameraFacingMode'
+  | 'observedCameraFacingMode'
+>
 
 export const IMAGE_INIT_TIMEOUT_MS = 15_000
 export const IMAGE_DETECT_TIMEOUT_MS = 10_000
@@ -240,12 +253,21 @@ const DETECT_CACHE_MAX = 8
 export function detectPose(
   src: string,
   view: ViewLabel,
-  source?: 'camera' | 'upload'
+  source?: 'camera' | 'upload',
+  poseInput?: PoseInputProvenance | null,
 ): Promise<DetectedPoseFrame> {
-  const key = `${view}|${source ?? ''}|${src}`
+  const provenanceKey = poseInput
+    ? [
+        poseInput.sourceWidthPx, poseInput.sourceHeightPx,
+        poseInput.orientationNormalization,
+        poseInput.analysisMirrored, poseInput.displayMirrored,
+        poseInput.requestedCameraFacingMode, poseInput.observedCameraFacingMode,
+      ].join('|')
+    : ''
+  const key = `${view}|${source ?? ''}|${provenanceKey}|${src}`
   const cached = detectCache.get(key)
   if (cached) return cached
-  const promise = detectPoseUncached(src, view, source)
+  const promise = detectPoseUncached(src, view, source, poseInput)
   detectCache.set(key, promise)
   if (detectCache.size > DETECT_CACHE_MAX) {
     const oldest = detectCache.keys().next().value
@@ -259,7 +281,8 @@ export function detectPose(
 async function detectPoseUncached(
   src: string,
   view: ViewLabel,
-  source?: 'camera' | 'upload'
+  source?: 'camera' | 'upload',
+  poseInput?: PoseInputProvenance | null,
 ): Promise<DetectedPoseFrame> {
   const { landmarker, delegate } = await getLandmarker()
   let detectInvoked = false
@@ -291,6 +314,30 @@ async function detectPoseUncached(
     }
     if (img.naturalWidth > 0 && img.naturalHeight > 0) {
       frame.aspectRatio = img.naturalWidth / img.naturalHeight
+    }
+    if (poseInput && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      frame.poseMeta = {
+        version: 'pose-frame-meta-v1',
+        coordinateSpace: 'decoded_image_normalized',
+        sourceWidthPx: poseInput.sourceWidthPx,
+        sourceHeightPx: poseInput.sourceHeightPx,
+        analysisWidthPx: img.naturalWidth,
+        analysisHeightPx: img.naturalHeight,
+        orientationNormalization: poseInput.orientationNormalization,
+        exifOrientationDegrees: null,
+        analysisMirrored: poseInput.analysisMirrored,
+        displayMirrored: poseInput.displayMirrored,
+        viewAssignment: 'operator_asserted_not_verified',
+        requestedCameraFacingMode: poseInput.requestedCameraFacingMode,
+        observedCameraFacingMode: poseInput.observedCameraFacingMode,
+        poseModel: {
+          runtime: '@mediapipe/tasks-vision',
+          runtimeVersion,
+          variant: modelVariant,
+          assetPath: MODEL_URL,
+          assetSha256: modelSha256,
+        },
+      }
     }
     if (source) frame.source = source
     publishReadiness(readinessMessage('ready', 'image', delegate))

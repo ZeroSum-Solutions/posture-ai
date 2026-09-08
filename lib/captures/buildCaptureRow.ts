@@ -10,6 +10,9 @@ export interface CaptureRow {
   /** Anatomical side profile nearest the camera; only on a side view, else null. */
   profile_side: 'left' | 'right' | null
   pose_frame: object
+  width_px: number | null
+  height_px: number | null
+  model_version: string | null
 }
 
 /**
@@ -25,6 +28,8 @@ export function buildCaptureRow(
   practitionerId: string,
   opts: { useFixture: boolean },
 ): CaptureRow {
+  const meta = f.poseMeta
+  const model = meta?.poseModel
   return {
     assessment_id: assessmentId,
     practitioner_id: practitionerId,
@@ -32,5 +37,10 @@ export function buildCaptureRow(
     source: opts.useFixture ? 'fixture' : (f.source ?? 'upload'),
     profile_side: f.view === 'side' ? (f.profileSide ?? null) : null,
     pose_frame: stripFaceLandmarks(f) as unknown as object,
+    width_px: meta?.analysisWidthPx ?? null,
+    height_px: meta?.analysisHeightPx ?? null,
+    model_version: model
+      ? `${model.runtime}@${model.runtimeVersion}/${model.variant}/sha256:${model.assetSha256}`
+      : null,
   }
 }

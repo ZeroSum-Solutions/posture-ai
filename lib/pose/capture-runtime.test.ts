@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { createCaptureRuntime, subscribeAfterImport } from './capture-runtime'
 import type { LiveBackend, ImageBackend } from './capture-runtime'
 import type { DetectedPoseFrame } from './detect'
@@ -153,6 +153,26 @@ describe('capture-runtime state machine (§11.1 exclusivity)', () => {
     expect(detected).toBe(1)
     expect(frame.view).toBe('side')
     expect(rt.state()).toBe('review-image')
+  })
+
+  it('forwards the exact acquisition provenance to the IMAGE backend', async () => {
+    const f = makeFakes()
+    const detect = vi.fn(f.image.detect)
+    const image: ImageBackend = { ...f.image, detect }
+    const rt = createCaptureRuntime({ live: f.live, image })
+    const poseInput = {
+      sourceWidthPx: 3024,
+      sourceHeightPx: 4032,
+      orientationNormalization: 'exif_from_image_canvas_v1' as const,
+      analysisMirrored: false as const,
+      displayMirrored: false as const,
+      requestedCameraFacingMode: null,
+      observedCameraFacingMode: null,
+    }
+
+    await rt.detect('blob:oriented', 'side', 'upload', poseInput)
+
+    expect(detect).toHaveBeenCalledWith('blob:oriented', 'side', 'upload', poseInput)
   })
 
   it('records and releases a frame offered while the live backend is closed', async () => {

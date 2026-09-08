@@ -86,6 +86,72 @@ describe('detectPose result caching', () => {
     expect(detectSpy).toHaveBeenCalledTimes(2)
   })
 
+  test('records the exact analysis dimensions, model identity, and supplied input provenance', async () => {
+    const { detectPose } = await import('./detect')
+    const frame = await detectPose(
+      'data:image/jpeg;base64,ORIENTED',
+      'side',
+      'upload',
+      {
+        sourceWidthPx: 3000,
+        sourceHeightPx: 4000,
+        orientationNormalization: 'exif_from_image_canvas_v1',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+      },
+    )
+
+    expect(frame.poseMeta).toMatchObject({
+      version: 'pose-frame-meta-v1',
+      coordinateSpace: 'decoded_image_normalized',
+      sourceWidthPx: 3000,
+      sourceHeightPx: 4000,
+      analysisWidthPx: 100,
+      analysisHeightPx: 200,
+      orientationNormalization: 'exif_from_image_canvas_v1',
+      exifOrientationDegrees: null,
+      analysisMirrored: false,
+      displayMirrored: false,
+      viewAssignment: 'operator_asserted_not_verified',
+      poseModel: {
+        runtime: '@mediapipe/tasks-vision',
+        runtimeVersion: '0.10.35',
+        variant: 'lite',
+        assetSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+    })
+  })
+
+  test('does not invent acquisition provenance when the caller did not supply it', async () => {
+    const { detectPose } = await import('./detect')
+
+    const frame = await detectPose('data:image/jpeg;base64,LEGACY', 'front', 'upload')
+
+    expect(frame).toMatchObject({
+      source: 'upload',
+      aspectRatio: 0.5,
+    })
+    expect(frame.poseMeta).toBeUndefined()
+  })
+
+  test('does not reuse a cached frame across different provenance inputs', async () => {
+    const { detectPose } = await import('./detect')
+    const src = 'data:image/jpeg;base64,SAME_PIXELS'
+    const base = {
+      sourceWidthPx: 100,
+      sourceHeightPx: 200,
+      analysisMirrored: false,
+      displayMirrored: false,
+      requestedCameraFacingMode: null,
+      observedCameraFacingMode: null,
+    } as const
+    await detectPose(src, 'front', 'upload', { ...base, orientationNormalization: 'browser_decoder' })
+    await detectPose(src, 'front', 'upload', { ...base, orientationNormalization: 'exif_from_image_canvas_v1' })
+    expect(detectSpy).toHaveBeenCalledTimes(2)
+  })
+
   test('bounds a stalled detection, invalidates the backend, and permits retry', async () => {
     vi.useFakeTimers()
     detectSpy.mockImplementationOnce(() => new Promise(() => {}))

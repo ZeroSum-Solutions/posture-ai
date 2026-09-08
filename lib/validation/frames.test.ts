@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { testLandmarksFrames, assessPosture } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from './frames'
+import { POSE_MODEL_SHA256 } from '@/lib/pose/pose-model'
 
 const CLIENT_ID = '2f5d3f6a-4b1c-4f6e-9b3a-1c2d3e4f5a6b'
 const SUBMISSION_ID = '6a76a8b9-df1d-4e93-a65b-33419bb01bb4'
@@ -32,6 +33,128 @@ describe('parseAssessmentPayload', () => {
       expect(r.data.frames?.length).toBe(4)
       expect(r.data.useFixture).toBe(false)
     }
+  })
+
+  it('accepts strict versioned pose provenance without treating asserted view as verified', () => {
+    const body = validBody()
+    body.frames = body.frames.map(frame => ({
+      ...frame,
+      source: 'upload' as const,
+      poseMeta: {
+        version: 'pose-frame-meta-v1',
+        coordinateSpace: 'decoded_image_normalized',
+        sourceWidthPx: 3024,
+        sourceHeightPx: 4032,
+        analysisWidthPx: 1200,
+        analysisHeightPx: 1600,
+        orientationNormalization: 'exif_from_image_canvas_v1',
+        exifOrientationDegrees: null,
+        analysisMirrored: false,
+        displayMirrored: false,
+        viewAssignment: 'operator_asserted_not_verified',
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+        poseModel: {
+          runtime: '@mediapipe/tasks-vision',
+          runtimeVersion: '0.10.35',
+          variant: 'lite',
+          assetPath: '/mediapipe/models/pose_landmarker_lite.task',
+          assetSha256: POSE_MODEL_SHA256.lite,
+        },
+      },
+    }))
+    const result = parseAssessmentPayload(body, { testModeEnabled: false })
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects unversioned or invented pose provenance fields', () => {
+    const body = validBody()
+    body.frames[0] = {
+      ...body.frames[0],
+      poseMeta: {
+        version: 'pose-frame-meta-v1',
+        verifiedView: 'front',
+      },
+    } as unknown as typeof body.frames[number]
+    expect(parseAssessmentPayload(body, { testModeEnabled: false }).ok).toBe(false)
+  })
+
+  it.each([
+    ['only one source dimension', (meta: Record<string, unknown>) => { meta.sourceHeightPx = null }],
+    ['model variant/path mismatch', (meta: Record<string, unknown>) => {
+      ;(meta.poseModel as Record<string, unknown>).assetPath = '/mediapipe/models/pose_landmarker_full.task'
+    }],
+    ['unknown runtime version', (meta: Record<string, unknown>) => {
+      ;(meta.poseModel as Record<string, unknown>).runtimeVersion = '0.10.99'
+    }],
+    ['model hash mismatch', (meta: Record<string, unknown>) => {
+      ;(meta.poseModel as Record<string, unknown>).assetSha256 = 'a'.repeat(64)
+    }],
+    ['upload claiming camera settings', (meta: Record<string, unknown>) => {
+      meta.requestedCameraFacingMode = 'environment'
+    }],
+    ['unused reflected-analysis flag', (meta: Record<string, unknown>) => {
+      meta.analysisMirrored = true
+    }],
+  ])('rejects contradictory pose provenance: %s', (_label, mutate) => {
+    const body = validBody()
+    const frame = body.frames[0]
+    const meta: Record<string, unknown> = {
+      version: 'pose-frame-meta-v1',
+      coordinateSpace: 'decoded_image_normalized',
+      sourceWidthPx: 3024,
+      sourceHeightPx: 4032,
+      analysisWidthPx: 1200,
+      analysisHeightPx: 1600,
+      orientationNormalization: 'exif_from_image_canvas_v1',
+      exifOrientationDegrees: null,
+      analysisMirrored: false,
+      displayMirrored: false,
+      viewAssignment: 'operator_asserted_not_verified',
+      requestedCameraFacingMode: null,
+      observedCameraFacingMode: null,
+      poseModel: {
+        runtime: '@mediapipe/tasks-vision',
+        runtimeVersion: '0.10.35',
+        variant: 'lite',
+        assetPath: '/mediapipe/models/pose_landmarker_lite.task',
+        assetSha256: POSE_MODEL_SHA256.lite,
+      },
+    }
+    mutate(meta)
+    body.frames[0] = { ...frame, source: 'upload', poseMeta: meta } as unknown as typeof frame
+    expect(parseAssessmentPayload(body, { testModeEnabled: false }).ok).toBe(false)
+  })
+
+  it('rejects provenance whose orientation path contradicts the declared frame source', () => {
+    const body = validBody()
+    body.frames[0] = {
+      ...body.frames[0],
+      source: 'camera',
+      poseMeta: {
+        version: 'pose-frame-meta-v1',
+        coordinateSpace: 'decoded_image_normalized',
+        sourceWidthPx: 720,
+        sourceHeightPx: 960,
+        analysisWidthPx: 720,
+        analysisHeightPx: 960,
+        orientationNormalization: 'browser_decoder',
+        exifOrientationDegrees: null,
+        analysisMirrored: false,
+        displayMirrored: false,
+        viewAssignment: 'operator_asserted_not_verified',
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+        poseModel: {
+          runtime: '@mediapipe/tasks-vision',
+          runtimeVersion: '0.10.35',
+          variant: 'lite',
+          assetPath: '/mediapipe/models/pose_landmarker_lite.task',
+          assetSha256: POSE_MODEL_SHA256.lite,
+        },
+      },
+    } as unknown as typeof body.frames[number]
+    expect(parseAssessmentPayload(body, { testModeEnabled: false }).ok).toBe(false)
   })
 
   it('requires a UUID submission_id', () => {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildCaptureRow } from './buildCaptureRow'
 import { dedupeCapturesByViewSide } from './dedupeCaptures'
 import type { PoseFrame } from '@posture-ai/engine'
+import { POSE_MODEL_SHA256 } from '@/lib/pose/pose-model'
 
 const frame = (view: PoseFrame['view'], profileSide?: 'left' | 'right'): PoseFrame => ({
   view,
@@ -27,6 +28,40 @@ describe('buildCaptureRow — profile_side persistence', () => {
   })
   it('defaults a non-fixture frame source to upload', () => {
     expect(buildCaptureRow(frame('front'), 'a', 'p', { useFixture: false }).source).toBe('upload')
+  })
+  it('projects exact analysis dimensions and model identity without dropping source metadata', () => {
+    const withMeta: PoseFrame = {
+      ...frame('front'),
+      poseMeta: {
+        version: 'pose-frame-meta-v1',
+        coordinateSpace: 'decoded_image_normalized',
+        sourceWidthPx: 3024,
+        sourceHeightPx: 4032,
+        analysisWidthPx: 720,
+        analysisHeightPx: 960,
+        orientationNormalization: 'exif_from_image_canvas_v1',
+        exifOrientationDegrees: null,
+        analysisMirrored: false,
+        displayMirrored: false,
+        viewAssignment: 'operator_asserted_not_verified',
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+        poseModel: {
+          runtime: '@mediapipe/tasks-vision',
+          runtimeVersion: '0.10.35',
+          variant: 'lite',
+          assetPath: '/mediapipe/models/pose_landmarker_lite.task',
+          assetSha256: POSE_MODEL_SHA256.lite,
+        },
+      },
+    }
+    const row = buildCaptureRow(withMeta, 'a', 'p', { useFixture: false })
+
+    expect(row.width_px).toBe(720)
+    expect(row.height_px).toBe(960)
+    expect(row.model_version).toContain('0.10.35')
+    expect(row.pose_frame).toHaveProperty('poseMeta.version', 'pose-frame-meta-v1')
+    expect(row.pose_frame).toHaveProperty('poseMeta.sourceWidthPx', 3024)
   })
 })
 

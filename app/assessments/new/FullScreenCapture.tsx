@@ -6,6 +6,7 @@ import { useCameraLevel } from '@/lib/capture/use-camera-level'
 import { useWakeLock } from '@/lib/capture/use-wake-lock'
 import { getCaptureRuntime } from '@/lib/pose/capture-runtime'
 import type { PoseReadiness } from '@/lib/pose/capture-runtime'
+import type { PoseInputProvenance } from '@/lib/pose/detect'
 import { recordLiveTelemetry } from '@/lib/pose/live-telemetry'
 import { shutterGate } from '@/lib/capture/shutter-gate'
 import { sourceToViewport } from '@/lib/capture/overlay-transform'
@@ -63,7 +64,13 @@ interface FullScreenCaptureProps {
   screeningNotice: LegalSnapshot | null
   captures: Captures
   /** raw burst object URLs; [0] is the representative still. */
-  onCameraCapture: (slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) => void
+  onCameraCapture: (
+    slot: CaptureSlotKey,
+    burst: string[],
+    captureRollDeg: number | null,
+    representativePixelQuality: PixelQualityResult | null,
+    poseInput: PoseInputProvenance,
+  ) => void
   onFileUpload: (slot: CaptureSlotKey, file: File) => Promise<void> | void
   onProceed: () => void
   onExit: () => void
@@ -244,6 +251,7 @@ export default function FullScreenCapture({
   // burst acquisition (off the shutter-tap path). Null when sampling/scoring
   // failed or hasn't completed yet — read once, at "Use This Photo".
   const representativePixelQualityRef = useRef<PixelQualityResult | null>(null)
+  const poseInputRef = useRef<PoseInputProvenance | null>(null)
   // The slot that owned the shutter at capture time. The burst commits to THIS
   // slot, not the live `activeSlot`, so a mid-flight slot change can never
   // mis-associate a capture. Free-order makes this race reachable.
@@ -335,6 +343,7 @@ export default function FullScreenCapture({
     burstRef.current.forEach(url => URL.revokeObjectURL(url))
     burstRef.current = []
     representativePixelQualityRef.current = null
+    poseInputRef.current = null
     setIsCapturing(false)
     setCountdown(3)
     setReviewUrl(null)
@@ -718,8 +727,27 @@ export default function FullScreenCapture({
       const video = videoRef.current
       const canvas = canvasRef.current
       if (!video || !canvas) throw new Error('Capture surface unavailable')
-      canvas.width = video.videoWidth || 720
-      canvas.height = video.videoHeight || 960
+      if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+        throw new Error('Camera frame dimensions unavailable')
+      }
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      let observedCameraFacingMode: string | null = null
+      try {
+        const setting = streamRef.current?.getVideoTracks()[0]?.getSettings().facingMode
+        observedCameraFacingMode = typeof setting === 'string' && setting.length > 0 ? setting : null
+      } catch {
+        observedCameraFacingMode = null
+      }
+      poseInputRef.current = {
+        sourceWidthPx: canvas.width,
+        sourceHeightPx: canvas.height,
+        orientationNormalization: 'camera_video_frame',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: 'environment',
+        observedCameraFacingMode,
+      }
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Capture context unavailable')
 
@@ -851,7 +879,7 @@ export default function FullScreenCapture({
         const { view } = slotToDomain(activeSlot)
         // Route through the runtime owner — it closes the live worker before the
         // IMAGE landmarker scores this still, so the two never run at once (§11.1).
-        const frame = await getCaptureRuntime().detect(reviewUrl, view, 'camera')
+        const frame = await getCaptureRuntime().detect(reviewUrl, view, 'camera', poseInputRef.current)
         // Merge in the representative frame's precomputed pixel-quality (scored
         // off the shutter-tap path, above) so pixel warnings are visible on the
         // review screen before "Use This Photo" — reusing the already-scored
@@ -893,10 +921,13 @@ export default function FullScreenCapture({
     // live `activeSlot` — the burst belongs to captureSlotRef.
     const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
-    onCameraCapture(committed, burst, rollAtCapture, representativePixelQualityRef.current)
+    const poseInput = poseInputRef.current
+    if (!poseInput) return
+    onCameraCapture(committed, burst, rollAtCapture, representativePixelQualityRef.current, poseInput)
     setLastCommittedSlot(committed)
     burstRef.current = [] // ownership transferred to the parent; do not revoke
     representativePixelQualityRef.current = null
+    poseInputRef.current = null
     setReviewUrl(null)
     setPreviewQuality(null)
     setPreviewError(null)
@@ -915,6 +946,7 @@ export default function FullScreenCapture({
     burstRef.current.forEach(URL.revokeObjectURL)
     burstRef.current = []
     representativePixelQualityRef.current = null
+    poseInputRef.current = null
   }
 
   function retakeStill() {

@@ -1,5 +1,6 @@
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
+import type { PoseInputProvenance } from '@/lib/pose/detect'
 import type { Captures, CaptureSlotKey, ViewKey } from './types'
 import { SLOT_LABEL } from './types'
 import { buildFramePlan, stampFrame, toScoringFrame } from './framePlan'
@@ -11,7 +12,12 @@ export interface AnalysisProgress {
 }
 
 interface AnalysisRuntime {
-  detect: (url: string, view: ViewKey, source: 'camera' | 'upload') => Promise<PoseFrame & { detectedPoseCount?: number }>
+  detect: (
+    url: string,
+    view: ViewKey,
+    source: 'camera' | 'upload',
+    poseInput?: PoseInputProvenance | null,
+  ) => Promise<PoseFrame & { detectedPoseCount?: number }>
 }
 
 function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -55,7 +61,7 @@ export async function analyzeCaptureFrames(input: {
           continue
         }
         const detected = await abortable(
-          input.runtime.detect(item.burstUrls[index], item.view, 'camera'),
+          input.runtime.detect(item.burstUrls[index], item.view, 'camera', item.poseInput),
           input.signal,
         )
         const quality = input.assessFrameQuality(detected, item.view)
@@ -70,7 +76,7 @@ export async function analyzeCaptureFrames(input: {
       reportProgress()
     } else if (item.fallbackUrl && item.source) {
       const detected = await abortable(
-        input.runtime.detect(item.fallbackUrl, item.view, item.source),
+        input.runtime.detect(item.fallbackUrl, item.view, item.source, item.poseInput),
         input.signal,
       )
       const quality = input.assessFrameQuality(detected, item.view)

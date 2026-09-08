@@ -555,7 +555,15 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   // Run detectPose + assessFrameQuality after each capture/upload on the RAW
   // still (never the display channel — design §4.3). `token` ties the result to
   // its capture; a newer capture bumps commitSeq and staleness-invalidates it.
-  async function runPreflight(slot: CaptureSlotKey, rawUrl: string, source: 'camera' | 'upload', captureRollDeg: number | null, token: number, pixelQuality: PixelQualityResult | null) {
+  async function runPreflight(
+    slot: CaptureSlotKey,
+    rawUrl: string,
+    source: 'camera' | 'upload',
+    captureRollDeg: number | null,
+    token: number,
+    pixelQuality: PixelQualityResult | null,
+    poseInput: CaptureSlot['poseInput'],
+  ) {
     const isStale = () => commitSeq.current[slot] !== token
     const { view, profileSide } = slotToDomain(slot)
 
@@ -574,7 +582,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         // Route through the runtime owner: it closes the live worker and warms the
         // IMAGE landmarker first, and serializes so a concurrent enterLive can't
         // close the landmarker mid-detection (§11.1).
-        const detected = await getCaptureRuntime().detect(rawUrl, view, source)
+        const detected = await getCaptureRuntime().detect(rawUrl, view, source, poseInput)
         if (isStale()) return
         const rawPoseFrame: PoseFrame = {
           ...detected,
@@ -618,6 +626,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         capture.captureRollDeg,
         capture.captureId,
         capture.pixelQuality,
+        capture.poseInput,
       )
     }
   }
@@ -636,6 +645,15 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       }
       rawUrl = normalized?.dataUrl ?? URL.createObjectURL(file)
       const pixelQuality = normalized?.pixelQuality ?? null
+      const poseInput: NonNullable<CaptureSlot['poseInput']> = normalized?.poseInput ?? {
+        sourceWidthPx: null,
+        sourceHeightPx: null,
+        orientationNormalization: 'browser_decoder',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+      }
       // Superseded by a newer capture/upload for this slot, or the wizard unmounted,
       // while we were normalizing — discard this one (and its blob) instead of
       // clobbering the newer result or committing to an unmounted tree.
@@ -646,12 +664,15 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       const prevSlot = capturesRef.current[slot]
       setCaptures(prev => ({
         ...prev,
-        [slot]: { ...emptySlot(), file, source: 'upload', captureId: op, rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality },
+        [slot]: {
+          ...emptySlot(), file, source: 'upload', captureId: op, poseInput,
+          rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality,
+        },
       }))
       submissionGuard.contentChanged()
       revokeSlotUrls(prevSlot, new Set([rawUrl]))
       setUploadError(null)
-      if (!testMode) void runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality)
+      if (!testMode) void runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality, poseInput)
     } catch (caught) {
       if (rawUrl?.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
       const message = caught instanceof Error && caught.message
@@ -662,7 +683,13 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     }
   }
 
-  function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) {
+  function handleCameraCapture(
+    slot: CaptureSlotKey,
+    burst: string[],
+    captureRollDeg: number | null,
+    representativePixelQuality: PixelQualityResult | null,
+    poseInput: NonNullable<CaptureSlot['poseInput']>,
+  ) {
     // burst is the shutter's raw object URLs; the representative (index 0) drives
     // the thumbnail + the fast quality preflight. Every frame is pose-detected at
     // submit so the engine can median them + report within-capture stability.
@@ -671,12 +698,18 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     const rep = burst[0]
     setCaptures(prev => ({
       ...prev,
-      [slot]: { ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, rawRepresentativeUrl: rep, rawBurstUrls: burst, displayPreviewUrl: rep, pixelQuality: representativePixelQuality },
+      [slot]: {
+        ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, poseInput,
+        rawRepresentativeUrl: rep, rawBurstUrls: burst, displayPreviewUrl: rep,
+        pixelQuality: representativePixelQuality,
+      },
     }))
     submissionGuard.contentChanged()
     revokeSlotUrls(prevSlot, new Set(burst))
     setUploadError(null)
-    if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality)
+    if (!testMode) {
+      runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality, poseInput)
+    }
   }
 
   // Check if submit should be blocked: every required slot must have completed

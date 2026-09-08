@@ -196,12 +196,11 @@ function buildVerdict(
   flagged: number,
   scanLabel: string,
 ): ReviewVerdict {
-  // "improving" is a directional claim, so it is only ever made when the shared
-  // policy has actually returned a direction for the pair.
+  // Describe comparable engineering-score changes without claiming a health outcome.
   const direction = overall?.status === 'improved'
-    ? ', improving'
+    ? ', score decreased'
     : overall?.status === 'regressed'
-      ? ', worsening'
+      ? ', score increased'
       : ''
 
   const lead = `Grade ${assessment.overall_grade}${direction}.`
