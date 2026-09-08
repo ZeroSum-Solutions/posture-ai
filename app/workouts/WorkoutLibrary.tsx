@@ -179,7 +179,7 @@ export default function WorkoutLibrary({
   }
 
   return (
-    <div className="app-screen">
+    <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
         <div>
           <p className="t-kicker">Movement plans</p>
