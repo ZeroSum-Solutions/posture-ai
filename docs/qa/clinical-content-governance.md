@@ -18,18 +18,20 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`dce6161854d79ed62e9788c6f119f53d706b8ae5e5093ae01dbdf27d05c6e759`.
+`114cb22aff54821d0a9aaa79af2448dbc2b8005070f129f2ee5bd1edcf19458b`.
 
 Recommendation algorithm SHA-256:
-`2f647e323e1dc6b39961dd02d38deb754a463ebba4cd5b5c8431510032a978e6`.
+`3a17eca1318badb97f3d552f0ec0b8dedb1ee532ae3c102e9178ee9d066dc93d`.
 
-This inventory was regenerated for the workout-run persistence fix. The governed
-run route now uses a revision compare-and-swap, so an older concurrent request cannot
-overwrite newer progress. The authenticated player adapter serializes requests,
-retries failed saves three times, and shows an unsaved-progress alert with a manual
-retry action. These changes do not alter measured findings, scoring, recommendation
-inputs, clinical copy, or release eligibility. The hash change still invalidates any
-prior approval and does not itself approve content.
+This inventory was regenerated after the workout-run persistence fix and the
+assessment-completion guard. The governed run route uses a revision compare-and-swap,
+so an older concurrent request cannot overwrite newer progress. The authenticated
+player adapter serializes requests, retries failed saves three times, and shows an
+unsaved-progress alert with a manual retry action. Assessment approval, preview, and
+workout minting now reject incomplete analyses before findings can become program
+input. These changes do not alter measured findings, scoring, recommendation inputs,
+clinical copy, or release eligibility. The hash change still invalidates any prior
+approval and does not itself approve content.
 
 The algorithm item hashes dosage, prioritization, relationship coherence,
 evidence weighting, program construction, server projection, exercise matching,
