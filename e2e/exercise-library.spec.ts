@@ -17,5 +17,13 @@ test('exercise library searches its full collection and fits compact screens', a
     await page.setViewportSize({ width, height: 900 })
     await expect(search).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    if (width === 1280) {
+      expect((await page.locator('.app-screen').boundingBox())!.width).toBeGreaterThan(900)
+      const cards = page.getByText('Reference · unreviewed', { exact: true }).locator('..')
+      const first = (await cards.nth(0).boundingBox())!
+      const second = (await cards.nth(1).boundingBox())!
+      expect(Math.abs(first.y - second.y)).toBeLessThan(2)
+      expect(second.x).toBeGreaterThan(first.x)
+    }
   }
 })

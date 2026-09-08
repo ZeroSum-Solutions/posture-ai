@@ -2,6 +2,10 @@
    tokens no longer exist. Category colour now runs through the shared
    severity bands (components/array/severity.ts) instead of a bespoke palette. */
 
+@media (min-width: 900px) {
+  .screen { width: min(1120px, 100%); }
+}
+
 .header {
   display: flex;
   align-items: flex-end;

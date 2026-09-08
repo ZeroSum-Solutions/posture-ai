@@ -86,7 +86,7 @@ export default function ExercisesLibrary({
   })
 
   return (
-    <div className="app-screen">
+    <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
         <div>
           <p className="t-kicker" style={{ marginBottom: 10 }}>Movement library</p>
