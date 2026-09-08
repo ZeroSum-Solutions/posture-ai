@@ -4,7 +4,7 @@ const responsiveWidths = [320, 390, 768, 1280, 1440] as const
 
 async function assertNoHorizontalOverflow(page: Page, width: number, testInfo: TestInfo) {
   await page.setViewportSize({ width, height: width <= 390 ? 844 : 960 })
-  await expect(page.getByRole('heading', { name: 'Eight-week draft' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '6-week draft' })).toBeVisible()
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -21,6 +21,15 @@ async function assertNoHorizontalOverflow(page: Page, width: number, testInfo: T
   await page.screenshot({ path: testInfo.outputPath(`strength-builder-${width}.png`), fullPage: true })
 }
 
+async function assertFitsViewport(page: Page, locatorName: string) {
+  const viewport = page.viewportSize()
+  const bounds = await page.getByRole('region', { name: locatorName }).boundingBox()
+  expect(viewport).not.toBeNull()
+  expect(bounds).not.toBeNull()
+  expect(bounds!.x).toBeGreaterThanOrEqual(0)
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width)
+}
+
 test('builds, accepts, and records a private sample strength program through the original Workouts UI', async ({ page }, testInfo) => {
   await page.goto('/workouts')
   await expect(page.getByRole('heading', { name: 'Workouts', exact: true, level: 1 })).toBeVisible()
@@ -31,9 +40,18 @@ test('builds, accepts, and records a private sample strength program through the
   await expect(page.getByText(/Profile revision \d+/)).toBeVisible()
 
   await page.getByRole('tab', { name: 'Schedule' }).click()
+  await page.getByRole('button', { name: '6 weeks Available', exact: true }).click()
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click()
+  await expect(page.getByText(/Saved · revision \d+/)).toBeVisible()
   await page.getByLabel('Cycle start date', { exact: true }).fill('2030-01-07')
   await page.getByRole('button', { name: 'Build practice draft' }).click()
-  await expect(page.getByRole('heading', { name: 'Eight-week draft' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '6-week draft' })).toBeVisible()
+  const schedulePreview = page.getByLabel('6-week schedule preview', { exact: true })
+  await expect(schedulePreview.locator(':scope > span')).toHaveCount(6)
+  await expect(schedulePreview.getByText('Familiarization', { exact: true })).toHaveCount(1)
+  await expect(schedulePreview.getByText('Progressive practice', { exact: true })).toHaveCount(3)
+  await expect(schedulePreview.getByText('Review and adjust', { exact: true })).toHaveCount(1)
+  await expect(schedulePreview.getByText('Next-cycle review', { exact: true })).toHaveCount(1)
   const startingLoads = page.getByRole('combobox', { name: 'Starting load', exact: true })
   await expect(startingLoads.first()).toBeVisible()
   await expect(startingLoads.nth(1)).toBeVisible()
@@ -63,8 +81,22 @@ test('builds, accepts, and records a private sample strength program through the
   await expect(page.getByText('Starting targets were accepted, but the program was not published. Retry publishing this accepted draft.')).toBeVisible()
   await expect(startingLoads.first()).toBeDisabled()
   await expect(page.getByRole('spinbutton', { name: 'Duration in minutes', exact: true }).first()).toBeDisabled()
+  const storedProgramRequest = page.waitForResponse(response => (
+    response.request().method() === 'GET'
+      && /\/api\/training\/programs\/[^/]+$/.test(new URL(response.url()).pathname)
+  ))
   await page.getByRole('button', { name: 'Retry publishing accepted draft', exact: true }).click()
   await expect(page.getByText('Starting targets accepted and program created.')).toBeVisible()
+  const storedProgramResponse = await storedProgramRequest
+  expect(storedProgramResponse.ok()).toBe(true)
+  const storedProgram = await storedProgramResponse.json() as {
+    program: { cycleLengthWeeks: number; sessions: { scheduledLocalDate: string }[] }
+  }
+  expect(storedProgram.program.cycleLengthWeeks).toBe(6)
+  expect(storedProgram.program.sessions).toHaveLength(12)
+  const storedSessionDates = storedProgram.program.sessions.map(session => session.scheduledLocalDate).sort()
+  expect(storedSessionDates[0]).toBe('2030-01-07')
+  expect(storedSessionDates.at(-1)).toBe('2030-02-14')
   expect(acceptanceRequests).toBe(1)
   expect(publishedDraftIds).toHaveLength(2)
   expect(publishedDraftIds[1]).toBe(publishedDraftIds[0])
@@ -77,6 +109,16 @@ test('builds, accepts, and records a private sample strength program through the
   await expect(page.getByRole('heading', { name: 'Session', exact: true, level: 1 })).toBeVisible()
   await expect(page.getByText('Practice data · Simulation', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Start session' }).click()
+  await page.setViewportSize({ width: 320, height: 844 })
+  const restTimer = page.getByRole('region', { name: /rest timer$/i }).first()
+  await expect(restTimer).toBeVisible()
+  await assertFitsViewport(page, await restTimer.getAttribute('aria-label') ?? '')
+  await restTimer.getByRole('button', { name: 'Start rest timer', exact: true }).click()
+  await expect(restTimer.getByRole('button', { name: 'Pause rest timer', exact: true })).toBeVisible()
+  await restTimer.getByRole('button', { name: 'Pause rest timer', exact: true }).click()
+  await expect(restTimer.getByRole('button', { name: 'Resume rest timer', exact: true })).toBeVisible()
+  await restTimer.getByRole('button', { name: 'Reset rest timer', exact: true }).click()
+  await expect(restTimer.getByRole('button', { name: 'Start rest timer', exact: true })).toBeVisible()
   const firstSet = page.getByRole('group', { name: 'Set 1' }).first()
   const rir = firstSet.getByRole('combobox', { name: 'RIR', exact: true })
   await expect(rir).toHaveValue('unknown')

@@ -38,6 +38,20 @@ SELECT ok(
   'browser actors still cannot insert compiler evidence directly'
 );
 
+CREATE FUNCTION pg_temp.explicit_eight_week_build(p_build jsonb)
+RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT p_build || '{
+    "cycleLengthWeeks":8,
+    "weeks":[
+      {"week":1},{"week":2},{"week":3},{"week":4},
+      {"week":5},{"week":6},{"week":7},{"week":8}
+    ]
+  }'::jsonb;
+$$;
+
 SET LOCAL session_replication_role = replica;
 INSERT INTO auth.users(id,email,created_at,updated_at) VALUES
   ('68000000-0000-4000-8000-000000000001','live-owner@example.invalid',now(),now()),
@@ -284,17 +298,17 @@ SELECT throws_ok($$
     '68000000-0000-4000-8000-000000000401',
     '68000000-0000-4000-8000-000000000101',
     '68000000-0000-4000-8000-000000000001',1,'compiled-missing-source',
-    'compiler.v1','authored.v1',
-    '{
+    'strength-cycle-compiler.v3','authored.v1',
+    pg_temp.explicit_eight_week_build('{
       "kind":"draft_program",
       "subjectId":"68000000-0000-4000-8000-000000000101",
       "profileRevisionId":"1",
       "programRevisionId":"compiled-missing-source",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"authored.v1",
       "executionContext":{"kind":"live"},
       "catalogOrigin":{"kind":"authored_catalog"}
-    }'::jsonb,
+    }'::jsonb),
     now(),now()+interval '30 minutes'
   )
 $$, '23514','new training source evidence is required',
@@ -310,16 +324,16 @@ SELECT throws_ok($$
     '68000000-0000-4000-8000-000000000101',
     '68000000-0000-4000-8000-000000000001',1,
     '68000000-0000-4000-8000-000000000301','decision:live:1',
-    'compiled-mixed-source','compiler.v1','authored.v1',
-    '{
+    'compiled-mixed-source','strength-cycle-compiler.v3','authored.v1',
+    pg_temp.explicit_eight_week_build('{
       "kind":"draft_program",
       "subjectId":"68000000-0000-4000-8000-000000000101",
       "profileRevisionId":"1",
       "programRevisionId":"compiled-mixed-source",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"authored.v1",
       "executionContext":{"kind":"live"}
-    }'::jsonb,
+    }'::jsonb),
     now(),now()+interval '30 minutes'
   )
 $$, '23514',NULL,
@@ -335,34 +349,34 @@ SELECT lives_ok($$
     '68000000-0000-4000-8000-000000000403',
     '68000000-0000-4000-8000-000000000101',
     '68000000-0000-4000-8000-000000000001',1,
-    'decision:live:1','compiled-live-1','compiler.v1','authored.v1',
-    '{
+    'decision:live:1','compiled-live-1','strength-cycle-compiler.v3','authored.v1',
+    pg_temp.explicit_eight_week_build('{
       "kind":"draft_program",
       "subjectId":"68000000-0000-4000-8000-000000000101",
       "profileRevisionId":"1",
       "programRevisionId":"compiled-live-1",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"authored.v1",
       "executionContext":{"kind":"live"},
       "catalogOrigin":{"kind":"authored_catalog"}
-    }'::jsonb,
+    }'::jsonb),
     now(),now()+interval '30 minutes'
   ),
   (
     '68000000-0000-4000-8000-000000000404',
     '68000000-0000-4000-8000-000000000101',
     '68000000-0000-4000-8000-000000000001',1,
-    'decision:live:1','compiled-live-2','compiler.v1','authored.v1',
-    '{
+    'decision:live:1','compiled-live-2','strength-cycle-compiler.v3','authored.v1',
+    pg_temp.explicit_eight_week_build('{
       "kind":"draft_program",
       "subjectId":"68000000-0000-4000-8000-000000000101",
       "profileRevisionId":"1",
       "programRevisionId":"compiled-live-2",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"authored.v1",
       "executionContext":{"kind":"live"},
       "catalogOrigin":{"kind":"authored_catalog"}
-    }'::jsonb,
+    }'::jsonb),
     now(),now()+interval '30 minutes'
   )
 $$, 'new live builds persist their exact eligibility evidence');
@@ -402,19 +416,19 @@ SELECT lives_ok($$
     '68000000-0000-4000-8000-000000000101',
     '68000000-0000-4000-8000-000000000001',1,
     '68000000-0000-4000-8000-000000000301',
-    'compiled-simulation-1','compiler.v1','fixture.v1',
-    '{
+    'compiled-simulation-1','strength-cycle-compiler.v3','fixture.v1',
+    pg_temp.explicit_eight_week_build('{
       "kind":"draft_program",
       "subjectId":"68000000-0000-4000-8000-000000000101",
       "profileRevisionId":"1",
       "programRevisionId":"compiled-simulation-1",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"fixture.v1",
       "executionContext":{
         "kind":"synthetic_simulation",
         "simulationRunId":"68000000-0000-4000-8000-000000000301"
       }
-    }'::jsonb,
+    }'::jsonb),
     now(),now()+interval '30 minutes'
   )
 $$, 'the existing simulation build branch remains accepted');
@@ -440,7 +454,7 @@ SELECT lives_ok($$
       "cycleLengthWeeks":8,
       "profileRevisionId":"1",
       "eligibilitySourceRevisionId":"decision:live:1",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"authored.v1",
       "catalogOrigin":{"kind":"authored_catalog"},
       "compiledProgramRevisionId":"compiled-live-1",
@@ -502,7 +516,7 @@ SELECT lives_ok($$
       "cycleLengthWeeks":8,
       "profileRevisionId":"1",
       "eligibilitySourceRevisionId":"simulation:fixture",
-      "compilerPolicyVersion":"compiler.v1",
+      "compilerPolicyVersion":"strength-cycle-compiler.v3",
       "catalogVersion":"fixture.v1",
       "catalogOrigin":{"kind":"synthetic_fixture"},
       "compiledProgramRevisionId":"compiled-simulation-1",
@@ -523,15 +537,19 @@ SELECT lives_ok($$
     '68000000-0000-4000-8000-000000000406',
     '68000000-0000-4000-8000-000000000101',
     '68000000-0000-4000-8000-000000000001',1,'legacy-live-build',
-    'legacy-compiler.v1','legacy-authored.v1',
+    'eight-week-compiler.v2','legacy-authored.v1',
     '{
       "kind":"draft_program",
       "subjectId":"68000000-0000-4000-8000-000000000101",
       "profileRevisionId":"1",
       "programRevisionId":"legacy-live-build",
-      "compilerPolicyVersion":"legacy-compiler.v1",
+      "compilerPolicyVersion":"eight-week-compiler.v2",
       "catalogVersion":"legacy-authored.v1",
-      "executionContext":{"kind":"live"}
+      "executionContext":{"kind":"live"},
+      "weeks":[
+        {"week":1},{"week":2},{"week":3},{"week":4},
+        {"week":5},{"week":6},{"week":7},{"week":8}
+      ]
     }'::jsonb,
     now(),now()+interval '30 minutes'
   )

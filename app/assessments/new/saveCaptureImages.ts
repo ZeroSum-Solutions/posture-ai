@@ -2,6 +2,15 @@ import { SLOT_ORDER, SLOT_LABEL, type Captures } from './types'
 
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024
 
+export function captureImageFromDataUrl(url: string): Blob {
+  const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/]*={0,2})$/.exec(url)
+  if (!match) throw new Error('The normalized capture image is unavailable.')
+  const decoded = atob(match[2])
+  const bytes = new Uint8Array(decoded.length)
+  for (let index = 0; index < decoded.length; index += 1) bytes[index] = decoded.charCodeAt(index)
+  return new Blob([bytes], { type: match[1] })
+}
+
 export async function fitCapturePhotoUpload(image: Blob): Promise<Blob> {
   // Normal capture/upload acquisition already produces a bounded JPEG. Handle
   // older-browser raw-file fallbacks before hitting the hosting body limit.
@@ -33,14 +42,16 @@ export async function saveCaptureImages({ assessmentId, captures, signal }: {
   signal: AbortSignal
 }): Promise<void> {
   for (const slot of SLOT_ORDER) {
-    const url = captures[slot].rawRepresentativeUrl
+    const capture = captures[slot]
+    const url = capture.rawRepresentativeUrl
     if (!url) continue
     if (!url.startsWith('blob:') && !url.startsWith('data:image/')) {
       throw new Error(`${SLOT_LABEL[slot]} photo is no longer available. Return to the photos and try again.`)
     }
-    const pixels = await fetch(url, { signal })
-    if (!pixels.ok) throw new Error(`${SLOT_LABEL[slot]} photo could not be read.`)
-    let image = await pixels.blob()
+    let image = capture.rawRepresentativeImage
+    if (!image) {
+      throw new Error(`${SLOT_LABEL[slot]} photo is no longer available. Return to the photos and try again.`)
+    }
     if (!['image/jpeg', 'image/png'].includes(image.type) || image.size === 0 || image.size > 20 * 1024 * 1024) {
       throw new Error(`${SLOT_LABEL[slot]} photo must be a JPEG or PNG smaller than 20 MB.`)
     }

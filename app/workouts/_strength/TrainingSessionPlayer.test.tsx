@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TrainingSessionPlayer from './TrainingSessionPlayer'
 import { TrainingRevisionConflict, type TrainingSessionProjection } from './TrainingSessionPlayer.gateway'
@@ -64,9 +64,82 @@ const conditioningProjection = {
 beforeEach(() => {
   Object.values(mocks).forEach(mock => mock.mockReset())
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('TrainingSessionPlayer', () => {
+  it('uses prescribed rest and catches up from elapsed wall time after interval delivery is delayed', async () => {
+    mocks.read.mockResolvedValue(strengthProjection)
+    render(<TrainingSessionPlayer sessionId="session-1" />)
+    await screen.findByText('Goblet squat')
+    vi.useFakeTimers()
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 2 minutes' }).textContent).toBe('2:00')
+    fireEvent.click(screen.getByRole('button', { name: 'Start rest timer' }))
+    act(() => {
+      now = 30_000
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 1 minute 30 seconds' }).textContent).toBe('1:30')
+
+    act(() => {
+      now = 120_000
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 0 seconds' }).textContent).toBe('0:00')
+    expect(screen.getByText('Rest complete. Begin the next set when ready.')).toBeTruthy()
+  })
+
+  it('pauses without consuming time, then resumes and resets to the prescribed duration', async () => {
+    mocks.read.mockResolvedValue(strengthProjection)
+    render(<TrainingSessionPlayer sessionId="session-1" />)
+    await screen.findByText('Goblet squat')
+    vi.useFakeTimers()
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start rest timer' }))
+    act(() => {
+      now = 30_000
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Pause rest timer' }))
+    act(() => {
+      now = 90_000
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 1 minute 30 seconds' }).textContent).toBe('1:30')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume rest timer' }))
+    act(() => {
+      now = 120_000
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 1 minute' }).textContent).toBe('1:00')
+    fireEvent.click(screen.getByRole('button', { name: 'Reset rest timer' }))
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 2 minutes' }).textContent).toBe('2:00')
+    expect(screen.getByRole('button', { name: 'Start rest timer' })).toBeTruthy()
+  })
+
+  it('skips rest without logging a set, completing the session, or changing progression', async () => {
+    mocks.read.mockResolvedValue(strengthProjection)
+    render(<TrainingSessionPlayer sessionId="session-1" />)
+    await screen.findByText('Goblet squat')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip rest timer' }))
+
+    expect(screen.getByRole('timer', { name: 'Rest time remaining 0 seconds' }).textContent).toBe('0:00')
+    expect(screen.getByText('Rest skipped. Begin the next set when ready.')).toBeTruthy()
+    expect(mocks.saveSet).not.toHaveBeenCalled()
+    expect(mocks.saveConditioning).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
   it('shows accepted progression targets for each set while preserving logged reps', async () => {
     const projection = structuredClone(strengthProjection)
     if (projection.prescription?.schemaVersion !== 'training-session-prescription.v1') throw new Error('strength fixture required')

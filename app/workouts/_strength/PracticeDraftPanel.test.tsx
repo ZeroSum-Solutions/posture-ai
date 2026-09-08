@@ -14,44 +14,70 @@ const context = {
   fixtureHash: 'a'.repeat(64),
   label: 'Practice data' as const,
 }
-const weeks = Array.from({ length: 8 }, (_, index) => ({
-  week: index + 1,
-  phase: index === 0 ? 'calibration' : 'build',
-  strengthSessions: [{ sessionId: `session-${index + 1}`, exercises: [] }],
-  conditioningBouts: [
-    {
-      boutId: `bout-${index + 1}-tuesday`, modalityId: 'walking.v1', weekday: 'tuesday',
-      scheduledLocalDate: `2026-09-${String(15 + index * 7).padStart(2, '0')}`, athleteTimezone: 'America/Los_Angeles',
-      durationOfferSeconds: 600, allowedDurationSeconds: { minimum: 60, maximum: 1_200 },
-      effortCue: 'Keep a conversational pace.', status: 'requires_explicit_acceptance',
-    },
-    {
-      boutId: `bout-${index + 1}-saturday`, modalityId: 'walking.v1', weekday: 'saturday',
-      scheduledLocalDate: `2026-09-${String(19 + index * 7).padStart(2, '0')}`, athleteTimezone: 'America/Los_Angeles',
-      durationOfferSeconds: 600, allowedDurationSeconds: { minimum: 60, maximum: 1_200 },
-      effortCue: 'Keep a conversational pace.', status: 'requires_explicit_acceptance',
-    },
-  ],
-}))
-const projection = {
+const phasesByCycleLength = {
+  4: ['calibration', 'build', 'build', 'review'],
+  6: ['calibration', 'build', 'build', 'review_adjust', 'build', 'review'],
+  8: ['calibration', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review'],
+  12: ['calibration', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review'],
+} as const
+
+function createWeeks(cycleLengthWeeks: keyof typeof phasesByCycleLength) {
+  return phasesByCycleLength[cycleLengthWeeks].map((phase, index) => ({
+    week: index + 1,
+    phase,
+    strengthSessions: [{ sessionId: `session-${index + 1}`, exercises: [] }],
+    conditioningBouts: [
+      {
+        boutId: `bout-${index + 1}-tuesday`, modalityId: 'walking.v1', weekday: 'tuesday',
+        scheduledLocalDate: `2026-09-${String(15 + index * 7).padStart(2, '0')}`, athleteTimezone: 'America/Los_Angeles',
+        durationOfferSeconds: 600, allowedDurationSeconds: { minimum: 60, maximum: 1_200 },
+        effortCue: 'Keep a conversational pace.', status: 'requires_explicit_acceptance',
+      },
+      {
+        boutId: `bout-${index + 1}-saturday`, modalityId: 'walking.v1', weekday: 'saturday',
+        scheduledLocalDate: `2026-09-${String(19 + index * 7).padStart(2, '0')}`, athleteTimezone: 'America/Los_Angeles',
+        durationOfferSeconds: 600, allowedDurationSeconds: { minimum: 60, maximum: 1_200 },
+        effortCue: 'Keep a conversational pace.', status: 'requires_explicit_acceptance',
+      },
+    ],
+  }))
+}
+
+function createProjection(cycleLengthWeeks: keyof typeof phasesByCycleLength = 8): TrainingBuildProjection {
+  return {
   schemaVersion: 'training-build-projection.v1',
   buildId: '20000000-0000-4000-8000-000000000001',
   result: {
     kind: 'draft_program', executionContext: context, schemaVersion: 'compiled-program.v1',
-    compilerPolicyVersion: 'eight-week-compiler.v1', status: 'requires_explicit_acceptance',
+    compilerPolicyVersion: 'strength-cycle-compiler.v3', status: 'requires_explicit_acceptance',
     subjectId: 'subject-1', profileRevisionId: '3', programRevisionId: 'program-1',
     catalogVersion: 'catalog-1', catalogOrigin: { kind: 'synthetic_fixture', source: 'server_fixture', fixtureId: 'fixture-1', fixtureHash: 'a'.repeat(64), label: 'Synthetic catalog' },
-    goal: 'strength', cycleStartLocalDate: '2026-09-14',
+    goal: 'strength', cycleStartLocalDate: '2026-09-14', cycleLengthWeeks,
     athleteTimezone: 'America/Los_Angeles', sessionTimeBudgetMinutes: 45,
-    scheduleKind: 'full_body', weeks,
+    scheduleKind: 'full_body', weeks: createWeeks(cycleLengthWeeks),
   },
   calibrations: [
     { exerciseLabel: 'Synthetic goblet squat', calibration: { schemaVersion: 'initial-load-calibration.v1', status: 'requires_explicit_acceptance', subjectId: 'subject-1', profileRevisionId: '3', programRevisionId: 'program-1', catalogVersion: 'catalog-1', exerciseInstanceId: 'goblet-1', exerciseVersionId: 'goblet.v1', executionContext: context, loadBasis: 'dumbbell_single_implement', options: [{ equipmentId: 'dumbbells', basis: 'dumbbell_single_implement', quantity }] } },
     { exerciseLabel: 'Synthetic two-dumbbell row', calibration: { schemaVersion: 'initial-load-calibration.v1', status: 'requires_explicit_acceptance', subjectId: 'subject-1', profileRevisionId: '3', programRevisionId: 'program-1', catalogVersion: 'catalog-1', exerciseInstanceId: 'row-1', exerciseVersionId: 'row.v1', executionContext: context, loadBasis: 'dumbbell_per_hand', options: [{ equipmentId: 'dumbbells', basis: 'dumbbell_per_hand', quantity }] } },
   ],
-} as unknown as TrainingBuildProjection
+  } as unknown as TrainingBuildProjection
+}
+
+const projection = createProjection()
 
 describe('PracticeDraftPanel', () => {
+  it.each([
+    { cycleLengthWeeks: 4 as const, visiblePhases: ['Familiarization', 'Progressive practice', 'Next-cycle review'] },
+    { cycleLengthWeeks: 6 as const, visiblePhases: ['Familiarization', 'Progressive practice', 'Review and adjust', 'Next-cycle review'] },
+    { cycleLengthWeeks: 12 as const, visiblePhases: ['Familiarization', 'Progressive practice', 'Review and adjust', 'Next-cycle review'] },
+  ])('renders the compiler-provided phases for a $cycleLengthWeeks-week draft', ({ cycleLengthWeeks, visiblePhases }) => {
+    render(<PracticeDraftPanel projection={createProjection(cycleLengthWeeks)} />)
+
+    expect(screen.getByRole('heading', { name: `${cycleLengthWeeks}-week draft` })).toBeTruthy()
+    expect(screen.getByLabelText(`${cycleLengthWeeks}-week schedule preview`).children).toHaveLength(cycleLengthWeeks)
+    for (const phase of visiblePhases) expect(screen.getAllByText(phase).length).toBeGreaterThan(0)
+  })
+
   it('sends one bounded starting-target selection without calibration or draft authority', async () => {
     const onAcceptTargets = vi.fn(async (input: StartingTargetsSelection) => {
       void input

@@ -209,7 +209,7 @@ test.describe('accessibility budget', () => {
     })
 
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
-    await expect(page.getByText('Scoring Failed')).toBeVisible()
+    await expect(page.getByText('Screening needs attention', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Try Again' })).toBeVisible()
     await expectNoSeriousViolations(page, testInfo, 'wizard hard-failure recovery')
   })

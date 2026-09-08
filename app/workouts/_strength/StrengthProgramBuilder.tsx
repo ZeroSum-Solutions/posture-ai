@@ -241,7 +241,7 @@ export default function StrengthProgramBuilder({
         <div className={styles.heroCopy}>
           <div className={styles.eyebrowRow}>
             <p className="t-kicker">Strength program</p>
-            <Chip band="neutral" size="sm">8-week foundation</Chip>
+            <Chip band="neutral" size="sm">{profile.cycleLengthWeeks}-week foundation</Chip>
           </div>
           <h2 id="strength-builder-heading" className="t-headline-sm">Build a strength program</h2>
           <p className="t-body">

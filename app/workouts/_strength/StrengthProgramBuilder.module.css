@@ -345,6 +345,13 @@
   color: var(--text-tertiary);
 }
 
+.phaseLabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
 .equipmentList {
   display: grid;
   gap: var(--space-3);
@@ -555,6 +562,34 @@
 
 .finishBar p { margin: 0; }
 
+.restTimer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-glass);
+}
+
+.restTimerDetails {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.restTimerDetails p { margin: 0; }
+
+.restTimerControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.restTimerControls button { min-height: 44px; }
+
 @container (max-width: 760px) {
   .calibrationGrid,
   .conditioningGrid { grid-template-columns: minmax(0, 1fr); }
@@ -599,4 +634,16 @@
   .symptomField { grid-column: auto; }
 
   .finishBar button { width: 100%; }
+
+  .restTimer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .restTimer > :first-child { align-self: center; }
+
+  .restTimerControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -16,6 +16,7 @@ import {
   type TrainingSessionProjection,
 } from './TrainingSessionPlayer.gateway'
 import styles from './StrengthProgramBuilder.module.css'
+import RestTimer from './RestTimer'
 import TrainingProgressionPanel from './TrainingProgressionPanel'
 
 type LoadState =
@@ -121,9 +122,11 @@ function StrengthSession({ projection, update, conflict }: {
   if (!prescription || prescription.schemaVersion !== 'training-session-prescription.v1') return null
   const terminal = ['completed', 'completed_with_omissions', 'aborted'].includes(projection.session.state)
   return <div className={styles.sessionExercises}>
-    {prescription.exercises.map((exercise, index) => <Surface key={exercise.exerciseInstanceId} tier="tile" innerClassName={styles.sessionExercise}>
+    {prescription.exercises.map((exercise, index) => {
+      const exerciseLabel = projection.exerciseDisplay[exercise.exerciseInstanceId]?.label ?? 'Exercise name unavailable'
+      return <Surface key={exercise.exerciseInstanceId} tier="tile" innerClassName={styles.sessionExercise}>
       <div className={styles.sectionHeading}>
-        <div><p className="t-kicker">Exercise {String(index + 1).padStart(2, '0')}</p><h3 className="t-headline-sm">{projection.exerciseDisplay[exercise.exerciseInstanceId]?.label ?? 'Exercise name unavailable'}</h3></div>
+        <div><p className="t-kicker">Exercise {String(index + 1).padStart(2, '0')}</p><h3 className="t-headline-sm">{exerciseLabel}</h3></div>
         <span className="t-quiet">Rest {exercise.restSeconds}s</span>
       </div>
       <p className="t-body">{projection.exerciseDisplay[exercise.exerciseInstanceId]?.textInstruction ?? 'Instructions are unavailable for this saved catalog version.'}</p>
@@ -147,12 +150,16 @@ function StrengthSession({ projection, update, conflict }: {
           onConflict={conflict}
         />})}
       </div>
+      {!terminal && !projection.session.stopped_for_symptoms && exercise.setIds.length > 1
+        ? <RestTimer key={`${exercise.exerciseInstanceId}:${exercise.restSeconds}`} durationSeconds={exercise.restSeconds} exerciseLabel={exerciseLabel} />
+        : null}
       {terminal && exercise.progression ? <TrainingProgressionPanel
         key={`${projection.session.id}:${exercise.exerciseInstanceId}:${projection.session.revision}`}
         sessionId={projection.session.id}
         exerciseInstanceId={exercise.exerciseInstanceId}
       /> : null}
-    </Surface>)}
+    </Surface>
+    })}
   </div>
 }
 

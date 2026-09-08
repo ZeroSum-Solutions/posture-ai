@@ -5,8 +5,15 @@ import {
   type TrainingCatalogOriginV1,
 } from '../catalog/types'
 import { createLoadQuantity, isEnteredLoadAtMostCanonicalKg } from '../quantity'
+import { AthleteTrainingProfileV1Schema } from './profile'
 
 export const TRAINING_PROGRAM_REVISION_SCHEMA_VERSION = 'training-program-revision.v1' as const
+
+const trainingProgramCompilerPolicySchema = z.enum([
+  'eight-week-compiler.v1',
+  'eight-week-compiler.v2',
+  'strength-cycle-compiler.v3',
+])
 
 export const TrainingStableIdV1Schema = z.string()
   .trim()
@@ -197,10 +204,10 @@ export const TrainingProgramRevisionV1Schema = z.object({
   owningPractitionerId: TrainingStableIdV1Schema.nullable(),
   executionContext: ExecutionContextV1Schema,
   cycleStartLocalDate: localDateSchema,
-  cycleLengthWeeks: z.literal(8),
+  cycleLengthWeeks: AthleteTrainingProfileV1Schema.shape.cycleLengthWeeks,
   profileRevisionId: TrainingStableIdV1Schema,
   eligibilitySourceRevisionId: TrainingStableIdV1Schema,
-  compilerPolicyVersion: TrainingStableIdV1Schema,
+  compilerPolicyVersion: trainingProgramCompilerPolicySchema,
   catalogVersion: TrainingStableIdV1Schema,
   catalogOrigin: TrainingCatalogOriginV1Schema,
   ruleVersion: TrainingStableIdV1Schema,
@@ -219,6 +226,14 @@ export const TrainingProgramRevisionV1Schema = z.object({
   }).strict()).min(1).max(64),
   conditioningBouts: z.array(AcceptedConditioningBoutV1Schema).min(1).max(24),
 }).strict().superRefine((revision, ctx) => {
+  if (revision.compilerPolicyVersion !== 'strength-cycle-compiler.v3'
+    && revision.cycleLengthWeeks !== 8) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Legacy compiler policies support only eight-week programs',
+      path: ['compilerPolicyVersion'],
+    })
+  }
   if ((revision.programMode === 'coach_assigned') !== (revision.owningPractitionerId !== null)) {
     ctx.addIssue({ code: 'custom', message: 'Coach-assigned programs require exactly one owning practitioner', path: ['owningPractitionerId'] })
   }

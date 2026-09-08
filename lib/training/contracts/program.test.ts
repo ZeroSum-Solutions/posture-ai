@@ -34,13 +34,18 @@ const progression = {
   tempo: 'self_selected_controlled', exposureType: 'standard', loadEpoch: 1,
 } as const
 
-function revision() {
+function revision(
+  cycleLengthWeeks: 4 | 6 | 8 | 12 = 8,
+  compilerPolicyVersion = cycleLengthWeeks === 8
+    ? 'eight-week-compiler.v1'
+    : 'strength-cycle-compiler.v3',
+) {
   return {
     schemaVersion: 'training-program-revision.v1', assignmentId: 'assignment-1', revisionNumber: 1,
     subjectId: 'subject-1', programMode: 'self_directed', owningPractitionerId: null,
-    executionContext: live, cycleStartLocalDate: '2026-09-08', cycleLengthWeeks: 8,
+    executionContext: live, cycleStartLocalDate: '2026-09-08', cycleLengthWeeks,
     profileRevisionId: '1', eligibilitySourceRevisionId: 'eligibility-1',
-    compilerPolicyVersion: 'eight-week-compiler.v1', catalogVersion: 'starter.v1',
+    compilerPolicyVersion, catalogVersion: 'starter.v1',
     catalogOrigin: { kind: 'authored_catalog' }, ruleVersion: 'rules.v1',
     compiledProgramRevisionId: 'compiled-program-1',
     publishedAt: '2026-09-08T01:00:00Z', author: { kind: 'athlete', userId: 'athlete-1' },
@@ -85,6 +90,34 @@ describe('program contracts', () => {
     expect(TrainingProgramRevisionV1Schema.parse(value)).toEqual(value)
     expect(() => TrainingProgramRevisionV1Schema.parse({ ...value, programMode: 'coach_assigned' })).toThrow()
     expect(() => TrainingProgramRevisionV1Schema.parse({ ...value, sessions: [value.sessions[0], value.sessions[0]] })).toThrow()
+  })
+
+  it.each([4, 6, 8, 12] as const)('accepts a published %s-week cycle', (cycleLengthWeeks) => {
+    expect(TrainingProgramRevisionV1Schema.parse(revision(cycleLengthWeeks)).cycleLengthWeeks)
+      .toBe(cycleLengthWeeks)
+  })
+
+  it.each(['eight-week-compiler.v1', 'eight-week-compiler.v2', 'strength-cycle-compiler.v3'] as const)(
+    'accepts eight-week published provenance from %s',
+    (compilerPolicyVersion) => {
+      expect(TrainingProgramRevisionV1Schema.parse(revision(8, compilerPolicyVersion)).cycleLengthWeeks)
+        .toBe(8)
+    },
+  )
+
+  it.each([
+    [4, 'eight-week-compiler.v1'],
+    [6, 'eight-week-compiler.v2'],
+    [12, 'unknown-cycle-compiler.v1'],
+    [8, 'unknown-cycle-compiler.v1'],
+  ] as const)('rejects %s-week published provenance from %s', (cycleLengthWeeks, compilerPolicyVersion) => {
+    expect(() => TrainingProgramRevisionV1Schema.parse(
+      revision(cycleLengthWeeks, compilerPolicyVersion),
+    )).toThrow()
+  })
+
+  it.each([0, 5, 10, 16])('rejects unsupported published cycle length %s', (cycleLengthWeeks) => {
+    expect(() => TrainingProgramRevisionV1Schema.parse({ ...revision(), cycleLengthWeeks })).toThrow()
   })
 
   it('accepts authored progression identity while keeping legacy prescriptions readable', () => {

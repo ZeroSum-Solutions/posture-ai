@@ -133,7 +133,7 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
     ),
     'cycleStartLocalDate','2026-09-01','cycleLengthWeeks',8,
     'profileRevisionId','1','eligibilitySourceRevisionId','simulation:49000000-0000-4000-8000-000000000003',
-    'compilerPolicyVersion','compiler.v1','catalogVersion','synthetic-starter-catalog.v1',
+    'compilerPolicyVersion','eight-week-compiler.v1','catalogVersion','synthetic-starter-catalog.v1',
     'catalogOrigin',pg_catalog.jsonb_build_object(
       'kind','synthetic_fixture','source','server_fixture','fixtureId','synthetic-starter-catalog.v1',
       'fixtureHash','ea848ced42813786b527296c351dc51ba2a8072a6c85ac5d2f744547de730717',

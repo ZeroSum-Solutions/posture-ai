@@ -51,7 +51,7 @@ function program() {
     schemaVersion: 'training-program-revision.v1', assignmentId: 'assignment-1', revisionNumber: 1,
     subjectId: 'subject-1', programMode: 'self_directed', owningPractitionerId: null,
     executionContext: { kind: 'live' }, cycleStartLocalDate: '2026-09-01', cycleLengthWeeks: 8,
-    profileRevisionId: '1', eligibilitySourceRevisionId: 'eligibility-1', compilerPolicyVersion: 'compiler-v2',
+    profileRevisionId: '1', eligibilitySourceRevisionId: 'eligibility-1', compilerPolicyVersion: 'eight-week-compiler.v2',
     catalogVersion: 'catalog-1', catalogOrigin: { kind: 'authored_catalog' }, ruleVersion: 'progression-v1',
     compiledProgramRevisionId: 'compiled-1', publishedAt: '2026-09-01T00:00:00.000Z',
     author: { kind: 'athlete', userId },
@@ -63,7 +63,7 @@ function program() {
       status: 'accepted', acceptanceId: 'bout-accept', acceptedAt: '2026-09-01T00:00:00.000Z',
       acceptedByUserId: userId, executionContext: { kind: 'live' }, boutId: 'bout-1', modalityId: 'walk-v1',
       scheduledLocalDate: '2026-09-02', athleteTimezone: 'UTC', acceptedDurationSeconds: 600,
-      effortCue: 'Comfortable talk pace', source: { compiledProgramRevisionId: 'compiled-1', compilerPolicyVersion: 'compiler-v2', catalogVersion: 'catalog-1', catalogOrigin: { kind: 'authored_catalog' } },
+      effortCue: 'Comfortable talk pace', source: { compiledProgramRevisionId: 'compiled-1', compilerPolicyVersion: 'eight-week-compiler.v2', catalogVersion: 'catalog-1', catalogOrigin: { kind: 'authored_catalog' } },
     }],
   })
 }

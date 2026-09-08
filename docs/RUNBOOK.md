@@ -9,13 +9,18 @@ Last updated: 2026-09-08 (demo release preparation; provider deployment verified
 |---|---|---|
 | Production app | https://posture-ai-ivory.vercel.app | Vercel project `posture-ai`, team `devin-wiggins-projects` |
 | Production DB | Supabase `posture-ai` (`dhrkezfypzutiwtmcmof`, us-west-1) | **Zerosumsolutions-Projects Pro org** (`zljkaiwwkbpeyjsblwyb`) |
-| Repo | github.com/ZeroSum-Solutions/posture-ai (private) | push to `main` ⇒ production deploy; PRs ⇒ preview deploys |
+| Repo | github.com/ZeroSum-Solutions/posture-ai (private) | Owning Git remote. The current Vercel project's stored Git link still identifies `wiggdevin/posture-ai`, so pushes and PRs are not authoritative deployment evidence. |
 | Local dev DB | `npx supabase start` (Docker) | migrations auto-applied; same stack CI uses |
 
 Credentials: ZS Vault. `SUPABASE_ACCESS_TOKEN` (Management API, sees all orgs),
 `VERCEL_TOKEN`, `posture_ai_supabase_db_password`. The Claude Supabase MCP
 connector is OAuth-scoped to a different org — use the Management API
 (`api.supabase.com`) with the vault token for this project.
+
+Provider helpers resolve credentials from existing environment variables or ZS
+Vault inside the process. Never put a token or secret value in a command argument,
+receipt, terminal transcript, or committed file. A deployment receipt may record
+credential names and verified scopes, but never their values.
 
 ## Environment variables
 
@@ -71,6 +76,14 @@ Git SHA; a READY build alone does not prove the alias serves that revision.
 
 ### Application release
 
+The integrated strength builder supports 4, 6, 8 and 12-week cycles. Apply
+`20260907053000_training_cycle_lengths.sql` before releasing these options. It
+preserves historical eight-week compiler records and binds new cycle lengths to
+the current compiler policy. The session player includes an optional rest timer;
+starting or skipping it does not create a set log or change a prescription.
+Private sample programs remain separate from real athlete records. The reference
+library does not automatically populate the reviewed live training catalog.
+
 The exercise library includes 279 attributable reference entries with search,
 equipment/category filters, expandable instructions and incremental display.
 Reference entries are separate from the versioned program catalog. Their source
@@ -88,11 +101,40 @@ locate referenced anatomy; they do not assert muscle tightness or weakness.
 Keep the viewer source revision and synchronized asset hashes in the release
 record when updating the separate muscle-viewer project.
 
-- **Normal**: merge PR into `main`. Vercel builds (`prebuild` copies MediaPipe
-  WASM from the pinned package into `public/mediapipe/wasm/`) and promotes.
-- **Manual**: `npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"`.
-- **Verify**: `curl https://posture-ai-ivory.vercel.app/api/health` →
-  `{"status":"ok","database":"connected","schema":"ready"}`.
+#### Exact-revision Vercel promotion
+
+Do not infer a deployment from a merge or push. The owning Git remote is
+`ZeroSum-Solutions/posture-ai`, while the current Vercel project still stores the
+older `wiggdevin/posture-ai` link. Release the reviewed 40-character SHA
+explicitly and verify the public alias separately.
+
+1. Use a clean checkout of the reviewed commit, run release tooling with the
+   pinned Node 22.23.2 lane, and record the exact 40-character SHA. Do not change
+   Vercel environment variables during a code-only release. The `prebuild` step
+   copies MediaPipe WASM from the pinned package into `public/mediapipe/wasm/`
+   during the Vercel build.
+2. Build the upload manifest from that commit's Git tree, never from uncommitted
+   working-tree files. For every regular file, read the exact Git-object bytes,
+   calculate Vercel's required file digest, and upload the content through
+   `POST /v2/files` scoped to team `team_ZovXSbiQdKR8CvRpDYfAzbAr`.
+3. Create the production deployment through `POST /v13/deployments`, scoped to
+   project `prj_6Ryriizz6Exoye7zZxm0HlqCh0EX` and the same team. Supply the exact
+   file manifest and record the reviewed SHA in deployment metadata. Obtain
+   `VERCEL_TOKEN` inside the release process from an existing environment variable
+   or ZS Vault; never pass it in argv or write it to a receipt.
+4. Poll and inspect the returned deployment ID. Require `READY`, the exact project
+   and team, production target, and deployment metadata matching the reviewed SHA.
+   Treat an uncertain create response as unknown and inspect provider state before
+   any retry.
+5. Assign only the fixed `posture-ai-ivory.vercel.app` alias to that deployment
+   through Vercel's deployment-alias API, then read the alias mapping back and
+   require the exact deployment ID. A READY build alone does not prove what the
+   public alias serves. Record deployment creation, readiness, alias mutation, and
+   alias verification as separate privacy-safe receipts.
+6. Verify `https://posture-ai-ivory.vercel.app/api/health` returns HTTP 200 with
+   `{"status":"ok","database":"connected","schema":"ready"}`, then attach the
+   deployment, alias, SHA, environment-scope, and hosted smoke receipts to the
+   release record.
 
 ## Rollback
 
@@ -103,8 +145,9 @@ its writers are intentionally rejected by the database. Use a PR-05-compatible
 known-good deployment or a forward hotfix instead.
 
 1. Vercel dashboard → Deployments → previous READY production deployment →
-   *Promote to Production* (instant; no rebuild), or
-   `npx vercel rollback <deployment-url> --token "$VERCEL_TOKEN"`.
+   *Promote to Production* (instant; no rebuild). Verify the exact deployment ID,
+   SHA, project, and public alias after promotion. Never pass `VERCEL_TOKEN` on a
+   CLI command line.
 2. Database: migrations are forward-only. Write a compensating migration;
    never edit applied migration files.
 
@@ -119,9 +162,15 @@ is exactly how the assessment-detail / report routes silently broke once).
 2. Local: `npx supabase db reset` (rebuilds from the full chain; CI does the same).
 3. Cloud (**required on every migration — do not skip**):
    ```bash
-   jq -Rs '{query: ., name: "<name>"}' < supabase/migrations/<file>.sql | \
-   curl -X POST "https://api.supabase.com/v1/projects/dhrkezfypzutiwtmcmof/database/migrations" \
-     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @-
+   umask 077
+   migration_payload="$(mktemp)"
+   migration_curl_config="$(mktemp)"
+   trap 'rm -f "$migration_payload" "$migration_curl_config"' EXIT
+   jq -Rs '{query: ., name: "<name>"}' < supabase/migrations/<file>.sql > "$migration_payload"
+   printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_ACCESS_TOKEN" > "$migration_curl_config"
+   curl --config "$migration_curl_config" -X POST \
+     "https://api.supabase.com/v1/projects/dhrkezfypzutiwtmcmof/database/migrations" \
+     -H "Content-Type: application/json" --data-binary "@$migration_payload"
    ```
 4. Note: the cloud ledger stamps its own version numbers; keep names matching
    the local files so the chains stay reconcilable.

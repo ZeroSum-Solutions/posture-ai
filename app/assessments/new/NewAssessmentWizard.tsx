@@ -9,7 +9,7 @@ import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
 import { analyzeCaptureFrames } from './analyzeFrames'
-import { saveCaptureImages } from './saveCaptureImages'
+import { captureImageFromDataUrl, saveCaptureImages } from './saveCaptureImages'
 import type { AnalysisProgress } from './analyzeFrames'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
@@ -646,6 +646,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         throw new Error('The selected image could not be decoded. Choose another JPEG or PNG.')
       }
       rawUrl = normalized?.dataUrl ?? URL.createObjectURL(file)
+      const rawImage = normalized ? captureImageFromDataUrl(normalized.dataUrl) : file
       const pixelQuality = normalized?.pixelQuality ?? null
       const poseInput: NonNullable<CaptureSlot['poseInput']> = normalized?.poseInput ?? {
         sourceWidthPx: null,
@@ -668,7 +669,8 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         ...prev,
         [slot]: {
           ...emptySlot(), file, source: 'upload', captureId: op, poseInput,
-          rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality,
+          rawRepresentativeUrl: rawUrl, rawRepresentativeImage: rawImage,
+          displayPreviewUrl: rawUrl, pixelQuality,
         },
       }))
       submissionGuard.contentChanged()
@@ -691,6 +693,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     captureRollDeg: number | null,
     representativePixelQuality: PixelQualityResult | null,
     poseInput: NonNullable<CaptureSlot['poseInput']>,
+    representativeImage: Blob,
   ) {
     // burst is the shutter's raw object URLs; the representative (index 0) drives
     // the thumbnail + the fast quality preflight. Every frame is pose-detected at
@@ -702,7 +705,8 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       ...prev,
       [slot]: {
         ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, poseInput,
-        rawRepresentativeUrl: rep, rawBurstUrls: burst, displayPreviewUrl: rep,
+        rawRepresentativeUrl: rep, rawRepresentativeImage: representativeImage,
+        rawBurstUrls: burst, displayPreviewUrl: rep,
         pixelQuality: representativePixelQuality,
       },
     }))

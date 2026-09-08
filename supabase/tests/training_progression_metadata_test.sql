@@ -21,7 +21,7 @@ INSERT INTO public.training_program_revisions(
   assignment_id,subject_id,revision_number,program_json,created_by_user_id
 ) VALUES (
   'progression-program-1','47000000-0000-4000-8000-000000000003',1,
-  '{"assignmentId":"progression-program-1","subjectId":"47000000-0000-4000-8000-000000000003","revisionNumber":1,"executionContext":{"kind":"live"}}'::jsonb,
+  '{"assignmentId":"progression-program-1","subjectId":"47000000-0000-4000-8000-000000000003","revisionNumber":1,"cycleLengthWeeks":8,"compilerPolicyVersion":"eight-week-compiler.v1","executionContext":{"kind":"live"}}'::jsonb,
   '47000000-0000-4000-8000-000000000001'
 );
 INSERT INTO public.training_sessions(

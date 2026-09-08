@@ -131,6 +131,7 @@ function stubBrowserBoundary(failAtIndex: number | null | 'all') {
 
   return {
     urlFor: (i: number) => `blob:frame-${i}`,
+    indexForImage: (image: Blob) => blobIndex.get(image),
     setIntrinsicDimensions: (width: number, height: number) => {
       intrinsicWidth = width
       intrinsicHeight = height
@@ -287,8 +288,17 @@ describe('FullScreenCapture — middle-frame association (URL-based, not index)'
       fireEvent.click(screen.getByRole('button', { name: 'Use This Photo' }))
       await waitFor(() => expect(onCameraCapture).toHaveBeenCalledTimes(1))
 
-      const [, burst, , representativePixelQuality, poseInput] = onCameraCapture.mock.calls[0] as [string, string[], number | null, unknown, unknown]
+      const [, burst, , representativePixelQuality, poseInput, representativeImage] = onCameraCapture.mock.calls[0] as [
+        string,
+        string[],
+        number | null,
+        unknown,
+        unknown,
+        Blob,
+      ]
       expect(burst[0]).toBe(stubs.urlFor(expectBurst0))
+      expect(representativeImage).toBeInstanceOf(Blob)
+      expect(stubs.indexForImage(representativeImage)).toBe(expectBurst0)
       expect(burst).toHaveLength(BURST_SIZE - (failAtIndex === null ? 0 : 1))
       if (expectPQ) {
         expect(representativePixelQuality).toEqual(EXPECTED_PQ)

@@ -17,7 +17,7 @@ function setup(overrides: Partial<ComponentProps<typeof StrengthProgramBuilder>>
     subject={subject}
     initialProfile={createInitialStrengthProfile('America/Los_Angeles')}
     initialRevision={3}
-    supportedCycleLengths={[8]}
+    supportedCycleLengths={[4, 6, 8, 12]}
     catalogState={{ status: 'pending', message: 'Reviewed strength catalog connection is pending.' }}
     {...overrides}
   />)
@@ -31,7 +31,7 @@ describe('StrengthProgramBuilder', () => {
     expect(screen.getByRole('tab', { name: 'Starting loads' }).textContent).toBe('Loads')
   })
 
-  it('shows the complete setup flow while marking unsupported cycles and integrations truthfully', () => {
+  it('shows the complete setup flow with every compiler-supported cycle and truthful integration state', () => {
     setup()
 
     expect(screen.getByRole('heading', { name: 'Build a strength program' })).toBeTruthy()
@@ -43,8 +43,8 @@ describe('StrengthProgramBuilder', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Schedule' }))
     expect(screen.getByRole('button', { name: '8 weeks Available' }).getAttribute('aria-pressed')).toBe('true')
-    for (const weeks of [4, 6, 12]) {
-      expect((screen.getByRole('button', { name: `${weeks} weeks Planned` }) as HTMLButtonElement).disabled).toBe(true)
+    for (const weeks of [4, 6, 8, 12]) {
+      expect((screen.getByRole('button', { name: `${weeks} weeks Available` }) as HTMLButtonElement).disabled).toBe(false)
     }
 
     fireEvent.click(screen.getByRole('tab', { name: 'Equipment' }))
@@ -54,6 +54,22 @@ describe('StrengthProgramBuilder', () => {
     expect(screen.getByText(/Starting-load acceptance becomes available after reviewed exercise variants are connected/)).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Save profile' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText('Profile saving is not connected yet.')).toBeTruthy()
+  })
+
+  it.each([4, 6, 12] as const)('selects and saves a %s-week cycle without changing its value', async (cycleLengthWeeks) => {
+    const onSaveProfile = vi.fn(async (): Promise<SaveProfileOutcome> => ({ status: 'saved', revision: 4 }))
+    setup({ supportedCycleLengths: [4, 6, 8, 12], onSaveProfile })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Schedule' }))
+    fireEvent.click(screen.getByRole('button', { name: `${cycleLengthWeeks} weeks Available` }))
+    expect(screen.getByRole('button', { name: `${cycleLengthWeeks} weeks Available` }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }))
+
+    await waitFor(() => expect(onSaveProfile).toHaveBeenCalledWith({
+      expectedRevision: 3,
+      profile: expect.objectContaining({ cycleLengthWeeks }),
+    }))
+    expect(screen.getByText(`${cycleLengthWeeks}-week foundation`)).toBeTruthy()
   })
 
   it('shows saving and enters saved only after the server acknowledges the profile revision', async () => {

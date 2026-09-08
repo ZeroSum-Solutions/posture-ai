@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createLoadQuantity } from '../quantity'
 import type { AthleteTrainingProfileV1 } from '../contracts/profile'
-import { compileEightWeekProgram } from './compileProgram'
+import {
+  compileEightWeekProgram,
+  compileTrainingProgram,
+  PROGRAM_COMPILER_POLICY_VERSION,
+} from './compileProgram'
 import type { TrainingCatalogV1 } from '../catalog/types'
 
 const patterns = ['knee_dominant', 'hinge', 'push', 'pull'] as const
@@ -80,23 +84,98 @@ const baseIds = {
   },
 } as const
 
-describe('compileEightWeekProgram', () => {
-  it.each([
-    ['strength', ['monday', 'thursday']],
-    ['strength', ['monday', 'wednesday', 'friday']],
-    ['strength', ['monday', 'tuesday', 'thursday', 'friday']],
-    ['general_fitness', ['monday', 'thursday']],
-    ['general_fitness', ['monday', 'wednesday', 'friday']],
-    ['general_fitness', ['monday', 'tuesday', 'thursday', 'friday']],
-  ] as const)('returns feasible drafts across the 8-week %s %s schedule and all time tiers', (goal, days) => {
-    for (const sessionTimeBudgetMinutes of [30, 45, 60] as const) {
-      const result = compileEightWeekProgram({
-        ...baseIds,
-        profile: profile([...days], { goal, sessionTimeBudgetMinutes }),
-        catalog: catalog(),
-      })
-      expect(result.kind).toBe('draft_program')
+const cyclePhases = {
+  4: ['calibration', 'build', 'build', 'review'],
+  6: ['calibration', 'build', 'build', 'review_adjust', 'build', 'review'],
+  8: ['calibration', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review'],
+  12: ['calibration', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review'],
+} as const
+
+const supportedSchedules = [
+  { days: ['monday', 'thursday'] as const, scheduleKind: 'full_body', exercisesPerSession: 4, setsPerPattern: 4 },
+  { days: ['monday', 'wednesday', 'friday'] as const, scheduleKind: 'full_body', exercisesPerSession: 4, setsPerPattern: 6 },
+  { days: ['monday', 'tuesday', 'thursday', 'friday'] as const, scheduleKind: 'upper_lower', exercisesPerSession: 2, setsPerPattern: 4 },
+] as const
+
+describe('compileTrainingProgram', () => {
+  it('compiles the complete cycle, day-count, and time-budget matrix with stable bounded output', () => {
+    for (const cycleLengthWeeks of [4, 6, 8, 12] as const) {
+      for (const schedule of supportedSchedules) {
+        for (const sessionTimeBudgetMinutes of [30, 45, 60] as const) {
+          const input = {
+            ...baseIds,
+            profile: profile([...schedule.days], { cycleLengthWeeks, sessionTimeBudgetMinutes }),
+            catalog: catalog(),
+          }
+          const result = compileTrainingProgram(input)
+          expect(result.kind).toBe('draft_program')
+          if (result.kind !== 'draft_program') continue
+          expect(result).toMatchObject({
+            cycleLengthWeeks,
+            compilerPolicyVersion: 'strength-cycle-compiler.v3',
+            scheduleKind: schedule.scheduleKind,
+          })
+          expect(result.weeks).toHaveLength(cycleLengthWeeks)
+          expect(result.weeks.map(week => week.phase)).toEqual(cyclePhases[cycleLengthWeeks])
+          expect(result.weeks.map(week => week.week)).toEqual(
+            Array.from({ length: cycleLengthWeeks }, (_, index) => index + 1),
+          )
+          expect(result.weeks.every(week => (
+            week.strengthSessions.length === schedule.days.length
+            && week.strengthSessions.every(session => session.exercises.length === schedule.exercisesPerSession)
+            && week.conditioningBouts.length === 2
+          ))).toBe(true)
+          const exercises = result.weeks.flatMap(week => week.strengthSessions)
+            .flatMap(session => session.exercises)
+          expect(exercises.every(exercise => (
+            exercise.setIds.length === 2
+            && exercise.targetRir.minimum === 2
+            && exercise.targetRir.maximum === 3
+            && exercise.restSeconds === 120
+            && exercise.progression.exposureType === 'standard'
+            && exercise.progression.loadEpoch === 1
+          ))).toBe(true)
+          for (const week of result.weeks) {
+            for (const movementPattern of patterns) {
+              const weeklySets = week.strengthSessions.flatMap(session => session.exercises)
+                .filter(exercise => exercise.movementPattern === movementPattern)
+                .reduce((sum, exercise) => sum + exercise.setIds.length, 0)
+              expect(weeklySets).toBe(schedule.setsPerPattern)
+            }
+          }
+          const dates = result.weeks.flatMap(week => [
+            ...week.strengthSessions.map(session => session.scheduledLocalDate),
+            ...week.conditioningBouts.map(bout => bout.scheduledLocalDate),
+          ])
+          const offsets = dates.map(date => (
+            Date.parse(`${date}T00:00:00Z`) - Date.parse(`${result.cycleStartLocalDate}T00:00:00Z`)
+          ) / 86_400_000)
+          expect(Math.min(...offsets)).toBeGreaterThanOrEqual(0)
+          expect(Math.max(...offsets)).toBeLessThan(cycleLengthWeeks * 7)
+          const generatedIds = result.weeks.flatMap(week => [
+            ...week.strengthSessions.flatMap(session => [
+              session.sessionId,
+              ...session.exercises.flatMap(exercise => [exercise.exerciseInstanceId, ...exercise.setIds]),
+            ]),
+            ...week.conditioningBouts.map(bout => bout.boutId),
+          ])
+          expect(new Set(generatedIds).size).toBe(generatedIds.length)
+          expect(compileTrainingProgram(input)).toEqual(result)
+        }
+      }
     }
+  })
+
+  it('retains the eight-week export as a compatibility alias for every supported cycle', () => {
+    for (const cycleLengthWeeks of [4, 6, 8, 12] as const) {
+      const input = {
+        ...baseIds,
+        profile: profile(['monday', 'thursday'], { cycleLengthWeeks }),
+        catalog: catalog(),
+      }
+      expect(compileEightWeekProgram(input)).toEqual(compileTrainingProgram(input))
+    }
+    expect(PROGRAM_COMPILER_POLICY_VERSION).toBe('strength-cycle-compiler.v3')
   })
 
   it.each([
@@ -109,7 +188,8 @@ describe('compileEightWeekProgram', () => {
     if (result.kind !== 'draft_program') return
     expect(result.status).toBe('requires_explicit_acceptance')
     expect(result).toMatchObject({
-      compilerPolicyVersion: 'eight-week-compiler.v2',
+      cycleLengthWeeks: 8,
+      compilerPolicyVersion: 'strength-cycle-compiler.v3',
       goal: 'strength',
       cycleStartLocalDate: '2026-03-02',
       athleteTimezone: 'America/Los_Angeles',
@@ -290,11 +370,25 @@ describe('compileEightWeekProgram', () => {
     expect(east.weeks[0].strengthSessions[0].athleteTimezone).toBe('America/New_York')
   })
 
-  it('returns structured unsupported-cycle and invalid-anchor results', () => {
-    expect(compileEightWeekProgram({ ...baseIds, profile: profile(['monday', 'thursday'], { cycleLengthWeeks: 6 }), catalog: catalog() }))
-      .toMatchObject({ kind: 'unsupported_cycle', reason: 'only_eight_week_cycle_supported', requestedCycleLengthWeeks: 6 })
+  it('returns a structured invalid-anchor result', () => {
     expect(compileEightWeekProgram({ ...baseIds, cycleStartLocalDate: '2026-02-30', profile: profile(['monday', 'thursday']), catalog: catalog() }))
       .toMatchObject({ kind: 'invalid_anchor_date', reason: 'invalid_local_cycle_start', requestedValue: '2026-02-30' })
+  })
+
+  it('returns equipment-specific template rejection for every supported cycle without an empty draft', () => {
+    const missing = catalog()
+    missing.exercises = missing.exercises.filter(exercise => exercise.movementPattern !== 'hinge')
+    for (const cycleLengthWeeks of [4, 6, 8, 12] as const) {
+      expect(compileTrainingProgram({
+        ...baseIds,
+        profile: profile(['monday', 'thursday'], { cycleLengthWeeks }),
+        catalog: missing,
+      })).toMatchObject({
+        kind: 'needs_template_adjustment',
+        reason: 'required_movement_unavailable',
+        missingMovementPatterns: ['hinge'],
+      })
+    }
   })
 
   it('rejects malformed catalog runtime input', () => {

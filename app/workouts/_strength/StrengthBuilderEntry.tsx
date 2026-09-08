@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from '@/lib/training/contracts/profile'
+import { ACTIVE_PROGRAM_COMPILER_OPTIONS } from '@/lib/training/engine/options'
 import { createInitialStrengthProfile } from './StrengthBuilder.model'
 import { acceptTrainingBuild, publishTrainingDraft, requestTrainingBuild } from './StrengthBuilder.gateway'
 import StrengthProgramBuilder, { type SaveProfileOutcome } from './StrengthProgramBuilder'
@@ -162,7 +163,7 @@ export default function StrengthBuilderEntry({ source }: { source: StrengthBuild
       subject={{ id: loadState.projection.subjectId, name: identity.name }}
       initialProfile={loadState.projection.profile}
       initialRevision={loadState.projection.revision}
-      supportedCycleLengths={[8]}
+      supportedCycleLengths={ACTIVE_PROGRAM_COMPILER_OPTIONS.cycleLengthWeeks}
       catalogState={simulationSource
         ? { status: 'ready', reviewedExerciseCount: 4, conditioningModeCount: 1, kind: 'practice' }
         : { status: 'pending', message: source.kind === 'live_subject'

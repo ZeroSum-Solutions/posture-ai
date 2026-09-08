@@ -82,6 +82,7 @@ export function buildClinicalContentInventory(): ClinicalInventory {
     'lib/reports/clientComparison.ts',
     'lib/comparison/policy.ts',
     'lib/time/postgres-timestamp.ts',
+    'lib/time/calendar.ts',
     'lib/scoring/grade-display.ts',
     'lib/exercises.ts',
     'lib/pdf/report.tsx',

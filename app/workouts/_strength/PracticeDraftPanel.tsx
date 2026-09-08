@@ -8,6 +8,14 @@ import styles from './StrengthProgramBuilder.module.css'
 type Calibration = TrainingBuildProjection['calibrations'][number]['calibration']
 type Draft = Extract<TrainingBuildProjection['result'], { kind: 'draft_program' }>
 type ConditioningBout = Draft['weeks'][number]['conditioningBouts'][number]
+type ProgramPhase = Draft['weeks'][number]['phase']
+
+const phaseLabels: Record<ProgramPhase, string> = {
+  calibration: 'Familiarization',
+  build: 'Progressive practice',
+  review_adjust: 'Review and adjust',
+  review: 'Next-cycle review',
+}
 
 function optionLabel(option: Calibration['options'][number]): string {
   const load = `${option.quantity.entered.value} ${option.quantity.entered.unit}`
@@ -27,7 +35,6 @@ function resultMessage(result: Exclude<TrainingBuildProjection['result'], { kind
   if (result.kind === 'schedule_adjustment_required') return 'Choose one of the nonconsecutive schedule alternatives before building.'
   if (result.kind === 'time_budget_insufficient') return `The program needs more than ${result.requestedBudgetMinutes} minutes per session.`
   if (result.kind === 'needs_template_adjustment') return 'The current equipment and practice catalog cannot cover every required movement.'
-  if (result.kind === 'unsupported_cycle') return 'Only the eight-week cycle is currently supported.'
   return 'Choose a valid local cycle start date.'
 }
 
@@ -97,14 +104,20 @@ export default function PracticeDraftPanel({ projection, onAcceptTargets, onPubl
     }
   }
 
+  const cycleLengthWeeks = result.cycleLengthWeeks
+
   return <section className={styles.practiceDraft} aria-labelledby="practice-draft-heading">
     <div className={styles.sectionHeading}>
-      <div><p className="t-kicker">Practice data · Simulation</p><h3 id="practice-draft-heading" className="t-headline-sm">Eight-week draft</h3></div>
-      <span className="t-quiet">{result.weeks.length} weeks · {result.scheduleKind.replace('_', ' ')}</span>
+      <div><p className="t-kicker">Practice data · Simulation</p><h3 id="practice-draft-heading" className="t-headline-sm">{cycleLengthWeeks}-week draft</h3></div>
+      <span className="t-quiet">{cycleLengthWeeks} weeks · {result.scheduleKind.replace('_', ' ')}</span>
     </div>
     <p className="t-body">Review four starting loads and the weekly conditioning rhythm before creating the program.</p>
-    <div className={styles.scheduleStrip} aria-label="Eight-week schedule preview">
-      {result.weeks.map(week => <span key={week.week}><strong>W{week.week}</strong><small>{week.strengthSessions.length} strength · {week.conditioningBouts.length} conditioning</small></span>)}
+    <div className={styles.scheduleStrip} aria-label={`${cycleLengthWeeks}-week schedule preview`}>
+      {result.weeks.map(week => <span key={week.week}>
+        <strong>W{week.week}</strong>
+        <em className={styles.phaseLabel}>{phaseLabels[week.phase]}</em>
+        <small>{week.strengthSessions.length} strength · {week.conditioningBouts.length} conditioning</small>
+      </span>)}
     </div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     <div className={styles.sectionHeading}>

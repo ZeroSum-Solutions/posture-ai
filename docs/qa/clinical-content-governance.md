@@ -18,18 +18,21 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`3a452e2d94949b3a9b1e17d88a2166aa7706d10570865f0797b319a8f106b2dd`.
+`29f3918ad04dbe084f4c4124c43eb6a897801e9efeff0923fb27f4aafdeab5e5`.
 
 Recommendation algorithm SHA-256:
-`1ada2cc2545b402491383207a3107387eff2c8daeb089ca6327f6a17dec86915`.
+`571fa48c21a4397df912d325b5e62d0d24e17e45f909f9f269d8d63a1e277b23`.
 
-The latest inventory refresh (2026-09-08) includes the athlete auth routing changes
-in the tracked application boundary, following the capture-provenance and neutral
-comparison updates.
-Only the recommendation-engine item fingerprint and
-aggregate inventory fingerprint changed; content counts and item identities stayed
-the same. Local test-fixture bindings were refreshed without changing review
-statuses or live activation data.
+The latest inventory refresh (2026-09-08) adds `lib/time/calendar.ts` to the
+recommendation algorithm's hashed dependency closure. Governed report and
+comparison surfaces use that module for deterministic UTC calendar formatting,
+so changing the shared formatter must invalidate the prior algorithm fingerprint.
+Only the recommendation-engine item fingerprint and aggregate inventory
+fingerprint changed; content counts and item identities stayed the same. The
+current strength-cycle compiler remains outside this PR-07 clinical inventory: it
+has no promoted clinical catalog or eligibility-policy approval, and synthetic
+practice execution does not create HG-03 approval. Local test-fixture bindings
+were refreshed without changing review statuses or live activation data.
 
 The earlier workout-run persistence fix and assessment-completion guard remain. The governed run route uses a revision compare-and-swap,
 so an older concurrent request cannot overwrite newer progress. The authenticated

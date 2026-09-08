@@ -31,6 +31,7 @@ import type {
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
+import { utcCalendarLabel } from '@/lib/time/calendar'
 import LegalNotice from '@/components/LegalNotice'
 import {
   canonicalizePostgresTimestamp,
@@ -43,13 +44,6 @@ type Assessment = AssessmentResultsPayload['assessment']
 
 const REVIEW_TAB_BASE = 'review'
 const DEFERRED_PANEL_MOUNT_MS = 300
-
-/** Short UTC date, matching every other calendar projection in the app. */
-function shortDate(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return 'date unavailable'
-  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
-}
 
 export function canonicalAssessmentTimestamp(value: string): string | null {
   return canonicalizePostgresTimestamp(value)
@@ -668,11 +662,7 @@ export default function ClinicalAssessmentResults({
   const rollNotes = captures
     .filter(c => typeof c.capture_roll_deg === 'number' && Math.abs(c.capture_roll_deg) >= 0.05)
     .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
-  const assessedAtLabel = new Date(assessment.assessed_at).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  const assessedAtLabel = utcCalendarLabel(assessment.assessed_at, 'long')
   const reliabilityLabel = assessment.level_verified === true
     ? 'Camera level verified'
     : assessment.level_verified === false
@@ -690,12 +680,12 @@ export default function ClinicalAssessmentResults({
     .filter((prior) => comparePostgresTimestamps(prior.assessed_at, assessment.assessed_at) === -1)
     .map((prior) => ({
     id: prior.id,
-    label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(
+    label: `${utcCalendarLabel(prior.assessed_at, 'numeric')} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(
       assessment.scoring_engine_version,
       prior.scoring_engine_version,
     )}`,
     }))
-  const assessedAtShort = shortDate(assessment.assessed_at)
+  const assessedAtShort = utcCalendarLabel(assessment.assessed_at, 'short')
   // Chronological order, so the last entry is the scan immediately behind this one.
   const mostRecentPrior = priorAssessments.length > 0
     ? priorAssessments[priorAssessments.length - 1]
@@ -721,7 +711,7 @@ export default function ClinicalAssessmentResults({
       }
       : null,
     scanLabel: `Screening · ${assessedAtShort}`,
-    priorLabel: mostRecentPrior ? shortDate(mostRecentPrior.assessed_at) : null,
+    priorLabel: mostRecentPrior ? utcCalendarLabel(mostRecentPrior.assessed_at, 'short') : null,
   })
 
   return (
@@ -882,7 +872,7 @@ export default function ClinicalAssessmentResults({
                   <div className={styles.disclosureBody}>
                     {runList.map((run) => (
                       <p key={run.session_id + run.created_at}>
-                        {shortDate(run.created_at)} · {run.status.replace('_', ' ')} ·{' '}
+                        {utcCalendarLabel(run.created_at, 'short')} · {run.status.replace('_', ' ')} ·{' '}
                         {run.red_flag_acknowledged ? 'Pain check clear' : 'Pain check not recorded'}
                       </p>
                     ))}

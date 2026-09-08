@@ -46,7 +46,7 @@ describe('compiled conditioning acceptance', () => {
       executionContext: context, boutId: bout.boutId, modalityId: bout.modalityId,
       scheduledLocalDate: bout.scheduledLocalDate, athleteTimezone: 'America/Los_Angeles',
       acceptedDurationSeconds: 600, source: {
-        compiledProgramRevisionId: 'program-1', compilerPolicyVersion: 'eight-week-compiler.v2',
+        compiledProgramRevisionId: 'program-1', compilerPolicyVersion: 'strength-cycle-compiler.v3',
         catalogVersion: 'synthetic-starter-catalog.v1', catalogOrigin: SYNTHETIC_STARTER_CATALOG.origin,
       },
     })

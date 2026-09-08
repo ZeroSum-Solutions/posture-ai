@@ -33,7 +33,7 @@ import {
 } from './schedule'
 
 export const COMPILED_PROGRAM_SCHEMA_VERSION = 'compiled-program.v1' as const
-export const PROGRAM_COMPILER_POLICY_VERSION = 'eight-week-compiler.v2' as const
+export const PROGRAM_COMPILER_POLICY_VERSION = 'strength-cycle-compiler.v3' as const
 
 const stableIdSchema = z.string()
   .trim()
@@ -75,11 +75,18 @@ const compileInputSchema = z.object({
 })
 
 const REQUIRED_PATTERNS = MovementPatternV1Schema.options
-const PHASES = [
-  'calibration', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review',
-] as const
+const CYCLE_PHASES = Object.freeze({
+  4: Object.freeze(['calibration', 'build', 'build', 'review'] as const),
+  6: Object.freeze(['calibration', 'build', 'build', 'review_adjust', 'build', 'review'] as const),
+  8: Object.freeze(['calibration', 'build', 'build', 'review_adjust', 'build', 'build', 'build', 'review'] as const),
+  12: Object.freeze([
+    'calibration', 'build', 'build', 'review_adjust',
+    'build', 'build', 'build', 'review_adjust',
+    'build', 'build', 'build', 'review',
+  ] as const),
+})
 
-type ProgramPhase = typeof PHASES[number]
+type ProgramPhase = (typeof CYCLE_PHASES)[keyof typeof CYCLE_PHASES][number]
 
 interface SelectedExercise {
   readonly exercise: TrainingExerciseV1
@@ -155,11 +162,6 @@ export type CompilationResultV1 = {
   readonly executionContext: ExecutionContextV1
 } & (
   | {
-    readonly kind: 'unsupported_cycle'
-    readonly reason: 'only_eight_week_cycle_supported'
-    readonly requestedCycleLengthWeeks: 4 | 6 | 12
-  }
-  | {
     readonly kind: 'invalid_anchor_date'
     readonly reason: 'invalid_local_cycle_start'
     readonly requestedValue: string
@@ -175,6 +177,7 @@ export type CompilationResultV1 = {
     readonly catalogVersion: string
     readonly catalogOrigin: TrainingCatalogOriginV1
     readonly goal: AthleteTrainingProfileV1['goal']
+    readonly cycleLengthWeeks: AthleteTrainingProfileV1['cycleLengthWeeks']
     readonly cycleStartLocalDate: string
     readonly athleteTimezone: string
     readonly sessionTimeBudgetMinutes: AthleteTrainingProfileV1['sessionTimeBudgetMinutes']
@@ -312,8 +315,13 @@ function sessionDuration(
   }).durationSeconds
 }
 
-function scheduledDate(cycleStartLocalDate: string, weekday: Weekday, weekIndex: number): string {
-  return expandLocalDates(cycleStartLocalDate, weekday, 8)[weekIndex]
+function scheduledDate(
+  cycleStartLocalDate: string,
+  weekday: Weekday,
+  weekIndex: number,
+  cycleLengthWeeks: AthleteTrainingProfileV1['cycleLengthWeeks'],
+): string {
+  return expandLocalDates(cycleStartLocalDate, weekday, cycleLengthWeeks)[weekIndex]
 }
 
 function conditioningDays(strengthDays: readonly ScheduledStrengthDay[]): readonly Weekday[] {
@@ -371,16 +379,11 @@ function compileExercise(
   }
 }
 
-export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
+export function compileTrainingProgram(input: unknown): CompilationResultV1 {
   const parsed = compileInputSchema.safeParse(input)
   if (!parsed.success) throw new Error('Invalid compiler input')
   const { profile, catalog } = parsed.data
   const resultContext = { executionContext: parsed.data.executionContext } as const
-  if (profile.cycleLengthWeeks !== 8) return deepFreeze({
-    ...resultContext,
-    kind: 'unsupported_cycle', reason: 'only_eight_week_cycle_supported',
-    requestedCycleLengthWeeks: profile.cycleLengthWeeks,
-  })
 
   // Validate the local calendar anchor without converting it to an athlete instant.
   try {
@@ -438,13 +441,19 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
   }
 
   const offDays = conditioningDays(schedule.days)
-  const weeks: CompiledWeekV1[] = PHASES.map((phase, weekIndex) => {
+  const phases = CYCLE_PHASES[profile.cycleLengthWeeks]
+  const weeks: CompiledWeekV1[] = phases.map((phase, weekIndex) => {
     const week = weekIndex + 1
     const strengthSessions = schedule.days.map((day, sessionIndex): CompiledStrengthSessionV1 => ({
       sessionId: stableGeneratedId('sess', [parsed.data.executionContext, parsed.data.programRevisionId, week, sessionIndex + 1, day.weekday]),
       sessionType: day.sessionType,
       weekday: day.weekday,
-      scheduledLocalDate: scheduledDate(parsed.data.cycleStartLocalDate, day.weekday, weekIndex),
+      scheduledLocalDate: scheduledDate(
+        parsed.data.cycleStartLocalDate,
+        day.weekday,
+        weekIndex,
+        profile.cycleLengthWeeks,
+      ),
       athleteTimezone: profile.localTimezone,
       estimatedDurationSeconds: sessionDuration(day.sessionType, selections, profile),
       warmupSeconds: 300,
@@ -462,7 +471,12 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
       boutId: stableGeneratedId('bout', [parsed.data.executionContext, parsed.data.programRevisionId, week, boutIndex + 1, weekday]),
       modalityId: conditioningMode.modalityId,
       weekday,
-      scheduledLocalDate: scheduledDate(parsed.data.cycleStartLocalDate, weekday, weekIndex),
+      scheduledLocalDate: scheduledDate(
+        parsed.data.cycleStartLocalDate,
+        weekday,
+        weekIndex,
+        profile.cycleLengthWeeks,
+      ),
       athleteTimezone: profile.localTimezone,
       durationOfferSeconds: 600,
       allowedDurationSeconds: { minimum: 60, maximum: 1_200 },
@@ -484,10 +498,16 @@ export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
     catalogVersion: catalog.catalogVersion,
     catalogOrigin: catalog.origin,
     goal: profile.goal,
+    cycleLengthWeeks: profile.cycleLengthWeeks,
     cycleStartLocalDate: parsed.data.cycleStartLocalDate,
     athleteTimezone: profile.localTimezone,
     sessionTimeBudgetMinutes: profile.sessionTimeBudgetMinutes,
     scheduleKind: schedule.scheduleKind,
     weeks,
   })
+}
+
+/** @deprecated Use compileTrainingProgram. Retained while persistence callers migrate. */
+export function compileEightWeekProgram(input: unknown): CompilationResultV1 {
+  return compileTrainingProgram(input)
 }

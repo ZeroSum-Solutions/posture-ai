@@ -48,6 +48,12 @@ export interface CaptureSlot {
   /** Raw representative still — the single/fallback detection source. */
   rawRepresentativeUrl: string | null
   /**
+   * Exact bytes behind `rawRepresentativeUrl`. Object URLs cannot be read back
+   * with fetch under the app's CSP, so the wizard retains this browser-local
+   * Blob until the assessment upload finishes. Never serialized into scoring.
+   */
+  rawRepresentativeImage: Blob | null
+  /**
    * Raw shutter burst — every frame grabbed at the shutter (engine 1.3.0
    * within-capture stability). Pose-detected at submit so the engine can median
    * them + score stability. null for uploads (a single image can't estimate jitter).
@@ -98,7 +104,8 @@ export function emptySlot(): CaptureSlot {
     file: null, source: null, quality: null, slotStatus: 'idle', captureRollDeg: null,
     poseInput: null,
     pixelQuality: null,
-    captureId: null, rawRepresentativeUrl: null, rawBurstUrls: null, rawPoseFrame: null,
+    captureId: null, rawRepresentativeUrl: null, rawRepresentativeImage: null,
+    rawBurstUrls: null, rawPoseFrame: null,
     displayPreviewUrl: null,
   }
 }

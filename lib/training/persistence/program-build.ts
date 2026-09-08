@@ -15,7 +15,7 @@ import {
   type ExecutionContextV1,
   type TrainingProgramRevisionV1,
 } from '../contracts/program'
-import { compileEightWeekProgram, type CompilationResultV1 } from '../engine/compileProgram'
+import { compileTrainingProgram, type CompilationResultV1 } from '../engine/compileProgram'
 import type { TrainingServerActor } from '../access/server-actor'
 
 const uuidSchema = z.string().uuid()
@@ -254,11 +254,19 @@ function compileStoredDraft(
   catalog: TrainingCatalogV1,
   conditioningModalityId: string,
 ): CompilationResultV1 {
-  return compileEightWeekProgram({
+  return compileTrainingProgram({
     subjectId, profileRevisionId: String(profileRevision), programRevisionId,
     cycleStartLocalDate, conditioningModalityId,
     executionContext: context, profile, catalog,
   })
+}
+
+function requireExactCycleHorizon(draft: DraftProgram): DraftProgram {
+  if (draft.weeks.length !== draft.cycleLengthWeeks
+    || draft.weeks.some((week, index) => week.week !== index + 1)) {
+    throw new ProgramBuildError('program_build_unavailable')
+  }
+  return draft
 }
 
 function allExercises(draft: DraftProgram) {
@@ -375,7 +383,7 @@ function validateStoredBuild(
     || canonicalJson(stored.build) !== canonicalJson(result)) {
     throw new ProgramBuildError('program_build_unavailable')
   }
-  return result
+  return requireExactCycleHorizon(result)
 }
 
 export async function createStoredProgramBuild(
@@ -448,6 +456,7 @@ export async function createStoredProgramBuild(
   if (result.kind !== 'draft_program') {
     return { schemaVersion: 'training-build-projection.v1', buildId: null, result, calibrations: [] }
   }
+  requireExactCycleHorizon(result)
   const expiresAt = new Date(Math.min(now.getTime() + 60 * 60 * 1_000, sourceExpiry)).toISOString()
   const stored: StoredProgramBuildV1 = {
     id: buildId, subjectId: input.subjectId, createdByUserId: actor.userId,
@@ -627,7 +636,8 @@ function assembleProgram(
     programMode: authorKind === 'athlete' ? 'self_directed' : 'coach_assigned',
     owningPractitionerId: authorKind === 'coach' ? actor.userId : null,
     executionContext: draft.executionContext,
-    cycleStartLocalDate: draft.cycleStartLocalDate, cycleLengthWeeks: 8,
+    cycleStartLocalDate: draft.cycleStartLocalDate,
+    cycleLengthWeeks: draft.cycleLengthWeeks,
     profileRevisionId: String(stored.profileRevision),
     eligibilitySourceRevisionId,
     compilerPolicyVersion: draft.compilerPolicyVersion, catalogVersion: draft.catalogVersion,

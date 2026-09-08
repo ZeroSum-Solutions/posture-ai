@@ -70,6 +70,7 @@ interface FullScreenCaptureProps {
     captureRollDeg: number | null,
     representativePixelQuality: PixelQualityResult | null,
     poseInput: PoseInputProvenance,
+    representativeImage: Blob,
   ) => void
   onFileUpload: (slot: CaptureSlotKey, file: File) => Promise<void> | void
   onProceed: () => void
@@ -167,9 +168,9 @@ function screenIsNotPortrait(): boolean {
  * ~5-frame×4-slot burst out of React state as strings (base64 data URLs bloat
  * memory on mobile); callers revoke them on retake/replace/unmount.
  */
-function canvasToObjectURL(canvas: HTMLCanvasElement): Promise<string | null> {
+function canvasToObjectURL(canvas: HTMLCanvasElement): Promise<{ url: string; image: Blob } | null> {
   return new Promise(resolve => {
-    canvas.toBlob(blob => resolve(blob ? URL.createObjectURL(blob) : null), 'image/jpeg', 0.9)
+    canvas.toBlob(image => resolve(image ? { url: URL.createObjectURL(image), image } : null), 'image/jpeg', 0.9)
   })
 }
 
@@ -247,6 +248,7 @@ export default function FullScreenCapture({
   const cameraErrorPanelRef = useRef<HTMLDivElement>(null)
   // The shutter burst (object URLs) awaiting commit; the middle one is the review still.
   const burstRef = useRef<string[]>([])
+  const representativeImageRef = useRef<Blob | null>(null)
   // Pixel-quality result for the representative (burst[0]) frame, scored after
   // burst acquisition (off the shutter-tap path). Null when sampling/scoring
   // failed or hasn't completed yet — read once, at "Use This Photo".
@@ -342,6 +344,7 @@ export default function FullScreenCapture({
     captureBusyRef.current = false
     burstRef.current.forEach(url => URL.revokeObjectURL(url))
     burstRef.current = []
+    representativeImageRef.current = null
     representativePixelQualityRef.current = null
     poseInputRef.current = null
     setIsCapturing(false)
@@ -460,6 +463,7 @@ export default function FullScreenCapture({
       // parent's captures state and outlive this overlay).
       burstRef.current.forEach(URL.revokeObjectURL)
       burstRef.current = []
+      representativeImageRef.current = null
       // Close the live VIDEO worker (the scoring IMAGE landmarker, if resident, is
       // the parent's to dispose after submit) — no worker outlives the overlay.
       void getCaptureRuntime().closeLive()
@@ -692,6 +696,7 @@ export default function FullScreenCapture({
   // stability. All frames are stashed; the middle one is shown for review.
   const capture = useCallback(async (id: number) => {
     const urls: string[] = []
+    const imagesByUrl = new Map<string, Blob>()
     const revokeLocalUrls = () => urls.splice(0).forEach(url => URL.revokeObjectURL(url))
     const stillOwned = () => mountedRef.current
       && captureBusyRef.current
@@ -758,10 +763,11 @@ export default function FullScreenCapture({
         if (!overrideGate && Math.abs(level.rollRef.current ?? 0) > 5) { abandon(false); return }
         ctx.drawImage(video, 0, 0)
         if (i === midIndex) midSample = samplePixelsFromSource(canvas, canvas.width, canvas.height)
-        const url = await canvasToObjectURL(canvas)
-        if (url) {
-          urls.push(url)
-          if (i === midIndex) representativeUrl = url
+        const encoded = await canvasToObjectURL(canvas)
+        if (encoded) {
+          urls.push(encoded.url)
+          imagesByUrl.set(encoded.url, encoded.image)
+          if (i === midIndex) representativeUrl = encoded.url
         }
         if (!stillOwned()) { abandon(false); return }
         if (i < BURST_SIZE - 1) await new Promise(r => setTimeout(r, BURST_INTERVAL_MS))
@@ -783,6 +789,8 @@ export default function FullScreenCapture({
         burstRef.current = [urls[mid], ...urls.slice(0, mid), ...urls.slice(mid + 1)]
         midSample = null
       }
+      representativeImageRef.current = imagesByUrl.get(burstRef.current[0]) ?? null
+      if (!representativeImageRef.current) throw new Error('Representative capture bytes unavailable')
     } catch {
       abandon(true)
       return
@@ -922,10 +930,12 @@ export default function FullScreenCapture({
     const committed = captureSlotRef.current
     const burst = burstRef.current.length > 0 ? burstRef.current : [reviewUrl]
     const poseInput = poseInputRef.current
-    if (!poseInput) return
-    onCameraCapture(committed, burst, rollAtCapture, representativePixelQualityRef.current, poseInput)
+    const representativeImage = representativeImageRef.current
+    if (!poseInput || !representativeImage) return
+    onCameraCapture(committed, burst, rollAtCapture, representativePixelQualityRef.current, poseInput, representativeImage)
     setLastCommittedSlot(committed)
     burstRef.current = [] // ownership transferred to the parent; do not revoke
+    representativeImageRef.current = null
     representativePixelQualityRef.current = null
     poseInputRef.current = null
     setReviewUrl(null)
@@ -945,6 +955,7 @@ export default function FullScreenCapture({
   function discardBurst() {
     burstRef.current.forEach(URL.revokeObjectURL)
     burstRef.current = []
+    representativeImageRef.current = null
     representativePixelQualityRef.current = null
     poseInputRef.current = null
   }

@@ -159,6 +159,34 @@ describe('stored training program build', () => {
     }
   })
 
+  it.each([4, 6, 12] as const)(
+    'previews and accepts an explicit %s-week cycle without substituting an eight-week horizon',
+    async (cycleLengthWeeks) => {
+      const harness = setup(sourceProjection({ profile: profile({ cycleLengthWeeks }) }))
+      const projection = await createStoredProgramBuild(
+        { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+        actor,
+        harness.dependencies,
+      )
+
+      expect(projection.result).toMatchObject({
+        kind: 'draft_program',
+        cycleLengthWeeks,
+        compilerPolicyVersion: 'strength-cycle-compiler.v3',
+      })
+      if (projection.result.kind !== 'draft_program') throw new Error('fixture did not compile')
+      expect(projection.result.weeks).toHaveLength(cycleLengthWeeks)
+      expect(projection.result.weeks.map(week => week.week))
+        .toEqual(Array.from({ length: cycleLengthWeeks }, (_, index) => index + 1))
+
+      await acceptStoredProgramBuild(buildId, choices(projection), actor, harness.dependencies)
+      const accepted = TrainingProgramRevisionV1Schema.parse(harness.createdDrafts[0].program)
+      expect(accepted.cycleLengthWeeks).toBe(cycleLengthWeeks)
+      expect(accepted.sessions).toHaveLength(cycleLengthWeeks * 2)
+      expect(accepted.conditioningBouts).toHaveLength(cycleLengthWeeks * 2)
+    },
+  )
+
   it('compiles and accepts a live profile only with explicit trusted source and authored catalog fixtures', async () => {
     const harness = setup(sourceProjection({ profile: profile({ origin: { kind: 'athlete_input' } }) }))
     harness.setLiveSource(liveEligibilitySource)
@@ -264,6 +292,21 @@ describe('stored training program build', () => {
       .rejects.toMatchObject({ code: 'program_build_unavailable' })
   })
 
+  it('rejects a stored build whose explicit cycle length and week horizon disagree', async () => {
+    const harness = setup()
+    await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )
+    const stored = harness.getBuild() as StoredProgramBuildV1
+    const build = stored.build as Extract<Awaited<ReturnType<typeof createStoredProgramBuild>>['result'], { kind: 'draft_program' }>
+    harness.setBuild({ ...stored, build: { ...build, weeks: build.weeks.slice(0, 4) } })
+
+    await expect(readStoredProgramBuildProjection(buildId, actor, harness.dependencies))
+      .rejects.toMatchObject({ code: 'program_build_unavailable' })
+  })
+
   it('accepts representative choices once and expands them to every scheduled instance and bout', async () => {
     const harness = setup()
     const projection = await createStoredProgramBuild({ subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, harness.dependencies)
@@ -277,7 +320,8 @@ describe('stored training program build', () => {
     expect(program.assignmentId.length).toBeLessThanOrEqual(128)
     expect(program.assignmentId).toBe(`assignment:${buildId}`)
     expect(program.profileRevisionId).toBe('3')
-    expect(program.compilerPolicyVersion).toBe('eight-week-compiler.v2')
+    expect(program.compilerPolicyVersion).toBe('strength-cycle-compiler.v3')
+    expect(program.cycleLengthWeeks).toBe(8)
     expect(program.eligibilitySourceRevisionId).toBe(`simulation:${runId}`)
     expect(program.programMode).toBe('self_directed')
     expect(program.sessions).toHaveLength(16)
