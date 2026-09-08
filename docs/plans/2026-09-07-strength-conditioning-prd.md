@@ -389,3 +389,18 @@ These additions extend the existing application and the current demo slice; they
 - Persist the actual selected capture images for new screenings and show them in the evidence page capture set, with a usable enlarged view. Keep front/side identity consistent with the submitted capture. Existing records that never stored photographs must state that limitation instead of showing invented images. Verify access control, bounded uploads, image/view association, retry behavior, and deletion handling.
 - Improve the interactive 3D model's visual quality, controls, responsive fit, and discoverability from the assessment. Explain observational findings without presenting static scans as proof of muscle tightness or weakness. Verify mouse/touch/keyboard controls and graceful unavailable-renderer behavior.
 - Check the main desktop and mobile journeys for clipping, overflow, navigation and functional errors, then publish the verified candidate to the existing production URL. Deployment proof must identify the released revision and verify the production pages; local checks alone are insufficient.
+
+### Selecting reference exercises into a saved workout
+
+The exercise library must support the owner's request to pull exercises into a workout. Browsing 250 or more entries alone does not meet that need. Add manual routines in the original Workouts experience: select and order exercises, enter sets/reps and exact decimal load with units or conditioning duration, save, reopen, edit, and follow the routine. Persist routines under the authenticated training subject so refresh or a different signed-in device can retrieve them. Preserve exercise instructions and source/media attribution from the saved reference snapshot.
+
+These are user-authored routines. Reference inclusion does not create a reviewed compiler entry, a scan-derived restriction, or an automatic progression prescription. The existing full strength-program objective remains required; manual creation adds a useful path alongside it. Do not substitute browser-local storage or a checklist for the required durable program/logging capabilities.
+
+| ID | Scenario | Required result |
+| --- | --- | --- |
+| MR-01 | Search the 280-entry collection, select, reorder, remove | Every retained reference can be selected; stable item IDs and order survive save/reopen; unknown and duplicate IDs are rejected |
+| MR-02 | Strength dosage, microload decimals, conditioning duration | Exact entered strings/units survive; invalid numbers and unsupported fields are rejected; user authors the dose |
+| MR-03 | Owner, authorized coach, unrelated athlete, unassigned coach | Only authorized actors can create/read/edit/archive; request IDs or subject IDs grant no authority |
+| MR-04 | Lost create acknowledgement, exact retry, stale revision | One saved routine; changed-payload request reuse and stale edits conflict visibly; no silent overwrite |
+| MR-05 | Reopen after library changes | Saved source identity, instructions and media attribution remain identifiable; unavailable assets get a usable text fallback |
+| MR-06 | 320/390/768/1280px, keyboard, refresh and navigation | Reachable controls, no horizontal overflow, saved state and errors visible; native Workouts navigation exposes manual routines |
