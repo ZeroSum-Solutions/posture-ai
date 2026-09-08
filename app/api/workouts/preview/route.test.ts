@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   assessmentEq: vi.fn(),
   clinicalEnabled: true,
   approved: true,
+  assessmentStatus: 'complete',
 }))
 
 const assessmentId = '11111111-1111-4111-8111-111111111111'
@@ -71,6 +72,7 @@ function queryFor(table: string) {
             priority_keys: null,
             exercise_swaps: null,
             practitioner_approved: state.approved,
+            status: state.assessmentStatus,
           },
           error: null,
         }
@@ -121,6 +123,7 @@ describe('POST /api/workouts/preview', () => {
     state.assessmentEq.mockReset()
     state.clinicalEnabled = true
     state.approved = true
+    state.assessmentStatus = 'complete'
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
   })
@@ -232,6 +235,20 @@ describe('POST /api/workouts/preview', () => {
     }))
 
     expect(response.status).toBe(403)
+    expect(state.build).not.toHaveBeenCalled()
+  })
+
+  test('rejects an approved assessment whose analysis is incomplete', async () => {
+    state.assessmentStatus = 'failed'
+
+    const response = await POST(request({
+      assessment_id: assessmentId,
+      preferences: DEFAULT_WORKOUT_PREFERENCES,
+      mode: 'scan',
+    }))
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({ error: 'Assessment analysis is not complete.' })
     expect(state.build).not.toHaveBeenCalled()
   })
 })

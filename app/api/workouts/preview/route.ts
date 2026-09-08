@@ -77,11 +77,14 @@ export async function POST(req: NextRequest) {
   const { assessment_id: assessmentId, preferences, mode } = parsed.data
   const { data: assessment } = await service
     .from('assessments')
-    .select('id, client_id, overall_grade, capability, priority_keys, exercise_swaps, practitioner_approved')
+    .select('id, client_id, overall_grade, capability, priority_keys, exercise_swaps, practitioner_approved, status')
     .eq('id', assessmentId)
     .eq('practitioner_id', user.id)
     .maybeSingle()
   if (!assessment) return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  if (assessment.status !== 'complete') {
+    return NextResponse.json({ error: 'Assessment analysis is not complete.' }, { status: 409 })
+  }
   if (!assessment.practitioner_approved) {
     return NextResponse.json({ error: 'Approve the assessment before building a workout.' }, { status: 403 })
   }

@@ -99,11 +99,15 @@ export async function POST(req: NextRequest) {
   // gate — a session can't be minted from an unreviewed screening).
   const { data: assessment } = await service
     .from('assessments')
-    .select('id, client_id, overall_grade, capability, priority_keys, exercise_swaps, practitioner_approved')
+    .select('id, client_id, overall_grade, capability, priority_keys, exercise_swaps, practitioner_approved, status')
     .eq('id', assessment_id)
     .eq('practitioner_id', user.id)
     .maybeSingle()
   if (!assessment) return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  if (assessment.status !== 'complete') {
+    logEvent({ route: ROUTE, outcome: 'client_error', status: 409, userHash, detail: 'assessment incomplete' })
+    return NextResponse.json({ error: 'Assessment analysis is not complete.' }, { status: 409 })
+  }
   if (!assessment.practitioner_approved) {
     logEvent({ route: ROUTE, outcome: 'client_error', status: 403, userHash, detail: 'not approved' })
     return NextResponse.json({ error: 'Approve the assessment before launching a session.' }, { status: 403 })

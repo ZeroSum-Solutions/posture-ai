@@ -27,6 +27,7 @@ const testState = vi.hoisted(() => ({
   rpc: vi.fn(),
   clinicalEnabled: { value: true },
   prototype: { value: false },
+  assessmentStatus: { value: 'complete' },
 }))
 
 const assessmentId = '11111111-1111-4111-8111-111111111111'
@@ -83,7 +84,7 @@ function serviceQuery(table: string): any {
       return q
     },
     maybeSingle: async () => table === 'assessments'
-      ? { data: assessment, error: null }
+      ? { data: { ...assessment, status: testState.assessmentStatus.value }, error: null }
       : { data: null, error: null },
     single: async () => table === 'workout_sessions'
       ? { data: { id: 'session-1' }, error: null }
@@ -159,6 +160,7 @@ describe('POST /api/workouts', () => {
     testState.resolution.value = { ok: true, document: { id: 'screening-notice-v1' } }
     testState.clinicalEnabled.value = true
     testState.prototype.value = false
+    testState.assessmentStatus.value = 'complete'
   })
 
   test('denies direct workout minting before reading assessment content when HG-03 is absent', async () => {
@@ -189,6 +191,17 @@ describe('POST /api/workouts', () => {
     expect(testState.build).not.toHaveBeenCalled()
     expect(testState.workoutInsert).not.toHaveBeenCalled()
     expect(testState.runInsert).not.toHaveBeenCalled()
+  })
+
+  test('rejects an approved assessment whose analysis is incomplete', async () => {
+    testState.assessmentStatus.value = 'failed'
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({ error: 'Assessment analysis is not complete.' })
+    expect(testState.build).not.toHaveBeenCalled()
+    expect(testState.rpc).not.toHaveBeenCalled()
   })
 
   test('stores a governed v2 snapshot and matching scalar provenance', async () => {
