@@ -1,6 +1,6 @@
 # Posture AI: screening-informed strength and conditioning
 
-Status: approved by Devin for goal-driven implementation on 2026-09-07. The lead has dispositioned the external Grok 4.6 findings and this revision incorporates the programming, ownership and scope decisions below. Eligibility clinical validation remains unmet and must stay labeled that way, but it does not block unrelated contract, compiler or persistence work against synthetic fixtures. Implementation of the new subsystem is not started. Prepared 2026-09-07 for Devin. Integration baseline: `ce18f8a67969a68c065875ad4460b161ac04435b` in the existing Posture AI application.
+Status: approved by Devin for goal-driven implementation on 2026-09-07. The lead has dispositioned the external Grok 4.6 findings and this revision incorporates the programming, ownership and scope decisions below. Eligibility clinical validation remains unmet and must stay labeled that way, but it does not block unrelated contract, compiler or persistence work against synthetic fixtures. Implementation is in progress. The original-app eight-week flow is being integrated; broader release criteria remain pending until their evidence is recorded. Prepared 2026-09-07 for Devin. Integration baseline: `ce18f8a67969a68c065875ad4460b161ac04435b` in the existing Posture AI application.
 
 ## 1. Product decision
 
@@ -379,3 +379,13 @@ No implementation or scientific-validity claim should be inferred from this docu
 Devin approved execution of the full plan with delegated workers and a lead orchestrator. The additional [Grok 4.6 subscription audit](2026-09-07-strength-conditioning-grok-review.md) is complete, and the lead's [contract dispositions](2026-09-07-grok-contract-dispositions.md) are incorporated into this normative revision. BLOCK-1 is resolved by the auth-owned `training_subjects` model and optional client/coach links. BLOCK-2 is resolved at the product-contract level by the explicit adult/scope inputs and no-blanket-pregnancy rule; the clinical decision table and wording remain honestly unvalidated. The accepted numerical and online-conflict findings are now part of sections 5, 6, 8 and 10. Goal state: `/Users/zero-suminc./.claude/goal-state/posture-ai-strength-conditioning/state.json`. New runtime work must consume these resolved normative contracts.
 
 The [Grok contract followup](2026-09-07-strength-conditioning-grok-followup.md) resolves the original two blockers and accepts the settled engineering contracts after NEW-1 and NEW-2. Their assignment-succession and per-series decision rules are applied in sections8 and5. Engineering contract freeze is effective for implementation and synthetic fixtures; clinical policy validation, media approval, measurement validity and human evaluations remain unproven and are not included in that freeze.
+
+
+## September 8 demo additions from the owner
+
+These additions extend the existing application and the current demo slice; they do not replace the strength-and-conditioning objective.
+
+- Provide an extensive searchable exercise library with at least 250 distinct exercises. Keep source and media provenance, meaningful equipment/movement metadata, and useful filters. Library inclusion does not silently mark an exercise as reviewed for automatic program selection. Verify the distinct count and actual search/filter behavior.
+- Persist the actual selected capture images for new screenings and show them in the evidence page capture set, with a usable enlarged view. Keep front/side identity consistent with the submitted capture. Existing records that never stored photographs must state that limitation instead of showing invented images. Verify access control, bounded uploads, image/view association, retry behavior, and deletion handling.
+- Improve the interactive 3D model's visual quality, controls, responsive fit, and discoverability from the assessment. Explain observational findings without presenting static scans as proof of muscle tightness or weakness. Verify mouse/touch/keyboard controls and graceful unavailable-renderer behavior.
+- Check the main desktop and mobile journeys for clipping, overflow, navigation and functional errors, then publish the verified candidate to the existing production URL. Deployment proof must identify the released revision and verify the production pages; local checks alone are insufficient.

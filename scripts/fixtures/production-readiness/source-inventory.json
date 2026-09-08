@@ -1470,16 +1470,16 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 82,
-      "mobile-webkit": 74,
+      "desktop-chromium": 88,
+      "mobile-webkit": 80,
       "android-chromium-proxy": 11,
       "calibration": 1
     },
-    "expected_total": 169,
-    "expected_files": 34,
-    "test_ids_sha256": "c05503f02fcb53be88665f80d00a12a1d8d5ec3d1e3caadeaa8f21f830393c71"
+    "expected_total": 181,
+    "expected_files": 40,
+    "test_ids_sha256": "7d649d927581f1e36c0c082b8006771679557448787e3253f25241077e849c28"
   },
-  "inventory_hash": "2daa98714cc3a008052f31dcfe8ae1f9b48c5eddc97bf8dd5b44125054b0bf8a",
+  "inventory_hash": "5a39afc443415351bf8c15ebc589f0008b5f2c416600e16061d9633b87db8199",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1905,9 +1905,9 @@
     "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
     "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
     "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_configuration_hash": "ccb3306e4801cd19c77ccf8b24da4e0197f287cc10cfb658e1f7ef1729bc9634",
+    "new_configuration_hash": "9ba4c77ed5c8820178c791c2f0034871141e8a73b038bd95b72ae15b9bcf1b38",
     "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_projection_sha256": "ccb3306e4801cd19c77ccf8b24da4e0197f287cc10cfb658e1f7ef1729bc9634",
+    "new_projection_sha256": "9ba4c77ed5c8820178c791c2f0034871141e8a73b038bd95b72ae15b9bcf1b38",
     "changed_covered_fields": [
       "ci_contract.global_commands",
       "e2e.approved_skips",
@@ -1923,7 +1923,7 @@
       "executed_playwright_report_contract.report_content_required_fields",
       "executed_playwright_report_contract.required_evidence_values.inventory_id"
     ],
-    "changes_sha256": "eea461e29efdb69bfb507bea4b9c36455dfd6bb75a984d15f213d1b39c29eb72",
+    "changes_sha256": "80f28a3fce09cabd823339fd17dbeafcb845689e3e112825e9f3040048a2ace6",
     "changes": [
       {
         "path": "ci_contract.global_commands",
@@ -2487,17 +2487,17 @@
       {
         "path": "e2e.expected_files",
         "old_value": 29,
-        "new_value": 34
+        "new_value": 40
       },
       {
         "path": "e2e.expected_total",
         "old_value": 133,
-        "new_value": 169
+        "new_value": 181
       },
       {
         "path": "e2e.inventory_hash",
         "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
-        "new_value": "daaa135ff21c4d81c15b25aa17fcbf559a8b4b7cd3ec700ebb2a879cbff3a2ad"
+        "new_value": "928f66d04150712bf56899da861a95fbca39ec6858d36ef97edac010e1b17b00"
       },
       {
         "path": "e2e.inventory_id",
@@ -2530,8 +2530,8 @@
         },
         "new_value": {
           "setup": 1,
-          "desktop-chromium": 82,
-          "mobile-webkit": 74,
+          "desktop-chromium": 88,
+          "mobile-webkit": 80,
           "android-chromium-proxy": 11,
           "calibration": 1
         }

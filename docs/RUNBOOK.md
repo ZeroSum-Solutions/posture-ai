@@ -1,7 +1,7 @@
 # Posture AI — Ops Runbook
 
 Production operations reference for the Next.js app on Vercel + Supabase.
-Last updated: 2026-07-19 (production-readiness engineering; no provider mutation).
+Last updated: 2026-09-08 (demo release preparation; provider deployment verified separately).
 
 ## Topology
 
@@ -9,7 +9,7 @@ Last updated: 2026-07-19 (production-readiness engineering; no provider mutation
 |---|---|---|
 | Production app | https://posture-ai-ivory.vercel.app | Vercel project `posture-ai`, team `devin-wiggins-projects` |
 | Production DB | Supabase `posture-ai` (`dhrkezfypzutiwtmcmof`, us-west-1) | **Zerosumsolutions-Projects Pro org** (`zljkaiwwkbpeyjsblwyb`) |
-| Repo | github.com/wiggdevin/posture-ai (private) | push to `main` ⇒ production deploy; PRs ⇒ preview deploys |
+| Repo | github.com/ZeroSum-Solutions/posture-ai (private) | push to `main` ⇒ production deploy; PRs ⇒ preview deploys |
 | Local dev DB | `npx supabase start` (Docker) | migrations auto-applied; same stack CI uses |
 
 Credentials: ZS Vault. `SUPABASE_ACCESS_TOKEN` (Management API, sees all orgs),
@@ -70,6 +70,23 @@ verification must check the exact public alias and record its deployment ID and
 Git SHA; a READY build alone does not prove the alias serves that revision.
 
 ### Application release
+
+The exercise library includes 279 attributable reference entries with search,
+equipment/category filters, expandable instructions and incremental display.
+Reference entries are separate from the versioned program catalog. Their source
+and license are preserved in `content/training/library/` and on each entry.
+
+New capture photos require migrations `20260907050000_capture_image_persistence.sql`
+and `20260907052000_capture_upload_retry.sql` before the matching application is released.
+Verify an authenticated upload and
+retry, private photo retrieval, enlargement on Evidence, and access denial after
+record deletion. Historical captures without stored photos remain explicitly
+unavailable. Never represent a generated test color card as a real capture.
+
+Evidence exposes the interactive anatomy viewer directly. Its neutral highlights
+locate referenced anatomy; they do not assert muscle tightness or weakness.
+Keep the viewer source revision and synchronized asset hashes in the release
+record when updating the separate muscle-viewer project.
 
 - **Normal**: merge PR into `main`. Vercel builds (`prebuild` copies MediaPipe
   WASM from the pinned package into `public/mediapipe/wasm/`) and promotes.
@@ -287,7 +304,8 @@ Expected fixture semantics: structural true, physical false, launch false.
   limit (Postgres counter, fails open + logs), structured JSON logs (hashed user ids).
 - CSP (`wasm-unsafe-eval` for MediaPipe), HSTS, `Permissions-Policy: camera=(self)`.
 - `/api/dev/*` unreachable in production (proxy excludes + route 403s).
-- Photos are never uploaded or persisted — landmarks only.
+- Capture-photo release (requested September 8, 2026): new captures save one acquisition photo per view in private storage after the assessment is created. Landmarks remain the scoring input; corrected display previews are not uploaded. Historical screenings without stored photos remain photo-less. This replaces the former landmark-only retention policy when migration `20260907050000` and its upload route are deployed together; do not enable the client upload alone.
+- The browser keeps each photo below 3 MiB before multipart upload; the server independently validates, decodes and re-encodes images without metadata. This stays below the [Vercel Function payload limit](https://vercel.com/docs/functions/limitations). Access uses the authenticated capture-image endpoint, with private/no-store responses. Capture/client erasure must remove image access immediately and enqueue stored-object deletion.
 - Supabase advisors: clean as of 2026-06-12 except the intentional
   `api_rate_limits` RLS-no-policy INFO (service-role-only table).
 
