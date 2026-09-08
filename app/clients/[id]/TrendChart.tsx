@@ -106,8 +106,8 @@ function RecordedScoreDisclosure({
  *
  * This replaced a recharts LineChart. The chart has exactly one job — carry the
  * annotations that make the number readable: the score and grade at each point,
- * the maintain band labelled where it sits, and the measurement tolerance drawn
- * to scale on the latest reading. A general charting library gave none of those
+ * the maintain band labelled where it sits, while withholding an uncertainty
+ * band until repeat-capture evidence exists. A general charting library gave none of those
  * for free and cost ~90KB of d3 to say so.
  *
  * The drawing is `aria-hidden`; the sentence in `model.description` and the

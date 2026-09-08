@@ -138,6 +138,8 @@ describe('PostureReportPdf comparisons', () => {
     expect(text).toContain('Recorded measurement deltas are shown separately')
     expect(text).toContain('Recorded delta +42.5°')
     expect(text).toContain(comparisonStatusText('regressed', 'finding'))
+    expect(text).toContain('Repeat-capture variability')
+    expect(text).not.toMatch(/Improved —|Regressed —/)
   })
 
   it('suppresses all degree deltas when scoring versions differ', () => {

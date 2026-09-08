@@ -1,4 +1,4 @@
-import { bandFromGrade, deltaBand, deltaIcon, type DeltaArrow, type SeverityBand } from '@/components/array/severity'
+import { bandFromGrade, deltaIcon, type DeltaArrow, type SeverityBand } from '@/components/array/severity'
 import { relativeDay } from '@/lib/time/relative'
 
 export const OVERDUE_DAYS = 42
@@ -23,7 +23,7 @@ export interface DirectoryRow {
   name: string
   grade: string | null
   meta: string
-  /** Trend against the previous scan: `−6`, `worse`, `flat`, `new`. */
+  /** Recorded score difference against the previous scan: `−6`, `+4`, `flat`, `new`. */
   trend: string
   trendIcon: DeltaArrow | 'user-plus-linear'
   trendBand: SeverityBand
@@ -36,7 +36,7 @@ export type ClientFilter = 'all' | 'needs_review' | 'improving' | 'overdue'
 export const CLIENT_FILTERS: readonly { value: ClientFilter; label: string; band: SeverityBand }[] = [
   { value: 'all', label: 'All', band: 'neutral' },
   { value: 'needs_review', label: 'Needs review', band: 'monitor' },
-  { value: 'improving', label: 'Improving', band: 'neutral' },
+  { value: 'improving', label: 'Score decreased', band: 'neutral' },
   { value: 'overdue', label: 'Overdue', band: 'neutral' },
 ]
 
@@ -97,16 +97,14 @@ function describeTrend(client: DirectoryClient): {
   if (delta === 0) {
     return { text: 'flat', icon: 'arrow-right-linear', band: 'neutral', label: 'unchanged since the previous scan' }
   }
-  // Deviation score: lower is better, so a fall is an improvement.
-  const band = deltaBand(delta, true)
   const magnitude = Math.abs(delta)
   return {
     text: `${delta < 0 ? '−' : '+'}${magnitude}`,
     icon: deltaIcon(delta),
-    band,
+    band: 'neutral',
     label: delta < 0
-      ? `improved ${magnitude} points since the previous scan`
-      : `worsened ${magnitude} points since the previous scan`,
+      ? `score decreased ${magnitude} points since the previous scan; meaningful change is not established`
+      : `score increased ${magnitude} points since the previous scan; meaningful change is not established`,
   }
 }
 

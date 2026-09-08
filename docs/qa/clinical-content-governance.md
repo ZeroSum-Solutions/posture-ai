@@ -18,13 +18,14 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`a3cc09311b946abf64f58765057eb4c1106391492f751cede2328375f1dd827d`.
+`d977d507373380076554e523c6a97a59f180882e39abc81996939d2b27c9ec45`.
 
 Recommendation algorithm SHA-256:
-`e2ca7b44f3a5445e620bd249817d6a399592639794a2b19b1bea10fddb288dd0`.
+`e20b0883088f587df36e615502efc6540692e4c8d34be9ffc6a743979045f752`.
 
 The latest inventory refresh (2026-09-07) follows additive capture-provenance
-metadata in the engine types. Only the recommendation-engine item fingerprint and
+metadata in the engine types and neutral comparison/within-burst presentation.
+Only the recommendation-engine item fingerprint and
 aggregate inventory fingerprint changed; content counts and item identities stayed
 the same. Local test-fixture bindings were refreshed without changing review
 statuses or live activation data.

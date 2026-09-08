@@ -5,12 +5,10 @@ import { deltaIcon, formatDelta, type DeltaArrow, type SeverityBand } from '@/co
  * Scan-history rows, newest first, each carrying its movement against the scan
  * before it.
  *
- * The delta is the shared comparison policy's, so a row cannot claim a direction
- * the Compare workspace would refuse. Three outcomes are drawn differently on
- * purpose:
+ * The delta is the shared comparison policy's, so version, chronology, and
+ * missing-value checks stay consistent with the Compare workspace:
  *
- * - directional  → signed magnitude in the movement's tone
- * - inside tolerance or unchanged → "flat", neutral, no number
+ * - comparable → signed recorded magnitude in a neutral tone
  * - not comparable → "new engine", neutral, no number
  *
  * The oldest scan has nothing to compare against and reads "baseline", not "0".
@@ -83,7 +81,9 @@ export function buildHistoryRows(history: readonly HistoryRowInput[]): HistoryRo
         })
         : null
 
-      const directional = decision?.status === 'improved' || decision?.status === 'regressed'
+      const comparable = decision !== null
+        && decision.status !== 'not_comparable'
+        && decision.delta !== null
 
       const day = dateLabel(scan.assessedAt)
       const time = (dayCounts.get(day) ?? 0) > 1 ? timeLabel(scan.assessedAt) : null
@@ -96,14 +96,10 @@ export function buildHistoryRows(history: readonly HistoryRowInput[]): HistoryRo
         meta: scan.overallScore === null
           ? 'No screening score recorded'
           : `Deviation ${Math.round(scan.overallScore)} / 100`,
-        delta: directional && decision?.delta != null ? formatDelta(decision.delta) : null,
-        deltaBand: (decision?.status === 'improved'
-          ? 'maintain'
-          : decision?.status === 'regressed'
-            ? 'review'
-            : 'neutral') as SeverityBand,
-        deltaIcon: directional && decision ? deltaIcon(decision.delta) : null,
-        deltaWord: directional
+        delta: comparable ? formatDelta(decision.delta) : null,
+        deltaBand: 'neutral' as SeverityBand,
+        deltaIcon: comparable ? deltaIcon(decision.delta) : null,
+        deltaWord: comparable
           ? null
           : decision === null
             ? 'baseline'

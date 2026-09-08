@@ -87,7 +87,7 @@ describe('review verdict', () => {
     expect(result.verdict.headline.tail).toBe('One finding drives the score.')
   })
 
-  it('describes a lower score only when the policy returns a direction', () => {
+  it('describes a lower deviation score without claiming clinical improvement', () => {
     expect(model({ prior: prior() }).verdict.headline.lead).toBe('Grade C, score decreased.')
     expect(model({ prior: null }).verdict.headline.lead).toBe('Grade C.')
     const drift = FIXED_COMPARISON_TOLERANCE.overallScorePoints - 1
@@ -141,8 +141,9 @@ describe('grade rail', () => {
   it('carries the delta against the last scan', () => {
     const rail = model({ prior: prior() }).rail
     expect(rail.delta?.text).toBe('−16 vs last scan')
-    expect(rail.delta?.band).toBe('maintain')
+    expect(rail.delta?.band).toBe('neutral')
     expect(rail.delta?.icon).toBe('arrow-down-linear')
+    expect(rail.note).toContain('meaningful change are not established')
   })
 
   it('clamps a score outside the scale rather than drawing off the rail', () => {
@@ -193,7 +194,7 @@ describe('review finding rows', () => {
   it('carries a per-finding delta from the shared policy', () => {
     const rows = model({ findings: [finding({ id: 'a', severity_pct: 40 })], prior: prior() }).rows
     expect(rows[0].delta).toBe('−15.0')
-    expect(rows[0].deltaBand).toBe('maintain')
+    expect(rows[0].deltaBand).toBe('neutral')
     expect(rows[0].deltaIcon).toBe('arrow-down-linear')
   })
 
@@ -203,22 +204,24 @@ describe('review finding rows', () => {
     expect(rows[0].deltaWord).toBeNull()
   })
 
-  it('says "no baseline" when a prior exists but the pair is not comparable', () => {
+  it('says "not comparable" when a prior exists but the pair is not comparable', () => {
     const rows = model({
       findings: [finding({ id: 'a', unit: 'cm' })],
       prior: prior(),
     }).rows
     expect(rows[0].delta).toBeNull()
-    expect(rows[0].deltaWord).toBe('no baseline')
+    expect(rows[0].deltaWord).toBe('not comparable')
   })
 
-  it('reads a sub-tolerance movement as flat', () => {
+  it('shows the signed recorded difference inside the fixed fallback boundary', () => {
     const rows = model({
       findings: [finding({ id: 'a', severity_pct: 53 })],
       prior: prior(),
     }).rows
-    expect(rows[0].delta).toBeNull()
-    expect(rows[0].deltaWord).toBe('flat')
+    expect(rows[0].delta).toBe('−2.0')
+    expect(rows[0].deltaBand).toBe('neutral')
+    expect(rows[0].deltaIcon).toBe('arrow-down-linear')
+    expect(rows[0].deltaWord).toBeNull()
   })
 
   it('puts the reference tick at the published warn cut-point', () => {

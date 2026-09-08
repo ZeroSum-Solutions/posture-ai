@@ -5,6 +5,7 @@ import { Surface } from '@/components/array/Surface'
 import { tone } from '@/components/array/severity'
 import {
   MEASUREMENT_TOLERANCE_COPY,
+  comparisonDeltaText,
   comparisonDecisionText,
   comparisonStatusText,
   comparisonTone,
@@ -65,7 +66,7 @@ function formatMeasurement(value: number | null, unit: string, showSign = false)
   return `${sign}${value.toFixed(1)}${unit}`
 }
 
-/** Comparison tone → severity band. Improvement is emerald, regression is red. */
+/** Recorded differences remain visually neutral until meaningful change is established. */
 function bandFor(status: ComparisonDecision['status']) {
   const direction = comparisonTone(status)
   if (direction === 'positive') return 'maintain' as const
@@ -94,7 +95,10 @@ export default function ComparisonWorkspace({
       )
   const targetAssessment = chronologicalAssessments.find((assessment) => assessment.id === targetId)
   const overallStatus = overallComparison?.status ?? 'not_comparable'
-  const overallLabel = comparisonStatusText(overallStatus, 'overall')
+  const overallLabel = overallComparison
+    ? [comparisonDecisionText(overallComparison, 'overall'), comparisonDeltaText(overallComparison)]
+        .filter(Boolean).join(' · ')
+    : comparisonStatusText(overallStatus, 'overall')
 
   return (
     <section className="app-stack" aria-labelledby="comparison-heading">
@@ -209,7 +213,7 @@ export default function ComparisonWorkspace({
           </div>
           <p className="t-body" style={{ padding: '0 8px' }}>
             Measurements are shown as recorded. Status comes from severity percentage points,
-            where lower is better. Raw measurement deltas never set the status.
+            where lower values indicate less recorded deviation. Raw measurement deltas never set the status.
           </p>
           <ul
             aria-label="Finding comparison evidence"
@@ -245,6 +249,7 @@ export default function ComparisonWorkspace({
                       style={{ color: tone(bandFor(row.comparison.status)) }}
                     >
                       {comparisonDecisionText(row.comparison, 'finding')}
+                      {comparisonDeltaText(row.comparison) ? ` · ${comparisonDeltaText(row.comparison)}` : ''}
                     </p>
                   </div>
                 </Surface>

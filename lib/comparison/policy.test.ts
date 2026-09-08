@@ -5,8 +5,11 @@ import {
   compareOverallScores,
   compareSeverityPercentages,
   comparisonDecisionText,
+  comparisonDeltaText,
+  comparisonTone,
   comparisonVersionOptionNote,
   comparisonStatusText,
+  REPEAT_CAPTURE_LIMITATION_COPY,
 } from './policy'
 
 const VERSION = '2.0.0'
@@ -161,10 +164,23 @@ describe('central comparison policy', () => {
   })
 
   it('exposes the exact shared web/PDF wording', () => {
-    expect(comparisonStatusText('improved', 'overall')).toBe('Improved — lower screening score')
-    expect(comparisonStatusText('regressed', 'finding')).toBe('Regressed — higher severity')
-    expect(comparisonStatusText('within_tolerance', 'finding')).toBe('Within measurement tolerance')
+    expect(comparisonStatusText('improved', 'overall')).toBe('Screening score decreased')
+    expect(comparisonStatusText('regressed', 'finding')).toBe('Recorded severity increased')
+    expect(comparisonStatusText('within_tolerance', 'finding')).toBe('Recorded severity changed')
     expect(comparisonStatusText('not_comparable', 'overall')).toBe('Not comparable')
+  })
+
+  it('presents every comparable difference neutrally without a validated change claim', () => {
+    expect(comparisonDecisionText(overall(19, 20), 'overall')).toBe('Screening score decreased')
+    expect(comparisonDecisionText(severity(51, 50), 'finding')).toBe('Recorded severity increased')
+    expect(comparisonDeltaText(overall(19, 20))).toBe('−1.0 score points')
+    expect(comparisonDeltaText(severity(51, 50))).toBe('+1.0 percentage points')
+    expect(comparisonDeltaText(overall(null, 20))).toBeNull()
+    expect(comparisonTone('improved')).toBe('neutral')
+    expect(comparisonTone('regressed')).toBe('neutral')
+    expect(REPEAT_CAPTURE_LIMITATION_COPY).toContain('Repeat-capture variability')
+    expect(REPEAT_CAPTURE_LIMITATION_COPY).toContain('meaningful change are not established')
+    expect(REPEAT_CAPTURE_LIMITATION_COPY).not.toMatch(/noise|directional|improv|regress/i)
   })
 
   it.each([

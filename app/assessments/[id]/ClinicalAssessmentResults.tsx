@@ -14,9 +14,7 @@ import { Surface } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
 import { ring, tint, tone, type SeverityBand } from '@/components/array/severity'
 import styles from './AssessmentReview.module.css'
-import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
-import { hasAnyMuscle } from './muscleMap'
 import { saveOverridePatch } from './saveOverride'
 import type { AssessmentResultsPayload } from './loadAssessmentResults'
 import {
@@ -42,7 +40,6 @@ import {
 type Finding = AssessmentResultsPayload['findings'][number]
 type Capture = AssessmentResultsPayload['captures'][number]
 type Assessment = AssessmentResultsPayload['assessment']
-type Zone = Finding['zone']
 
 const REVIEW_TAB_BASE = 'review'
 const DEFERRED_PANEL_MOUNT_MS = 300
@@ -683,7 +680,7 @@ export default function ClinicalAssessmentResults({
       : 'Camera level unavailable'
   const reliabilityDetailParts = [
     typeof assessment.capture_stability === 'number'
-      ? `Capture stability ${Math.round(assessment.capture_stability * 100)}%`
+      ? `Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`
       : null,
     assessment.tilt_corrected && rollNotes.length > 0
       ? `Tilt corrected: ${rollNotes.join(', ')}`
@@ -1074,9 +1071,6 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
   const withStability = findings.filter(
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
   )
-  // Reliability is a ramp, not a pass/fail, so its colour comes from the same
-  // maintain/monitor/review bands as every other severity readout on this
-  // screen rather than an ad-hoc green/orange pair.
   const pill = (band: SeverityBand, label: string) => (
     <span style={{
       padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700,
@@ -1089,24 +1083,23 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
     <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--hairline)' }}>
       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h3>
       <p style={{ color: 'var(--text-tertiary)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
-        A single-photo <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
+        An image-based <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> — no depth, so monocular parallax and camera tilt can affect angles. Within-burst consistency describes repeated processing inside one capture burst. Re-stance repeatability and clinical accuracy are not established.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
         {pill(assessment.level_verified === true ? 'maintain' : 'monitor', assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
         {assessment.tilt_corrected ? pill('maintain', 'Tilt-corrected') : null}
-        {typeof assessment.capture_stability === 'number' ? pill(assessment.capture_stability >= 0.7 ? 'maintain' : 'monitor', `Capture stability ${Math.round(assessment.capture_stability * 100)}%`) : null}
+        {typeof assessment.capture_stability === 'number' ? pill('neutral', `Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`) : null}
       </div>
       {withStability.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {withStability.map(f => {
             const s = f.stability_score
-            const stBand: SeverityBand = s == null ? 'neutral' : s >= 0.8 ? 'maintain' : s >= 0.6 ? 'monitor' : 'review'
-            const stColor = tone(stBand)
+            const stColor = tone('neutral')
             return (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
+              <div key={f.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, minWidth: 0, overflowWrap: 'anywhere', padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>
-                {f.uncertainty_deg != null && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>±{f.uncertainty_deg.toFixed(1)}°</span>}
-                {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{Math.round(s * 100)}% stable</span>}
+                {f.uncertainty_deg != null && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>Within-burst angle variation ±{f.uncertainty_deg.toFixed(1)}°</span>}
+                {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>Within-burst landmark consistency {Math.round(s * 100)}%</span>}
               </div>
             )
           })}

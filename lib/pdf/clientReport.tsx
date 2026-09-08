@@ -6,8 +6,8 @@ import { clientSummaryMode } from '../reports/clientProgram'
 import type { ClientComparison } from '../reports/clientComparison'
 import {
   MEASUREMENT_TOLERANCE_COPY,
+  comparisonDeltaText,
   comparisonDecisionText,
-  comparisonStatusText,
   comparisonTone,
   type ComparisonStatus,
 } from '@/lib/comparison/policy'
@@ -224,7 +224,8 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
                   <Text style={{ color: C.sub }}>Compared with {comparison.priorDateStr}: </Text>
                   Recorded grades (reference only): prior {comparison.priorGrade}; current {comparison.currentGrade}.{' '}
                   <Text style={{ color: comparisonColor(comparison.overall.status), fontFamily: 'Helvetica-Bold' }}>
-                    {comparisonStatusText(comparison.overall.status, 'overall')}
+                    {comparisonDecisionText(comparison.overall, 'overall')}
+                    {comparisonDeltaText(comparison.overall) ? ` · ${comparisonDeltaText(comparison.overall)}` : ''}
                   </Text>.
                 </Text>
                 <Text style={{ fontSize: 7.5, color: C.faint, marginTop: 4 }}>{MEASUREMENT_TOLERANCE_COPY}</Text>
@@ -235,7 +236,10 @@ export function ClientReport({ clientName, practitioner, dateStr, report, compar
               if (!dir) return null
               return (
                 <Text style={s.progressArea} key={p.primaryKey}>
-                  • {p.label}: <Text style={{ color: comparisonColor(dir.status), fontFamily: 'Helvetica-Bold' }}>{comparisonDecisionText(dir, 'finding')}</Text>
+                  • {p.label}: <Text style={{ color: comparisonColor(dir.status), fontFamily: 'Helvetica-Bold' }}>
+                    {comparisonDecisionText(dir, 'finding')}
+                    {comparisonDeltaText(dir) ? ` · ${comparisonDeltaText(dir)}` : ''}
+                  </Text>
                 </Text>
               )
             })}

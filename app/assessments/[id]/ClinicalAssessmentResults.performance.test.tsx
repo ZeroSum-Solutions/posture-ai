@@ -176,6 +176,9 @@ describe('assessment results progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
+    expect(screen.getByText('Within-burst landmark consistency 98%')).toBeTruthy()
+    expect(screen.getByText(/Re-stance repeatability and clinical accuracy are not established/)).toBeTruthy()
+    expect(screen.queryByText(/Capture stability/)).toBeNull()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain('/api/assessments/assessment-1')
   })

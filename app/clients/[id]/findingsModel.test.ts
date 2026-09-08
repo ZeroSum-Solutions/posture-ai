@@ -93,14 +93,15 @@ describe('buildFindingsTrend', () => {
     expect(series[0].verdict?.decision.status).toBe('not_comparable')
   })
 
-  it('reports an improvement that clears the severity tolerance', () => {
+  it('reports a neutral signed difference while retaining the stored decision enum', () => {
     const series = buildFindingsTrend([
       scan('a', '2026-01-01T00:00:00Z', [finding('k', 40)]),
       scan('b', '2026-02-01T00:00:00Z', [finding('k', 25)]),
     ])
     expect(series[0].verdict?.decision.status).toBe('improved')
     expect(series[0].verdict?.magnitude).toBe('−15.0 pts')
-    expect(series[0].verdict?.band).toBe('maintain')
+    expect(series[0].verdict?.band).toBe('neutral')
+    expect(series[0].verdict?.text).toBe('Recorded severity decreased')
   })
 
   it('parses a severity that arrives as a numeric string', () => {
@@ -123,7 +124,8 @@ describe('buildFindingsTrend', () => {
       scan('b', '2026-02-01T00:00:00Z', [finding('k', 25)]),
     ])
     expect(series[0].description).toContain('latest severity 25.0 percent')
-    expect(series[0].description).toContain('Improved')
+    expect(series[0].description).toContain('Recorded severity decreased')
+    expect(series[0].description).not.toMatch(/improv|regress|better|worse/i)
   })
 
   it('prefers a real label over the raw key when one arrives later', () => {

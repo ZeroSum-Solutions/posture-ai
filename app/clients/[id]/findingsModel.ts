@@ -1,6 +1,6 @@
 import {
   compareSeverityPercentages,
-  comparisonStatusText,
+  comparisonDecisionText,
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
 import {
@@ -17,7 +17,7 @@ import {
  * The chart this replaced drew every finding as a line in one 0–100% plot, with
  * a legend and a line per scoring-version run per finding — on a 390px viewport
  * that is a dozen near-identical strokes and no readable answer to "is this
- * finding getting better". Small multiples answer it per row and still share one
+ * finding's recorded value changing". Small multiples answer it per row and still share one
  * time axis, so two rows remain comparable to each other.
  *
  * Comparability rules are the shared policy's, not this module's:
@@ -216,18 +216,14 @@ function decide(latest: Reading, prior: Reading): FindingSeries['verdict'] {
     currentUnit: latest.finding?.unit ?? null,
     priorUnit: prior.finding?.unit ?? null,
   })
-  const directional = decision.status === 'improved' || decision.status === 'regressed'
+  const comparable = decision.status !== 'not_comparable' && decision.delta !== null
   return {
-    text: comparisonStatusText(decision.status, 'finding'),
-    magnitude: directional && decision.delta !== null
+    text: comparisonDecisionText(decision, 'finding'),
+    magnitude: comparable
       ? `${formatDelta(decision.delta, 1)} pts`
       : null,
-    band: decision.status === 'improved'
-      ? 'maintain'
-      : decision.status === 'regressed'
-        ? 'review'
-        : 'neutral',
-    icon: directional ? deltaIcon(decision.delta) : ('arrow-right-linear' as DeltaArrow),
+    band: 'neutral',
+    icon: comparable ? deltaIcon(decision.delta) : ('arrow-right-linear' as DeltaArrow),
     decision,
   }
 }

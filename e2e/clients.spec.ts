@@ -184,7 +184,7 @@ test.describe('client comparison policy', () => {
     })
   }
 
-  test('shows all tolerance states and fails closed across scoring versions', async ({ page, browserName }) => {
+  test('shows neutral recorded differences and fails closed across scoring versions', async ({ page, browserName }) => {
     const token = randomUUID().slice(0, 8)
     const client = await createClient(page, 'E2E', `Compare-${token}`)
     const finding = (key: string, label: string, severity: number, deviation: number) => ({
@@ -271,27 +271,20 @@ test.describe('client comparison policy', () => {
     await page.getByLabel('Before (baseline)').selectOption(baselineId)
     await page.getByLabel('After (comparison)').selectOption(sameVersionId)
 
-    await expect(page.getByText('Unchanged severity')).toBeVisible()
-    // "Within measurement tolerance" is the shared comparisonStatusText() copy for
-    // within_tolerance, used for both the overall verdict and every per-finding
-    // row — so a bare getByText can match more than the "B — tolerance" finding
-    // this assertion means. Scope to that finding's own row (#finding-noise).
-    await expect(page.locator('#finding-noise').getByText('Within measurement tolerance')).toBeVisible()
-    // Same shared comparisonStatusText() copy issue as the tolerance case above:
-    // "Improved — lower severity" / "Regressed — higher severity" each also
-    // appear in the overall verdict, so scope to the finding row this
-    // assertion means.
-    await expect(page.locator('#finding-better').getByText('Improved — lower severity')).toBeVisible()
-    await expect(page.locator('#finding-worse').getByText('Regressed — higher severity')).toBeVisible()
+    await expect(page.getByText('Recorded severity unchanged')).toBeVisible()
+    await expect(page.locator('#finding-noise').getByText('Recorded severity increased')).toBeVisible()
+    await expect(page.locator('#finding-noise').getByText('+4.0 percentage points')).toBeVisible()
+    await expect(page.locator('#finding-better').getByText('Recorded severity decreased')).toBeVisible()
+    await expect(page.locator('#finding-better').getByText('−5.0 percentage points')).toBeVisible()
+    await expect(page.locator('#finding-worse').getByText('Recorded severity increased')).toBeVisible()
+    await expect(page.locator('#finding-worse').getByText('+5.0 percentage points')).toBeVisible()
+    await expect(page.locator('#client-panel-compare').getByText(/Repeat-capture variability and meaningful change are not established/)).toBeVisible()
 
     await page.getByLabel('After (comparison)').selectOption(newVersionId)
-    // Same shared comparisonStatusText() copy issue: the always-visible
-    // "Deviation score" trend card independently derives its own latest-vs-
-    // previous verdict (also "Not comparable", since the newest fixture is
-    // v3 against a v2 predecessor) alongside the Compare panel's
-    // dropdown-driven verdict. Scope to the Compare panel this assertion means.
-    await expect(page.locator('#client-panel-compare').getByText('Not comparable', { exact: true })).toBeVisible()
-    await expect(page.getByLabel('Selected assessment sequence').getByText(/different or missing scoring versions/)).toBeVisible()
+    // Scope to the Compare panel because the always-visible trend card also
+    // evaluates the newest fixture against its predecessor.
+    await expect(page.locator('#client-panel-compare').getByText(/Not comparable: these assessments use different or missing scoring versions/).first()).toBeVisible()
+    await expect(page.getByLabel('Selected assessment sequence').getByRole('paragraph').filter({ hasText: /different or missing scoring versions/ })).toBeVisible()
 
     // There is no separate "Progress" tab or "Load interactive charts" gate
     // anymore — TrendChart (recharts LineChart replaced by a hand-drawn SVG,

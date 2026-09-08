@@ -1,8 +1,7 @@
 import {
   compareOverallScores,
   comparisonDecisionText,
-  comparisonStatusText,
-  FIXED_COMPARISON_TOLERANCE,
+  REPEAT_CAPTURE_LIMITATION_COPY,
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
 import {
@@ -18,11 +17,10 @@ import {
  * Geometry and copy for the client-detail deviation-score chart.
  *
  * Everything here is derived: the maintain band comes from the engine's grade
- * thresholds, the tolerance band from the shared comparison policy, and the
- * verdict from `compareOverallScores` — the same decision the Compare workspace
+ * thresholds and the verdict from `compareOverallScores` — the same decision the Compare workspace
  * and both PDF variants render. This module invents no clinical meaning; if the
  * policy says two scans are not comparable, the chart says so and draws no
- * verdict, no tolerance band, and no line between them.
+ * verdict and no line between them.
  *
  * The score domain is pinned to 0–100 rather than fitted to the data. An
  * auto-scaled axis would make a two-point wobble look like a cliff, which on a
@@ -93,7 +91,7 @@ export interface TrendChartPoint {
 export interface TrendVerdict {
   /** Policy wording, never re-phrased here. */
   text: string
-  /** `−16 pts`, or null when the policy reports no directional movement. */
+  /** Signed recorded difference, or null when the pair is not comparable. */
   magnitude: string | null
   band: SeverityBand
   icon: DeltaArrow
@@ -109,17 +107,12 @@ export interface TrendChartModel {
   gridLines: Array<{ y: number; score: number }>
   maintainBand: { y: number; height: number; label: string }
   /**
-   * The measurement tolerance around the latest reading, drawn to the same scale
-   * as the data and spanning the interval the comparison covers.
-   *
-   * It is a band rather than a whisker on the point because ±3 of a 0–100 domain
-   * is about eight user units — shorter than the diameter of the dot it would sit
-   * behind. A band the width of the compared interval is the same quantity, drawn
-   * where it can actually be seen, and never inflated to make it visible.
+   * Retained shape for component compatibility. Null until a version-specific
+   * repeat-capture profile establishes a defensible uncertainty interval.
    */
   tolerance: { x1: number; x2: number; y1: number; y2: number; points: number } | null
   verdict: TrendVerdict | null
-  /** Sentence under the chart. Explains the tolerance band, or why there is none. */
+  /** Sentence under the chart. States comparability and repeat-capture limits. */
   footnote: string
   /** Sentence read by assistive technology in place of the drawing. */
   description: string
@@ -161,43 +154,27 @@ function buildVerdict(points: readonly TrendInputPoint[]): TrendVerdict | null {
     priorAssessedAt: prior.assessedAt,
   })
 
-  const band: SeverityBand = decision.status === 'improved'
-    ? 'maintain'
-    : decision.status === 'regressed'
-      ? 'review'
-      : 'neutral'
-
-  // Only a directional decision earns an arrow and a magnitude. "Within
-  // measurement tolerance" is a statement that the movement means nothing, so
-  // showing its size next to the words would argue against them.
-  const directional = decision.status === 'improved' || decision.status === 'regressed'
+  const comparable = decision.status !== 'not_comparable' && decision.delta !== null
 
   return {
-    text: comparisonStatusText(decision.status, 'overall'),
-    magnitude: directional && decision.delta !== null
+    text: comparisonDecisionText(decision, 'overall'),
+    magnitude: comparable
       ? `${formatDelta(decision.delta)} pts`
       : null,
-    band,
-    icon: directional ? deltaIcon(decision.delta) : ('arrow-right-linear' as DeltaArrow),
+    band: 'neutral',
+    icon: comparable ? deltaIcon(decision.delta) : ('arrow-right-linear' as DeltaArrow),
     decision,
   }
 }
 
-function buildFootnote(verdict: TrendVerdict | null, tolerancePoints: number): string {
+function buildFootnote(verdict: TrendVerdict | null): string {
   if (!verdict) {
-    return `A second scan starts the trend. Movements smaller than ${tolerancePoints} screening-score points count as measurement noise.`
+    return `A second recorded score enables a numeric comparison. ${REPEAT_CAPTURE_LIMITATION_COPY}`
   }
   if (verdict.decision.status === 'not_comparable') {
-    return comparisonDecisionText(verdict.decision, 'overall')
+    return `${comparisonDecisionText(verdict.decision, 'overall')} ${REPEAT_CAPTURE_LIMITATION_COPY}`
   }
-  const band = `The shaded band on the latest reading is the ±${tolerancePoints}-point measurement tolerance.`
-  if (verdict.decision.status === 'improved' || verdict.decision.status === 'regressed') {
-    return `${band} This movement clears it, so the change is directional rather than noise.`
-  }
-  if (verdict.decision.status === 'within_tolerance') {
-    return `${band} This movement sits inside it, so it is not read as a change.`
-  }
-  return `${band} The score is unchanged.`
+  return REPEAT_CAPTURE_LIMITATION_COPY
 }
 
 function buildDescription(points: readonly TrendChartPoint[], verdict: TrendVerdict | null): string {
@@ -207,8 +184,9 @@ function buildDescription(points: readonly TrendChartPoint[], verdict: TrendVerd
   const span = points.length === 1
     ? `One screening score: ${scoreLabel(last.score, last.grade)} on ${last.dateLabel}.`
     : `${points.length} screening scores from ${scoreLabel(first.score, first.grade)} on ${first.dateLabel} to ${scoreLabel(last.score, last.grade)} on ${last.dateLabel}.`
-  const reading = `Deviation score out of 100; lower is better. Maintain is ${MAINTAIN_MAX} or lower.`
-  return verdict ? `${span} ${reading} Latest against previous: ${verdict.text}.` : `${span} ${reading}`
+  const reading = `Deviation score out of 100; lower values indicate less recorded deviation. Maintain is ${MAINTAIN_MAX} or lower.`
+  const comparison = verdict ? ` Latest against previous: ${verdict.text}.` : ''
+  return `${span} ${reading}${comparison} ${REPEAT_CAPTURE_LIMITATION_COPY}`
 }
 
 /**
@@ -271,14 +249,6 @@ export function buildTrendChart(history: readonly TrendInputPoint[]): TrendChart
     : null
 
   const verdict = buildVerdict(plottable)
-  const tolerancePoints = FIXED_COMPARISON_TOLERANCE.overallScorePoints
-  const latest = points[points.length - 1] ?? null
-
-  // The band is a claim about the latest reading's precision, so it is drawn
-  // only where the policy actually applied that tolerance to a comparison.
-  const showTolerance = latest !== null
-    && verdict !== null
-    && verdict.decision.status !== 'not_comparable'
 
   return {
     points,
@@ -290,17 +260,9 @@ export function buildTrendChart(history: readonly TrendInputPoint[]): TrendChart
       height: PLOT.bottom - yForScore(MAINTAIN_MAX),
       label: `MAINTAIN — ${MAINTAIN_MAX} OR LOWER`,
     },
-    tolerance: showTolerance && latest
-      ? {
-        x1: points[points.length - 2]?.x ?? PLOT.left,
-        x2: latest.x,
-        y1: yForScore(Math.min(latest.score + tolerancePoints, SCORE_DOMAIN)),
-        y2: yForScore(Math.max(latest.score - tolerancePoints, 0)),
-        points: tolerancePoints,
-      }
-      : null,
+    tolerance: null,
     verdict,
-    footnote: buildFootnote(verdict, tolerancePoints),
+    footnote: buildFootnote(verdict),
     description: buildDescription(points, verdict),
   }
 }

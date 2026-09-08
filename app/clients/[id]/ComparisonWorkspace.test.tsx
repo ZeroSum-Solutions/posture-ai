@@ -89,19 +89,21 @@ describe('ComparisonWorkspace', () => {
       'Change summary',
       'After assessment',
     ])
-    expect(within(sequence).getByText('Improved — lower screening score')).toBeTruthy()
-    expect(within(sequence).getByText(/fixed measurement tolerance/i)).toBeTruthy()
+    expect(within(sequence).getByText(/Screening score decreased · −19\.0 score points/)).toBeTruthy()
+    expect(within(sequence).getByText(/repeat-capture variability/i)).toBeTruthy()
   })
 
-  it('labels numeric evidence and improvement direction without relying on color', () => {
+  it('labels numeric evidence as neutral recorded changes without outcome language', () => {
     renderWorkspace()
     const evidence = screen.getByRole('list', { name: 'Finding comparison evidence' })
 
     expect(within(evidence).getByText('Forward head')).toBeTruthy()
     expect(within(evidence).getByText('-4.0deg')).toBeTruthy()
-    expect(within(evidence).getByText('Improved — lower severity')).toBeTruthy()
+    expect(within(evidence).getByText(/Recorded severity decreased · −5\.0 percentage points/)).toBeTruthy()
     expect(within(evidence).getByText('+2.0deg')).toBeTruthy()
-    expect(within(evidence).getByText('Regressed — higher severity')).toBeTruthy()
+    expect(within(evidence).getByText(/Recorded severity increased · \+5\.0 percentage points/)).toBeTruthy()
+    expect(evidence.textContent).not.toMatch(/improv|regress|better|worse/i)
+    expect(screen.queryByText(/lower is better/i)).toBeNull()
   })
 
   it('explains when the selected assessments have no comparable findings', () => {
@@ -110,12 +112,12 @@ describe('ComparisonWorkspace', () => {
     expect(screen.getByRole('status').textContent).toContain('No comparable findings')
   })
 
-  it('shows a grade boundary crossing as within tolerance when the score moved one point', () => {
+  it('shows the direction of a one-point recorded score difference without interpreting it', () => {
     renderWorkspace({
       overallComparison: compareOverallScores({ current: 20, prior: 21, ...versionPair }),
     })
-    expect(screen.getByText('Within measurement tolerance')).toBeTruthy()
-    expect(screen.queryByText('Improved — lower screening score')).toBeNull()
+    expect(screen.getByText(/Screening score decreased · −1\.0 score points/)).toBeTruthy()
+    expect(screen.queryByText(/measurement tolerance/i)).toBeNull()
   })
 
   it('shows cross-version assessments as not comparable', () => {
@@ -129,8 +131,8 @@ describe('ComparisonWorkspace', () => {
         priorAssessedAt: '2026-04-01',
       }),
     })
-    expect(screen.getByText('Not comparable')).toBeTruthy()
-    expect(screen.getByText(/different or missing scoring versions/)).toBeTruthy()
+    expect(screen.getAllByText(/^Not comparable:/)).not.toHaveLength(0)
+    expect(screen.getAllByText(/different or missing scoring versions/)).not.toHaveLength(0)
   })
 
   it('labels each raw measurement with its own unit when units differ', () => {

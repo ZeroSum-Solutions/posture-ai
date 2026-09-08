@@ -8,6 +8,7 @@ import { FilterChip, FilterRow, GradeChip } from '@/components/array/Chip'
 import { Surface, SurfaceLink } from '@/components/array/Surface'
 import { tone } from '@/components/array/severity'
 import { CLIENT_FILTERS, toDirectoryRow, type ClientFilter, type DirectoryClient } from './clientRow'
+import { REPEAT_CAPTURE_LIMITATION_COPY } from '@/lib/comparison/policy'
 import styles from './ClientsPage.module.css'
 
 interface DirectorySummary {
@@ -274,6 +275,7 @@ export default function ClientsPage() {
             />
           ))}
         </FilterRow>
+        <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
 
         <div className={styles.sortRow}>
           <span className="t-quiet">Sorted by date added</span>

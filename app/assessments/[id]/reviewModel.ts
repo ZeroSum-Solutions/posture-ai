@@ -1,7 +1,8 @@
 import {
   compareOverallScores,
   compareSeverityPercentages,
-  comparisonStatusText,
+  comparisonDecisionText,
+  REPEAT_CAPTURE_LIMITATION_COPY,
   type ComparisonDecision,
 } from '@/lib/comparison/policy'
 import {
@@ -24,9 +25,9 @@ import {
  * B on purpose and the divergence is tracked in the redesign plan. The engine
  * remains the sole owner of which grade a score is — neither module decides that.
  *
- * Every directional claim routes through the shared comparison policy, so the
- * review screen, the Compare workspace, client detail and both PDF variants
- * cannot contradict each other about whether something improved.
+ * Every comparison routes through the shared policy so the review screen, the
+ * Compare workspace, client detail and both PDF variants apply the same version,
+ * chronology, reliability, and unit guards.
  */
 
 /* ── Inputs ─────────────────────────────────────────────────────────────── */
@@ -227,11 +228,13 @@ function buildRail(
   const priorScore = prior?.overall_score ?? null
   const priorPosition = comparable && priorScore !== null ? clampPercent(priorScore) : null
 
-  const directional = overall?.status === 'improved' || overall?.status === 'regressed'
-  const delta = directional && overall?.delta != null
+  const hasComparableDelta = overall !== null
+    && overall.status !== 'not_comparable'
+    && overall.delta !== null
+  const delta = hasComparableDelta
     ? {
       text: `${formatDelta(overall.delta)} vs last scan`,
-      band: (overall.status === 'improved' ? 'maintain' : 'review') as SeverityBand,
+      band: 'neutral' as SeverityBand,
       icon: deltaIcon(overall.delta),
     }
     : null
@@ -242,7 +245,7 @@ function buildRail(
     ? overall?.status === 'not_comparable'
       ? `This scan sits in ${currentBandLabel}. The previous scan is not comparable, so it is not drawn.`
       : `This scan sits in ${currentBandLabel}. A second scan adds the previous reading to this rail.`
-    : `The faded dot is the previous scan. This one sits in ${currentBandLabel}.`
+    : `The faded dot is the previous scan. This one sits in ${currentBandLabel}. ${REPEAT_CAPTURE_LIMITATION_COPY}`
 
   const description = [
     `Deviation score ${Math.round(assessment.overall_score)} out of 100, grade ${assessment.overall_grade}, in ${currentBandLabel}.`,
@@ -250,8 +253,8 @@ function buildRail(
     priorPosition !== null && priorScore !== null
       ? `Previous scan ${Math.round(priorScore)}.`
       : null,
-    overall && overall.status !== 'not_comparable'
-      ? `${comparisonStatusText(overall.status, 'overall')}.`
+    overall
+      ? `${comparisonDecisionText(overall, 'overall')}. ${REPEAT_CAPTURE_LIMITATION_COPY}`
       : null,
   ].filter(Boolean).join(' ')
 
@@ -298,7 +301,9 @@ function buildRows(
       })
       : null
 
-    const directional = decision?.status === 'improved' || decision?.status === 'regressed'
+    const comparable = decision !== null
+      && decision.status !== 'not_comparable'
+      && decision.delta !== null
 
     return {
       id: finding.id,
@@ -310,20 +315,10 @@ function buildRows(
       severity: clampPercent(finding.severity_pct),
       measurement: formatMeasurement(finding.deviation, finding.unit),
       reference: formatReference(finding.standard, finding.unit),
-      delta: directional && decision?.delta != null ? formatDelta(decision.delta, 1) : null,
-      deltaBand: (decision?.status === 'improved'
-        ? 'maintain'
-        : decision?.status === 'regressed'
-          ? 'review'
-          : 'neutral') as SeverityBand,
-      deltaIcon: directional && decision ? deltaIcon(decision.delta) : null,
-      deltaWord: directional
-        ? null
-        : decision === null
-          ? null
-          : decision.status === 'not_comparable'
-            ? 'no baseline'
-            : 'flat',
+      delta: comparable ? formatDelta(decision.delta, 1) : null,
+      deltaBand: 'neutral' as SeverityBand,
+      deltaIcon: comparable ? deltaIcon(decision.delta) : null,
+      deltaWord: decision?.status === 'not_comparable' ? 'not comparable' : null,
       reliable,
       borderline: finding.borderline === true,
       causes: finding.causes_text?.trim() || null,

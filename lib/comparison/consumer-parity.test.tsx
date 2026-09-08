@@ -12,7 +12,6 @@ import {
   compareOverallScores,
   compareSeverityPercentages,
   comparisonDecisionText,
-  comparisonStatusText,
   type ComparisonDecision,
 } from './policy'
 
@@ -206,7 +205,7 @@ describe('comparison consumer parity', () => {
     })],
   ])('uses the exact central %s overall wording in web and client PDF', (_name, overall) => {
     const findingDecision = compareSeverityPercentages({ current: 50, prior: 50, ...versionPair })
-    const expected = comparisonStatusText(overall.status, 'overall')
+    const expected = comparisonDecisionText(overall, 'overall')
     expect(webText(findingDecision, overall)).toContain(expected)
     expect(clientPdfText(findingDecision, overall)).toContain(expected)
   })
