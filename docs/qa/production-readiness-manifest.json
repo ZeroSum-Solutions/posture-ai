@@ -1739,7 +1739,7 @@
     },
     "expected_total": 181,
     "expected_files": 40,
-    "inventory_hash": "928f66d04150712bf56899da861a95fbca39ec6858d36ef97edac010e1b17b00",
+    "inventory_hash": "268f6307683c02c8437a15b4823848471d47e3ee4e6139a2967475354cee5d93",
     "inventory_hash_contract": {
       "algorithm": "sha256",
       "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
@@ -2117,6 +2117,20 @@
         "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
         "owner": "PR-08",
         "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:training-strength-journey-api:mobile-webkit",
+        "source": "e2e/training-strength-journey.spec.ts::strength and conditioning API journey project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/training-strength-journey.spec.ts::original application persists a complete strength and conditioning journey"
+        ],
+        "reason": "API transaction coverage runs once in Chromium; responsive strength UI runs in Chromium and mobile WebKit.",
+        "owner": "strength-training",
+        "expires_on": "2026-09-30"
       },
       {
         "key": "ignore:real-detection:mobile-webkit",
@@ -2694,7 +2708,7 @@
   "configuration_hash_contract": {
     "algorithm": "sha256",
     "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash": "9ba4c77ed5c8820178c791c2f0034871141e8a73b038bd95b72ae15b9bcf1b38",
+    "expected_hash": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8",
     "covered_fields": [
       "release_boundary",
       "release_configuration",
@@ -2752,5 +2766,5 @@
     "owner_approval_required": true,
     "owner_approval_task": "HG-10"
   },
-  "configuration_hash": "9ba4c77ed5c8820178c791c2f0034871141e8a73b038bd95b72ae15b9bcf1b38"
+  "configuration_hash": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8"
 }

@@ -4,7 +4,6 @@ import { expect, test } from '@playwright/test'
 import { createClient } from './helpers'
 
 test('capture photos remain private, preserve their view and support retry and erasure', async ({ page, playwright }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chromium', 'Storage transaction coverage runs once; gallery layout is checked at mobile and desktop widths here.')
   const client = await createClient(page, 'E2E', `Photos-${randomUUID().slice(0, 8)}`)
   const created = await page.request.post('/api/assessments', {
     data: { client_id: client.id, submission_id: randomUUID(), test_mode: true },

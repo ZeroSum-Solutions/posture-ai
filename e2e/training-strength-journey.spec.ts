@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { test, expect, type APIResponse } from '@playwright/test'
+import { skipForProductionReadiness } from './production-readiness-skip'
 
 async function body(response: APIResponse) {
   const data = await response.json()
@@ -9,8 +10,17 @@ async function body(response: APIResponse) {
 
 // Uses the real locally provisioned AAL2 practitioner from auth.setup; requests
 // retain its cookies and traverse the actual route, RLS and transaction boundary.
-test('original application persists a complete strength and conditioning journey', async ({ request }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chromium', 'API transaction coverage runs once; responsive UI has separate browser checks.')
+test('original application persists a complete strength and conditioning journey', async ({ request, browserName }, testInfo) => {
+  skipForProductionReadiness(
+    testInfo,
+    browserName === 'webkit',
+    {
+      key: 'skip:training-strength-journey-api:mobile-webkit',
+      source: 'e2e/training-strength-journey.spec.ts::strength and conditioning API journey project guard',
+      scope: { project: 'mobile-webkit', condition: 'browserName=webkit' },
+    },
+    'API transaction coverage runs once in Chromium; responsive UI has separate browser checks.',
+  )
   test.setTimeout(120_000)
   const setup = await body(await request.post('/api/training/simulation/setup'))
   // Reopening the same sample is not another identity creation and must not exhaust its quota.

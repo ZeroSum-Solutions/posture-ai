@@ -4,8 +4,7 @@ import { totpCode } from '../scripts/testing/totp'
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-test('real athlete signs in, opens own workspace, and saves unanswered questionnaire values', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chromium', 'Actor and SQL integration runs once.')
+test('real athlete signs in, opens own workspace, and saves unanswered questionnaire values', async ({ page }) => {
   test.setTimeout(90_000)
   const athlete = await provisionLocalAthlete()
   await page.goto('/auth/sign-in?next=/train')

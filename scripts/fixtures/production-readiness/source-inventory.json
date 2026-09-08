@@ -1479,7 +1479,7 @@
     "expected_files": 40,
     "test_ids_sha256": "7d649d927581f1e36c0c082b8006771679557448787e3253f25241077e849c28"
   },
-  "inventory_hash": "5a39afc443415351bf8c15ebc589f0008b5f2c416600e16061d9633b87db8199",
+  "inventory_hash": "25a1fa3b97228bb8aa011d5fc8b06744742aadbdbca7eabb1e3a79e4b8cf9c88",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1905,9 +1905,9 @@
     "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
     "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
     "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_configuration_hash": "9ba4c77ed5c8820178c791c2f0034871141e8a73b038bd95b72ae15b9bcf1b38",
+    "new_configuration_hash": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8",
     "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_projection_sha256": "9ba4c77ed5c8820178c791c2f0034871141e8a73b038bd95b72ae15b9bcf1b38",
+    "new_projection_sha256": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8",
     "changed_covered_fields": [
       "ci_contract.global_commands",
       "e2e.approved_skips",
@@ -1923,7 +1923,7 @@
       "executed_playwright_report_contract.report_content_required_fields",
       "executed_playwright_report_contract.required_evidence_values.inventory_id"
     ],
-    "changes_sha256": "80f28a3fce09cabd823339fd17dbeafcb845689e3e112825e9f3040048a2ace6",
+    "changes_sha256": "93b8ecfee5e14e0714234413f4b59590ca15147741de358b33308412e45c0dd3",
     "changes": [
       {
         "path": "ci_contract.global_commands",
@@ -2310,6 +2310,20 @@
             "expires_on": "2026-08-31"
           },
           {
+            "key": "skip:training-strength-journey-api:mobile-webkit",
+            "source": "e2e/training-strength-journey.spec.ts::strength and conditioning API journey project guard",
+            "scope": {
+              "project": "mobile-webkit",
+              "condition": "browserName=webkit"
+            },
+            "test_ids": [
+              "mobile-webkit::e2e/training-strength-journey.spec.ts::original application persists a complete strength and conditioning journey"
+            ],
+            "reason": "API transaction coverage runs once in Chromium; responsive strength UI runs in Chromium and mobile WebKit.",
+            "owner": "strength-training",
+            "expires_on": "2026-09-30"
+          },
+          {
             "key": "ignore:real-detection:mobile-webkit",
             "source": "playwright.config.ts::mobile-webkit.testIgnore(real-detection.spec.ts)",
             "scope": {
@@ -2497,7 +2511,7 @@
       {
         "path": "e2e.inventory_hash",
         "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
-        "new_value": "928f66d04150712bf56899da861a95fbca39ec6858d36ef97edac010e1b17b00"
+        "new_value": "268f6307683c02c8437a15b4823848471d47e3ee4e6139a2967475354cee5d93"
       },
       {
         "path": "e2e.inventory_id",
