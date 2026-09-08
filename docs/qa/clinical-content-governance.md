@@ -18,15 +18,16 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`29f3918ad04dbe084f4c4124c43eb6a897801e9efeff0923fb27f4aafdeab5e5`.
+`139baf10f936037e0edb232cb3624192bb33b4e1d8684b347a777f3987a84b94`.
 
 Recommendation algorithm SHA-256:
-`571fa48c21a4397df912d325b5e62d0d24e17e45f909f9f269d8d63a1e277b23`.
+`faedd0e659fa79a1757264d04dc0b0f12aad72d4da3f6e3fcf384d2c9eade78c`.
 
-The latest inventory refresh (2026-09-08) adds `lib/time/calendar.ts` to the
-recommendation algorithm's hashed dependency closure. Governed report and
-comparison surfaces use that module for deterministic UTC calendar formatting,
-so changing the shared formatter must invalidate the prior algorithm fingerprint.
+The latest inventory refresh (2026-09-08) includes the attributed reference-image
+rendering change in the governed `app/exercises/ExercisesLibrary.tsx` surface.
+The dependency closure also retains `lib/time/calendar.ts`, added for deterministic
+UTC calendar formatting in report and comparison surfaces. Changes to either
+governed surface invalidate the prior algorithm fingerprint.
 Only the recommendation-engine item fingerprint and aggregate inventory
 fingerprint changed; content counts and item identities stayed the same. The
 current strength-cycle compiler remains outside this PR-07 clinical inventory: it
