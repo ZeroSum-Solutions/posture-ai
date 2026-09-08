@@ -27,14 +27,14 @@ async function connection() {
   return client
 }
 
-async function asCoach(client) {
+async function asActor(client, actorId = coachId) {
   await client.query('BEGIN')
   await client.query("SET LOCAL statement_timeout = '10s'")
   await client.query("SET LOCAL lock_timeout = '5s'")
-  await client.query("SELECT set_config('request.jwt.claim.sub', $1, true)", [coachId])
+  await client.query("SELECT set_config('request.jwt.claim.sub', $1, true)", [actorId])
   await client.query(
     "SELECT set_config('request.jwt.claims', $1, true)",
-    [JSON.stringify({ sub: coachId, aal: 'aal2', iat: 2_000_000_000 })],
+    [JSON.stringify({ sub: actorId, aal: 'aal2', iat: 2_000_000_000 })],
   )
   await client.query('SET LOCAL ROLE authenticated')
 }
@@ -184,10 +184,10 @@ async function waitUntilBlocked(observer, blockedPid, blockerPid) {
     if (row?.wait_event_type === 'Lock' && row.blockers.includes(blockerPid)) return
     await new Promise((resolve) => setTimeout(resolve, 20))
   }
-  throw new Error('acceptance did not block on the writer-held session row')
+  throw new Error('competing mutation did not block on the writer-held session row')
 }
 
-async function verifyRejectedAcceptance(acceptancePromise, expectedMessage) {
+async function verifyRejectedConflict(acceptancePromise, expectedMessage) {
   try {
     await acceptancePromise
   } catch (error) {
@@ -195,7 +195,7 @@ async function verifyRejectedAcceptance(acceptancePromise, expectedMessage) {
     assert(error?.message === expectedMessage, `expected ${expectedMessage}, received ${error?.message}`)
     return
   }
-  throw new Error('stale progression acceptance unexpectedly succeeded')
+  throw new Error('stale mutation unexpectedly succeeded')
 }
 
 async function runRace(kind) {
@@ -205,8 +205,8 @@ async function runRace(kind) {
   try {
     await cleanupFixture(admin)
     await installFixture(admin)
-    await asCoach(writer)
-    await asCoach(accepter)
+    await asActor(writer)
+    await asActor(accepter)
     const writerPid = (await writer.query('SELECT pg_backend_pid() AS pid')).rows[0].pid
     const accepterPid = (await accepter.query('SELECT pg_backend_pid() AS pid')).rows[0].pid
     const sessionId = kind === 'target_start' ? 'progression-session-2' : 'progression-session-1'
@@ -243,7 +243,7 @@ async function runRace(kind) {
       `)
     }
     await writer.query('COMMIT')
-    await verifyRejectedAcceptance(
+    await verifyRejectedConflict(
       acceptance,
       kind === 'target_start' ? 'progression target changed' : 'progression evidence changed',
     )
@@ -281,3 +281,63 @@ async function runRace(kind) {
 
 await runRace('target_start')
 await runRace('source_correction')
+
+
+async function runOwnerCoachRace(winningActor) {
+  const admin = await connection()
+  const writer = await connection()
+  const contender = await connection()
+  const ownerId = '49000000-0000-4000-8000-000000000009'
+  const winnerId = winningActor === 'athlete' ? ownerId : coachId
+  const loserId = winningActor === 'athlete' ? coachId : ownerId
+  const requestId = '51000000-0000-4000-8000-000000000013'
+  const actual = {
+    quantity: { entered: { value: '50', unit: 'kg' }, canonicalKg: '50' },
+    reps: 6, rir: 2, side: 'bilateral', symptomState: 'none',
+    occurredAt: '2026-09-01T18:05:00Z',
+  }
+  const write = (client, revision, id, value) => client.query(
+    'SELECT public.write_training_set_log($1,$2,$3,$4,$5::jsonb) AS receipt',
+    ['progression-session-1', 'progression-set-1-1', revision, id, JSON.stringify(value)],
+  )
+  try {
+    await cleanupFixture(admin)
+    await installFixture(admin)
+    await asActor(writer, winnerId)
+    await asActor(contender, loserId)
+    const writerPid = (await writer.query('SELECT pg_backend_pid() AS pid')).rows[0].pid
+    const contenderPid = (await contender.query('SELECT pg_backend_pid() AS pid')).rows[0].pid
+    await writer.query('RESET ROLE')
+    await writer.query("SELECT id FROM public.training_sessions WHERE id='progression-session-1' FOR UPDATE")
+    await writer.query('SET LOCAL ROLE authenticated')
+    const staleWrite = write(contender, 4, '51000000-0000-4000-8000-000000000014', { ...actual, reps: 7 })
+    await waitUntilBlocked(admin, contenderPid, writerPid)
+    const committed = (await write(writer, 4, requestId, actual)).rows[0].receipt
+    await writer.query('COMMIT')
+    await verifyRejectedConflict(staleWrite, 'training session changed concurrently')
+    await contender.query('ROLLBACK')
+    await asActor(writer, winnerId)
+    const retry = (await write(writer, 4, requestId, actual)).rows[0].receipt
+    assert(JSON.stringify(retry) === JSON.stringify(committed), 'lost-ack retry changed the original acknowledgement')
+    await writer.query('COMMIT')
+    await asActor(contender, loserId)
+    const projection = (await contender.query("SELECT public.read_training_session_projection('progression-session-1') AS value")).rows[0].value
+    assert(projection.session.revision === 5, 'other actor did not receive the current session revision')
+    assert(projection.currentActuals[0].reps === 6, 'stale actor overwrote the winning actual')
+    assert(projection.currentActuals[0].actor.userId === winnerId, 'winning actor provenance was lost')
+    await write(contender, 5, '51000000-0000-4000-8000-000000000015', { ...actual, reps: 7 })
+    await contender.query('COMMIT')
+    const events = (await admin.query("SELECT actor_user_id,event_revision FROM public.training_set_log_events WHERE session_id='progression-session-1' ORDER BY event_revision")).rows
+    assert(events.length === 3, 'race or retry duplicated an event or erased prior history')
+    assert(events[1].actor_user_id === winnerId && events[2].actor_user_id === loserId, 'explicit correction did not preserve both actors')
+    process.stdout.write(`${JSON.stringify({ kind: 'athlete_coach_set_log', winningActor, status: 'passed' })}\n`)
+  } finally {
+    await writer.query('ROLLBACK').catch(() => {})
+    await contender.query('ROLLBACK').catch(() => {})
+    await cleanupFixture(admin).catch(() => {})
+    await Promise.all([writer.end(), contender.end(), admin.end()])
+  }
+}
+
+await runOwnerCoachRace('athlete')
+await runOwnerCoachRace('coach')
