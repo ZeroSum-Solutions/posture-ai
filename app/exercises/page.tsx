@@ -25,6 +25,7 @@ export default async function ExercisesPage() {
     equipment: [...exercise.equipment],
     primaryMuscles: [...exercise.primaryMuscles],
     instructions: exercise.instructions,
+    media: exercise.media,
     source: {
       recordUrl: exercise.source.recordUrl,
       author: exercise.source.author,

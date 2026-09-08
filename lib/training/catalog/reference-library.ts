@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import snapshotJson from '../../../content/training/library/wger-english-2026-09-08.json'
+import mediaSupplementJson from '../../../content/training/library/wger-1652-media-pilot-2026-09-08.json'
 
 const plainFieldSchema = z.string().trim().min(1).max(160)
   .refine(value => !/[<>\u0000-\u001f\u007f]/.test(value), 'Reference metadata must be plain text')
@@ -39,6 +40,21 @@ const sourceRecordSchema = z.object({
   }).strict(),
 }).strict()
 
+const sourceRecordsSchema = z.array(sourceRecordSchema).min(250).max(2_000).superRefine((records, ctx) => {
+  const ids = new Set<string>()
+  const names = new Set<string>()
+  records.forEach((record, index) => {
+    if (ids.has(record.id)) {
+      ctx.addIssue({ code: 'custom', message: 'Reference IDs must be unique', path: [index, 'id'] })
+    }
+    if (names.has(record.normalizedName)) {
+      ctx.addIssue({ code: 'custom', message: 'Normalized exercise names must be unique', path: [index, 'normalizedName'] })
+    }
+    ids.add(record.id)
+    names.add(record.normalizedName)
+  })
+})
+
 const snapshotSchema = z.object({
   schemaVersion: z.literal('training-reference-library.v1'),
   snapshotId: z.literal('wger-english-2026-09-08'),
@@ -49,28 +65,73 @@ const snapshotSchema = z.object({
     capturedAt: z.string().datetime({ offset: true }),
     selectionPolicy: z.literal('english-attributed-cc-by-sa-sanitized-instructions-balanced.v1'),
   }).strict(),
-  records: z.array(sourceRecordSchema).min(250).max(2_000),
-}).strict().superRefine((snapshot, ctx) => {
-  const ids = new Set<string>()
-  const names = new Set<string>()
-  snapshot.records.forEach((record, index) => {
-    if (ids.has(record.id)) {
-      ctx.addIssue({ code: 'custom', message: 'Reference IDs must be unique', path: ['records', index, 'id'] })
-    }
-    if (names.has(record.normalizedName)) {
-      ctx.addIssue({ code: 'custom', message: 'Normalized exercise names must be unique', path: ['records', index, 'normalizedName'] })
-    }
-    ids.add(record.id)
-    names.add(record.normalizedName)
-  })
+  records: sourceRecordsSchema,
+}).strict()
+
+const referenceMediaSchema = z.object({
+  kind: z.literal('image'),
+  posterUrl: z.literal('/training/reference/wger-1652-dumbbell-romanian-deadlift.webp'),
+  alt: plainFieldSchema,
+  width: z.literal(1200),
+  height: z.literal(630),
+  mimeType: z.literal('image/webp'),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  source: z.object({
+    provider: z.literal('wger'),
+    exerciseRecordId: z.literal(1652),
+    assetId: z.literal(590),
+    assetUuid: z.literal('0306c8c0-70cc-45d4-92de-6fa72ceaa834'),
+    assetUrl: z.literal('https://wger.de/media/exercise-images/1652/0306c8c0-70cc-45d4-92de-6fa72ceaa834.webp'),
+    author: z.literal('AlucardEvil40'),
+    authorHistory: z.tuple([z.literal('AlucardEvil40')]),
+    license: z.object({
+      shortName: z.literal('CC-BY-SA 4'),
+      url: z.literal('https://creativecommons.org/licenses/by-sa/4.0/deed.en'),
+    }).strict(),
+    isAiGenerated: z.literal(false),
+    modifications: z.literal('none'),
+  }).strict(),
+}).strict()
+
+const mediaSupplementSchema = z.object({
+  schemaVersion: z.literal('training-reference-media-supplement.v1'),
+  snapshotId: z.literal('wger-1652-media-pilot-2026-09-08'),
+  extendsSnapshotId: z.literal('wger-english-2026-09-08'),
+  source: z.object({
+    provider: z.literal('wger'),
+    recordEndpoint: z.literal('https://wger.de/api/v2/exerciseinfo/1652/'),
+    licenseEndpoint: z.literal('https://wger.de/api/v2/license/2/'),
+    capturedAt: z.string().datetime({ offset: true }),
+    selectionPolicy: z.literal('single-attributed-exact-variant-media-pilot.v1'),
+  }).strict(),
+  record: sourceRecordSchema,
+  media: referenceMediaSchema,
+  review: z.object({
+    status: z.literal('reference_unreviewed'),
+    compilerEligible: z.literal(false),
+    visualCheck: plainFieldSchema,
+    professionalReview: z.literal('not_completed'),
+  }).strict(),
+}).strict().superRefine((supplement, ctx) => {
+  if (supplement.record.source.recordId !== supplement.media.source.exerciseRecordId) {
+    ctx.addIssue({ code: 'custom', message: 'Media must match its reference record', path: ['media', 'source', 'exerciseRecordId'] })
+  }
+  if (supplement.record.source.author !== supplement.media.source.author) {
+    ctx.addIssue({ code: 'custom', message: 'Media author must match the retained asset provenance', path: ['media', 'source', 'author'] })
+  }
+  if (supplement.record.source.license.shortName !== supplement.media.source.license.shortName
+    || supplement.record.source.license.url !== supplement.media.source.license.url) {
+    ctx.addIssue({ code: 'custom', message: 'Media license must match the retained source license', path: ['media', 'source', 'license'] })
+  }
 })
 
 type SourceRecord = z.infer<typeof sourceRecordSchema>
+export type ReferenceExerciseMediaV1 = z.infer<typeof referenceMediaSchema>
 
 export type ReferenceExerciseV1 = SourceRecord & {
   readonly reviewStatus: 'reference_unreviewed'
   readonly compilerEligible: false
-  readonly media: null
+  readonly media: ReferenceExerciseMediaV1 | null
   readonly searchText: string
 }
 
@@ -87,15 +148,23 @@ function deepFreeze<T>(value: T): T {
 }
 
 const parsedSnapshot = snapshotSchema.parse(snapshotJson)
+const parsedMediaSupplement = mediaSupplementSchema.parse(mediaSupplementJson)
+const sourceRecords = sourceRecordsSchema.parse([
+  ...parsedSnapshot.records,
+  parsedMediaSupplement.record,
+])
+const mediaByReferenceId = new Map<string, ReferenceExerciseMediaV1>([
+  [parsedMediaSupplement.record.id, parsedMediaSupplement.media],
+])
 
 export const REFERENCE_EXERCISE_LIBRARY_SOURCE = deepFreeze(parsedSnapshot.source)
 
 export const REFERENCE_EXERCISE_LIBRARY: readonly ReferenceExerciseV1[] = deepFreeze(
-  parsedSnapshot.records.map(record => ({
+  sourceRecords.map(record => ({
     ...record,
     reviewStatus: 'reference_unreviewed' as const,
     compilerEligible: false as const,
-    media: null,
+    media: mediaByReferenceId.get(record.id) ?? null,
     searchText: [
       record.normalizedName,
       record.category,

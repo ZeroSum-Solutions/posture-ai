@@ -12,6 +12,9 @@ Per-record author and license attribution remain visible in the application.
 
 These records are an unreviewed reference library. They are not members of
 `TrainingCatalogV1`, are never compiler eligible, and carry no exercise-technique,
-media, clinical, or suitability approval. External media is deliberately absent.
-An exercise enters a live program only through the separately reviewed authored
-training catalog required by the strength-and-conditioning PRD.
+clinical, or suitability approval. The base snapshot has no external media. The
+separate `wger-1652-media-pilot-2026-09-08.json` supplement adds one original,
+attributed CC BY-SA 4.0 image to the exact Wger 1652 reference record while keeping
+that record unreviewed and compiler-ineligible. An exercise enters a live program
+only through the separately reviewed authored training catalog required by the
+strength-and-conditioning PRD.

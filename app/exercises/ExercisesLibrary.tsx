@@ -2,6 +2,7 @@
 
 // Reviewed program content and attributable reference instructions stay distinct.
 import { useState } from 'react'
+import Image from 'next/image'
 import { FilterChip, FilterRow, Chip } from '@/components/array/Chip'
 import { Surface } from '@/components/array/Surface'
 import { tone, type SeverityBand } from '@/components/array/severity'
@@ -24,6 +25,19 @@ export type ReferenceExercise = {
   equipment: string[]
   primaryMuscles: string[]
   instructions: string
+  media: {
+    kind: 'image'
+    posterUrl: string
+    alt: string
+    width: number
+    height: number
+    source: {
+      assetUrl: string
+      author: string
+      license: { shortName: string; url: string }
+      modifications: 'none'
+    }
+  } | null
   source: {
     recordUrl: string
     author: string
@@ -184,6 +198,25 @@ export default function ExercisesLibrary({
           <div className={styles.grid}>
             {filteredReferences.slice(0, referenceLimit).map(exercise => (
               <Surface key={exercise.id} tier="tile" pad="flush" innerClassName={styles.cardInner}>
+                {exercise.media && <>
+                  <div className={styles.mediaFrame}>
+                    <Image
+                      src={exercise.media.posterUrl}
+                      alt={exercise.media.alt}
+                      width={exercise.media.width}
+                      height={exercise.media.height}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <p className={`t-quiet ${styles.source}`}>
+                    Image by {exercise.media.source.author} via{' '}
+                    <a href={exercise.media.source.assetUrl} target="_blank" rel="noreferrer" aria-label={`wger image source for ${exercise.name}`}>wger</a>
+                    {' · '}
+                    <a href={exercise.media.source.license.url} target="_blank" rel="noreferrer" aria-label={`${exercise.media.source.license.shortName} image license`}>{exercise.media.source.license.shortName}</a>
+                    {' · unmodified'}
+                  </p>
+                </>}
                 <div className={styles.cardHeader}>
                   <span className="t-title">{exercise.name}</span>
                   <Chip band="neutral" size="sm">{label(exercise.category)}</Chip>
