@@ -803,12 +803,7 @@ export default function ClinicalAssessmentResults({
                 levelVerified={assessment.level_verified}
               />
               {findings.length > 0 && (
-                <details className={styles.disclosure}>
-                  <summary className={styles.disclosureSummary}>Muscle model</summary>
-                  <div className={styles.disclosureBody}>
-                    <MuscleModel3D findings={findings} />
-                  </div>
-                </details>
+                <MuscleModel3D findings={findings} />
               )}
             </div>
           )}

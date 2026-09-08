@@ -1,95 +1,112 @@
 'use client'
+
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { findingsToMuscleStates, type AssessmentFinding, type MuscleStateInput } from './findingsToMuscleStates'
-import { evidenceWeight } from '../../../lib/program/evidenceWeight'
 import { AnatomyGlyph } from '../../../components/SignalGlyphs'
 import { Surface } from '../../../components/array/Surface'
+import {
+  findingsToMuscleStates,
+  slugToViewerId,
+  type AssessmentFinding,
+  type MuscleStateInput,
+} from './findingsToMuscleStates'
+import styles from './MuscleModel3D.module.css'
 
-const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
-
-function withIntensity(states: MuscleStateInput[]) {
-  return states.map((s) => ({
-    ...s,
-    intensity: clamp01((s.severity ?? 50) / 100) * evidenceWeight(s.confidence),
-  }))
+interface ViewerEntry {
+  muscle: string
+  side: 'left' | 'right'
+  color: 'amber'
+  intensity: 2
 }
 
-// Same-origin viewer build (public/muscle-viewer/**). embed=1 hides its demo chrome + own
-// legend/attribution (the host supplies both below); legend=0 hides its built-in legend.
+/** Static scans do not establish a muscle condition, so historical roles never cross this wire. */
+export function toNeutralViewerEntries(states: MuscleStateInput[]): ViewerEntry[] {
+  const entries = new Map<string, ViewerEntry>()
+  for (const state of states) {
+    const muscle = slugToViewerId(state.slug)
+    if (!muscle) continue
+    const sides: Array<'left' | 'right'> =
+      state.side === 'left' ? ['left'] : state.side === 'right' ? ['right'] : ['left', 'right']
+    for (const side of sides) {
+      const entry = { muscle, side, color: 'amber', intensity: 2 } as const
+      entries.set(`${muscle}:${side}`, entry)
+    }
+  }
+  return [...entries.values()]
+}
+
 const VIEWER_SRC = '/muscle-viewer/index.html?embed=1&legend=0'
 const HELLO_INTERVAL_MS = 300
-const HELLO_MAX_TRIES = 40 // ~12s of pinging before we surface "unavailable" (still recovers late)
+const HELLO_MAX_TRIES = 40
+const MODEL_READY_TIMEOUT_MS = 30_000
 
-function Swatch({ color, label }: { color: string; label: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ width: 10, height: 10, borderRadius: 3, background: color }} />
-      <span className="t-body">{label}</span>
-    </div>
-  )
-}
-
-/**
- * Aggregate whole-body 3D "Posture Summary" for the results page. Embeds the same-origin
- * muscle-viewer in an iframe and drives it with this assessment's findings (tight=red,
- * weak=blue, shaded by severity). Click-to-mount so the ~9 MB GLB never downloads without
- * intent. The per-finding 2D maps below remain the always-on primary source.
- */
 export default function MuscleModel3D({ findings }: { findings: AssessmentFinding[] }) {
-  const { states, notShown, collapsedConflicts } = useMemo(
-    () => findingsToMuscleStates(findings),
-    [findings],
+  const { states, notShown } = useMemo(() => findingsToMuscleStates(findings), [findings])
+  const entries = useMemo(() => toNeutralViewerEntries(states), [states])
+  const referencedRegions = useMemo(
+    () => new Set(entries.map((entry) => entry.muscle)).size,
+    [entries],
   )
   const [mounted, setMounted] = useState(false)
+  const [frameKey, setFrameKey] = useState(0)
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading')
-
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const readyRef = useRef(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const statesRef = useRef(states)
-  // Keep the latest states reachable from the mount-scoped handshake effect without
-  // re-running it (which would tear down + re-add the listener on every states change).
-  useEffect(() => {
-    statesRef.current = states
-  }, [states])
+  const modelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const entriesRef = useRef(entries)
 
-  // Handshake + lifecycle. Runs once the user clicks to mount the iframe (same commit the
-  // iframe is inserted, so iframeRef is populated before this effect body runs).
+  useEffect(() => {
+    entriesRef.current = entries
+  }, [entries])
+
   useEffect(() => {
     if (!mounted) return
     const origin = window.location.origin
     const post = (message: unknown) => {
-      const w = iframeRef.current?.contentWindow
-      if (!w) return
+      const frame = iframeRef.current?.contentWindow
+      if (!frame) return
       try {
-        w.postMessage(message, origin)
+        frame.postMessage(message, origin)
       } catch {
-        /* frame torn down mid-post — harmless */
+        // The frame may be torn down while navigation completes.
       }
     }
-    const applyStates = () =>
-      post({ source: 'posture-ai', type: 'applyMuscleStates', states: withIntensity(statesRef.current) })
+    const applyEntries = () => post({ source: 'posture-ai', type: 'set', entries: entriesRef.current })
     const clearPing = () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
+      if (!intervalRef.current) return
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
     }
-
-    // Accept ONLY a same-origin ready from our own iframe.
-    const onMessage = (e: MessageEvent) => {
-      if (e.origin !== origin || e.source !== iframeRef.current?.contentWindow) return
-      const data = e.data as { source?: string; type?: string } | null
-      if (!data || data.source !== 'muscle-viewer' || data.type !== 'ready') return
+    const clearModelTimeout = () => {
+      if (!modelTimeoutRef.current) return
+      clearTimeout(modelTimeoutRef.current)
+      modelTimeoutRef.current = null
+    }
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== origin || event.source !== iframeRef.current?.contentWindow) return
+      const data = event.data as { source?: string; type?: string } | null
+      if (!data || data.source !== 'muscle-viewer') return
+      if (data.type === 'model-ready') {
+        readyRef.current = true
+        setStatus('ready')
+        clearPing()
+        clearModelTimeout()
+        applyEntries()
+        return
+      }
+      if (data.type === 'model-unavailable') {
+        setStatus('unavailable')
+        clearPing()
+        clearModelTimeout()
+        return
+      }
+      if (data.type !== 'ready') return
       readyRef.current = true
-      setStatus('ready')
       clearPing()
-      applyStates() // re-apply on EVERY ready (StrictMode remount / late reply are safe)
+      applyEntries()
     }
     window.addEventListener('message', onMessage)
 
-    // Request/response: ping until the viewer answers ready, so a mount-order race can't drop
-    // the first apply. Keep the message listener attached past the cap for late recovery.
     let tries = 0
     const ping = () => {
       if (readyRef.current) return clearPing()
@@ -102,137 +119,103 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
     }
     ping()
     intervalRef.current = setInterval(ping, HELLO_INTERVAL_MS)
+    modelTimeoutRef.current = setTimeout(() => {
+      setStatus('unavailable')
+    }, MODEL_READY_TIMEOUT_MS)
 
     return () => {
       window.removeEventListener('message', onMessage)
       clearPing()
+      clearModelTimeout()
       post({ source: 'posture-ai', type: 'clear' })
       readyRef.current = false
     }
-  }, [mounted])
+  }, [frameKey, mounted])
 
-  // Re-apply when the assessment's states change (after the viewer is ready).
   useEffect(() => {
     if (!mounted || !readyRef.current) return
-    const w = iframeRef.current?.contentWindow
-    if (!w) return
-    try {
-      w.postMessage(
-        { source: 'posture-ai', type: 'applyMuscleStates', states: withIntensity(states) },
-        window.location.origin,
-      )
-    } catch {
-      /* frame torn down — harmless */
-    }
-  }, [states, mounted])
+    iframeRef.current?.contentWindow?.postMessage(
+      { source: 'posture-ai', type: 'set', entries },
+      window.location.origin,
+    )
+  }, [entries, mounted])
+
+  const retryViewer = () => {
+    readyRef.current = false
+    setStatus('loading')
+    setFrameKey((key) => key + 1)
+  }
 
   return (
     <Surface tier="feature">
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          flexWrap: 'wrap',
-          marginBottom: 16,
-        }}
-      >
-        <h2 className="t-title">3D Posture Summary</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Swatch color="var(--review)" label="Tight" />
-          <Swatch color="var(--info)" label="Weak" />
-          <span className="t-quiet" style={{ fontStyle: 'italic' }}>
-            shaded by severity
-          </span>
+      <section className={styles.shell} aria-labelledby="anatomy-viewer-title">
+        <header className={styles.header}>
+          <div className={styles.headingCopy}>
+            <span className={styles.eyebrow}>Interactive anatomy</span>
+            <h2 id="anatomy-viewer-title" className="t-title">Explore assessment-linked regions</h2>
+            <p className="t-body">Rotate the model to locate anatomy referenced by this saved assessment.</p>
+          </div>
+          <div className={styles.legend} aria-label="3D model legend">
+            <span className={styles.swatch} aria-hidden />
+            <span>{referencedRegions} linked {referencedRegions === 1 ? 'region' : 'regions'}</span>
+          </div>
+        </header>
+
+        <div className={styles.viewerFrame}>
+          {!mounted ? (
+            <button
+              type="button"
+              onClick={() => { setStatus('loading'); setMounted(true) }}
+              className={styles.launchButton}
+            >
+              <span className={styles.glyph} aria-hidden><AnatomyGlyph size={54} /></span>
+              <span className={styles.launchTitle}>Open interactive 3D anatomy</span>
+              <span className={styles.launchMeta}>Loads once on request · about 9 MB</span>
+              <span className={styles.launchAction}>Explore in 3D</span>
+            </button>
+          ) : (
+            <>
+              <iframe
+                key={frameKey}
+                ref={iframeRef}
+                src={VIEWER_SRC}
+                title="Interactive 3D anatomy model"
+                loading="lazy"
+                className={styles.iframe}
+              />
+              {status === 'loading' && (
+                <div className={styles.statusOverlay} role="status">Loading interactive anatomy…</div>
+              )}
+              {status === 'unavailable' && (
+                <div className={styles.statusOverlay} role="alert">
+                  <p>The 3D view did not load. The recorded scan values remain available above.</p>
+                  <button type="button" onClick={retryViewer} className={styles.retryButton}>Try again</button>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      </div>
 
-      <div
-        style={{
-          position: 'relative',
-          height: 'clamp(360px, 58vh, 540px)',
-          borderRadius: 12,
-          overflow: 'hidden',
-          border: '1px solid rgba(255,255,255,0.08)',
-          background: 'var(--background)',
-        }}
-      >
-        {!mounted ? (
-          <button
-            type="button"
-            onClick={() => setMounted(true)}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <span style={{ display: 'grid', placeItems: 'center', width: 48, height: 48 }} aria-hidden>
-              <AnatomyGlyph size={42} />
-            </span>
-            <span className="t-title">
-              Show 3D model
-            </span>
-            <span className="t-quiet">
-              Loads an interactive anatomy model (~9 MB)
-            </span>
-          </button>
-        ) : (
-          <>
-            <iframe
-              ref={iframeRef}
-              src={VIEWER_SRC}
-              title="Posture Summary 3D model"
-              loading="lazy"
-              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            />
-            {status === 'unavailable' && (
-              <div
-                className="t-body"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  padding: 24,
-                  background: 'rgba(10,10,15,0.85)',
-                }}
-              >
-                3D view unavailable — the muscle maps below show the same findings.
-              </div>
-            )}
-          </>
+        <div className={styles.instructions} aria-label="3D model instructions">
+          <span>Drag to rotate</span>
+          <span>Pinch or scroll to zoom</span>
+          <span>Use Front and Back to reorient</span>
+        </div>
+
+        {notShown.length > 0 && (
+          <p className="t-body">
+            {notShown.length} referenced {notShown.length === 1 ? 'area is' : 'areas are'} not available in this anatomy model: {notShown.map((item) => item.name).join(', ')}.
+          </p>
         )}
-      </div>
 
-      {collapsedConflicts.length > 0 && (
-        <p className="t-body" style={{ marginTop: 8 }}>
-          {collapsedConflicts.length} muscle{collapsedConflicts.length > 1 ? 's' : ''} show a mixed
-          tight/weak signal across findings and {collapsedConflicts.length > 1 ? 'are' : 'is'} shown
-          as tight here: {collapsedConflicts.map((c) => c.name).join(', ')}.
+        <p className={styles.boundary}>
+          Gold marks anatomy referenced by the assessment record. The scan did not test muscle
+          tightness, strength, inhibition, or injury.
         </p>
-      )}
-      {notShown.length > 0 && (
-        <p className="t-body" style={{ marginTop: 8 }}>
-          {notShown.length} muscle{notShown.length > 1 ? 's' : ''} not shown in 3D:{' '}
-          {notShown.map((m) => m.name).join(', ')}.
+        <p className={styles.attribution}>
+          Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP.
         </p>
-      )}
-
-      <p className="t-quiet" style={{ marginTop: 14, lineHeight: 1.4 }}>
-        Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP. Red =
-        tight/overactive, blue = weak/inhibited; depth of color reflects severity.
-      </p>
+      </section>
     </Surface>
   )
 }
