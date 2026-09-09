@@ -39,6 +39,7 @@ import {
 } from '@/lib/time/postgres-timestamp'
 
 type Finding = AssessmentResultsPayload['findings'][number]
+type NumericFinding = Finding & { deviation: number; severity_pct: number; confidence: number }
 type Capture = AssessmentResultsPayload['captures'][number]
 type Assessment = AssessmentResultsPayload['assessment']
 
@@ -47,6 +48,16 @@ const DEFERRED_PANEL_MOUNT_MS = 300
 
 export function canonicalAssessmentTimestamp(value: string): string | null {
   return canonicalizePostgresTimestamp(value)
+}
+
+function hasNumericScreeningValue(finding: Finding): finding is NumericFinding {
+  return finding.zone !== 'unreliable'
+    && typeof finding.deviation === 'number'
+    && Number.isFinite(finding.deviation)
+    && typeof finding.severity_pct === 'number'
+    && Number.isFinite(finding.severity_pct)
+    && typeof finding.confidence === 'number'
+    && Number.isFinite(finding.confidence)
 }
 
 // Zone colors
@@ -186,20 +197,23 @@ export default function ClinicalAssessmentResults({
   const initialProjection = initialData?.clinical_content.enabled === true
     ? initialData.clinical_content.projection
     : null
-  const hasInitialReport = Boolean(initialData && initialProjection?.program)
+  const hasInitialData = Boolean(initialData)
   const initialCapability = initialData?.assessment.capability
   const [assessment, setAssessment] = useState<Assessment | null>(
-    hasInitialReport ? initialData!.assessment : null,
+    hasInitialData ? initialData!.assessment : null,
   )
   const [findings, setFindings] = useState<Finding[]>(
-    hasInitialReport ? initialData!.findings : [],
+    hasInitialData ? initialData!.findings : [],
   )
   const [captures, setCaptures] = useState<Capture[]>(
-    hasInitialReport ? initialData!.captures : [],
+    hasInitialData ? initialData!.captures : [],
+  )
+  const [screeningContext, setScreeningContext] = useState<AssessmentResultsPayload['screening_context'] | null>(
+    hasInitialData ? initialData!.screening_context : null,
   )
   const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(
-    initialData && !hasInitialReport
+    initialData && initialData.clinical_content.enabled !== true
       ? 'Clinical content is not available for this release.'
       : null,
   )
@@ -294,7 +308,7 @@ export default function ClinicalAssessmentResults({
           data = await r.json() as AssessmentResultsPayload
         }
         const projection = data.clinical_content?.projection as ClinicalProjection | null | undefined
-        if (data.clinical_content?.enabled !== true || !projection?.program) {
+        if (data.clinical_content?.enabled !== true) {
           setError('Clinical content is not available for this release.')
           setLoading(false)
           return
@@ -302,6 +316,19 @@ export default function ClinicalAssessmentResults({
         setAssessment(data.assessment)
         setFindings(data.findings || [])
         setCaptures(data.captures || [])
+        setScreeningContext(data.screening_context ?? null)
+        if (!projection?.program) {
+          if (data.screening_context?.scanUse === 'descriptive') {
+            setError('Clinical content is not available for this release.')
+          } else {
+            setProgram(null)
+            setExercises([])
+            setSessionPreview(null)
+            setError(null)
+          }
+          setLoading(false)
+          return
+        }
         setProgram(projection.program)
         setExercises(Array.isArray(projection.exercises) ? projection.exercises : [])
         setSessionPreview(projection.sessionPreview ?? null)
@@ -427,6 +454,11 @@ export default function ClinicalAssessmentResults({
     () => findings.filter(f => f.zone === 'unreliable').map(f => ({ label: f.label })),
     [findings]
   )
+  const screeningBoundaryMessage = screeningContext?.scanUse === 'incompatible'
+    ? 'This screening was recorded with an unsupported engine version. Its findings cannot drive this corrective report or program. Scan-independent general training remains available.'
+    : screeningContext?.scanUse === 'unavailable' || screeningContext?.scanUse === 'denied'
+      ? 'This screening is unavailable for corrective report or program use. Scan-independent general training remains available.'
+      : null
 
   async function refreshClinicalProjection() {
     if (!assessmentId) return false
@@ -438,6 +470,7 @@ export default function ClinicalAssessmentResults({
     setAssessment(data.assessment)
     setFindings(data.findings || [])
     setCaptures(data.captures || [])
+    setScreeningContext(data.screening_context ?? null)
     setProgram(projection.program)
     setExercises(Array.isArray(projection.exercises) ? projection.exercises : [])
     setSessionPreview(projection.sessionPreview ?? null)
@@ -640,6 +673,24 @@ export default function ClinicalAssessmentResults({
     )
   }
 
+  if (!error && assessment && screeningContext?.scanUse !== 'descriptive') {
+    return (
+      <div className={styles.routeState}>
+        <div>
+          <p className="t-kicker">Screening unavailable</p>
+          <h1 className="t-headline">No current grade is available.</h1>
+          <p role="alert" style={{ color: 'var(--review)', margin: '16px 0' }}>
+            {screeningBoundaryMessage ?? 'This screening cannot provide a current clinical summary.'}
+          </p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
+            Historical values remain recorded, but are not presented as a current screening claim.
+          </p>
+          <Link href={`/clients/${assessment.clients.id}`} className={styles.errorLink}>Back to client</Link>
+        </div>
+      </div>
+    )
+  }
+
   if (error || !assessment || !program) {
     return (
       <div className={styles.routeState}>
@@ -653,6 +704,20 @@ export default function ClinicalAssessmentResults({
 
   const grade = assessment.overall_grade
   const score = assessment.overall_score
+  if (grade === null || score === null) {
+    return (
+      <div className={styles.routeState}>
+        <div>
+          <p className="t-kicker">Screening unavailable</p>
+          <h1 className="t-headline">No current grade is available.</h1>
+          <p role="alert" style={{ color: 'var(--review)', margin: '16px 0' }}>
+            The current screening summary is incomplete and cannot be presented as a numeric result.
+          </p>
+          <Link href={`/clients/${assessment.clients.id}`} className={styles.errorLink}>Back to client</Link>
+        </div>
+      </div>
+    )
+  }
   const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
   const gradeDesc = showCurrentGradeScale
     ? getGradeDisplayBand(grade).description
@@ -691,6 +756,7 @@ export default function ClinicalAssessmentResults({
     ? priorAssessments[priorAssessments.length - 1]
     : null
 
+  const descriptiveFindings = findings.filter(hasNumericScreeningValue)
   const reviewModel = buildReviewModel({
     assessment: {
       overall_score: score,
@@ -698,7 +764,7 @@ export default function ClinicalAssessmentResults({
       scoring_engine_version: assessment.scoring_engine_version,
       assessed_at: assessment.assessed_at,
     },
-    findings,
+    findings: descriptiveFindings,
     // The most recent prior scan. priorAssessments is chronological, so the last
     // entry is the nearest one behind this scan; the shared comparison policy
     // decides on its own whether the pair is comparable at all.
@@ -713,7 +779,6 @@ export default function ClinicalAssessmentResults({
     scanLabel: `Screening · ${assessedAtShort}`,
     priorLabel: mostRecentPrior ? utcCalendarLabel(mostRecentPrior.assessed_at, 'short') : null,
   })
-
   return (
     <div className="app-screen app-screen--bar">
       <div className={styles.topBar}>
@@ -749,6 +814,11 @@ export default function ClinicalAssessmentResults({
       </section>
 
       <div className="app-screen-x app-stack">
+        {screeningBoundaryMessage && (
+          <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+            {screeningBoundaryMessage}
+          </p>
+        )}
         <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
 
         {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
@@ -774,7 +844,7 @@ export default function ClinicalAssessmentResults({
               <details className={styles.disclosure}>
                 <summary className={styles.disclosureSummary}>Accuracy &amp; methodology</summary>
                 <div className={styles.disclosureBody}>
-                  <AccuracyCard assessment={assessment} findings={findings} />
+                  <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
                 </div>
               </details>
               <details data-testid="disclaimer" className={styles.disclosure}>
@@ -788,12 +858,12 @@ export default function ClinicalAssessmentResults({
           evidencePanel={(
             <div className="app-stack">
               <ReviewEvidence
-                findings={findings}
+                findings={descriptiveFindings}
                 captures={captures}
                 levelVerified={assessment.level_verified}
               />
-              {findings.length > 0 && (
-                <MuscleModel3D findings={findings} />
+              {descriptiveFindings.length > 0 && (
+                <MuscleModel3D findings={descriptiveFindings} />
               )}
             </div>
           )}

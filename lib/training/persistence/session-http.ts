@@ -11,6 +11,12 @@ import { trainingSessionDisplay } from './session-display'
 type TrainingClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
 
 const revisionSchema = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER)
+export const TrainingSessionLifecycleDenialSchema = z.enum([
+  'relationship_revoked',
+  'assignment_expired',
+])
+export type TrainingSessionLifecycleDenial = z.infer<typeof TrainingSessionLifecycleDenialSchema>
+
 export const TrainingSetActualInputSchema = z.object({
   quantity: ExactLoadQuantityV1Schema,
   reps: z.number().int().min(0).max(100),
@@ -97,7 +103,11 @@ export async function readTrainingSessionProjection(client: TrainingClient, sess
   }
   if (isStrength && currentActuals.some(actual => {
     const exercise = prescription.exercises.find(item => item.exerciseInstanceId === actual.exerciseInstanceId)
-    return !exercise?.setIds.includes(actual.setId)
+    const workingIndex = exercise?.setIds.indexOf(actual.setId) ?? -1
+    const isWarmup = exercise?.warmupSets?.some(set => set.setId === actual.setId) ?? false
+    return (!isWarmup && workingIndex < 0)
+      || (isWarmup && (actual.setKind !== 'warmup' || actual.workingSetOrdinal !== null))
+      || (workingIndex >= 0 && (actual.setKind !== 'working' || actual.workingSetOrdinal !== workingIndex + 1))
       || !executionContextsMatch(actual.executionContext, prescription.executionContext)
   })) return { kind: 'unavailable' } as const
   return {
@@ -138,6 +148,25 @@ export async function trainingMutationError(client: TrainingClient, sessionId: s
     return trainingJson({ error: 'training_revision_conflict', current: current.value }, 409)
   }
   if (code === '22023' || code === '23514') return trainingJson({ error: 'invalid_training_payload' }, 422)
-  if (code === 'P0001' || code === '42501') return trainingJson({ error: 'training_action_unavailable' }, 403)
+  if (code === 'P0001' && message === 'training session is stale') {
+    return trainingJson({ error: 'training_session_stale', action: 'review_or_abort' }, 409)
+  }
+  if (code === 'P0001' || code === '42501') {
+    try {
+      const lifecycle = await client.rpc('read_training_session_lifecycle_denial', {
+        p_session_id: sessionId,
+      })
+      if (lifecycle && !lifecycle.error) {
+        const denial = TrainingSessionLifecycleDenialSchema.safeParse(lifecycle.data)
+        if (denial.success) {
+          return trainingJson({ error: denial.data, action: 'clear_session_scope' }, 403)
+        }
+      }
+    } catch {
+      // Error classification is advisory; retain the original denial if the
+      // scoped lifecycle projection is unavailable.
+    }
+    return trainingJson({ error: 'training_action_unavailable' }, 403)
+  }
   return trainingJson({ error: 'training_save_unavailable' }, 503)
 }

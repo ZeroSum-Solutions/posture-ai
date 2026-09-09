@@ -527,7 +527,71 @@ SELECT lives_ok($$
   )
 $$, 'the existing simulation acceptance branch remains accepted');
 
+INSERT INTO public.training_program_builds(
+  id,subject_id,created_by_user_id,profile_revision,
+  eligibility_source_revision_id,program_revision_id,
+  compiler_policy_version,catalog_version,build_json,created_at,expires_at
+)
+SELECT
+  '68000000-0000-4000-8000-00000000040a',subject_id,
+  '68000000-0000-4000-8000-000000000003',profile_revision,
+  eligibility_source_revision_id,'compiled-live-coach-owned',
+  compiler_policy_version,catalog_version,
+  pg_catalog.jsonb_set(
+    build_json,
+    '{programRevisionId}',
+    '"compiled-live-coach-owned"'::jsonb
+  ),
+  now(),now()+interval '30 minutes'
+FROM public.training_program_builds
+WHERE id = '68000000-0000-4000-8000-000000000403';
+
+INSERT INTO public.training_program_drafts(
+  id,subject_id,created_by_user_id,profile_revision,
+  eligibility_source_revision_id,source_build_id,selection_hash,
+  program_json,created_at,expires_at
+)
+SELECT
+  '68000000-0000-4000-8000-00000000050a',subject_id,
+  '68000000-0000-4000-8000-000000000003',profile_revision,
+  eligibility_source_revision_id,
+  '68000000-0000-4000-8000-00000000040a',repeat('a',64),
+  program_json || pg_catalog.jsonb_build_object(
+    'assignmentId','live-assignment-coach-owned',
+    'programMode','coach_assigned',
+    'owningPractitionerId','68000000-0000-4000-8000-000000000003',
+    'compiledProgramRevisionId','compiled-live-coach-owned',
+    'author',pg_catalog.jsonb_build_object(
+      'kind','coach','userId','68000000-0000-4000-8000-000000000003'
+    )
+  ),
+  now(),now()+interval '30 minutes'
+FROM public.training_program_drafts
+WHERE id = '68000000-0000-4000-8000-000000000501';
+
 RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub','68000000-0000-4000-8000-000000000001',true);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"68000000-0000-4000-8000-000000000001","aal":"aal2","iat":2000000000}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+  $$ SELECT public.publish_training_program_draft(
+    '68000000-0000-4000-8000-00000000050a'
+  ) $$,
+  'P0001','training draft is unavailable',
+  'the subject owner cannot publish a coach-authored coach-assigned draft'
+);
+SELECT is_empty(
+  $$ SELECT id FROM public.training_program_assignments
+     WHERE id = 'live-assignment-coach-owned' $$,
+  'denied coach-owned publication leaves no partial assignment'
+);
+RESET ROLE;
+
 SET LOCAL session_replication_role = replica;
 SELECT lives_ok($$
   INSERT INTO public.training_program_builds(
@@ -555,6 +619,8 @@ SELECT lives_ok($$
   )
 $$, 'the additive constraints preserve a pre-48000 null/null build row');
 SET LOCAL session_replication_role = origin;
+SELECT set_config('request.jwt.claim.sub','',true);
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
 SET LOCAL ROLE service_role;
 
 SELECT lives_ok($$

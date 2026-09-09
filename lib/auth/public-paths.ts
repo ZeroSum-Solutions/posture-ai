@@ -24,6 +24,11 @@ export function publicPaths(nodeEnv: string | undefined = process.env.NODE_ENV):
     // state), so it is public rather than gated behind auth + onboarding.
     '/auth/forgot-password',
     '/auth/update-password',
+    // GoTrue returns the one-time athlete token in the URL fragment, which is
+    // unavailable to middleware. Let the exact callback page load so its
+    // browser client can establish AAL1; the page exposes no protected data
+    // and self-checks the resulting invitation session before showing inputs.
+    '/train/accept-invite',
     '/api/health',
     // Vercel cron has no practitioner session. This exact machine route performs
     // its own timing-safe CRON_SECRET authentication before any mutation.
@@ -58,12 +63,23 @@ export const PUBLIC_PATHS = publicPaths()
  */
 export const AAL1_CORRIDOR_PATHS = [
   '/auth/accept-invite',
-  '/train/accept-invite',
   '/auth/mfa',
   '/api/auth/complete-invitation',
   '/api/training/auth/complete-invitation',
   '/api/auth/sign-out',
+  // An erasure may commit before its response reaches the browser. The retry
+  // must reach the idempotent receipt after the subject row is gone; the exact
+  // POST route independently requires the authenticated user and AAL2.
+  '/api/training/privacy/erase',
 ] as const
+
+const EXACT_PUBLIC_PATHS = new Set<string>([
+  '/train/accept-invite',
+])
+
+const EXACT_AAL1_CORRIDOR_PATHS = new Set<string>([
+  '/api/training/privacy/erase',
+])
 
 function matchesPath(pathname: string, configuredPath: string): boolean {
   if (configuredPath === '/') return pathname === '/'
@@ -75,14 +91,18 @@ function matchesPath(pathname: string, configuredPath: string): boolean {
 }
 
 export function isPublicPath(pathname: string, paths: readonly string[] = PUBLIC_PATHS): boolean {
-  return paths.some((p) => matchesPath(pathname, p))
+  return paths.some((p) => EXACT_PUBLIC_PATHS.has(p)
+    ? pathname === p
+    : matchesPath(pathname, p))
 }
 
 export function isAal1CorridorPath(
   pathname: string,
   paths: readonly string[] = AAL1_CORRIDOR_PATHS,
 ): boolean {
-  return paths.some((p) => matchesPath(pathname, p))
+  return paths.some((p) => EXACT_AAL1_CORRIDOR_PATHS.has(p)
+    ? pathname === p
+    : matchesPath(pathname, p))
 }
 
 export function classifyAuthPath(

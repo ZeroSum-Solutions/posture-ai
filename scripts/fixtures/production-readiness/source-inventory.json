@@ -125,7 +125,7 @@
       "path": "playwright.config.ts",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "b38a92ca21d638ed504b1d7f2ca1ae09a92166c142236a1304538f973abd4492"
+      "sha256": "53ac00cb8a7e8b6421d42729535fc0e0df28f82df2ac74aed8431d524f171fd6"
     },
     {
       "id": "posture-ai-e2e-runner-2026-07-19-pr04",
@@ -1470,16 +1470,16 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 88,
-      "mobile-webkit": 80,
+      "desktop-chromium": 108,
+      "mobile-webkit": 100,
       "android-chromium-proxy": 11,
       "calibration": 1
     },
-    "expected_total": 181,
-    "expected_files": 40,
-    "test_ids_sha256": "7d649d927581f1e36c0c082b8006771679557448787e3253f25241077e849c28"
+    "expected_total": 221,
+    "expected_files": 58,
+    "test_ids_sha256": "1b5d4468748405dedb22646784b2441f83396d2b686c9c8833f16cc59e8694e3"
   },
-  "inventory_hash": "25a1fa3b97228bb8aa011d5fc8b06744742aadbdbca7eabb1e3a79e4b8cf9c88",
+  "inventory_hash": "8a7a7d3d9334b6af1f505425c39411551adc49f87f975c28c34812ab05c86db8",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1905,9 +1905,9 @@
     "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
     "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
     "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_configuration_hash": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8",
+    "new_configuration_hash": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d",
     "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_projection_sha256": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8",
+    "new_projection_sha256": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d",
     "changed_covered_fields": [
       "ci_contract.global_commands",
       "e2e.approved_skips",
@@ -1923,7 +1923,7 @@
       "executed_playwright_report_contract.report_content_required_fields",
       "executed_playwright_report_contract.required_evidence_values.inventory_id"
     ],
-    "changes_sha256": "93b8ecfee5e14e0714234413f4b59590ca15147741de358b33308412e45c0dd3",
+    "changes_sha256": "a11f9c9a8bcc1b7e8fcb09cad73bdcd08c2c1d82090e6269b716edc21b65ac4a",
     "changes": [
       {
         "path": "ci_contract.global_commands",
@@ -2501,17 +2501,17 @@
       {
         "path": "e2e.expected_files",
         "old_value": 29,
-        "new_value": 40
+        "new_value": 58
       },
       {
         "path": "e2e.expected_total",
         "old_value": 133,
-        "new_value": 181
+        "new_value": 221
       },
       {
         "path": "e2e.inventory_hash",
         "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
-        "new_value": "268f6307683c02c8437a15b4823848471d47e3ee4e6139a2967475354cee5d93"
+        "new_value": "9c0c3656bb2da4798d6afee4d40de94a422581f9716b6f22f3b1053d7c2b5ce0"
       },
       {
         "path": "e2e.inventory_id",
@@ -2544,8 +2544,8 @@
         },
         "new_value": {
           "setup": 1,
-          "desktop-chromium": 88,
-          "mobile-webkit": 80,
+          "desktop-chromium": 108,
+          "mobile-webkit": 100,
           "android-chromium-proxy": 11,
           "calibration": 1
         }

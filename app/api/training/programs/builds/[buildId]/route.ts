@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { PROGRAM_LIVE_CATALOG_REGISTRY } from '@/lib/training/catalog/liveRegistry'
 import {
   ProgramBuildError,
   createSupabaseProgramBuildDependencies,
@@ -15,7 +16,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bui
     const result = await readStoredProgramBuildProjection(
       buildId,
       context.actor,
-      createSupabaseProgramBuildDependencies(context.supabase, createSupabaseServiceClient()),
+      createSupabaseProgramBuildDependencies(
+        context.supabase,
+        createSupabaseServiceClient(),
+        PROGRAM_LIVE_CATALOG_REGISTRY,
+      ),
     )
     return trainingJson(result)
   } catch (error) {

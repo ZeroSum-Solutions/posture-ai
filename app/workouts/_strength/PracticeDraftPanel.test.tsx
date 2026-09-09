@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PracticeDraftPanel from './PracticeDraftPanel'
 import type { StartingTargetsSelection, TrainingBuildProjection } from './StrengthBuilder.gateway'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 const quantity = { entered: { value: '7.5', unit: 'kg' as const }, canonicalKg: '7.5' }
 const context = {
@@ -66,6 +69,96 @@ function createProjection(cycleLengthWeeks: keyof typeof phasesByCycleLength = 8
 const projection = createProjection()
 
 describe('PracticeDraftPanel', () => {
+  it('remounts the explanation when the draft source changes and ignores the old response', async () => {
+    let resolveFirst!: (value: Response) => void
+    const first = new Promise<Response>(resolve => { resolveFirst = resolve })
+    const responseFor = (catalogVersion: string) => Response.json({
+      schemaVersion: 'training-build-explanation.v1',
+      binding: { buildId: projection.buildId, subjectId: 'subject-1', profileRevision: 3 },
+      source: 'deterministic_default',
+      fallbackReason: 'selection_absent',
+      facts: [{ factId: 'fact.plan-overview.v1', text: `Explanation for ${catalogVersion}.` }],
+    })
+    const fetch = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockResolvedValueOnce(responseFor('catalog-2'))
+    vi.stubGlobal('fetch', fetch)
+    const view = render(<PracticeDraftPanel projection={projection} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explain this draft' }))
+    const changedProjection = {
+      ...projection,
+      result: { ...projection.result, catalogVersion: 'catalog-2' },
+    }
+    view.rerender(<PracticeDraftPanel projection={changedProjection} />)
+    expect(screen.getByRole('button', { name: 'Explain this draft' })).toBeTruthy()
+    await act(async () => resolveFirst(responseFor('catalog-1')))
+    expect(screen.queryByText('Explanation for catalog-1.')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explain this draft' }))
+    await screen.findByText('Explanation for catalog-2.')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('uses live draft copy and athlete session links from the compiled execution context', async () => {
+    const liveProjection = {
+      ...projection,
+      result: {
+        ...projection.result,
+        executionContext: { kind: 'live' as const },
+        catalogOrigin: { kind: 'authored_catalog' as const },
+      },
+    }
+    const onAcceptTargets = vi.fn(async () => ({ status: 'accepted' as const, draftId: 'draft-live' }))
+    const onPublishDraft = vi.fn(async () => ({
+      status: 'accepted' as const, draftId: 'draft-live', assignmentId: 'assignment-live',
+      firstStrengthSessionId: 'strength-session-1', firstConditioningSessionId: 'conditioning-session-1',
+    }))
+    render(<PracticeDraftPanel projection={liveProjection} sessionHrefBase="/train" onAcceptTargets={onAcceptTargets} onPublishDraft={onPublishDraft} />)
+
+    expect(screen.getByText('Program draft')).toBeTruthy()
+    expect(screen.queryByText('Practice data · Simulation')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Use these starting targets' }))
+    await screen.findByText('Starting targets accepted and program created.')
+    expect(screen.getByRole('link', { name: 'Open first strength session' }).getAttribute('href')).toBe('/train?training_session_id=strength-session-1')
+  })
+
+  it.each([
+    ['bodyweight_external', '0', 'bodyweight only'],
+    ['bodyweight_external', '7.5', 'added externally to bodyweight'],
+    ['machine_assistance', '30.125', 'assistance from the machine'],
+  ] as const)('labels %s starting load %s explicitly', (basis, value, label) => {
+    const original = createProjection()
+    const projection = {
+      ...original,
+      calibrations: original.calibrations.slice(0, 1).map(entry => ({
+        ...entry,
+        calibration: {
+          ...entry.calibration, loadBasis: basis,
+          options: [{ equipmentId: 'equipment-1', basis, quantity: {
+            entered: { value, unit: 'kg' as const }, canonicalKg: value,
+          } }],
+        },
+      })),
+    }
+    render(<PracticeDraftPanel projection={projection} />)
+    expect(screen.getByRole('option', { name: `${value} kg · ${label}` })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: /machine stack/ })).toBeNull()
+  })
+
+  it('distinguishes heavy and volume starting loads for the same exercise', () => {
+    const original = createProjection()
+    const item = original.calibrations[0]
+    const tracked = { ...original, calibrations: [
+      { ...item, exposureType: 'heavy', progressionSeriesId: 'strength-slot:squat:heavy' },
+      { ...item, exposureType: 'volume', progressionSeriesId: 'strength-slot:squat:volume', calibration: { ...item.calibration, exerciseInstanceId: 'goblet-volume' } },
+    ] }
+    render(<PracticeDraftPanel projection={tracked} />)
+    expect(screen.getByText('Heavy session · separate starting load and progression')).toBeTruthy()
+    expect(screen.getByText('Volume session · separate starting load and progression')).toBeTruthy()
+    expect(screen.getAllByLabelText('Starting load')).toHaveLength(2)
+  })
+
   it.each([
     { cycleLengthWeeks: 4 as const, visiblePhases: ['Familiarization', 'Progressive practice', 'Next-cycle review'] },
     { cycleLengthWeeks: 6 as const, visiblePhases: ['Familiarization', 'Progressive practice', 'Review and adjust', 'Next-cycle review'] },

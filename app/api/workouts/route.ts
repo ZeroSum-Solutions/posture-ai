@@ -14,6 +14,15 @@ import { snapshotLegalDocument } from '@/lib/legal/policy'
 import { serverClinicalContentAccessForPractitioner } from '@/lib/clinical-content/database'
 import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
 import {
+  SCREENING_CAPTURE_SELECT,
+  screenFindingsForDerivedUse,
+} from '@/lib/training/screening/derivedUse'
+import type {
+  PersistedScreeningAssessmentRow,
+  PersistedScreeningCaptureRow,
+  PersistedScreeningFindingRow,
+} from '@/lib/training/screening/screeningContext'
+import {
   DEFAULT_WORKOUT_PREFERENCES,
   personalizeWorkout,
   workoutPreferencesSchema,
@@ -99,7 +108,7 @@ export async function POST(req: NextRequest) {
   // gate — a session can't be minted from an unreviewed screening).
   const { data: assessment } = await service
     .from('assessments')
-    .select('id, client_id, overall_grade, capability, priority_keys, exercise_swaps, practitioner_approved, status')
+    .select('id, client_id, practitioner_id, assessed_at, status, assessment_type, scoring_engine_version, level_verified, capture_stability, overall_grade, capability, priority_keys, exercise_swaps, practitioner_approved')
     .eq('id', assessment_id)
     .eq('practitioner_id', user.id)
     .maybeSingle()
@@ -128,7 +137,7 @@ export async function POST(req: NextRequest) {
 
   const { data: findings, error: findingsErr } = await service
     .from('assessment_findings')
-    .select('imbalance_key, label, region, deviation, direction, severity_pct, zone, view_used, confidence')
+    .select('*')
     .eq('assessment_id', assessment_id)
   if (findingsErr) {
     // A failed read must not masquerade as "no reliable findings" (422) below.
@@ -136,9 +145,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to load findings.' }, { status: 500 })
   }
 
+  const { data: captures, error: capturesErr } = await service
+    .from('captures')
+    .select(SCREENING_CAPTURE_SELECT)
+    .eq('assessment_id', assessment_id)
+  if (capturesErr) {
+    logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, detail: capturesErr.message })
+    return NextResponse.json({ error: 'Failed to load captures.' }, { status: 500 })
+  }
+
+  const screened = screenFindingsForDerivedUse({
+    expectedSubjectId: assessment.client_id,
+    assessment: assessment as PersistedScreeningAssessmentRow,
+    captures: (captures ?? []) as unknown as PersistedScreeningCaptureRow[],
+    findings: (findings ?? []) as PersistedScreeningFindingRow[],
+  })
+  if (screened.descriptiveFindings.length === 0) {
+    logEvent({ route: ROUTE, outcome: 'client_error', status: 422, userHash, detail: 'screening context unavailable' })
+    return NextResponse.json({
+      error: 'This assessment has no available screening measurements to build a workout from.',
+      code: 'screening_context_unavailable',
+    }, { status: 422 })
+  }
+
   const candidateSnapshot = buildSessionFromAssessment(
     preferences ? { ...assessment, capability: preferences.capability } : assessment,
-    (findings ?? []) as StoredFinding[],
+    screened.descriptiveFindings as StoredFinding[],
     week,
     {
       approvedExerciseSlugs: clinicalAccess.approvedExerciseSlugs,

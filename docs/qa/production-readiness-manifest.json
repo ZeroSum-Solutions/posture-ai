@@ -1732,14 +1732,14 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 88,
-      "mobile-webkit": 80,
+      "desktop-chromium": 108,
+      "mobile-webkit": 100,
       "android-chromium-proxy": 11,
       "calibration": 1
     },
-    "expected_total": 181,
-    "expected_files": 40,
-    "inventory_hash": "268f6307683c02c8437a15b4823848471d47e3ee4e6139a2967475354cee5d93",
+    "expected_total": 221,
+    "expected_files": 58,
+    "inventory_hash": "9c0c3656bb2da4798d6afee4d40de94a422581f9716b6f22f3b1053d7c2b5ce0",
     "inventory_hash_contract": {
       "algorithm": "sha256",
       "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
@@ -2708,7 +2708,7 @@
   "configuration_hash_contract": {
     "algorithm": "sha256",
     "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8",
+    "expected_hash": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d",
     "covered_fields": [
       "release_boundary",
       "release_configuration",
@@ -2766,5 +2766,5 @@
     "owner_approval_required": true,
     "owner_approval_task": "HG-10"
   },
-  "configuration_hash": "add7be2bae35c7221697e193ed648b99ae68a20a592529b5b08dd9c848fff4b8"
+  "configuration_hash": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d"
 }

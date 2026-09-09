@@ -65,8 +65,67 @@ describe('strength builder profile model', () => {
     if (result.status === 'valid') {
       expect(result.profile.equipmentInventory[0]).toMatchObject({
         barWeight: '20.00',
+        collarsTotalWeight: '0.5',
         plates: [{ value: '1.25', count: 4 }],
       })
+    }
+  })
+
+  it('round-trips exact machine-stack denominations without numeric coercion', () => {
+    const profile = {
+      ...createInitialStrengthProfile('Etc/UTC'),
+      equipmentInventory: [{
+        kind: 'machine' as const,
+        equipmentId: 'cable-stack',
+        unit: 'lb' as const,
+        stackLoads: ['5.00', '7.5', '10'],
+      }],
+    }
+
+    const result = validateStrengthProfile(profile)
+    expect(result.status).toBe('valid')
+    if (result.status === 'valid') {
+      expect(result.profile.equipmentInventory[0]).toEqual(profile.equipmentInventory[0])
+    }
+  })
+
+  it('returns an equipment field error for unsupported plate precision', () => {
+    const profile = {
+      ...createInitialStrengthProfile('Etc/UTC'),
+      equipmentInventory: [{
+        kind: 'barbell' as const,
+        equipmentId: 'home-rack',
+        unit: 'kg' as const,
+        barWeight: '20',
+        collarsTotalWeight: '0',
+        plates: [{ value: '1.2345', count: 2 }],
+      }],
+    }
+
+    const result = validateStrengthProfile(profile)
+    expect(result.status).toBe('invalid')
+    if (result.status === 'invalid') {
+      expect(result.fieldErrors.equipmentInventory).toContain('Load must be an exact unsigned kg/lb decimal with at most three fractional digits')
+    }
+  })
+
+  it('returns an equipment field error for fractional plate counts', () => {
+    const profile = {
+      ...createInitialStrengthProfile('Etc/UTC'),
+      equipmentInventory: [{
+        kind: 'barbell' as const,
+        equipmentId: 'home-rack',
+        unit: 'kg' as const,
+        barWeight: '20',
+        collarsTotalWeight: '0',
+        plates: [{ value: '1.25', count: 2.5 }],
+      }],
+    }
+
+    const result = validateStrengthProfile(profile)
+    expect(result.status).toBe('invalid')
+    if (result.status === 'invalid') {
+      expect(result.fieldErrors.equipmentInventory).toContain('Invalid input: expected int, received number')
     }
   })
 })

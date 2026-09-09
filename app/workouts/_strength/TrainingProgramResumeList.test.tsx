@@ -50,3 +50,14 @@ describe('TrainingProgramResumeList', () => {
       .toBe('/train?training_session_id=strength-1')
   })
 })
+
+it('links the whole saved program and does not hard-code an eight-week label', async () => {
+  request.mockResolvedValue({
+    schemaVersion: 'training-program-list.v1', subjectId: 'subject-1',
+    programs: [{ id: 'assignment-12', subject_id: 'subject-1', program_mode: 'self_directed', simulation_run_id: null, status: 'active', created_at: '2026-09-14T00:00:00Z', sessions: [] }],
+  })
+  render(<TrainingProgramResumeList subjectId="subject-1" sessionHrefBase="/train" />)
+  expect((await screen.findByRole('link', { name: 'View program' })).getAttribute('href')).toBe('/train?training_program_id=assignment-12')
+  expect(screen.getByText('Active program')).toBeTruthy()
+  expect(screen.queryByText(/eight-week/i)).toBeNull()
+})

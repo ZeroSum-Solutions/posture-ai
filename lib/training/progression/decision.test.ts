@@ -106,6 +106,63 @@ function exposure(
 }
 
 describe('decideStrengthProgression', () => {
+  it('accepts exact assistance identity but keeps the generic load engine inert', () => {
+    const input: StrengthProgressionInputV1 = {
+      ...baseInput(),
+      prescription: {
+        ...baseInput().prescription,
+        prescribedLoad: {
+          equipmentId: 'assisted-pullup-a', basis: 'machine_assistance',
+          quantity: createLoadQuantity({ value: '20', unit: 'kg' }),
+        },
+        equipmentId: 'assisted-pullup-a',
+        loadBasis: 'machine_assistance',
+        bodyweightAssistancePolicy: {
+          policyId: 'synthetic-assistance-rep-only.v1', policyVersion: '1',
+        },
+      },
+      equipmentInventory: {
+        kind: 'assistance_machine', equipmentId: 'assisted-pullup-a', unit: 'kg',
+        assistanceLoads: ['10', '20', '30'],
+      },
+      exposures: [],
+    }
+
+    expect(decideStrengthProgression(input)).toMatchObject({
+      kind: 'hold', status: 'not_proposed', reasonCodes: ['valid_state_hold'],
+      loadBasis: 'machine_assistance',
+    })
+    expect(() => decideStrengthProgression({
+      ...input,
+      prescription: { ...input.prescription, bodyweightAssistancePolicy: undefined },
+    })).toThrow(ProgressionInputValidationError)
+
+    const matching = exposure('assistance-log-r1', '2026-09-06T18:00:00.000Z', [8, 8, 7], [2, 2, 2])
+    matching.acceptedPrescription.load = input.prescription.prescribedLoad
+    matching.comparator = {
+      ...matching.comparator,
+      equipmentId: input.prescription.equipmentId,
+      loadBasis: input.prescription.loadBasis,
+      bodyweightAssistancePolicy: input.prescription.bodyweightAssistancePolicy,
+    }
+    matching.sets = matching.sets.map(set => ({ ...set, load: input.prescription.prescribedLoad }))
+    expect(decideStrengthProgression({ ...input, exposures: [matching] })).toMatchObject({
+      kind: 'hold', reasonCodes: ['valid_state_hold'],
+    })
+    expect(() => decideStrengthProgression({
+      ...input,
+      exposures: [{
+        ...matching,
+        comparator: {
+          ...matching.comparator,
+          bodyweightAssistancePolicy: {
+            policyId: 'other-policy.v1', policyVersion: '1',
+          },
+        },
+      }],
+    })).toThrow(ProgressionInputValidationError)
+  })
+
   it('permits same-run synthetic evidence and rejects live or cross-run contamination', () => {
     const context = {
       kind: 'synthetic_simulation' as const,
@@ -184,6 +241,22 @@ describe('decideStrengthProgression', () => {
       sourceExposureRevisionIds: ['log-r2'],
       proposal: { load: makeLoad('60'), targetReps: [8, 8, 8] },
     })
+  })
+
+  it('keeps 60 kg and three sets after 8/7/6 while proposing exactly one total rep (PR-03)', () => {
+    const input = {
+      ...baseInput(),
+      exposures: [exposure('pr03-log', '2026-09-06T18:00:00.000Z', [8, 7, 6], [2, 2, 3])],
+    }
+    const before = structuredClone(input)
+    const decision = decideStrengthProgression(input)
+    expect(decision.kind).toBe('rep_proposal')
+    if (decision.kind !== 'rep_proposal') throw new Error('Expected one-rep proposal')
+    expect(decision.reasonCodes).toEqual(['one_rep_progression'])
+    expect(decision.proposal.load).toEqual(makeLoad('60'))
+    expect(decision.proposal.targetReps).toHaveLength(3)
+    expect(decision.proposal.targetReps.reduce((sum, reps) => sum + reps, 0)).toBe(22)
+    expect(input).toEqual(before)
   })
 
   it('allows the rep branch from the first valid exposure at a new load', () => {

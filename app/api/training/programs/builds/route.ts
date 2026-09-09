@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { PROGRAM_LIVE_CATALOG_REGISTRY } from '@/lib/training/catalog/liveRegistry'
 import {
   CreateProgramBuildInputV1Schema,
   ProgramBuildError,
@@ -27,7 +28,11 @@ export async function POST(request: Request) {
     const result = await createStoredProgramBuild(
       body.data,
       context.actor,
-      createSupabaseProgramBuildDependencies(context.supabase, createSupabaseServiceClient()),
+      createSupabaseProgramBuildDependencies(
+        context.supabase,
+        createSupabaseServiceClient(),
+        PROGRAM_LIVE_CATALOG_REGISTRY,
+      ),
     )
     return trainingJson(result)
   } catch (error) {

@@ -7,7 +7,12 @@ import { ACTIVE_PROGRAM_COMPILER_OPTIONS } from '@/lib/training/engine/options'
 import { createInitialStrengthProfile } from './StrengthBuilder.model'
 import { acceptTrainingBuild, publishTrainingDraft, requestTrainingBuild } from './StrengthBuilder.gateway'
 import StrengthProgramBuilder, { type SaveProfileOutcome } from './StrengthProgramBuilder'
+import { requestProgramOptions } from './ProgramOptions.gateway'
+import CoachAthleteInvitation from './CoachAthleteInvitation'
 import TrainingProgramResumeList from './TrainingProgramResumeList'
+import TrainingCoachingRelationshipsPanel from './TrainingCoachingRelationshipsPanel'
+import type { TrainingCoachingRelationshipRevocationV1 } from '@/lib/training/contracts/coaching-relationship'
+import { clearOfflineSessionsAfterRelationshipRevocation } from '@/lib/training/offline/relationship'
 import styles from './StrengthProgramBuilder.module.css'
 
 const PROFILE_PROJECTION_VERSION = 'training-profile-projection.v1'
@@ -66,11 +71,16 @@ async function requestProjection(url: string, source: StrengthBuilderSource, sig
   return projection
 }
 
-export default function StrengthBuilderEntry({ source }: { source: StrengthBuilderSource }) {
+function StrengthBuilderEntryState({ source }: { source: StrengthBuilderSource }) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' })
+  const [relationshipEpoch, setRelationshipEpoch] = useState(0)
+  const [coachAccessEnded, setCoachAccessEnded] = useState(false)
+  const [pendingCleanup, setPendingCleanup] = useState(false)
   const identity = source.kind === 'client' ? source.client : source.subject
   const loadUrl = profileUrl(source.kind === 'client' ? 'clientId' : 'subjectId', identity.id)
   const simulationSource = isSimulationSource(source)
+  const programContext = simulationSource ? 'practice' : 'live'
+  const sessionHrefBase = source.kind === 'live_subject' ? '/train' : '/workouts'
 
   async function retryLoad() {
     setLoadState({ status: 'loading' })
@@ -136,6 +146,25 @@ export default function StrengthBuilderEntry({ source }: { source: StrengthBuild
     return { status: 'saved', revision: saved.revision }
   }
 
+  async function handleRelationshipRevoked(receipt: TrainingCoachingRelationshipRevocationV1) {
+    if (loadState.status !== 'ready' || receipt.subjectId !== loadState.projection.subjectId) {
+      throw new Error('The ended connection does not match the current training subject.')
+    }
+    // A route refresh preserves client state; explicitly retire the old controls.
+    if (source.kind !== 'live_subject') setCoachAccessEnded(true)
+    setPendingCleanup(true)
+    const result = await clearOfflineSessionsAfterRelationshipRevocation({
+      subjectId: receipt.subjectId,
+      relationshipId: receipt.relationshipId,
+      affectedSessionIds: receipt.affectedSessionIds,
+    })
+    if (result.kind === 'account_changed') {
+      throw new Error('The signed-in account changed during cleanup.')
+    }
+    setRelationshipEpoch(epoch => epoch + 1)
+    setPendingCleanup(false)
+  }
+
   if (loadState.status === 'loading') {
     return <Surface tier="tile" innerClassName={styles.entryState}><p role="status" className="t-body">Loading training profile…</p></Surface>
   }
@@ -150,29 +179,49 @@ export default function StrengthBuilderEntry({ source }: { source: StrengthBuild
       <p className="t-kicker">Athlete setup required</p>
       <h2 className="t-headline-sm">Connect {identity.name} to a training account.</h2>
       <p className="t-body">Create an athlete invitation and active coaching relationship before reading or saving a training profile. No account or relationship was created automatically.</p>
+      {source.kind === 'client' ? <CoachAthleteInvitation client={source.client} /> : null}
     </Surface>
   }
 
   return <>
-    <TrainingProgramResumeList
-      subjectId={loadState.projection.subjectId}
-      sessionHrefBase={source.kind === 'live_subject' ? '/train' : '/workouts'}
+    {simulationSource ? <p className="t-caption">Practice data · Simulation</p> : null}
+    <TrainingCoachingRelationshipsPanel
+      key={`relationships:${loadState.projection.subjectId}`}
+      scope={source.kind === 'live_subject'
+        ? { kind: 'athlete' }
+        : { kind: 'coach', subjectId: loadState.projection.subjectId }}
+      onRelationshipRevoked={handleRelationshipRevoked}
     />
-    <StrengthProgramBuilder
-      key={`${loadState.projection.subjectId}:${loadState.projection.revision}`}
-      subject={{ id: loadState.projection.subjectId, name: identity.name }}
-      initialProfile={loadState.projection.profile}
-      initialRevision={loadState.projection.revision}
-      supportedCycleLengths={ACTIVE_PROGRAM_COMPILER_OPTIONS.cycleLengthWeeks}
-      catalogState={simulationSource
-        ? { status: 'ready', reviewedExerciseCount: 4, conditioningModeCount: 1, kind: 'practice' }
-        : { status: 'pending', message: source.kind === 'live_subject'
-          ? 'Live program building is not available yet. You can save your profile and resume assigned sessions.'
-          : 'Live strength programming is not ready for real athletes yet. You can save the profile now or use the private sample workspace.' }}
-      onSaveProfile={saveProfile}
-      onBuildPracticeDraft={simulationSource ? requestTrainingBuild : undefined}
-      onAcceptPracticeTargets={simulationSource ? acceptTrainingBuild : undefined}
-      onPublishPracticeDraft={simulationSource ? publishTrainingDraft : undefined}
-    />
+    {coachAccessEnded ? <p role="status" className="t-body">Coaching access has ended. The athlete’s training history is preserved.</p> : null}
+    {!coachAccessEnded && pendingCleanup ? <p role="status" className="t-body">Training controls are paused while this device clears pending changes.</p> : null}
+    {!coachAccessEnded && !pendingCleanup ? <>
+      <TrainingProgramResumeList
+        key={`resume:${relationshipEpoch}`}
+        subjectId={loadState.projection.subjectId}
+        sessionHrefBase={source.kind === 'live_subject' ? '/train' : '/workouts'}
+      />
+      <StrengthProgramBuilder
+        key={`${loadState.projection.subjectId}:${loadState.projection.revision}:${relationshipEpoch}`}
+        subject={{ id: loadState.projection.subjectId, name: identity.name }}
+        initialProfile={loadState.projection.profile}
+        initialRevision={loadState.projection.revision}
+        programContext={programContext}
+        sessionHrefBase={sessionHrefBase}
+        supportedCycleLengths={ACTIVE_PROGRAM_COMPILER_OPTIONS.cycleLengthWeeks}
+        catalogState={simulationSource
+          ? { status: 'ready', reviewedExerciseCount: 4, conditioningModeCount: 1, kind: 'practice' }
+          : { status: 'pending', message: 'Checking for a reviewed program catalog…' }}
+        onSaveProfile={saveProfile}
+        onLoadProgramOptions={requestProgramOptions}
+        onBuildPracticeDraft={requestTrainingBuild}
+        onAcceptPracticeTargets={acceptTrainingBuild}
+        onPublishPracticeDraft={publishTrainingDraft}
+      />
+    </> : null}
   </>
+}
+
+export default function StrengthBuilderEntry({ source }: { source: StrengthBuilderSource }) {
+  const identity = source.kind === 'client' ? source.client.id : source.subject.id
+  return <StrengthBuilderEntryState key={`${source.kind}:${identity}`} source={source} />
 }

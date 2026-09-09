@@ -6,8 +6,10 @@ describe('active compiler options', () => {
     expect(ACTIVE_PROGRAM_COMPILER_OPTIONS).toEqual({
       cycleLengthWeeks: [4, 6, 8, 12], strengthDaysPerWeek: [2, 3, 4],
       sessionTimeBudgetMinutes: [30, 45, 60], goals: ['strength', 'general_fitness'],
+      strengthProgrammingStyles: ['repeatable', 'intermediate_undulating'],
     })
     expect(Object.isFrozen(ACTIVE_PROGRAM_COMPILER_OPTIONS.cycleLengthWeeks)).toBe(true)
     expect(Object.isFrozen(ACTIVE_PROGRAM_COMPILER_OPTIONS.strengthDaysPerWeek)).toBe(true)
+    expect(Object.isFrozen(ACTIVE_PROGRAM_COMPILER_OPTIONS.strengthProgrammingStyles)).toBe(true)
   })
 })

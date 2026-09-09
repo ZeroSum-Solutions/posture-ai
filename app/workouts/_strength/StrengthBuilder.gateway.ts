@@ -8,7 +8,12 @@ export type TrainingBuildProjection = {
   schemaVersion: typeof TRAINING_BUILD_PROJECTION_VERSION
   buildId: string | null
   result: CompilationResultV1
-  calibrations: readonly { exerciseLabel: string; calibration: InitialLoadCalibrationV1 }[]
+  calibrations: readonly {
+    exerciseLabel: string
+    calibration: InitialLoadCalibrationV1
+    progressionSeriesId?: string
+    exposureType?: string
+  }[]
 }
 
 export type StartingTargetsSelection = {
@@ -58,6 +63,11 @@ function isTrainingBuildProjection(value: unknown): value is TrainingBuildProjec
   if ((value.result.kind === 'draft_program') !== (typeof value.buildId === 'string')) return false
   return value.calibrations.every(item => isRecord(item)
     && typeof item.exerciseLabel === 'string'
+    && ((item.progressionSeriesId === undefined && item.exposureType === undefined)
+      || (typeof item.progressionSeriesId === 'string' && item.progressionSeriesId.length > 0
+        && item.progressionSeriesId.length <= 128
+        && typeof item.exposureType === 'string' && item.exposureType.length > 0
+        && item.exposureType.length <= 128))
     && isRecord(item.calibration)
     && typeof item.calibration.exerciseInstanceId === 'string'
     && typeof item.calibration.exerciseVersionId === 'string'

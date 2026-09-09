@@ -23,6 +23,10 @@ vi.mock('@/lib/rate-limit', () => ({ enforceRateLimitStrict: mocks.rateLimit }))
 
 import { POST } from './route'
 import {
+  BODYWEIGHT_ASSISTANCE_SIMULATION_CATALOG_ORIGIN,
+  BODYWEIGHT_ASSISTANCE_SIMULATION_PROFILE,
+  CONDITIONING_SIMULATION_CATALOG_ORIGIN,
+  EXERCISE_SWAP_SIMULATION_CATALOG_ORIGIN,
   PRACTICE_SIMULATION_CATALOG_ORIGIN,
   PRACTICE_SIMULATION_FIXTURE,
 } from '@/lib/training/simulation/fixture'
@@ -87,6 +91,103 @@ describe('POST /api/training/simulation/setup', () => {
       p_provisioned_user_id: '16000000-0000-4000-8000-000000000001',
       p_profile_json: PRACTICE_SIMULATION_FIXTURE.profile,
     })
+  })
+
+  test('selects the exact exercise-swap fixture without accepting client fixture provenance', async () => {
+    const swapReservation = {
+      ...reservation,
+      fixtureId: EXERCISE_SWAP_SIMULATION_CATALOG_ORIGIN.fixtureId,
+      fixtureHash: EXERCISE_SWAP_SIMULATION_CATALOG_ORIGIN.fixtureHash,
+    }
+    mocks.sessionRpc.mockResolvedValueOnce({ data: swapReservation, error: null })
+    mocks.serviceRpc.mockResolvedValueOnce({
+      data: { ...active, fixtureId: swapReservation.fixtureId, fixtureHash: swapReservation.fixtureHash },
+      error: null,
+    })
+
+    const response = await POST(new Request(
+      'http://localhost/api/training/simulation/setup?catalog=exercise-swap',
+      { method: 'POST' },
+    ))
+
+    expect(response.status).toBe(201)
+    expect(mocks.sessionRpc).toHaveBeenCalledWith(
+      'reserve_training_exercise_swap_simulation_identity',
+    )
+  })
+
+  test('selects the exact conditioning fixture through its fixed wrapper', async () => {
+    const conditioningReservation = {
+      ...reservation,
+      fixtureId: CONDITIONING_SIMULATION_CATALOG_ORIGIN.fixtureId,
+      fixtureHash: CONDITIONING_SIMULATION_CATALOG_ORIGIN.fixtureHash,
+    }
+    mocks.sessionRpc.mockResolvedValueOnce({ data: conditioningReservation, error: null })
+    mocks.serviceRpc.mockResolvedValueOnce({
+      data: {
+        ...active,
+        fixtureId: conditioningReservation.fixtureId,
+        fixtureHash: conditioningReservation.fixtureHash,
+      },
+      error: null,
+    })
+
+    const response = await POST(new Request(
+      'http://localhost/api/training/simulation/setup?catalog=conditioning',
+      { method: 'POST' },
+    ))
+
+    expect(response.status).toBe(201)
+    expect(mocks.sessionRpc).toHaveBeenCalledWith(
+      'reserve_training_conditioning_simulation_identity',
+    )
+  })
+
+  test('selects the exact bodyweight and assistance fixture and fixed inventory', async () => {
+    const bodyweightReservation = {
+      ...reservation,
+      fixtureId: BODYWEIGHT_ASSISTANCE_SIMULATION_CATALOG_ORIGIN.fixtureId,
+      fixtureHash: BODYWEIGHT_ASSISTANCE_SIMULATION_CATALOG_ORIGIN.fixtureHash,
+    }
+    mocks.sessionRpc.mockResolvedValueOnce({ data: bodyweightReservation, error: null })
+    mocks.serviceRpc.mockResolvedValueOnce({
+      data: {
+        ...active,
+        fixtureId: bodyweightReservation.fixtureId,
+        fixtureHash: bodyweightReservation.fixtureHash,
+      },
+      error: null,
+    })
+
+    const response = await POST(new Request(
+      'http://localhost/api/training/simulation/setup?catalog=bodyweight-assistance',
+      { method: 'POST' },
+    ))
+
+    expect(response.status).toBe(201)
+    expect(mocks.sessionRpc).toHaveBeenCalledWith(
+      'reserve_training_bodyweight_assistance_simulation_identity',
+    )
+    expect(mocks.serviceRpc).toHaveBeenCalledWith(
+      'activate_training_simulation_identity',
+      expect.objectContaining({ p_profile_json: BODYWEIGHT_ASSISTANCE_SIMULATION_PROFILE }),
+    )
+  })
+
+  test.each([
+    '?catalog=synthetic-swap-journey-catalog.v1',
+    '?catalog=synthetic-bodyweight-assistance-catalog.v1',
+    '?catalog=exercise-swap&catalog=exercise-swap',
+    '?fixtureHash=0',
+  ])('rejects arbitrary or repeated fixture selection: %s', async (query) => {
+    const response = await POST(new Request(
+      `http://localhost/api/training/simulation/setup${query}`,
+      { method: 'POST' },
+    ))
+    expect(response.status).toBe(422)
+    await expect(response.json()).resolves.toEqual({ code: 'invalid_simulation_catalog' })
+    expect(mocks.actor).not.toHaveBeenCalled()
+    expect(mocks.sessionRpc).not.toHaveBeenCalled()
   })
 
   test('reuses an active fixture without creating another auth identity', async () => {

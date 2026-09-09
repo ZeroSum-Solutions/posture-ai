@@ -204,7 +204,10 @@ export default function WorkoutLibrary({
           <p className="t-kicker">Movement plans</p>
           <h1 className="t-headline">Workouts</h1>
         </div>
-        <Link href="/exercises" className="a-secondary">Exercise library</Link>
+        <nav aria-label="Workout tools" className={styles.actions}>
+          <Link href="/workouts/manual" className="a-secondary">My routines</Link>
+          <Link href="/exercises" className="a-secondary">Exercise library</Link>
+        </nav>
       </header>
 
       <main className={`app-screen-x app-stack ${styles.main}`}>

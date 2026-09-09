@@ -19,6 +19,11 @@ vi.mock('@/app/workouts/_strength/TrainingSessionPlayer', () => ({
   default: ({ sessionId }: { sessionId: string }) => <div>{`player:${sessionId}`}</div>,
 }))
 
+vi.mock('@/app/workouts/_strength/TrainingProgramWorkspace', () => ({
+  default: ({ assignmentId, sessionHrefBase }: { assignmentId: string; sessionHrefBase: string }) =>
+    <div>{`program:${assignmentId}:${sessionHrefBase}`}</div>,
+}))
+
 beforeEach(() => {
   mocks.actor.mockReset()
   mocks.redirect.mockClear()
@@ -67,6 +72,22 @@ describe('TrainPage', () => {
 
     expect(html).toContain('player:22222222-2222-4222-8222-222222222222')
     expect(html).toContain('href="/train"')
+  })
+
+  it('composes the athlete program workspace with athlete session links', async () => {
+    mocks.actor.mockResolvedValue({ ok: true, userId: 'athlete-user-1', actorKind: 'athlete', subjectId: 'subject-a' })
+    const html = renderToStaticMarkup(await TrainPage({ searchParams: Promise.resolve({ training_program_id: 'assignment-a' }) }))
+    expect(html).toContain('program:assignment-a:/train')
+    expect(html).not.toContain('player:')
+  })
+
+  it.each([
+    { training_program_id: ['assignment-a', 'assignment-b'] },
+    { training_session_id: ['session-a'] },
+    { training_program_id: 'assignment-a', training_session_id: 'session-a' },
+  ])('rejects ambiguous selectors: %j', async query => {
+    mocks.actor.mockResolvedValue({ ok: true, userId: 'athlete-user-1', actorKind: 'athlete', subjectId: 'subject-a' })
+    await expect(TrainPage({ searchParams: Promise.resolve(query) })).rejects.toThrow('redirect:/train')
   })
 
   it('routes an athlete who still needs MFA to the existing MFA flow', async () => {

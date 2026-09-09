@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { AcceptedTrainingBuild, CreatedTrainingProgram, StartingTargetsSelection, TrainingBuildProjection } from './StrengthBuilder.gateway'
+import TrainingBuildExplanationPanel from './TrainingBuildExplanationPanel'
 import styles from './StrengthProgramBuilder.module.css'
 
 type Calibration = TrainingBuildProjection['calibrations'][number]['calibration']
@@ -22,6 +23,8 @@ function optionLabel(option: Calibration['options'][number]): string {
   if (option.basis === 'dumbbell_single_implement') return `${load} · one dumbbell total`
   if (option.basis === 'dumbbell_per_hand') return `${load} per hand · two dumbbells`
   if (option.basis === 'barbell_total') return `${load} total on the bar`
+  if (option.basis === 'bodyweight_external') return `${load} · ${option.quantity.canonicalKg === '0' ? 'bodyweight only' : 'added externally to bodyweight'}`
+  if (option.basis === 'machine_assistance') return `${load} · assistance from the machine`
   return `${load} on the machine stack`
 }
 
@@ -38,8 +41,9 @@ function resultMessage(result: Exclude<TrainingBuildProjection['result'], { kind
   return 'Choose a valid local cycle start date.'
 }
 
-export default function PracticeDraftPanel({ projection, onAcceptTargets, onPublishDraft }: {
+export default function PracticeDraftPanel({ projection, sessionHrefBase = '/workouts', onAcceptTargets, onPublishDraft }: {
   projection: TrainingBuildProjection
+  sessionHrefBase?: '/workouts' | '/train'
   onAcceptTargets?: (input: StartingTargetsSelection) => Promise<AcceptedTrainingBuild>
   onPublishDraft?: (draftId: string) => Promise<CreatedTrainingProgram>
 }) {
@@ -105,13 +109,32 @@ export default function PracticeDraftPanel({ projection, onAcceptTargets, onPubl
   }
 
   const cycleLengthWeeks = result.cycleLengthWeeks
+  const isPractice = result.executionContext.kind === 'synthetic_simulation'
+  const draftLabel = isPractice ? 'Practice data · Simulation' : 'Program draft'
+  const loadCount = projection.calibrations.length
+  const profileRevision = Number(result.profileRevisionId)
+  const explanationIdentity = [
+    projection.buildId,
+    result.subjectId,
+    result.profileRevisionId,
+    result.programRevisionId,
+    result.catalogVersion,
+    JSON.stringify(result.catalogOrigin),
+    JSON.stringify(result.executionContext),
+  ].join('|')
 
   return <section className={styles.practiceDraft} aria-labelledby="practice-draft-heading">
     <div className={styles.sectionHeading}>
-      <div><p className="t-kicker">Practice data · Simulation</p><h3 id="practice-draft-heading" className="t-headline-sm">{cycleLengthWeeks}-week draft</h3></div>
+      <div><p className="t-kicker">{draftLabel}</p><h3 id="practice-draft-heading" className="t-headline-sm">{cycleLengthWeeks}-week draft</h3></div>
       <span className="t-quiet">{cycleLengthWeeks} weeks · {result.scheduleKind.replace('_', ' ')}</span>
     </div>
-    <p className="t-body">Review four starting loads and the weekly conditioning rhythm before creating the program.</p>
+    <p className="t-body">Review {loadCount} starting {loadCount === 1 ? 'load' : 'loads'} and the weekly conditioning rhythm before creating the program.</p>
+    {projection.buildId && Number.isSafeInteger(profileRevision) && profileRevision > 0
+      ? <TrainingBuildExplanationPanel
+          key={explanationIdentity}
+          binding={{ buildId: projection.buildId, subjectId: result.subjectId, profileRevision }}
+        />
+      : null}
     <div className={styles.scheduleStrip} aria-label={`${cycleLengthWeeks}-week schedule preview`}>
       {result.weeks.map(week => <span key={week.week}>
         <strong>W{week.week}</strong>
@@ -125,8 +148,9 @@ export default function PracticeDraftPanel({ projection, onAcceptTargets, onPubl
       <span className="t-quiet">Applied to matching prescribed sessions</span>
     </div>
     <div className={styles.calibrationGrid}>
-      {projection.calibrations.map(({ exerciseLabel, calibration }) => <article key={calibration.exerciseInstanceId} className={styles.calibrationCard}>
+      {projection.calibrations.map(({ exerciseLabel, calibration, exposureType }) => <article key={calibration.exerciseInstanceId} className={styles.calibrationCard}>
         <div><p className="t-kicker">{calibration.loadBasis.replaceAll('_', ' ')}</p><h4>{exerciseLabel}</h4></div>
+        {exposureType === 'heavy' || exposureType === 'volume' ? <p className="t-quiet">{exposureType === 'heavy' ? 'Heavy session' : 'Volume session'} · separate starting load and progression</p> : null}
         {calibration.options.length > 0 ? <label>Starting load
           <select
             className="a-input"
@@ -166,8 +190,8 @@ export default function PracticeDraftPanel({ projection, onAcceptTargets, onPubl
       {state === 'accepted'
         ? <div className={styles.createdProgram}>
             <p role="status" className={styles.accepted}>Starting targets accepted and program created.</p>
-            {created?.firstStrengthSessionId ? <Link className="a-primary" href={`/workouts?training_session_id=${encodeURIComponent(created.firstStrengthSessionId)}`}>Open first strength session</Link> : null}
-            {created?.firstConditioningSessionId ? <Link className="a-secondary" href={`/workouts?training_session_id=${encodeURIComponent(created.firstConditioningSessionId)}`}>Open first conditioning session</Link> : null}
+            {created?.firstStrengthSessionId ? <Link className="a-primary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(created.firstStrengthSessionId)}`}>Open first strength session</Link> : null}
+            {created?.firstConditioningSessionId ? <Link className="a-secondary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(created.firstConditioningSessionId)}`}>Open first conditioning session</Link> : null}
           </div>
         : <button type="button" className="a-primary" disabled={!canAccept || !onAcceptTargets || !onPublishDraft || state === 'accepting' || state === 'publishing'} onClick={() => void acceptTargets()}>{state === 'accepting' ? 'Accepting starting targets…' : state === 'publishing' ? 'Publishing program…' : state === 'publish_failed' ? 'Retry publishing accepted draft' : 'Use these starting targets'}</button>}
     </div>

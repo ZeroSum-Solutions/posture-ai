@@ -54,3 +54,48 @@ describe('StrengthBuilderLauncher', () => {
     expect(screen.getByText(/Add a client to build a real athlete program/)).toBeTruthy()
   })
 })
+
+it('describes the sample builder without hard-coding a cycle length', () => {
+  render(<StrengthBuilderLauncher clients={clients} />)
+  expect(screen.getByText(/explore the strength program builder/i)).toBeTruthy()
+  expect(screen.queryByText(/eight-week/i)).toBeNull()
+})
+
+it('opens the fixed alternatives sample and keeps its choice stable until closed', async () => {
+  let resolveResponse!: (response: Response) => void
+  const fetchMock = vi.fn(() => new Promise<Response>(resolve => { resolveResponse = resolve }))
+  vi.stubGlobal('fetch', fetchMock)
+  render(<StrengthBuilderLauncher clients={clients} />)
+  const picker = screen.getByRole('combobox', { name: 'Sample program' }) as HTMLSelectElement
+  fireEvent.change(picker, { target: { value: 'exercise-swap' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Try a sample program' }))
+  expect(fetchMock).toHaveBeenCalledWith('/api/training/simulation/setup?catalog=exercise-swap', { method: 'POST' })
+  expect(picker.disabled).toBe(true)
+  resolveResponse(Response.json({ subjectId: 'sample-alternatives', profileRevision: 1 }, { status: 201 }))
+  await waitFor(() => expect(screen.getByTestId('profile-entry').textContent).toBe('subject:sample-alternatives:Practice Athlete'))
+  expect(picker.disabled).toBe(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Return to selected client' }))
+  expect(picker.disabled).toBe(false)
+  expect(screen.getByTestId('profile-entry').textContent).toBe('client:client-1:Alex Rivera')
+})
+
+it('opens the fixed conditioning sample without supplying fixture identifiers', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ subjectId: 'sample-conditioning', profileRevision: 1 }, { status: 201 }))
+  vi.stubGlobal('fetch', fetchMock)
+  render(<StrengthBuilderLauncher clients={clients} />)
+  fireEvent.change(screen.getByRole('combobox', { name: 'Sample program' }), { target: { value: 'conditioning' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Try a sample program' }))
+  await waitFor(() => expect(screen.getByTestId('profile-entry').textContent).toBe('subject:sample-conditioning:Practice Athlete'))
+  expect(fetchMock).toHaveBeenCalledWith('/api/training/simulation/setup?catalog=conditioning', { method: 'POST' })
+})
+
+it('opens the fixed bodyweight and assistance sample without client-authored provenance', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ subjectId: 'sample-bodyweight', profileRevision: 1 }, { status: 201 }))
+  vi.stubGlobal('fetch', fetchMock)
+  render(<StrengthBuilderLauncher clients={clients} />)
+  fireEvent.change(screen.getByRole('combobox', { name: 'Sample program' }), { target: { value: 'bodyweight-assistance' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Try a sample program' }))
+  await waitFor(() => expect(screen.getByTestId('profile-entry').textContent).toBe('subject:sample-bodyweight:Practice Athlete'))
+  expect(fetchMock).toHaveBeenCalledWith('/api/training/simulation/setup?catalog=bodyweight-assistance', { method: 'POST' })
+  expect(screen.getByRole('option', { name: 'Bodyweight and assisted strength' })).toBeTruthy()
+})

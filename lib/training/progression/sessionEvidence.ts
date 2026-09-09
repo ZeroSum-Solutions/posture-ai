@@ -245,12 +245,28 @@ export function adaptStrengthSessionEvidence(raw: unknown): StrengthSessionEvide
     return unavailable('invalid_server_projection')
   }
 
-  const allSetIds = new Map(prescription.exercises.flatMap(item => item.setIds.map((setId, index) => [setId, {
-    exerciseInstanceId: item.exerciseInstanceId,
-    workingSetOrdinal: index + 1,
-    side: item.progression?.side,
-  }] as const)))
-  if (allSetIds.size !== prescription.exercises.reduce((sum, item) => sum + item.setIds.length, 0)) {
+  type PrescribedSetBinding = {
+    readonly exerciseInstanceId: string
+    readonly setKind: 'warmup' | 'working'
+    readonly workingSetOrdinal: number | null
+    readonly side: 'bilateral' | 'left' | 'right' | 'not_applicable' | undefined
+  }
+  const prescribedSets: Array<readonly [string, PrescribedSetBinding]> = prescription.exercises.flatMap(item => [
+    ...(item.warmupSets ?? []).map(warmup => [warmup.setId, {
+      exerciseInstanceId: item.exerciseInstanceId,
+      setKind: 'warmup' as const,
+      workingSetOrdinal: null,
+      side: item.progression?.side,
+    }] as const),
+    ...item.setIds.map((setId, index) => [setId, {
+      exerciseInstanceId: item.exerciseInstanceId,
+      setKind: 'working' as const,
+      workingSetOrdinal: index + 1,
+      side: item.progression?.side,
+    }] as const),
+  ])
+  const allSetIds = new Map(prescribedSets)
+  if (allSetIds.size !== prescribedSets.length) {
     return unavailable('invalid_server_projection')
   }
   if (parsed.data.currentEvents.some(event => (
@@ -258,13 +274,14 @@ export function adaptStrengthSessionEvidence(raw: unknown): StrengthSessionEvide
     || event.sessionId !== prescription.sessionId
     || !executionContextsMatch(event.executionContext, prescription.executionContext)
     || allSetIds.get(event.setId)?.exerciseInstanceId !== event.exerciseInstanceId
+    || allSetIds.get(event.setId)?.setKind !== event.setKind
     || allSetIds.get(event.setId)?.workingSetOrdinal !== event.workingSetOrdinal
     || allSetIds.get(event.setId)?.side !== event.side
-    || event.setKind !== 'working'
   ))) return unavailable('invalid_server_projection')
 
   const selectedCurrent = currentEvents(parsed.data.currentEvents)
   if (!selectedCurrent) return unavailable('invalid_server_projection')
+  const selectedWorking = selectedCurrent.filter(event => event.setKind === 'working')
   const currentByExercise = new Map<string, TrainingSetLogEventV1[]>()
   for (const event of selectedCurrent) {
     const group = currentByExercise.get(event.exerciseInstanceId)
@@ -277,7 +294,8 @@ export function adaptStrengthSessionEvidence(raw: unknown): StrengthSessionEvide
     ? prescription.exercises.filter(item => (currentByExercise.get(item.exerciseInstanceId)?.length ?? 0) === 0)
       .map(item => item.exerciseInstanceId)
     : []
-  const targetEvents = (currentByExercise.get(exercise.exerciseInstanceId) ?? [])
+  const targetEvents = selectedWorking
+    .filter(event => event.exerciseInstanceId === exercise.exerciseInstanceId)
     .sort((left, right) => (left.workingSetOrdinal ?? 0) - (right.workingSetOrdinal ?? 0))
   const completeSetIds = new Set(targetEvents.filter(event => event.reps > 0).map(event => event.setId))
   const hasEveryCompletedSet = exercise.setIds.every(setId => completeSetIds.has(setId))
@@ -307,6 +325,9 @@ export function adaptStrengthSessionEvidence(raw: unknown): StrengthSessionEvide
     targetRir: { min: exercise.targetRir.minimum, max: exercise.targetRir.maximum },
     exposureType: comparatorMetadata.exposureType,
     loadEpoch: comparatorMetadata.loadEpoch,
+    ...(exercise.acceptedInitialLoad.bodyweightAssistancePolicy
+      ? { bodyweightAssistancePolicy: exercise.acceptedInitialLoad.bodyweightAssistancePolicy }
+      : {}),
   }
   const progressionPrescription: StrengthPrescriptionV1 = {
     prescriptionId: `${prescription.sessionId}:${exercise.exerciseInstanceId}`,
@@ -322,6 +343,9 @@ export function adaptStrengthSessionEvidence(raw: unknown): StrengthSessionEvide
     targetRir: comparator.targetRir,
     exposureType: comparator.exposureType,
     loadEpoch: comparator.loadEpoch,
+    ...(comparator.bodyweightAssistancePolicy
+      ? { bodyweightAssistancePolicy: comparator.bodyweightAssistancePolicy }
+      : {}),
   }
   const sets = targetEvents.map(event => ({
     setId: event.setId,
@@ -337,7 +361,7 @@ export function adaptStrengthSessionEvidence(raw: unknown): StrengthSessionEvide
     sessionId: session.sessionId, sessionRevision: session.revision,
     metadataSchemaVersion, prescriptionSourceRevisionId, progressionSeriesId,
     exerciseInstanceId, state: sessionState, stoppedForSymptoms: session.stoppedForSymptoms,
-    startedAt, completedAt, comparator: comparatorMetadata, omittedExerciseInstanceIds,
+    startedAt, completedAt, comparator, omittedExerciseInstanceIds,
     events: targetEvents.map(event => ({ eventId: event.eventId, eventRevision: event.eventRevision })),
   })
   const exposure: StrengthExposureV1 = {

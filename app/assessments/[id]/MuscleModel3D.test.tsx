@@ -45,6 +45,14 @@ describe('MuscleModel3D', () => {
     expect(screen.queryByText(/^Weak$/)).toBeNull()
   })
 
+  it('keeps the general reference view separate from supplied assessment mappings', () => {
+    render(<MuscleModel3D findings={findings} referenceOnly />)
+    expect(screen.getByRole('heading', { name: 'Explore anatomy in 3D' })).toBeTruthy()
+    expect(screen.getByText(/No assessment findings are mapped/)).toBeTruthy()
+    expect(screen.queryByLabelText('3D model legend')).toBeNull()
+    expect(screen.getByText(/not a reconstruction of the captured person/)).toBeTruthy()
+  })
+
   it('mounts the large viewer only after the explicit action', () => {
     render(<MuscleModel3D findings={findings} />)
     expect(screen.queryByTitle('Interactive 3D anatomy model')).toBeNull()

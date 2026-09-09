@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { createLoadQuantity } from '../quantity'
 import type { AthleteTrainingProfileV1 } from '../contracts/profile'
@@ -5,8 +6,10 @@ import {
   compileEightWeekProgram,
   compileTrainingProgram,
   PROGRAM_COMPILER_POLICY_VERSION,
+  type CompileTrainingProgramOptions,
 } from './compileProgram'
 import type { TrainingCatalogV1 } from '../catalog/types'
+import { createSyntheticIntermediateUndulatingTemplate } from './strengthTemplate'
 
 const patterns = ['knee_dominant', 'hinge', 'push', 'pull'] as const
 
@@ -84,6 +87,36 @@ const baseIds = {
   },
 } as const
 
+function undulatingTemplate(provenance: unknown = {
+  kind: 'synthetic_fixture', fixtureId: 'compiler-fixture',
+  fixtureHash: 'a'.repeat(64), label: 'Practice data',
+}) {
+  return {
+    schemaVersion: 'strength-template.v1',
+    style: 'intermediate_undulating',
+    templateId: 'intermediate-undulating',
+    templateVersion: 'intermediate-undulating.v1',
+    provenance,
+    heavy: {
+      exposureType: 'heavy', repRange: { minimum: 6, maximum: 8 },
+      targetRir: { minimum: 2, maximum: 3 }, restSeconds: 180,
+    },
+    volume: {
+      exposureType: 'volume', repRange: { minimum: 10, maximum: 12 },
+      targetRir: { minimum: 2, maximum: 3 }, restSeconds: 120,
+    },
+  }
+}
+
+function undulatingOptions(
+  template: unknown = createSyntheticIntermediateUndulatingTemplate(baseIds.executionContext),
+): CompileTrainingProgramOptions {
+  return {
+    strengthProgrammingStyle: 'intermediate_undulating',
+    strengthTemplateRegistry: { resolve: () => template },
+  }
+}
+
 const cyclePhases = {
   4: ['calibration', 'build', 'build', 'review'],
   6: ['calibration', 'build', 'build', 'review_adjust', 'build', 'review'],
@@ -98,6 +131,201 @@ const supportedSchedules = [
 ] as const
 
 describe('compileTrainingProgram', () => {
+  it('keeps the repeatable path byte-for-byte compatible when the option is explicit', () => {
+    const input = {
+      ...baseIds,
+      profile: profile(['monday', 'thursday']),
+      catalog: catalog(),
+    }
+    const current = compileTrainingProgram(input)
+    expect(compileTrainingProgram(input, { strengthProgrammingStyle: 'repeatable' }))
+      .toEqual(current)
+    expect(createHash('sha256').update(JSON.stringify(current)).digest('hex'))
+      .toBe('8a94771f8969a9f55438a786b32f193106f8dc04e42377e214695add16188c74')
+  })
+
+  it('alternates authored heavy and volume tracks per movement for every supported cycle and schedule', () => {
+    for (const cycleLengthWeeks of [4, 6, 8, 12] as const) {
+      for (const schedule of supportedSchedules) {
+        const input = {
+          ...baseIds,
+          profile: profile([...schedule.days], { cycleLengthWeeks, experience: 'intermediate' }),
+          catalog: catalog(),
+        }
+        const result = compileTrainingProgram(input, undulatingOptions())
+        expect(result.kind).toBe('draft_program')
+        if (result.kind !== 'draft_program') continue
+        expect(result.strengthTemplate).toMatchObject({
+          style: 'intermediate_undulating',
+          templateVersion: 'intermediate-undulating.v1',
+        })
+        for (const movementPattern of patterns) {
+          const instances = result.weeks.flatMap(week => week.strengthSessions)
+            .flatMap(session => session.exercises)
+            .filter(exercise => exercise.movementPattern === movementPattern)
+          expect(instances.map(exercise => exercise.progression.exposureType))
+            .toEqual(instances.map((_, index) => index % 2 === 0 ? 'heavy' : 'volume'))
+          expect(new Set(instances.map(exercise => exercise.progression.progressionSeriesId)))
+            .toEqual(new Set([
+              `strength-slot:${movementPattern}:heavy`,
+              `strength-slot:${movementPattern}:volume`,
+            ]))
+          expect(instances.every(exercise => (
+            exercise.loadSelection.status === 'requires_explicit_acceptance'
+          ))).toBe(true)
+          expect(instances.filter(exercise => exercise.progression.exposureType === 'heavy')
+            .every(exercise => (
+              exercise.repRange.minimum === 6
+              && exercise.repRange.maximum === 8
+              && exercise.restSeconds === 180
+            ))).toBe(true)
+          expect(instances.filter(exercise => exercise.progression.exposureType === 'volume')
+            .every(exercise => (
+              exercise.repRange.minimum === 10
+              && exercise.repRange.maximum === 12
+              && exercise.restSeconds === 120
+            ))).toBe(true)
+        }
+        expect(compileTrainingProgram(input, undulatingOptions())).toEqual(result)
+      }
+    }
+  })
+
+  it('uses separate deterministic identities for heavy, volume, and repeatable exercise tracks', () => {
+    const input = {
+      ...baseIds,
+      profile: profile(['monday', 'thursday'], { experience: 'intermediate' }),
+      catalog: catalog(),
+    }
+    const undulating = compileTrainingProgram(input, undulatingOptions())
+    const revisedTemplate = {
+      ...createSyntheticIntermediateUndulatingTemplate(baseIds.executionContext),
+      templateVersion: 'intermediate-undulating.v2',
+    }
+    const revised = compileTrainingProgram(input, undulatingOptions(revisedTemplate))
+    const repeatable = compileTrainingProgram(input)
+    expect(undulating.kind).toBe('draft_program')
+    expect(revised.kind).toBe('draft_program')
+    expect(repeatable.kind).toBe('draft_program')
+    if (undulating.kind !== 'draft_program' || revised.kind !== 'draft_program'
+      || repeatable.kind !== 'draft_program') return
+    const kneeTracks = undulating.weeks.flatMap(week => week.strengthSessions)
+      .flatMap(session => session.exercises)
+      .filter(exercise => exercise.movementPattern === 'knee_dominant')
+    expect(new Set(kneeTracks.map(exercise => (
+      `${exercise.progression.progressionSeriesId}:${exercise.progression.exposureType}`
+    ))).size).toBe(2)
+    expect(new Set(kneeTracks.map(exercise => exercise.exerciseInstanceId)).size)
+      .toBe(kneeTracks.length)
+    expect(kneeTracks[0].exerciseInstanceId).not.toBe(
+      repeatable.weeks[0].strengthSessions[0].exercises[0].exerciseInstanceId,
+    )
+    expect(kneeTracks[0].exerciseInstanceId).not.toBe(
+      revised.weeks[0].strengthSessions[0].exercises[0].exerciseInstanceId,
+    )
+  })
+
+  it('preserves authored warm-ups on both undulating tracks', () => {
+    const baseCatalog = catalog()
+    const withWarmups: TrainingCatalogV1 = {
+      ...baseCatalog,
+      exercises: baseCatalog.exercises.map(exercise => ({
+        ...exercise,
+        warmupSets: [{ targetReps: 8, load: { value: '20', unit: 'kg' } }],
+      })),
+    }
+    const result = compileTrainingProgram({
+      ...baseIds,
+      profile: profile(['monday', 'thursday'], { experience: 'intermediate' }),
+      catalog: withWarmups,
+    }, undulatingOptions())
+    expect(result.kind).toBe('draft_program')
+    if (result.kind !== 'draft_program') return
+    const exercises = result.weeks.flatMap(week => week.strengthSessions)
+      .flatMap(session => session.exercises)
+    expect(exercises.every(exercise => (
+      exercise.warmupSets?.length === 1
+      && exercise.warmupSets[0].targetReps === 8
+      && exercise.warmupSets[0].prescribedLoad.entered.value === '20'
+    ))).toBe(true)
+  })
+
+  it('fails closed when the intermediate option lacks eligible experience or trusted template provenance', () => {
+    const beginner = {
+      ...baseIds,
+      profile: profile(['monday', 'thursday']),
+      catalog: catalog(),
+    }
+    expect(compileTrainingProgram(beginner, undulatingOptions())).toMatchObject({
+      kind: 'needs_template_adjustment',
+      reason: 'undulating_requires_intermediate_experience',
+    })
+    const intermediate = {
+      ...beginner,
+      profile: profile(['monday', 'thursday'], { experience: 'intermediate' }),
+    }
+    expect(compileTrainingProgram(intermediate, {
+      strengthProgrammingStyle: 'intermediate_undulating',
+    })).toMatchObject({
+      kind: 'needs_template_adjustment',
+      reason: 'strength_template_unavailable',
+    })
+  })
+
+  it('uses the authored heavy rest and rep prescription in the session budget', () => {
+    const input = {
+      ...baseIds,
+      profile: profile(['monday', 'thursday'], { experience: 'intermediate' }),
+      catalog: catalog(70),
+    }
+    expect(compileTrainingProgram(input)).toMatchObject({ kind: 'draft_program' })
+    expect(compileTrainingProgram(input, undulatingOptions())).toMatchObject({
+      kind: 'time_budget_insufficient',
+      reason: 'required_session_does_not_fit',
+      requestedBudgetMinutes: 30,
+      requiredDurationSeconds: 1_856,
+      feasibleBudgetMinutes: 45,
+    })
+  })
+
+  it('accepts live undulation only from a server-resolved reviewed authored template', () => {
+    const syntheticCatalog = catalog()
+    const liveCatalog: TrainingCatalogV1 = {
+      ...syntheticCatalog,
+      origin: { kind: 'authored_catalog' },
+      exercises: syntheticCatalog.exercises.map(exercise => ({
+        ...exercise,
+        contentReviewStatus: 'reviewed',
+        mediaStatus: 'reviewed_exact_variant',
+      })),
+      conditioningModes: syntheticCatalog.conditioningModes.map(mode => ({
+        ...mode,
+        contentReviewStatus: 'reviewed',
+      })),
+    }
+    const input = {
+      ...baseIds,
+      executionContext: { kind: 'live' as const },
+      profile: profile(['monday', 'thursday'], {
+        experience: 'intermediate', origin: { kind: 'athlete_input' },
+      }),
+      catalog: liveCatalog,
+    }
+    expect(compileTrainingProgram(input, undulatingOptions())).toMatchObject({
+      kind: 'needs_template_adjustment', reason: 'strength_template_unavailable',
+    })
+    const reviewedTemplate = undulatingTemplate({
+      kind: 'reviewed_authored_template',
+      templateRecordId: 'authored-intermediate-template',
+      reviewRecordId: 'template-review-record',
+      reviewedAt: '2026-09-08T00:00:00Z',
+    })
+    expect(compileTrainingProgram(input, undulatingOptions(reviewedTemplate))).toMatchObject({
+      kind: 'draft_program',
+      strengthTemplate: { provenance: { kind: 'reviewed_authored_template' } },
+    })
+  })
+
   it('compiles the complete cycle, day-count, and time-budget matrix with stable bounded output', () => {
     for (const cycleLengthWeeks of [4, 6, 8, 12] as const) {
       for (const schedule of supportedSchedules) {
@@ -283,6 +511,57 @@ describe('compileTrainingProgram', () => {
       requestedBudgetMinutes: 30,
       feasibleBudgetMinutes: 45,
       requiredDurationSeconds: 2_040,
+    })
+  })
+
+  it('compiles exact authored warm-up sets and includes their movement time in the budget', () => {
+    const authored = catalog()
+    authored.exercises[0].warmupSets = [{ targetReps: 8, load: { value: '20.0', unit: 'kg' } }]
+    const result = compileTrainingProgram({
+      ...baseIds,
+      profile: profile(['monday', 'thursday']),
+      catalog: authored,
+    })
+    expect(result.kind).toBe('draft_program')
+    if (result.kind !== 'draft_program') return
+    const firstSession = result.weeks[0].strengthSessions[0]
+    expect(firstSession.warmupSeconds).toBe(300)
+    expect(firstSession.exercises[0].warmupSets).toEqual([{
+      setId: expect.stringMatching(/^set_[a-f0-9]{32}$/),
+      targetReps: 8,
+      prescribedLoad: createLoadQuantity({ value: '20.0', unit: 'kg' }),
+    }])
+    expect(firstSession.exercises[0].setIds).toHaveLength(2)
+    expect(firstSession.exercises[0].warmupSets?.[0]?.setId)
+      .not.toBe(firstSession.exercises[0].setIds[0])
+
+    const oversized = catalog()
+    oversized.exercises.forEach((exercise) => {
+      exercise.secondsPerRep = 60
+      exercise.warmupSets = [{ targetReps: 50, load: { value: '20', unit: 'kg' } }]
+    })
+    expect(compileTrainingProgram({
+      ...baseIds,
+      profile: profile(['monday', 'thursday']),
+      catalog: oversized,
+    })).toMatchObject({
+      kind: 'time_budget_insufficient',
+      requestedBudgetMinutes: 30,
+      feasibleBudgetMinutes: null,
+    })
+  })
+
+  it('does not compile an authored warm-up load missing from the exact equipment inventory', () => {
+    const authored = catalog()
+    authored.exercises[0].warmupSets = [{ targetReps: 8, load: { value: '22.5', unit: 'kg' } }]
+    expect(compileTrainingProgram({
+      ...baseIds,
+      profile: profile(['monday', 'thursday']),
+      catalog: authored,
+    })).toMatchObject({
+      kind: 'needs_template_adjustment',
+      reason: 'required_movement_unavailable',
+      missingMovementPatterns: ['knee_dominant'],
     })
   })
 

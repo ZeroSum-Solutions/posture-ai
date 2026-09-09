@@ -27,6 +27,15 @@ import { verifyClinicalContentAccess, serverClinicalContentAccessForPractitioner
 import { operationForPractitioner } from '@/lib/prototype/runtime'
 import { PROTOTYPE_REPORT_NOTICE, type ReportNotice } from '@/lib/pdf/notice'
 import { clinicalContentUnavailableResponse } from '@/lib/clinical-content/http'
+import {
+  SCREENING_CAPTURE_SELECT,
+  screenFindingsForDerivedUse,
+} from '@/lib/training/screening/derivedUse'
+import type {
+  PersistedScreeningAssessmentRow,
+  PersistedScreeningCaptureRow,
+  PersistedScreeningFindingRow,
+} from '@/lib/training/screening/screeningContext'
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -67,9 +76,9 @@ export async function POST(req: NextRequest) {
   const { data: assessment, error: aErr } = await supabase
     .from('assessments')
     .select(`
-      id, client_id, status, overall_score, overall_grade,
+      id, client_id, practitioner_id, status, assessment_type, overall_score, overall_grade,
       assessed_at, practitioner_approved,
-      priority_keys, capability, exercise_swaps, scoring_engine_version,
+      priority_keys, capability, exercise_swaps, scoring_engine_version, level_verified, capture_stability,
       clients!inner(id, first_name, last_name)
     `)
     .eq('id', assessment_id)
@@ -117,12 +126,13 @@ export async function POST(req: NextRequest) {
     dateStr: string
     assessedAt: string
     scoringEngineVersion: string | null
+    screeningAssessment: PersistedScreeningAssessmentRow
   } | null = null
   let engineVersionMismatch = false
   if (compared_to_assessment_id) {
     const { data: prior, error: pErr } = await supabase
       .from('assessments')
-      .select('id, client_id, practitioner_approved, overall_grade, overall_score, assessed_at, scoring_engine_version')
+      .select('id, client_id, practitioner_id, status, assessment_type, practitioner_approved, overall_grade, overall_score, assessed_at, scoring_engine_version, level_verified, capture_stability')
       .eq('id', compared_to_assessment_id)
       .eq('practitioner_id', user.id)
       .maybeSingle()
@@ -162,6 +172,7 @@ export async function POST(req: NextRequest) {
       score: prior.overall_score,
       assessedAt: prior.assessed_at,
       scoringEngineVersion: priorVersion,
+      screeningAssessment: prior as PersistedScreeningAssessmentRow,
       dateStr: new Date(prior.assessed_at).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric',
       }),
@@ -183,8 +194,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
+  const { data: capturesRaw, error: capturesErr } = await supabase
+    .from('captures')
+    .select(SCREENING_CAPTURE_SELECT)
+    .eq('assessment_id', assessment_id)
+  if (capturesErr) {
+    logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'captures_load_failed' })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+
+  const currentScreened = screenFindingsForDerivedUse({
+    expectedSubjectId: assessment.client_id,
+    assessment: assessment as PersistedScreeningAssessmentRow,
+    captures: (capturesRaw ?? []) as unknown as PersistedScreeningCaptureRow[],
+    findings: (findingsRaw ?? []) as PersistedScreeningFindingRow[],
+  })
+  const screenedFindingsRaw = currentScreened.descriptiveFindings
+  if (screenedFindingsRaw.length === 0) {
+    return NextResponse.json({
+      error: 'This assessment has no available screening measurements to export.',
+      code: 'screening_context_unavailable',
+    }, { status: 422 })
+  }
+
   // Enrich with causes_text, tight/weak muscles from imbalance_definitions
-  const keys = (findingsRaw || []).map((f: { imbalance_key: string }) => f.imbalance_key)
+  const keys = screenedFindingsRaw.map((finding) => finding.imbalance_key)
   const defsMap: Record<string, { causes_text: string; tight_muscles: string[]; weak_muscles: string[] }> = {}
   // Tolerate a malformed JSONB muscle list: a bad value must not abort the whole
   // export with an uncaught SyntaxError (matches app/api/assessments/[id]/route.ts).
@@ -232,26 +266,46 @@ export async function POST(req: NextRequest) {
   if (compared_to_assessment_id) {
     const { data: priorFindings, error: priorFindingsErr } = await supabase
       .from('assessment_findings')
-      .select('imbalance_key, deviation, severity_pct, zone, unit')
+      .select('*')
       .eq('assessment_id', compared_to_assessment_id)
     if (priorFindingsErr) {
       logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(compared_to_assessment_id), detailCode: 'prior_findings_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
+    const { data: priorCaptures, error: priorCapturesErr } = await supabase
+      .from('captures')
+      .select(SCREENING_CAPTURE_SELECT)
+      .eq('assessment_id', compared_to_assessment_id)
+    if (priorCapturesErr) {
+      logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(compared_to_assessment_id), detailCode: 'prior_captures_load_failed' })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+    const priorScreened = screenFindingsForDerivedUse({
+      expectedSubjectId: assessment.client_id,
+      assessment: priorMeta!.screeningAssessment,
+      captures: (priorCaptures ?? []) as unknown as PersistedScreeningCaptureRow[],
+      findings: (priorFindings ?? []) as PersistedScreeningFindingRow[],
+    })
+    if (priorScreened.descriptiveFindings.length === 0) {
+      return NextResponse.json({
+        error: 'The comparison assessment has no available screening measurements to compare.',
+        code: 'comparison_screening_context_unavailable',
+      }, { status: 422 })
+    }
     if (priorFindings) {
-      for (const pf of priorFindings) {
+      for (const pf of priorScreened.descriptiveFindings) {
         priorFindingMap.set(pf.imbalance_key, {
           deviation: pf.deviation,
           severityPct: pf.severity_pct,
-          reliable: typeof pf.zone === 'string' && pf.zone !== 'unreliable',
-          unit: typeof pf.unit === 'string' ? pf.unit : null,
+          reliable: true,
+          unit: pf.unit,
         })
       }
-      priorComparisonFindings = priorFindings.map((pf) => ({
+      priorComparisonFindings = priorScreened.descriptiveFindings.map((pf) => ({
         key: pf.imbalance_key,
         severityPct: pf.severity_pct,
-        reliable: typeof pf.zone === 'string' && pf.zone !== 'unreliable',
-        unit: typeof pf.unit === 'string' ? pf.unit : null,
+        reliable: true,
+        unit: pf.unit,
       }))
     }
   }
@@ -277,11 +331,11 @@ export async function POST(req: NextRequest) {
             scoringEngineVersion: priorMeta.scoringEngineVersion,
             assessedAt: priorMeta.assessedAt,
           },
-          currentFindings: (findingsRaw || []).map((f: Record<string, unknown>) => ({
+          currentFindings: screenedFindingsRaw.map((f) => ({
             key: f.imbalance_key as string,
             severityPct: f.severity_pct,
-            reliable: typeof f.zone === 'string' && f.zone !== 'unreliable',
-            unit: typeof f.unit === 'string' ? f.unit : null,
+            reliable: true,
+            unit: f.unit,
           })),
           priorFindings: priorComparisonFindings,
         })
@@ -295,7 +349,7 @@ export async function POST(req: NextRequest) {
     return Number.isFinite(parsed) ? parsed : null
   }
 
-  const findings: PdfFinding[] = (findingsRaw || []).map((f: Record<string, unknown>) => {
+  const findings: PdfFinding[] = screenedFindingsRaw.map((f) => {
     const def = defsMap[f.imbalance_key as string]
     const priorFinding = priorFindingMap.get(f.imbalance_key as string)
     const currentUnit = typeof f.unit === 'string' ? f.unit : null
@@ -331,7 +385,7 @@ export async function POST(req: NextRequest) {
   const exercises: PdfExercise[] = clinicalAccess.surfaces.recommendations
     ? deriveExerciseRecommendations(
         ALL_EXERCISES.filter((exercise) => clinicalAccess.approvedExerciseSlugs.includes(exercise.slug)),
-        (findingsRaw || []) as unknown as ZonedFinding[],
+        screenedFindingsRaw as unknown as ZonedFinding[],
         {
           isCoherentForKey: (exercise, key) => isCoherentForKey(
             exercise,
@@ -384,7 +438,7 @@ export async function POST(req: NextRequest) {
       exercise_swaps: Record<string, Record<string, string>> | null
     }
     const program = buildProgramFrom(
-      dbFindingsToEngineFindings((findingsRaw || []) as unknown as DbFindingRow[]),
+      dbFindingsToEngineFindings(screenedFindingsRaw as unknown as DbFindingRow[]),
       assessment.overall_grade,
       {
         capability: isCapability(overrides.capability) ? overrides.capability : 'standard',

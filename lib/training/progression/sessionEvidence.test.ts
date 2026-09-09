@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createLoadQuantity } from '../quantity'
 import { decideStrengthProgression } from './decision'
+import { TrainingSessionPrescriptionV1Schema } from '../contracts/session'
 import {
   adaptStrengthSessionEvidence,
   buildProgressionReadySessionEvidence,
@@ -75,6 +76,11 @@ function prescription(
       {
         exerciseInstanceId: `${sessionId}-press`,
         exerciseVersionId: 'chest-press.v1',
+        warmupSets: [{
+          setId: `${sessionId}-press-warmup-1`,
+          targetReps: 8,
+          prescribedLoad: quantity('20'),
+        }],
         setIds: [`${sessionId}-press-set-1`, `${sessionId}-press-set-2`],
         repRange: { minimum: 6, maximum: 8 },
         targetRir: { minimum: 2, maximum: 3 },
@@ -137,7 +143,10 @@ interface EventOverrides {
   readonly exerciseInstanceId?: string
   readonly setId?: string
   readonly ordinal?: number
+  readonly setKind?: 'warmup' | 'working'
   readonly context?: typeof liveContext | typeof firstSimulationContext
+  readonly equipmentId?: string
+  readonly loadBasis?: 'machine_stack' | 'bodyweight_external' | 'machine_assistance'
 }
 
 function event(sessionId: string, ordinal: number, overrides: EventOverrides = {}) {
@@ -153,11 +162,11 @@ function event(sessionId: string, ordinal: number, overrides: EventOverrides = {
     sessionId,
     exerciseInstanceId,
     setId,
-    setKind: 'working' as const,
-    workingSetOrdinal: overrides.ordinal ?? ordinal,
+    setKind: overrides.setKind ?? 'working' as const,
+    workingSetOrdinal: overrides.setKind === 'warmup' ? null : overrides.ordinal ?? ordinal,
     executionContext: overrides.context ?? liveContext,
-    equipmentId: 'machine-1',
-    loadBasis: 'machine_stack' as const,
+    equipmentId: overrides.equipmentId ?? 'machine-1',
+    loadBasis: overrides.loadBasis ?? 'machine_stack' as const,
     quantity: quantity(overrides.value ?? '50', overrides.unit ?? 'kg'),
     reps: overrides.reps ?? 8,
     rir: overrides.rir ?? 2,
@@ -242,6 +251,79 @@ function progressionInput(bundle: ReturnType<typeof buildProgressionReadySession
 }
 
 describe('adaptStrengthSessionEvidence', () => {
+  it('carries exact dedicated policy identity into bodyweight comparison evidence', () => {
+    const sessionId = 'session-bodyweight'
+    const source = prescription(sessionId)
+    const sourceExercise = source.exercises[0]
+    const prescribed = TrainingSessionPrescriptionV1Schema.parse({
+      ...source,
+      exercises: [{
+        ...sourceExercise,
+        acceptedInitialLoad: {
+      ...sourceExercise.acceptedInitialLoad,
+      equipmentId: 'bodyweight-station',
+      loadBasis: 'bodyweight_external',
+      implementCount: 0,
+      holdingConfiguration: 'bodyweight_plus_external_load',
+      bodyweightAssistancePolicy: {
+        policyId: 'synthetic-bodyweight-rep-only.v1', policyVersion: '1',
+      },
+      quantity: quantity('0'),
+        },
+      }, source.exercises[1]],
+    })
+    const exercise = prescribed.exercises[0]
+    const result = adaptStrengthSessionEvidence({
+      session: { sessionId, revision: 1, state: 'completed', stoppedForSymptoms: false },
+      prescription: prescribed,
+      exerciseInstanceId: exercise.exerciseInstanceId,
+      currentEvents: [1, 2].map(ordinal => event(sessionId, ordinal, {
+        equipmentId: 'bodyweight-station', loadBasis: 'bodyweight_external', value: '0',
+      })),
+      metadata: metadata(sessionId),
+    })
+
+    expect(result).toMatchObject({
+      kind: 'ready',
+      prescription: {
+        loadBasis: 'bodyweight_external',
+        bodyweightAssistancePolicy: {
+          policyId: 'synthetic-bodyweight-rep-only.v1', policyVersion: '1',
+        },
+      },
+      exposure: {
+        comparator: {
+          loadBasis: 'bodyweight_external',
+          bodyweightAssistancePolicy: {
+            policyId: 'synthetic-bodyweight-rep-only.v1', policyVersion: '1',
+          },
+        },
+      },
+    })
+  })
+
+  it('validates authored warm-up events but excludes them from working progression evidence', () => {
+    const sessionId = 'session-warmup'
+    const result = ready(adapt(sessionId, [
+      event(sessionId, 0, {
+        setKind: 'warmup', setId: `${sessionId}-press-warmup-1`, value: '20', reps: 8, rir: 'unknown',
+      }),
+      event(sessionId, 1),
+      event(sessionId, 2),
+    ]))
+
+    expect(result.exposure.sets.map(set => set.setId)).toEqual([
+      `${sessionId}-press-set-1`,
+      `${sessionId}-press-set-2`,
+    ])
+    expect(result.exposure.comparator.prescribedWorkingSets).toBe(2)
+    expect(adapt(sessionId, [
+      event(sessionId, 0, { setKind: 'warmup', setId: `${sessionId}-press-set-1` }),
+      event(sessionId, 1),
+      event(sessionId, 2),
+    ])).toMatchObject({ kind: 'unavailable', reason: 'invalid_server_projection' })
+  })
+
   it('preserves exact entered loads and unknown RIR without fabricating effort', () => {
     const result = ready(adapt('session-exact', [
       event('session-exact', 1, { value: '0.001', unit: 'lb', rir: 'unknown' }),

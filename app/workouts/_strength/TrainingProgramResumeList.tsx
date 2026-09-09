@@ -14,9 +14,11 @@ type State =
 export default function TrainingProgramResumeList({
   subjectId,
   sessionHrefBase = '/workouts',
+  programHrefBase = sessionHrefBase,
 }: {
   subjectId: string
   sessionHrefBase?: '/workouts' | '/train'
+  programHrefBase?: '/workouts' | '/train'
 }) {
   const [state, setState] = useState<State>({ status: 'loading' })
 
@@ -53,10 +55,11 @@ export default function TrainingProgramResumeList({
       return <Surface key={program.id} tier="tile" innerClassName={styles.resumeProgram}>
         <div>
           <p className="t-kicker">{program.simulation_run_id ? 'Practice data' : 'Training program'}</p>
-          <strong>{program.status === 'active' ? 'Active eight-week program' : 'Ended program'}</strong>
+          <strong>{program.status === 'active' ? 'Active program' : 'Ended program'}</strong>
           <p className="t-quiet">Created {program.created_at.slice(0, 10)} · {program.sessions.length} sessions</p>
         </div>
         <div className={styles.resumeSessions}>
+          <Link className="a-secondary" href={`${programHrefBase}?training_program_id=${encodeURIComponent(program.id)}`}>View program</Link>
           {resumable.slice(0, 4).map(session => <Link key={session.id} className="a-secondary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(session.id)}`}>
             {session.state === 'in_progress' ? 'Resume' : 'Open'} {session.session_kind} · {session.scheduled_local_date}
           </Link>)}

@@ -51,6 +51,40 @@ describe('progression proposal routes', () => {
     }
   })
 
+  it('accepts a bounded recovery submission and rejects client-owned authority or dose fields', async () => {
+    const recoveryContext = {
+      requestId: requestId,
+      context: {
+        report: {
+          schemaVersion: 'recovery-context.v1', capturedAt: '2026-09-09T18:00:00.000Z',
+          sleep: 'unknown', fatigue: 'concern_reported', schedule: 'unknown', illness: 'unknown',
+        },
+        choice: 'hold',
+      },
+    }
+    mocks.create.mockResolvedValue({
+      schemaVersion: 'training-progression-projection.v1',
+      result: { kind: 'recovery_review', proposalId: null },
+    })
+    const response = await create(request({
+      sessionId: 'session-2', exerciseInstanceId: 'exercise-2', recoveryContext,
+    }))
+    expect(response.status).toBe(200)
+    expect(mocks.create).toHaveBeenCalledWith(
+      { sessionId: 'session-2', exerciseInstanceId: 'exercise-2', recoveryContext },
+      actor,
+      { dependencies: true },
+    )
+    for (const invalid of [
+      { ...recoveryContext, actorUserId: actor.userId },
+      { ...recoveryContext, context: { ...recoveryContext.context, reductionPercent: 10 } },
+    ]) {
+      expect((await create(request({
+        sessionId: 'session-2', exerciseInstanceId: 'exercise-2', recoveryContext: invalid,
+      }))).status).toBe(422)
+    }
+  })
+
   it('accepts only a request ID and leaves actor/context authority to the authenticated RPC', async () => {
     mocks.accept.mockResolvedValue({
       schemaVersion: 'training-progression-acceptance.v1', proposalId,
@@ -75,6 +109,13 @@ describe('progression proposal routes', () => {
     const profile = await create(request({ sessionId: 'session-2', exerciseInstanceId: 'exercise-2' }))
     expect(profile.status).toBe(409)
     expect(await profile.json()).toEqual({ error: 'progression_profile_stale', action: 'rebuild_program' })
+
+    mocks.create.mockRejectedValueOnce(new ProgressionProposalError('progression_recovery_context_conflict'))
+    const recovery = await create(request({ sessionId: 'session-2', exerciseInstanceId: 'exercise-2' }))
+    expect(recovery.status).toBe(409)
+    expect(await recovery.json()).toEqual({
+      error: 'progression_recovery_context_conflict', action: 'refresh_progression',
+    })
   })
 
   it('does not call proposal logic when the actor gate fails', async () => {

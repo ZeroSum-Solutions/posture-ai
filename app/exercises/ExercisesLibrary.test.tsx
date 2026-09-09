@@ -112,4 +112,35 @@ describe('exercise library', () => {
     expect(screen.queryByText('Continuous Walking')).toBeNull()
     expect(screen.getByText(/No reference exercises match/i)).toBeTruthy()
   })
+
+  it('keeps selected reference exercises in order and opens the manual routine editor', () => {
+    render(<ExercisesLibrary exercises={[]} referenceExercises={[goblet, walk]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Dumbbell Goblet Squat to routine' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add Continuous Walking to routine' }))
+
+    expect(screen.getByRole('status', { name: 'Routine selection' }).textContent).toContain('2 exercises selected')
+    const link = screen.getByRole('link', { name: 'Continue to routine' })
+    expect(link.getAttribute('href')).toBe('/workouts/manual/new?exercise=wger%3Agoblet&exercise=wger%3Awalk')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Dumbbell Goblet Squat from routine' }))
+    expect(screen.getByRole('status', { name: 'Routine selection' }).textContent).toContain('1 exercise selected')
+    expect(link.getAttribute('href')).toBe('/workouts/manual/new?exercise=wger%3Awalk')
+  })
+
+  it('bounds the URL seed while keeping the full library available in the editor', () => {
+    const references = Array.from({ length: 25 }, (_, index) => ({
+      ...goblet, id: `wger:${String(index).padStart(8, '0')}-0000-4000-8000-000000000000`, name: `Seed movement ${index + 1}`,
+    }))
+    render(<ExercisesLibrary exercises={[]} referenceExercises={references} />)
+    references.slice(0, 24).forEach(reference => {
+      fireEvent.click(screen.getByRole('button', { name: `Add ${reference.name} to routine` }))
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Show more exercises' }))
+
+    expect((screen.getByRole('button', { name: 'Add Seed movement 25 to routine' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/search all 280 entries in the editor/i)).toBeTruthy()
+    const href = screen.getByRole('link', { name: 'Continue to routine' }).getAttribute('href') ?? ''
+    expect(new URL(href, 'http://localhost').searchParams.getAll('exercise')).toHaveLength(24)
+  })
 })

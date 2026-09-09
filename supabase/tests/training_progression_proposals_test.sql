@@ -275,5 +275,301 @@ $$, 'PT409', 'progression source changed',
   'an older proposal cannot compound after a series revision was accepted');
 RESET ROLE;
 
+-- A current acute-stop decision must invalidate both starting the next session
+-- and accepting a previously prepared advancement. There is no acknowledgement
+-- argument at either authenticated database boundary.
+SET LOCAL session_replication_role = replica;
+INSERT INTO auth.users(id,email,created_at,updated_at) VALUES (
+  '49000000-0000-4000-8000-000000000020',
+  'acute-stop-owner@example.invalid',now(),now()
+);
+INSERT INTO public.training_subjects(
+  id,owner_user_id,status,activated_at,current_profile_revision
+) VALUES (
+  '49000000-0000-4000-8000-000000000021',
+  '49000000-0000-4000-8000-000000000020','active',now(),1
+);
+INSERT INTO public.coaching_relationships(
+  id,subject_id,practitioner_id,status,permissions,started_at,revision
+) VALUES (
+  '49000000-0000-4000-8000-000000000025',
+  '49000000-0000-4000-8000-000000000021',
+  '49000000-0000-4000-8000-000000000001','active',
+  ARRAY['subject:read','program:coach_publish']::public.training_coach_permission[],
+  now(),1
+);
+WITH profile(value) AS (VALUES (
+  '{"schemaVersion":"athlete-training-profile.v1","origin":{"kind":"athlete_input"},"goal":"strength","experience":"beginner","recentConsistency":"consistent","cycleLengthWeeks":8,"strengthDays":["monday","thursday"],"localTimezone":"UTC","sessionTimeBudgetMinutes":30,"preferredLoadUnit":"kg","equipmentInventory":[{"kind":"machine","equipmentId":"machine-1","unit":"kg","stackLoads":["50","52"]}],"startingHistory":[]}'::jsonb
+))
+INSERT INTO public.training_profile_revisions(
+  subject_id,revision,schema_version,profile_json,profile_hash,hash_encoding,
+  created_by_user_id,created_at
+)
+SELECT
+  '49000000-0000-4000-8000-000000000021',1,'athlete-training-profile.v1',
+  profile.value,private.training_evidence_sha256(profile.value),
+  'postgres-jsonb-text-utf8.v1','49000000-0000-4000-8000-000000000020',now()
+FROM profile;
+SET LOCAL session_replication_role = origin;
+
+SELECT set_config('request.jwt.claim.sub','49000000-0000-4000-8000-000000000020',true);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"49000000-0000-4000-8000-000000000020","aal":"aal2","iat":2000000000}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$
+  SELECT * FROM public.append_training_eligibility_response(
+    '49000000-0000-4000-8000-000000000021',0,'answers:acute-stop:1',
+    '{
+      "schemaVersion":"eligibility-answers.v1",
+      "questionnaireSourceVersion":"preparticipation-inputs.v1-unvalidated",
+      "submittedAt":"2026-09-08T12:00:00Z",
+      "origin":{"kind":"athlete_self_report"},
+      "adultScope":"confirmed_18_plus",
+      "currentActivity":"regularly_active",
+      "knownConditions":{"cardiovascular":"no","metabolic":"no","renal":"no"},
+      "relevantSignsOrSymptoms":"no",
+      "desiredIntensity":"moderate",
+      "answerCertainty":"complete",
+      "pregnancyPostpartumContext":"none_reported",
+      "requestedProgrammingScope":"strength_or_general_fitness"
+    }'::jsonb
+  )
+$$, 'the acute-stop fixture begins with exact owner-authored eligibility answers');
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub','',true);
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+SET LOCAL ROLE service_role;
+SELECT lives_ok($$
+  SELECT * FROM public.record_training_eligibility_decision(
+    '49000000-0000-4000-8000-000000000021',NULL,
+    '{
+      "schemaVersion":"eligibility-decision.v1",
+      "sourceRevisionId":"decision:acute-stop:eligible",
+      "answersRevisionId":"answers:acute-stop:1",
+      "answersSchemaVersion":"eligibility-answers.v1",
+      "questionnaireSourceVersion":"preparticipation-inputs.v1-unvalidated",
+      "policyVersion":"authority-test-policy.v1",
+      "state":"eligible_general",
+      "scope":"supported",
+      "source":{"kind":"policy_service","sourceVersion":"eligibility-policy-service.v1","evaluatedAt":"2026-09-08T12:01:00Z"},
+      "effectiveFrom":"2020-01-01T00:00:00Z",
+      "effectiveUntil":"2099-01-01T00:00:00Z",
+      "supersededAt":null,
+      "constraintSet":null
+    }'::jsonb
+  )
+$$, 'the fixture records an existing supported decision before acute stop');
+
+RESET ROLE;
+SET LOCAL session_replication_role = replica;
+WITH program(value) AS (
+  SELECT pg_temp.progression_program(1) || pg_catalog.jsonb_build_object(
+    'assignmentId','acute-stop-assignment-1',
+    'subjectId','49000000-0000-4000-8000-000000000021',
+    'programMode','self_directed',
+    'owningPractitionerId',NULL,
+    'executionContext',pg_catalog.jsonb_build_object('kind','live'),
+    'profileRevisionId','1',
+    'eligibilitySourceRevisionId','decision:acute-stop:eligible',
+    'catalogVersion','authored.v1',
+    'catalogOrigin',pg_catalog.jsonb_build_object('kind','authored_catalog'),
+    'author',pg_catalog.jsonb_build_object(
+      'kind','athlete','userId','49000000-0000-4000-8000-000000000020'
+    ),
+    'sessions',pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'sessionId','acute-stop-source-session','scheduledLocalDate','2026-09-01',
+        'athleteTimezone','UTC','exercises',
+        pg_catalog.jsonb_build_array(pg_temp.progression_exercise(1))
+      ),
+      pg_catalog.jsonb_build_object(
+        'sessionId','acute-stop-target-session','scheduledLocalDate','2026-09-10',
+        'athleteTimezone','UTC','exercises',
+        pg_catalog.jsonb_build_array(pg_temp.progression_exercise(2))
+      )
+    )
+  )
+)
+INSERT INTO public.training_program_drafts(
+  id,subject_id,created_by_user_id,profile_revision,
+  eligibility_source_revision_id,expires_at,program_json
+)
+SELECT
+  '49000000-0000-4000-8000-000000000022',
+  '49000000-0000-4000-8000-000000000021',
+  '49000000-0000-4000-8000-000000000020',1,
+  'decision:acute-stop:eligible',now()+interval '1 hour',program.value
+FROM program;
+INSERT INTO public.training_program_assignments(
+  id,subject_id,program_mode,owning_practitioner_id,source_draft_id,
+  status,active_revision,revision
+) VALUES (
+  'acute-stop-assignment-1','49000000-0000-4000-8000-000000000021',
+  'self_directed',NULL,'49000000-0000-4000-8000-000000000022','active',1,1
+);
+INSERT INTO public.training_program_revisions(
+  assignment_id,subject_id,revision_number,program_json,created_by_user_id
+)
+SELECT
+  'acute-stop-assignment-1','49000000-0000-4000-8000-000000000021',1,
+  program_json,'49000000-0000-4000-8000-000000000020'
+FROM public.training_program_drafts
+WHERE id='49000000-0000-4000-8000-000000000022';
+INSERT INTO public.training_sessions(
+  id,assignment_id,subject_id,session_kind,state,scheduled_local_date,
+  athlete_timezone,revision,completed_at
+) VALUES
+  ('acute-stop-source-session','acute-stop-assignment-1',
+   '49000000-0000-4000-8000-000000000021','strength','completed',
+   '2026-09-01','UTC',4,'2026-09-01T18:00:00Z'),
+  ('acute-stop-target-session','acute-stop-assignment-1',
+   '49000000-0000-4000-8000-000000000021','strength','scheduled',
+   '2026-09-10','UTC',1,NULL);
+INSERT INTO public.training_progression_proposals(
+  id,proposal_key,created_by_user_id,subject_id,assignment_id,
+  base_program_revision_number,base_assignment_revision,
+  target_session_id,target_exercise_instance_id,target_session_revision,
+  progression_series_id,source_profile_revision,source_eligibility_revision_id,
+  source_program_hash,execution_context,source_session_revisions,
+  mutable_target_revisions,decision_json
+)
+SELECT
+  '49000000-0000-4000-8000-000000000023',repeat('e',64),
+  '49000000-0000-4000-8000-000000000020',
+  '49000000-0000-4000-8000-000000000021','acute-stop-assignment-1',
+  1,1,'acute-stop-target-session','progression-exercise-2',1,
+  'strength-slot:push',1,'decision:acute-stop:eligible',program_hash,
+  '{"kind":"live"}'::jsonb,
+  '[{"sessionId":"acute-stop-source-session","revision":4}]'::jsonb,
+  '[{"sessionId":"acute-stop-target-session","sessionRevision":1,"exerciseInstanceId":"progression-exercise-2","scheduledLocalDate":"2026-09-10"}]'::jsonb,
+  '{
+    "kind":"load_proposal","status":"proposed","decisionKey":"acute-stop-decision-1",
+    "subjectId":"49000000-0000-4000-8000-000000000021",
+    "sourceProfileRevisionId":"1",
+    "sourceEligibilityRevisionId":"decision:acute-stop:eligible",
+    "executionContext":{"kind":"live"},
+    "proposal":{"load":{"equipmentId":"machine-1","basis":"machine_stack","quantity":{"entered":{"value":"52","unit":"kg"},"canonicalKg":"52"}},"targetReps":[6,6]}
+  }'::jsonb
+FROM public.training_program_revisions
+WHERE assignment_id='acute-stop-assignment-1' AND revision_number=1;
+SET LOCAL session_replication_role = origin;
+
+SELECT set_config('request.jwt.claim.sub','',true);
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+SET LOCAL ROLE service_role;
+SELECT lives_ok($$
+  SELECT * FROM public.record_training_eligibility_decision(
+    '49000000-0000-4000-8000-000000000021','decision:acute-stop:eligible',
+    '{
+      "schemaVersion":"eligibility-decision.v1",
+      "sourceRevisionId":"decision:acute-stop:current",
+      "answersRevisionId":"answers:acute-stop:1",
+      "answersSchemaVersion":"eligibility-answers.v1",
+      "questionnaireSourceVersion":"preparticipation-inputs.v1-unvalidated",
+      "policyVersion":"authority-test-policy.v1",
+      "state":"acute_stop",
+      "scope":"supported",
+      "source":{"kind":"policy_service","sourceVersion":"eligibility-policy-service.v1","evaluatedAt":"2026-09-08T12:02:00Z"},
+      "effectiveFrom":"2020-01-02T00:00:00Z",
+      "effectiveUntil":"2099-01-01T00:00:00Z",
+      "supersededAt":null,
+      "constraintSet":null
+    }'::jsonb
+  )
+$$, 'authoritative acute stop supersedes the formerly supported decision');
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub','49000000-0000-4000-8000-000000000001',true);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"49000000-0000-4000-8000-000000000001","aal":"aal2","iat":2000000000}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$
+  SELECT * FROM public.record_training_eligibility_decision(
+    '49000000-0000-4000-8000-000000000021','decision:acute-stop:current',
+    '{
+      "schemaVersion":"eligibility-decision.v1",
+      "sourceRevisionId":"decision:coach-clear-attempt",
+      "answersRevisionId":"answers:acute-stop:1",
+      "answersSchemaVersion":"eligibility-answers.v1",
+      "questionnaireSourceVersion":"preparticipation-inputs.v1-unvalidated",
+      "policyVersion":"authority-test-policy.v1",
+      "state":"eligible_general",
+      "scope":"supported",
+      "source":{"kind":"policy_service","sourceVersion":"eligibility-policy-service.v1","evaluatedAt":"2026-09-08T12:03:00Z"},
+      "effectiveFrom":"2020-01-03T00:00:00Z",
+      "effectiveUntil":"2099-01-01T00:00:00Z",
+      "supersededAt":null,
+      "constraintSet":null
+    }'::jsonb
+  )
+$$, '42501','permission denied for function record_training_eligibility_decision',
+  'a program-publishing coach cannot clear the current acute stop');
+SELECT is(
+  (SELECT current_eligibility_decision_source_revision_id
+   FROM public.training_subjects
+   WHERE id='49000000-0000-4000-8000-000000000021'),
+  'decision:acute-stop:current',
+  'the denied coach clearance attempt leaves the acute-stop pointer current'
+);
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub','49000000-0000-4000-8000-000000000020',true);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"49000000-0000-4000-8000-000000000020","aal":"aal2","iat":2000000000}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$
+  SELECT public.start_training_session('acute-stop-target-session',1)
+$$, 'PT409','training eligibility changed concurrently',
+  'acute stop blocks starting a target prepared under the earlier supported decision');
+SELECT results_eq(
+  $$ SELECT state,revision FROM public.training_sessions
+     WHERE id='acute-stop-target-session' $$,
+  $$ VALUES ('scheduled'::text,1::bigint) $$,
+  'rejected acute-stop start leaves the session unchanged'
+);
+SELECT is_empty(
+  $$ SELECT session_id FROM public.training_session_prescriptions
+     WHERE session_id='acute-stop-target-session' $$,
+  'rejected acute-stop start writes no prescription'
+);
+SELECT throws_ok($$
+  SELECT public.accept_training_progression_proposal(
+    '49000000-0000-4000-8000-000000000023',
+    '49000000-0000-4000-8000-000000000024'
+  )
+$$, 'PT409','progression eligibility changed',
+  'acute stop blocks accepting an advancement prepared under the earlier supported decision');
+SELECT results_eq(
+  $$ SELECT active_revision,revision FROM public.training_program_assignments
+     WHERE id='acute-stop-assignment-1' $$,
+  $$ VALUES (1::bigint,1::bigint) $$,
+  'rejected acute-stop advancement leaves the active program revision unchanged'
+);
+SELECT is_empty(
+  $$ SELECT proposal_id FROM public.training_progression_acceptances
+     WHERE proposal_id='49000000-0000-4000-8000-000000000023' $$,
+  'rejected acute-stop advancement writes no acceptance receipt'
+);
+SELECT ok(
+  pg_catalog.to_regprocedure(
+    'public.start_training_session(text,bigint,boolean)'
+  ) IS NULL
+  AND pg_catalog.to_regprocedure(
+    'public.accept_training_progression_proposal(uuid,uuid,boolean)'
+  ) IS NULL,
+  'start and progression acceptance expose no acknowledgement-bypass overload'
+);
+RESET ROLE;
+
 SELECT * FROM finish();
 ROLLBACK;

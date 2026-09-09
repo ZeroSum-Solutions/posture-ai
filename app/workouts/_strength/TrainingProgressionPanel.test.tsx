@@ -58,7 +58,153 @@ function proposal({
   }
 }
 
+const recoveryReport = {
+  schemaVersion: 'recovery-context.v1' as const,
+  capturedAt: '2026-09-09T08:00:00.000Z',
+  sleep: 'concern_reported' as const,
+  fatigue: 'unknown' as const,
+  schedule: 'no_concern_reported' as const,
+  illness: 'unknown' as const,
+}
+
+function recoveryReview(
+  choice: 'hold' | 'request_review' | 'new_familiarization' = 'hold',
+  report = recoveryReport,
+) {
+  const reason = {
+    hold: 'explicit_recovery_hold',
+    request_review: 'explicit_recovery_review_requested',
+    new_familiarization: 'explicit_new_familiarization_requested',
+  } as const
+  return {
+    schemaVersion: 'training-progression-projection.v1',
+    result: {
+      kind: 'recovery_review', proposalId: null,
+      requestBinding: { sessionId, exerciseInstanceId },
+      record: {
+        schemaVersion: 'training-recovery-context-record.v1',
+        recordId: '55555555-5555-4555-8555-555555555555',
+        subjectId: 'subject-1', assignmentId: 'assignment-1',
+        sourceProgramRevisionNumber: 2, sourceProgramHash: 'a'.repeat(64),
+        sourceSessionId: sessionId, sourceSessionRevision: 3,
+        exerciseInstanceId, progressionSeriesId: 'series-1',
+        executionContext: { kind: 'live' },
+        context: { report, choice },
+        recordedAt: '2026-09-09T08:00:01.000Z',
+      },
+      review: { kind: choice, reason: reason[choice], report },
+    },
+  }
+}
+
 describe('TrainingProgressionPanel', () => {
+  it.each([
+    ['bodyweight_external', '0', 'external load added to bodyweight'],
+    ['machine_assistance', '30.125', 'machine assistance'],
+  ] as const)('renders a dedicated %s rep proposal without changing its load', async (basis, value, label) => {
+    const quantity = { entered: { value, unit: 'kg' }, canonicalKg: value }
+    const response = {
+      ...proposal(),
+      result: {
+        ...proposal().result,
+        executionContext: { kind: 'synthetic_simulation', simulationRunId: '55555555-5555-4555-8555-555555555555', fixtureId: 'fixture-1', fixtureHash: 'a'.repeat(64), label: 'Practice data' },
+        decision: {
+          schemaVersion: 'bodyweight-assistance-progression-decision.v1',
+          policyId: 'policy-1', policyVersion: '1', sourceExposureRevisionId: 'exposure-1',
+          kind: 'rep_proposal', status: 'proposed', reason: 'one_rep_progression', loadChange: 'none',
+          preservedLoad: basis === 'bodyweight_external'
+            ? { loadBasis: basis, equipmentId: 'equipment-1', externalLoad: quantity }
+            : { loadBasis: basis, equipmentId: 'equipment-1', assistance: quantity },
+          targetReps: [9, 8, 8],
+        },
+      },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(response)))
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText(`${value} kg · ${label}`)
+    expect(screen.getByText('9 / 8 / 8 reps')).toBeTruthy()
+    expect(screen.getByText('Practice data · Simulation')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Accept suggestion' })).toBeTruthy()
+    expect(screen.queryByText('Suggested load and reps')).toBeNull()
+  })
+
+  it('renders a dedicated policy hold without offering acceptance', async () => {
+    const response = {
+      ...proposal(), result: {
+        ...proposal().result, kind: 'not_proposed', proposalId: null,
+        executionContext: { kind: 'live' },
+        decision: {
+          schemaVersion: 'bodyweight-assistance-progression-decision.v1',
+          policyId: 'policy-1', policyVersion: '1', sourceExposureRevisionId: 'exposure-1',
+          kind: 'hold', status: 'not_proposed', reason: 'policy_unavailable_hold',
+        },
+      },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(response)))
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText('A reviewed progression rule is not available for this setup.')
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Review starting settings' })).toBeNull()
+  })
+
+  it.each(['resistance', 'assistance'])('connects a %s too-easy decision to explicit familiarization without automatically requesting a load', async mode => {
+    const base = proposal()
+    const { proposal: _suggestion, ...audit } = base.result.decision
+    const decision = mode === 'resistance' ? {
+      ...audit, kind: 'recalibrate', status: 'not_proposed', reasonCodes: ['effort_too_easy_recalibration'],
+    } : {
+      schemaVersion: 'bodyweight-assistance-progression-decision.v1',
+      policyId: 'policy-1', policyVersion: '1', sourceExposureRevisionId: 'exposure-1',
+      kind: 'recalibrate', status: 'not_proposed', reason: 'effort_too_easy_recalibration',
+    }
+    const fetcher = vi.fn().mockResolvedValue(Response.json({
+      schemaVersion: base.schemaVersion,
+      result: { kind: 'not_proposed', proposalId: null, target: base.result.target,
+        executionContext: { kind: 'live' }, decision },
+    }))
+    vi.stubGlobal('fetch', fetcher)
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByRole('button', { name: 'Review starting settings' })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Confirm new setting' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+  })
+
+  it('shows a prior-session hold bound by the server to the current review request', async () => {
+    const saved = recoveryReview()
+    saved.result.record.sourceSessionId = 'prior-session'
+    saved.result.record.exerciseInstanceId = 'prior-exercise'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(saved)))
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText('Keep the current target')
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+  })
+
+  it('rejects a saved hold projected for a different current request', async () => {
+    const saved = recoveryReview()
+    saved.result.requestBinding.sessionId = 'unrelated-session'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(saved)))
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText('The recovery receipt did not match this report. Retry the same report to confirm its outcome.')
+    expect(screen.queryByText('Keep the current target')).toBeNull()
+  })
+
+  it('shows a saved hold when reviewing after reload without a new report', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(recoveryReview()))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText('Keep the current target')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty('recoveryContext')
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Review recorded performance with a new report' })).toBeTruthy()
+  })
+
   it('requests from saved identities only and renders exact single-implement targets', async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(proposal()))
     vi.stubGlobal('fetch', fetchMock)
@@ -179,5 +325,96 @@ describe('TrainingProgressionPanel', () => {
     await screen.findByText(/An authorized coach must accept this suggestion/)
     expect(screen.getByText('12.5 kg · one dumbbell total')).toBeTruthy()
     expect(screen.queryByText(/accepted for the next target/i)).toBeNull()
+  })
+
+  it('retries one frozen recovery request after an ambiguous response and locks its fields', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error('connection ended after send'))
+      .mockImplementationOnce((_url: string, init: RequestInit) => Response.json(recoveryReview(
+        'hold', JSON.parse(String(init.body)).recoveryContext.context.report,
+      )))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add recovery check-in' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sleep' }), { target: { value: 'concern_reported' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'What would you like to review?' }), { target: { value: 'hold' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+
+    await screen.findByText('Recovery review is not confirmed. Retry the same report to check whether it was saved.')
+    expect((screen.getByRole('combobox', { name: 'Sleep' }).closest('fieldset') as HTMLFieldSetElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Remove recovery check-in' })).toBeNull()
+    const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(firstBody.recoveryContext).toMatchObject({
+      requestId: '44444444-4444-4444-8444-444444444444',
+      context: { report: { sleep: 'concern_reported' }, choice: 'hold' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same recovery report' }))
+    await screen.findByText('Keep the current target')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(firstBody)
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+    expect(screen.getByText(/No numeric load, rep, or session change/)).toBeTruthy()
+  })
+
+  it.each([
+    ['request_review', 'Program review requested'],
+    ['new_familiarization', 'Fresh starting point requested'],
+  ] as const)('renders explicit %s recovery review without numeric acceptance', async (choice, heading) => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url: string, init: RequestInit) => Response.json(recoveryReview(
+      choice, JSON.parse(String(init.body)).recoveryContext.context.report,
+    ))))
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add recovery check-in' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'What would you like to review?' }), { target: { value: choice } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+
+    await screen.findByText(heading)
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+    expect(screen.getByText(/No numeric load, rep, or session change/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Review easier settings' }) !== null).toBe(choice === 'new_familiarization')
+  })
+
+  it('requires an explicit new report before returning from a hold to performance review', async () => {
+    const fetchMock = vi.fn()
+      .mockImplementationOnce((_url: string, init: RequestInit) => Response.json(recoveryReview(
+        'hold', JSON.parse(String(init.body)).recoveryContext.context.report,
+      )))
+      .mockResolvedValueOnce(Response.json(proposal()))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add recovery check-in' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sleep' }), { target: { value: 'concern_reported' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'What would you like to review?' }), { target: { value: 'hold' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText('Keep the current target')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review recorded performance with a new report' }))
+    expect((screen.getByRole('combobox', { name: 'What would you like to review?' }) as HTMLSelectElement).value).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+    await screen.findByText('Suggested load and reps')
+    const resumedBody = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(resumedBody.recoveryContext.context).not.toHaveProperty('choice')
+    expect(resumedBody.recoveryContext.context.report.sleep).toBe('concern_reported')
+  })
+
+  it('rejects a recovery receipt bound to a different source exercise and keeps the exact report pending', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const mismatched = recoveryReview(
+        'hold', JSON.parse(String(init.body)).recoveryContext.context.report,
+      )
+      mismatched.result.record.exerciseInstanceId = 'exercise-other'
+      return Response.json(mismatched)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<TrainingProgressionPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add recovery check-in' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'What would you like to review?' }), { target: { value: 'hold' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review next target' }))
+
+    await screen.findByText('The recovery receipt did not match this report. Retry the same report to confirm its outcome.')
+    expect(screen.getByRole('button', { name: 'Retry same recovery report' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).toBeNull()
+    expect((screen.getByRole('combobox', { name: 'Sleep' }).closest('fieldset') as HTMLFieldSetElement).disabled).toBe(true)
   })
 })

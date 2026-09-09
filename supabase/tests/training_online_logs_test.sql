@@ -183,7 +183,7 @@ SELECT is(public.start_training_session('program-session-1',1)->>'sessionId','pr
 SELECT throws_ok($$ SELECT public.complete_training_session('program-session-1',2,'46000000-0000-4000-8000-000000000001','complete') $$,
  'PT409','training session has unlogged sets','completion never silently marks an unlogged set done');
 SELECT throws_ok($$ SELECT public.write_training_set_log('program-session-1','forged-set',2,'46000000-0000-4000-8000-000000000002',pg_temp.training_actual()) $$,
- '22023','set is not in the started prescription','invented set IDs cannot be logged');
+ '22023','set is not uniquely authored in the started prescription','invented set IDs cannot be logged');
 SELECT throws_ok($$ SELECT public.write_training_set_log('program-session-1','goblet-set-1',2,'46000000-0000-4000-8000-000000000003',pg_temp.training_actual('8.5')) $$,
  '22023','invalid training set actual','RPC rejects fractional reps before a write');
 SELECT is(public.write_training_set_log('program-session-1','goblet-set-1',2,'46000000-0000-4000-8000-000000000004',pg_temp.training_actual())#>>'{event,quantity,canonicalKg}',

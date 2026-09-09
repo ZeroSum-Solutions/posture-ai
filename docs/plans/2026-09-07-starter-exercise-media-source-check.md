@@ -2,6 +2,24 @@
 
 Checked September 8, 2026 against live provider records and media URLs. This is a reviewer shortlist for the beginner dumbbell compiler slice. It is not a production catalog approval, a professional technique review, or a blanket rights clearance. No asset was downloaded, rehosted, purchased, or published.
 
+
+## September 9 additional row candidate — metadata only
+
+A new [Wikimedia Commons candidate, DumbbellBentOverRow.JPG](https://commons.wikimedia.org/wiki/File:DumbbellBentOverRow.JPG), has a 512 × 364 JPEG and a CC BY-SA 3.0 license statement. Its description attributes the upload to GeorgeStepanek by assumption rather than explicit machine-readable authorship. [The original asset](https://upload.wikimedia.org/wikipedia/commons/6/67/DumbbellBentOverRow.JPG) was opened through the web tool, but that response did not expose viewable pixels; no implement-count, support, movement-coverage or technique claim is made. Retain as an unqualified candidate only. Direct visual inspection must first establish whether it matches the unsupported bilateral two-dumbbell variant; attribution review remains necessary. No import or catalog activation occurred.
+
+## September 8 follow-up: direct browser pixel inspection
+
+This section supersedes the earlier unresolved visual checks below. The Codex in-app browser successfully displayed the provider assets directly; no media was downloaded or published in this follow-up. These observations establish visible variant details, not qualified technique approval or ownership of third-party uploads.
+
+| Asset | Directly observed | Updated disposition |
+| --- | --- | --- |
+| wger 203 / images 328 and 329 | Both 768×768 images visibly show the same two-pose photograph: one dumbbell at the chest, with heels raised on a plate. They are visually duplicate composites, not separate frames. | **Reject for the flat-floor goblet-squat variant.** The heel elevation contradicts the programmed setup even though the exercise record name matches. Do not map either asset to the starter goblet squat. |
+| wger 1652 / image 590 | 1200×630 illustration shows one dumbbell per hand in both upright and hip-hinge positions, both feet visible, no support bench. | Visible implement and two-position coverage confirmed. The existing [reference-only pilot](../../content/training/library/wger-1652-media-pilot-2026-09-08.json) already retains this asset and attribution; keep `compilerEligible: false` and professional review incomplete. Do not create a duplicate import. |
+| [wger 81 / image 410](https://wger.de/media/exercise-images/81/a751a438-ae2d-4751-8d61-cef0e9292174.png) | 474×316 two-pose illustration shows a one-arm row with the other hand and one knee supported on a bench. | **Reject for the unsupported bilateral two-dumbbell row.** Both the implement count and support differ. Metadata/aliases cannot override the actual pixels. |
+| [wger 1084 / image 324](https://wger.de/media/exercise-images/1084/91dd5a95-1c45-46f2-a074-de41b6ad599b.jpg) | 480×480 composite photograph shows two dumbbells, supine floor support, bent knees and feet on the floor, lowered and extended-arm positions. The live API still lists blank asset author and empty author history. | Basic visible floor-press variant confirmed; **retain attribution/professional-review hold**. Do not rehost based solely on the exercise-level `admin` author. |
+
+The row and squat rejections close two previously unresolved visual questions. The remaining media work is to obtain exact flat-floor squat and unsupported bilateral row assets, complete the floor-press asset provenance, and arrange qualified review of suitable candidates. No catalog activation follows from this check.
+
 ## Reviewer-ready shortlist
 
 | Program variant | Candidate and retained provenance | What the live source establishes | Media inspection and decision | Precise remaining gap |

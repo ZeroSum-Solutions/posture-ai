@@ -117,6 +117,30 @@
   text-underline-offset: 2px;
 }
 
+.selectionTray {
+  position: sticky;
+  bottom: 82px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+}
+
+.selectionTray p {
+  margin: 3px 0 0;
+}
+
+.selectionTray a {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .sectionHeader {
     align-items: flex-start;
@@ -125,6 +149,11 @@
 
   .controls {
     grid-template-columns: 1fr;
+  }
+
+  .selectionTray {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

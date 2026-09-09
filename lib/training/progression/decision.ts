@@ -49,6 +49,10 @@ function comparatorMatches(
     && sameRange(comparator.targetRir, prescription.targetRir)
     && comparator.exposureType === prescription.exposureType
     && comparator.loadEpoch === prescription.loadEpoch
+    && comparator.bodyweightAssistancePolicy?.policyId
+      === prescription.bodyweightAssistancePolicy?.policyId
+    && comparator.bodyweightAssistancePolicy?.policyVersion
+      === prescription.bodyweightAssistancePolicy?.policyVersion
 }
 
 function decisionKey(
@@ -309,6 +313,12 @@ export function decideStrengthProgression(rawInput: unknown): StrengthProgressio
   const now = timestamp(input.now)
   const eligibility = eligibilityDecision(input, now)
   if (eligibility) return eligibility
+  if (input.prescription.loadBasis === 'bodyweight_external'
+    || input.prescription.loadBasis === 'machine_assistance') {
+    // Persisted proposal routing must invoke the dedicated, registry-backed
+    // policy engine for these bases. The generic percentage/load path stays inert.
+    return noChange(input, 'hold', 'valid_state_hold')
+  }
 
   const exposures = orderedExposures(input.exposures.filter(exposure => exposure.provenance.kind === 'in_app'))
   const latest = exposures.at(-1)

@@ -1,8 +1,10 @@
 import { z } from 'zod'
 import { createLoadQuantity, type LoadUnit } from '../quantity'
 import type { EquipmentInventory } from '../equipment'
+import { StrengthProgrammingStyleV1Schema } from '../engine/strengthTemplate'
 
 export const ATHLETE_TRAINING_PROFILE_SCHEMA_VERSION = 'athlete-training-profile.v1' as const
+export const CONDITIONING_PREFERENCE_SCHEMA_VERSION = 'conditioning-preference.v1' as const
 
 const stableIdSchema = z.string()
   .trim()
@@ -130,10 +132,32 @@ const machineInventorySchema = z.object({
   })
 })
 
+const bodyweightExternalInventorySchema = z.object({
+  kind: z.literal('bodyweight_external'),
+  ...inventoryBaseShape,
+  externalLoads: z.array(z.string().max(16)).max(1000),
+}).strict().superRefine((inventory, ctx) => {
+  inventory.externalLoads.forEach((value, index) => {
+    addExactLoadIssue(value, inventory.unit, ctx, ['externalLoads', index])
+  })
+})
+
+const assistanceMachineInventorySchema = z.object({
+  kind: z.literal('assistance_machine'),
+  ...inventoryBaseShape,
+  assistanceLoads: z.array(z.string().max(16)).max(1000),
+}).strict().superRefine((inventory, ctx) => {
+  inventory.assistanceLoads.forEach((value, index) => {
+    addExactLoadIssue(value, inventory.unit, ctx, ['assistanceLoads', index])
+  })
+})
+
 export const EquipmentInventoryV1Schema: z.ZodType<EquipmentInventory> = z.discriminatedUnion('kind', [
   barbellInventorySchema,
   dumbbellInventorySchema,
   machineInventorySchema,
+  bodyweightExternalInventorySchema,
+  assistanceMachineInventorySchema,
 ])
 
 const equipmentLoadSchema = z.object({
@@ -143,6 +167,8 @@ const equipmentLoadSchema = z.object({
     'dumbbell_per_hand',
     'dumbbell_single_implement',
     'machine_stack',
+    'bodyweight_external',
+    'machine_assistance',
   ]),
   quantity: exactLoadQuantitySchema,
 }).strict()
@@ -184,6 +210,16 @@ const weekdaySchema = z.enum([
   'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
 ])
 
+export const ConditioningPreferenceV1Schema = z.object({
+  schemaVersion: z.literal(CONDITIONING_PREFERENCE_SCHEMA_VERSION),
+  catalogVersion: stableIdSchema,
+  preferredModalityIds: z.array(stableIdSchema).min(1).max(8),
+}).strict().superRefine((preference, ctx) => {
+  if (new Set(preference.preferredModalityIds).size !== preference.preferredModalityIds.length) {
+    ctx.addIssue({ code: 'custom', message: 'Preferred conditioning modality IDs must be unique', path: ['preferredModalityIds'] })
+  }
+})
+
 function isIanaTimezone(value: string): boolean {
   if (!value.includes('/') && value !== 'UTC') return false
   try {
@@ -199,6 +235,8 @@ export const AthleteTrainingProfileV1Schema = z.object({
   origin: profileOriginSchema,
   goal: z.enum(['strength', 'general_fitness']),
   experience: z.enum(['new_to_strength', 'beginner', 'intermediate']),
+  strengthProgrammingStyle: StrengthProgrammingStyleV1Schema.optional(),
+  conditioningPreference: ConditioningPreferenceV1Schema.optional(),
   recentConsistency: z.enum(['none', 'intermittent', 'consistent', 'unknown']),
   cycleLengthWeeks: z.union([z.literal(4), z.literal(6), z.literal(8), z.literal(12)]),
   strengthDays: z.array(weekdaySchema).min(2).max(4),
@@ -208,6 +246,14 @@ export const AthleteTrainingProfileV1Schema = z.object({
   equipmentInventory: z.array(EquipmentInventoryV1Schema).max(1000),
   startingHistory: z.array(StartingHistoryEntryV1Schema).max(50),
 }).strict().superRefine((profile, ctx) => {
+  if (profile.strengthProgrammingStyle === 'intermediate_undulating'
+    && profile.experience !== 'intermediate') {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Intermediate undulating programming requires intermediate experience',
+      path: ['strengthProgrammingStyle'],
+    })
+  }
   if (new Set(profile.strengthDays).size !== profile.strengthDays.length) {
     ctx.addIssue({ code: 'custom', message: 'Strength days must be unique', path: ['strengthDays'] })
   }
@@ -230,7 +276,11 @@ export const AthleteTrainingProfileV1Schema = z.object({
       ? ['barbell_total']
       : inventory.kind === 'dumbbell'
         ? ['dumbbell_per_hand', 'dumbbell_single_implement']
-        : ['machine_stack']
+        : inventory.kind === 'machine'
+          ? ['machine_stack']
+          : inventory.kind === 'bodyweight_external'
+            ? ['bodyweight_external']
+            : ['machine_assistance']
     if (!allowedBases.includes(entry.equipmentLoad.basis)) {
       ctx.addIssue({ code: 'custom', message: 'History load basis does not match equipment', path: ['startingHistory', index, 'equipmentLoad', 'basis'] })
     }
@@ -242,4 +292,5 @@ export const AthleteTrainingProfileV1Schema = z.object({
 
 export type EquipmentInventoryV1 = z.infer<typeof EquipmentInventoryV1Schema>
 export type StartingHistoryEntryV1 = z.infer<typeof StartingHistoryEntryV1Schema>
+export type ConditioningPreferenceV1 = z.infer<typeof ConditioningPreferenceV1Schema>
 export type AthleteTrainingProfileV1 = z.infer<typeof AthleteTrainingProfileV1Schema>

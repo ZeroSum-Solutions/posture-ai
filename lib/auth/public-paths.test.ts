@@ -21,6 +21,7 @@ describe('proxy public-path allowlist', () => {
       '/auth/confirm',
       '/auth/forgot-password',
       '/auth/update-password',
+      '/train/accept-invite',
       '/api/health',
       '/api/internal/privacy-maintenance',
       '/api/legal/documents?kind=terms',
@@ -39,11 +40,11 @@ describe('proxy public-path allowlist', () => {
   test('AAL1 corridor is authenticated but does not require active AAL2 admission', () => {
     for (const p of [
       '/auth/accept-invite',
-      '/train/accept-invite',
       '/auth/mfa',
       '/api/auth/complete-invitation',
       '/api/training/auth/complete-invitation',
       '/api/auth/sign-out',
+      '/api/training/privacy/erase',
     ]) {
       expect(isPublicPath(p, prod), `${p} must not be public`).toBe(false)
       expect(isAal1CorridorPath(p), `${p} should be in the AAL1 corridor`).toBe(true)
@@ -96,8 +97,10 @@ describe('proxy public-path allowlist', () => {
     for (const p of [
       '/auth/sign-in-admin',
       '/auth/confirm-malicious',
+      '/train/accept-invite-export',
       '/auth/mfa-export',
       '/api/auth/sign-out-everyone',
+      '/api/training/privacy/erase/export',
       '/consenter',
     ]) {
       expect(classifyAuthPath(p, 'production')).toBe('protected')

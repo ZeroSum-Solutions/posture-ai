@@ -8,6 +8,29 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe('strength builder gateway', () => {
+  it.each([
+    { progressionSeriesId: 'strength-slot:squat:heavy' },
+    { exposureType: 'heavy' },
+    { progressionSeriesId: '', exposureType: 'heavy' },
+    { progressionSeriesId: 'series', exposureType: 'x'.repeat(129) },
+  ])('rejects incomplete or oversized calibration track metadata: %j', async (track) => {
+    vi.stubGlobal('fetch', vi.fn(async () => response({
+      schemaVersion: 'training-build-projection.v1', buildId: 'build-1', result: { kind: 'draft_program' },
+      calibrations: [{ exerciseLabel: 'Squat', ...track, calibration: { exerciseInstanceId: 'squat-heavy', exerciseVersionId: 'squat.v1', options: [] } }],
+    })))
+    await expect(requestTrainingBuild({ subjectId: 'subject-1', profileRevision: 1, cycleStartLocalDate: '2026-09-14' })).rejects.toThrow('Training build response was invalid')
+  })
+
+  it('retains both calibration track identities from the server response', async () => {
+    const tracks = ['heavy', 'volume'].map(exposureType => ({
+      exerciseLabel: 'Squat', exposureType, progressionSeriesId: `strength-slot:squat:${exposureType}`,
+      calibration: { exerciseInstanceId: `squat-${exposureType}`, exerciseVersionId: 'squat.v1', options: [] },
+    }))
+    vi.stubGlobal('fetch', vi.fn(async () => response({ schemaVersion: 'training-build-projection.v1', buildId: 'build-1', result: { kind: 'draft_program' }, calibrations: tracks })))
+    const result = await requestTrainingBuild({ subjectId: 'subject-1', profileRevision: 1, cycleStartLocalDate: '2026-09-14' })
+    expect(result.calibrations).toEqual(tracks)
+  })
+
   it('builds from canonical identity and saved revision without sending profile or context JSON', async () => {
     let requestInit: RequestInit | undefined
     const fetch = vi.fn(async (...args: [RequestInfo | URL, RequestInit?]) => {

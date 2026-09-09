@@ -3,9 +3,11 @@
 // Reviewed program content and attributable reference instructions stay distinct.
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { FilterChip, FilterRow, Chip } from '@/components/array/Chip'
 import { Surface } from '@/components/array/Surface'
 import { tone, type SeverityBand } from '@/components/array/severity'
+import { MAX_MANUAL_ROUTINE_URL_EXERCISES } from '@/app/workouts/manual/ManualRoutine.types'
 import styles from './ExercisesPage.module.css'
 
 type Exercise = {
@@ -85,6 +87,7 @@ export default function ExercisesLibrary({
   const [referenceCategory, setReferenceCategory] = useState('all')
   const [referenceEquipment, setReferenceEquipment] = useState('all')
   const [referenceLimit, setReferenceLimit] = useState(24)
+  const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([])
 
   const categories = ['all', ...Array.from(new Set(exercises.map(e => e.category))).sort()]
   const filteredApproved = approvedFilter === 'all' ? exercises : exercises.filter(e => e.category === approvedFilter)
@@ -98,6 +101,17 @@ export default function ExercisesLibrary({
       && (referenceCategory === 'all' || exercise.category === referenceCategory)
       && (referenceEquipment === 'all' || exercise.equipment.includes(referenceEquipment))
   })
+  const manualRoutineHref = (() => {
+    const params = new URLSearchParams()
+    selectedReferenceIds.forEach(id => params.append('exercise', id))
+    return `/workouts/manual/new?${params.toString()}`
+  })()
+
+  function toggleReference(id: string) {
+    setSelectedReferenceIds(current => current.includes(id)
+      ? current.filter(selectedId => selectedId !== id)
+      : current.length < MAX_MANUAL_ROUTINE_URL_EXERCISES ? [...current, id] : current)
+  }
 
   return (
     <div className={`app-screen ${styles.screen}`}>
@@ -194,6 +208,16 @@ export default function ExercisesLibrary({
             ))}
           </FilterRow>
 
+          {selectedReferenceIds.length > 0 && (
+            <div className={styles.selectionTray} role="status" aria-label="Routine selection">
+              <div>
+                <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
+                <p className="t-quiet">Selections stay in the order you add them. You can search all 280 entries in the editor.</p>
+              </div>
+              <Link className="a-primary" href={manualRoutineHref}>Continue to routine</Link>
+            </div>
+          )}
+
           {filteredReferences.length === 0 && <Surface tier="tile" pad="rowy"><p className="t-body">No reference exercises match these filters.</p></Surface>}
           <div className={styles.grid}>
             {filteredReferences.slice(0, referenceLimit).map(exercise => (
@@ -224,6 +248,16 @@ export default function ExercisesLibrary({
                 <p className={styles.referenceStatus}>Reference · unreviewed</p>
                 <p className="t-quiet">{exercise.equipment.length > 0 ? exercise.equipment.join(' · ') : 'Equipment not specified'}</p>
                 {exercise.primaryMuscles.length > 0 && <p className="t-quiet">Primary: {exercise.primaryMuscles.join(', ')}</p>}
+                <button
+                  type="button"
+                  className={selectedReferenceIds.includes(exercise.id) ? 'a-secondary' : 'a-primary'}
+                  disabled={!selectedReferenceIds.includes(exercise.id) && selectedReferenceIds.length >= MAX_MANUAL_ROUTINE_URL_EXERCISES}
+                  aria-pressed={selectedReferenceIds.includes(exercise.id)}
+                  aria-label={`${selectedReferenceIds.includes(exercise.id) ? 'Remove' : 'Add'} ${exercise.name} ${selectedReferenceIds.includes(exercise.id) ? 'from' : 'to'} routine`}
+                  onClick={() => toggleReference(exercise.id)}
+                >
+                  {selectedReferenceIds.includes(exercise.id) ? 'Selected' : 'Add to routine'}
+                </button>
                 <details className={styles.detail}>
                   <summary>Instructions and source</summary>
                   <p className="t-body">{exercise.instructions}</p>

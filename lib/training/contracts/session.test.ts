@@ -56,6 +56,15 @@ describe('session contracts', () => {
       catalogOrigin: { kind: 'authored_catalog' }, compiledProgramRevisionId: 'compiled-program-1', acceptedBout,
     } as const
     expect(TrainingConditioningSessionPrescriptionV1Schema.parse(prescription)).toEqual(prescription)
+    expect(TrainingConditioningSessionPrescriptionV1Schema.parse({
+      ...prescription, acceptedBout: { ...acceptedBout, acceptedDurationSeconds: 1_320 },
+    }).acceptedBout.acceptedDurationSeconds).toBe(1_320)
+    expect(TrainingConditioningSessionPrescriptionV1Schema.parse({
+      ...prescription, acceptedBout: { ...acceptedBout, acceptedDurationSeconds: 1_800 },
+    }).acceptedBout.acceptedDurationSeconds).toBe(1_800)
+    expect(TrainingConditioningSessionPrescriptionV1Schema.safeParse({
+      ...prescription, acceptedBout: { ...acceptedBout, acceptedDurationSeconds: 1_801 },
+    }).success).toBe(false)
     expect(() => TrainingConditioningSessionPrescriptionV1Schema.parse({ ...prescription, compiledProgramRevisionId: 'other' })).toThrow()
   })
 

@@ -16,14 +16,18 @@ export interface PersistedScreeningAssessmentRow {
 
 export interface PersistedScreeningCaptureRow extends CaptureRow {
   id: string
+  storage_path: string | null
   width_px: number | null
   height_px: number | null
   model_version: string | null
   created_at: string
+  image_sha256: string | null
 }
 
 export type PersistedScreeningFindingRow = Omit<FindingRow, 'metric_validity'> & {
+  id: string
   metric_validity: string | null
+  explanation?: string | null
 }
 
 export interface BuildScreeningContextInput {
@@ -47,6 +51,7 @@ export interface ScreeningObservation {
   unavailableReasons: string[]
   value: {
     deviationDeg: number
+    direction: string
     severityPct: number
     zone: 'maintain' | 'warning' | 'danger'
     confidence: number
@@ -106,7 +111,7 @@ export interface ScreeningContextV1 {
       profileSide: 'left' | 'right' | null
       source: string
       createdAt: string
-      imageSha256: null
+      imageSha256: string | null
       widthPx: number | null
       heightPx: number | null
       poseModelVersion: string | null

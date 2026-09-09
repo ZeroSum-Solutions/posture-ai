@@ -8,6 +8,7 @@ import { POST as complete } from './[sessionId]/complete/route'
 import { POST as publish } from '../programs/publish/route'
 import { createLoadQuantity } from '@/lib/training/quantity'
 import { trainingRequestContext } from '@/lib/training/persistence/request-context'
+import { SYNTHETIC_STARTER_CATALOG } from '@/lib/training/catalog/syntheticStarter'
 
 vi.mock('@/lib/training/persistence/request-context', () => ({ trainingRequestContext: vi.fn() }))
 const rpc = vi.fn()
@@ -55,6 +56,83 @@ describe('training program and online session routes', () => {
     expect(result.headers.get('Cache-Control')).toBe('private, no-store')
     expect(await result.json()).toMatchObject({ schemaVersion: 'training-session-projection.v1', session: { id: 'session-1' } })
     expect(rpc).toHaveBeenCalledWith('read_training_session_projection', { p_session_id: 'session-1' })
+  })
+
+  it('accepts a server-derived warm-up event only for its authored warm-up set', async () => {
+    const syntheticOrigin = SYNTHETIC_STARTER_CATALOG.origin
+    if (syntheticOrigin.kind !== 'synthetic_fixture') throw new Error('synthetic fixture origin required')
+    const syntheticContext = {
+      kind: 'synthetic_simulation' as const,
+      simulationRunId: '45000000-0000-4000-8000-000000000099',
+      fixtureId: syntheticOrigin.fixtureId,
+      fixtureHash: syntheticOrigin.fixtureHash,
+      label: 'Practice data' as const,
+    }
+    const warmupEvent = {
+      ...event,
+      setId: 'warmup-set-1',
+      setKind: 'warmup',
+      workingSetOrdinal: null,
+      executionContext: syntheticContext,
+    }
+    const acceptedInitialLoad = {
+      status: 'accepted', acceptanceId: 'accept-1', acceptedAt: '2026-09-08T00:00:00Z',
+      acceptedByUserId: userId, source: 'equipment_inventory', executionContext: syntheticContext,
+      exerciseInstanceId: 'exercise-1', exerciseVersionId: 'synthetic-goblet-squat.v1', equipmentId: 'db',
+      provenance: {
+        profileRevisionId: '1', compiledProgramRevisionId: 'compiled-1',
+        catalogVersion: SYNTHETIC_STARTER_CATALOG.catalogVersion, catalogOrigin: syntheticOrigin,
+      },
+      loadBasis: 'dumbbell_single_implement', implementCount: 1,
+      holdingConfiguration: 'two_hands_single_implement', quantity: createLoadQuantity({ value: '10', unit: 'kg' }),
+    }
+    const prescription = {
+      schemaVersion: 'training-session-prescription.v1', sessionId: 'session-1', assignmentId: 'assignment-1',
+      programRevisionNumber: 1, subjectId, executionContext: syntheticContext, scheduledLocalDate: '2026-09-08',
+      athleteTimezone: 'UTC', profileRevisionId: '1', eligibilitySourceRevisionId: 'eligibility-1',
+      compilerPolicyVersion: 'strength-cycle-compiler.v3', catalogVersion: SYNTHETIC_STARTER_CATALOG.catalogVersion,
+      catalogOrigin: syntheticOrigin, ruleVersion: 'rules-1', compiledProgramRevisionId: 'compiled-1',
+      exercises: [{
+        exerciseInstanceId: 'exercise-1', exerciseVersionId: 'synthetic-goblet-squat.v1',
+        warmupSets: [{
+          setId: 'warmup-set-1', targetReps: 8,
+          prescribedLoad: createLoadQuantity({ value: '2.5', unit: 'kg' }),
+        }],
+        setIds: ['set-1'], repRange: { minimum: 8, maximum: 12 },
+        targetRir: { minimum: 2, maximum: 3 }, restSeconds: 120, acceptedInitialLoad,
+      }],
+    }
+    const started = {
+      ...projection,
+      session: { ...projection.session, state: 'in_progress' },
+      executionContext: syntheticContext,
+      prescription,
+      currentActuals: [warmupEvent],
+    }
+    rpc.mockResolvedValueOnce({ data: started, error: null })
+    const response = await GET(request({}), params)
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.currentActuals).toMatchObject([{
+      setId: 'warmup-set-1', setKind: 'warmup', workingSetOrdinal: null,
+    }])
+    expect(body.exerciseDisplay['exercise-1']).toMatchObject({
+      textInstruction: SYNTHETIC_STARTER_CATALOG.exercises[0].textInstruction,
+      media: {
+        status: 'missing',
+        binding: {
+          catalogVersion: SYNTHETIC_STARTER_CATALOG.catalogVersion,
+          catalogOrigin: syntheticOrigin,
+          exerciseVersionId: 'synthetic-goblet-squat.v1',
+        },
+      },
+    })
+
+    rpc.mockResolvedValueOnce({
+      data: { ...started, currentActuals: [{ ...warmupEvent, setId: 'set-1' }] },
+      error: null,
+    })
+    expect((await GET(request({}), params)).status).toBe(503)
   })
 
   it('does not reinterpret a database read failure as an empty session', async () => {
@@ -152,6 +230,35 @@ describe('training program and online session routes', () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001' } })
     expect((await start(request({ expectedRevision: 1 }), params)).status).toBe(403)
     expect(rpc).toHaveBeenCalledWith('start_training_session', { p_session_id: 'session-1', p_expected_revision: 1 })
+  })
+
+  it('returns the strict stale-session recovery without clearing saved history', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'training session is stale' } })
+    const result = await complete(request({ requestId, expectedRevision: 3, finishMode: 'complete' }), params)
+    expect(result.status).toBe(409)
+    expect(await result.json()).toEqual({ error: 'training_session_stale', action: 'review_or_abort' })
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['relationship_revoked', 'clear_session_scope'],
+    ['assignment_expired', 'clear_session_scope'],
+  ] as const)('maps %s through the authenticated lifecycle projection', async (denial, action) => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'training session cannot be started' } })
+      .mockResolvedValueOnce({ data: denial, error: null })
+    const result = await start(request({ expectedRevision: 1 }), params)
+    expect(result.status).toBe(403)
+    expect(await result.json()).toEqual({ error: denial, action })
+    expect(rpc).toHaveBeenNthCalledWith(2, 'read_training_session_lifecycle_denial', {
+      p_session_id: 'session-1',
+    })
+  })
+
+  it('does not upgrade an unavailable lifecycle projection into a specific denial', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'training session cannot be started' } })
+      .mockResolvedValueOnce({ data: 'relationship_revoked', error: { code: '42501' } })
+    const result = await start(request({ expectedRevision: 1 }), params)
+    expect(await result.json()).toEqual({ error: 'training_action_unavailable' })
   })
 
   it('publishes only a server-owned draft ID', async () => {

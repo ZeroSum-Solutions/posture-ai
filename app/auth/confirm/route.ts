@@ -29,10 +29,14 @@ export async function GET(request: NextRequest) {
   const tokenHash = request.nextUrl.searchParams.get('token_hash')
   const requestedType = request.nextUrl.searchParams.get('type')
   const type = requestedType === 'recovery' ? 'recovery' : 'invite'
-  const failureReason = type === 'recovery' ? 'recovery_invalid' : 'invite_invalid'
+  const requestedContinuation = request.nextUrl.searchParams.get('next')
+  const athleteInvitationContinuation = requestedContinuation === 'athlete-invite'
+  const failureReason = athleteInvitationContinuation || type === 'invite'
+    ? 'invite_invalid'
+    : 'recovery_invalid'
   const cookiesToSet: CookieToSet[] = []
 
-  if (!tokenHash) {
+  if (!tokenHash || (requestedContinuation !== null && !athleteInvitationContinuation)) {
     return redirectWithCookies(`/auth/sign-in?reason=${failureReason}`, [])
   }
 
@@ -65,12 +69,16 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (type === 'invite') {
+  if (type === 'invite' || athleteInvitationContinuation) {
     const { data: actor, error: actorError } = await supabase
       .rpc('current_application_actor')
       .maybeSingle()
     const actorKind = (actor as { actor_kind?: unknown } | null)?.actor_kind
-    if (actorError || (actorKind !== 'athlete' && actorKind !== 'practitioner')) {
+    if (
+      actorError
+      || (actorKind !== 'athlete' && actorKind !== 'practitioner')
+      || (athleteInvitationContinuation && actorKind !== 'athlete')
+    ) {
       return redirectWithCookies('/auth/sign-in?reason=invite_invalid', cookiesToSet)
     }
     if (actorKind === 'athlete') {

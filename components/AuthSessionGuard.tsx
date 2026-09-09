@@ -1,12 +1,28 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { isPublicPath } from '@/lib/auth/public-paths'
 import { Surface } from '@/components/array/Surface'
-
+import {
+  synchronizeTrainingOfflineAuth,
+  trainingOfflineAuthState,
+  type TrainingOfflineAuthState,
+} from '@/lib/training/offline'
 export function shouldClearForAuthEvent(event: string, pathname: string): boolean {
   return event === 'SIGNED_OUT' && !isPublicPath(pathname)
+}
+
+export function shouldClearForAccountChange(pathname: string, previousUserId: string | null, nextUserId: string | null): boolean {
+  return !isPublicPath(pathname) && previousUserId !== null && nextUserId !== null && previousUserId !== nextUserId
+}
+
+export async function synchronizeTrainingOfflineForAuthEvent(
+  event: string,
+  userId: string | null,
+  synchronize: (state: TrainingOfflineAuthState) => Promise<void> = synchronizeTrainingOfflineAuth,
+): Promise<void> {
+  await synchronize(trainingOfflineAuthState(event, userId))
 }
 
 /**
@@ -16,27 +32,41 @@ export function shouldClearForAuthEvent(event: string, pathname: string): boolea
  */
 export default function AuthSessionGuard({
   pathname,
+  renderedUserId = null,
   children,
 }: {
   pathname: string
+  renderedUserId?: string | null
   children: ReactNode
 }) {
-  const [signedOut, setSignedOut] = useState(false)
+  const [endedReason, setEndedReason] = useState<'signed_out' | 'account_changed' | null>(null)
+  const observedUserId = useRef(renderedUserId)
+  const navigationTimer = useRef<number | null>(null)
+
+  useEffect(() => () => {
+    if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current)
+  }, [])
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (!shouldClearForAuthEvent(event, pathname)) return
-      setSignedOut(true)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUserId = session?.user.id ?? null
+      const changed = shouldClearForAccountChange(pathname, observedUserId.current, nextUserId)
+      if (nextUserId) observedUserId.current = nextUserId
+      void synchronizeTrainingOfflineForAuthEvent(event, nextUserId)
+        .catch(cause => console.error('[training-offline] auth synchronization failed', cause))
+      if (!changed && !shouldClearForAuthEvent(event, pathname)) return
+      if (navigationTimer.current !== null) return
+      setEndedReason(changed ? 'account_changed' : 'signed_out')
       // Yield once so React removes protected content before navigation starts.
-      window.setTimeout(() => {
-        window.location.assign('/auth/sign-in?reason=signed_out')
+      navigationTimer.current = window.setTimeout(() => {
+        window.location.assign(changed ? window.location.href : '/auth/sign-in?reason=signed_out')
       }, 0)
     })
     return () => subscription.unsubscribe()
   }, [pathname])
 
-  if (signedOut) {
+  if (endedReason) {
     return (
       <main
         role="status"
@@ -46,8 +76,10 @@ export default function AuthSessionGuard({
       >
         <Surface tier="feature">
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-            <h1 className="t-headline-sm">Session ended</h1>
-            <p className="t-body">This device was signed out. Returning to the secure sign-in page…</p>
+            <h1 className="t-headline-sm">{endedReason === 'account_changed' ? 'Account changed' : 'Session ended'}</h1>
+            <p className="t-body">{endedReason === 'account_changed'
+              ? 'Reloading this page for the current account…'
+              : 'This device was signed out. Returning to the secure sign-in page…'}</p>
           </div>
         </Surface>
       </main>

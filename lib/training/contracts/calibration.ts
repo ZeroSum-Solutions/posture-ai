@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { TrainingCatalogV1Schema, type TrainingCatalogV1 } from '../catalog/types'
+import { compareCanonicalKgDecimals } from '../quantity'
+import {
+  TrainingCatalogV1Schema,
+  type BodyweightAssistancePolicyReferenceV1,
+  type TrainingCatalogV1,
+} from '../catalog/types'
 import { enumerateEquipmentLoadsWithinBounds, type EquipmentLoad, type EquipmentLoadBasis } from '../equipment'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from './profile'
 import type { CompilationResultV1, CompiledExerciseV1 } from '../engine/compileProgram'
@@ -11,6 +16,11 @@ import {
   type AcceptedInitialLoadV1,
   type ExecutionContextV1,
 } from './program'
+import {
+  BodyweightAssistanceProgressionPolicyV1Schema,
+  type BodyweightAssistancePolicyRegistryV1,
+  type BodyweightAssistanceProgressionPolicyV1,
+} from './bodyweight-assistance'
 
 export const INITIAL_LOAD_CALIBRATION_SCHEMA_VERSION = 'initial-load-calibration.v1' as const
 
@@ -21,6 +31,50 @@ export interface CompiledExerciseCalibrationInputV1 {
   readonly exerciseInstanceId: string
   readonly catalog: TrainingCatalogV1
   readonly profile: AthleteTrainingProfileV1
+  readonly bodyweightAssistancePolicyRegistry?: BodyweightAssistancePolicyRegistryV1
+}
+
+function policyMatchesExecutionContext(
+  policy: BodyweightAssistanceProgressionPolicyV1,
+  context: ExecutionContextV1,
+): boolean {
+  if (context.kind === 'live') return policy.provenance.kind === 'reviewed_authored_policy'
+  return policy.provenance.kind === 'synthetic_fixture'
+    && policy.provenance.fixtureId === context.fixtureId
+    && policy.provenance.fixtureHash === context.fixtureHash
+    && policy.provenance.label === context.label
+}
+
+function validateDedicatedPolicy(
+  input: CompiledExerciseCalibrationInputV1,
+  exercise: CompiledExerciseV1,
+  inventory: AthleteTrainingProfileV1['equipmentInventory'][number],
+): void {
+  const reference = exercise.bodyweightAssistancePolicy
+  if (!reference) return
+  const resolved = input.bodyweightAssistancePolicyRegistry?.resolve(reference, input.draft.executionContext)
+  const policy = BodyweightAssistanceProgressionPolicyV1Schema.safeParse(resolved)
+  if (!policy.success
+    || policy.data.policyId !== reference.policyId
+    || policy.data.policyVersion !== reference.policyVersion
+    || policy.data.loadBasis !== exercise.loadBasis
+    || !policyMatchesExecutionContext(policy.data, input.draft.executionContext)) {
+    throw new Error('Bodyweight or assistance calibration policy is unavailable')
+  }
+  if (policy.data.loadBasis === 'machine_assistance' && (
+    inventory.kind !== 'assistance_machine'
+    || policy.data.supportedAssistanceRange.equipmentId !== inventory.equipmentId
+    || compareCanonicalKgDecimals(
+      exercise.loadSelection.minimumCanonicalKg,
+      policy.data.supportedAssistanceRange.minimum.canonicalKg,
+    ) < 0
+    || compareCanonicalKgDecimals(
+      exercise.loadSelection.maximumCanonicalKg,
+      policy.data.supportedAssistanceRange.maximum.canonicalKg,
+    ) > 0
+  )) {
+    throw new Error('Assistance calibration is outside the reviewed machine range')
+  }
 }
 
 export interface InitialLoadCalibrationV1 {
@@ -35,6 +89,7 @@ export interface InitialLoadCalibrationV1 {
   readonly exerciseVersionId: string
   readonly executionContext: ExecutionContextV1
   readonly loadBasis: EquipmentLoadBasis
+  readonly bodyweightAssistancePolicy?: BodyweightAssistancePolicyReferenceV1
   readonly options: readonly EquipmentLoad[]
 }
 
@@ -89,6 +144,12 @@ function validateCalibrationSource(input: CompiledExerciseCalibrationInputV1): {
   )) {
     throw new Error('Compiled exercise implement configuration is not catalog-attested')
   }
+  const catalogPolicy = 'bodyweightAssistancePolicy' in compatibility
+    ? compatibility.bodyweightAssistancePolicy
+    : undefined
+  if (JSON.stringify(exercise.bodyweightAssistancePolicy) !== JSON.stringify(catalogPolicy)) {
+    throw new Error('Compiled exercise policy is not catalog-attested')
+  }
   return { draft, exercise, catalog, profile }
 }
 
@@ -98,6 +159,7 @@ export function buildCompiledExerciseInitialLoadCalibration(
   const { draft, exercise, profile } = validateCalibrationSource(input)
   const inventory = profile.equipmentInventory.find(item => item.equipmentId === exercise.equipmentId)
   if (!inventory) throw new Error('Compiled exercise equipment is not present in the profile inventory')
+  validateDedicatedPolicy(input, exercise, inventory)
   const options = enumerateEquipmentLoadsWithinBounds(inventory, exercise.loadBasis, {
     minimumCanonicalKg: exercise.loadSelection.minimumCanonicalKg,
     maximumCanonicalKg: exercise.loadSelection.maximumCanonicalKg,
@@ -115,6 +177,9 @@ export function buildCompiledExerciseInitialLoadCalibration(
     exerciseVersionId: exercise.exerciseVersionId,
     executionContext: draft.executionContext,
     loadBasis: exercise.loadBasis,
+    ...(exercise.bodyweightAssistancePolicy
+      ? { bodyweightAssistancePolicy: exercise.bodyweightAssistancePolicy }
+      : {}),
     options,
   })
 }
@@ -161,15 +226,26 @@ export function acceptCompiledExerciseInitialLoad(
       catalogVersion: calibration.catalogVersion,
       catalogOrigin: calibration.catalogOrigin,
     },
+    ...(calibration.bodyweightAssistancePolicy
+      ? { bodyweightAssistancePolicy: calibration.bodyweightAssistancePolicy }
+      : {}),
     loadBasis: option.basis,
-    implementCount: option.basis === 'dumbbell_per_hand' ? 2 : 1,
+    implementCount: option.basis === 'dumbbell_per_hand'
+      ? 2
+      : option.basis === 'bodyweight_external'
+        ? 0
+        : 1,
     holdingConfiguration: option.basis === 'dumbbell_per_hand'
       ? 'one_per_hand'
       : option.basis === 'dumbbell_single_implement'
         ? 'two_hands_single_implement'
         : option.basis === 'barbell_total'
           ? 'both_hands_barbell'
-          : 'machine_defined',
+          : option.basis === 'machine_stack'
+            ? 'machine_defined'
+            : option.basis === 'bodyweight_external'
+              ? 'bodyweight_plus_external_load'
+              : 'machine_assistance',
     quantity: option.quantity,
   }))
 }

@@ -7,6 +7,8 @@ import { isSessionSnapshotForOperation } from '@/lib/workout/operationSnapshot'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import { DEFAULT_WORKOUT_PREFERENCES, workoutPreferencesSchema } from '@/lib/workout/personalize'
 import WorkoutLibrary from './WorkoutLibrary'
+import TrainingProgramWorkspace from './_strength/TrainingProgramWorkspace'
+import styles from './WorkoutsPage.module.css'
 import { type WorkoutBuilderSeed, type WorkoutLibraryItem, workoutLibraryKey } from './WorkoutLibrary.model'
 import { projectStrengthClients, type StrengthClientRow } from './strengthClientProjection'
 
@@ -35,7 +37,7 @@ function normalizeSnapshot(value: unknown): SessionSnapshot {
   }
 }
 
-export default async function WorkoutsPage({ searchParams }: { searchParams: Promise<{ assessment_id?: string; training_session_id?: string }> }) {
+export default async function WorkoutsPage({ searchParams }: { searchParams: Promise<{ assessment_id?: string; training_session_id?: string; training_program_id?: string }> }) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/sign-in?next=/workouts')
@@ -44,9 +46,17 @@ export default async function WorkoutsPage({ searchParams }: { searchParams: Pro
 
   const access = await serverClinicalContentAccessForPractitioner(user.id)
   if (!access.surfaces.workouts || !access.contentVersion) notFound()
+  const { assessment_id: assessmentId, training_session_id: trainingSessionId, training_program_id: trainingProgramId } = await searchParams
+  if (trainingProgramId && (trainingSessionId || assessmentId)) notFound()
+  if (trainingProgramId) return (
+    <div className={`app-screen ${styles.screen}`}>
+      <main className={`app-screen-x app-stack ${styles.main}`}>
+        <TrainingProgramWorkspace assignmentId={trainingProgramId} sessionHrefBase="/workouts" backHref="/workouts" />
+      </main>
+    </div>
+  )
   const operation = operationForPractitioner(user.id)
   const service = createSupabaseServiceClient()
-  const { assessment_id: assessmentId, training_session_id: trainingSessionId } = await searchParams
 
   const [sessionsResult, assessmentResult, clientsResult, simulationClientsResult] = await Promise.all([
     service

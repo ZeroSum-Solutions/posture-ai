@@ -37,9 +37,9 @@ export interface ReviewFindingInput {
   imbalance_key: string
   label: string
   region: string
-  severity_pct: number
+  severity_pct: number | null
   zone: 'maintain' | 'warning' | 'danger' | 'unreliable'
-  deviation: number
+  deviation: number | null
   direction: string
   standard?: number | null
   unit?: string | null
@@ -168,10 +168,10 @@ function clampPercent(value: number): number {
 }
 
 function formatMeasurement(
-  deviation: number,
+  deviation: number | null,
   unit: string | null | undefined,
 ): string | null {
-  if (!unit || !Number.isFinite(deviation)) return null
+  if (!unit || typeof deviation !== 'number' || !Number.isFinite(deviation)) return null
   return `${deviation.toFixed(1)}${unit}`
 }
 
@@ -312,9 +312,11 @@ function buildRows(
       region: finding.region,
       zoneLabel: ZONE_LABELS[finding.zone],
       band: bandFromZone(finding.zone),
-      severity: clampPercent(finding.severity_pct),
-      measurement: formatMeasurement(finding.deviation, finding.unit),
-      reference: formatReference(finding.standard, finding.unit),
+      severity: typeof finding.severity_pct === 'number' && Number.isFinite(finding.severity_pct)
+        ? clampPercent(finding.severity_pct)
+        : 0,
+      measurement: reliable ? formatMeasurement(finding.deviation, finding.unit) : null,
+      reference: reliable ? formatReference(finding.standard, finding.unit) : null,
       delta: comparable ? formatDelta(decision.delta, 1) : null,
       deltaBand: 'neutral' as SeverityBand,
       deltaIcon: comparable ? deltaIcon(decision.delta) : null,

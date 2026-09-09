@@ -1,6 +1,7 @@
 import type { EquipmentInventory, EquipmentLoad } from '../equipment'
 import type { EligibilitySnapshotV1 } from '../contracts/eligibility'
 import type { ExecutionContextV1 } from '../contracts/program'
+import type { BodyweightAssistancePolicyReferenceV1 } from '../catalog/types'
 
 export type { EligibilitySnapshotV1, EligibilityStateV1 } from '../contracts/eligibility'
 
@@ -38,6 +39,7 @@ export interface ProgressionComparatorV1 {
   targetRir: RirRangeV1
   exposureType: string
   loadEpoch: number
+  bodyweightAssistancePolicy?: BodyweightAssistancePolicyReferenceV1
 }
 
 export interface StrengthPrescriptionV1 extends Omit<ProgressionComparatorV1, 'subjectId'> {

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Icon from './Icon'
 import type { IconName } from './icons'
-import { islandSlots, isIslandHidden, activeSlotHref } from './islandPolicy'
+import { islandSlots, isIslandHidden, activeSlotHref, type IslandAudience } from './islandPolicy'
 import styles from './IslandNav.module.css'
 
 /**
@@ -15,11 +15,12 @@ import styles from './IslandNav.module.css'
  * `:has([data-immersive-surface])` rule and show only the home indicator, so
  * this component does not need to know about them.
  */
-export default function IslandNav({ clinicalContentEnabled }: { clinicalContentEnabled: boolean }) {
+export default function IslandNav({ clinicalContentEnabled, audience = 'practitioner' }: { clinicalContentEnabled: boolean; audience?: IslandAudience }) {
   const pathname = usePathname() ?? ''
   if (isIslandHidden(pathname)) return null
 
-  const slots = islandSlots(clinicalContentEnabled)
+  const slots = islandSlots(clinicalContentEnabled, audience)
+  if (slots.length === 0) return null
   const active = activeSlotHref(pathname, slots)
 
   return (

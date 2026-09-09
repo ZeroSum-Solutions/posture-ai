@@ -52,12 +52,15 @@ function captures(): PersistedScreeningCaptureRow[] {
     height_px: null,
     model_version: null,
     created_at: '2026-09-07T12:00:00.000Z',
+    image_sha256: null,
+    storage_path: null,
   }))
 }
 
 function findings(): PersistedScreeningFindingRow[] {
-  return assessPosture(sourceFrames()).findings.map((finding) => ({
+  return assessPosture(sourceFrames()).findings.map((finding, index) => ({
     ...buildFindingRow(finding, ASSESSMENT_ID, PRACTITIONER_ID),
+    id: `finding-${index}`,
     metric_validity: buildFindingRow(finding, ASSESSMENT_ID, PRACTITIONER_ID)
       .metric_validity as PersistedScreeningFindingRow['metric_validity'],
   }))
@@ -182,7 +185,7 @@ describe('buildScreeningContextV1', () => {
     })
   })
 
-  it('keeps validity and processing-quality gaps independent from descriptive availability', () => {
+  it('marks invalid within-capture processing unavailable without treating absent quality as invalid', () => {
     const [first, ...rest] = findings()
     const result = buildScreeningContextV1(buildInput({
       findings: [{
@@ -194,8 +197,9 @@ describe('buildScreeningContextV1', () => {
     }))
     const observation = result.context!.observations[0]
 
-    expect(observation.availability).toBe('descriptive')
-    expect(observation.value).not.toBeNull()
+    expect(observation.availability).toBe('unavailable')
+    expect(observation.unavailableReasons).toContain('invalid_within_capture_quality')
+    expect(observation.value).toBeNull()
     expect(observation.validity).toEqual({
       status: 'not_established',
       persistedFrame: null,
@@ -208,6 +212,11 @@ describe('buildScreeningContextV1', () => {
     })
     expect(observation.repeatability.status).toBe('not_established')
     expect(observation.actionability.status).toBe('not_established')
+
+    const absent = buildScreeningContextV1(buildInput({
+      findings: [{ ...first, stability_score: null, uncertainty_deg: null }, ...rest],
+    }))
+    expect(absent.context!.observations[0].availability).toBe('descriptive')
   })
 
   it('SC-05 never exposes diagnostic aliases or scan-derived training restrictions', () => {
@@ -215,7 +224,7 @@ describe('buildScreeningContextV1', () => {
     const sourceWithLegacyClaims = {
       ...first,
       label: 'Squat ban because hip flexor is tight',
-      direction: 'gluteus medius weakness',
+      legacy_direction_claim: 'gluteus medius weakness',
       severity_pct: 100,
       zone: 'danger',
       metric_validity: 'SCREENING_ONLY',
@@ -344,6 +353,52 @@ describe('buildScreeningContextV1', () => {
     expect(invalid.context!.observations[0].availability).toBe('unavailable')
   })
 
+  it('fails closed when a side metric has no persisted driving side', () => {
+    const sideFinding = findings().find((finding) => finding.view_used === 'side')!
+    const result = buildScreeningContextV1(buildInput({
+      findings: [{ ...sideFinding, observations: null }],
+    }))
+
+    expect(result.context!.observations[0]).toMatchObject({
+      availability: 'unavailable',
+      unavailableReasons: expect.arrayContaining(['no_driving_side_persisted']),
+      value: null,
+      validity: { status: 'not_established' },
+      thresholdProvenance: { status: 'unavailable', warn: null, danger: null },
+    })
+  })
+
+  it.each([
+    ['invalid_level_verified', { level_verified: 'yes' as unknown as boolean }],
+    ['invalid_capture_stability', { capture_stability: 2 }],
+  ])('propagates %s from assessment provenance to every observation', (reason, overrides) => {
+    const result = buildScreeningContextV1(buildInput({
+      assessment: assessment(overrides),
+    }))
+
+    expect(result.scanUse).toBe('unavailable')
+    expect(result.reasonCodes).toContain(reason)
+    expect(result.context!.observations.every((observation) => (
+      observation.availability === 'unavailable'
+      && observation.unavailableReasons.includes(reason)
+      && observation.validity.status === 'not_established'
+      && observation.thresholdProvenance.status === 'unavailable'
+    ))).toBe(true)
+  })
+
+  it('rejects a residual persisted direction outside the current metric contract', () => {
+    const [first] = findings()
+    const result = buildScreeningContextV1(buildInput({
+      findings: [{ ...first, direction: 'diagnostic legacy alias' }],
+    }))
+
+    expect(result.context!.observations[0]).toMatchObject({
+      availability: 'unavailable',
+      unavailableReasons: expect.arrayContaining(['invalid_finding_direction']),
+      value: null,
+    })
+  })
+
   it('records current provenance gaps without inventing hashes, transforms, or model metadata', () => {
     const result = buildScreeningContextV1(buildInput())
     const capture = result.context!.provenance.captures[0]
@@ -409,12 +464,15 @@ describe('buildScreeningContextV1', () => {
         ...buildCaptureRow(poseFrame, ASSESSMENT_ID, PRACTITIONER_ID, { useFixture: false }),
         id: `capture-meta-${index}`,
         created_at: '2026-09-07T12:00:00.000Z',
+        image_sha256: `${'a'.repeat(63)}${index}`,
+        storage_path: `private/capture-meta-${index}.jpg`,
       }
     })
     const result = buildScreeningContextV1(buildInput({ captures: withProvenance }))
     const capture = result.context!.provenance.captures[0]
 
     expect(capture).toMatchObject({
+      imageSha256: `${'a'.repeat(63)}0`,
       widthPx: 1280,
       heightPx: 720,
       sourceWidthPx: 1280,
@@ -434,6 +492,7 @@ describe('buildScreeningContextV1', () => {
     })
     expect(result.context!.provenance.limitations).not.toContain('mirror_transform_not_persisted')
     expect(result.context!.provenance.limitations).not.toContain('camera_protocol_not_persisted')
+    expect(result.context!.provenance.limitations).not.toContain('image_hash_not_persisted')
   })
 
   it('sanitizes malformed assessment and legacy geometry metadata without making it clinical', () => {
@@ -456,7 +515,7 @@ describe('buildScreeningContextV1', () => {
       captures: malformedCaptures,
     }))
 
-    expect(result.scanUse).toBe('descriptive')
+    expect(result.scanUse).toBe('unavailable')
     expect(result.reasonCodes).toEqual(expect.arrayContaining([
       'invalid_level_verified',
       'invalid_capture_stability',
@@ -473,6 +532,11 @@ describe('buildScreeningContextV1', () => {
       'invalid_capture_roll',
       'invalid_capture_aspect_ratio',
     ]))
+    expect(result.context!.observations.every((observation) => (
+      observation.availability === 'unavailable'
+      && observation.validity.status === 'not_established'
+      && observation.thresholdProvenance.status === 'unavailable'
+    ))).toBe(true)
   })
 
   it('marks a practitioner-mismatched finding unavailable without leaking its value', () => {

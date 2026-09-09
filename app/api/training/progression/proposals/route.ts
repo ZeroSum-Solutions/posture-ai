@@ -19,6 +19,10 @@ function proposalError(error: unknown) {
   if (error.code === 'progression_profile_stale') {
     return trainingJson({ error: error.code, action: 'rebuild_program' }, 409)
   }
+  if (error.code === 'progression_recovery_context_conflict'
+    || error.code === 'progression_source_stale') {
+    return trainingJson({ error: error.code, action: 'refresh_progression' }, 409)
+  }
   if (error.code === 'progression_proposal_forbidden') return trainingJson({ error: error.code }, 403)
   return trainingJson({ error: error.code }, 503)
 }

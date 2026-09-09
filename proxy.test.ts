@@ -201,6 +201,35 @@ describe('proxy PR-04 admission boundary', () => {
     expect(maybeSingle).not.toHaveBeenCalled()
   })
 
+  test('lets an anonymous invitation fragment reach only the exact athlete callback page', async () => {
+    getUser.mockResolvedValueOnce({ data: { user: null }, error: null })
+
+    const callback = await proxy(new NextRequest('http://localhost/train/accept-invite'))
+    expect(callback.status).toBe(200)
+    expect(getAuthenticatorAssuranceLevel).not.toHaveBeenCalled()
+    expect(maybeSingle).not.toHaveBeenCalled()
+
+    getUser.mockResolvedValueOnce({ data: { user: null }, error: null })
+    const neighbor = await proxy(new NextRequest('http://localhost/train/accept-invite/export'))
+    expect(neighbor.status).toBe(307)
+    expect(neighbor.headers.get('location')).toContain('/auth/sign-in')
+  })
+
+  test('lets only the exact authenticated erasure retry reach its route after subject deletion', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null })
+
+    const retry = await proxy(new NextRequest('http://localhost/api/training/privacy/erase'))
+    expect(retry.status).toBe(200)
+    expect(getUser).toHaveBeenCalled()
+    expect(getAuthenticatorAssuranceLevel).not.toHaveBeenCalled()
+    expect(maybeSingle).not.toHaveBeenCalled()
+    expect(signOut).not.toHaveBeenCalled()
+
+    const neighboring = await proxy(new NextRequest('http://localhost/api/training/privacy/erase/export'))
+    expect(neighboring.status).toBe(403)
+    await expect(neighboring.json()).resolves.toMatchObject({ code: 'practitioner_access_required' })
+  })
+
   test('returns a JSON denial for AAL1 API requests', async () => {
     getAuthenticatorAssuranceLevel.mockResolvedValueOnce({
       data: { currentLevel: 'aal1', nextLevel: 'aal2' },
@@ -274,6 +303,12 @@ describe('proxy PR-04 admission boundary', () => {
 
     expect((await proxy(new NextRequest('http://localhost/train'))).status).toBe(200)
     expect((await proxy(new NextRequest('http://localhost/api/training/profile?subjectId=1'))).status).toBe(200)
+    for (const path of ['/exercises', '/workouts/manual', '/workouts/manual/new', '/workouts/manual/11111111-1111-4111-8111-111111111111']) {
+      expect((await proxy(new NextRequest(`http://localhost${path}`))).status).toBe(200)
+    }
+    for (const path of ['/workouts', '/workouts/manual-other', '/exercises/private']) {
+      expect((await proxy(new NextRequest(`http://localhost${path}`))).headers.get('location')).toBe('http://localhost/train?reason=scope_denied')
+    }
     const pageDenied = await proxy(new NextRequest('http://localhost/dashboard'))
     expect(pageDenied.headers.get('location')).toBe('http://localhost/train?reason=scope_denied')
     const apiDenied = await proxy(new NextRequest('http://localhost/api/clients'))

@@ -4,6 +4,15 @@ import {
   ExecutionContextV1Schema,
   TrainingStableIdV1Schema,
 } from './program'
+import {
+  RecoveryContextRecordV1Schema,
+  RecoveryContextSubmissionV1Schema,
+  RecoveryInterventionReviewV1Schema,
+} from './recovery-context'
+import {
+  BodyweightAssistanceProgressionDecisionV1Schema,
+  type BodyweightAssistanceProgressionDecisionV1,
+} from './bodyweight-assistance'
 
 export const TRAINING_PROGRESSION_PROJECTION_SCHEMA_VERSION = 'training-progression-projection.v1' as const
 export const TRAINING_PROGRESSION_ACCEPTANCE_SCHEMA_VERSION = 'training-progression-acceptance.v1' as const
@@ -64,9 +73,35 @@ export const ProgressionProposalV1Schema = z.object({
   }).strict(),
 }).strict()
 
-export const StrengthProgressionDecisionV1Schema = z.discriminatedUnion('status', [
-  noChangeDecisionSchema,
+const bodyweightAssistanceProposalDecisionSchema = BodyweightAssistanceProgressionDecisionV1Schema
+  .refine(
+    (decision): decision is Extract<BodyweightAssistanceProgressionDecisionV1, { status: 'proposed' }> => (
+      decision.status === 'proposed'
+    ),
+    'Expected a proposed bodyweight or assistance decision',
+  )
+
+const bodyweightAssistanceNoChangeDecisionSchema = BodyweightAssistanceProgressionDecisionV1Schema
+  .refine(
+    (decision): decision is Extract<BodyweightAssistanceProgressionDecisionV1, { status: 'not_proposed' }> => (
+      decision.status === 'not_proposed'
+    ),
+    'Expected a non-proposed bodyweight or assistance decision',
+  )
+
+export const ProgressionProposalDecisionV1Schema = z.union([
   ProgressionProposalV1Schema,
+  bodyweightAssistanceProposalDecisionSchema,
+])
+
+export const ProgressionNoChangeDecisionV1Schema = z.union([
+  noChangeDecisionSchema,
+  bodyweightAssistanceNoChangeDecisionSchema,
+])
+
+export const StrengthProgressionDecisionV1Schema = z.union([
+  ProgressionNoChangeDecisionV1Schema,
+  ProgressionProposalDecisionV1Schema,
 ])
 
 export const ProgressionTargetV1Schema = z.object({
@@ -80,24 +115,60 @@ export const ProgressionTargetV1Schema = z.object({
 export const CreateProgressionProposalInputV1Schema = z.object({
   sessionId: TrainingStableIdV1Schema,
   exerciseInstanceId: TrainingStableIdV1Schema,
+  recoveryContext: RecoveryContextSubmissionV1Schema.optional(),
 }).strict()
+
+function requireDedicatedDecisionContext(
+  projection: {
+    readonly executionContext?: z.infer<typeof ExecutionContextV1Schema>
+    readonly decision: unknown
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const schemaVersion = projection.decision && typeof projection.decision === 'object'
+    && 'schemaVersion' in projection.decision
+    ? projection.decision.schemaVersion
+    : undefined
+
+  if (schemaVersion === 'bodyweight-assistance-progression-decision.v1'
+    && !projection.executionContext) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['executionContext'],
+      message: 'Dedicated progression decisions require explicit execution context',
+    })
+  }
+}
 
 const proposalProjectionSchema = z.object({
   kind: z.literal('proposal'),
   proposalId: z.string().uuid(),
+  executionContext: ExecutionContextV1Schema.optional(),
   target: ProgressionTargetV1Schema,
-  decision: ProgressionProposalV1Schema,
-}).strict()
+  decision: ProgressionProposalDecisionV1Schema,
+}).strict().superRefine(requireDedicatedDecisionContext)
 const notProposedProjectionSchema = z.object({
   kind: z.literal('not_proposed'),
   proposalId: z.null(),
+  executionContext: ExecutionContextV1Schema.optional(),
   target: ProgressionTargetV1Schema,
-  decision: noChangeDecisionSchema,
-}).strict()
+  decision: ProgressionNoChangeDecisionV1Schema,
+}).strict().superRefine(requireDedicatedDecisionContext)
 const noTargetProjectionSchema = z.object({
   kind: z.literal('no_pending_target'),
   proposalId: z.null(),
   reason: z.literal('no_pending_strength_target'),
+}).strict()
+const recoveryReviewRequestBindingSchema = z.object({
+  sessionId: TrainingStableIdV1Schema,
+  exerciseInstanceId: TrainingStableIdV1Schema,
+}).strict()
+const recoveryReviewProjectionSchema = z.object({
+  kind: z.literal('recovery_review'),
+  proposalId: z.null(),
+  requestBinding: recoveryReviewRequestBindingSchema,
+  record: RecoveryContextRecordV1Schema,
+  review: RecoveryInterventionReviewV1Schema,
 }).strict()
 
 export const TrainingProgressionProjectionV1Schema = z.object({
@@ -106,8 +177,17 @@ export const TrainingProgressionProjectionV1Schema = z.object({
     proposalProjectionSchema,
     notProposedProjectionSchema,
     noTargetProjectionSchema,
+    recoveryReviewProjectionSchema,
   ]),
-}).strict()
+}).strict().superRefine(({ result }, ctx) => {
+  if (result.kind !== 'recovery_review') return
+  if (result.record.context.choice !== result.review.kind) {
+    ctx.addIssue({ code: 'custom', path: ['result', 'review', 'kind'], message: 'Recovery review must match the saved choice' })
+  }
+  if (JSON.stringify(result.record.context.report) !== JSON.stringify(result.review.report)) {
+    ctx.addIssue({ code: 'custom', path: ['result', 'review', 'report'], message: 'Recovery review must match the saved report' })
+  }
+})
 
 export const AcceptProgressionProposalInputV1Schema = z.object({
   requestId: z.string().uuid(),
@@ -123,6 +203,8 @@ export const TrainingProgressionAcceptanceV1Schema = z.object({
 }).strict()
 
 export type ProgressionProposalV1 = z.infer<typeof ProgressionProposalV1Schema>
+export type ProgressionProposalDecisionV1 = z.infer<typeof ProgressionProposalDecisionV1Schema>
+export type ProgressionNoChangeDecisionV1 = z.infer<typeof ProgressionNoChangeDecisionV1Schema>
 export type ProgressionTargetV1 = z.infer<typeof ProgressionTargetV1Schema>
 export type TrainingProgressionProjectionV1 = z.infer<typeof TrainingProgressionProjectionV1Schema>
 export type TrainingProgressionAcceptanceV1 = z.infer<typeof TrainingProgressionAcceptanceV1Schema>

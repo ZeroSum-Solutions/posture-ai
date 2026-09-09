@@ -281,6 +281,37 @@ describe('findNextEquipmentLoad', () => {
 })
 
 describe('enumerateEquipmentLoadsWithinBounds', () => {
+  it('enumerates zero and exact added bodyweight loads without inventing a load increase', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'bodyweight_external', equipmentId: 'dip-belt-a', unit: 'kg',
+      externalLoads: ['0', '2.5', '5'],
+    }
+
+    expect(enumerateEquipmentLoadsWithinBounds(inventory, 'bodyweight_external', {
+      minimumCanonicalKg: '0', maximumCanonicalKg: '3',
+    }).map(load => load.quantity.entered.value)).toEqual(['0', '2.5'])
+    expect(findNextEquipmentLoad(
+      currentLoad('0', 'kg', 'bodyweight_external', 'dip-belt-a'), inventory,
+    )).toBeNull()
+  })
+
+  it('enumerates exact nonnegative assistance settings without treating less assistance as generic load progression', () => {
+    const inventory: EquipmentInventory = {
+      kind: 'assistance_machine', equipmentId: 'assisted-pullup-a', unit: 'kg',
+      assistanceLoads: ['10', '20', '30'],
+    }
+
+    expect(enumerateEquipmentLoadsWithinBounds(inventory, 'machine_assistance', {
+      minimumCanonicalKg: '15', maximumCanonicalKg: '30',
+    }).map(load => load.quantity.entered.value)).toEqual(['20', '30'])
+    expect(findNextEquipmentLoad(
+      currentLoad('20', 'kg', 'machine_assistance', 'assisted-pullup-a'), inventory,
+    )).toBeNull()
+    expect(() => enumerateEquipmentLoadsWithinBounds(inventory, 'machine_stack', {
+      minimumCanonicalKg: '0', maximumCanonicalKg: '30',
+    })).toThrow('Load basis does not match inventory')
+  })
+
   it('returns exact single-implement dumbbell denominations without pair doubling', () => {
     const inventory: EquipmentInventory = {
       kind: 'dumbbell', equipmentId: 'db-a', unit: 'kg', perHandLoads: ['20', '10', '12.5', '10.000'],

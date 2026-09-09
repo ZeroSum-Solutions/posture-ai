@@ -13,13 +13,20 @@ const CLIENTS: IslandSlot = { href: '/clients', label: 'Clients', icon: 'users-g
 const CAPTURE: IslandSlot = { href: '/assessments/new', label: 'Capture', icon: 'scanner-linear', kind: 'action' }
 const WORKOUTS: IslandSlot = { href: '/workouts', label: 'Workouts', icon: 'dumbbell-small-linear', kind: 'destination' }
 const PROFILE: IslandSlot = { href: '/settings', label: 'Profile', icon: 'user-circle-linear', kind: 'destination' }
+const TRAIN: IslandSlot = { href: '/train', label: 'Train', icon: 'dumbbell-small-linear', kind: 'destination' }
+const MANUAL_ROUTINES: IslandSlot = { href: '/workouts/manual', label: 'Routines', icon: 'clipboard-check-linear', kind: 'destination' }
+const EXERCISES: IslandSlot = { href: '/exercises', label: 'Exercises', icon: 'magnifer-linear', kind: 'destination' }
+
+export type IslandAudience = 'practitioner' | 'athlete' | 'public'
 
 /**
  * The island's slots. Workouts is dropped when clinical content is gated off:
  * workout generation is behind that flag, and the island must never
  * offer a destination the practitioner is not entitled to open.
  */
-export function islandSlots(clinicalContentEnabled: boolean): IslandSlot[] {
+export function islandSlots(clinicalContentEnabled: boolean, audience: IslandAudience = 'practitioner'): IslandSlot[] {
+  if (audience === 'public') return []
+  if (audience === 'athlete') return [TRAIN, MANUAL_ROUTINES, EXERCISES]
   return clinicalContentEnabled
     ? [TODAY, CLIENTS, CAPTURE, WORKOUTS, PROFILE]
     : [TODAY, CLIENTS, CAPTURE, PROFILE]
@@ -43,9 +50,17 @@ export function isIslandHidden(pathname: string): boolean {
  * capture flow itself belongs to Capture.
  */
 export function activeSlotHref(pathname: string, slots: IslandSlot[]): string | null {
+  if (pathname.startsWith('/workouts/manual')) {
+    if (slots.some(slot => slot.href === '/workouts/manual')) return '/workouts/manual'
+    return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
+  }
   if (pathname.startsWith('/assessments/new')) return '/assessments/new'
   if (pathname.startsWith('/assessments')) return '/clients'
-  if (pathname.startsWith('/muscles') || pathname.startsWith('/exercises')) {
+  if (pathname.startsWith('/exercises')) {
+    if (slots.some(slot => slot.href === '/exercises')) return '/exercises'
+    return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
+  }
+  if (pathname.startsWith('/muscles')) {
     return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
   }
   const match = slots

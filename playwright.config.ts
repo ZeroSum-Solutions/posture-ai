@@ -7,6 +7,14 @@ import { defineConfig, devices } from '@playwright/test'
 const PORT = process.env.E2E_PORT ?? '3100'
 const baseURL = `http://127.0.0.1:${PORT}`
 
+// These proofs mutate only the separately reviewed synthetic 55421/55422 stack.
+// Keep their strict fixture guards; the ordinary CI stack is a different target.
+// They remain runnable through the guarded isolated journey launcher.
+const isolatedTrainingProofs = /training-(?:warmup-player|active-calibration|manual-recalibration|coaching-relationships|coach-athlete-handoff|exercise-media|session-long-name-accessibility)\.spec\.ts/
+const isolatedProofIgnores = process.env.E2E_SUPABASE_URL === 'http://127.0.0.1:55421'
+  ? []
+  : [isolatedTrainingProofs]
+
 const supabaseEnv = {
   NEXT_PUBLIC_SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? '',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? '',
@@ -57,13 +65,13 @@ export default defineConfig({
       // landmarker call exceeds the product's fixed 10 s fail-closed deadline
       // on this runner. Cross-engine lifecycle recovery remains in
       // device-recovery.spec.ts.
-      testIgnore: /pixel-calibration\.spec\.ts|device-recovery-real-model\.webkit\.spec\.ts/,
+      testIgnore: [/pixel-calibration\.spec\.ts|device-recovery-real-model\.webkit\.spec\.ts/, ...isolatedProofIgnores],
     },
     {
       name: 'mobile-webkit',
       use: { ...devices['iPhone 14'], storageState: 'e2e/.auth/user.json' },
       dependencies: ['setup'],
-      testIgnore: /real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts|capture-model-readiness\.spec\.ts|pixel-calibration\.spec\.ts/, // model/camera tests run on chromium only; calibration is its own project
+      testIgnore: [/real-detection\.spec\.ts|capture-errors\.spec\.ts|capture-camera\.spec\.ts|capture-model-readiness\.spec\.ts|pixel-calibration\.spec\.ts/, ...isolatedProofIgnores], // model/camera tests run on chromium only; calibration is its own project
     },
     {
       // Browser emulation proxy only: this is Pixel-style mobile Chromium

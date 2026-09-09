@@ -34,6 +34,8 @@ const isApiPath = (pathname: string) =>
 
 const isAthletePath = (pathname: string) =>
   pathname === '/train' || pathname.startsWith('/train/') ||
+  pathname === '/exercises' ||
+  pathname === '/workouts/manual' || pathname.startsWith('/workouts/manual/') ||
   pathname === '/api/training' || pathname.startsWith('/api/training/')
 
 function requestedPath(request: NextRequest): string {

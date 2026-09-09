@@ -47,6 +47,64 @@ const validProfile = {
 }
 
 describe('AthleteTrainingProfileV1Schema', () => {
+  it('preserves exact bodyweight-external and assistance inventories and matching history bases', () => {
+    const history = validProfile.startingHistory[0]
+    const parsed = AthleteTrainingProfileV1Schema.parse({
+      ...validProfile,
+      equipmentInventory: [
+        { kind: 'bodyweight_external', equipmentId: 'dip-belt-a', unit: 'kg', externalLoads: ['0', '2.5'] },
+        { kind: 'assistance_machine', equipmentId: 'assisted-pullup-a', unit: 'kg', assistanceLoads: ['10', '20'] },
+      ],
+      startingHistory: [
+        {
+          ...history,
+          exerciseVersionId: 'weighted-pushup.v1',
+          equipmentLoad: {
+            equipmentId: 'dip-belt-a', basis: 'bodyweight_external',
+            quantity: { entered: { value: '0', unit: 'kg' }, canonicalKg: '0' },
+          },
+        },
+        {
+          ...history,
+          exerciseVersionId: 'assisted-pullup.v1',
+          equipmentLoad: {
+            equipmentId: 'assisted-pullup-a', basis: 'machine_assistance',
+            quantity: { entered: { value: '20', unit: 'kg' }, canonicalKg: '20' },
+          },
+        },
+      ],
+    })
+
+    expect(parsed.equipmentInventory.map(item => item.kind))
+      .toEqual(['bodyweight_external', 'assistance_machine'])
+    expect(parsed.startingHistory.map(entry => entry.equipmentLoad.basis))
+      .toEqual(['bodyweight_external', 'machine_assistance'])
+  })
+
+  it('rejects negative assistance and cross-basis bodyweight history', () => {
+    const history = validProfile.startingHistory[0]
+    expect(AthleteTrainingProfileV1Schema.safeParse({
+      ...validProfile,
+      equipmentInventory: [{
+        kind: 'assistance_machine', equipmentId: 'assisted-pullup-a', unit: 'kg', assistanceLoads: ['-5'],
+      }],
+      startingHistory: [],
+    }).success).toBe(false)
+    expect(AthleteTrainingProfileV1Schema.safeParse({
+      ...validProfile,
+      equipmentInventory: [{
+        kind: 'bodyweight_external', equipmentId: 'dip-belt-a', unit: 'kg', externalLoads: ['0'],
+      }],
+      startingHistory: [{
+        ...history,
+        equipmentLoad: {
+          equipmentId: 'dip-belt-a', basis: 'machine_assistance',
+          quantity: { entered: { value: '0', unit: 'kg' }, canonicalKg: '0' },
+        },
+      }],
+    }).success).toBe(false)
+  })
+
   it('accepts the capability-free athlete profile and preserves exact load provenance', () => {
     const parsed = AthleteTrainingProfileV1Schema.parse(validProfile)
 
@@ -87,6 +145,72 @@ describe('AthleteTrainingProfileV1Schema', () => {
       ...validProfile,
       sessionTimeBudgetMinutes,
     }).success).toBe(true)
+  })
+
+  it('preserves absent programming style and accepts either explicit style for intermediate profiles', () => {
+    expect(AthleteTrainingProfileV1Schema.parse(validProfile).strengthProgrammingStyle).toBeUndefined()
+    expect(AthleteTrainingProfileV1Schema.parse({
+      ...validProfile,
+      strengthProgrammingStyle: 'repeatable',
+    }).strengthProgrammingStyle).toBe('repeatable')
+    expect(AthleteTrainingProfileV1Schema.parse({
+      ...validProfile,
+      experience: 'intermediate',
+      strengthProgrammingStyle: 'intermediate_undulating',
+    }).strengthProgrammingStyle).toBe('intermediate_undulating')
+  })
+
+  it.each(['new_to_strength', 'beginner'] as const)(
+    'rejects intermediate undulating style for %s experience',
+    (experience) => {
+      expect(AthleteTrainingProfileV1Schema.safeParse({
+        ...validProfile,
+        experience,
+        strengthProgrammingStyle: 'intermediate_undulating',
+      }).success).toBe(false)
+    },
+  )
+
+  it('preserves profiles without a conditioning preference', () => {
+    expect(AthleteTrainingProfileV1Schema.parse(validProfile).conditioningPreference).toBeUndefined()
+  })
+
+  it('preserves an ordered, catalog-bound conditioning preference', () => {
+    const conditioningPreference = {
+      schemaVersion: 'conditioning-preference.v1' as const,
+      catalogVersion: 'authored-general-conditioning.v1',
+      preferredModalityIds: ['walking.v1', 'stationary-cycling.v1'],
+    }
+
+    expect(AthleteTrainingProfileV1Schema.parse({
+      ...validProfile,
+      conditioningPreference,
+    }).conditioningPreference).toEqual(conditioningPreference)
+  })
+
+  it('rejects empty, duplicate, or open-version conditioning preferences', () => {
+    for (const conditioningPreference of [
+      {
+        schemaVersion: 'conditioning-preference.v1',
+        catalogVersion: 'authored-general-conditioning.v1',
+        preferredModalityIds: [],
+      },
+      {
+        schemaVersion: 'conditioning-preference.v1',
+        catalogVersion: 'authored-general-conditioning.v1',
+        preferredModalityIds: ['walking.v1', 'walking.v1'],
+      },
+      {
+        schemaVersion: 'conditioning-preference.v2',
+        catalogVersion: 'authored-general-conditioning.v1',
+        preferredModalityIds: ['walking.v1'],
+      },
+    ]) {
+      expect(AthleteTrainingProfileV1Schema.safeParse({
+        ...validProfile,
+        conditioningPreference,
+      }).success).toBe(false)
+    }
   })
 
   it.each([3, 5, 10, 90])('rejects unsupported cycle length %s', (cycleLengthWeeks) => {

@@ -41,6 +41,17 @@ const METRICS: Record<string, { label: string; region: ScreeningObservation['met
   knee_extension_back_knee: { label: 'Knee Hyperextension', region: 'leg' },
 }
 
+const DIRECTIONS: Record<string, ReadonlySet<string>> = {
+  forward_head_posture: new Set(['Neutral', 'Forward']),
+  anterior_imbalanced_shoulders: new Set(['Level', 'Left Low', 'Right Low']),
+  posterior_imbalanced_shoulders: new Set(['Level', 'Left Low', 'Right Low']),
+  trunk_lean: new Set(['Neutral', 'Forward', 'Backward']),
+  pelvic_obliquity: new Set(['Level', 'Left Low', 'Right Low']),
+  genu_varum_valgum_left: new Set(['Neutral', 'Valgum (Knock-Knee)', 'Varum (Bow-Leg)']),
+  genu_varum_valgum_right: new Set(['Neutral', 'Valgum (Knock-Knee)', 'Varum (Bow-Leg)']),
+  knee_extension_back_knee: new Set(['Neutral', 'Hyperextended']),
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -48,6 +59,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
+
+const IMAGE_SHA256 = /^[0-9a-f]{64}$/
 
 function bounded(value: unknown, min: number, max: number): value is number {
   return finite(value) && value >= min && value <= max
@@ -201,14 +214,18 @@ function buildObservation(
   finding: PersistedScreeningFindingRow,
   captures: readonly PersistedScreeningCaptureRow[],
   assessment: PersistedScreeningAssessmentRow,
-  incompatibilityReasons: readonly string[],
+  boundaryReasons: readonly string[],
 ): ScreeningObservation {
   const reasons = viewReasons(finding, captures, assessment)
   const metric = METRICS[finding.imbalance_key]
   const threshold = THRESHOLDS[finding.imbalance_key]
   const view = findingView(finding.view_used)
+  const processingQuality = withinCaptureQuality(finding)
   if (!metric || !threshold) reasons.push('unsupported_measurement')
   if (view === 'unknown') reasons.push('invalid_finding_view')
+  if (!DIRECTIONS[finding.imbalance_key]?.has(finding.direction)) {
+    reasons.push('invalid_finding_direction')
+  }
   if (finding.assessment_id !== assessment.id || finding.practitioner_id !== assessment.practitioner_id) {
     reasons.push('finding_scope_mismatch')
   }
@@ -218,12 +235,16 @@ function buildObservation(
   if (!['maintain', 'warning', 'danger', 'unreliable'].includes(finding.zone)) reasons.push('invalid_zone')
   else if (finding.zone === 'unreliable') reasons.push('unreliable_measurement')
   if (assessment.status !== 'complete') reasons.push('assessment_not_complete')
-  reasons.push(...incompatibilityReasons)
+  reasons.push(...boundaryReasons)
   const assertedSide = sideProvenance(finding)
-  if (assertedSide.status === 'invalid') reasons.push(assertedSide.reason)
+  if (finding.view_used === 'side' && assertedSide.status !== 'asserted') {
+    reasons.push(assertedSide.reason)
+  }
+  if (processingQuality.status === 'invalid') reasons.push('invalid_within_capture_quality')
 
   const unavailableReasons = [...new Set(reasons)]
   const available = unavailableReasons.length === 0
+  const engineCompatible = !boundaryReasons.some((reason) => reason.startsWith('unsupported_'))
   const zone = finding.zone === 'maintain' || finding.zone === 'warning' || finding.zone === 'danger'
     ? finding.zone
     : null
@@ -239,6 +260,7 @@ function buildObservation(
     unavailableReasons,
     value: available && zone ? {
       deviationDeg: finding.deviation,
+      direction: finding.direction,
       severityPct: finding.severity_pct,
       zone,
       confidence: finding.confidence,
@@ -246,19 +268,21 @@ function buildObservation(
     } : null,
     quality: {
       measurementConfidence: finite(finding.confidence) ? finding.confidence : null,
-      withinCaptureProcessing: withinCaptureQuality(finding),
+      withinCaptureProcessing: processingQuality,
     },
     repeatability: {
       status: 'not_established',
       evidenceRef: null,
       reason: 'no_restance_repeatability_profile_persisted',
     },
-    validity: validity(
-      finding.metric_validity,
-      Boolean(metric && threshold && incompatibilityReasons.length === 0),
-    ),
+    validity: available
+      ? validity(finding.metric_validity, Boolean(metric && threshold && engineCompatible))
+      : {
+          ...validity(finding.metric_validity, Boolean(metric && threshold && engineCompatible)),
+          status: 'not_established',
+        },
     sideProvenance: assertedSide,
-    thresholdProvenance: threshold && incompatibilityReasons.length === 0 ? {
+    thresholdProvenance: available && threshold && engineCompatible ? {
       status: 'available',
       warn: { degrees: threshold.warn.deg, source: threshold.warn.source, citation: threshold.warn.citation },
       danger: { degrees: threshold.danger.deg, source: threshold.danger.source, citation: threshold.danger.citation },
@@ -272,10 +296,7 @@ function buildObservation(
 }
 
 function provenance(captures: readonly PersistedScreeningCaptureRow[]): ScreeningContextV1['provenance'] {
-  const limitations = new Set<string>([
-    'image_hash_not_persisted',
-    'view_identity_asserted_not_measured',
-  ])
+  const limitations = new Set<string>(['view_identity_asserted_not_measured'])
   return {
     captures: captures.map((capture) => {
       const frame = isRecord(capture.pose_frame) ? capture.pose_frame : {}
@@ -296,6 +317,11 @@ function provenance(captures: readonly PersistedScreeningCaptureRow[]): Screenin
       if (frame.aspectRatio !== undefined && !bounded(frame.aspectRatio, 0.1, 10)) {
         limitations.add('invalid_capture_aspect_ratio')
       }
+      const imageSha256 = typeof capture.image_sha256 === 'string' && IMAGE_SHA256.test(capture.image_sha256)
+        ? capture.image_sha256
+        : null
+      if (capture.image_sha256 === null) limitations.add('image_hash_not_persisted')
+      else if (imageSha256 === null) limitations.add('invalid_image_hash')
       return {
         captureId: capture.id,
         assessmentId: capture.assessment_id,
@@ -304,7 +330,7 @@ function provenance(captures: readonly PersistedScreeningCaptureRow[]): Screenin
         profileSide: capture.profile_side,
         source: capture.source,
         createdAt: capture.created_at,
-        imageSha256: null,
+        imageSha256,
         widthPx: capture.width_px ?? meta?.analysisWidthPx ?? null,
         heightPx: capture.height_px ?? meta?.analysisHeightPx ?? null,
         poseModelVersion: capture.model_version ?? (meta ? persistedModelVersion(meta) : null),
@@ -377,9 +403,19 @@ export function buildScreeningContextV1(input: BuildScreeningContextInput): Scre
   if (assessment.assessment_type !== 'static') {
     reasonCodes.push(`unsupported_assessment_type:${assessment.assessment_type ?? 'missing'}`)
   }
-  const incompatibilityReasons = reasonCodes.filter((reason) => reason.startsWith('unsupported_'))
+  if (assessment.level_verified !== null && typeof assessment.level_verified !== 'boolean') {
+    reasonCodes.push('invalid_level_verified')
+  }
+  if (assessment.capture_stability !== null && !bounded(assessment.capture_stability, 0, 1)) {
+    reasonCodes.push('invalid_capture_stability')
+  }
+  const observationBoundaryReasons = reasonCodes.filter((reason) => (
+    reason.startsWith('unsupported_')
+    || reason === 'invalid_level_verified'
+    || reason === 'invalid_capture_stability'
+  ))
   const observations = findings.map((finding) =>
-    buildObservation(finding, captures, assessment, incompatibilityReasons),
+    buildObservation(finding, captures, assessment, observationBoundaryReasons),
   )
   const context: ScreeningContextV1 = {
     assessment: {
@@ -400,12 +436,6 @@ export function buildScreeningContextV1(input: BuildScreeningContextInput): Scre
   }
   if (assessment.status !== 'complete') reasonCodes.push(`assessment_not_complete:${assessment.status}`)
   if (findings.length === 0) reasonCodes.push('no_findings')
-  if (assessment.level_verified !== null && typeof assessment.level_verified !== 'boolean') {
-    reasonCodes.push('invalid_level_verified')
-  }
-  if (assessment.capture_stability !== null && !bounded(assessment.capture_stability, 0, 1)) {
-    reasonCodes.push('invalid_capture_stability')
-  }
 
   let scanUse: ScanUse
   if (reasonCodes.some((reason) => reason.startsWith('unsupported_'))) scanUse = 'incompatible'

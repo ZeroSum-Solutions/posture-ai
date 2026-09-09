@@ -21,6 +21,7 @@ const testState = vi.hoisted(() => ({
     isFixture: true,
   },
   build: vi.fn(),
+  screen: vi.fn(),
   snapshot: vi.fn(),
   workoutInsert: vi.fn(),
   runInsert: vi.fn(),
@@ -133,6 +134,10 @@ vi.mock('@/lib/log', () => ({
 vi.mock('@/lib/workout/buildSessionFromAssessment', () => ({
   buildSessionFromAssessment: testState.build,
 }))
+vi.mock('@/lib/training/screening/derivedUse', () => ({
+  SCREENING_CAPTURE_SELECT: 'screening-captures',
+  screenFindingsForDerivedUse: testState.screen,
+}))
 vi.mock('@/lib/legal/runtime', () => ({
   resolveRuntimeLegalDocument: () => testState.resolution.value,
 }))
@@ -153,6 +158,10 @@ function request(overrides: Record<string, unknown> = {}) {
 describe('POST /api/workouts', () => {
   beforeEach(() => {
     testState.build.mockReset().mockReturnValue(legacySnapshot)
+    testState.screen.mockReset().mockImplementation((input: { findings: unknown[] }) => ({
+      screeningContext: { version: 'screening-context-v1', scanUse: 'descriptive' },
+      descriptiveFindings: input.findings.length > 0 ? input.findings : [{ imbalance_key: 'forward_head' }],
+    }))
     testState.snapshot.mockReset().mockReturnValue(testState.legalNotice)
     testState.workoutInsert.mockReset()
     testState.runInsert.mockReset()
@@ -200,6 +209,20 @@ describe('POST /api/workouts', () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: 'Assessment analysis is not complete.' })
+    expect(testState.build).not.toHaveBeenCalled()
+    expect(testState.rpc).not.toHaveBeenCalled()
+  })
+
+  test('does not mint a workout when screening evidence is unavailable or incompatible', async () => {
+    testState.screen.mockReturnValueOnce({
+      screeningContext: { version: 'screening-context-v1', scanUse: 'unavailable' },
+      descriptiveFindings: [],
+    })
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(422)
+    await expect(response.json()).resolves.toMatchObject({ code: 'screening_context_unavailable' })
     expect(testState.build).not.toHaveBeenCalled()
     expect(testState.rpc).not.toHaveBeenCalled()
   })

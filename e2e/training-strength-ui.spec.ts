@@ -1,4 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { provisionLocalAthlete } from './helpers/athlete-auth'
+import { totpCode } from '../scripts/testing/totp'
 
 const responsiveWidths = [320, 390, 768, 1280, 1440] as const
 
@@ -30,7 +32,8 @@ async function assertFitsViewport(page: Page, locatorName: string) {
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width)
 }
 
-test('builds, accepts, and records a private sample strength program through the original Workouts UI', async ({ page }, testInfo) => {
+test('builds, accepts, and records a private sample strength program through the original Workouts UI', async ({ page, browser }, testInfo) => {
+  test.setTimeout(90_000)
   await page.goto('/workouts')
   await expect(page.getByRole('heading', { name: 'Workouts', exact: true, level: 1 })).toBeVisible()
 
@@ -123,8 +126,43 @@ test('builds, accepts, and records a private sample strength program through the
   const rir = firstSet.getByRole('combobox', { name: 'RIR', exact: true })
   await expect(rir).toHaveValue('unknown')
   await rir.selectOption('3')
+  // A second browser context represents another device with the same starting revision.
+  const secondDevice = await browser.newContext({ storageState: await page.context().storageState() })
+  const secondPage = await secondDevice.newPage()
+  await secondPage.goto(new URL(strengthHref!, page.url()).href)
+  const staleSecondSet = secondPage.getByRole('group', { name: 'Set 2' }).first()
+  await expect(staleSecondSet.getByRole('button', { name: 'Save set', exact: true })).toBeEnabled()
+  const setWritePayloads: unknown[] = []
+  await page.route('**/api/training/sessions/*/sets/*', async route => {
+    setWritePayloads.push(route.request().postDataJSON())
+    if (setWritePayloads.length === 1) {
+      const committed = await route.fetch()
+      expect(committed.ok()).toBe(true)
+      await route.abort('connectionreset')
+    } else await route.continue()
+  })
   await firstSet.getByRole('button', { name: 'Save set' }).click()
-  await expect(firstSet.getByRole('button', { name: 'Set saved' })).toBeVisible()
+  await expect(page.getByText('1 pending change on this device.', { exact: true })).toBeVisible()
+  await page.reload()
+  // A terminated document can retain its bounded 30-second drain lease.
+  await expect(firstSet.getByRole('button', { name: 'Set saved' })).toBeVisible({ timeout: 40_000 })
+  await expect(page.getByText('1 pending change on this device.', { exact: true })).toHaveCount(0)
+  expect(setWritePayloads).toHaveLength(2)
+  expect(setWritePayloads[1]).toEqual(setWritePayloads[0])
+  await page.unroute('**/api/training/sessions/*/sets/*')
+  await staleSecondSet.getByRole('button', { name: 'Save set', exact: true }).click()
+  await expect(secondPage.getByRole('button', { name: 'Discard conflicting local change and reload' })).toBeVisible()
+  await expect(secondPage.getByText('1 pending change on this device.', { exact: true })).toBeVisible()
+  await expect(secondPage.getByRole('group', { name: 'Set 1' }).first().getByRole('button', { name: 'Set saved' })).toBeVisible()
+  await secondPage.getByRole('button', { name: 'Discard conflicting local change and reload' }).click()
+  await expect(secondPage.getByText('1 pending change on this device.', { exact: true })).toHaveCount(0)
+  await expect(staleSecondSet.getByRole('button', { name: 'Save set', exact: true })).toBeEnabled()
+  await secondDevice.close()
+  const secondSet = page.getByRole('group', { name: 'Set 2' }).first()
+  await secondSet.getByRole('button', { name: 'Same as last set', exact: true }).click()
+  await expect(secondSet.getByRole('combobox', { name: 'RIR', exact: true })).toHaveValue('3')
+  await expect(secondSet.getByRole('button', { name: 'Save set', exact: true })).toBeEnabled()
+  await expect(secondSet.getByRole('button', { name: 'Set saved', exact: true })).toHaveCount(0)
   const finishWithOmissions = page.getByRole('button', { name: /Finish with \d+ omissions?/ })
   await expect(finishWithOmissions).toBeVisible()
   await finishWithOmissions.click()
@@ -147,4 +185,77 @@ test('builds, accepts, and records a private sample strength program through the
   await page.getByRole('button', { name: 'Try a sample program', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Resume a session' })).toBeVisible()
   await expect(page.getByText('Practice data', { exact: true }).first()).toBeVisible()
+  const assignmentId = new URL(storedProgramResponse.url()).pathname.split('/').at(-1)!
+  const workspaceHref = `/workouts?training_program_id=${assignmentId}`
+  await page.locator(`a[href="${workspaceHref}"]`).click()
+  await expect(page.getByRole('heading', { name: '6-week program', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Program', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Open session', exact: true })).toHaveCount(12)
+  const programWorkspace = await page.request.get(`/api/training/programs/${assignmentId}/workspace?view=program`)
+  expect(programWorkspace.ok()).toBe(true)
+  const workspaceBody = await programWorkspace.json()
+  const nextStrength = workspaceBody.sessions.find((session: { kind: string; state: string }) => session.kind === 'strength' && session.state === 'scheduled')
+  expect(nextStrength).toBeTruthy()
+  const nextStrengthHref = `/workouts?training_session_id=${nextStrength.sessionId}`
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    const dimensions = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
+    expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width)
+  }
+  await page.getByRole('tab', { name: 'History', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Open session', exact: true })).toHaveCount(2)
+  await expect(page.getByText('Finished with omissions', { exact: true })).toBeVisible()
+  await expect(page.getByText('Effort 4/10', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '6-week program', exact: true })).toBeVisible()
+  await page.goto(nextStrengthHref!)
+  await page.getByRole('button', { name: 'Start session', exact: true }).click()
+  await page.route('**/api/training/sessions/*/sets/*', route => route.abort('connectionreset'))
+  await page.getByRole('group', { name: 'Set 1' }).first().getByRole('button', { name: 'Save set', exact: true }).click()
+  await expect(page.getByText('1 pending change on this device.', { exact: true })).toBeVisible()
+  await page.goto('/settings')
+  await page.getByRole('button', { name: /sign out/i }).click()
+  await expect(page).toHaveURL(/\/auth\/sign-in/)
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => new Promise<number>((resolve, reject) => {
+    const open = indexedDB.open('posture-ai-training-offline', 1)
+    open.onerror = () => reject(new Error('Offline database unavailable'))
+    open.onsuccess = () => {
+      const database = open.result
+      const transaction = database.transaction('entries', 'readonly')
+      const count = transaction.objectStore('entries').count()
+      count.onsuccess = () => resolve(count.result)
+      count.onerror = () => reject(new Error('Offline count failed'))
+      transaction.oncomplete = () => database.close()
+    }
+  }))).toBe(0)
+
+  // Switch to a distinct real local athlete in the same browser storage. The
+  // prior actor's pending work must not replay or become visible to this actor.
+  const otherAthlete = await provisionLocalAthlete()
+  await page.goto('/auth/sign-in?next=/train')
+  await page.locator('input[type="email"]').fill(otherAthlete.email)
+  await page.locator('input[type="password"]').fill(otherAthlete.password)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.waitForURL(/\/auth\/mfa/)
+  await page.getByLabel('Authenticator code').fill(totpCode(otherAthlete.secret))
+  await page.getByRole('button', { name: 'Verify and continue' }).click()
+  await page.waitForURL(url => url.pathname === '/train')
+  const priorSessionId = new URL(nextStrengthHref!, page.url()).searchParams.get('training_session_id')
+  expect(priorSessionId).toBeTruthy()
+  const inaccessible = await page.request.get(`/api/training/sessions/${priorSessionId}`)
+  expect([403, 404]).toContain(inaccessible.status())
+  await expect(page.getByRole('group', { name: 'Set 1' })).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => new Promise<number>((resolve, reject) => {
+    const open = indexedDB.open('posture-ai-training-offline', 1)
+    open.onerror = () => reject(new Error('Offline database unavailable'))
+    open.onsuccess = () => {
+      const database = open.result
+      const transaction = database.transaction('entries', 'readonly')
+      const count = transaction.objectStore('entries').count()
+      count.onsuccess = () => resolve(count.result)
+      count.onerror = () => reject(new Error('Offline count failed'))
+      transaction.oncomplete = () => database.close()
+    }
+  }))).toBe(0)
 })

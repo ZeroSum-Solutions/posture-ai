@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { PROGRAM_LIVE_CATALOG_REGISTRY } from '@/lib/training/catalog/liveRegistry'
 import {
   AcceptProgramBuildInputV1Schema,
   ProgramBuildError,
@@ -19,7 +20,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ bui
       buildId,
       body.data,
       context.actor,
-      createSupabaseProgramBuildDependencies(context.supabase, createSupabaseServiceClient()),
+      createSupabaseProgramBuildDependencies(
+        context.supabase,
+        createSupabaseServiceClient(),
+        PROGRAM_LIVE_CATALOG_REGISTRY,
+      ),
     )
     return trainingJson(result)
   } catch (error) {

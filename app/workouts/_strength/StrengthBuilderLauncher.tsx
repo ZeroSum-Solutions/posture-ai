@@ -28,13 +28,17 @@ export default function StrengthBuilderLauncher({ clients, initialClientId }: {
 }) {
   const initial = clients.some(client => client.id === initialClientId) ? initialClientId! : clients[0]?.id ?? ''
   const [selectedId, setSelectedId] = useState(initial)
+  const [sampleCatalog, setSampleCatalog] = useState<'starter' | 'exercise-swap' | 'conditioning' | 'bodyweight-assistance'>('starter')
   const [sample, setSample] = useState<SampleState>({ status: 'idle' })
   const selected = clients.find(client => client.id === selectedId)
 
   async function openSample() {
     setSample({ status: 'pending' })
     try {
-      const response = await fetch('/api/training/simulation/setup', { method: 'POST' })
+      const setupPath = sampleCatalog === 'starter'
+        ? '/api/training/simulation/setup'
+        : `/api/training/simulation/setup?catalog=${sampleCatalog}`
+      const response = await fetch(setupPath, { method: 'POST' })
       const body: unknown = await response.json().catch(() => null)
       if (!response.ok || !isSetupProjection(body)) throw new Error()
       setSample({ status: 'ready', subjectId: body.subjectId })
@@ -53,8 +57,17 @@ export default function StrengthBuilderLauncher({ clients, initialClientId }: {
       <div>
         <p className="t-kicker">Private practice workspace</p>
         <h2 className="t-headline-sm">Try a sample program</h2>
-        <p className="t-body">Use a separate private practice athlete to explore the eight-week builder without changing a real client.</p>
+        <p className="t-body">Use a separate private practice athlete to explore the strength program builder without changing a real client.</p>
       </div>
+      <label className={styles.clientPicker}>Sample program
+        <select className="a-input" value={sampleCatalog} disabled={sample.status === 'pending' || sample.status === 'ready'}
+          onChange={event => { setSampleCatalog(event.target.value === 'exercise-swap' || event.target.value === 'conditioning' || event.target.value === 'bodyweight-assistance' ? event.target.value : 'starter'); setSample({ status: 'idle' }) }}>
+          <option value="starter">Strength and conditioning</option>
+          <option value="exercise-swap">Exercise alternatives</option>
+          <option value="conditioning">Conditioning activities</option>
+          <option value="bodyweight-assistance">Bodyweight and assisted strength</option>
+        </select>
+      </label>
       {sample.status === 'ready'
         ? <button type="button" className="a-secondary" onClick={() => setSample({ status: 'idle' })}>{selected ? 'Return to selected client' : 'Close sample'}</button>
         : <button type="button" className="a-secondary" disabled={sample.status === 'pending'} onClick={() => void openSample()}>{sample.status === 'pending' ? 'Preparing sample…' : 'Try a sample program'}</button>}

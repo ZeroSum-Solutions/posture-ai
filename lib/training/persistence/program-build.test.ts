@@ -3,9 +3,24 @@ import {
   SYNTHETIC_STARTER_CATALOG,
   SYNTHETIC_STARTER_CATALOG_FIXTURE_HASH,
 } from '../catalog/syntheticStarter'
+import {
+  SYNTHETIC_SWAP_JOURNEY_CATALOG,
+  SYNTHETIC_SWAP_JOURNEY_CATALOG_FIXTURE_HASH,
+} from '../catalog/syntheticSwapJourney'
+import {
+  SYNTHETIC_CONDITIONING_JOURNEY_CATALOG,
+  SYNTHETIC_CONDITIONING_JOURNEY_CATALOG_FIXTURE_HASH,
+  SYNTHETIC_CONDITIONING_JOURNEY_FIXTURE_ID,
+} from '../catalog/syntheticConditioningJourney'
+import {
+  SYNTHETIC_BODYWEIGHT_ASSISTANCE_CATALOG,
+  SYNTHETIC_BODYWEIGHT_ASSISTANCE_FIXTURE_HASH,
+  SYNTHETIC_BODYWEIGHT_ASSISTANCE_FIXTURE_ID,
+} from '../catalog/syntheticBodyweightAssistance'
 import { TrainingCatalogV1Schema } from '../catalog/types'
 import type { AthleteTrainingProfileV1 } from '../contracts/profile'
 import { TrainingProgramRevisionV1Schema } from '../contracts/program'
+import { createLoadQuantity } from '../quantity'
 import {
   ProgramBuildError,
   acceptStoredProgramBuild,
@@ -41,7 +56,7 @@ const authoredTestCatalog = TrainingCatalogV1Schema.parse({
   ...SYNTHETIC_STARTER_CATALOG,
   catalogVersion: 'authored-test-catalog.v1',
   origin: { kind: 'authored_catalog' },
-  exercises: SYNTHETIC_STARTER_CATALOG.exercises.map(exercise => ({
+  exercises: SYNTHETIC_STARTER_CATALOG.exercises.map((exercise, index) => ({
     ...exercise,
     label: exercise.label.replace('Synthetic ', 'Test '),
     contentReviewStatus: 'reviewed',
@@ -52,10 +67,28 @@ const authoredTestCatalog = TrainingCatalogV1Schema.parse({
       tempo: 'test_controlled',
       exposureType: 'test_standard',
     },
+    ...(index === 0 ? { warmupSets: [{ targetReps: 8, load: { value: '5.0', unit: 'kg' as const } }] } : {}),
   })),
   conditioningModes: SYNTHETIC_STARTER_CATALOG.conditioningModes.map(mode => ({
     ...mode,
     label: mode.label.replace('Synthetic ', 'Test '),
+    contentReviewStatus: 'reviewed',
+  })).concat({
+    modalityId: 'test-stationary-cycling.v1', label: 'Test stationary cycling', preferenceRank: 1,
+    lifecycle: 'active', contentReviewStatus: 'reviewed', effortCue: 'Test conversational effort',
+  }),
+})
+const authoredBodyweightTestCatalog = TrainingCatalogV1Schema.parse({
+  ...SYNTHETIC_BODYWEIGHT_ASSISTANCE_CATALOG,
+  catalogVersion: 'authored-bodyweight-test-catalog.v1',
+  origin: { kind: 'authored_catalog' },
+  exercises: SYNTHETIC_BODYWEIGHT_ASSISTANCE_CATALOG.exercises.map(exercise => ({
+    ...exercise,
+    contentReviewStatus: 'reviewed',
+    mediaStatus: 'reviewed_exact_variant',
+  })),
+  conditioningModes: SYNTHETIC_BODYWEIGHT_ASSISTANCE_CATALOG.conditioningModes.map(mode => ({
+    ...mode,
     contentReviewStatus: 'reviewed',
   })),
 })
@@ -78,6 +111,18 @@ function profile(overrides: Partial<AthleteTrainingProfileV1> = {}): AthleteTrai
 
 function sourceProjection(overrides: Partial<ProgramProfileProjectionV1> = {}): ProgramProfileProjectionV1 {
   return { subjectId, permissions: [], revision: 3, profile: profile(), ...overrides }
+}
+
+function liveProfile(overrides: Partial<AthleteTrainingProfileV1> = {}): AthleteTrainingProfileV1 {
+  return profile({
+    origin: { kind: 'athlete_input' },
+    conditioningPreference: {
+      schemaVersion: 'conditioning-preference.v1',
+      catalogVersion: authoredTestCatalog.catalogVersion,
+      preferredModalityIds: ['synthetic-continuous-walking.v1'],
+    },
+    ...overrides,
+  })
 }
 
 function setup(projection = sourceProjection()) {
@@ -159,6 +204,311 @@ describe('stored training program build', () => {
     }
   })
 
+  it('builds, re-reads, and accepts the exact synthetic bodyweight and assistance fixture', async () => {
+    const fixtureProfile = profile({
+      origin: {
+        kind: 'synthetic_fixture',
+        fixtureId: SYNTHETIC_BODYWEIGHT_ASSISTANCE_FIXTURE_ID,
+        label: 'Synthetic bodyweight and assistance practice profile',
+      },
+      equipmentInventory: [
+        {
+          kind: 'bodyweight_external', equipmentId: 'synthetic-bodyweight-station',
+          unit: 'kg', externalLoads: ['0', '5', '10'],
+        },
+        {
+          kind: 'assistance_machine', equipmentId: 'synthetic-assisted-pullup-machine',
+          unit: 'kg', assistanceLoads: ['10', '20', '30', '40', '50', '60'],
+        },
+      ],
+    })
+    const harness = setup(sourceProjection({ profile: fixtureProfile }))
+    harness.setRun({
+      id: runId, subjectId, createdByUserId: userId,
+      fixtureId: SYNTHETIC_BODYWEIGHT_ASSISTANCE_FIXTURE_ID,
+      fixtureHash: SYNTHETIC_BODYWEIGHT_ASSISTANCE_FIXTURE_HASH,
+      status: 'active', createdAt: now.toISOString(), expiresAt: '2026-09-08T13:00:00.000Z',
+    })
+
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )
+    expect(projection.result).toMatchObject({
+      kind: 'draft_program',
+      catalogVersion: SYNTHETIC_BODYWEIGHT_ASSISTANCE_CATALOG.catalogVersion,
+    })
+    expect(projection.calibrations).toHaveLength(4)
+    expect(new Set(projection.calibrations.map(item => item.calibration.loadBasis)))
+      .toEqual(new Set(['bodyweight_external', 'machine_assistance']))
+    expect(projection.calibrations.every(item => (
+      item.calibration.bodyweightAssistancePolicy !== undefined
+    ))).toBe(true)
+
+    await expect(readStoredProgramBuildProjection(buildId, actor, harness.dependencies))
+      .resolves.toMatchObject({ buildId, calibrations: expect.arrayContaining([
+        expect.objectContaining({ calibration: expect.objectContaining({ loadBasis: 'bodyweight_external' }) }),
+        expect.objectContaining({ calibration: expect.objectContaining({ loadBasis: 'machine_assistance' }) }),
+      ]) })
+
+    await acceptStoredProgramBuild(buildId, choices(projection), actor, harness.dependencies)
+    const program = TrainingProgramRevisionV1Schema.parse(harness.createdDrafts[0].program)
+    const accepted = program.sessions.flatMap(session => session.exercises)
+    expect(accepted.filter(exercise => exercise.acceptedInitialLoad.loadBasis === 'bodyweight_external'))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ acceptedInitialLoad: expect.objectContaining({
+          implementCount: 0,
+          holdingConfiguration: 'bodyweight_plus_external_load',
+          bodyweightAssistancePolicy: expect.objectContaining({
+            policyId: 'synthetic-bodyweight-rep-only.v1',
+          }),
+        }) }),
+      ]))
+    expect(accepted.filter(exercise => exercise.acceptedInitialLoad.loadBasis === 'machine_assistance'))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ acceptedInitialLoad: expect.objectContaining({
+          implementCount: 1,
+          holdingConfiguration: 'machine_assistance',
+          bodyweightAssistancePolicy: expect.objectContaining({
+            policyId: 'synthetic-assistance-rep-only.v1',
+          }),
+        }) }),
+      ]))
+  })
+
+  it('does not store a live bodyweight build without a trusted reviewed policy registry', async () => {
+    const liveBodyweightProfile = liveProfile({
+      equipmentInventory: [
+        {
+          kind: 'bodyweight_external', equipmentId: 'synthetic-bodyweight-station',
+          unit: 'kg', externalLoads: ['0', '5', '10'],
+        },
+        {
+          kind: 'assistance_machine', equipmentId: 'synthetic-assisted-pullup-machine',
+          unit: 'kg', assistanceLoads: ['10', '20', '30', '40', '50', '60'],
+        },
+      ],
+      conditioningPreference: {
+        schemaVersion: 'conditioning-preference.v1',
+        catalogVersion: authoredBodyweightTestCatalog.catalogVersion,
+        preferredModalityIds: ['synthetic-continuous-walking.v1'],
+      },
+    })
+    const harness = setup(sourceProjection({ profile: liveBodyweightProfile }))
+    harness.setLiveSource(liveEligibilitySource)
+    harness.setLiveCatalog({
+      catalog: authoredBodyweightTestCatalog,
+      conditioningModalityId: 'synthetic-continuous-walking.v1',
+    })
+
+    await expect(createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )).rejects.toEqual(new ProgramBuildError('program_build_unavailable'))
+    expect(harness.createdBuilds).toHaveLength(0)
+  })
+
+  it('builds and re-reads the exact swap-journey fixture without changing exercise selection', async () => {
+    const harness = setup()
+    harness.setRun({
+      id: runId,
+      subjectId,
+      createdByUserId: userId,
+      fixtureId: SYNTHETIC_SWAP_JOURNEY_CATALOG.catalogVersion,
+      fixtureHash: SYNTHETIC_SWAP_JOURNEY_CATALOG_FIXTURE_HASH,
+      status: 'active',
+      createdAt: now.toISOString(),
+      expiresAt: '2026-09-08T13:00:00.000Z',
+    })
+
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )
+
+    expect(projection.result).toMatchObject({
+      kind: 'draft_program',
+      catalogVersion: 'synthetic-swap-journey-catalog.v1',
+      executionContext: {
+        kind: 'synthetic_simulation',
+        fixtureId: 'synthetic-swap-journey-catalog.v1',
+        fixtureHash: SYNTHETIC_SWAP_JOURNEY_CATALOG_FIXTURE_HASH,
+      },
+    })
+    expect(projection.calibrations.map(item => item.exerciseLabel)).toContain(
+      'Synthetic two-dumbbell floor press',
+    )
+    expect(projection.calibrations.map(item => item.exerciseLabel)).not.toContain(
+      'Synthetic neutral-grip two-dumbbell floor press',
+    )
+    await expect(readStoredProgramBuildProjection(buildId, actor, harness.dependencies))
+      .resolves.toMatchObject({ buildId })
+  })
+
+  it('fails closed for a simulation run outside the exact server catalog registry', async () => {
+    const harness = setup()
+    harness.setRun({
+      id: runId, subjectId, createdByUserId: userId,
+      fixtureId: 'synthetic-swap-journey-catalog.v1',
+      fixtureHash: 'f'.repeat(64), status: 'active',
+      createdAt: now.toISOString(), expiresAt: '2026-09-08T13:00:00.000Z',
+    })
+
+    await expect(createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )).rejects.toMatchObject({ code: 'program_build_unavailable' })
+    expect(harness.createdBuilds).toHaveLength(0)
+  })
+
+  it('honors the first exact synthetic conditioning preference instead of the fixture default', async () => {
+    const harness = setup(sourceProjection({ profile: profile({
+      origin: {
+        kind: 'synthetic_fixture',
+        fixtureId: SYNTHETIC_CONDITIONING_JOURNEY_FIXTURE_ID,
+        label: 'Synthetic conditioning preference profile',
+      },
+      conditioningPreference: {
+        schemaVersion: 'conditioning-preference.v1',
+        catalogVersion: SYNTHETIC_CONDITIONING_JOURNEY_CATALOG.catalogVersion,
+        preferredModalityIds: ['synthetic-stationary-cycling.v1', 'synthetic-continuous-walking.v1'],
+      },
+    }) }))
+    harness.setRun({
+      id: runId, subjectId, createdByUserId: userId,
+      fixtureId: SYNTHETIC_CONDITIONING_JOURNEY_FIXTURE_ID,
+      fixtureHash: SYNTHETIC_CONDITIONING_JOURNEY_CATALOG_FIXTURE_HASH,
+      status: 'active', createdAt: now.toISOString(), expiresAt: '2026-09-08T13:00:00.000Z',
+    })
+
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, harness.dependencies,
+    )
+    expect(projection.result).toMatchObject({ kind: 'draft_program' })
+    if (projection.result.kind !== 'draft_program') throw new Error('fixture did not compile')
+    expect(new Set(projection.result.weeks.flatMap(week => week.conditioningBouts)
+      .map(bout => bout.modalityId))).toEqual(new Set(['synthetic-stationary-cycling.v1']))
+  })
+
+  it('rejects a present synthetic preference whose catalog or modality is stale', async () => {
+    for (const conditioningPreference of [{
+      schemaVersion: 'conditioning-preference.v1' as const,
+      catalogVersion: 'synthetic-conditioning-old.v1',
+      preferredModalityIds: ['synthetic-stationary-cycling.v1'],
+    }, {
+      schemaVersion: 'conditioning-preference.v1' as const,
+      catalogVersion: SYNTHETIC_CONDITIONING_JOURNEY_CATALOG.catalogVersion,
+      preferredModalityIds: ['synthetic-rowing.v1'],
+    }]) {
+      const harness = setup(sourceProjection({ profile: profile({
+        origin: {
+          kind: 'synthetic_fixture',
+          fixtureId: SYNTHETIC_CONDITIONING_JOURNEY_FIXTURE_ID,
+          label: 'Synthetic conditioning preference profile',
+        },
+        conditioningPreference,
+      }) }))
+      harness.setRun({
+        id: runId, subjectId, createdByUserId: userId,
+        fixtureId: SYNTHETIC_CONDITIONING_JOURNEY_FIXTURE_ID,
+        fixtureHash: SYNTHETIC_CONDITIONING_JOURNEY_CATALOG_FIXTURE_HASH,
+        status: 'active', createdAt: now.toISOString(), expiresAt: '2026-09-08T13:00:00.000Z',
+      })
+      await expect(createStoredProgramBuild(
+        { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, harness.dependencies,
+      )).rejects.toMatchObject({ code: 'program_build_stale' })
+    }
+  })
+
+  it('resolves the synthetic undulating template server-side and calibrates heavy and volume tracks separately', async () => {
+    const harness = setup(sourceProjection({
+      profile: profile({
+        experience: 'intermediate',
+        strengthProgrammingStyle: 'intermediate_undulating',
+      }),
+    }))
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )
+
+    expect(projection.result).toMatchObject({
+      kind: 'draft_program',
+      strengthTemplate: {
+        style: 'intermediate_undulating',
+        provenance: {
+          kind: 'synthetic_fixture', fixtureId: 'synthetic-starter-catalog.v1',
+          fixtureHash: SYNTHETIC_STARTER_CATALOG_FIXTURE_HASH, label: 'Practice data',
+        },
+      },
+    })
+    expect(projection.calibrations).toHaveLength(8)
+    expect(new Set(projection.calibrations.map(item => item.exposureType)))
+      .toEqual(new Set(['heavy', 'volume']))
+    expect(new Set(projection.calibrations.map(item => item.progressionSeriesId)).size).toBe(8)
+
+    await acceptStoredProgramBuild(buildId, choices(projection), actor, harness.dependencies)
+    const program = TrainingProgramRevisionV1Schema.parse(harness.createdDrafts[0].program)
+    expect(program).toMatchObject({
+      strengthProgrammingStyle: 'intermediate_undulating',
+      strengthTemplate: { templateVersion: 'intermediate-undulating.v1' },
+    })
+    const tracked = program.sessions.flatMap(session => session.exercises)
+    expect(new Set(tracked.map(exercise => exercise.progression?.exposureType)))
+      .toEqual(new Set(['heavy', 'volume']))
+    expect(new Set(tracked.filter(exercise => exercise.movementPattern === 'knee_dominant')
+      .map(exercise => exercise.progression?.progressionSeriesId)))
+      .toEqual(new Set(['strength-slot:knee_dominant:heavy', 'strength-slot:knee_dominant:volume']))
+  })
+
+  it('canonicalizes an explicit repeatable preference to the legacy-compatible program shape', async () => {
+    const harness = setup(sourceProjection({
+      profile: profile({ strengthProgrammingStyle: 'repeatable' }),
+    }))
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )
+    expect(projection.calibrations).toHaveLength(4)
+    expect(new Set(projection.calibrations.map(item => item.exposureType)))
+      .toEqual(new Set(['standard']))
+    await acceptStoredProgramBuild(buildId, choices(projection), actor, harness.dependencies)
+    expect(TrainingProgramRevisionV1Schema.parse(harness.createdDrafts[0].program))
+      .not.toHaveProperty('strengthProgrammingStyle')
+  })
+
+  it('fails closed for live undulating profiles while the reviewed template registry is empty', async () => {
+    const harness = setup(sourceProjection({
+      profile: liveProfile({
+        experience: 'intermediate',
+        strengthProgrammingStyle: 'intermediate_undulating',
+      }),
+    }))
+    harness.setLiveSource(liveEligibilitySource)
+    harness.setLiveCatalog({
+      catalog: authoredTestCatalog,
+      conditioningModalityId: 'synthetic-continuous-walking.v1',
+    })
+
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },
+      actor,
+      harness.dependencies,
+    )
+    expect(projection).toMatchObject({
+      buildId: null,
+      result: { kind: 'needs_template_adjustment', reason: 'strength_template_unavailable' },
+      calibrations: [],
+    })
+    expect(harness.createdBuilds).toHaveLength(0)
+  })
+
   it.each([4, 6, 12] as const)(
     'previews and accepts an explicit %s-week cycle without substituting an eight-week horizon',
     async (cycleLengthWeeks) => {
@@ -188,7 +538,7 @@ describe('stored training program build', () => {
   )
 
   it('compiles and accepts a live profile only with explicit trusted source and authored catalog fixtures', async () => {
-    const harness = setup(sourceProjection({ profile: profile({ origin: { kind: 'athlete_input' } }) }))
+    const harness = setup(sourceProjection({ profile: liveProfile() }))
     harness.setLiveSource(liveEligibilitySource)
     harness.setLiveCatalog({
       catalog: authoredTestCatalog,
@@ -227,10 +577,60 @@ describe('stored training program build', () => {
       catalogOrigin: { kind: 'authored_catalog' },
       programMode: 'self_directed',
     })
+    expect(program.sessions[0].exercises[0].warmupSets).toEqual([{
+      setId: expect.stringMatching(/^set_[a-f0-9]{32}$/),
+      targetReps: 8,
+      prescribedLoad: createLoadQuantity({ value: '5.0', unit: 'kg' }),
+    }])
+  })
+
+  it('requires a live preference and compiles the first exact preferred reviewed modality', async () => {
+    const missing = setup(sourceProjection({ profile: profile({ origin: { kind: 'athlete_input' } }) }))
+    missing.setLiveSource(liveEligibilitySource)
+    missing.setLiveCatalog({ catalog: authoredTestCatalog, conditioningModalityId: 'synthetic-continuous-walking.v1' })
+    await expect(createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, missing.dependencies,
+    )).rejects.toMatchObject({ code: 'program_build_unavailable' })
+
+    const preferred = setup(sourceProjection({ profile: liveProfile({
+      conditioningPreference: {
+        schemaVersion: 'conditioning-preference.v1',
+        catalogVersion: authoredTestCatalog.catalogVersion,
+        preferredModalityIds: ['test-stationary-cycling.v1', 'synthetic-continuous-walking.v1'],
+      },
+    }) }))
+    preferred.setLiveSource(liveEligibilitySource)
+    preferred.setLiveCatalog({ catalog: authoredTestCatalog, conditioningModalityId: 'synthetic-continuous-walking.v1' })
+    const projection = await createStoredProgramBuild(
+      { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, preferred.dependencies,
+    )
+    expect(projection.result).toMatchObject({ kind: 'draft_program' })
+    if (projection.result.kind !== 'draft_program') throw new Error('fixture did not compile')
+    expect(new Set(projection.result.weeks.flatMap(week => week.conditioningBouts)
+      .map(bout => bout.modalityId))).toEqual(new Set(['test-stationary-cycling.v1']))
+  })
+
+  it('denies a live preference whose catalog or selected modality is stale', async () => {
+    for (const conditioningPreference of [{
+      schemaVersion: 'conditioning-preference.v1' as const,
+      catalogVersion: 'authored-old.v1',
+      preferredModalityIds: ['synthetic-continuous-walking.v1'],
+    }, {
+      schemaVersion: 'conditioning-preference.v1' as const,
+      catalogVersion: authoredTestCatalog.catalogVersion,
+      preferredModalityIds: ['retired-mode.v1'],
+    }]) {
+      const harness = setup(sourceProjection({ profile: liveProfile({ conditioningPreference }) }))
+      harness.setLiveSource(liveEligibilitySource)
+      harness.setLiveCatalog({ catalog: authoredTestCatalog, conditioningModalityId: 'synthetic-continuous-walking.v1' })
+      await expect(createStoredProgramBuild(
+        { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, harness.dependencies,
+      )).rejects.toMatchObject({ code: 'program_build_stale' })
+    }
   })
 
   it('leaves real profiles unavailable when the trusted authored catalog registry is empty', async () => {
-    const harness = setup(sourceProjection({ profile: profile({ origin: { kind: 'athlete_input' } }) }))
+    const harness = setup(sourceProjection({ profile: liveProfile() }))
     harness.setLiveSource(liveEligibilitySource)
     await expect(createStoredProgramBuild(
       { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' },

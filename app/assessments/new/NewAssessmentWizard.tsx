@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { OperationMode } from '@/lib/prototype/runtime'
 import { ageBand } from '@/lib/clients/age'
+import { parseAssessmentProcessingResult } from '@/lib/assessments/processingStatus'
 import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
@@ -421,6 +422,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   // Step 3: Poll assessment status and redirect when complete
   useEffect(() => {
     if (step !== 3 || !assessmentId) return
+    const activeAssessmentId = assessmentId
     let cancelled = false
     // Track the latest scheduled poll (initial + every reschedule) so cleanup
     // can clear a queued timer instead of relying solely on the cancelled guard.
@@ -441,20 +443,28 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     async function pollStatus() {
       if (cancelled) return
       try {
-        console.log('[wizard] Polling status for assessment:', assessmentId)
-        const r = await fetch('/api/assessments/' + assessmentId + '/status')
+        console.log('[wizard] Polling status for assessment:', activeAssessmentId)
+        const r = await fetch('/api/assessments/' + activeAssessmentId + '/status')
         if (cancelled) return
         if (!r.ok) {
           setProcessingError('Failed to check assessment status.')
           return
         }
-        const data = await r.json()
-        console.log('[wizard] Assessment status:', data.status)
+        const data: unknown = await r.json()
+        const processing = parseAssessmentProcessingResult(data, activeAssessmentId)
+        if (!processing) {
+          setProcessingError('The assessment status response was invalid. Please refresh and try again.')
+          return
+        }
+        console.log('[wizard] Assessment status:', processing.status)
         if (cancelled) return
 
-        if (data.status === 'complete') {
-          router.push('/assessments/' + assessmentId)
-        } else if (data.status === 'failed') {
+        if (processing.status === 'complete') {
+          // A hard navigation commits the terminal results URL immediately and
+          // cannot remain stranded behind an App Router data prefetch. The
+          // results loader owns unavailable/incompatible finding presentation.
+          window.location.assign('/assessments/' + activeAssessmentId)
+        } else if (processing.status === 'failed') {
           // The server confirmed a terminal row. A retry is a new scoring
           // attempt, not an ambiguous transport replay, so rotate the key.
           submissionGuard.contentChanged()

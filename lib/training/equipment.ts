@@ -13,6 +13,8 @@ export type EquipmentLoadBasis =
   | 'dumbbell_per_hand'
   | 'dumbbell_single_implement'
   | 'machine_stack'
+  | 'bodyweight_external'
+  | 'machine_assistance'
 
 export interface EquipmentLoad {
   readonly equipmentId: string
@@ -46,7 +48,24 @@ export interface MachineInventory extends InventoryBase {
   readonly stackLoads: readonly string[]
 }
 
-export type EquipmentInventory = BarbellInventory | DumbbellInventory | MachineInventory
+export interface BodyweightExternalInventory extends InventoryBase {
+  readonly kind: 'bodyweight_external'
+  /** Exact added external loads. Zero means bodyweight with no added load. */
+  readonly externalLoads: readonly string[]
+}
+
+export interface AssistanceMachineInventory extends InventoryBase {
+  readonly kind: 'assistance_machine'
+  /** Exact nonnegative assistance settings supported by this machine. */
+  readonly assistanceLoads: readonly string[]
+}
+
+export type EquipmentInventory =
+  | BarbellInventory
+  | DumbbellInventory
+  | MachineInventory
+  | BodyweightExternalInventory
+  | AssistanceMachineInventory
 
 const MAX_INVENTORY_ENTRIES = 1_000
 const MAX_PLATES_PER_DENOMINATION = 1_000
@@ -123,6 +142,8 @@ function basisMatchesInventory(basis: EquipmentLoadBasis, inventory: EquipmentIn
     return basis === 'dumbbell_per_hand' || basis === 'dumbbell_single_implement'
   }
   if (inventory.kind === 'machine') return basis === 'machine_stack'
+  if (inventory.kind === 'bodyweight_external') return basis === 'bodyweight_external'
+  if (inventory.kind === 'assistance_machine') return basis === 'machine_assistance'
   return false
 }
 
@@ -144,6 +165,14 @@ function assertInventoryShape(inventory: EquipmentInventory): void {
   }
   if (inventory.kind === 'machine') {
     if (!Array.isArray(inventory.stackLoads)) throw new Error('Machine stack loads must be an array')
+    return
+  }
+  if (inventory.kind === 'bodyweight_external') {
+    if (!Array.isArray(inventory.externalLoads)) throw new Error('Bodyweight external loads must be an array')
+    return
+  }
+  if (inventory.kind === 'assistance_machine') {
+    if (!Array.isArray(inventory.assistanceLoads)) throw new Error('Assistance machine loads must be an array')
     return
   }
   throw new Error('Unsupported equipment inventory kind')
@@ -251,6 +280,9 @@ export function findNextEquipmentLoad(
 ): EquipmentLoad | null {
   assertInventoryShape(inventory)
   assertCurrentMatches(current, inventory)
+  // These bases use their dedicated reviewed rep-only policy. The generic
+  // percentage-load path must never infer a new external or assistance load.
+  if (inventory.kind === 'bodyweight_external' || inventory.kind === 'assistance_machine') return null
   const currentValue = toThousandths(current.quantity.entered.value, inventory.unit)
 
   let nextValue: string | null = null
@@ -310,7 +342,13 @@ export function enumerateEquipmentLoadsWithinBounds(
       return compareEnteredLoadToCanonicalKg(candidate.entered, bounds.maximumCanonicalKg) <= 0
     })
   } else {
-    const values = inventory.kind === 'dumbbell' ? inventory.perHandLoads : inventory.stackLoads
+    const values = inventory.kind === 'dumbbell'
+      ? inventory.perHandLoads
+      : inventory.kind === 'machine'
+        ? inventory.stackLoads
+        : inventory.kind === 'bodyweight_external'
+          ? inventory.externalLoads
+          : inventory.assistanceLoads
     if (values.length > MAX_INVENTORY_ENTRIES) throw new Error('Equipment inventory exceeds 1000 entries')
     candidateValues = new Set(values.map(value => toThousandths(value, inventory.unit)))
   }

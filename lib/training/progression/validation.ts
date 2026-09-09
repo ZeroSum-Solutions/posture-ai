@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { EligibilitySnapshotV1Schema } from '../contracts/eligibility'
 import { ExecutionContextV1Schema } from '../contracts/program'
+import { BodyweightAssistancePolicyReferenceV1Schema } from '../catalog/types'
 import { createLoadQuantity, isEnteredLoadAtMostCanonicalKg } from '../quantity'
 import type { StrengthProgressionInputV1 } from './types'
 
@@ -11,7 +12,10 @@ const MAX_INVENTORY_ENTRIES = 1_000
 const nonemptyString = z.string().refine(value => value.trim().length > 0)
 const utcTimestamp = z.string().datetime({ offset: true }).refine(value => value.endsWith('Z'))
 const loadUnit = z.enum(['kg', 'lb'])
-const loadBasis = z.enum(['barbell_total', 'dumbbell_per_hand', 'dumbbell_single_implement', 'machine_stack'])
+const loadBasis = z.enum([
+  'barbell_total', 'dumbbell_per_hand', 'dumbbell_single_implement', 'machine_stack',
+  'bodyweight_external', 'machine_assistance',
+])
 
 const enteredQuantity = z.strictObject({
   value: z.string(),
@@ -94,7 +98,32 @@ const machineInventory = z.strictObject({
   }
 })
 
-const equipmentInventory = z.discriminatedUnion('kind', [barbellInventory, dumbbellInventory, machineInventory])
+const bodyweightExternalInventory = z.strictObject({
+  kind: z.literal('bodyweight_external'),
+  equipmentId: nonemptyString,
+  unit: loadUnit,
+  externalLoads: z.array(z.string()).max(MAX_INVENTORY_ENTRIES),
+}).superRefine((inventory, context) => {
+  if (!decimalValuesAreValid(inventory.externalLoads, inventory.unit)) {
+    context.addIssue({ code: 'custom', message: 'Bodyweight external inventory contains an invalid load' })
+  }
+})
+
+const assistanceMachineInventory = z.strictObject({
+  kind: z.literal('assistance_machine'),
+  equipmentId: nonemptyString,
+  unit: loadUnit,
+  assistanceLoads: z.array(z.string()).max(MAX_INVENTORY_ENTRIES),
+}).superRefine((inventory, context) => {
+  if (!decimalValuesAreValid(inventory.assistanceLoads, inventory.unit)) {
+    context.addIssue({ code: 'custom', message: 'Assistance inventory contains an invalid load' })
+  }
+})
+
+const equipmentInventory = z.discriminatedUnion('kind', [
+  barbellInventory, dumbbellInventory, machineInventory,
+  bodyweightExternalInventory, assistanceMachineInventory,
+])
 
 const repRange = z.strictObject({
   min: z.number().int().min(1).max(100),
@@ -118,6 +147,7 @@ const comparatorFields = {
   targetRir: rirRange,
   exposureType: nonemptyString,
   loadEpoch: z.number().int().min(0),
+  bodyweightAssistancePolicy: BodyweightAssistancePolicyReferenceV1Schema.optional(),
 }
 
 const comparator = z.strictObject({
@@ -230,7 +260,11 @@ export const strengthProgressionInputV1Schema = z.strictObject({
     : input.equipmentInventory.kind === 'dumbbell'
       ? input.prescription.loadBasis === 'dumbbell_per_hand'
         || input.prescription.loadBasis === 'dumbbell_single_implement'
-      : input.prescription.loadBasis === 'machine_stack'
+      : input.equipmentInventory.kind === 'machine'
+        ? input.prescription.loadBasis === 'machine_stack'
+        : input.equipmentInventory.kind === 'bodyweight_external'
+          ? input.prescription.loadBasis === 'bodyweight_external'
+          : input.prescription.loadBasis === 'machine_assistance'
   if (!basisMatchesInventory) {
     context.addIssue({ code: 'custom', path: ['prescription', 'loadBasis'], message: 'Load basis does not match equipment inventory' })
   }
@@ -239,6 +273,24 @@ export const strengthProgressionInputV1Schema = z.strictObject({
     || input.prescription.prescribedLoad.quantity.entered.unit !== input.equipmentInventory.unit) {
     context.addIssue({ code: 'custom', path: ['prescription', 'prescribedLoad'], message: 'Prescribed load does not match prescription equipment' })
   }
+  const usesDedicatedPolicy = input.prescription.loadBasis === 'bodyweight_external'
+    || input.prescription.loadBasis === 'machine_assistance'
+  if (usesDedicatedPolicy !== (input.prescription.bodyweightAssistancePolicy !== undefined)) {
+    context.addIssue({
+      code: 'custom', path: ['prescription', 'bodyweightAssistancePolicy'],
+      message: 'Bodyweight and assistance progression requires exact policy identity',
+    })
+  }
+  input.exposures.forEach((item, index) => {
+    const comparator = item.comparator.bodyweightAssistancePolicy
+    if (comparator?.policyId !== input.prescription.bodyweightAssistancePolicy?.policyId
+      || comparator?.policyVersion !== input.prescription.bodyweightAssistancePolicy?.policyVersion) {
+      context.addIssue({
+        code: 'custom', path: ['exposures', index, 'comparator', 'bodyweightAssistancePolicy'],
+        message: 'Exposure policy identity does not match prescription',
+      })
+    }
+  })
 })
 
 export interface ProgressionValidationIssue {

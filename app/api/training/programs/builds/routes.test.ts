@@ -24,6 +24,7 @@ vi.mock('@/lib/training/persistence/program-build', async (original) => {
 })
 
 import { ProgramBuildError } from '@/lib/training/persistence/program-build'
+import { PROGRAM_LIVE_CATALOG_REGISTRY } from '@/lib/training/catalog/liveRegistry'
 import { POST as create } from './route'
 import { GET as read } from './[buildId]/route'
 import { POST as accept } from './[buildId]/accept/route'
@@ -70,6 +71,9 @@ describe('training program build routes', () => {
     expect(mocks.createBuild).toHaveBeenCalledWith(
       { subjectId, profileRevision: 3, cycleStartLocalDate: '2026-09-08' }, actor, { dependencies: true },
     )
+    expect(mocks.createDependencies).toHaveBeenCalledWith(
+      { auth: true }, { service: true }, PROGRAM_LIVE_CATALOG_REGISTRY,
+    )
   })
 
   it('does not invoke persistence after the actor gate denies the request', async () => {
@@ -85,6 +89,9 @@ describe('training program build routes', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual(projection)
     expect(mocks.readBuild).toHaveBeenCalledWith(buildId, actor, { dependencies: true })
+    expect(mocks.createDependencies).toHaveBeenLastCalledWith(
+      { auth: true }, { service: true }, PROGRAM_LIVE_CATALOG_REGISTRY,
+    )
   })
 
   it('accepts only representative load and conditioning choice fields', async () => {
@@ -97,6 +104,9 @@ describe('training program build routes', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ schemaVersion: 'training-build-acceptance.v1', buildId, draftId })
     expect(mocks.acceptBuild).toHaveBeenCalledWith(buildId, fixed, actor, { dependencies: true })
+    expect(mocks.createDependencies).toHaveBeenLastCalledWith(
+      { auth: true }, { service: true }, PROGRAM_LIVE_CATALOG_REGISTRY,
+    )
 
     const rejected = await accept(request({ loadSelections: fixed.loadChoices, conditioningChoices: fixed.conditioningChoices }), {
       params: Promise.resolve({ buildId }),

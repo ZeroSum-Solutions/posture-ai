@@ -1,17 +1,17 @@
 {
   "schemaVersion": "muscle-viewer-build.v1",
   "sourceRepository": "https://github.com/wiggdevin/muscle-viewer",
-  "sourceCommit": "2b76bf998724de1d2ef6078546d72bfaec253edc",
-  "sourceCommitPublished": true,
-  "buildPurpose": "Neutral anatomy, unobstructed responsive framing, rendered-model readiness and frame-rate-independent camera controls",
+  "sourceCommit": "01b0eb5bd689c6f642c0c900b9c927700cd7c6f6",
+  "sourceCommitPublished": false,
+  "buildPurpose": "Neutral anatomy with demand rendering, camera/material invalidation, and verified model-failure retry",
   "assets": [
     {
       "path": "public/muscle-viewer/index.html",
-      "sha256": "7ea5c524ec54c7db78439bea2c5bae889f63c5d12d9cf60a8c7076f9d4b90c0f"
+      "sha256": "2f253f13a6d54bca230c5738be06279333af928b384a9269bda74489df522027"
     },
     {
-      "path": "public/muscle-viewer/assets/index-CzTRQgYB.js",
-      "sha256": "f1af3f672a952ddda01bebdbe6995a9b0e4b360cc594df918dc4abf54408b7d0"
+      "path": "public/muscle-viewer/assets/index-B6UlzI-A.js",
+      "sha256": "71b1a1f66dfd1f2379c22888ce0287f330bc97035331e2b7ac210a4270d201e3"
     },
     {
       "path": "public/muscle-viewer/assets/index-BLzX4xY3.css",

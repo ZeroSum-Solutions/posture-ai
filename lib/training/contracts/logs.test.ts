@@ -24,6 +24,9 @@ describe('set log contracts', () => {
     }).replacesEventId).toBe('event-1')
     expect(() => TrainingSetLogEventV1Schema.parse({ ...base, eventType: 'set_actual_corrected' })).toThrow()
     expect(() => TrainingSetLogEventV1Schema.parse({ ...base, setKind: 'warmup' })).toThrow()
+    expect(TrainingSetLogEventV1Schema.parse({
+      ...base, setId: 'warmup-set-1', setKind: 'warmup', workingSetOrdinal: null,
+    })).toMatchObject({ setKind: 'warmup', workingSetOrdinal: null })
   })
 
   it('keeps synthetic logs bound to an explicit simulation run', () => {
@@ -35,5 +38,29 @@ describe('set log contracts', () => {
       },
     }
     expect(TrainingSetLogEventV1Schema.parse(synthetic).executionContext.kind).toBe('synthetic_simulation')
+  })
+
+  it('records external bodyweight and assistance as distinct exact nonnegative bases', () => {
+    expect(TrainingSetLogEventV1Schema.parse({
+      ...base,
+      equipmentId: 'bodyweight-station',
+      loadBasis: 'bodyweight_external',
+      quantity: createLoadQuantity({ value: '0', unit: 'kg' }),
+    })).toMatchObject({
+      loadBasis: 'bodyweight_external',
+      quantity: { entered: { value: '0', unit: 'kg' }, canonicalKg: '0' },
+    })
+    expect(TrainingSetLogEventV1Schema.parse({
+      ...base,
+      equipmentId: 'assisted-pullup-a',
+      loadBasis: 'machine_assistance',
+      quantity: createLoadQuantity({ value: '20', unit: 'kg' }),
+    })).toMatchObject({ loadBasis: 'machine_assistance', quantity: { canonicalKg: '20' } })
+    expect(TrainingSetLogEventV1Schema.safeParse({
+      ...base,
+      equipmentId: 'assisted-pullup-a',
+      loadBasis: 'machine_assistance',
+      quantity: { entered: { value: '-5', unit: 'kg' }, canonicalKg: '-5' },
+    }).success).toBe(false)
   })
 })

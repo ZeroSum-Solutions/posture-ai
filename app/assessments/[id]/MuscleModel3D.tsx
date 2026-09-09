@@ -39,8 +39,8 @@ const HELLO_INTERVAL_MS = 300
 const HELLO_MAX_TRIES = 40
 const MODEL_READY_TIMEOUT_MS = 30_000
 
-export default function MuscleModel3D({ findings }: { findings: AssessmentFinding[] }) {
-  const { states, notShown } = useMemo(() => findingsToMuscleStates(findings), [findings])
+export default function MuscleModel3D({ findings, referenceOnly = false }: { findings: AssessmentFinding[]; referenceOnly?: boolean }) {
+  const { states, notShown } = useMemo(() => findingsToMuscleStates(referenceOnly ? [] : findings), [findings, referenceOnly])
   const entries = useMemo(() => toNeutralViewerEntries(states), [states])
   const referencedRegions = useMemo(
     () => new Set(entries.map((entry) => entry.muscle)).size,
@@ -152,13 +152,13 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
         <header className={styles.header}>
           <div className={styles.headingCopy}>
             <span className={styles.eyebrow}>Interactive anatomy</span>
-            <h2 id="anatomy-viewer-title" className="t-title">Explore assessment-linked regions</h2>
-            <p className="t-body">Rotate the model to locate anatomy referenced by this saved assessment.</p>
+            <h2 id="anatomy-viewer-title" className="t-title">{referenceOnly ? 'Explore anatomy in 3D' : 'Explore assessment-linked regions'}</h2>
+            <p className="t-body">{referenceOnly ? 'Rotate the model to explore general anatomy. No assessment findings are mapped onto this view.' : 'Rotate the model to locate anatomy referenced by this saved assessment.'}</p>
           </div>
-          <div className={styles.legend} aria-label="3D model legend">
+          {!referenceOnly && <div className={styles.legend} aria-label="3D model legend">
             <span className={styles.swatch} aria-hidden />
             <span>{referencedRegions} linked {referencedRegions === 1 ? 'region' : 'regions'}</span>
-          </div>
+          </div>}
         </header>
 
         <div className={styles.viewerFrame}>
@@ -209,7 +209,7 @@ export default function MuscleModel3D({ findings }: { findings: AssessmentFindin
         )}
 
         <p className={styles.boundary}>
-          Gold marks anatomy referenced by the assessment record. The scan did not test muscle
+          {referenceOnly ? 'This is a general anatomy illustration, not a reconstruction of the captured person.' : 'Gold marks anatomy referenced by the assessment record.'} The scan did not test muscle
           tightness, strength, inhibition, or injury.
         </p>
         <p className={styles.attribution}>

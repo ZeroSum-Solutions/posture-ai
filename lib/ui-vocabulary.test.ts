@@ -21,6 +21,10 @@ const TRAINING_PRESCRIPTION_FILES = [
   'app/workouts/_strength/PracticeDraftPanel.tsx',
   'app/workouts/_strength/TrainingSessionPlayer.gateway.ts',
   'app/workouts/_strength/TrainingSessionPlayer.tsx',
+  'app/train/privacy/TrainingSubjectErasure.tsx',
+  'app/workouts/_strength/TrainingExerciseSwapPanel.tsx',
+  'app/workouts/_strength/TrainingPreviousPerformance.tsx',
+  'app/workouts/_strength/TrainingProgramWorkspace.tsx',
 ] as const
 const BANNED: ReadonlyArray<{
   stem: RegExp
@@ -38,7 +42,7 @@ function* walk(dir: string): Generator<string> {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) yield* walk(full)
-    else if (/\.(tsx|ts)$/.test(entry) && !/\.test\./.test(entry)) yield full
+    else if (/\.(tsx|ts)$/.test(entry) && !/\.test(?:-fixtures)?\./.test(entry)) yield full
   }
 }
 
@@ -62,9 +66,9 @@ function lintFile(path: string): string[] {
 }
 
 describe('UI copy screening-vocabulary sweep', () => {
-  it('allows prescribed-versus-actual training vocabulary in the strength session player', () => {
+  it.each(TRAINING_PRESCRIPTION_FILES)('allows prescribed-versus-actual training vocabulary in %s', path => {
     expect(lintLine(
-      'app/workouts/_strength/TrainingSessionPlayer.tsx',
+      path,
       '<p>Prescribed: 2 kg · Actual: 2.5 kg</p>',
       1,
     )).toEqual([])

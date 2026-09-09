@@ -2,30 +2,35 @@ import { isTrainingConflictCode } from '@/lib/training/persistence/conflict'
 import { createHash, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { SYNTHETIC_STARTER_CATALOG, SYNTHETIC_STARTER_CATALOG_FIXTURE_HASH } from '../catalog/syntheticStarter'
+import {
+  resolveSyntheticBodyweightAssistancePolicy,
+  resolveSyntheticTrainingCatalogByFixture,
+} from '../catalog/syntheticRegistry'
 import { TrainingCatalogV1Schema, type TrainingCatalogV1 } from '../catalog/types'
 import { acceptCompiledExerciseInitialLoad, buildCompiledExerciseInitialLoadCalibration, type InitialLoadCalibrationV1 } from '../contracts/calibration'
 import { acceptCompiledConditioningBout } from '../contracts/conditioning'
+import type { BodyweightAssistancePolicyRegistryV1 } from '../contracts/bodyweight-assistance'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from '../contracts/profile'
 import {
   ExecutionContextV1Schema,
   TrainingProgramRevisionV1Schema,
+  executionContextsMatch,
   type AcceptedConditioningBoutV1,
   type AcceptedInitialLoadV1,
   type ExecutionContextV1,
   type TrainingProgramRevisionV1,
 } from '../contracts/program'
-import { compileTrainingProgram, type CompilationResultV1 } from '../engine/compileProgram'
+import {
+  compileTrainingProgram,
+  type CompilationResultV1,
+  type CompileTrainingProgramOptions,
+} from '../engine/compileProgram'
+import { createSyntheticIntermediateUndulatingTemplate } from '../engine/strengthTemplate'
 import type { TrainingServerActor } from '../access/server-actor'
 
 const uuidSchema = z.string().uuid()
 const localDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const positiveRevisionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
-const starterOrigin: Extract<typeof SYNTHETIC_STARTER_CATALOG.origin, { kind: 'synthetic_fixture' }> = (() => {
-  const origin = SYNTHETIC_STARTER_CATALOG.origin
-  if (origin.kind !== 'synthetic_fixture') throw new Error('Synthetic starter catalog origin is required')
-  return origin
-})()
 
 export const CreateProgramBuildInputV1Schema = z.object({
   subjectId: uuidSchema,
@@ -80,6 +85,13 @@ export interface ProgramLiveSourceV1 {
 export interface ProgramCatalogSelectionV1 {
   readonly catalog: TrainingCatalogV1
   readonly conditioningModalityId: string
+  readonly bodyweightAssistancePolicyRegistry?: BodyweightAssistancePolicyRegistryV1
+}
+
+type SyntheticCatalogSelectionV1 = ProgramCatalogSelectionV1 & {
+  readonly catalog: TrainingCatalogV1 & {
+    readonly origin: Extract<TrainingCatalogV1['origin'], { kind: 'synthetic_fixture' }>
+  }
 }
 
 export interface ProgramLiveCatalogRegistryV1 {
@@ -158,6 +170,8 @@ export class ProgramBuildError extends Error {
 
 export interface ProgramBuildCalibrationV1 {
   readonly exerciseLabel: string
+  readonly progressionSeriesId: string
+  readonly exposureType: string
   readonly calibration: InitialLoadCalibrationV1
 }
 
@@ -210,38 +224,88 @@ function requireCoachRunOwnership(actor: AllowedActor, run: ProgramSimulationRun
   }
 }
 
-function syntheticProfile(source: AthleteTrainingProfileV1): AthleteTrainingProfileV1 {
+function syntheticProfile(
+  source: AthleteTrainingProfileV1,
+  origin: Extract<TrainingCatalogV1['origin'], { kind: 'synthetic_fixture' }>,
+): AthleteTrainingProfileV1 {
   return AthleteTrainingProfileV1Schema.parse({
     ...source,
     origin: {
-      kind: 'synthetic_fixture', fixtureId: starterOrigin.fixtureId,
+      kind: 'synthetic_fixture', fixtureId: origin.fixtureId,
       label: 'Synthetic simulation copy of the current training profile',
     },
   })
 }
 
-function executionContext(runId: string): ExecutionContextV1 {
+function executionContext(
+  runId: string,
+  origin: Extract<TrainingCatalogV1['origin'], { kind: 'synthetic_fixture' }>,
+): ExecutionContextV1 {
   return ExecutionContextV1Schema.parse({
     kind: 'synthetic_simulation', simulationRunId: runId,
-    fixtureId: starterOrigin.fixtureId, fixtureHash: starterOrigin.fixtureHash,
+    fixtureId: origin.fixtureId, fixtureHash: origin.fixtureHash,
     label: 'Practice data',
   })
 }
 
+function requireSyntheticCatalog(
+  run: ProgramSimulationRunV1,
+  profile: AthleteTrainingProfileV1,
+): SyntheticCatalogSelectionV1 {
+  const catalog = resolveSyntheticTrainingCatalogByFixture(run.fixtureId, run.fixtureHash)
+  if (!catalog || catalog.origin.kind !== 'synthetic_fixture') {
+    throw new ProgramBuildError('program_build_unavailable')
+  }
+  const preference = profile.conditioningPreference
+  if (preference && preference.catalogVersion !== catalog.catalogVersion) {
+    throw new ProgramBuildError('program_build_stale')
+  }
+  const conditioningModalityId = preference?.preferredModalityIds[0]
+    ?? catalog.conditioningModes[0]?.modalityId
+  const mode = catalog.conditioningModes.find(candidate => candidate.modalityId === conditioningModalityId)
+  if (!mode) throw new ProgramBuildError(preference ? 'program_build_stale' : 'program_build_unavailable')
+  if (mode.lifecycle !== 'active' || mode.contentReviewStatus !== 'reviewed_fixture') {
+    throw new ProgramBuildError('program_build_stale')
+  }
+  return {
+    catalog: catalog as SyntheticCatalogSelectionV1['catalog'],
+    conditioningModalityId: mode.modalityId,
+    bodyweightAssistancePolicyRegistry: {
+      resolve: resolveSyntheticBodyweightAssistancePolicy,
+    },
+  }
+}
+
 const liveExecutionContext = ExecutionContextV1Schema.parse({ kind: 'live' })
 
-function requireLiveCatalog(
+function requirePreferredLiveCatalog(
   selection: ProgramCatalogSelectionV1 | null,
+  profile: AthleteTrainingProfileV1,
   expectedVersion?: string,
 ): ProgramCatalogSelectionV1 {
   if (!selection) throw new ProgramBuildError('program_build_unavailable')
   const parsed = TrainingCatalogV1Schema.safeParse(selection.catalog)
-  if (!parsed.success || parsed.data.origin.kind !== 'authored_catalog'
-    || (expectedVersion !== undefined && parsed.data.catalogVersion !== expectedVersion)
-    || !parsed.data.conditioningModes.some(mode => mode.modalityId === selection.conditioningModalityId)) {
+  if (!parsed.success || parsed.data.origin.kind !== 'authored_catalog') {
     throw new ProgramBuildError('program_build_unavailable')
   }
-  return { catalog: parsed.data, conditioningModalityId: selection.conditioningModalityId }
+  const preference = profile.conditioningPreference
+  if (!preference) throw new ProgramBuildError('program_build_unavailable')
+  if ((expectedVersion !== undefined && parsed.data.catalogVersion !== expectedVersion)
+    || preference.catalogVersion !== parsed.data.catalogVersion) {
+    throw new ProgramBuildError('program_build_stale')
+  }
+  const conditioningModalityId = preference.preferredModalityIds[0]
+  const mode = parsed.data.conditioningModes.find(candidate => candidate.modalityId === conditioningModalityId)
+  if (!mode || mode.lifecycle !== 'active' || mode.contentReviewStatus !== 'reviewed') {
+    throw new ProgramBuildError('program_build_stale')
+  }
+  return {
+    catalog: parsed.data,
+    conditioningModalityId,
+    ...(selection.bodyweightAssistancePolicyRegistry
+      ? { bodyweightAssistancePolicyRegistry: selection.bodyweightAssistancePolicyRegistry }
+      : {}),
+  }
 }
 
 function compileStoredDraft(
@@ -258,7 +322,28 @@ function compileStoredDraft(
     subjectId, profileRevisionId: String(profileRevision), programRevisionId,
     cycleStartLocalDate, conditioningModalityId,
     executionContext: context, profile, catalog,
-  })
+  }, compilerOptions(profile, context))
+}
+
+function compilerOptions(
+  profile: AthleteTrainingProfileV1,
+  context: ExecutionContextV1,
+): CompileTrainingProgramOptions {
+  const style = profile.strengthProgrammingStyle
+  if (!style) return {}
+  if (style === 'repeatable') return { strengthProgrammingStyle: style }
+  return {
+    strengthProgrammingStyle: style,
+    strengthTemplateRegistry: {
+      resolve: (_requestedStyle, requestedContext) => (
+        context.kind === 'synthetic_simulation'
+        && requestedContext.kind === 'synthetic_simulation'
+        && executionContextsMatch(requestedContext, context)
+          ? createSyntheticIntermediateUndulatingTemplate(requestedContext)
+          : null
+      ),
+    },
+  }
 }
 
 function requireExactCycleHorizon(draft: DraftProgram): DraftProgram {
@@ -282,6 +367,12 @@ function exerciseGroupKey(exercise: DraftProgram['weeks'][number]['strengthSessi
     exerciseVersionId: exercise.exerciseVersionId,
     equipmentId: exercise.equipmentId,
     loadBasis: exercise.loadBasis,
+    progressionSeriesId: exercise.progression.progressionSeriesId,
+    exposureType: exercise.progression.exposureType,
+    bodyweightAssistancePolicy: exercise.bodyweightAssistancePolicy,
+    repRange: exercise.repRange,
+    targetRir: exercise.targetRir,
+    restSeconds: exercise.restSeconds,
   })
 }
 
@@ -314,29 +405,45 @@ function representativeConditioningGroups(draft: DraftProgram) {
 function buildCalibrations(
   draft: DraftProgram,
   profile: AthleteTrainingProfileV1,
-  catalog: TrainingCatalogV1,
+  catalogSelection: ProgramCatalogSelectionV1,
 ): ProgramBuildCalibrationV1[] {
   return representativeExerciseGroups(draft).map((group) => {
     const exercise = group[0]
-    const catalogExercise = catalog.exercises
+    const catalogExercise = catalogSelection.catalog.exercises
       .find(item => item.exerciseVersionId === exercise.exerciseVersionId)
     if (!catalogExercise) throw new ProgramBuildError('program_build_unavailable')
     return {
       exerciseLabel: catalogExercise.label,
+      progressionSeriesId: exercise.progression.progressionSeriesId,
+      exposureType: exercise.progression.exposureType,
       calibration: buildCompiledExerciseInitialLoadCalibration({
         draft, exerciseInstanceId: exercise.exerciseInstanceId,
-        catalog, profile,
+        catalog: catalogSelection.catalog, profile,
+        bodyweightAssistancePolicyRegistry:
+          catalogSelection.bodyweightAssistancePolicyRegistry,
       }),
     }
   })
+}
+
+function requireBuildCalibrations(
+  draft: DraftProgram,
+  profile: AthleteTrainingProfileV1,
+  catalogSelection: ProgramCatalogSelectionV1,
+): ProgramBuildCalibrationV1[] {
+  try {
+    return buildCalibrations(draft, profile, catalogSelection)
+  } catch (error) {
+    if (error instanceof ProgramBuildError) throw error
+    throw new ProgramBuildError('program_build_unavailable')
+  }
 }
 
 function validateRun(run: ProgramSimulationRunV1 | null, stored: StoredProgramBuildV1, now: Date): ProgramSimulationRunV1 {
   if (!stored.simulationRunId || stored.eligibilitySourceRevisionId !== null
     || !run || run.id !== stored.simulationRunId || run.subjectId !== stored.subjectId
     || run.status !== 'active'
-    || Date.parse(run.expiresAt) <= now.getTime()
-    || run.fixtureId !== starterOrigin.fixtureId || run.fixtureHash !== SYNTHETIC_STARTER_CATALOG_FIXTURE_HASH) {
+    || Date.parse(run.expiresAt) <= now.getTime()) {
     throw new ProgramBuildError('program_build_unavailable')
   }
   return run
@@ -408,20 +515,17 @@ export async function createStoredProgramBuild(
   if (profileValue.origin.kind === 'synthetic_fixture') {
     const run = await dependencies.resolveSimulationRun(input.subjectId, input.profileRevision)
     if (!run || run.subjectId !== input.subjectId || run.status !== 'active'
-      || Date.parse(run.expiresAt) <= now.getTime()
-      || run.fixtureId !== starterOrigin.fixtureId || run.fixtureHash !== starterOrigin.fixtureHash) {
+      || Date.parse(run.expiresAt) <= now.getTime()) {
       throw new ProgramBuildError('program_build_unavailable')
     }
     requireCoachRunOwnership(actor, run)
+    const syntheticCatalog = requireSyntheticCatalog(run, profileValue)
+    catalogSelection = syntheticCatalog
     simulationRunId = run.id
     sourceIdentity = run.id
     sourceExpiry = Date.parse(run.expiresAt)
-    compilationProfile = syntheticProfile(profileValue)
-    context = executionContext(run.id)
-    catalogSelection = {
-      catalog: SYNTHETIC_STARTER_CATALOG,
-      conditioningModalityId: 'synthetic-continuous-walking.v1',
-    }
+    compilationProfile = syntheticProfile(profileValue, syntheticCatalog.catalog.origin)
+    context = executionContext(run.id, syntheticCatalog.catalog.origin)
   } else {
     const source = await dependencies.resolveLiveSource(
       input.subjectId,
@@ -434,7 +538,10 @@ export async function createStoredProgramBuild(
       || (source.effectiveUntil !== null && Date.parse(source.effectiveUntil) <= now.getTime())) {
       throw new ProgramBuildError('program_build_unavailable')
     }
-    catalogSelection = requireLiveCatalog(dependencies.resolveLiveCatalog())
+    catalogSelection = requirePreferredLiveCatalog(
+      dependencies.resolveLiveCatalog(),
+      profileValue,
+    )
     eligibilitySourceRevisionId = source.eligibilitySourceRevisionId
     sourceIdentity = source.eligibilitySourceRevisionId
     sourceExpiry = source.effectiveUntil === null
@@ -447,6 +554,7 @@ export async function createStoredProgramBuild(
   const programRevisionId = stableReference('build', [
     buildId, input.subjectId, input.profileRevision, sourceIdentity,
     catalogSelection.catalog.catalogVersion,
+    ...(profileValue.strengthProgrammingStyle ? [profileValue.strengthProgrammingStyle] : []),
   ])
   const result = compileStoredDraft(
     input.subjectId, input.profileRevision, programRevisionId,
@@ -457,6 +565,7 @@ export async function createStoredProgramBuild(
     return { schemaVersion: 'training-build-projection.v1', buildId: null, result, calibrations: [] }
   }
   requireExactCycleHorizon(result)
+  const calibrations = requireBuildCalibrations(result, compilationProfile, catalogSelection)
   const expiresAt = new Date(Math.min(now.getTime() + 60 * 60 * 1_000, sourceExpiry)).toISOString()
   const stored: StoredProgramBuildV1 = {
     id: buildId, subjectId: input.subjectId, createdByUserId: actor.userId,
@@ -472,7 +581,7 @@ export async function createStoredProgramBuild(
   }
   return {
     schemaVersion: 'training-build-projection.v1', buildId,
-    result, calibrations: buildCalibrations(result, compilationProfile, catalogSelection.catalog),
+    result, calibrations,
   }
 }
 
@@ -505,12 +614,10 @@ async function loadAuthorizedBuild(
       now,
     )
     requireCoachRunOwnership(actor, run)
-    compilationProfile = syntheticProfile(profile.profile)
-    context = executionContext(run.id)
-    catalogSelection = {
-      catalog: SYNTHETIC_STARTER_CATALOG,
-      conditioningModalityId: 'synthetic-continuous-walking.v1',
-    }
+    const syntheticCatalog = requireSyntheticCatalog(run, profile.profile)
+    catalogSelection = syntheticCatalog
+    compilationProfile = syntheticProfile(profile.profile, syntheticCatalog.catalog.origin)
+    context = executionContext(run.id, syntheticCatalog.catalog.origin)
   } else if (stored.simulationRunId === null && stored.eligibilitySourceRevisionId !== null) {
     validateLiveSource(
       await dependencies.resolveLiveSource(
@@ -526,8 +633,9 @@ async function loadAuthorizedBuild(
       throw new ProgramBuildError('program_build_unavailable')
     }
     context = liveExecutionContext
-    catalogSelection = requireLiveCatalog(
+    catalogSelection = requirePreferredLiveCatalog(
       dependencies.resolveLiveCatalog(stored.catalogVersion),
+      compilationProfile,
       stored.catalogVersion,
     )
   } else {
@@ -562,7 +670,7 @@ export async function readStoredProgramBuildProjection(
   return {
     schemaVersion: 'training-build-projection.v1', buildId: stored.id,
     result: draft,
-    calibrations: buildCalibrations(draft, compilationProfile, catalogSelection.catalog),
+    calibrations: requireBuildCalibrations(draft, compilationProfile, catalogSelection),
   }
 }
 
@@ -577,7 +685,7 @@ function assembleProgram(
   stored: StoredProgramBuildV1,
   draft: DraftProgram,
   compilationProfile: AthleteTrainingProfileV1,
-  catalog: TrainingCatalogV1,
+  catalogSelection: ProgramCatalogSelectionV1,
   actor: AllowedActor,
   input: AcceptProgramBuildInputV1,
   now: Date,
@@ -594,13 +702,17 @@ function assembleProgram(
     const optionIndex = loadChoices.get(representative.exerciseInstanceId) as number
     const calibration = buildCompiledExerciseInitialLoadCalibration({
       draft, exerciseInstanceId: representative.exerciseInstanceId,
-      catalog, profile: compilationProfile,
+      catalog: catalogSelection.catalog, profile: compilationProfile,
+      bodyweightAssistancePolicyRegistry:
+        catalogSelection.bodyweightAssistancePolicyRegistry,
     })
     if (!calibration.options[optionIndex]) throw new ProgramBuildError('program_build_invalid_selection')
     for (const exercise of group) {
       acceptedLoads.set(exercise.exerciseInstanceId, acceptCompiledExerciseInitialLoad({
         draft, exerciseInstanceId: exercise.exerciseInstanceId,
-        catalog, profile: compilationProfile,
+        catalog: catalogSelection.catalog, profile: compilationProfile,
+        bodyweightAssistancePolicyRegistry:
+          catalogSelection.bodyweightAssistancePolicyRegistry,
         acceptanceId: stableReference('accept', [selectionHash, exercise.exerciseInstanceId]),
         acceptedAt: now.toISOString(), acceptedByUserId: actor.userId, optionIndex,
       }))
@@ -636,6 +748,10 @@ function assembleProgram(
     programMode: authorKind === 'athlete' ? 'self_directed' : 'coach_assigned',
     owningPractitionerId: authorKind === 'coach' ? actor.userId : null,
     executionContext: draft.executionContext,
+    ...(draft.strengthProgrammingStyle
+      ? { strengthProgrammingStyle: draft.strengthProgrammingStyle }
+      : {}),
+    ...(draft.strengthTemplate ? { strengthTemplate: draft.strengthTemplate } : {}),
     cycleStartLocalDate: draft.cycleStartLocalDate,
     cycleLengthWeeks: draft.cycleLengthWeeks,
     profileRevisionId: String(stored.profileRevision),
@@ -651,6 +767,9 @@ function assembleProgram(
       exercises: session.exercises.map(exercise => ({
         exerciseInstanceId: exercise.exerciseInstanceId, exerciseVersionId: exercise.exerciseVersionId,
         movementPattern: exercise.movementPattern,
+        ...(exercise.warmupSets && exercise.warmupSets.length > 0
+          ? { warmupSets: exercise.warmupSets.map(warmup => ({ ...warmup })) }
+          : {}),
         setIds: [...exercise.setIds], repRange: exercise.repRange,
         targetRir: exercise.targetRir, restSeconds: exercise.restSeconds,
         progression: exercise.progression,
@@ -687,17 +806,23 @@ export async function acceptStoredProgramBuild(
 
   const now = dependencies.now()
   const draftId = (dependencies.newId ?? randomUUID)()
-  const program = assembleProgram(
-    stored,
-    draft,
-    compilationProfile,
-    catalogSelection.catalog,
-    actor,
-    normalized,
-    now,
-    draftId,
-    selectionHash,
-  )
+  let program: TrainingProgramRevisionV1
+  try {
+    program = assembleProgram(
+      stored,
+      draft,
+      compilationProfile,
+      catalogSelection,
+      actor,
+      normalized,
+      now,
+      draftId,
+      selectionHash,
+    )
+  } catch (error) {
+    if (error instanceof ProgramBuildError) throw error
+    throw new ProgramBuildError('program_build_unavailable')
+  }
   let insertion: 'inserted' | 'source_build_conflict'
   try {
     insertion = await dependencies.insertDraft({

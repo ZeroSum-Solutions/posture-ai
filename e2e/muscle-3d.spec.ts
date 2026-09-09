@@ -6,7 +6,7 @@ import { createClient, selectClientInWizard } from './helpers'
 // right. Requires the muscle KB seed + the copied viewer build (public/muscle-viewer/**).
 test.describe('3D posture summary', () => {
   test('mounts on click, frames under CSP, and colors the model from findings', async ({ page }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(150_000)
     // Track that the ~9 MB GLB is not fetched until the user opts in (click-only mount).
     let glbRequested = false
     page.on('request', (req) => {
@@ -71,6 +71,44 @@ test.describe('3D posture summary', () => {
     // A static screening cannot establish muscle tightness or weakness.
     expect(keys.length, 'viewer store should locate referenced anatomy').toBeGreaterThan(0)
     expect(keys.every(key => assessment[key].color === 'amber')).toBe(true)
+
+    const viewer = frame!.locator('[data-model-state="ready"]')
+    const canvas = frame!.locator('canvas')
+    await frame!.getByRole('button', { name: /Front/ }).click()
+    await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
+    const frontImage = await canvas.screenshot()
+    await frame!.getByRole('button', { name: /Back/ }).click()
+    await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
+    const backImage = await canvas.screenshot()
+    expect(frontImage.equals(backImage), 'Back must visibly change the rendered anatomy view').toBe(false)
+    await frame!.getByRole('button', { name: /Back/ }).press('f')
+    await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
+    await frame!.getByRole('button', { name: /Front/ }).press('r')
+    await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
+
+    const beforeDrag = await canvas.screenshot()
+    const canvasBounds = await canvas.boundingBox()
+    expect(canvasBounds).not.toBeNull()
+    const centerX = canvasBounds!.x + canvasBounds!.width / 2
+    const centerY = canvasBounds!.y + canvasBounds!.height / 2
+    await page.mouse.move(centerX, centerY)
+    await page.mouse.down()
+    await page.mouse.move(centerX + 90, centerY + 20, { steps: 12 })
+    await page.mouse.up()
+    await expect.poll(async () => beforeDrag.equals(await canvas.screenshot())).toBe(false)
+    const beforeZoom = await canvas.screenshot()
+    await page.mouse.wheel(0, -200)
+    await expect.poll(async () => beforeZoom.equals(await canvas.screenshot())).toBe(false)
+
+    // Exercise the real model-load failure and host retry, rather than injecting a message.
+    await page.route('**/muscle-viewer/model.glb', route => route.abort('failed'))
+    await page.reload()
+    await page.getByRole('tab', { name: 'Evidence' }).click()
+    await page.getByRole('button', { name: /Open interactive 3D anatomy/ }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'The 3D view did not load.' })).toBeVisible({ timeout: 40_000 })
+    await page.unroute('**/muscle-viewer/model.glb')
+    await page.getByRole('button', { name: 'Try again', exact: true }).click()
+    await expect(page.frameLocator('iframe[title="Interactive 3D anatomy model"]').locator('[data-model-state="ready"]')).toBeVisible({ timeout: 30_000 })
 
     // Framing was not blocked by CSP.
     expect(cspErrors, `CSP errors: ${cspErrors.join(' | ')}`).toEqual([])

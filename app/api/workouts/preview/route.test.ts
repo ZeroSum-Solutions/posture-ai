@@ -5,6 +5,7 @@ import { DEFAULT_WORKOUT_PREFERENCES } from '@/lib/workout/personalize'
 
 const state = vi.hoisted(() => ({
   build: vi.fn(),
+  screen: vi.fn(),
   provider: vi.fn(),
   assessmentEq: vi.fn(),
   clinicalEnabled: true,
@@ -105,6 +106,10 @@ vi.mock('@/lib/clinical-content/database', () => ({
 vi.mock('@/lib/workout/buildSessionFromAssessment', () => ({
   buildSessionFromAssessment: state.build,
 }))
+vi.mock('@/lib/training/screening/derivedUse', () => ({
+  SCREENING_CAPTURE_SELECT: 'screening-captures',
+  screenFindingsForDerivedUse: state.screen,
+}))
 
 import { POST } from './route'
 
@@ -119,6 +124,10 @@ function request(body: Record<string, unknown>) {
 describe('POST /api/workouts/preview', () => {
   beforeEach(() => {
     state.build.mockReset().mockReturnValue(candidate)
+    state.screen.mockReset().mockImplementation((input: { findings: unknown[] }) => ({
+      screeningContext: { version: 'screening-context-v1', scanUse: 'descriptive' },
+      descriptiveFindings: input.findings,
+    }))
     state.provider.mockReset()
     state.assessmentEq.mockReset()
     state.clinicalEnabled = true
@@ -235,6 +244,23 @@ describe('POST /api/workouts/preview', () => {
     }))
 
     expect(response.status).toBe(403)
+    expect(state.build).not.toHaveBeenCalled()
+  })
+
+  test('does not build a preview when screening evidence is unavailable or incompatible', async () => {
+    state.screen.mockReturnValueOnce({
+      screeningContext: { version: 'screening-context-v1', scanUse: 'incompatible' },
+      descriptiveFindings: [],
+    })
+
+    const response = await POST(request({
+      assessment_id: assessmentId,
+      preferences: DEFAULT_WORKOUT_PREFERENCES,
+      mode: 'scan',
+    }))
+
+    expect(response.status).toBe(422)
+    await expect(response.json()).resolves.toMatchObject({ code: 'screening_context_unavailable' })
     expect(state.build).not.toHaveBeenCalled()
   })
 

@@ -78,4 +78,28 @@ describe('GET /auth/confirm', () => {
     expect(response.cookies.get('sb-session')?.value).toBe('rotated')
     expect(rpc).not.toHaveBeenCalled()
   })
+
+  test('establishes an athlete recovery session before continuing an exact invitation retry', async () => {
+    maybeSingle.mockResolvedValueOnce({ data: { actor_kind: 'athlete' }, error: null })
+
+    const response = await GET(new NextRequest(
+      'http://localhost/auth/confirm?token_hash=recovery-secret&type=recovery&next=athlete-invite',
+    ))
+
+    expect(verifyOtp).toHaveBeenCalledWith({
+      type: 'recovery',
+      token_hash: 'recovery-secret',
+    })
+    expect(rpc).toHaveBeenCalledWith('current_application_actor')
+    expect(response.headers.get('location')).toBe('/train/accept-invite')
+    expect(response.cookies.get('sb-session')?.value).toBe('rotated')
+  })
+
+  test('does not admit a practitioner recovery session into the athlete invitation corridor', async () => {
+    const response = await GET(new NextRequest(
+      'http://localhost/auth/confirm?token_hash=recovery-secret&type=recovery&next=athlete-invite',
+    ))
+
+    expect(response.headers.get('location')).toBe('/auth/sign-in?reason=invite_invalid')
+  })
 })

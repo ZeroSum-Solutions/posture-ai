@@ -185,6 +185,18 @@ describe('review finding rows', () => {
     expect(rows[0].reference).toBe('ref 2.0°')
   })
 
+  it('does not present a numeric measurement or reference for an unavailable finding', () => {
+    const [row] = model({ findings: [finding({
+      id: 'unavailable',
+      zone: 'unreliable',
+      deviation: null,
+      severity_pct: null,
+    })] }).rows
+    expect(row.measurement).toBeNull()
+    expect(row.reference).toBeNull()
+    expect(row.severity).toBe(0)
+  })
+
   it('omits the measurement and reference when no unit was recorded', () => {
     const rows = model({ findings: [finding({ id: 'a', unit: null, standard: null })] }).rows
     expect(rows[0].measurement).toBeNull()
