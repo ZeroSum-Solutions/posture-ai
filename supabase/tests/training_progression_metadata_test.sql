@@ -27,9 +27,9 @@ INSERT INTO public.training_program_revisions(
 INSERT INTO public.training_sessions(
   id,assignment_id,subject_id,session_kind,state,scheduled_local_date,athlete_timezone
 ) VALUES
-  ('progression-session-1','progression-program-1','47000000-0000-4000-8000-000000000003','strength','in_progress','2026-09-08','UTC'),
-  ('progression-legacy-1','progression-program-1','47000000-0000-4000-8000-000000000003','strength','in_progress','2026-09-01','UTC'),
-  ('progression-invalid-1','progression-program-1','47000000-0000-4000-8000-000000000003','strength','in_progress','2026-09-09','UTC');
+  ('progression-session-1','progression-program-1','47000000-0000-4000-8000-000000000003','strength','in_progress',(pg_catalog.clock_timestamp() AT TIME ZONE 'UTC')::date,'UTC'),
+  ('progression-legacy-1','progression-program-1','47000000-0000-4000-8000-000000000003','strength','in_progress',(pg_catalog.clock_timestamp() AT TIME ZONE 'UTC')::date - 7,'UTC'),
+  ('progression-invalid-1','progression-program-1','47000000-0000-4000-8000-000000000003','strength','in_progress',(pg_catalog.clock_timestamp() AT TIME ZONE 'UTC')::date,'UTC');
 SET LOCAL session_replication_role = origin;
 
 CREATE FUNCTION pg_temp.progression_prescription(p_session_id text, p_progression jsonb)
@@ -60,7 +60,7 @@ INSERT INTO public.training_session_prescriptions(
     "exposureType":"standard",
     "loadEpoch":1
   }'::jsonb),
-  '47000000-0000-4000-8000-000000000001','2026-09-08T17:00:00Z'
+  '47000000-0000-4000-8000-000000000001',pg_catalog.clock_timestamp()
 );
 
 INSERT INTO public.training_session_prescriptions(
@@ -68,7 +68,7 @@ INSERT INTO public.training_session_prescriptions(
 ) VALUES (
   'progression-legacy-1','47000000-0000-4000-8000-000000000003','progression-program-1',1,
   pg_temp.progression_prescription('progression-legacy-1',NULL),
-  '47000000-0000-4000-8000-000000000001','2026-09-01T17:00:00Z'
+  '47000000-0000-4000-8000-000000000001',pg_catalog.clock_timestamp() - interval '7 days'
 );
 
 SELECT results_eq(
@@ -117,7 +117,8 @@ SELECT is(
 );
 SELECT is(
   public.read_training_strength_evidence_projection('progression-session-1','progression-session-1-press')#>>'{metadata,startedAt}',
-  '2026-09-08T17:00:00.000000Z',
+  (SELECT pg_catalog.to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+    FROM public.training_session_prescriptions WHERE session_id='progression-session-1'),
   'started timestamp is the exact persisted server value in UTC'
 );
 SELECT is(
