@@ -30,33 +30,33 @@ describe('buildHistoryRows', () => {
     expect(rows[0].deltaIcon).toBeNull()
   })
 
-  it('signs a directional movement and tones it by direction', () => {
+  it('shows a signed recorded difference with neutral tone', () => {
     const rows = buildHistoryRows([
       scan({ id: 'old', overallScore: 60, assessedAt: '2026-01-01T00:00:00Z' }),
       scan({ id: 'new', overallScore: 44, assessedAt: '2026-03-01T00:00:00Z' }),
     ])
     expect(rows[0].delta).toBe('−16')
-    expect(rows[0].deltaBand).toBe('maintain')
+    expect(rows[0].deltaBand).toBe('neutral')
     expect(rows[0].deltaIcon).toBe('arrow-down-linear')
     expect(rows[0].deltaWord).toBeNull()
   })
 
-  it('tones a rising deviation score as review', () => {
+  it('keeps a rising recorded score neutral', () => {
     const rows = buildHistoryRows([
       scan({ id: 'old', overallScore: 30, assessedAt: '2026-01-01T00:00:00Z' }),
       scan({ id: 'new', overallScore: 48, assessedAt: '2026-03-01T00:00:00Z' }),
     ])
     expect(rows[0].delta).toBe('+18')
-    expect(rows[0].deltaBand).toBe('review')
+    expect(rows[0].deltaBand).toBe('neutral')
   })
 
-  it('reads a movement inside the tolerance as flat with no number', () => {
+  it('preserves a signed one-point difference instead of hiding it behind a fallback band', () => {
     const rows = buildHistoryRows([
       scan({ id: 'old', overallScore: 40, assessedAt: '2026-01-01T00:00:00Z' }),
       scan({ id: 'new', overallScore: 39, assessedAt: '2026-03-01T00:00:00Z' }),
     ])
-    expect(rows[0].delta).toBeNull()
-    expect(rows[0].deltaWord).toBe('flat')
+    expect(rows[0].delta).toBe('−1')
+    expect(rows[0].deltaWord).toBeNull()
     expect(rows[0].deltaBand).toBe('neutral')
   })
 

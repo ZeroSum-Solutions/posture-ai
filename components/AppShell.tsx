@@ -9,13 +9,18 @@ import IslandNav from './array/IslandNav'
 import { shouldRenderAmbientField } from './array/fieldPolicy'
 import MotionOrchestrator from './MotionOrchestrator'
 import AuthSessionGuard from './AuthSessionGuard'
+import type { IslandAudience } from './array/islandPolicy'
 
 export default function AppShell({
   children,
   clinicalContentEnabled,
+  navigationAudience,
+  renderedUserId,
 }: {
   children: ReactNode
   clinicalContentEnabled: boolean
+  navigationAudience: IslandAudience
+  renderedUserId: string | null
 }) {
   const pathname = usePathname() ?? ''
 
@@ -24,9 +29,8 @@ export default function AppShell({
     <MotionConfig reducedMotion="user">
       <div className="app-shell">
         {shouldRenderAmbientField(pathname) && <AmbientField />}
-        <AuthSessionGuard pathname={pathname}>
+        <AuthSessionGuard pathname={pathname} renderedUserId={renderedUserId}>
           <MotionOrchestrator>{children}</MotionOrchestrator>
-        </AuthSessionGuard>
         {/* Disclaimers are one line. The governed screening document still renders
             in full where it legally matters — capture, assessment results and the
             privacy page — rather than under every screen in the app. */}
@@ -38,7 +42,8 @@ export default function AppShell({
             <Link href="/terms">Terms of Use</Link>
           </div>
         </footer>
-        <IslandNav clinicalContentEnabled={clinicalContentEnabled} />
+        <IslandNav clinicalContentEnabled={clinicalContentEnabled} audience={navigationAudience} />
+        </AuthSessionGuard>
       </div>
     </MotionConfig>
   )

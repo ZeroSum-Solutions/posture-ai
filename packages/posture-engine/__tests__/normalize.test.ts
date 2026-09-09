@@ -138,6 +138,31 @@ describe('assessPosture tilt correction (engine equivalence)', () => {
     expect(tilted.overallScore).toBe(level.overallScore)
   })
 
+  it('preserves an asymmetric front metric through aspect correction, roll, and pixel reflection', () => {
+    const base = testLandmarksFrames.find(f => f.view === 'front')!
+    const rolled = simulateTiltedCapture(base, 4.2, 0.75)
+    const reflected: PoseFrame = {
+      ...rolled,
+      // Pixel reflection reverses the image-space roll sign. Landmark names
+      // continue to mean the subject's anatomical left/right; the detector
+      // owns that labeling contract, not this geometry step.
+      captureRollDeg: -4.2,
+      landmarks: Object.fromEntries(Object.entries(rolled.landmarks).map(([name, landmark]) => [
+        name,
+        { ...landmark, x: 1 - landmark.x },
+      ])),
+    }
+    const originalFinding = assessPosture([rolled]).findings.find(
+      finding => finding.key === 'anterior_imbalanced_shoulders',
+    )!
+    const reflectedFinding = assessPosture([reflected]).findings.find(
+      finding => finding.key === 'anterior_imbalanced_shoulders',
+    )!
+
+    expect(reflectedFinding.deviation).toBeCloseTo(originalFinding.deviation, 6)
+    expect(reflectedFinding.direction).toBe(originalFinding.direction)
+  })
+
   it('flags: tiltCorrected true / levelVerified true when all frames carry a roll', () => {
     const tiltedFrames = testLandmarksFrames.map(f => simulateTiltedCapture(f, 3, 0.75))
     const r = assessPosture(tiltedFrames)

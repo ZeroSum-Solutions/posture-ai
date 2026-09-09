@@ -148,7 +148,7 @@ export default function ReviewDock({
 
         <dl className={styles.stateList}>
           <div>
-            <dt>Reliability</dt>
+            <dt>Capture quality</dt>
             <dd>{reliabilityLabel}</dd>
             {reliabilityDetail && <dd className={styles.stateDetail}>{reliabilityDetail}</dd>}
             {unreliableCount > 0 && <dd className={styles.stateDetail}>{unreliableCount} {unreliableCount === 1 ? 'reading' : 'readings'} unavailable</dd>}

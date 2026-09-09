@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "training-reference-media-supplement.v1",
+  "snapshotId": "wger-1652-media-pilot-2026-09-08",
+  "extendsSnapshotId": "wger-english-2026-09-08",
+  "source": {
+    "provider": "wger",
+    "recordEndpoint": "https://wger.de/api/v2/exerciseinfo/1652/",
+    "licenseEndpoint": "https://wger.de/api/v2/license/2/",
+    "capturedAt": "2026-09-08T14:36:42Z",
+    "selectionPolicy": "single-attributed-exact-variant-media-pilot.v1"
+  },
+  "record": {
+    "id": "wger:65d12ecf-54b8-466d-a412-e55c396cad69",
+    "normalizedName": "dumbbell romanian deadlift",
+    "name": "Dumbbell Romanian Deadlift",
+    "category": "legs",
+    "equipment": ["Dumbbell"],
+    "primaryMuscles": ["Hamstrings", "Glutes"],
+    "secondaryMuscles": [],
+    "instructions": "This exercise involves holding a dumbbell in each hand and bending forward at the hips while keeping the back straight, then returning to a standing position. It primarily targets the hamstrings and glutes.",
+    "source": {
+      "provider": "wger",
+      "recordId": 1652,
+      "recordUuid": "65d12ecf-54b8-466d-a412-e55c396cad69",
+      "translationId": 2770,
+      "recordUpdatedAt": "2026-06-19T18:49:43.204115+02:00",
+      "recordUrl": "https://wger.de/api/v2/exerciseinfo/1652/",
+      "author": "AlucardEvil40",
+      "license": {
+        "shortName": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      }
+    }
+  },
+  "media": {
+    "kind": "image",
+    "posterUrl": "/training/reference/wger-1652-dumbbell-romanian-deadlift.webp",
+    "alt": "Two views of a person holding one dumbbell in each hand: standing upright and hinging forward at the hips.",
+    "width": 1200,
+    "height": 630,
+    "mimeType": "image/webp",
+    "sha256": "434e5dad93148deff622079705db41b250dae8908f844d92a01349d1cd4361ef",
+    "source": {
+      "provider": "wger",
+      "exerciseRecordId": 1652,
+      "assetId": 590,
+      "assetUuid": "0306c8c0-70cc-45d4-92de-6fa72ceaa834",
+      "assetUrl": "https://wger.de/media/exercise-images/1652/0306c8c0-70cc-45d4-92de-6fa72ceaa834.webp",
+      "author": "AlucardEvil40",
+      "authorHistory": ["AlucardEvil40"],
+      "license": {
+        "shortName": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
+      "isAiGenerated": false,
+      "modifications": "none"
+    }
+  },
+  "review": {
+    "status": "reference_unreviewed",
+    "compilerEligible": false,
+    "visualCheck": "Two dumbbells, one per hand, are visible in both the upright and hip-hinge positions.",
+    "professionalReview": "not_completed"
+  }
+}

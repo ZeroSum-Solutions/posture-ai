@@ -163,6 +163,25 @@ describe('MfaPage', () => {
 
     expect((await screen.findByText(/Password recovery does not bypass MFA/i)).textContent).toMatch(/contact your beta administrator/i)
   })
+
+  it('completes athlete admission through its distinct actor-bound endpoint', async () => {
+    window.history.replaceState({}, '', '/auth/mfa?mode=athlete-invite&next=/train')
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      error: null,
+    })
+    const fetchMock = vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      json: async () => ({ code: 'completion_failed' }),
+    } as Response)
+
+    render(<MfaPage />)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/training/auth/complete-invitation',
+      expect.objectContaining({ method: 'POST' }),
+    ))
+  })
 })
 
 describe('completionMessage', () => {

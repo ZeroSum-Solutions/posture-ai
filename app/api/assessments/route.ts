@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { practitionerGate } from '@/lib/auth/requirePractitioner'
-import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
+import { assessPosture } from '@posture-ai/engine'
 import type { PoseFrame } from '@posture-ai/engine'
 import { parseAssessmentPayload, MAX_PAYLOAD_BYTES } from '@/lib/validation/frames'
 import { getConsentStatus, captureEligibility } from '@/lib/consent/record'
@@ -13,6 +13,7 @@ import { buildCaptureRow } from '@/lib/captures/buildCaptureRow'
 import { assessmentSubmissionDigest } from '@/lib/assessments/submission'
 import { operationForPractitioner } from '@/lib/prototype/runtime'
 import { ageBand, captureBlockReason } from '@/lib/clients/age'
+import { syntheticScreeningFixtureFramesV1 } from '@/lib/training/screening/syntheticFixture'
 
 const ROUTE = 'POST /api/assessments'
 const TEST_MODE_ENABLED = process.env.POSTURE_TEST_MODE_ENABLED === '1'
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: reason }, { status: 403 })
       }
       try {
-        const frames = (useFixture ? testLandmarksFrames : parsed.data.frames) as PoseFrame[]
+        const frames = (useFixture ? syntheticScreeningFixtureFramesV1() : parsed.data.frames) as PoseFrame[]
         const result = assessPosture(frames)
         // The RPC ignores embedded ownership fields and supplies both ids from
         // its trusted scalar arguments. Reusing the existing mappers keeps the
@@ -257,12 +258,13 @@ export async function POST(req: NextRequest) {
     // Run scoring engine on validated client frames (or the bundled fixture
     // when the server-side test flag explicitly allows it).
     try {
-      const frames = (useFixture ? testLandmarksFrames : parsed.data.frames) as PoseFrame[]
+      const frames = (useFixture ? syntheticScreeningFixtureFramesV1() : parsed.data.frames) as PoseFrame[]
 
       // Persist the captured pose frames (reproducible / re-scorable), with the
       // unused face-region keypoints stripped first (data minimization, BIPA).
       // Scoring above/below runs on the full in-memory frame; only what is saved
-      // is minimized. storage_path is never set — no raw image bytes at rest.
+      // is minimized. Photo storage is handled by the separate authenticated
+      // capture-image upload after this assessment has been created.
       const capturesToInsert = frames.map((f) =>
         buildCaptureRow(f, assessmentId, user.id, { useFixture }),
       )

@@ -7,8 +7,8 @@ import styles from './AssessmentReview.module.css'
 
 /**
  * The screen's subject: the grade, the deviation score, and where both sit on the
- * 0–100 scale — with the previous scan drawn on the same rail so improvement is
- * visible in the object itself rather than asserted in a caption.
+ * 0–100 scale — with the previous scan drawn on the same rail so the recorded
+ * numeric difference remains visible without a health-outcome caption.
  *
  * The rail's segments are the engine's grade boundaries as percentages, which is
  * the same scale the dot is positioned on. There is no second mapping to fall out

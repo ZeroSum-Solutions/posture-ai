@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "muscle-viewer-build.v1",
+  "sourceRepository": "https://github.com/wiggdevin/muscle-viewer",
+  "sourceCommit": "01b0eb5bd689c6f642c0c900b9c927700cd7c6f6",
+  "sourceCommitPublished": false,
+  "buildPurpose": "Neutral anatomy with demand rendering, camera/material invalidation, and verified model-failure retry",
+  "assets": [
+    {
+      "path": "public/muscle-viewer/index.html",
+      "sha256": "2f253f13a6d54bca230c5738be06279333af928b384a9269bda74489df522027"
+    },
+    {
+      "path": "public/muscle-viewer/assets/index-B6UlzI-A.js",
+      "sha256": "71b1a1f66dfd1f2379c22888ce0287f330bc97035331e2b7ac210a4270d201e3"
+    },
+    {
+      "path": "public/muscle-viewer/assets/index-BLzX4xY3.css",
+      "sha256": "62a651acfbd04e52c38a3c623479d798edad2507c451c9c1a64514e4c2bd085b"
+    },
+    {
+      "path": "public/muscle-viewer/model.glb",
+      "sha256": "1e4130172daddcb0a5ee528ac7e843d27f69b3ece1b522f656bb1befafb6d92b"
+    }
+  ]
+}

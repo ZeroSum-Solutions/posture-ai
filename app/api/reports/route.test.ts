@@ -45,6 +45,7 @@ const testSpies = vi.hoisted(() => ({
     void document
     return Buffer.from('%PDF-1.4\n%mock')
   }),
+  screen: vi.fn(),
   clinicalEnabled: { value: true },
   prototype: { value: false },
 }))
@@ -158,6 +159,10 @@ vi.mock('@react-pdf/renderer', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@react-pdf/renderer')>()),
   renderToBuffer: testSpies.renderToBuffer,
 }))
+vi.mock('@/lib/training/screening/derivedUse', () => ({
+  SCREENING_CAPTURE_SELECT: 'screening-captures',
+  screenFindingsForDerivedUse: testSpies.screen,
+}))
 
 import { POST } from './route'
 
@@ -177,6 +182,14 @@ const approvedAssessment = {
   clients: { id: 'c1', first_name: 'Jane', last_name: 'Doe' },
 }
 
+const safeFinding = {
+  id: 'safe-finding', assessment_id: 'a1', practitioner_id: 'u1',
+  imbalance_key: 'forward_head_posture', region: 'head_shoulders', label: 'Forward Head Posture',
+  deviation: 4, standard: 0, unit: 'deg', direction: 'forward', severity_pct: 20,
+  zone: 'warning', view_used: 'side', confidence: 0.9, metric_validity: 'SCREENING_ONLY',
+  stability_score: null, uncertainty_deg: null, borderline: false, observations: null,
+}
+
 describe('POST /api/reports', () => {
   beforeEach(() => {
     testSpies.prototype.value = false
@@ -187,6 +200,10 @@ describe('POST /api/reports', () => {
     outboxDeleteSpy.mockClear()
     testSpies.logEvent.mockClear()
     renderToBufferSpy.mockClear()
+    testSpies.screen.mockReset().mockImplementation((input: { findings: unknown[] }) => ({
+      screeningContext: { version: 'screening-context-v1', scanUse: 'descriptive' },
+      descriptiveFindings: input.findings.length > 0 ? input.findings : [safeFinding],
+    }))
     legalTest.snapshotSpy.mockClear()
     legalTest.resolution.value = { ok: true, document: { id: legalTest.snapshot.documentId } } as LegalResolution
     for (const key of Object.keys(serverTableQueues)) delete serverTableQueues[key]
@@ -260,6 +277,24 @@ describe('POST /api/reports', () => {
     expect(res.status).toBe(500)
     expect(uploadSpy).not.toHaveBeenCalled()
   })
+
+  test.each(['practitioner', 'client'] as const)(
+    'does not render or persist a %s PDF when screening evidence is unavailable or incompatible',
+    async (variant) => {
+      testSpies.screen.mockReturnValueOnce({
+        screeningContext: { version: 'screening-context-v1', scanUse: 'incompatible' },
+        descriptiveFindings: [],
+      })
+
+      const res = await POST(req({ assessment_id: 'a1', variant }))
+
+      expect(res.status).toBe(422)
+      await expect(res.json()).resolves.toMatchObject({ code: 'screening_context_unavailable' })
+      expect(renderToBufferSpy).not.toHaveBeenCalled()
+      expect(uploadSpy).not.toHaveBeenCalled()
+      expect(reportInsertSpy).not.toHaveBeenCalled()
+    },
+  )
 
   test('returns a stable 503 without rendering or storing when the screening notice is unavailable', async () => {
     legalTest.resolution.value = {
@@ -410,6 +445,29 @@ describe('POST /api/reports', () => {
 
     const res = await POST(req({ assessment_id: 'a1', compared_to_assessment_id: 'prior', variant: 'client' }))
     expect(res.status).toBe(200)
+  })
+
+  test('does not compare or render when the prior screening boundary has no descriptive rows', async () => {
+    serverTableQueues.assessments = [
+      { data: approvedAssessment, error: null },
+      { data: { ...approvedAssessment, id: 'prior', assessed_at: '2025-12-01T00:00:00Z' }, error: null },
+    ]
+    testSpies.screen
+      .mockReturnValueOnce({
+        screeningContext: { version: 'screening-context-v1', scanUse: 'descriptive' },
+        descriptiveFindings: [safeFinding],
+      })
+      .mockReturnValueOnce({
+        screeningContext: { version: 'screening-context-v1', scanUse: 'unavailable' },
+        descriptiveFindings: [],
+      })
+
+    const res = await POST(req({ assessment_id: 'a1', compared_to_assessment_id: 'prior', variant: 'client' }))
+
+    expect(res.status).toBe(422)
+    await expect(res.json()).resolves.toMatchObject({ code: 'comparison_screening_context_unavailable' })
+    expect(renderToBufferSpy).not.toHaveBeenCalled()
+    expect(uploadSpy).not.toHaveBeenCalled()
   })
 
   test.each([

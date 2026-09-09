@@ -13,7 +13,7 @@ function props(overrides: Partial<ReviewDockProps> = {}): ReviewDockProps {
     score: 42,
     gradeDescription: 'Mild deviation',
     reliabilityLabel: 'Camera level verified',
-    reliabilityDetail: 'Capture stability 86%',
+    reliabilityDetail: 'Within-burst landmark consistency 86%',
     unreliableCount: 0,
     isApproved: false,
     saveState: 'idle',
@@ -54,6 +54,9 @@ describe('ReviewDock action hierarchy', () => {
     expect((screen.getByRole('button', { name: 'Practitioner PDF' }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'Client report' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText('Mild deviation')).toBeTruthy()
+    expect(screen.getByText('Capture quality')).toBeTruthy()
+    expect(screen.getByText('Within-burst landmark consistency 86%')).toBeTruthy()
+    expect(screen.queryByText('Reliability')).toBeNull()
     expect(screen.queryByRole('navigation', { name: 'Review sections' })).toBeNull()
     expect(container.querySelectorAll('[data-visual-weight="primary"]')).toHaveLength(1)
   })

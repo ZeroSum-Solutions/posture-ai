@@ -3,8 +3,8 @@ import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
 /**
  * One comparison policy for every progress surface.
  *
- * Both engine signals are lower-is-better. The thresholds below are temporary
- * engineering fallbacks, not validated minimum detectable change values. They
+ * Both engine scales assign lower numbers to lower recorded deviation or severity.
+ * The thresholds below are temporary engineering fallbacks, not validated minimum detectable change values. They
  * remain in force only until an eligible, version-matched reliability profile
  * is available (see docs/ROADMAP.md).
  */
@@ -16,11 +16,14 @@ export const FIXED_COMPARISON_TOLERANCE = Object.freeze({
   severityPercentagePoints: 5,
 })
 
-export const MEASUREMENT_TOLERANCE_COPY =
-  'Temporary fixed measurement tolerance: movements of at least 3 screening-score points or at least 5 severity percentage points are directional; smaller nonzero movements are within tolerance. This is an engineering fallback, not a validated clinical-change threshold.'
+export const REPEAT_CAPTURE_LIMITATION_COPY =
+  'Recorded values can differ between screenings. Repeat-capture variability and meaningful change are not established for these measurements.'
+
+/** Retained export name for existing consumers; the fixed bands are not presented as measurement evidence. */
+export const MEASUREMENT_TOLERANCE_COPY = REPEAT_CAPTURE_LIMITATION_COPY
 
 export const ENGINE_VERSION_COMPARISON_COPY =
-  'Not comparable: these assessments use different or missing scoring versions. Values are shown separately without an improvement or regression claim.'
+  'Not comparable: these assessments use different or missing scoring versions. Values are shown separately without a change interpretation.'
 
 export const CHRONOLOGY_COMPARISON_COPY =
   'Not comparable: a valid earlier-to-later assessment order could not be confirmed.'
@@ -53,7 +56,7 @@ export interface ComparisonDecision {
   status: ComparisonStatus
   reason: ComparisonReason
   metric: ComparisonMetric
-  /** Current minus prior. Negative is better for both supported metrics. */
+  /** Current minus prior. The sign is descriptive; it does not establish a health outcome. */
   delta: number | null
   tolerance: number
   unit: 'score_points' | 'percentage_points'
@@ -149,9 +152,9 @@ function compareLowerIsBetter(
   const delta = current - prior
   if (delta === 0) return { ...base, status: 'unchanged', reason: 'same_value', delta }
 
-  // Preserve the existing fallback boundary behavior byte-for-byte: a movement
-  // exactly equal to the fallback threshold is directional; only smaller
-  // non-zero movements are inside the tolerance band.
+  // Preserve the stored/internal fallback status boundary for compatibility.
+  // Presentation exposes the signed difference without calling either band a
+  // meaningful, directional, or clinical change.
   if (Math.abs(delta) < tolerance) {
     return { ...base, status: 'within_tolerance', reason: 'inside_tolerance', delta }
   }
@@ -209,10 +212,10 @@ export function comparisonStatusText(
   status: ComparisonStatus,
   metric: 'overall' | 'finding',
 ): string {
-  if (status === 'improved') return metric === 'overall' ? 'Improved — lower screening score' : 'Improved — lower severity'
-  if (status === 'regressed') return metric === 'overall' ? 'Regressed — higher screening score' : 'Regressed — higher severity'
-  if (status === 'unchanged') return metric === 'overall' ? 'Unchanged screening score' : 'Unchanged severity'
-  if (status === 'within_tolerance') return 'Within measurement tolerance'
+  if (status === 'improved') return metric === 'overall' ? 'Screening score decreased' : 'Recorded severity decreased'
+  if (status === 'regressed') return metric === 'overall' ? 'Screening score increased' : 'Recorded severity increased'
+  if (status === 'unchanged') return metric === 'overall' ? 'Screening score unchanged' : 'Recorded severity unchanged'
+  if (status === 'within_tolerance') return metric === 'overall' ? 'Screening score changed' : 'Recorded severity changed'
   return 'Not comparable'
 }
 
@@ -221,7 +224,11 @@ export function comparisonDecisionText(
   decision: ComparisonDecision,
   metric: 'overall' | 'finding',
 ): string {
-  if (decision.status !== 'not_comparable') return comparisonStatusText(decision.status, metric)
+  if (decision.status !== 'not_comparable') {
+    if (decision.delta === null || decision.delta === 0) return comparisonStatusText(decision.status, metric)
+    if (metric === 'overall') return decision.delta < 0 ? 'Screening score decreased' : 'Screening score increased'
+    return decision.delta < 0 ? 'Recorded severity decreased' : 'Recorded severity increased'
+  }
   if (decision.reason === 'missing_version' || decision.reason === 'different_version') {
     return ENGINE_VERSION_COMPARISON_COPY
   }
@@ -237,8 +244,16 @@ export function comparisonDecisionText(
   return MISSING_VALUE_COMPARISON_COPY
 }
 
+/** Signed numeric difference for display; null when the pair is not comparable. */
+export function comparisonDeltaText(decision: ComparisonDecision): string | null {
+  if (decision.status === 'not_comparable' || decision.delta === null) return null
+  const sign = decision.delta < 0 ? '−' : decision.delta > 0 ? '+' : ''
+  const magnitude = Math.abs(decision.delta).toFixed(1)
+  const unit = decision.unit === 'score_points' ? 'score points' : 'percentage points'
+  return `${sign}${magnitude} ${unit}`
+}
+
 export function comparisonTone(status: ComparisonStatus): 'positive' | 'negative' | 'neutral' {
-  if (status === 'improved') return 'positive'
-  if (status === 'regressed') return 'negative'
+  void status
   return 'neutral'
 }

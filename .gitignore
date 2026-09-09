@@ -50,3 +50,6 @@ docs/qa/tierb-reliability/restricted-local/
 # macOS
 .DS_Store
 datasets/moti/
+
+# Local release proofs, isolated stacks, and agent scratch (preserved locally)
+work/

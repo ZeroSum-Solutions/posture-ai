@@ -5,10 +5,12 @@ import Link from 'next/link'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { OperationMode } from '@/lib/prototype/runtime'
 import { ageBand } from '@/lib/clients/age'
+import { parseAssessmentProcessingResult } from '@/lib/assessments/processingStatus'
 import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
 import { analyzeCaptureFrames } from './analyzeFrames'
+import { captureImageFromDataUrl, saveCaptureImages } from './saveCaptureImages'
 import type { AnalysisProgress } from './analyzeFrames'
 import { revokeStaleUrls } from '@/lib/capture/object-urls'
 import { mergePreflightQuality } from '@/lib/capture/pixel-quality'
@@ -210,6 +212,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [savingCaptureImages, setSavingCaptureImages] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   // A synchronous lock closes the pre-render double-click window. Its stable ID
   // is also the server idempotency key for retries of unchanged capture content.
@@ -419,6 +422,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   // Step 3: Poll assessment status and redirect when complete
   useEffect(() => {
     if (step !== 3 || !assessmentId) return
+    const activeAssessmentId = assessmentId
     let cancelled = false
     // Track the latest scheduled poll (initial + every reschedule) so cleanup
     // can clear a queued timer instead of relying solely on the cancelled guard.
@@ -439,20 +443,28 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     async function pollStatus() {
       if (cancelled) return
       try {
-        console.log('[wizard] Polling status for assessment:', assessmentId)
-        const r = await fetch('/api/assessments/' + assessmentId + '/status')
+        console.log('[wizard] Polling status for assessment:', activeAssessmentId)
+        const r = await fetch('/api/assessments/' + activeAssessmentId + '/status')
         if (cancelled) return
         if (!r.ok) {
           setProcessingError('Failed to check assessment status.')
           return
         }
-        const data = await r.json()
-        console.log('[wizard] Assessment status:', data.status)
+        const data: unknown = await r.json()
+        const processing = parseAssessmentProcessingResult(data, activeAssessmentId)
+        if (!processing) {
+          setProcessingError('The assessment status response was invalid. Please refresh and try again.')
+          return
+        }
+        console.log('[wizard] Assessment status:', processing.status)
         if (cancelled) return
 
-        if (data.status === 'complete') {
-          router.push('/assessments/' + assessmentId)
-        } else if (data.status === 'failed') {
+        if (processing.status === 'complete') {
+          // A hard navigation commits the terminal results URL immediately and
+          // cannot remain stranded behind an App Router data prefetch. The
+          // results loader owns unavailable/incompatible finding presentation.
+          window.location.assign('/assessments/' + activeAssessmentId)
+        } else if (processing.status === 'failed') {
           // The server confirmed a terminal row. A retry is a new scoring
           // attempt, not an ambiguous transport replay, so rotate the key.
           submissionGuard.contentChanged()
@@ -555,7 +567,15 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   // Run detectPose + assessFrameQuality after each capture/upload on the RAW
   // still (never the display channel — design §4.3). `token` ties the result to
   // its capture; a newer capture bumps commitSeq and staleness-invalidates it.
-  async function runPreflight(slot: CaptureSlotKey, rawUrl: string, source: 'camera' | 'upload', captureRollDeg: number | null, token: number, pixelQuality: PixelQualityResult | null) {
+  async function runPreflight(
+    slot: CaptureSlotKey,
+    rawUrl: string,
+    source: 'camera' | 'upload',
+    captureRollDeg: number | null,
+    token: number,
+    pixelQuality: PixelQualityResult | null,
+    poseInput: CaptureSlot['poseInput'],
+  ) {
     const isStale = () => commitSeq.current[slot] !== token
     const { view, profileSide } = slotToDomain(slot)
 
@@ -574,7 +594,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         // Route through the runtime owner: it closes the live worker and warms the
         // IMAGE landmarker first, and serializes so a concurrent enterLive can't
         // close the landmarker mid-detection (§11.1).
-        const detected = await getCaptureRuntime().detect(rawUrl, view, source)
+        const detected = await getCaptureRuntime().detect(rawUrl, view, source, poseInput)
         if (isStale()) return
         const rawPoseFrame: PoseFrame = {
           ...detected,
@@ -618,6 +638,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         capture.captureRollDeg,
         capture.captureId,
         capture.pixelQuality,
+        capture.poseInput,
       )
     }
   }
@@ -635,7 +656,17 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         throw new Error('The selected image could not be decoded. Choose another JPEG or PNG.')
       }
       rawUrl = normalized?.dataUrl ?? URL.createObjectURL(file)
+      const rawImage = normalized ? captureImageFromDataUrl(normalized.dataUrl) : file
       const pixelQuality = normalized?.pixelQuality ?? null
+      const poseInput: NonNullable<CaptureSlot['poseInput']> = normalized?.poseInput ?? {
+        sourceWidthPx: null,
+        sourceHeightPx: null,
+        orientationNormalization: 'browser_decoder',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+      }
       // Superseded by a newer capture/upload for this slot, or the wizard unmounted,
       // while we were normalizing — discard this one (and its blob) instead of
       // clobbering the newer result or committing to an unmounted tree.
@@ -646,12 +677,16 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       const prevSlot = capturesRef.current[slot]
       setCaptures(prev => ({
         ...prev,
-        [slot]: { ...emptySlot(), file, source: 'upload', captureId: op, rawRepresentativeUrl: rawUrl, displayPreviewUrl: rawUrl, pixelQuality },
+        [slot]: {
+          ...emptySlot(), file, source: 'upload', captureId: op, poseInput,
+          rawRepresentativeUrl: rawUrl, rawRepresentativeImage: rawImage,
+          displayPreviewUrl: rawUrl, pixelQuality,
+        },
       }))
       submissionGuard.contentChanged()
       revokeSlotUrls(prevSlot, new Set([rawUrl]))
       setUploadError(null)
-      if (!testMode) void runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality)
+      if (!testMode) void runPreflight(slot, rawUrl, 'upload', null, op, pixelQuality, poseInput)
     } catch (caught) {
       if (rawUrl?.startsWith('blob:')) URL.revokeObjectURL(rawUrl)
       const message = caught instanceof Error && caught.message
@@ -662,7 +697,14 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     }
   }
 
-  function handleCameraCapture(slot: CaptureSlotKey, burst: string[], captureRollDeg: number | null, representativePixelQuality: PixelQualityResult | null) {
+  function handleCameraCapture(
+    slot: CaptureSlotKey,
+    burst: string[],
+    captureRollDeg: number | null,
+    representativePixelQuality: PixelQualityResult | null,
+    poseInput: NonNullable<CaptureSlot['poseInput']>,
+    representativeImage: Blob,
+  ) {
     // burst is the shutter's raw object URLs; the representative (index 0) drives
     // the thumbnail + the fast quality preflight. Every frame is pose-detected at
     // submit so the engine can median them + report within-capture stability.
@@ -671,12 +713,19 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     const rep = burst[0]
     setCaptures(prev => ({
       ...prev,
-      [slot]: { ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, rawRepresentativeUrl: rep, rawBurstUrls: burst, displayPreviewUrl: rep, pixelQuality: representativePixelQuality },
+      [slot]: {
+        ...emptySlot(), source: 'camera', captureRollDeg, captureId: op, poseInput,
+        rawRepresentativeUrl: rep, rawRepresentativeImage: representativeImage,
+        rawBurstUrls: burst, displayPreviewUrl: rep,
+        pixelQuality: representativePixelQuality,
+      },
     }))
     submissionGuard.contentChanged()
     revokeSlotUrls(prevSlot, new Set(burst))
     setUploadError(null)
-    if (!testMode) runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality)
+    if (!testMode) {
+      runPreflight(slot, rep, 'camera', captureRollDeg, op, representativePixelQuality, poseInput)
+    }
   }
 
   // Check if submit should be blocked: every required slot must have completed
@@ -727,7 +776,8 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
 
       // Build the frame payload. A camera capture sends its whole shutter burst
       // (engine 1.3.0 medians them + scores within-capture stability); uploads
-      // send a single frame. Landmarks only — no image bytes leave the device.
+      // send a single frame. Representative photographs are saved separately
+      // after the server confirms the assessment identity.
       let frames: unknown[] | undefined = undefined
       if (!testMode) {
         const { getCaptureRuntime } = await import('@/lib/pose/capture-runtime')
@@ -782,6 +832,11 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         return
       }
       if (!submissionGuard.isCurrent(attempt)) return
+      if (!testMode) {
+        setSavingCaptureImages(true)
+        await saveCaptureImages({ assessmentId: data.id, captures, signal: controller.signal })
+      }
+      if (!submissionGuard.isCurrent(attempt)) return
       // The transport completed and returned the authoritative assessment id.
       // The synchronous lock is no longer needed while polling. Preserve the
       // same key so an ambiguous poll failure can replay this exact row.
@@ -804,6 +859,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       window.clearTimeout(control.timeoutId)
       if (analysisControlRef.current === control) analysisControlRef.current = null
       setSubmitting(false)
+      setSavingCaptureImages(false)
     }
   }
 
@@ -1217,7 +1273,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
             // Error state with retry
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <Surface tier="tile" style={{ maxWidth: 400 }}>
-                <p className="t-title" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Scoring Failed</p>
+                <p className="t-title" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Screening needs attention</p>
                 <p className="t-body" style={{ margin: '0 0 20px' }}>{processingError}</p>
                 <button onClick={handleRetry} className="a-primary">Try Again</button>
               </Surface>
@@ -1230,10 +1286,12 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
               <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(255,255,255,0.12)', borderTop: '4px solid var(--action)', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
               <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
               <h2 className="t-headline-sm" style={{ marginBottom: '8px' }}>
-                {testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
+                {savingCaptureImages ? 'Saving capture photos…' : testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
               </h2>
               <p className="t-body">
-                {assessmentId
+                {savingCaptureImages
+                  ? 'Saving your selected views with this screening…'
+                  : assessmentId
                   ? 'Checking results...'
                   : testMode
                     ? 'Submitting assessment to server...'

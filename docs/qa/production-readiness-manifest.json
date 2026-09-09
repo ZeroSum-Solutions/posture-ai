@@ -1732,14 +1732,14 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 81,
-      "mobile-webkit": 73,
+      "desktop-chromium": 108,
+      "mobile-webkit": 100,
       "android-chromium-proxy": 11,
       "calibration": 1
     },
-    "expected_total": 167,
-    "expected_files": 33,
-    "inventory_hash": "01b4fc36625282f7a3c8062394522a39be60cc3ab6f4dfece64ed92efba215b7",
+    "expected_total": 221,
+    "expected_files": 58,
+    "inventory_hash": "9c0c3656bb2da4798d6afee4d40de94a422581f9716b6f22f3b1053d7c2b5ce0",
     "inventory_hash_contract": {
       "algorithm": "sha256",
       "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
@@ -2117,6 +2117,20 @@
         "reason": "Player UI test runs once in Chromium; physical device coverage is HG-04.",
         "owner": "PR-08",
         "expires_on": "2026-08-31"
+      },
+      {
+        "key": "skip:training-strength-journey-api:mobile-webkit",
+        "source": "e2e/training-strength-journey.spec.ts::strength and conditioning API journey project guard",
+        "scope": {
+          "project": "mobile-webkit",
+          "condition": "browserName=webkit"
+        },
+        "test_ids": [
+          "mobile-webkit::e2e/training-strength-journey.spec.ts::original application persists a complete strength and conditioning journey"
+        ],
+        "reason": "API transaction coverage runs once in Chromium; responsive strength UI runs in Chromium and mobile WebKit.",
+        "owner": "strength-training",
+        "expires_on": "2026-09-30"
       },
       {
         "key": "ignore:real-detection:mobile-webkit",
@@ -2694,7 +2708,7 @@
   "configuration_hash_contract": {
     "algorithm": "sha256",
     "canonicalization": "UTF-8 JSON with recursively sorted object keys and preserved array order",
-    "expected_hash": "870b30ee8d3b0d5097219bc7f7add6b9c8969cdb85f2714b02b6ac2a070a9f6f",
+    "expected_hash": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d",
     "covered_fields": [
       "release_boundary",
       "release_configuration",
@@ -2752,5 +2766,5 @@
     "owner_approval_required": true,
     "owner_approval_task": "HG-10"
   },
-  "configuration_hash": "870b30ee8d3b0d5097219bc7f7add6b9c8969cdb85f2714b02b6ac2a070a9f6f"
+  "configuration_hash": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d"
 }

@@ -10,13 +10,20 @@ import { hasCompleteClinicalSurfaces } from '@/lib/clinical-content/surfaces'
 import type { ClinicalContentAccess } from '@/lib/clinical-content/policy'
 import { buildClinicalProjection, type ClinicalProjection } from '@/lib/program/clinicalProjection'
 import type { StoredFinding } from '@/lib/findings/storedFindingToEngine'
+import {
+  type PersistedScreeningAssessmentRow,
+  type PersistedScreeningCaptureRow,
+  type PersistedScreeningFindingRow,
+  type ScreeningContextBoundaryResult,
+} from '@/lib/training/screening/screeningContext'
+import { screenFindingsForDerivedUse } from '@/lib/training/screening/derivedUse'
 
 export type AssessmentResultsPayload = {
   assessment: {
     id: string
     status: string
-    overall_score: number
-    overall_grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
+    overall_score: number | null
+    overall_grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | null
     scoring_engine_version: string | null
     tilt_corrected: boolean | null
     level_verified: boolean | null
@@ -35,12 +42,12 @@ export type AssessmentResultsPayload = {
     imbalance_key: string
     region: string
     label: string
-    deviation: number
+    deviation: number | null
     direction: string
-    severity_pct: number
+    severity_pct: number | null
     zone: 'maintain' | 'warning' | 'danger' | 'unreliable'
     view_used: string
-    confidence: number
+    confidence: number | null
     stability_score?: number | null
     uncertainty_deg?: number | null
     borderline?: boolean | null
@@ -60,6 +67,7 @@ export type AssessmentResultsPayload = {
     source: string
     capture_roll_deg: number | null
   }>
+  screening_context: ScreeningContextBoundaryResult
   clinical_content: {
     enabled: boolean
     surfaces: ClinicalContentAccess['surfaces']
@@ -92,7 +100,7 @@ export async function loadAssessmentResults(
   const { data: assessment, error } = await supabase
     .from('assessments')
     .select(`
-      id, status, overall_score, overall_grade,
+      id, client_id, practitioner_id, status, assessment_type, overall_score, overall_grade,
       scoring_engine_version, tilt_corrected, level_verified, capture_stability, assessed_at, notes,
       priority_keys, capability, exercise_swaps, practitioner_approved, practitioner_approved_at,
       clients!inner(id, first_name, last_name)
@@ -154,7 +162,9 @@ export async function loadAssessmentResults(
     keys.length > 0 && clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
       ? service.from('imbalance_definitions').select('key, causes_text, tight_muscles, weak_muscles').in('key', keys)
       : Promise.resolve({ data: [] as { key: string; causes_text: string; tight_muscles: unknown; weak_muscles: unknown }[] }),
-    service.from('captures').select('id, view, profile_side, storage_path, source, pose_frame').eq('assessment_id', id),
+    service.from('captures').select(
+      'id, assessment_id, practitioner_id, view, profile_side, storage_path, source, pose_frame, width_px, height_px, model_version, created_at, image_sha256',
+    ).eq('assessment_id', id),
   ])
   if (capturesRes.error) {
     logEvent({ route: 'GET /api/assessments/[id]', outcome: 'server_error', status: 500, ...logBase, detailCode: 'captures_load_failed' })
@@ -200,19 +210,82 @@ export async function loadAssessmentResults(
     })
   }
 
-  const enrichedFindings: AssessmentResultsPayload['findings'] = (findings || []).map((finding) => ({
-    ...finding,
-    explanation: clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
-      ? finding.explanation ?? null
-      : null,
-    causes_text: defMap[finding.imbalance_key as string]?.causes_text || '',
-    tight_muscles: defMap[finding.imbalance_key as string]?.tight_muscles || [],
-    weak_muscles: defMap[finding.imbalance_key as string]?.weak_muscles || [],
-    tight_muscle_links: linkMap[finding.imbalance_key as string]?.tight || [],
-    weak_muscle_links: linkMap[finding.imbalance_key as string]?.weak || [],
-  }))
+  const rawFindings = (findings ?? []) as PersistedScreeningFindingRow[]
+  const persistedCaptures = (capturesRes.data ?? []) as PersistedScreeningCaptureRow[]
+  const screened = screenFindingsForDerivedUse({
+    expectedSubjectId: relatedClient.id,
+    assessment: {
+      id: assessment.id,
+      client_id: assessment.client_id,
+      practitioner_id: assessment.practitioner_id,
+      assessed_at: assessment.assessed_at,
+      status: assessment.status,
+      assessment_type: assessment.assessment_type,
+      scoring_engine_version: assessment.scoring_engine_version,
+      level_verified: assessment.level_verified,
+      capture_stability: assessment.capture_stability,
+    } satisfies PersistedScreeningAssessmentRow,
+    captures: persistedCaptures,
+    findings: rawFindings,
+  })
+  const screeningContext = screened.screeningContext
+  const observations = screeningContext.context?.observations ?? []
+  const descriptiveById = new Map(screened.descriptiveFindings.map((finding) => [finding.id, finding]))
 
-  const perViewCaptures = dedupeCapturesByViewSide(capturesRes.data || [])
+  const enrichedFindings: AssessmentResultsPayload['findings'] = rawFindings.map((finding, index) => {
+    const observation = observations[index]
+    const descriptive = descriptiveById.get(finding.id)
+    if (observation?.availability === 'descriptive' && observation.value && descriptive) {
+      return {
+        id: descriptive.id,
+        imbalance_key: descriptive.imbalance_key,
+        label: descriptive.label,
+        region: descriptive.region,
+        deviation: descriptive.deviation,
+        direction: descriptive.direction,
+        severity_pct: descriptive.severity_pct,
+        zone: descriptive.zone,
+        view_used: descriptive.view_used,
+        confidence: descriptive.confidence,
+        stability_score: observation.quality.withinCaptureProcessing.stabilityScore,
+        uncertainty_deg: observation.quality.withinCaptureProcessing.uncertaintyDeg,
+        borderline: descriptive.borderline,
+        metric_validity: observation.validity.persistedFrame,
+        explanation: clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
+          ? finding.explanation ?? null
+          : null,
+        causes_text: defMap[descriptive.imbalance_key]?.causes_text || '',
+        tight_muscles: defMap[descriptive.imbalance_key]?.tight_muscles || [],
+        weak_muscles: defMap[descriptive.imbalance_key]?.weak_muscles || [],
+        tight_muscle_links: linkMap[descriptive.imbalance_key]?.tight || [],
+        weak_muscle_links: linkMap[descriptive.imbalance_key]?.weak || [],
+      }
+    }
+    return {
+      id: finding.id,
+      imbalance_key: finding.imbalance_key,
+      region: observation?.metric.region ?? 'unknown',
+      label: observation?.metric.label ?? 'Unavailable screening measurement',
+      deviation: null,
+      direction: 'unavailable',
+      severity_pct: null,
+      zone: 'unreliable' as const,
+      view_used: observation?.metric.view ?? 'unknown',
+      confidence: null,
+      stability_score: null,
+      uncertainty_deg: null,
+      borderline: null,
+      metric_validity: null,
+      explanation: null,
+      causes_text: '',
+      tight_muscles: [],
+      weak_muscles: [],
+      tight_muscle_links: [],
+      weak_muscle_links: [],
+    }
+  })
+
+  const perViewCaptures = dedupeCapturesByViewSide(persistedCaptures)
   const captures: AssessmentResultsPayload['captures'] = perViewCaptures.map((capture) => {
     const roll = (capture.pose_frame as { captureRollDeg?: number } | null)?.captureRollDeg
     return {
@@ -225,13 +298,20 @@ export async function loadAssessmentResults(
     }
   })
 
-  const safeAssessment: AssessmentResultsPayload['assessment'] = completeClinicalSurface
-    ? normalizedAssessment
-    : { ...normalizedAssessment, priority_keys: null, capability: null, exercise_swaps: null }
-  const clinicalProjection = completeClinicalSurface
+  const scanIsDescriptive = screeningContext.scanUse === 'descriptive'
+  const safeAssessment: AssessmentResultsPayload['assessment'] = {
+    ...normalizedAssessment,
+    overall_score: scanIsDescriptive ? normalizedAssessment.overall_score : null,
+    overall_grade: scanIsDescriptive ? normalizedAssessment.overall_grade : null,
+    ...(!completeClinicalSurface || !scanIsDescriptive
+      ? { priority_keys: null, capability: null, exercise_swaps: null }
+      : {}),
+  }
+  const clinicalProjection = completeClinicalSurface && scanIsDescriptive
+    && screened.descriptiveFindings.length > 0
     ? buildClinicalProjection(
-        normalizedAssessment,
-        (findings ?? []) as StoredFinding[],
+        safeAssessment,
+        screened.descriptiveFindings as StoredFinding[],
         {
           approvedExerciseSlugs: clinicalAccess.approvedExerciseSlugs,
           approvedLinkIds: clinicalAccess.approvedLinkIds,
@@ -246,6 +326,7 @@ export async function loadAssessmentResults(
       assessment: safeAssessment,
       findings: enrichedFindings,
       captures,
+      screening_context: screeningContext,
       clinical_content: {
         enabled: completeClinicalSurface,
         surfaces: clinicalAccess.surfaces,

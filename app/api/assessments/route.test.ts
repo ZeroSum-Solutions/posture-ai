@@ -307,6 +307,17 @@ describe('POST /api/assessments prototype operation', () => {
         }),
       },
     ])
+    const captures = db.snapshot().rpcCalls[0]?.args.p_captures as Array<{
+      view: string
+      profile_side: 'left' | 'right' | null
+      source: string
+    }>
+    expect(captures.map((capture) => `${capture.view}:${capture.profile_side ?? 'none'}`)).toEqual([
+      'front:none',
+      'side:left',
+      'side:right',
+      'back:none',
+    ])
   })
 
   test('a non-allowlisted practitioner remains on the governed consent path', async () => {

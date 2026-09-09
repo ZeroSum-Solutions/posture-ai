@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 const getUser = vi.fn()
 const getAuthenticatorAssuranceLevel = vi.fn()
 const rpc = vi.fn()
+const actorRead = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: vi.fn(async () => ({
     auth: { getUser, mfa: { getAuthenticatorAssuranceLevel } },
-    rpc,
+    rpc: (name: string) => name === 'current_application_actor' ? { maybeSingle: actorRead } : rpc(name),
   })),
 }))
 
@@ -18,6 +19,7 @@ describe('POST /api/auth/complete-invitation', () => {
     getUser.mockReset()
     getAuthenticatorAssuranceLevel.mockReset()
     rpc.mockReset()
+    actorRead.mockReset().mockResolvedValue({ data: { actor_kind: 'practitioner' }, error: null })
     getUser.mockResolvedValue({ data: { user: { id: 'u1', email: 'invited@example.test' } }, error: null })
     getAuthenticatorAssuranceLevel.mockResolvedValue({
       data: { currentLevel: 'aal2', nextLevel: 'aal2' },
@@ -33,6 +35,25 @@ describe('POST /api/auth/complete-invitation', () => {
 
     expect(response.status).toBe(401)
     expect(await response.json()).toMatchObject({ code: 'unauthorized' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  test('routes an authenticated athlete through athlete admission during normal sign-in', async () => {
+    actorRead.mockResolvedValue({ data: { actor_kind: 'athlete' }, error: null })
+    expect((await POST()).status).toBe(200)
+    expect(rpc).toHaveBeenCalledWith('complete_athlete_invitation')
+    expect(rpc).not.toHaveBeenCalledWith('complete_practitioner_invitation')
+  })
+
+  test('does not guess admission authority when actor resolution fails', async () => {
+    actorRead.mockResolvedValue({ data: null, error: { code: 'XX000' } })
+    expect((await POST()).status).toBe(503)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  test('rejects a dual-identity actor without activating either identity', async () => {
+    actorRead.mockResolvedValue({ data: { actor_kind: 'ambiguous' }, error: null })
+    expect((await POST()).status).toBe(403)
     expect(rpc).not.toHaveBeenCalled()
   })
 

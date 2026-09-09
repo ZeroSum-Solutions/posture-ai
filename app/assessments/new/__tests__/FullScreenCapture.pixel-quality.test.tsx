@@ -78,11 +78,13 @@ function baseCaptures(overrides: Partial<Captures> = {}): Captures {
  * Returns a `urlFor(i)` helper for asserting on the resulting object URLs.
  */
 function stubBrowserBoundary(failAtIndex: number | null | 'all') {
+  let intrinsicWidth = 720
+  let intrinsicHeight = 1280
   const originalVideoWidth = Object.getOwnPropertyDescriptor(HTMLVideoElement.prototype, 'videoWidth')
   const originalVideoHeight = Object.getOwnPropertyDescriptor(HTMLVideoElement.prototype, 'videoHeight')
   const originalReadyState = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'readyState')
-  Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => 720 })
-  Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => 1280 })
+  Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => intrinsicWidth })
+  Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => intrinsicHeight })
   Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { configurable: true, get: () => HTMLMediaElement.HAVE_CURRENT_DATA })
 
   const originalGetUserMedia = (navigator as unknown as { mediaDevices?: unknown }).mediaDevices
@@ -90,7 +92,11 @@ function stubBrowserBoundary(failAtIndex: number | null | 'all') {
     configurable: true,
     value: { getUserMedia: vi.fn().mockResolvedValue({
       getTracks: () => [{ stop: vi.fn() }],
-      getVideoTracks: () => [{ addEventListener: vi.fn(), stop: vi.fn() }],
+      getVideoTracks: () => [{
+        addEventListener: vi.fn(),
+        stop: vi.fn(),
+        getSettings: () => ({ facingMode: 'environment' }),
+      }],
     }) },
   })
 
@@ -98,9 +104,13 @@ function stubBrowserBoundary(failAtIndex: number | null | 'all') {
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve()) as unknown as typeof HTMLMediaElement.prototype.play
 
   const originalGetContext = HTMLCanvasElement.prototype.getContext
+  const drawImage = vi.fn()
+  const scale = vi.fn()
+  const transform = vi.fn()
+  const setTransform = vi.fn()
   HTMLCanvasElement.prototype.getContext = vi.fn(function (this: HTMLCanvasElement, type: string) {
     if (type !== '2d') return null
-    return { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
+    return { drawImage, scale, transform, setTransform } as unknown as CanvasRenderingContext2D
   }) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
   let callIndex = 0
@@ -121,6 +131,15 @@ function stubBrowserBoundary(failAtIndex: number | null | 'all') {
 
   return {
     urlFor: (i: number) => `blob:frame-${i}`,
+    indexForImage: (image: Blob) => blobIndex.get(image),
+    setIntrinsicDimensions: (width: number, height: number) => {
+      intrinsicWidth = width
+      intrinsicHeight = height
+    },
+    drawImage,
+    scale,
+    transform,
+    setTransform,
     restore: () => {
       if (originalVideoWidth) Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', originalVideoWidth)
       else delete (HTMLVideoElement.prototype as unknown as Record<string, unknown>).videoWidth
@@ -225,6 +244,38 @@ describe('FullScreenCapture — middle-frame association (URL-based, not index)'
     expect(onCameraCapture).not.toHaveBeenCalled()
   })
 
+  it('refuses capture when intrinsic video dimensions disappear instead of stamping fallback dimensions', async () => {
+    const stubs = stubBrowserBoundary(null)
+    activeStubs = stubs
+    const { onCameraCapture } = await mountReady(baseCaptures())
+    stubs.setIntrinsicDimensions(0, 0)
+
+    fireEvent.click(screen.getByLabelText('Capture photo'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('camera-error-msg').textContent).toContain('Capture failed')
+    }, { timeout: 5000 })
+    expect(stubs.drawImage).not.toHaveBeenCalled()
+    expect(onCameraCapture).not.toHaveBeenCalled()
+  })
+
+  it('keeps live video, canvas acquisition, and the reviewed still unmirrored', async () => {
+    const stubs = stubBrowserBoundary(null)
+    activeStubs = stubs
+    await mountReady(baseCaptures())
+    const video = screen.getByTestId('capture-video') as HTMLVideoElement
+    expect(video.style.transform).toBe('')
+
+    fireEvent.click(screen.getByLabelText('Capture photo'))
+
+    const review = await screen.findByAltText('Captured frame', {}, { timeout: 5000 }) as HTMLImageElement
+    expect(review.style.transform).toBe('')
+    expect(stubs.drawImage).toHaveBeenCalledWith(video, 0, 0)
+    expect(stubs.scale).not.toHaveBeenCalled()
+    expect(stubs.transform).not.toHaveBeenCalled()
+    expect(stubs.setTransform).not.toHaveBeenCalled()
+  })
+
   for (const { name, failAtIndex, expectBurst0, expectPQ } of cases) {
     it(`reports the burst[0]-frame's metrics when ${name}`, async () => {
       const stubs = stubBrowserBoundary(failAtIndex)
@@ -237,14 +288,32 @@ describe('FullScreenCapture — middle-frame association (URL-based, not index)'
       fireEvent.click(screen.getByRole('button', { name: 'Use This Photo' }))
       await waitFor(() => expect(onCameraCapture).toHaveBeenCalledTimes(1))
 
-      const [, burst, , representativePixelQuality] = onCameraCapture.mock.calls[0] as [string, string[], number | null, unknown]
+      const [, burst, , representativePixelQuality, poseInput, representativeImage] = onCameraCapture.mock.calls[0] as [
+        string,
+        string[],
+        number | null,
+        unknown,
+        unknown,
+        Blob,
+      ]
       expect(burst[0]).toBe(stubs.urlFor(expectBurst0))
+      expect(representativeImage).toBeInstanceOf(Blob)
+      expect(stubs.indexForImage(representativeImage)).toBe(expectBurst0)
       expect(burst).toHaveLength(BURST_SIZE - (failAtIndex === null ? 0 : 1))
       if (expectPQ) {
         expect(representativePixelQuality).toEqual(EXPECTED_PQ)
       } else {
         expect(representativePixelQuality).toBeNull()
       }
+      expect(poseInput).toEqual({
+        sourceWidthPx: 720,
+        sourceHeightPx: 1280,
+        orientationNormalization: 'camera_video_frame',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: 'environment',
+        observedCameraFacingMode: 'environment',
+      })
     })
   }
 })

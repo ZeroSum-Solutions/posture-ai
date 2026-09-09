@@ -1,6 +1,7 @@
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { BAND_LABEL, tone } from '@/components/array/severity'
+import { REPEAT_CAPTURE_LIMITATION_COPY } from '@/lib/comparison/policy'
 import { buildFindingsTrend, SPARK_VIEWBOX, type FindingsTrendAssessment } from './findingsModel'
 import styles from './ClientDetail.module.css'
 
@@ -32,8 +33,8 @@ export default function FindingsTrend({
   return (
     <div className="app-stack">
       <p className={styles.trendFootnote} style={{ paddingTop: 0, borderTop: 0 }}>
-        Severity is a 0–100% ramp; lower is better. A line breaks wherever a reading is
-        missing, unreliable, or scored by a different engine version.
+        Severity is a 0–100% scale; lower values indicate less recorded deviation. A line breaks wherever a reading is
+        missing, unreliable, or scored by a different engine version. {REPEAT_CAPTURE_LIMITATION_COPY}
       </p>
 
       {series.map(entry => (
@@ -41,11 +42,8 @@ export default function FindingsTrend({
           <div className={styles.findingRow}>
             <div className={styles.findingBody}>
               <p className={styles.findingLabel}>{entry.label}</p>
-              {/* When the movement is directional the delta beside this row says
-                  so in one glyph and one number; repeating the policy's full
-                  phrase here wrapped the line and squeezed the sparkline. The
-                  phrase is shown when there is no delta — which is exactly when
-                  it carries information the row would otherwise lack. */}
+              {/* The neutral glyph and number describe only the signed recorded
+                  difference. The shared limitation stays visible above. */}
               <p className={styles.findingMeta}>
                 {entry.latest
                   ? <>

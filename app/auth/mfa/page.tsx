@@ -21,6 +21,8 @@ type CompletionBody = {
   error?: string
 }
 
+type MfaMode = 'invite' | 'athlete-invite' | 'recovery' | 'signin'
+
 export default function MfaPage() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [factorId, setFactorId] = useState<string | null>(null)
@@ -31,15 +33,18 @@ export default function MfaPage() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [mode, setMode] = useState<'invite' | 'recovery' | 'signin'>('signin')
+  const [mode, setMode] = useState<MfaMode>('signin')
   const nextTarget = useRef('/dashboard')
   const started = useRef(false)
   const initializing = useRef(false)
 
-  const completeAdmission = useCallback(async () => {
+  const completeAdmission = useCallback(async (admissionMode: MfaMode) => {
     let response: Response
     try {
-      response = await fetch('/api/auth/complete-invitation', {
+      response = await fetch(
+        admissionMode === 'athlete-invite'
+          ? '/api/training/auth/complete-invitation'
+          : '/api/auth/complete-invitation', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
       })
@@ -70,7 +75,11 @@ export default function MfaPage() {
       const params = new URLSearchParams(window.location.search)
       nextTarget.current = safeNextPath(params.get('next'))
       const requestedMode = params.get('mode')
-      setMode(requestedMode === 'invite' || requestedMode === 'recovery' ? requestedMode : 'signin')
+      const normalizedMode: MfaMode =
+        requestedMode === 'invite' || requestedMode === 'athlete-invite' || requestedMode === 'recovery'
+          ? requestedMode
+          : 'signin'
+      setMode(normalizedMode)
 
       const supabase = createSupabaseBrowserClient()
       const { data: userData, error: userError } = await supabase.auth.getUser()
@@ -89,7 +98,7 @@ export default function MfaPage() {
       }
 
       if (assurance.currentLevel === 'aal2') {
-        await completeAdmission()
+        await completeAdmission(normalizedMode)
         return
       }
 
@@ -202,7 +211,7 @@ export default function MfaPage() {
 
     // challengeAndVerify saves a replacement AAL2 session. Complete admission
     // on the server, then hard-navigate so proxy and Server Components see it.
-    const completed = await completeAdmission()
+    const completed = await completeAdmission(mode)
     if (!completed) setSubmitting(false)
   }
 
@@ -213,7 +222,7 @@ export default function MfaPage() {
   return (
     <AuthFrame
       title={phase === 'enroll' ? 'Connect an authenticator app' : 'Verify multi-factor authentication'}
-      description="A second factor is required for every practitioner session."
+      description="A second factor is required for every protected session."
     >
       {recoveryCopy && (
         <p className="a-help" style={{ marginBottom: 18 }}>{recoveryCopy}</p>

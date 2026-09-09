@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { FIXED_COMPARISON_TOLERANCE } from '@/lib/comparison/policy'
 import { SCORE_BAND_STOPS } from '@/components/array/severity'
 import { buildTrendChart, CHART_VIEWBOX, type TrendInputPoint } from './trendModel'
 
@@ -92,39 +91,37 @@ describe('buildTrendChart scoring-version runs', () => {
 })
 
 describe('buildTrendChart verdict', () => {
-  it('reports an improvement that clears the tolerance', () => {
+  it('reports a neutral signed decrease while retaining the stored decision enum', () => {
     const model = buildTrendChart([
       point({ id: 'a', score: 62, grade: 'D', assessedAt: '2026-01-01T00:00:00Z' }),
       point({ id: 'b', score: 46, grade: 'C', assessedAt: '2026-03-01T00:00:00Z' }),
     ])
     expect(model.verdict?.decision.status).toBe('improved')
     expect(model.verdict?.magnitude).toBe('−16 pts')
-    expect(model.verdict?.band).toBe('maintain')
+    expect(model.verdict?.band).toBe('neutral')
     expect(model.verdict?.icon).toBe('arrow-down-linear')
   })
 
-  it('reports a regression in the review tone', () => {
+  it('reports a neutral signed increase', () => {
     const model = buildTrendChart([
       point({ id: 'a', score: 30, assessedAt: '2026-01-01T00:00:00Z' }),
       point({ id: 'b', score: 44, assessedAt: '2026-03-01T00:00:00Z' }),
     ])
     expect(model.verdict?.decision.status).toBe('regressed')
     expect(model.verdict?.magnitude).toBe('+14 pts')
-    expect(model.verdict?.band).toBe('review')
+    expect(model.verdict?.band).toBe('neutral')
   })
 
-  it('withholds a magnitude when the movement is inside the tolerance', () => {
-    const drift = FIXED_COMPARISON_TOLERANCE.overallScorePoints - 1
+  it('preserves a signed difference inside the fallback band', () => {
+    const drift = 2
     const model = buildTrendChart([
       point({ id: 'a', score: 40, assessedAt: '2026-01-01T00:00:00Z' }),
       point({ id: 'b', score: 40 - drift, assessedAt: '2026-03-01T00:00:00Z' }),
     ])
     expect(model.verdict?.decision.status).toBe('within_tolerance')
-    // Stating the size of a movement the policy calls meaningless argues
-    // against the words next to it.
-    expect(model.verdict?.magnitude).toBeNull()
+    expect(model.verdict?.magnitude).toBe('−2 pts')
     expect(model.verdict?.band).toBe('neutral')
-    expect(model.footnote).toContain('inside it')
+    expect(model.footnote).toContain('Repeat-capture variability')
   })
 
   it('refuses a verdict, a whisker and a claim across scoring versions', () => {
@@ -133,32 +130,25 @@ describe('buildTrendChart verdict', () => {
       point({ id: 'b', score: 46, scoringEngineVersion: '1.4.0', segmentId: 'trend-segment-2', assessedAt: '2026-03-01T00:00:00Z' }),
     ])
     expect(model.verdict?.decision.status).toBe('not_comparable')
-    expect(model.verdict?.text).toBe('Not comparable')
+    expect(model.verdict?.text).toContain('Not comparable')
     expect(model.verdict?.magnitude).toBeNull()
     expect(model.tolerance).toBeNull()
     expect(model.footnote).toContain('different or missing scoring versions')
   })
 
-  it('has no verdict on a first scan but still explains the tolerance', () => {
+  it('has no verdict on a first scan and states the repeat-capture limitation', () => {
     const model = buildTrendChart([point({ id: 'only' })])
     expect(model.verdict).toBeNull()
     expect(model.tolerance).toBeNull()
-    expect(model.footnote).toContain('A second scan starts the trend')
+    expect(model.footnote).toContain('A second recorded score enables a numeric comparison')
   })
 
-  it('scales the whisker to the policy tolerance in score points', () => {
+  it('does not draw an unvalidated measurement-tolerance band', () => {
     const model = buildTrendChart([
       point({ id: 'a', score: 62, assessedAt: '2026-01-01T00:00:00Z' }),
       point({ id: 'b', score: 46, assessedAt: '2026-03-01T00:00:00Z' }),
     ])
-    expect(model.tolerance?.points).toBe(FIXED_COMPARISON_TOLERANCE.overallScorePoints)
-    const upper = buildTrendChart([
-      point({ id: 'a', score: 62, assessedAt: '2026-01-01T00:00:00Z' }),
-      point({ id: 'b', score: 46 + FIXED_COMPARISON_TOLERANCE.overallScorePoints, assessedAt: '2026-03-01T00:00:00Z' }),
-    ])
-    // The whisker's height is the same regardless of where the point sits.
-    const span = (model.tolerance!.y2 - model.tolerance!.y1)
-    expect(upper.tolerance!.y2 - upper.tolerance!.y1).toBeCloseTo(span, 5)
+    expect(model.tolerance).toBeNull()
   })
 })
 
@@ -199,7 +189,9 @@ describe('buildTrendChart labelling', () => {
     ])
     expect(model.description).toContain('62 · D')
     expect(model.description).toContain('46 · C')
-    expect(model.description).toContain('lower is better')
-    expect(model.description).toContain('Improved')
+    expect(model.description).toContain('lower values indicate less recorded deviation')
+    expect(model.description).not.toMatch(/better|worse|improved|regressed/i)
+    expect(model.description).toContain('Screening score decreased')
+    expect(model.description).toContain('meaningful change are not established')
   })
 })

@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import type { PoseFrame } from '@posture-ai/engine'
+import {
+  POSE_MODEL_SHA256,
+  POSE_RUNTIME_VERSION,
+} from '@/lib/pose/pose-model'
 
 // Boundary validation for POST /api/assessments. The client is never trusted:
 // frames must be well-formed BlazePose output, and fixture scoring (test mode)
@@ -37,6 +41,89 @@ const landmarkSchema = z.object({
   visibility: z.number().min(0).max(1).optional(),
 }).strict()
 
+const pixelDimension = z.number().int().min(1).max(100_000)
+export const poseFrameMetaSchema = z.object({
+  version: z.literal('pose-frame-meta-v1'),
+  coordinateSpace: z.literal('decoded_image_normalized'),
+  sourceWidthPx: pixelDimension.nullable(),
+  sourceHeightPx: pixelDimension.nullable(),
+  analysisWidthPx: pixelDimension,
+  analysisHeightPx: pixelDimension,
+  orientationNormalization: z.enum([
+    'camera_video_frame',
+    'exif_from_image_canvas_v1',
+    'browser_decoder',
+  ]),
+  // The browser may consume EXIF during decode; never accept an inferred angle.
+  exifOrientationDegrees: z.null(),
+  // V1 has no reflected analysis/display path. Do not accept an unused flag
+  // that could imply coordinates were canonicalized when they were not.
+  analysisMirrored: z.literal(false),
+  displayMirrored: z.literal(false),
+  viewAssignment: z.literal('operator_asserted_not_verified'),
+  requestedCameraFacingMode: z.literal('environment').nullable(),
+  observedCameraFacingMode: z.string().min(1).max(64).nullable(),
+  poseModel: z.object({
+    runtime: z.literal('@mediapipe/tasks-vision'),
+    runtimeVersion: z.string().min(1).max(32),
+    variant: z.enum(['lite', 'full']),
+    assetPath: z.enum([
+      '/mediapipe/models/pose_landmarker_lite.task',
+      '/mediapipe/models/pose_landmarker_full.task',
+    ]),
+    assetSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict(),
+}).strict().superRefine((meta, ctx) => {
+  const hasSourceWidth = meta.sourceWidthPx !== null
+  const hasSourceHeight = meta.sourceHeightPx !== null
+  if (hasSourceWidth !== hasSourceHeight) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sourceWidthPx'],
+      message: 'source dimensions must both be present or both be null',
+    })
+  }
+  const expectedAsset = meta.poseModel.variant === 'lite'
+    ? '/mediapipe/models/pose_landmarker_lite.task'
+    : '/mediapipe/models/pose_landmarker_full.task'
+  if (meta.poseModel.assetPath !== expectedAsset) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['poseModel', 'assetPath'],
+      message: 'pose model variant and asset path disagree',
+    })
+  }
+  if (meta.poseModel.runtimeVersion !== POSE_RUNTIME_VERSION) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['poseModel', 'runtimeVersion'],
+      message: 'pose runtime version is not supported',
+    })
+  }
+  if (meta.poseModel.assetSha256 !== POSE_MODEL_SHA256[meta.poseModel.variant]) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['poseModel', 'assetSha256'],
+      message: 'pose model hash does not match the bundled variant',
+    })
+  }
+  const isCamera = meta.orientationNormalization === 'camera_video_frame'
+  if (isCamera && meta.requestedCameraFacingMode !== 'environment') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['requestedCameraFacingMode'],
+      message: 'camera frames must record the requested facing mode',
+    })
+  }
+  if (!isCamera && (meta.requestedCameraFacingMode !== null || meta.observedCameraFacingMode !== null)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['observedCameraFacingMode'],
+      message: 'decoded uploads cannot claim camera facing metadata',
+    })
+  }
+})
+
 const frameSchema = z.object({
   view: z.enum(['front', 'side', 'back']),
   landmarks: z
@@ -54,9 +141,28 @@ const frameSchema = z.object({
   source: z.enum(['camera', 'upload']).optional(),
   // Anatomical side profile nearest the camera; valid only on a side view.
   profileSide: z.enum(['left', 'right']).optional(),
+  poseMeta: poseFrameMetaSchema.optional(),
 }).strict().superRefine((frame, ctx) => {
   if (frame.profileSide && frame.view !== 'side') {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profileSide'], message: 'profileSide is only valid on a side view' })
+  }
+  if (frame.poseMeta) {
+    if (!frame.source) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['source'],
+        message: 'versioned pose provenance requires an explicit frame source',
+      })
+    } else {
+      const cameraProtocol = frame.poseMeta.orientationNormalization === 'camera_video_frame'
+      if ((frame.source === 'camera') !== cameraProtocol) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['poseMeta', 'orientationNormalization'],
+          message: 'frame source and orientation normalization disagree',
+        })
+      }
+    }
   }
 })
 
@@ -79,7 +185,7 @@ const BILATERAL_STRUCTURAL_LANDMARKS = [
   'left_ankle', 'right_ankle',
 ] as const
 
-const STRUCTURAL_LANDMARKS_BY_GROUP: Record<RequiredCaptureGroup, readonly string[]> = {
+export const STRUCTURAL_LANDMARKS_BY_GROUP: Record<RequiredCaptureGroup, readonly string[]> = {
   front: BILATERAL_STRUCTURAL_LANDMARKS,
   back: BILATERAL_STRUCTURAL_LANDMARKS,
   'side-left': [

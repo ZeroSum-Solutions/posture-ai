@@ -1,0 +1,649 @@
+.builder {
+  container-type: inline-size;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.entryState {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.launcher {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.clientPicker {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 36rem;
+  min-width: 0;
+}
+
+.sampleEntry {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sampleEntry > div {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sampleEntry p,
+.sampleEntry h2 { margin: 0; }
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(240px, .7fr);
+  gap: 24px;
+  align-items: end;
+}
+
+.heroCopy,
+.subjectCard,
+.formSurface,
+.fieldset,
+.pendingPanel {
+  min-width: 0;
+}
+
+.heroCopy {
+  display: grid;
+  gap: 10px;
+}
+
+.eyebrowRow,
+.sectionHeading,
+.saveBar,
+.saveActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrowRow p,
+.heroCopy h2,
+.heroCopy > p,
+.sectionHeading p,
+.sectionHeading h3,
+.saveBar p,
+.pendingPanel p {
+  margin: 0;
+}
+
+.subjectCard {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
+  border-left: 1px solid var(--hairline);
+  overflow-wrap: anywhere;
+}
+
+.formSurface {
+  display: grid;
+  min-height: 390px;
+}
+
+.formSurface [role='tabpanel'] {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+}
+
+.formSurface [role='tabpanel'][hidden] {
+  display: none;
+}
+
+.sectionHeading {
+  align-items: end;
+}
+
+.sectionHeading > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sectionHeading > span {
+  flex: 0 0 auto;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fieldGrid label,
+.budgetField {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.fieldGrid input,
+.fieldGrid select,
+.budgetField select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.spanTwo {
+  grid-column: 1 / -1;
+}
+
+.fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fieldset legend {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.cycleGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.choiceCard,
+.dayButton {
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface-glass);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.choiceCard {
+  display: grid;
+  gap: 1px;
+  padding: 12px;
+  text-align: left;
+}
+
+.choiceCard strong {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.choiceCard small {
+  margin-top: 5px;
+  color: var(--text-tertiary);
+}
+
+.choiceCard[aria-pressed='true'],
+.dayButton[aria-pressed='true'] {
+  border-color: var(--text-secondary);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.choiceCard:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dayButton {
+  padding: 8px 5px;
+  overflow-wrap: anywhere;
+}
+
+.budgetField {
+  max-width: 320px;
+}
+
+.pendingPanel {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface-glass);
+  overflow-wrap: anywhere;
+}
+
+.saveBar {
+  align-items: flex-end;
+  padding: 16px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-glass);
+}
+
+.saveBar > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.saveActions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.saveActions button {
+  min-height: 44px;
+  padding-inline: 16px;
+}
+
+.error {
+  color: var(--review);
+}
+
+.notice {
+  color: var(--text-secondary);
+}
+
+@container (max-width: 760px) {
+  .sampleEntry {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sampleEntry button { width: 100%; }
+
+  .hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .subjectCard {
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+
+  .dayGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saveBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .saveActions,
+  .saveActions button {
+    width: 100%;
+  }
+}
+
+@container (max-width: 430px) {
+  .eyebrowRow,
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cycleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.practiceDraft {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.scheduleStrip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.scheduleStrip span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.scheduleStrip small {
+  color: var(--text-tertiary);
+}
+
+.phaseLabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.equipmentList {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  min-width: 0;
+}
+
+.equipmentCard {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: var(--space-4);
+}
+
+.draftNotice {
+  border: 1px solid color-mix(in srgb, var(--review) 45%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.calibrationGrid,
+.conditioningGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.calibrationCard {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.calibrationCard h4 { margin: 0; }
+
+.calibrationCard label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.calibrationCard input,
+.calibrationCard select {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.accepted {
+  color: var(--maintain);
+  font-weight: 700;
+}
+
+.targetAcceptance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-glass);
+}
+
+.targetAcceptance p { margin: 0; }
+
+.createdProgram {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.sessionPlayer,
+.sessionExercises,
+.resumeList {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.practiceBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-glass);
+  overflow-wrap: anywhere;
+}
+
+.practiceBanner span { color: var(--text-secondary); }
+
+.resumeProgram {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.resumeProgram > div:first-child {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.resumeSessions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sessionHeader,
+.finishBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sessionHeader > div {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sessionExercise,
+.conditioningSession {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.setGrid,
+.conditioningFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.setEditor {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+}
+
+.setEditor legend {
+  padding-inline: var(--space-2);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.setEditor label,
+.conditioningFields label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.setEditor input,
+.setEditor select,
+.conditioningFields input,
+.conditioningFields select {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.symptomField {
+  grid-column: span 2;
+}
+
+.setEditor button {
+  align-self: end;
+  min-height: 44px;
+}
+
+.finishBar {
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-glass);
+}
+
+.finishBar p { margin: 0; }
+
+.restTimer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-glass);
+}
+
+.restTimerDetails {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.restTimerDetails p { margin: 0; }
+
+.restTimerControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.restTimerControls button { min-height: 44px; }
+
+@container (max-width: 760px) {
+  .calibrationGrid,
+  .conditioningGrid { grid-template-columns: minmax(0, 1fr); }
+
+  .scheduleStrip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .targetAcceptance {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .createdProgram {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sessionHeader,
+  .finishBar,
+  .practiceBanner,
+  .resumeProgram {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resumeSessions {
+    justify-content: flex-start;
+  }
+
+  .setGrid,
+  .conditioningFields { grid-template-columns: minmax(0, 1fr); }
+
+  .setEditor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container (max-width: 430px) {
+  .scheduleStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .targetAcceptance button { width: 100%; }
+
+  .setEditor { grid-template-columns: minmax(0, 1fr); }
+
+  .symptomField { grid-column: auto; }
+
+  .finishBar button { width: 100%; }
+
+  .restTimer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .restTimer > :first-child { align-self: center; }
+
+  .restTimerControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

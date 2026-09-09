@@ -5,7 +5,7 @@ export default defineConfig({
   cacheDir: '/tmp/claude/vitest-cache',
   test: {
     environment: 'node',
-    exclude: [...configDefaults.exclude, 'e2e/**', 'work/**', 'mobile/**', '.claude/**'],
+    exclude: [...configDefaults.exclude, '**/*.playwright.spec.ts', 'e2e/**', 'work/**', 'mobile/**', '.claude/**'],
     coverage: {
       enabled: false,
     },

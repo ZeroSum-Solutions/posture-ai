@@ -85,6 +85,10 @@ describe('ClientReport renders (smoke)', () => {
     expect(comparison.byKey.forward_head_posture.status).toBe('improved')
     expect(comparison.byKey.anterior_pelvic_shift.status).toBe('regressed')
     const el = <ClientReport clientName="Jane Doe" practitioner="Acme Clinic" dateStr="28 Jun 2026" report={program} comparison={comparison} legalNotice={legalNotice} />
+    const text = renderedText(ClientReport({ clientName: 'Jane Doe', practitioner: 'Acme Clinic', dateStr: '28 Jun 2026', report: program, comparison, legalNotice }))
+    expect(text).toContain('Screening score decreased')
+    expect(text).toContain('Repeat-capture variability')
+    expect(text).not.toMatch(/Improved —|Regressed —/)
     expect(await isPdf(el)).toBe(true)
   })
 

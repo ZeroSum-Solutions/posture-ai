@@ -25,6 +25,7 @@ import TrendChart from './TrendChart'
 import { buildHistoryRows } from './historyRows'
 import { buildClientComparison } from '@/lib/reports/clientComparison'
 import { segmentTrendHistory } from '@/lib/comparison/trends'
+import { REPEAT_CAPTURE_LIMITATION_COPY } from '@/lib/comparison/policy'
 import styles from './ClientDetail.module.css'
 import type { OperationMode } from '@/lib/prototype/runtime'
 
@@ -774,6 +775,7 @@ function ClientDetailRoute({
           <h2 className="t-headline-sm">Scan history</h2>
           {nextAssessmentCursor ? <span className="t-quiet">latest {assessments.length}</span> : null}
         </div>
+        <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
 
         {historyLoadedForId !== id ? (
           <div className={styles.loadingPanel} role="status">Loading assessment history…</div>

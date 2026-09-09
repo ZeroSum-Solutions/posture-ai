@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { testLandmarksFrames } from '@posture-ai/engine'
 
 const state = vi.hoisted(() => ({
   user: { id: '10000000-0000-4000-8000-000000000001' } as { id: string } | null,
@@ -15,6 +16,7 @@ const state = vi.hoisted(() => ({
   findingsEq: vi.fn(),
   practitionerGate: vi.fn(),
   clinicalAccessForPractitioner: vi.fn(),
+  buildClinicalProjection: vi.fn(),
   logEvent: vi.fn(),
 }))
 
@@ -88,11 +90,7 @@ vi.mock('@/lib/clinical-content/surfaces', () => ({
   hasCompleteClinicalSurfaces: () => true,
 }))
 vi.mock('@/lib/program/clinicalProjection', () => ({
-  buildClinicalProjection: () => ({
-    program: { priorities: [], eligibleOrder: [] },
-    exercises: [],
-    sessionPreview: null,
-  }),
+  buildClinicalProjection: state.buildClinicalProjection,
 }))
 
 import { loadAssessmentResults, type AssessmentResultsPayload } from './loadAssessmentResults'
@@ -115,6 +113,25 @@ const assessment = {
   notes: 'Follow-up screening',
   clients: { id: 'client-1', first_name: 'Ada', last_name: 'Lovelace' },
 } satisfies AssessmentResultsPayload['assessment']
+
+const assessmentRow = {
+  ...assessment,
+  client_id: assessment.clients.id,
+  practitioner_id: '10000000-0000-4000-8000-000000000001',
+  assessment_type: 'static',
+}
+
+function validCapture(view: 'side', profileSide: 'left' | 'right') {
+  const frame = testLandmarksFrames.find((candidate) => candidate.view === view)!
+  return {
+    id: `capture-${view}-${profileSide}`,
+    assessment_id: 'assessment-1', practitioner_id: assessmentRow.practitioner_id,
+    view, profile_side: profileSide, source: 'upload',
+    pose_frame: { ...frame, source: 'upload', profileSide },
+    width_px: null, height_px: null, model_version: null,
+    created_at: '2026-07-02T00:00:00.000Z', image_sha256: null, storage_path: null,
+  }
+}
 
 async function expectFailureStatus(status: number, message: string) {
   const result = await loadAssessmentResults('assessment-1')
@@ -139,6 +156,12 @@ describe('loadAssessmentResults authorization and read contracts', () => {
     state.practitionerGate.mockImplementation(async () => state.gate)
     state.clinicalAccessForPractitioner.mockReset()
     state.clinicalAccessForPractitioner.mockResolvedValue(access)
+    state.buildClinicalProjection.mockReset()
+    state.buildClinicalProjection.mockReturnValue({
+      program: { priorities: [], eligibleOrder: [] },
+      exercises: [],
+      sessionPreview: null,
+    })
     state.logEvent.mockReset()
   })
 
@@ -169,7 +192,7 @@ describe('loadAssessmentResults authorization and read contracts', () => {
   })
 
   test('returns 500 instead of an empty report when findings fail to load', async () => {
-    state.assessmentResult = { data: assessment, error: null }
+    state.assessmentResult = { data: assessmentRow, error: null }
     state.findingsResult = { data: [], error: { message: 'database unavailable' } }
 
     await expectFailureStatus(500, 'Internal server error')
@@ -183,7 +206,7 @@ describe('loadAssessmentResults authorization and read contracts', () => {
   })
 
   test('returns 500 instead of an incomplete report when captures fail to load', async () => {
-    state.assessmentResult = { data: assessment, error: null }
+    state.assessmentResult = { data: assessmentRow, error: null }
     state.capturesResult = { data: [], error: { message: 'captures unavailable' } }
 
     await expectFailureStatus(500, 'Internal server error')
@@ -196,28 +219,172 @@ describe('loadAssessmentResults authorization and read contracts', () => {
   })
 
   test('returns the same complete payload consumed by the page and API route', async () => {
-    state.assessmentResult = { data: assessment, error: null }
+    state.assessmentResult = { data: assessmentRow, error: null }
 
     const result = await loadAssessmentResults('assessment-1')
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('Expected loader success')
     expect(result.data).toEqual({
-      assessment,
+      assessment: {
+        ...assessment,
+        overall_score: null,
+        overall_grade: null,
+        priority_keys: null,
+        capability: null,
+        exercise_swaps: null,
+      },
       findings: [],
       captures: [],
+      screening_context: expect.objectContaining({
+        version: 'screening-context-v1',
+        scanUse: 'unavailable',
+        scanAllowsGeneralTraining: true,
+        reasonCodes: ['no_findings'],
+      }),
       clinical_content: {
         enabled: true,
         surfaces: access.surfaces,
         mode: access.mode,
         version: access.contentVersion,
-        projection: {
-          program: { priorities: [], eligibleOrder: [] },
-          exercises: [],
-          sessionPreview: null,
-        },
+        projection: null,
       },
     })
     expect(state.clinicalAccessForPractitioner).toHaveBeenCalledWith(state.user!.id)
+  })
+
+  test('projects a persisted capture image hash into the server screening context', async () => {
+    state.assessmentResult = { data: assessmentRow, error: null }
+    state.capturesResult = {
+      data: [{
+        id: 'capture-1', assessment_id: 'assessment-1', practitioner_id: assessmentRow.practitioner_id,
+        view: 'front', profile_side: null, source: 'upload', pose_frame: {},
+        width_px: 720, height_px: 960, model_version: null,
+        created_at: '2026-07-02T00:00:00.000Z', image_sha256: 'b'.repeat(64), storage_path: 'private/path.jpg',
+      }],
+      error: null,
+    }
+
+    const result = await loadAssessmentResults('assessment-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Expected loader success')
+    expect(result.data.screening_context.context?.provenance.captures[0].imageSha256).toBe('b'.repeat(64))
+  })
+
+  test('keeps an incompatible-engine finding visible but unavailable and out of the legacy program', async () => {
+    state.assessmentResult = {
+      data: { ...assessmentRow, scoring_engine_version: '0.9.0' },
+      error: null,
+    }
+    state.findingsResult = {
+      data: [{
+        id: 'finding-1', assessment_id: 'assessment-1', practitioner_id: assessmentRow.practitioner_id,
+        imbalance_key: 'trunk_lean', region: 'spine', label: 'Legacy diagnostic alias',
+        deviation: 25, standard: 5, unit: '°', direction: 'left', severity_pct: 95,
+        zone: 'danger', view_used: 'front', confidence: 0.99, stability_score: 0.9,
+        uncertainty_deg: 0.5, borderline: false, metric_validity: 'SCREENING_ONLY',
+        observations: null, causes_text: 'Unreviewed cause', tight_muscles: ['muscle'], weak_muscles: [],
+      }],
+      error: null,
+    }
+
+    const result = await loadAssessmentResults('assessment-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Expected loader success')
+    expect(result.data.screening_context).toMatchObject({
+      scanUse: 'incompatible',
+      reasonCodes: ['unsupported_engine_version:0.9.0'],
+    })
+    expect(result.data.findings[0]).toMatchObject({
+      imbalance_key: 'trunk_lean',
+      label: 'Trunk Lean',
+      deviation: null,
+      direction: 'unavailable',
+      severity_pct: null,
+      zone: 'unreliable',
+      confidence: null,
+      causes_text: '',
+      tight_muscles: [],
+      weak_muscles: [],
+    })
+    expect(JSON.stringify(result.data.findings[0])).not.toMatch(/Legacy diagnostic alias|Unreviewed cause/)
+    expect(result.data.assessment).toMatchObject({ overall_score: null, overall_grade: null })
+    expect(state.buildClinicalProjection).not.toHaveBeenCalled()
+  })
+
+  test('keeps contradictory capture metadata out of the report and legacy program', async () => {
+    state.assessmentResult = { data: assessmentRow, error: null }
+    state.findingsResult = {
+      data: [{
+        id: 'finding-1', assessment_id: 'assessment-1', practitioner_id: assessmentRow.practitioner_id,
+        imbalance_key: 'trunk_lean', region: 'spine', label: 'Trunk Lean',
+        deviation: 25, standard: 5, unit: 'deg', direction: 'left', severity_pct: 95,
+        zone: 'danger', view_used: 'front', confidence: 0.99, stability_score: 0.9,
+        uncertainty_deg: 0.5, borderline: false, metric_validity: 'SCREENING_ONLY', observations: null,
+      }],
+      error: null,
+    }
+    state.capturesResult = {
+      data: [{
+        id: 'capture-1', assessment_id: 'assessment-1', practitioner_id: assessmentRow.practitioner_id,
+        view: 'front', profile_side: null, source: 'upload', pose_frame: { view: 'back' },
+        width_px: null, height_px: null, model_version: null,
+        created_at: '2026-07-02T00:00:00.000Z', image_sha256: null, storage_path: null,
+      }],
+      error: null,
+    }
+
+    const result = await loadAssessmentResults('assessment-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Expected loader success')
+    expect(result.data.screening_context).toMatchObject({ scanUse: 'unavailable' })
+    expect(result.data.screening_context.context?.observations[0]).toMatchObject({
+      availability: 'unavailable',
+      unavailableReasons: expect.arrayContaining(['contradictory_capture_metadata:front']),
+      value: null,
+    })
+    expect(result.data.findings[0]).toMatchObject({
+      deviation: null,
+      direction: 'unavailable',
+      severity_pct: null,
+      zone: 'unreliable',
+      confidence: null,
+    })
+    expect(result.data.assessment).toMatchObject({ overall_score: null, overall_grade: null })
+    expect(result.data.clinical_content.projection).toBeNull()
+    expect(state.buildClinicalProjection).not.toHaveBeenCalled()
+  })
+
+  test('uses the canonical derived finding for public Results and clinical projection', async () => {
+    state.assessmentResult = { data: assessmentRow, error: null }
+    state.findingsResult = {
+      data: [{
+        id: 'finding-1', assessment_id: 'assessment-1', practitioner_id: assessmentRow.practitioner_id,
+        imbalance_key: 'trunk_lean', region: 'legacy-region', label: 'Legacy diagnostic alias',
+        deviation: 5, standard: 0, unit: 'degrees', direction: 'Forward', severity_pct: 50,
+        zone: 'warning', view_used: 'side', confidence: 0.99, stability_score: null,
+        uncertainty_deg: null, borderline: false, metric_validity: 'SCREENING_ONLY',
+        observations: { drivingProfileSide: 'left', sides: [{ profileSide: 'left' }] },
+        injury_prediction: 'high',
+      }], error: null,
+    }
+    state.capturesResult = { data: [validCapture('side', 'left'), validCapture('side', 'right')], error: null }
+
+    const result = await loadAssessmentResults('assessment-1')
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Expected loader success')
+    expect(result.data.findings[0]).toMatchObject({
+      label: 'Trunk Lean', region: 'spine', view_used: 'side', direction: 'Forward',
+    })
+    expect(result.data.findings[0]).not.toHaveProperty('unit')
+    expect(JSON.stringify(result.data.findings[0])).not.toMatch(/Legacy diagnostic alias|legacy-region|injury_prediction/)
+    expect(state.buildClinicalProjection).toHaveBeenCalledWith(
+      expect.anything(),
+      [expect.objectContaining({ label: 'Trunk Lean', region: 'spine', direction: 'Forward', unit: 'deg' })],
+      expect.anything(),
+    )
   })
 })

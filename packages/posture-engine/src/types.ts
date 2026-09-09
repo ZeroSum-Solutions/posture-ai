@@ -7,6 +7,38 @@ export interface Landmark {
 
 export type ViewLabel = 'front' | 'side' | 'back'
 
+/**
+ * Versioned capture provenance attached by the web detector. All fields describe
+ * the pixels actually analyzed; viewAssignment remains an operator assertion,
+ * never a model-verified view.
+ */
+export interface PoseFrameMetaV1 {
+  version: 'pose-frame-meta-v1'
+  coordinateSpace: 'decoded_image_normalized'
+  /** Dimensions before optional upload resize; null when that decoder boundary was unavailable. */
+  sourceWidthPx: number | null
+  sourceHeightPx: number | null
+  /** Intrinsic dimensions of the exact image supplied to PoseLandmarker. */
+  analysisWidthPx: number
+  analysisHeightPx: number
+  orientationNormalization: 'camera_video_frame' | 'exif_from_image_canvas_v1' | 'browser_decoder'
+  /** EXIF angle is not inferred after a browser decoder may have consumed it. */
+  exifOrientationDegrees: null
+  /** Current v1 pipeline analyzes and displays camera/upload pixels unreflected. */
+  analysisMirrored: false
+  displayMirrored: false
+  viewAssignment: 'operator_asserted_not_verified'
+  requestedCameraFacingMode: 'environment' | null
+  observedCameraFacingMode: string | null
+  poseModel: {
+    runtime: '@mediapipe/tasks-vision'
+    runtimeVersion: string
+    variant: 'lite' | 'full'
+    assetPath: string
+    assetSha256: string
+  }
+}
+
 export interface PoseFrame {
   view: ViewLabel
   landmarks: Record<string, Landmark>
@@ -25,6 +57,8 @@ export interface PoseFrame {
    * (the side nearest the lens). Absent = legacy single-side capture.
    */
   profileSide?: 'left' | 'right'
+  /** Optional for backward compatibility with captures persisted before provenance v1. */
+  poseMeta?: PoseFrameMetaV1
 }
 
 export type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'

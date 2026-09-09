@@ -8,6 +8,11 @@ import { BandTable, GradeRing, ScoreBar, gradeColor } from './GradeSummary'
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { bandFromZone, tone } from '@/components/array/severity'
 import ReviewTabs from './ReviewTabs'
+import CapturePhoto from './CapturePhoto'
+import MuscleModel3D from './MuscleModel3D'
+import type { EvidenceCapture } from './ReviewEvidence'
+import evidenceStyles from './AssessmentReview.module.css'
+import photoStyles from './CapturePhoto.module.css'
 import styles from './AssessmentReviewStudio.module.css'
 
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
@@ -17,21 +22,21 @@ interface AssessmentOnlyFinding {
   imbalance_key: string
   region: string
   label: string
-  deviation: number
+  deviation: number | null
   unit?: string | null
   direction: string
-  severity_pct: number
+  severity_pct: number | null
   zone: Zone
   view_used: string
-  confidence: number
+  confidence: number | null
   stability_score?: number | null
   uncertainty_deg?: number | null
 }
 
 interface AssessmentOnlyRecord {
   id: string
-  overall_score: number
-  overall_grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
+  overall_score: number | null
+  overall_grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | null
   scoring_engine_version: string | null
   assessed_at: string
   practitioner_approved?: boolean | null
@@ -54,6 +59,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
   const [assessmentId, setAssessmentId] = useState('')
   const [assessment, setAssessment] = useState<AssessmentOnlyRecord | null>(null)
   const [findings, setFindings] = useState<AssessmentOnlyFinding[]>([])
+  const [captures, setCaptures] = useState<EvidenceCapture[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
@@ -77,6 +83,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
         }
         setAssessment(payload.assessment)
         setFindings(payload.findings ?? [])
+        setCaptures(payload.captures ?? [])
         setApproved(Boolean(payload.assessment?.practitioner_approved))
       } catch (loadError) {
         if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message)
@@ -131,10 +138,13 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
   if (error && !assessment) return <div className="app-screen app-screen-x"><p className="a-error" role="alert">{error}</p></div>
   if (!assessment) return null
 
-  const usesCurrentScale = usesCurrentGradeScale(assessment.scoring_engine_version)
-  const gradeDescription = usesCurrentScale
-    ? getGradeDisplayBand(assessment.overall_grade).description
-    : 'Recorded screening grade'
+  const hasCurrentGrade = assessment.overall_score !== null && assessment.overall_grade !== null
+  const usesCurrentScale = hasCurrentGrade && usesCurrentGradeScale(assessment.scoring_engine_version)
+  const gradeDescription = hasCurrentGrade
+    ? usesCurrentScale
+      ? getGradeDisplayBand(assessment.overall_grade!).description
+      : 'Recorded screening grade'
+    : null
   const clientName = `${assessment.clients.first_name} ${assessment.clients.last_name}`
   const findingsNeedingReview = findings.filter((finding) => finding.zone === 'warning' || finding.zone === 'danger').length
   const maintainingFindings = findings.filter((finding) => finding.zone === 'maintain').length
@@ -146,7 +156,9 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
       <header className={styles.studioHeader}>
         <p className="t-kicker">Screening review</p>
         <h1>Screening results</h1>
-        <p>Start with the grade, then open the practitioner findings when you are ready to review them.</p>
+        <p>{hasCurrentGrade
+          ? 'Start with the grade, then open the practitioner findings when you are ready to review them.'
+          : 'The current numeric summary is unavailable. Review the saved evidence and finding availability.'}</p>
       </header>
 
       <div className={styles.studioGrid}>
@@ -154,12 +166,20 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
           <div className={styles.dockSummary}>
             <div className={styles.identity}>
               <div><span className={styles.quietLabel}>Assessment</span><h2>{clientName}</h2></div>
-              <div className={styles.gradeReadout} aria-label={`Grade ${assessment.overall_grade}`}>
-                <span>Grade</span>
-                <strong>{assessment.overall_grade}</strong>
-                <small>{assessment.overall_score}/100</small>
-                <em>{gradeDescription}</em>
-              </div>
+              {hasCurrentGrade ? (
+                <div className={styles.gradeReadout} aria-label={`Grade ${assessment.overall_grade}`}>
+                  <span>Grade</span>
+                  <strong>{assessment.overall_grade}</strong>
+                  <small>{assessment.overall_score}/100</small>
+                  <em>{gradeDescription}</em>
+                </div>
+              ) : (
+                <div className={styles.gradeReadout} data-testid="grade-unavailable">
+                  <span>Current summary</span>
+                  <strong>Unavailable</strong>
+                  <small>Review saved evidence and finding availability.</small>
+                </div>
+              )}
             </div>
             <p className={styles.actionHint}>
               Recommendations and exercise programs are not included in this assessment-only release.
@@ -192,15 +212,25 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                   <>
                     <h2 className={styles.sectionHeading}>At a glance</h2>
                     <div className={styles.summaryHero}>
-                      <div className={styles.ratingSummary}>
-                        <GradeRing grade={assessment.overall_grade} score={assessment.overall_score} description={gradeDescription} />
-                        <div>
-                          <span className={styles.quietLabel}>Overall screening grade</span>
-                          <strong>{gradeDescription}</strong>
-                          <p>Deviation: {assessment.overall_score}/100 (lower is better) — Grade <span style={{ color: gradeColor(assessment.overall_grade) }}>{assessment.overall_grade}</span></p>
-                          {usesCurrentScale && <ScoreBar score={assessment.overall_score} grade={assessment.overall_grade} />}
+                      {hasCurrentGrade ? (
+                        <div className={styles.ratingSummary}>
+                          <GradeRing grade={assessment.overall_grade!} score={assessment.overall_score!} description={gradeDescription!} />
+                          <div>
+                            <span className={styles.quietLabel}>Overall screening grade</span>
+                            <strong>{gradeDescription}</strong>
+                            <p>Deviation: {assessment.overall_score}/100 (lower is better) — Grade <span style={{ color: gradeColor(assessment.overall_grade!) }}>{assessment.overall_grade}</span></p>
+                            {usesCurrentScale && <ScoreBar score={assessment.overall_score!} grade={assessment.overall_grade!} />}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className={styles.ratingSummary} data-testid="numeric-summary-unavailable">
+                          <div>
+                            <span className={styles.quietLabel}>Current screening summary</span>
+                            <strong>Numeric grade unavailable</strong>
+                            <p>This screening cannot support a current numeric claim. Historical values remain stored; review the Evidence and Findings tabs.</p>
+                          </div>
+                        </div>
+                      )}
                       <div className={styles.findingSnapshot} aria-label="Finding summary">
                         <div className={styles.snapshotCard}>
                           <span>Review</span>
@@ -222,11 +252,11 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                         Review all {findings.length} findings
                       </a>
                     </div>
-                    {usesCurrentScale && (
+                    {hasCurrentGrade && usesCurrentScale && (
                       <details className={styles.detailDisclosure}>
                         <summary>Grade reference</summary>
                         <div className={styles.detailDisclosureContent}>
-                          <BandTable currentGrade={assessment.overall_grade} />
+                          <BandTable currentGrade={assessment.overall_grade!} />
                         </div>
                       </details>
                     )}
@@ -236,6 +266,28 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                     </details>
                   </>
                 ),
+              },
+              {
+                id: 'assessment-evidence',
+                label: 'Evidence',
+                count: captures.length,
+                content: <section aria-label="Saved capture evidence">
+                  <MuscleModel3D findings={[]} referenceOnly />
+                  <h2 className={styles.sectionHeading}>Capture set</h2>
+                  <p>Original acquisition images, when saved, are shown with their recorded view. Missing historical photos cannot be reconstructed from findings.</p>
+                  {captures.length === 0 ? <p>No captures are stored for this screening.</p> :
+                    <div className={`${evidenceStyles.captureGrid} ${photoStyles.gallery}`}>
+                      {captures.map(capture => {
+                        const label = capture.profile_side ? `${capture.view} ${capture.profile_side}` : capture.view
+                        return <div key={capture.id} className={evidenceStyles.captureTile}>
+                          <div className={evidenceStyles.captureFrame}>
+                            <CapturePhoto key={capture.signed_url ?? capture.id} url={capture.signed_url} label={label} />
+                          </div>
+                          <span className={evidenceStyles.captureLabel}>{label}</span>
+                        </div>
+                      })}
+                    </div>}
+                </section>,
               },
               {
                 id: 'assessment-findings',
@@ -252,8 +304,10 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                             <span style={{ color: ZONE_COLORS[finding.zone] }}>{finding.zone}</span>
                           </div>
                           <p>
-                            {Number(finding.deviation).toFixed(1)}{finding.unit ?? '°'} · {finding.direction} · {finding.view_used} view
-                            {finding.uncertainty_deg != null ? ` · ±${finding.uncertainty_deg.toFixed(1)}° capture variation` : ''}
+                            {finding.zone === 'unreliable' || finding.deviation === null ? 'Measurement unavailable. Review the capture evidence.' : <>
+                              {Number(finding.deviation).toFixed(1)}{finding.unit ?? '°'} · {finding.direction} · {finding.view_used} view
+                              {finding.uncertainty_deg != null ? ` · ±${finding.uncertainty_deg.toFixed(1)}° capture variation` : ''}
+                            </>}
                           </p>
                         </article>
                       ))}

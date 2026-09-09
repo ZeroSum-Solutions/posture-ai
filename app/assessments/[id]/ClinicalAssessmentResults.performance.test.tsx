@@ -50,6 +50,7 @@ vi.mock('./MuscleModel3D', () => ({ default: () => null }))
 vi.mock('@/components/LegalNotice', () => ({ default: () => null }))
 
 import ClinicalAssessmentResults from './ClinicalAssessmentResults'
+import type { AssessmentResultsPayload } from './loadAssessmentResults'
 
 function response(body: unknown, status = 200) {
   return {
@@ -77,7 +78,7 @@ function assessmentResponseData({
   id?: string
   clientId?: string
   assessedAt?: string
-} = {}) {
+} = {}): AssessmentResultsPayload {
   return {
     assessment: {
       id,
@@ -93,14 +94,35 @@ function assessmentResponseData({
       capability: 'standard',
       exercise_swaps: {},
       practitioner_approved: false,
+      practitioner_approved_at: null,
+      notes: null,
       clients: { id: clientId, first_name: 'Ada', last_name: 'Lovelace' },
     },
     findings: [],
     captures: [],
+    screening_context: {
+      version: 'screening-context-v1' as const,
+      scanUse: 'descriptive' as const,
+      scanAllowsGeneralTraining: true as const,
+      reasonCodes: [],
+      context: null,
+    },
     clinical_content: {
       enabled: true,
+      surfaces: { recommendations: true, programs: true, workouts: true, knowledgeLinks: true },
+      mode: 'test_fixture',
+      version: 'test',
       projection: {
-        program: { priorities: [], eligibleOrder: [] },
+        program: {
+          hasPlan: false,
+          priorities: [],
+          monitored: [],
+          eligibleOrder: [],
+          positives: [],
+          screeningSummary: 'No corrective priorities.',
+          oneMoreToWatch: null,
+          capability: 'standard',
+        },
         exercises: [],
         sessionPreview: null,
       },
@@ -115,6 +137,43 @@ afterEach(() => {
 })
 
 describe('assessment results progressive rendering', () => {
+  it('states when an incompatible scan cannot drive the corrective report or program', () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/clients/client-1/assessments?')) {
+        return response({ assessments: [], pagination: { has_more: false, next_cursor: null } })
+      }
+      if (url === '/api/workouts?assessment_id=assessment-1') return response({ runs: [] })
+      throw new Error(`Unexpected URL: ${url}`)
+    }))
+    const data = assessmentResponseData()
+    data.screening_context = {
+      version: 'screening-context-v1',
+      scanUse: 'incompatible',
+      scanAllowsGeneralTraining: true,
+      reasonCodes: ['unsupported_engine_version:0.9.0'],
+      context: null,
+    }
+    data.assessment.overall_score = null
+    data.assessment.overall_grade = null
+    data.clinical_content.projection = null
+    const ComponentWithInitialData = ClinicalAssessmentResults as unknown as React.ComponentType<{
+      params: Promise<{ id: string }>
+      initialAssessmentId: string
+      initialData: typeof data
+    }>
+
+    render(<ComponentWithInitialData
+      params={Promise.resolve({ id: 'assessment-1' })}
+      initialAssessmentId="assessment-1"
+      initialData={data}
+    />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'No current grade is available.' })).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toMatch(/unsupported engine version.*cannot drive/i)
+    expect(screen.queryByRole('heading', { name: /^Grade / })).toBeNull()
+  })
+
   it('paints the primary review before optional comparison history finishes', async () => {
     const priorHistory = deferred<Response>()
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
@@ -176,6 +235,9 @@ describe('assessment results progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
+    expect(screen.getByText('Within-burst landmark consistency 98%')).toBeTruthy()
+    expect(screen.getByText(/Re-stance repeatability and clinical accuracy are not established/)).toBeTruthy()
+    expect(screen.queryByText(/Capture stability/)).toBeNull()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain('/api/assessments/assessment-1')
   })

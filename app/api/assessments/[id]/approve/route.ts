@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Service-role write (authenticated DB writes on regulated tables are revoked);
   // scoped by practitioner_id since service-role bypasses RLS.
-  const { data: updated, error } = await service
+  let updateQuery = service
     .from('assessments')
     .update({
       practitioner_approved: approved,
@@ -39,7 +39,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     })
     .eq('id', id)
     .eq('practitioner_id', user.id)
-    .select('id')
+  // A processing/failed row can contain captures or findings from an interrupted
+  // non-atomic legacy write. Never let that partial scan become workout input.
+  // Revocation remains available regardless of status so stale approvals can be
+  // removed, while approval itself is race-safely conditional on completion.
+  if (approved) updateQuery = updateQuery.eq('status', 'complete')
+  const { data: updated, error } = await updateQuery.select('id')
 
   if (error) {
     logEvent({ route: ROUTE, outcome: 'server_error', status: 500, userHash, resourceHash: hashResource(id), detailCode: 'assessment_approval_failed' })

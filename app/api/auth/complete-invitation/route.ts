@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 const SUCCESS_RESULTS = new Set(['activated', 'already_active'])
@@ -8,6 +9,7 @@ const FORBIDDEN_RESULTS = new Set([
   'email_mismatch',
   'mfa_required',
   'recovery_not_authorized',
+  'ambiguous_actor',
 ])
 
 /**
@@ -41,9 +43,16 @@ export async function POST() {
     )
   }
 
+  const { data: actor, error: actorError } = await supabase.rpc('current_application_actor').maybeSingle()
+  if (actorError) return NextResponse.json({ error: 'Account access could not be verified.', code: 'actor_unavailable' }, { status: 503 })
+  const identity = z.object({ actor_kind: z.enum(['athlete', 'practitioner']) }).safeParse(actor)
+  if (!identity.success) {
+    return NextResponse.json({ error: 'Account access could not be verified.', code: 'ambiguous_actor' }, { status: 403 })
+  }
   // Deliberately pass no identity arguments. The SECURITY DEFINER RPC reads the
   // authenticated JWT itself so a caller cannot bind another user or email.
-  const { data, error } = await supabase.rpc('complete_practitioner_invitation')
+  const { data, error } = await supabase.rpc(identity.data.actor_kind === 'athlete'
+    ? 'complete_athlete_invitation' : 'complete_practitioner_invitation')
   if (error || typeof data !== 'string') {
     return NextResponse.json(
       { error: 'Could not complete the invitation. Please try again.', code: 'completion_failed' },

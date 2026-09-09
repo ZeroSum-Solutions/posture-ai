@@ -25,6 +25,12 @@ export const FULL_MODEL_URL = '/mediapipe/models/pose_landmarker_full.task'
 // Scoring (IMAGE) model selection: NEXT_PUBLIC_POSE_MODEL=lite (default) | full.
 export const SCORING_MODEL_VARIANT = process.env.NEXT_PUBLIC_POSE_MODEL === 'full' ? 'full' : 'lite'
 export const SCORING_MODEL_URL = SCORING_MODEL_VARIANT === 'full' ? FULL_MODEL_URL : LITE_MODEL_URL
+export const POSE_RUNTIME_VERSION = '0.10.35'
+export const POSE_MODEL_SHA256 = {
+  lite: '59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a',
+  full: '5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1',
+} as const
+export const SCORING_MODEL_SHA256 = POSE_MODEL_SHA256[SCORING_MODEL_VARIANT]
 
 // No-face-geometry guarantee (BIPA): only ever load an allow-listed pose model;
 // FAIL CLOSED otherwise. The bundled MediaPipe WASM is generic and could

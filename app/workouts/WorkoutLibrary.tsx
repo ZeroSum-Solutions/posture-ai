@@ -11,32 +11,10 @@ import {
   type WorkoutPreferences,
   WORKOUT_GOALS,
 } from '@/lib/workout/personalize'
+import type { WorkoutBuilderSeed, WorkoutLibraryItem } from './WorkoutLibrary.model'
+import StrengthBuilderLauncher, { type StrengthBuilderClient } from './_strength/StrengthBuilderLauncher'
+import TrainingSessionPlayer from './_strength/TrainingSessionPlayer'
 import styles from './WorkoutsPage.module.css'
-
-export type WorkoutLibraryItem = {
-  id: string
-  assessmentId: string
-  clientId: string
-  clientName: string
-  name: string
-  source: 'scan' | 'ai'
-  preferences: WorkoutPreferences
-  snapshot: SessionSnapshot
-  createdAt: string
-  playable: boolean
-  run: { status: string; completedItems: number } | null
-}
-
-export type WorkoutBuilderSeed = {
-  assessmentId: string
-  clientName: string
-  capability: WorkoutPreferences['capability']
-  approved: boolean
-}
-
-export function workoutLibraryKey(library: WorkoutLibraryItem[], seed?: WorkoutBuilderSeed | null): string {
-  return `${seed?.assessmentId ?? 'library'}:${library.map((entry) => entry.id).join(',')}`
-}
 
 type Draft = {
   assessmentId: string
@@ -52,10 +30,14 @@ export default function WorkoutLibrary({
   initialLibrary,
   seed,
   loadError,
+  strengthClients = [],
+  trainingSessionId,
 }: {
   initialLibrary: WorkoutLibraryItem[]
   seed?: WorkoutBuilderSeed | null
   loadError?: string | null
+  strengthClients?: readonly StrengthBuilderClient[]
+  trainingSessionId?: string | null
 }) {
   const router = useRouter()
   const [library, setLibrary] = useState(initialLibrary)
@@ -137,6 +119,7 @@ export default function WorkoutLibrary({
   function prepareCopy(workout: WorkoutLibraryItem) {
     const nextSeed = {
       assessmentId: workout.assessmentId,
+      clientId: workout.clientId,
       clientName: workout.clientName,
       capability: workout.preferences.capability,
       approved: true,
@@ -202,20 +185,37 @@ export default function WorkoutLibrary({
     }
   }
 
+  if (trainingSessionId) return (
+    <div className={`app-screen ${styles.screen}`}>
+      <header className={styles.header}>
+        <div><p className="t-kicker">Training program</p><h1 className="t-headline">Session</h1></div>
+        <Link href="/workouts" className="a-secondary">Back to workouts</Link>
+      </header>
+      <main className={`app-screen-x app-stack ${styles.main}`}>
+        <TrainingSessionPlayer key={trainingSessionId} sessionId={trainingSessionId} />
+      </main>
+    </div>
+  )
+
   return (
-    <div className="app-screen">
+    <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
         <div>
           <p className="t-kicker">Movement plans</p>
           <h1 className="t-headline">Workouts</h1>
         </div>
-        <Link href="/exercises" className="a-secondary">Exercise library</Link>
+        <nav aria-label="Workout tools" className={styles.actions}>
+          <Link href="/workouts/manual" className="a-secondary">My routines</Link>
+          <Link href="/exercises" className="a-secondary">Exercise library</Link>
+        </nav>
       </header>
 
       <main className={`app-screen-x app-stack ${styles.main}`}>
         {loadError && <p role="alert" className={styles.error}>{loadError}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {message && <p role="status" className={styles.notice}>{message}</p>}
+
+        <StrengthBuilderLauncher clients={strengthClients} initialClientId={activeSeed?.clientId} />
 
         {activeSeed && (
           <section className={styles.builder} aria-labelledby="builder-heading">

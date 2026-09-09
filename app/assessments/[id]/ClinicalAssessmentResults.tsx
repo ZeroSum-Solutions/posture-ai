@@ -14,9 +14,7 @@ import { Surface } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
 import { ring, tint, tone, type SeverityBand } from '@/components/array/severity'
 import styles from './AssessmentReview.module.css'
-import MuscleBodyMap from './MuscleBodyMap'
 import MuscleModel3D from './MuscleModel3D'
-import { hasAnyMuscle } from './muscleMap'
 import { saveOverridePatch } from './saveOverride'
 import type { AssessmentResultsPayload } from './loadAssessmentResults'
 import {
@@ -33,6 +31,7 @@ import type {
 import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-display'
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
+import { utcCalendarLabel } from '@/lib/time/calendar'
 import LegalNotice from '@/components/LegalNotice'
 import {
   canonicalizePostgresTimestamp,
@@ -40,22 +39,25 @@ import {
 } from '@/lib/time/postgres-timestamp'
 
 type Finding = AssessmentResultsPayload['findings'][number]
+type NumericFinding = Finding & { deviation: number; severity_pct: number; confidence: number }
 type Capture = AssessmentResultsPayload['captures'][number]
 type Assessment = AssessmentResultsPayload['assessment']
-type Zone = Finding['zone']
 
 const REVIEW_TAB_BASE = 'review'
 const DEFERRED_PANEL_MOUNT_MS = 300
 
-/** Short UTC date, matching every other calendar projection in the app. */
-function shortDate(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return 'date unavailable'
-  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
-}
-
 export function canonicalAssessmentTimestamp(value: string): string | null {
   return canonicalizePostgresTimestamp(value)
+}
+
+function hasNumericScreeningValue(finding: Finding): finding is NumericFinding {
+  return finding.zone !== 'unreliable'
+    && typeof finding.deviation === 'number'
+    && Number.isFinite(finding.deviation)
+    && typeof finding.severity_pct === 'number'
+    && Number.isFinite(finding.severity_pct)
+    && typeof finding.confidence === 'number'
+    && Number.isFinite(finding.confidence)
 }
 
 // Zone colors
@@ -195,20 +197,23 @@ export default function ClinicalAssessmentResults({
   const initialProjection = initialData?.clinical_content.enabled === true
     ? initialData.clinical_content.projection
     : null
-  const hasInitialReport = Boolean(initialData && initialProjection?.program)
+  const hasInitialData = Boolean(initialData)
   const initialCapability = initialData?.assessment.capability
   const [assessment, setAssessment] = useState<Assessment | null>(
-    hasInitialReport ? initialData!.assessment : null,
+    hasInitialData ? initialData!.assessment : null,
   )
   const [findings, setFindings] = useState<Finding[]>(
-    hasInitialReport ? initialData!.findings : [],
+    hasInitialData ? initialData!.findings : [],
   )
   const [captures, setCaptures] = useState<Capture[]>(
-    hasInitialReport ? initialData!.captures : [],
+    hasInitialData ? initialData!.captures : [],
+  )
+  const [screeningContext, setScreeningContext] = useState<AssessmentResultsPayload['screening_context'] | null>(
+    hasInitialData ? initialData!.screening_context : null,
   )
   const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(
-    initialData && !hasInitialReport
+    initialData && initialData.clinical_content.enabled !== true
       ? 'Clinical content is not available for this release.'
       : null,
   )
@@ -303,7 +308,7 @@ export default function ClinicalAssessmentResults({
           data = await r.json() as AssessmentResultsPayload
         }
         const projection = data.clinical_content?.projection as ClinicalProjection | null | undefined
-        if (data.clinical_content?.enabled !== true || !projection?.program) {
+        if (data.clinical_content?.enabled !== true) {
           setError('Clinical content is not available for this release.')
           setLoading(false)
           return
@@ -311,6 +316,19 @@ export default function ClinicalAssessmentResults({
         setAssessment(data.assessment)
         setFindings(data.findings || [])
         setCaptures(data.captures || [])
+        setScreeningContext(data.screening_context ?? null)
+        if (!projection?.program) {
+          if (data.screening_context?.scanUse === 'descriptive') {
+            setError('Clinical content is not available for this release.')
+          } else {
+            setProgram(null)
+            setExercises([])
+            setSessionPreview(null)
+            setError(null)
+          }
+          setLoading(false)
+          return
+        }
         setProgram(projection.program)
         setExercises(Array.isArray(projection.exercises) ? projection.exercises : [])
         setSessionPreview(projection.sessionPreview ?? null)
@@ -436,6 +454,11 @@ export default function ClinicalAssessmentResults({
     () => findings.filter(f => f.zone === 'unreliable').map(f => ({ label: f.label })),
     [findings]
   )
+  const screeningBoundaryMessage = screeningContext?.scanUse === 'incompatible'
+    ? 'This screening was recorded with an unsupported engine version. Its findings cannot drive this corrective report or program. Scan-independent general training remains available.'
+    : screeningContext?.scanUse === 'unavailable' || screeningContext?.scanUse === 'denied'
+      ? 'This screening is unavailable for corrective report or program use. Scan-independent general training remains available.'
+      : null
 
   async function refreshClinicalProjection() {
     if (!assessmentId) return false
@@ -447,6 +470,7 @@ export default function ClinicalAssessmentResults({
     setAssessment(data.assessment)
     setFindings(data.findings || [])
     setCaptures(data.captures || [])
+    setScreeningContext(data.screening_context ?? null)
     setProgram(projection.program)
     setExercises(Array.isArray(projection.exercises) ? projection.exercises : [])
     setSessionPreview(projection.sessionPreview ?? null)
@@ -649,6 +673,24 @@ export default function ClinicalAssessmentResults({
     )
   }
 
+  if (!error && assessment && screeningContext?.scanUse !== 'descriptive') {
+    return (
+      <div className={styles.routeState}>
+        <div>
+          <p className="t-kicker">Screening unavailable</p>
+          <h1 className="t-headline">No current grade is available.</h1>
+          <p role="alert" style={{ color: 'var(--review)', margin: '16px 0' }}>
+            {screeningBoundaryMessage ?? 'This screening cannot provide a current clinical summary.'}
+          </p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
+            Historical values remain recorded, but are not presented as a current screening claim.
+          </p>
+          <Link href={`/clients/${assessment.clients.id}`} className={styles.errorLink}>Back to client</Link>
+        </div>
+      </div>
+    )
+  }
+
   if (error || !assessment || !program) {
     return (
       <div className={styles.routeState}>
@@ -662,6 +704,20 @@ export default function ClinicalAssessmentResults({
 
   const grade = assessment.overall_grade
   const score = assessment.overall_score
+  if (grade === null || score === null) {
+    return (
+      <div className={styles.routeState}>
+        <div>
+          <p className="t-kicker">Screening unavailable</p>
+          <h1 className="t-headline">No current grade is available.</h1>
+          <p role="alert" style={{ color: 'var(--review)', margin: '16px 0' }}>
+            The current screening summary is incomplete and cannot be presented as a numeric result.
+          </p>
+          <Link href={`/clients/${assessment.clients.id}`} className={styles.errorLink}>Back to client</Link>
+        </div>
+      </div>
+    )
+  }
   const showCurrentGradeScale = usesCurrentGradeScale(assessment.scoring_engine_version)
   const gradeDesc = showCurrentGradeScale
     ? getGradeDisplayBand(grade).description
@@ -671,11 +727,7 @@ export default function ClinicalAssessmentResults({
   const rollNotes = captures
     .filter(c => typeof c.capture_roll_deg === 'number' && Math.abs(c.capture_roll_deg) >= 0.05)
     .map(c => `${c.view} ${c.capture_roll_deg! > 0 ? '+' : '−'}${Math.abs(c.capture_roll_deg!).toFixed(1)}°`)
-  const assessedAtLabel = new Date(assessment.assessed_at).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  const assessedAtLabel = utcCalendarLabel(assessment.assessed_at, 'long')
   const reliabilityLabel = assessment.level_verified === true
     ? 'Camera level verified'
     : assessment.level_verified === false
@@ -683,7 +735,7 @@ export default function ClinicalAssessmentResults({
       : 'Camera level unavailable'
   const reliabilityDetailParts = [
     typeof assessment.capture_stability === 'number'
-      ? `Capture stability ${Math.round(assessment.capture_stability * 100)}%`
+      ? `Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`
       : null,
     assessment.tilt_corrected && rollNotes.length > 0
       ? `Tilt corrected: ${rollNotes.join(', ')}`
@@ -693,17 +745,18 @@ export default function ClinicalAssessmentResults({
     .filter((prior) => comparePostgresTimestamps(prior.assessed_at, assessment.assessed_at) === -1)
     .map((prior) => ({
     id: prior.id,
-    label: `${new Date(prior.assessed_at).toLocaleDateString()} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(
+    label: `${utcCalendarLabel(prior.assessed_at, 'numeric')} — Grade ${prior.overall_grade}${comparisonVersionOptionNote(
       assessment.scoring_engine_version,
       prior.scoring_engine_version,
     )}`,
     }))
-  const assessedAtShort = shortDate(assessment.assessed_at)
+  const assessedAtShort = utcCalendarLabel(assessment.assessed_at, 'short')
   // Chronological order, so the last entry is the scan immediately behind this one.
   const mostRecentPrior = priorAssessments.length > 0
     ? priorAssessments[priorAssessments.length - 1]
     : null
 
+  const descriptiveFindings = findings.filter(hasNumericScreeningValue)
   const reviewModel = buildReviewModel({
     assessment: {
       overall_score: score,
@@ -711,7 +764,7 @@ export default function ClinicalAssessmentResults({
       scoring_engine_version: assessment.scoring_engine_version,
       assessed_at: assessment.assessed_at,
     },
-    findings,
+    findings: descriptiveFindings,
     // The most recent prior scan. priorAssessments is chronological, so the last
     // entry is the nearest one behind this scan; the shared comparison policy
     // decides on its own whether the pair is comparable at all.
@@ -724,9 +777,8 @@ export default function ClinicalAssessmentResults({
       }
       : null,
     scanLabel: `Screening · ${assessedAtShort}`,
-    priorLabel: mostRecentPrior ? shortDate(mostRecentPrior.assessed_at) : null,
+    priorLabel: mostRecentPrior ? utcCalendarLabel(mostRecentPrior.assessed_at, 'short') : null,
   })
-
   return (
     <div className="app-screen app-screen--bar">
       <div className={styles.topBar}>
@@ -762,6 +814,11 @@ export default function ClinicalAssessmentResults({
       </section>
 
       <div className="app-screen-x app-stack">
+        {screeningBoundaryMessage && (
+          <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+            {screeningBoundaryMessage}
+          </p>
+        )}
         <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
 
         {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
@@ -787,7 +844,7 @@ export default function ClinicalAssessmentResults({
               <details className={styles.disclosure}>
                 <summary className={styles.disclosureSummary}>Accuracy &amp; methodology</summary>
                 <div className={styles.disclosureBody}>
-                  <AccuracyCard assessment={assessment} findings={findings} />
+                  <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
                 </div>
               </details>
               <details data-testid="disclaimer" className={styles.disclosure}>
@@ -801,17 +858,12 @@ export default function ClinicalAssessmentResults({
           evidencePanel={(
             <div className="app-stack">
               <ReviewEvidence
-                findings={findings}
+                findings={descriptiveFindings}
                 captures={captures}
                 levelVerified={assessment.level_verified}
               />
-              {findings.length > 0 && (
-                <details className={styles.disclosure}>
-                  <summary className={styles.disclosureSummary}>Muscle model</summary>
-                  <div className={styles.disclosureBody}>
-                    <MuscleModel3D findings={findings} />
-                  </div>
-                </details>
+              {descriptiveFindings.length > 0 && (
+                <MuscleModel3D findings={descriptiveFindings} />
               )}
             </div>
           )}
@@ -890,7 +942,7 @@ export default function ClinicalAssessmentResults({
                   <div className={styles.disclosureBody}>
                     {runList.map((run) => (
                       <p key={run.session_id + run.created_at}>
-                        {shortDate(run.created_at)} · {run.status.replace('_', ' ')} ·{' '}
+                        {utcCalendarLabel(run.created_at, 'short')} · {run.status.replace('_', ' ')} ·{' '}
                         {run.red_flag_acknowledged ? 'Pain check clear' : 'Pain check not recorded'}
                       </p>
                     ))}
@@ -1074,9 +1126,6 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
   const withStability = findings.filter(
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
   )
-  // Reliability is a ramp, not a pass/fail, so its colour comes from the same
-  // maintain/monitor/review bands as every other severity readout on this
-  // screen rather than an ad-hoc green/orange pair.
   const pill = (band: SeverityBand, label: string) => (
     <span style={{
       padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700,
@@ -1089,24 +1138,23 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
     <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--hairline)' }}>
       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h3>
       <p style={{ color: 'var(--text-tertiary)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
-        A single-photo <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> (BlazePose, 33 landmarks) — no depth, so monocular parallax and camera tilt can affect angles. &ldquo;Stability&rdquo; shows how consistent each measurement was across the multi-frame capture burst, not a clinical-accuracy guarantee.
+        An image-based <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> — no depth, so monocular parallax and camera tilt can affect angles. Within-burst consistency describes repeated processing inside one capture burst. Re-stance repeatability and clinical accuracy are not established.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
         {pill(assessment.level_verified === true ? 'maintain' : 'monitor', assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
         {assessment.tilt_corrected ? pill('maintain', 'Tilt-corrected') : null}
-        {typeof assessment.capture_stability === 'number' ? pill(assessment.capture_stability >= 0.7 ? 'maintain' : 'monitor', `Capture stability ${Math.round(assessment.capture_stability * 100)}%`) : null}
+        {typeof assessment.capture_stability === 'number' ? pill('neutral', `Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`) : null}
       </div>
       {withStability.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {withStability.map(f => {
             const s = f.stability_score
-            const stBand: SeverityBand = s == null ? 'neutral' : s >= 0.8 ? 'maintain' : s >= 0.6 ? 'monitor' : 'review'
-            const stColor = tone(stBand)
+            const stColor = tone('neutral')
             return (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
+              <div key={f.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, minWidth: 0, overflowWrap: 'anywhere', padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>
-                {f.uncertainty_deg != null && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>±{f.uncertainty_deg.toFixed(1)}°</span>}
-                {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{Math.round(s * 100)}% stable</span>}
+                {f.uncertainty_deg != null && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>Within-burst angle variation ±{f.uncertainty_deg.toFixed(1)}°</span>}
+                {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>Within-burst landmark consistency {Math.round(s * 100)}%</span>}
               </div>
             )
           })}

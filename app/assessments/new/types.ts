@@ -1,6 +1,7 @@
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
+import type { PoseInputProvenance } from '@/lib/pose/detect'
 
 /** Engine/detection view — what `detectPose` and `assessFrameQuality` consume. */
 export type ViewKey = 'front' | 'side' | 'back'
@@ -22,6 +23,8 @@ export interface CaptureSlot {
   slotStatus: SlotStatus
   /** Sensor-measured camera roll for camera captures; null for uploads/no-sensor. */
   captureRollDeg: number | null
+  /** Pixel-source and orientation facts stamped onto every detected frame. */
+  poseInput: PoseInputProvenance | null
   /**
    * Pixel-quality metrics sampled at acquisition time (camera: the
    * representative burst frame's canvas; upload: the decoded-and-resized
@@ -44,6 +47,12 @@ export interface CaptureSlot {
   // scoring stays byte-identical to an uncorrected capture.
   /** Raw representative still — the single/fallback detection source. */
   rawRepresentativeUrl: string | null
+  /**
+   * Exact bytes behind `rawRepresentativeUrl`. Object URLs cannot be read back
+   * with fetch under the app's CSP, so the wizard retains this browser-local
+   * Blob until the assessment upload finishes. Never serialized into scoring.
+   */
+  rawRepresentativeImage: Blob | null
   /**
    * Raw shutter burst — every frame grabbed at the shutter (engine 1.3.0
    * within-capture stability). Pose-detected at submit so the engine can median
@@ -93,8 +102,10 @@ export function slotToDomain(slot: CaptureSlotKey): { view: ViewKey; profileSide
 export function emptySlot(): CaptureSlot {
   return {
     file: null, source: null, quality: null, slotStatus: 'idle', captureRollDeg: null,
+    poseInput: null,
     pixelQuality: null,
-    captureId: null, rawRepresentativeUrl: null, rawBurstUrls: null, rawPoseFrame: null,
+    captureId: null, rawRepresentativeUrl: null, rawRepresentativeImage: null,
+    rawBurstUrls: null, rawPoseFrame: null,
     displayPreviewUrl: null,
   }
 }

@@ -19,6 +19,20 @@ describe('islandSlots', () => {
     expect(actions).toHaveLength(1)
     expect(actions[0].href).toBe('/assessments/new')
   })
+
+  it('gives athletes only supported training and reference destinations', () => {
+    const slots = islandSlots(false, 'athlete')
+    expect(slots.map(slot => [slot.label, slot.href])).toEqual([
+      ['Train', '/train'],
+      ['Routines', '/workouts/manual'],
+      ['Exercises', '/exercises'],
+    ])
+    expect(slots.map(slot => slot.href)).not.toEqual(expect.arrayContaining(['/clients', '/assessments/new', '/settings']))
+  })
+
+  it('renders no application destinations before an actor is established', () => {
+    expect(islandSlots(true, 'public')).toEqual([])
+  })
 })
 
 describe('isIslandHidden', () => {
@@ -55,6 +69,13 @@ describe('activeSlotHref', () => {
   it('lights Workouts for the exercise library, muscles and guided sessions', () => {
     expect(activeSlotHref('/muscles/deltoid', slots)).toBe('/workouts')
     expect(activeSlotHref('/workouts/session-1', slots)).toBe('/workouts')
+  })
+
+  it('keeps athlete manual and exercise routes active within their own destinations', () => {
+    const athleteSlots = islandSlots(false, 'athlete')
+    expect(activeSlotHref('/workouts/manual/54000000-0000-4000-8000-000000000004', athleteSlots)).toBe('/workouts/manual')
+    expect(activeSlotHref('/exercises', athleteSlots)).toBe('/exercises')
+    expect(activeSlotHref('/train', athleteSlots)).toBe('/train')
   })
 
   it('matches nested client routes to Clients', () => {

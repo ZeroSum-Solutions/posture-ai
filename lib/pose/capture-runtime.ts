@@ -1,5 +1,5 @@
 import type { ViewLabel } from '@posture-ai/engine/types'
-import type { DetectedPoseFrame } from './detect'
+import type { DetectedPoseFrame, PoseInputProvenance } from './detect'
 import { recordLiveTelemetry } from './live-telemetry'
 import {
   readinessMessage,
@@ -48,7 +48,12 @@ export interface LiveBackend {
 export interface ImageBackend {
   warm(): Promise<PoseBackendStartResult>
   close(): Promise<void>
-  detect(src: string, view: ViewLabel, source?: 'camera' | 'upload'): Promise<DetectedPoseFrame>
+  detect(
+    src: string,
+    view: ViewLabel,
+    source?: 'camera' | 'upload',
+    poseInput?: PoseInputProvenance | null,
+  ): Promise<DetectedPoseFrame>
   readiness(): PoseReadiness
   subscribeReadiness(listener: PoseReadinessListener): () => void
   /** Clear sticky GPU-runtime recovery only at an intentional lifecycle end. */
@@ -80,7 +85,12 @@ export interface CaptureRuntime {
   /** Review-preflight + submit scoring: ensure the IMAGE backend is resident
    *  (closing the live worker first), then detect. Serialized so a concurrent
    *  enterLive can never close the landmarker mid-detection. */
-  detect(src: string, view: ViewLabel, source?: 'camera' | 'upload'): Promise<DetectedPoseFrame>
+  detect(
+    src: string,
+    view: ViewLabel,
+    source?: 'camera' | 'upload',
+    poseInput?: PoseInputProvenance | null,
+  ): Promise<DetectedPoseFrame>
   /** Retry the last requested backend after a failure, without a page reload. */
   retry(): Promise<void>
   /** Close whichever backend is open (error / visibilitychange-hidden / unmount). */
@@ -242,10 +252,10 @@ export function createCaptureRuntime({ live, image }: RuntimeDeps): CaptureRunti
 
     closeLive: () => exclusive(closeLiveInternal),
 
-    detect: (src, view, source) => exclusive(async () => {
+    detect: (src, view, source, poseInput) => exclusive(async () => {
       await enterReviewImageInternal()
       try {
-        return await image.detect(src, view, source)
+        return await image.detect(src, view, source, poseInput)
       } catch (error) {
         await image.close()
         state = 'closed'
@@ -315,7 +325,10 @@ function createRealDeps(): RuntimeDeps {
   const image: ImageBackend = {
     async warm() { const { warmUpLandmarker } = await import('./detect'); return warmUpLandmarker() },
     async close() { const { closeLandmarker } = await import('./detect'); await closeLandmarker() },
-    async detect(src, view, source) { const { detectPose } = await import('./detect'); return detectPose(src, view, source) },
+    async detect(src, view, source, poseInput) {
+      const { detectPose } = await import('./detect')
+      return detectPose(src, view, source, poseInput)
+    },
     readiness() {
       return readinessMessage('downloading', 'image', null, 'Preparing the scoring pose model.')
     },

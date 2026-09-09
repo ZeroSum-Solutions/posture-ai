@@ -18,9 +18,12 @@ export async function GET(
   const service = createSupabaseServiceClient()
   const { data: capture, error } = await service
     .from('captures')
-    .select('storage_path, assessments!inner(practitioner_id)')
+    .select('storage_path, assessments!inner(practitioner_id, clients!inner(practitioner_id, deleted_at))')
     .eq('id', id)
+    .eq('practitioner_id', user.id)
     .eq('assessments.practitioner_id', user.id)
+    .eq('assessments.clients.practitioner_id', user.id)
+    .is('assessments.clients.deleted_at', null)
     .maybeSingle()
 
   if (error || !capture?.storage_path) {

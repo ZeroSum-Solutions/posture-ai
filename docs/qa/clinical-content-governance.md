@@ -18,18 +18,30 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`dce6161854d79ed62e9788c6f119f53d706b8ae5e5093ae01dbdf27d05c6e759`.
+`c9fe03db147e94af0e277e253512475a09bcd5f5d0def8c5e8054b5302c95ad4`.
 
 Recommendation algorithm SHA-256:
-`2f647e323e1dc6b39961dd02d38deb754a463ebba4cd5b5c8431510032a978e6`.
+`0c2c799d417f9cc4f6075fe415bf209291e80d7b107a8fb80f389a7eabe18070`.
 
-This inventory was regenerated for the workout-run persistence fix. The governed
-run route now uses a revision compare-and-swap, so an older concurrent request cannot
-overwrite newer progress. The authenticated player adapter serializes requests,
-retries failed saves three times, and shows an unsaved-progress alert with a manual
-retry action. These changes do not alter measured findings, scoring, recommendation
-inputs, clinical copy, or release eligibility. The hash change still invalidates any
-prior approval and does not itself approve content.
+The latest inventory refresh (2026-09-09) binds the current governed source. Local QA fixture hashes were synchronized with this inventory; no clinical review or production activation is implied.
+The dependency closure also retains `lib/time/calendar.ts`, added for deterministic
+UTC calendar formatting in report and comparison surfaces. Changes to either
+governed surface invalidate the prior algorithm fingerprint.
+Only the recommendation-engine item fingerprint and aggregate inventory
+fingerprint changed; content counts and item identities stayed the same. The
+current strength-cycle compiler remains outside this PR-07 clinical inventory: it
+has no promoted clinical catalog or eligibility-policy approval, and synthetic
+practice execution does not create HG-03 approval. Local test-fixture bindings
+were refreshed without changing review statuses or live activation data.
+
+The earlier workout-run persistence fix and assessment-completion guard remain. The governed run route uses a revision compare-and-swap,
+so an older concurrent request cannot overwrite newer progress. The authenticated
+player adapter serializes requests, retries failed saves three times, and shows an
+unsaved-progress alert with a manual retry action. Assessment approval, preview, and
+workout minting now reject incomplete analyses before findings can become program
+input. These changes do not alter measured findings, scoring, recommendation inputs,
+clinical copy, or release eligibility. The hash change still invalidates any prior
+approval and does not itself approve content.
 
 The algorithm item hashes dosage, prioritization, relationship coherence,
 evidence weighting, program construction, server projection, exercise matching,

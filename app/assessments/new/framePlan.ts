@@ -1,4 +1,5 @@
 import type { PoseFrame } from '@posture-ai/engine/types'
+import type { PoseInputProvenance } from '@/lib/pose/detect'
 import type { Captures, CaptureSlotKey, ViewKey } from './types'
 import { SLOT_ORDER, slotToDomain, isCaptured } from './types'
 
@@ -14,6 +15,7 @@ export interface SlotFramePlan {
   profileSide?: 'left' | 'right'
   roll: number | null
   source: 'upload' | 'camera' | null
+  poseInput: PoseInputProvenance | null
   /** Camera burst: detect every raw frame (>1). */
   burstUrls: string[] | null
   /** Preflight already detected this raw frame (carries profileSide); push as-is. */
@@ -38,6 +40,7 @@ export function buildFramePlan(captures: Captures): SlotFramePlan[] {
       : null
     plan.push({
       slot, view, profileSide, roll: cap.captureRollDeg, source: cap.source,
+      poseInput: cap.poseInput,
       burstUrls,
       cachedFrame: burstUrls ? null : cap.rawPoseFrame,
       fallbackUrl: burstUrls || cap.rawPoseFrame ? null : cap.rawRepresentativeUrl,

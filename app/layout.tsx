@@ -4,6 +4,8 @@ import './globals.css'
 import AppShell from '@/components/AppShell'
 import { siteOrigin } from '@/lib/site-origin'
 import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { requireTrainingServerActor } from '@/lib/training/access/server-actor'
 
 // Clinical release activation is runtime authority. Never bake a fixture-enabled
 // navigation shell or gated child page into a build artifact.
@@ -43,13 +45,18 @@ export const viewport: Viewport = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const clinicalAccess = await currentPractitionerClinicalContentAccess()
+  const supabase = await createSupabaseServerClient()
+  const [clinicalAccess, actor] = await Promise.all([
+    currentPractitionerClinicalContentAccess(),
+    requireTrainingServerActor(supabase),
+  ])
   const clinicalContentEnabled = clinicalAccess.surfaces.recommendations
     || clinicalAccess.surfaces.knowledgeLinks
+  const navigationAudience = actor.ok ? actor.actorKind : 'public'
   return (
     <html lang="en" className={uiFont.variable}>
       <body>
-        <AppShell clinicalContentEnabled={clinicalContentEnabled}>{children}</AppShell>
+        <AppShell clinicalContentEnabled={clinicalContentEnabled} navigationAudience={navigationAudience} renderedUserId={actor.ok ? actor.userId : null}>{children}</AppShell>
       </body>
     </html>
   )

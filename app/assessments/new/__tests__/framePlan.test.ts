@@ -42,15 +42,25 @@ describe('buildFramePlan — one entry per captured slot, raw channel only', () 
 
   it('maps a front upload with no preflight to the fallback-detect entry, no profileSide', () => {
     const caps = base()
+    const poseInput = {
+      sourceWidthPx: 3024,
+      sourceHeightPx: 4032,
+      orientationNormalization: 'exif_from_image_canvas_v1' as const,
+      analysisMirrored: false as const,
+      displayMirrored: false as const,
+      requestedCameraFacingMode: null,
+      observedCameraFacingMode: null,
+    }
     // Distinct raw vs display again — fallback detection must use the raw still.
     caps['front'] = { ...emptySlot(), source: 'upload',
-      rawRepresentativeUrl: 'blob:raw-f0', rawBurstUrls: null, rawPoseFrame: null, displayPreviewUrl: 'blob:CORRECTED-f' }
+      poseInput, rawRepresentativeUrl: 'blob:raw-f0', rawBurstUrls: null, rawPoseFrame: null, displayPreviewUrl: 'blob:CORRECTED-f' }
     const [p] = buildFramePlan(caps)
     expect(p.view).toBe('front')
     expect(p.profileSide).toBeUndefined()
     expect(p.fallbackUrl).toBe('blob:raw-f0') // raw, not 'blob:CORRECTED-f'
     expect(p.burstUrls).toBeNull()
     expect(p.cachedFrame).toBeNull()
+    expect(p.poseInput).toEqual(poseInput)
   })
 
   it('skips uncaptured slots and preserves front, left, right, back order', () => {

@@ -9,6 +9,15 @@ function capturesWithFrontBurst(): Captures {
       source: 'camera',
       slotStatus: 'ok',
       captureId: 1,
+      poseInput: {
+        sourceWidthPx: 720,
+        sourceHeightPx: 1280,
+        orientationNormalization: 'camera_video_frame',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: 'environment',
+        observedCameraFacingMode: null,
+      },
       rawRepresentativeUrl: 'blob:front-1',
       rawBurstUrls: ['blob:front-1', 'blob:front-2', 'blob:front-3'],
       rawPoseFrame: { view: 'front', source: 'camera', landmarks: {} },
@@ -35,7 +44,15 @@ describe('analyzeCaptureFrames', () => {
 
     expect(frames).toHaveLength(3)
     expect(detect).toHaveBeenCalledTimes(2)
-    expect(detect).toHaveBeenNthCalledWith(1, 'blob:front-2', 'front', 'camera')
+    expect(detect).toHaveBeenNthCalledWith(1, 'blob:front-2', 'front', 'camera', {
+      sourceWidthPx: 720,
+      sourceHeightPx: 1280,
+      orientationNormalization: 'camera_video_frame',
+      analysisMirrored: false,
+      displayMirrored: false,
+      requestedCameraFacingMode: 'environment',
+      observedCameraFacingMode: null,
+    })
     expect(onProgress).toHaveBeenLastCalledWith({ completed: 3, total: 3, slot: 'front' })
   })
 

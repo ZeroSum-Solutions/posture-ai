@@ -13,6 +13,7 @@ import {
   ENGINE_VERSION_COMPARISON_COPY,
   MISSING_VALUE_COMPARISON_COPY,
   MEASUREMENT_TOLERANCE_COPY,
+  comparisonDeltaText,
   comparisonDecisionText,
   comparisonTone,
   type ComparisonDecision,
@@ -340,6 +341,7 @@ function FindingCardPdf({ f, hasDelta }: { f: PdfFinding; hasDelta: boolean }) {
             </Text>
             <Text style={[styles.deltaValue, { color: comparisonColor }]}>
               {f.comparison ? comparisonDecisionText(f.comparison, 'finding') : MISSING_VALUE_COMPARISON_COPY}
+              {f.comparison && comparisonDeltaText(f.comparison) ? ` · ${comparisonDeltaText(f.comparison)}` : ''}
             </Text>
           </View>
         )}

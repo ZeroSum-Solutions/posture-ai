@@ -6,11 +6,14 @@
 import { samplePixelsFromSource } from '@/lib/capture/pixel-sample'
 import { assessPixelQuality } from '@/lib/capture/pixel-quality'
 import type { PixelQualityResult } from '@/lib/capture/pixel-quality'
+import type { PoseInputProvenance } from './detect'
 
 const MAX_DIMENSION_PX = 1600
 
 export interface NormalizedUpload {
   dataUrl: string
+  /** Provenance for the decoded source and the exact normalization path. */
+  poseInput: PoseInputProvenance
   /** Pixel-quality metrics sampled from the decoded-and-resized canvas, pre-
    *  toDataURL (Core design: no post-encode sampling). Null on any sampling
    *  or scoring failure — fails open, never blocks the upload. */
@@ -32,6 +35,8 @@ export async function normalizeUploadedImage(file: File): Promise<NormalizedUplo
   if (typeof createImageBitmap !== 'function') return null
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const sourceWidthPx = bitmap.width
+    const sourceHeightPx = bitmap.height
     const scale = Math.min(1, MAX_DIMENSION_PX / Math.max(bitmap.width, bitmap.height))
     const w = Math.max(1, Math.round(bitmap.width * scale))
     const h = Math.max(1, Math.round(bitmap.height * scale))
@@ -56,7 +61,19 @@ export async function normalizeUploadedImage(file: File): Promise<NormalizedUplo
       }
     }
 
-    return { dataUrl: canvas.toDataURL('image/jpeg', 0.92), pixelQuality }
+    return {
+      dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+      pixelQuality,
+      poseInput: {
+        sourceWidthPx,
+        sourceHeightPx,
+        orientationNormalization: 'exif_from_image_canvas_v1',
+        analysisMirrored: false,
+        displayMirrored: false,
+        requestedCameraFacingMode: null,
+        observedCameraFacingMode: null,
+      },
+    }
   } catch {
     return null
   }

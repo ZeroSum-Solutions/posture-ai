@@ -23,19 +23,21 @@ function client(overrides: Partial<DirectoryClient> = {}): DirectoryClient {
 }
 
 describe('toDirectoryRow trend', () => {
-  it('reads a falling deviation score as an improvement in emerald', () => {
+  it('reads a falling deviation score as a neutral signed difference', () => {
     const row = toDirectoryRow(client(), NOW)
     expect(row.trend).toBe('−8')
     expect(row.trendIcon).toBe('arrow-down-linear')
-    expect(row.trendBand).toBe('maintain')
-    expect(row.trendLabel).toContain('improved 8 points')
+    expect(row.trendBand).toBe('neutral')
+    expect(row.trendLabel).toContain('score decreased 8 points')
+    expect(row.trendLabel).toContain('meaningful change is not established')
   })
 
-  it('reads a rising deviation score as a regression', () => {
+  it('reads a rising deviation score as a neutral signed difference', () => {
     const row = toDirectoryRow(client({ last_score: 60, previous_score: 46 }), NOW)
     expect(row.trend).toBe('+14')
     expect(row.trendIcon).toBe('arrow-up-linear')
-    expect(row.trendBand).toBe('review')
+    expect(row.trendBand).toBe('neutral')
+    expect(row.trendLabel).toContain('score increased 14 points')
   })
 
   it('says "first scan" rather than drawing a single scan as flat', () => {
