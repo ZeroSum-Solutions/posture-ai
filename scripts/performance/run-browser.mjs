@@ -562,7 +562,7 @@ function journeyDefinitions(fixture) {
         const result = clientPickerButton(page, fixture)
         await result.waitFor({ state: 'visible' })
         steps.push(await measuredInteraction(page, entries, 'activate_client_result', () => result.click(), () => page.getByTestId('selected-client-summary').waitFor()))
-        const next = page.getByRole('button', { name: 'Next: Upload Views', exact: true })
+        const next = page.getByRole('button', { name: 'Choose capture method', exact: true })
         steps.push(await measuredInteraction(page, entries, 'activate_next_upload_views', () => next.click(), () => page.getByTestId('capture-disclaimer').waitFor({ timeout: 15_000 })))
         return steps
       },
@@ -573,8 +573,8 @@ function journeyDefinitions(fixture) {
       traceId: 'client_history_progress_compare_tabs',
       // The redesign removed the Progress TAB. The score history is no longer
       // gated behind a tab at all -- TrendChart renders above the tab strip and
-      // reveals its score table from a "Recorded scores" button. The tabs are
-      // now Findings / Compare / Details.
+      // reveals its score table from a "Score details" button. Findings /
+      // Compare / Details now mount inside a separate collapsed workspace.
       //
       // The step keeps its id. docs/qa/performance-budgets.json is frozen under
       // a hardcoded sha256 and a versioned source id in
@@ -584,13 +584,20 @@ function journeyDefinitions(fixture) {
       // exists, it is a disclosure now rather than a tab. Driving the real
       // control keeps the budget measuring the thing it was calibrated on.
       // Re-baselining the id belongs with the perf release process.
-      ready: (page) => page.getByRole('button', { name: 'Recorded scores', exact: true }).waitFor({ state: 'visible' }),
+      ready: (page) => page.getByRole('button', { name: 'Score details', exact: true }).waitFor({ state: 'visible' }),
       run: async (page, entries) => {
         const steps = []
-        const progress = page.getByRole('button', { name: 'Recorded scores', exact: true })
+        const progress = page.getByRole('button', { name: 'Score details', exact: true })
         steps.push(await measuredInteraction(page, entries, 'activate_progress_tab', () => progress.click(), () => page.locator('#client-score-table').waitFor()))
+        const workspace = page.getByRole('button', { name: /Findings, comparison and details/u })
         const compare = page.getByRole('tab', { name: 'Compare', exact: true })
-        steps.push(await measuredInteraction(page, entries, 'activate_compare_tab', () => compare.click(), () => page.getByLabel('Before (baseline)').waitFor()))
+        steps.push(await measuredInteraction(page, entries, 'activate_compare_tab', async () => {
+          if ((await workspace.getAttribute('aria-expanded')) !== 'true') {
+            await workspace.click()
+          }
+          await compare.waitFor({ state: 'visible' })
+          await compare.click()
+        }, () => page.getByLabel('Before (baseline)').waitFor()))
         const selector = page.getByLabel('Before (baseline)')
         const before = await selector.inputValue()
         const optionValues = await selector.locator('option').evaluateAll((options) => options.map((option) => option.value))
@@ -707,7 +714,7 @@ function javascriptReady(page, template) {
   if (template === '/dashboard') return page.getByRole('heading', { level: 1 }).waitFor({ state: 'visible' })
   if (template === '/clients') return page.getByLabel('Search clients by name').waitFor({ state: 'visible' })
   if (template === '/clients/new') return page.getByRole('heading', { name: 'New client', exact: true }).waitFor({ state: 'visible' })
-  if (template === '/clients/{client_id}') return page.getByRole('tablist', { name: 'Client workspace' }).waitFor({ state: 'visible' })
+  if (template === '/clients/{client_id}') return page.getByRole('button', { name: /Findings, comparison and details/u }).waitFor({ state: 'visible' })
   if (template === '/clients/{client_id}/edit') return page.getByLabel('First Name').waitFor({ state: 'visible' })
   if (template === '/assessments/new') return page.getByLabel('Search clients by name').waitFor({ state: 'visible' })
   if (template === '/assessments/{assessment_id}') return page.getByRole('heading', { level: 1 }).waitFor({ state: 'visible' })
@@ -833,7 +840,7 @@ async function measureCameraPage(context, page, cdp, appOrigin, fixture, cachePr
     if (!(await selected.textContent())?.includes(fixture.clientDisplayName)) {
       throw new Error('The capture route did not select the fixture client')
     }
-    await page.getByRole('button', { name: 'Next: Upload Views', exact: true }).click()
+    await page.getByRole('button', { name: 'Choose capture method', exact: true }).click()
     await page.getByTestId('capture-disclaimer').waitFor({ timeout: 15_000 })
     await page.getByTestId('capture-disclaimer-dismiss').click()
     const state = await page.waitForFunction(() => {

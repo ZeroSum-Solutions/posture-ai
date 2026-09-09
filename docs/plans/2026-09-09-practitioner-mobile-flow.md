@@ -23,8 +23,8 @@ Focused component tests cover client creation/selection, capture entry and lifec
 
 ### Checkpoint evidence
 
-- 278 focused tests passed across 18 files, including readiness inventory checks.
+- 278 focused tests passed across 18 files, including readiness inventory checks. The final full unit suite passed 3,728 tests across 409 files (one skipped); the production build passed.
 - WebKit scan/exercise journeys passed, including responsive widths 320–1440, card insets, file-input selection, and a no-hydration-error anatomy deep-link regression.
-- Seven client browser cases passed. The separate privacy lifecycle case stopped at `clinical_content_disabled` during share setup, before the changed UI. It is not recorded as a privacy pass.
+- Seven client browser cases passed. The separate privacy lifecycle case stopped at `clinical_content_disabled` during share setup, before the changed UI. The installed isolated database still references an older inventory hash. The generated inventory and fresh-seed fixtures are reconciled, without changing the installed database or clinical approval ledger. This is not recorded as a privacy pass.
 - The previous main commit's engineering CI job passed, but its broad browser run had 30 failures and its performance run failed. These are pre-existing baseline results, not a pass or failure attribution for this change.
 - The new chart uses real compact SVG coordinates and deterministic UTC dates; no CSS-distorted chart text or Safari `Sept`/`Sep` hydration mismatch remains in the checked path.
