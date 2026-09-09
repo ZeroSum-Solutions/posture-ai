@@ -135,6 +135,33 @@
   margin-bottom: 4px;
 }
 
+.trendHeadAside {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.latestScore {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--text-primary);
+}
+
+.latestScore > :first-child {
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.latestScore > :last-child {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 300;
+}
+
 /* Magnitude only. The policy's phrase goes on .verdictLine — a pill wide enough
    to hold the sentence is wider than the card's heading. */
 .verdictPill {
@@ -151,15 +178,15 @@
 }
 
 .verdictLine {
-  margin-top: 10px;
+  margin-top: 4px;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
 }
 
 .chartBox {
-  height: 180px;
-  margin-top: 12px;
+  height: 60px;
+  margin-top: 4px;
 }
 
 .chart {
@@ -169,14 +196,175 @@
 }
 
 .trendFootnote {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--hairline-soft);
+  padding: 2px 16px 12px;
   font-size: 12px;
   font-weight: 300;
   line-height: 1.6;
   color: var(--text-secondary);
 }
+
+/* ── First-screen assessment summary ───────────────────────────────────── */
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+  gap: 12px;
+}
+
+.summaryCard { min-width: 0; }
+
+.summaryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.summaryEyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.summaryLink {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.summaryLink:hover { color: var(--text-primary); }
+
+.summaryFindings {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summaryFinding {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.severityDot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: var(--radius-full);
+}
+
+.summaryFindingBody {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.summaryFindingLabel {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summaryFindingLabel {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.summaryFindingDelta {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px var(--hairline-soft);
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.summaryFindingValue {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.summaryBoundary {
+  margin-top: 10px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.anatomyPreview {
+  min-width: 0;
+}
+
+.anatomyPreview > *:last-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+}
+
+.anatomyGlyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 86px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--hairline-soft);
+}
+
+.anatomyBody {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.anatomyTitle,
+.anatomyCopy,
+.anatomyBoundary { display: block; }
+
+.anatomyTitle {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.anatomyCopy,
+.anatomyBoundary {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.anatomyBoundary { color: var(--text-tertiary); }
 
 /* ── Paired actions ─────────────────────────────────────────────────────── */
 
@@ -196,6 +384,55 @@
   gap: 12px;
   padding: 8px 8px 0;
 }
+
+/* ── Lower-priority disclosures ─────────────────────────────────────────── */
+
+.disclosureSection {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 0 0 1px var(--hairline-soft);
+}
+
+.disclosureButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.disclosureButton:hover { background: rgba(255, 255, 255, 0.035); }
+
+.disclosureTitle,
+.disclosureMeta { display: block; }
+
+.disclosureTitle {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.disclosureMeta {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 300;
+}
+
+.disclosureContent {
+  padding: 2px 12px 12px;
+}
+
+.disclosureContent[hidden] { display: none; }
 
 /* ── Scan history rows ──────────────────────────────────────────────────── */
 
@@ -472,6 +709,21 @@
   .sequenceGrid {
     grid-template-columns: 1fr;
     grid-template-areas: 'before' 'change' 'after';
+  }
+}
+
+@media (max-width: 720px) {
+  .summaryGrid { grid-template-columns: minmax(0, 1fr); }
+
+  .anatomyPreview > *:last-child { min-height: 104px; }
+}
+
+@media (max-width: 359px) {
+  .actionPair { flex-direction: column; }
+
+  .anatomyGlyph {
+    flex-basis: 58px;
+    width: 58px;
   }
 }
 

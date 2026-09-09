@@ -147,18 +147,39 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('search=Another+person'))).toBe(true))
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('does not load the client directory or enable the legal notice before search or selection', async () => {
+  it('loads a bounded client list by default and exposes the capture-returning new-client action', async () => {
     const fetchMock = vi.mocked(fetch)
     render(<NewAssessmentWizard />)
 
-    expect(screen.getByText(/Search by first or last name to select a client/)).toBeTruthy()
     expect(legalDocumentState.enabledCalls[0]).toBe(false)
+    expect(await screen.findByText('Page One')).toBeTruthy()
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/clients?limit=50')).toBe(true)
+    expect(screen.getByRole('link', { name: 'New client' }).getAttribute('href')).toBe('/clients/new?returnTo=capture')
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/clients?limit=50')).toBe(false)
     expect(legalDocumentState.enabledCalls).toContain(true)
+  })
+
+  it('keeps the default client list compact until explicitly expanded', async () => {
+    const directory = Array.from({ length: 6 }, (_, index) => ({
+      ...pageClient,
+      id: `10000000-0000-4000-8000-00000000000${index + 1}`,
+      first_name: `Client ${index + 1}`,
+    }))
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes(`/api/clients/${deepClient.id}`)) return new Response(JSON.stringify({ client: deepClient }), { status: 200 })
+      return new Response(JSON.stringify({ clients: directory, pagination: { has_more: false, next_cursor: null } }), { status: 200 })
+    }))
+    render(<NewAssessmentWizard />)
+
+    expect(await screen.findByText('Client 4 One')).toBeTruthy()
+    expect(screen.queryByText('Client 5 One')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 6 clients' }))
+    expect(screen.getByText('Client 5 One')).toBeTruthy()
+    expect(screen.getByText('Client 6 One')).toBeTruthy()
   })
 
   it('keeps capture disabled until the required screening notice is ready', async () => {
@@ -167,12 +188,12 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     expect(screen.getByText('Loading required screening notice…')).toBeTruthy()
-    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(true)
 
     legalDocumentState.value = { document: {}, isLoading: false, error: null }
     view.rerender(<NewAssessmentWizard />)
 
-    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('keeps capture disabled and exposes an alert when the screening notice fails', async () => {
@@ -181,7 +202,7 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     expect(screen.getByRole('alert').textContent).toContain('Required notice unavailable.')
-    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('refetches the same settled query after input invalidates its in-flight request', async () => {
@@ -279,7 +300,7 @@ describe('new assessment paginated client picker', () => {
       </StrictMode>,
     )
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    const next = screen.getByRole('button', { name: 'Next: Upload Views' })
+    const next = screen.getByRole('button', { name: 'Choose capture method' })
     expect((next as HTMLButtonElement).disabled).toBe(false)
 
     fireEvent.click(next)
@@ -295,7 +316,7 @@ describe('new assessment paginated client picker', () => {
       resolveConsent(new Response(JSON.stringify({ captureAllowed: false, reason: 'Consent required.' }), { status: 200 }))
       await Promise.resolve()
     })
-    expect(screen.getByRole('button', { name: 'Next: Upload Views' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Choose capture method' })).toBeTruthy()
   })
 
   it('enters capture in prototype mode without loading or checking consent documents', async () => {
@@ -303,7 +324,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard operationMode="prototype" />)
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    const next = screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement
+    const next = screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement
     expect(next.disabled).toBe(false)
     expect(legalDocumentState.enabledCalls.every(enabled => enabled === false)).toBe(true)
 
@@ -325,7 +346,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard operationMode="prototype" />)
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
 
     await screen.findByTestId('capture-step')
     expect(screen.queryByText('Add a date of birth for this client before screening.')).toBeNull()
@@ -342,7 +363,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard operationMode="prototype" />)
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
 
     expect(await screen.findByText('Posture AI cannot be used to screen anyone under 13.')).toBeTruthy()
     expect(screen.queryByTestId('capture-step')).toBeNull()
@@ -353,7 +374,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard operationMode="prototype" />)
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
     await screen.findByTestId('capture-step')
     fireEvent.click(screen.getByRole('button', { name: 'Upload broken fixture' }))
 
@@ -368,7 +389,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard operationMode="prototype" />)
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
     await screen.findByTestId('capture-step')
     for (const [slot, expected] of [
       ['front', 'ok,idle,idle,idle'],
@@ -395,7 +416,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard operationMode="prototype" />)
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
     await screen.findByTestId('capture-step')
     fireEvent.click(screen.getByRole('button', { name: 'Record all fixtures' }))
 
@@ -422,7 +443,7 @@ describe('new assessment paginated client picker', () => {
 
     render(<NewAssessmentWizard />)
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    const next = screen.getByRole('button', { name: 'Next: Upload Views' })
+    const next = screen.getByRole('button', { name: 'Choose capture method' })
     expect((next as HTMLButtonElement).disabled).toBe(false)
 
     fireEvent.click(next)
@@ -434,7 +455,7 @@ describe('new assessment paginated client picker', () => {
     await screen.findByText('Page One')
     fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
-    expect((screen.getByRole('button', { name: 'Next: Upload Views' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(false)
 
     await act(async () => {
       resolveConsent(new Response(JSON.stringify({ captureAllowed: true }), { status: 200 }))
@@ -466,7 +487,7 @@ describe('new assessment paginated client picker', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Page One/ }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
     await screen.findByTestId('capture-step')
     fireEvent.click(screen.getByRole('button', { name: 'Record front fixture' }))
     expect(screen.getByTestId('front-capture').textContent).toBe('fixture:manual-front')
@@ -504,7 +525,7 @@ describe('new assessment paginated client picker', () => {
     const searchRequestCount = fetchMock.mock.calls.filter(([input]) => String(input).includes('search=Page')).length
 
     fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
     await screen.findByTestId('capture-step')
     fireEvent.click(screen.getByRole('button', { name: 'Exit capture' }))
 
@@ -551,7 +572,7 @@ describe('new assessment paginated client picker', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Search clients by name' }), { target: { value: 'Page' } })
     await waitFor(() => expect(pageSearchCount).toBe(1))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Upload Views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose capture method' }))
     await screen.findByTestId('capture-step')
     fireEvent.click(screen.getByRole('button', { name: 'Exit capture' }))
 

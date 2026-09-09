@@ -165,6 +165,29 @@ function mount(captures: Captures) {
 }
 
 describe('FullScreenCapture — committed-slot warning caption', () => {
+  it('shows the correction text in the dedicated upload mode', async () => {
+    activeStubs = stubBrowserBoundary()
+    render(
+      <FullScreenCapture
+        screeningNotice={SCREENING_NOTICE_SNAPSHOT}
+        captures={baseCaptures({ front: warnedSlot() })}
+        onCameraCapture={vi.fn()}
+        onFileUpload={vi.fn()}
+        onProceed={vi.fn()}
+        onExit={vi.fn()}
+        modelError={false}
+        submitting={false}
+        uploadError={null}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload existing photos' }))
+
+    const caption = await screen.findByTestId('slot-quality-caption')
+    expect(caption.textContent).toContain(BLUR_WARNING)
+    expect(caption.closest('[role="status"]')?.getAttribute('aria-live')).toBe('polite')
+  })
+
   it('renders the caption for the active committed slot once it is warned', async () => {
     const captures = baseCaptures({ 'side-left': warnedSlot() })
     mount(captures)

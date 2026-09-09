@@ -4,6 +4,7 @@ import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone, ring } from '@/components/array/severity'
 import { buildTrendChart, CHART_VIEWBOX, type TrendInputPoint } from './trendModel'
+import { formatClientDate } from './clientDate'
 import styles from './ClientDetail.module.css'
 
 const DEFERRED_SCORE_TABLE_MOUNT_MS = 300
@@ -11,15 +12,17 @@ const DEFERRED_SCORE_TABLE_MOUNT_MS = 300
 function RecordedScoreDisclosure({
   history,
   tableId,
+  footnote,
 }: {
   history: readonly TrendInputPoint[]
   tableId: string
+  footnote: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isTableMounted, setIsTableMounted] = useState(false)
   const [isPointerGuardReady, setIsPointerGuardReady] = useState(false)
   const disclosureRef = useRef<HTMLButtonElement>(null)
-  const disclosureLabel = isPointerGuardReady ? 'Recorded scores' : 'Preparing recorded scores…'
+  const disclosureLabel = isPointerGuardReady ? 'Score details' : 'Preparing score details…'
 
   useEffect(() => {
     const disclosure = disclosureRef.current
@@ -68,33 +71,34 @@ function RecordedScoreDisclosure({
       </button>
       <div id={`${tableId}-panel`} hidden={!isOpen}>
         {isTableMounted ? (
-          <table className={styles.dataTable} id={tableId}>
-            <caption className="sr-only">
-              Every recorded screening score for this client, with its grade and scoring version.
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Date</th>
-                <th scope="col">Grade</th>
-                <th scope="col">Score</th>
-                <th scope="col">Scoring version</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...history].reverse().map(point => (
-                <tr key={point.id}>
-                  <td>{new Date(point.assessedAt).toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-                  })}</td>
-                  <td>{point.grade ?? '—'}</td>
-                  <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
-                  <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
+          <>
+            <p className={styles.trendFootnote}>{footnote}</p>
+            <table className={styles.dataTable} id={tableId}>
+              <caption className="sr-only">
+                Every recorded screening score for this client, with its grade and scoring version.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">Grade</th>
+                  <th scope="col">Score</th>
+                  <th scope="col">Scoring version</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {[...history].reverse().map(point => (
+                  <tr key={point.id}>
+                    <td>{formatClientDate(point.assessedAt, 'day-month-short')}</td>
+                    <td>{point.grade ?? '—'}</td>
+                    <td className="n">{point.score === null ? '—' : `${Math.round(point.score)} / 100`}</td>
+                    <td>{point.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         ) : isOpen ? (
-          <p className={styles.loadingPanel} role="status">Preparing recorded scores…</p>
+          <p className={styles.loadingPanel} role="status">Preparing score details…</p>
         ) : null}
       </div>
     </div>
@@ -105,10 +109,10 @@ function RecordedScoreDisclosure({
  * The deviation-score trend, drawn by hand.
  *
  * This replaced a recharts LineChart. The chart has exactly one job — carry the
- * annotations that make the number readable: the score and grade at each point,
- * the maintain band labelled where it sits, while withholding an uncertainty
- * band until repeat-capture evidence exists. A general charting library gave none of those
- * for free and cost ~90KB of d3 to say so.
+ * compact shape of the recorded scores and their maintain band while withholding
+ * an uncertainty band until repeat-capture evidence exists. The current number
+ * is written beside the chart, and exact dates, grades, values, versions, and the
+ * method limitation remain in the accessible description and Score details.
  *
  * The drawing is `aria-hidden`; the sentence in `model.description` and the
  * table underneath are the accessible representation.
@@ -135,27 +139,34 @@ export default function TrendChart({
   }
 
   const latestBand = model.points[model.points.length - 1].band
+  const latestPoint = model.points[model.points.length - 1]
 
   return (
-    <Surface tier="feature">
+    <Surface tier="feature" pad="snug">
       <div className={styles.trendHead}>
         <div>
           <h2 className="t-title">Deviation score</h2>
           <p className="t-quiet" style={{ marginTop: 2 }}>Lower is better</p>
         </div>
-        {verdict?.magnitude ? (
-          <span
-            className={styles.verdictPill}
-            style={{
-              background: tint(verdict.band),
-              color: tone(verdict.band),
-              boxShadow: `inset 0 0 0 1px ${ring(verdict.band)}`,
-            }}
-          >
-            <Icon name={verdict.icon} size={13} />
-            <span className="n">{verdict.magnitude}</span>
+        <div className={styles.trendHeadAside}>
+          <span className={styles.latestScore} aria-label={`Latest deviation score ${Math.round(latestPoint.score)} out of 100`}>
+            <span className="n">{Math.round(latestPoint.score)}</span>
+            <span>/100</span>
           </span>
-        ) : null}
+          {verdict?.magnitude ? (
+            <span
+              className={styles.verdictPill}
+              style={{
+                background: tint(verdict.band),
+                color: tone(verdict.band),
+                boxShadow: `inset 0 0 0 1px ${ring(verdict.band)}`,
+              }}
+            >
+              <Icon name={verdict.icon} size={13} />
+              <span className="n">{verdict.magnitude}</span>
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {/* The policy's wording is a phrase, not a word, so it gets a full-width
@@ -172,7 +183,7 @@ export default function TrendChart({
       <div className={styles.chartBox}>
         <svg
           viewBox={`0 0 ${CHART_VIEWBOX.width} ${CHART_VIEWBOX.height}`}
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
           className={styles.chart}
           aria-hidden="true"
           focusable="false"
@@ -190,8 +201,9 @@ export default function TrendChart({
             ))}
           </g>
 
-          {/* The maintain band is a labelled region, not a coloured block behind
-              body text — the label sits on the tint, the data sits over it. */}
+          {/* The maintain band stays visible as a reference region. Its exact
+              boundary remains in the accessible description; putting text in
+              this 60px sparkline makes the chart less legible on a phone. */}
           <rect
             x="0"
             y={model.maintainBand.y}
@@ -199,17 +211,6 @@ export default function TrendChart({
             height={model.maintainBand.height}
             fill={tint('maintain')}
           />
-          <text
-            x="6"
-            y={model.maintainBand.y + model.maintainBand.height - 6}
-            fill={tone('maintain')}
-            fillOpacity="0.75"
-            fontSize="9"
-            letterSpacing="0.04em"
-          >
-            {model.maintainBand.label}
-          </text>
-
           {/* Drawn before the line and the dots so the data sits on top of its
               own uncertainty rather than behind it. */}
           {model.tolerance ? (
@@ -232,8 +233,6 @@ export default function TrendChart({
               stroke={tone(latestBand)}
               strokeWidth="2"
               strokeLinecap="round"
-              /* preserveAspectRatio="none" stretches the x axis; without this
-                 the stroke would render thicker vertically than horizontally. */
               vectorEffect="non-scaling-stroke"
             />
           ))}
@@ -251,39 +250,10 @@ export default function TrendChart({
             />
           ))}
 
-          <g fontSize="10.5" fontWeight="400">
-            {model.points.map((point, index) => point.showValueLabel ? (
-              <text
-                key={point.id}
-                x={point.x}
-                y={point.y - 13}
-                fill={point.isLatest ? '#fff' : 'rgba(255,255,255,0.85)'}
-                fontWeight={point.isLatest ? 500 : 400}
-                textAnchor={index === 0 ? 'start' : point.isLatest ? 'end' : 'middle'}
-              >
-                {point.valueLabel}
-              </text>
-            ) : null)}
-          </g>
-
-          <g fontSize="10" fill="rgba(255,255,255,0.45)">
-            {model.points.map((point, index) => point.showDateLabel ? (
-              <text
-                key={point.id}
-                x={point.x}
-                y={CHART_VIEWBOX.height - 8}
-                textAnchor={index === 0 ? 'start' : point.isLatest ? 'end' : 'middle'}
-              >
-                {point.dateLabel}
-              </text>
-            ) : null)}
-          </g>
         </svg>
       </div>
 
-      <p className={styles.trendFootnote}>{model.footnote}</p>
-
-      <RecordedScoreDisclosure history={history} tableId={tableId} />
+      <RecordedScoreDisclosure history={history} tableId={tableId} footnote={model.footnote} />
     </Surface>
   )
 }

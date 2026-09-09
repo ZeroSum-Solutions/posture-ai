@@ -159,3 +159,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) { .glyph { transition: none; } }
+
+.regionButtons { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.regionButtons > button { min-height: 44px; white-space: normal; text-transform: capitalize; }
+.regionButtons > button[aria-pressed="true"] { background: var(--text-primary); color: var(--background, #080a0f); }

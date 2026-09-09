@@ -5,7 +5,7 @@ import Icon from '@/components/array/Icon'
 import ClientForm, { type ClientPayload } from '../ClientForm'
 import type { OperationMode } from '@/lib/prototype/runtime'
 
-export default function NewClientPageClient({ operationMode }: { operationMode: OperationMode }) {
+export default function NewClientPageClient({ operationMode, returnTo = 'clients' }: { operationMode: OperationMode; returnTo?: 'capture' | 'clients' }) {
   const router = useRouter()
 
   async function handleCreate(payload: ClientPayload) {
@@ -18,16 +18,16 @@ export default function NewClientPageClient({ operationMode }: { operationMode: 
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error || 'Failed to create client.')
-    router.push(`/clients/${json.client.id}`)
+    router.push(returnTo === 'capture' ? `/assessments/new?client_id=${encodeURIComponent(json.client.id)}` : `/clients/${encodeURIComponent(json.client.id)}`)
   }
 
   return (
     <div className="app-screen">
       <div className="app-screen-x app-stack" style={{ paddingTop: 24 }}>
         <div>
-          <Link href="/clients" className="a-quiet" style={{ marginLeft: -12 }}>
+          <Link href={returnTo === 'capture' ? '/assessments/new' : '/clients'} className="a-quiet" style={{ marginLeft: -12 }}>
             <Icon name="alt-arrow-left-linear" size={18} />
-            Clients
+            {returnTo === 'capture' ? 'Back to scan' : 'Clients'}
           </Link>
           <p className="t-kicker" style={{ marginTop: 12 }}>Practice directory</p>
           <h1 className="t-headline">New client</h1>
@@ -37,7 +37,7 @@ export default function NewClientPageClient({ operationMode }: { operationMode: 
               : 'Create a clear record and capture consent before the first screen.'}
           </p>
         </div>
-        <ClientForm mode="create" operationMode={operationMode} cancelHref="/clients" onSubmit={handleCreate} />
+        <ClientForm mode="create" operationMode={operationMode} cancelHref={returnTo === 'capture' ? '/assessments/new' : '/clients'} onSubmit={handleCreate} />
       </div>
     </div>
   )

@@ -54,6 +54,7 @@ test.describe('privacy lifecycle user QA', () => {
     expect((await page.request.get(`/api/workouts/token/${firstToken}`)).status()).toBe(200)
 
     await page.goto(`/clients/${client.id}`)
+    await page.getByRole('button', { name: /Findings, comparison and details/ }).click()
     await page.getByRole('tab', { name: 'Details' }).click()
     await expect(page.getByRole('heading', { name: 'Privacy controls' })).toBeVisible()
     await expect(page.getByText('active', { exact: true })).toBeVisible()
@@ -78,6 +79,7 @@ test.describe('privacy lifecycle user QA', () => {
     const withdrawalBody = await withdrawalMint.json() as { session_id: string; share_link: string }
     const withdrawalToken = withdrawalBody.share_link.split('/s/')[1]
     await page.reload()
+    await page.getByRole('button', { name: /Findings, comparison and details/ }).click()
     await page.getByRole('tab', { name: 'Details' }).click()
     await expect(page.getByText('active', { exact: true })).toBeVisible()
     expect((await page.request.get(`/api/workouts/token/${withdrawalToken}`)).status()).toBe(200)
@@ -125,6 +127,7 @@ test.describe('privacy lifecycle user QA', () => {
 
     const eraseClient = await createClient(page, 'Privacy', `Erase-${suffix}`)
     await page.goto(`/clients/${eraseClient.id}`)
+    await page.getByRole('button', { name: /Findings, comparison and details/ }).click()
     await page.getByRole('tab', { name: 'Details' }).click()
     const erasure = page.getByRole('form', { name: 'Permanently erase client' })
     await erasure.getByLabel('Type ERASE to confirm').fill('ERASE')

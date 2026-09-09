@@ -26,6 +26,7 @@ import Icon from '@/components/array/Icon'
 import { Chip } from '@/components/array/Chip'
 import { Surface } from '@/components/array/Surface'
 import { tone, tint, ring } from '@/components/array/severity'
+import { mergeAndRankClientMatches } from './clientSearch'
 import styles from './NewAssessment.module.css'
 
 interface Client {
@@ -75,7 +76,7 @@ const ClientResultButton = memo(function ClientResultButton({
   && previous.isSelected === next.isSelected
 ))
 
-const STEPS = ['Client', 'Upload Views', 'Processing', 'Results']
+const STEPS = ['Client', 'Photos', 'Processing', 'Results']
 
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_POSTURE_TEST_MODE === '1'
 const CONSENT_WORK_AFTER_FEEDBACK_MS = 250
@@ -169,7 +170,7 @@ function ConsentAdvanceButton({
       className="a-primary"
       style={{ padding: '0 28px' }}
     >
-      {checking ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Next: Upload Views'}
+      {checking ? 'Checking consent…' : testMode ? 'Next: Confirm' : 'Choose capture method'}
     </button>
   )
 }
@@ -184,8 +185,10 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
 
   const [step, setStep] = useState(1)
   const [clients, setClients] = useState<Client[]>([])
+  const recentClientsRef = useRef<Client[]>([])
   const [clientSearch, setClientSearch] = useState('')
   const [clientSearchRevision, setClientSearchRevision] = useState(0)
+  const [clientListExpanded, setClientListExpanded] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const screeningNotice = useLegalDocument(
     'screening_notice',
@@ -194,7 +197,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   const [selectedClientError, setSelectedClientError] = useState<string | null>(null)
   const [ageGateError, setAgeGateError] = useState<string | null>(null)
   const [showConsentForm, setShowConsentForm] = useState(false)
-  const [loadingClients, setLoadingClients] = useState(false)
+  const [loadingClients, setLoadingClients] = useState(true)
   const [loadingMoreClients, setLoadingMoreClients] = useState(false)
   const [nextClientCursor, setNextClientCursor] = useState<string | null>(null)
   const [clientsError, setClientsError] = useState<string | null>(null)
@@ -289,23 +292,19 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
     const normalizedSearch = clientSearch.trim().replace(/\s+/g, ' ')
     clientPageController.current?.abort()
     clientPageController.current = null
-    if (!normalizedSearch) {
-      startTransition(() => {
-        setClients([])
-        setNextClientCursor(null)
-        setClientsError(null)
-        setLoadingClients(false)
-      })
-      return
-    }
     const controller = new AbortController()
     clientPageController.current = controller
     const timer = window.setTimeout(async () => {
       try {
         const body = await fetchClientPage({ search: normalizedSearch, signal: controller.signal })
         if (controller.signal.aborted || clientRequestVersion.current !== version) return
+        const pageClients = body.clients ?? []
+        const visibleClients = normalizedSearch
+          ? mergeAndRankClientMatches(recentClientsRef.current, pageClients, normalizedSearch)
+          : pageClients
+        if (!normalizedSearch) recentClientsRef.current = pageClients
         startTransition(() => {
-          setClients(body.clients ?? [])
+          setClients(visibleClients)
           setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
           setClientsError(null)
           setLoadingClients(false)
@@ -404,7 +403,9 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       if (clientRequestVersion.current !== version) return
       setClients((current) => {
         const seen = new Set(current.map((client) => client.id))
-        return [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
+        const merged = [...current, ...(body.clients ?? []).filter((client) => !seen.has(client.id))]
+        if (!clientSearch.trim()) recentClientsRef.current = merged
+        return merged
       })
       setNextClientCursor(body.pagination?.has_more ? body.pagination.next_cursor ?? null : null)
     } catch (caught) {
@@ -998,6 +999,8 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
   // fixed overlay covering the wizard chrome below.
   const fullScreenCapture = step === 2 && !testMode
   const modelError = Object.values(captures).some(capture => capture.slotStatus === 'model_error')
+  const normalizedClientSearch = clientSearch.trim()
+  const visibleClients = normalizedClientSearch || clientListExpanded ? clients : clients.slice(0, 4)
 
   return (
     <div className="app-screen app-screen-x">
@@ -1055,9 +1058,14 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
       {/* Step 1: Select Client */}
       {step === 1 && (
         <div>
-          <div style={{ marginBottom: '16px' }}>
-            <h2 className="t-title" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 1: Select Client</h2>
-            <p className="t-body" style={{ margin: 0 }}>Search and select the client you are assessing.</p>
+          <div className={styles.clientStepHeader}>
+            <div>
+              <h2 className="t-title" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 1: Select Client</h2>
+              <p className="t-body" style={{ margin: 0 }}>Choose an existing client or add someone new.</p>
+            </div>
+            <Link href="/clients/new?returnTo=capture" className={`a-primary ${styles.newClientAction}`}>
+              <Icon name="add-circle-linear" size={17} /> New client
+            </Link>
           </div>
           {testMode && (
             <div style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: '16px' }}>
@@ -1065,9 +1073,9 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
             </div>
           )}
           <Surface
-            tier="feature"
+            tier="tile"
             innerStyle={{
-              padding: 24,
+              padding: 16,
               // This interactive list repaints on selection. Sampling the full
               // page through a large live blur made the paint dominate INP on
               // older devices; the existing layered background remains.
@@ -1106,6 +1114,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
                   loadMoreClientController.current = null
                   setLoadingMoreClients(false)
                   setLoadingClients(true)
+                  setClientListExpanded(false)
                   setNextClientCursor(null)
                   if (query === clientSearch) {
                     setClientSearchRevision((current) => current + 1)
@@ -1117,22 +1126,17 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
                 />
               </div>
             </div>
-            <div
+            {selectedClient && <div
               role="status"
-              aria-hidden={selectedClient ? undefined : true}
               data-testid="selected-client-summary"
-              style={{
-                minHeight: '64px', boxSizing: 'border-box',
-                marginBottom: '16px', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-                background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`,
-                color: 'var(--text-primary)', visibility: selectedClient ? 'visible' : 'hidden',
-              }}
+              className={styles.selectedClientSummary}
+              style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}` }}
             >
               <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Selected client
               </span>
-              <strong>{selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}` : 'No client selected'}</strong>
-            </div>
+              <strong>{selectedClient.first_name} {selectedClient.last_name}</strong>
+            </div>}
             {selectedClientError && (
               <p role="alert" className="a-error" style={{ margin: '0 0 16px' }}>{selectedClientError}</p>
             )}
@@ -1140,18 +1144,21 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
               <p className="t-body" style={{ textAlign: 'center', padding: '24px 0', margin: 0 }}>Loading clients...</p>
             ) : clientsError ? (
               <p role="alert" className="a-error" style={{ textAlign: 'center', padding: '24px 0', margin: '0 auto', justifyContent: 'center' }}>{clientsError}</p>
-            ) : !clientSearch.trim() ? (
-              <div className="t-body" style={{ textAlign: 'center', padding: '24px 0' }}>
-                Search by first or last name to select a client.{' '}
-                <Link href="/clients/new" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>Create a client</Link>
-              </div>
             ) : clients.length === 0 ? (
               <div className="t-body" style={{ textAlign: 'center', padding: '24px 0' }}>
-                No clients match your search.
+                {normalizedClientSearch ? 'No clients match your search.' : 'No active clients yet.'}
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
-                {clients.map(c => {
+              <div className={styles.clientResults}>
+                <div className={styles.clientResultsHeading}>
+                  <span>{normalizedClientSearch ? `${clients.length} matching client${clients.length === 1 ? '' : 's'}` : 'Existing clients'}</span>
+                  {!normalizedClientSearch && clients.length > 4 && (
+                    <button type="button" className={styles.expandClients} onClick={() => setClientListExpanded(current => !current)}>
+                      {clientListExpanded ? 'Show fewer' : `Show all ${clients.length} clients`}
+                    </button>
+                  )}
+                </div>
+                {visibleClients.map(c => {
                   const isSelected = selectedClient?.id === c.id
                   return (
                     <ClientResultButton

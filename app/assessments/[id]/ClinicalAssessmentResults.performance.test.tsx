@@ -46,7 +46,7 @@ vi.mock('./ReviewDock', () => ({
   ),
 }))
 vi.mock('./MuscleBodyMap', () => ({ default: () => null }))
-vi.mock('./MuscleModel3D', () => ({ default: () => null }))
+vi.mock('./MuscleModel3D', () => ({ default: () => <h2 id="anatomy-viewer-title">Explore assessment-linked regions</h2> }))
 vi.mock('@/components/LegalNotice', () => ({ default: () => null }))
 
 import ClinicalAssessmentResults from './ClinicalAssessmentResults'
@@ -134,9 +134,53 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  window.history.replaceState(null, '', '/')
 })
 
 describe('assessment results progressive rendering', () => {
+  it('opens deferred evidence and scrolls to anatomy for the viewer deep link', async () => {
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView })
+    window.history.replaceState(null, '', '#anatomy-viewer-title')
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/clients/client-1/assessments?')) {
+        return response({ assessments: [], pagination: { has_more: false, next_cursor: null } })
+      }
+      if (url === '/api/workouts?assessment_id=assessment-1') return response({ runs: [] })
+      throw new Error(`Unexpected URL: ${url}`)
+    }))
+    const data = assessmentResponseData()
+    data.findings = [{
+      id: 'finding-1',
+      imbalance_key: 'forward_head',
+      region: 'head_shoulders',
+      label: 'Head position',
+      zone: 'warning',
+      deviation: 4,
+      severity_pct: 20,
+      confidence: 0.9,
+      direction: 'forward',
+      view_used: 'side',
+      uncertainty_deg: 1,
+    }]
+    const ComponentWithInitialData = ClinicalAssessmentResults as unknown as React.ComponentType<{
+      params: Promise<{ id: string }>
+      initialAssessmentId: string
+      initialData: typeof data
+    }>
+
+    render(<ComponentWithInitialData
+      params={Promise.resolve({ id: 'assessment-1' })}
+      initialAssessmentId="assessment-1"
+      initialData={data}
+    />)
+
+    expect(await screen.findByRole('heading', { name: 'Explore assessment-linked regions' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Evidence' }).getAttribute('aria-selected')).toBe('true')
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }))
+  })
+
   it('states when an incompatible scan cannot drive the corrective report or program', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

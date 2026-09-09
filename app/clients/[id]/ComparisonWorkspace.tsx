@@ -13,6 +13,7 @@ import {
 } from '@/lib/comparison/policy'
 import styles from './ClientDetail.module.css'
 import { comparePostgresTimestamps } from '@/lib/time/postgres-timestamp'
+import { formatClientDate } from './clientDate'
 
 export type ComparisonAssessment = {
   id: string
@@ -46,11 +47,7 @@ export type ComparisonWorkspaceProps = {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  return formatClientDate(iso, 'month-day-short')
 }
 
 function formatStatus(status: string) {

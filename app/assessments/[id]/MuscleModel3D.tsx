@@ -41,10 +41,14 @@ const MODEL_READY_TIMEOUT_MS = 30_000
 
 export default function MuscleModel3D({ findings, referenceOnly = false }: { findings: AssessmentFinding[]; referenceOnly?: boolean }) {
   const { states, notShown } = useMemo(() => findingsToMuscleStates(referenceOnly ? [] : findings), [findings, referenceOnly])
-  const entries = useMemo(() => toNeutralViewerEntries(states), [states])
+  const allEntries = useMemo(() => toNeutralViewerEntries(states), [states])
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const regions = useMemo(() => [...new Set(allEntries.map(entry => entry.muscle))], [allEntries])
+  const activeRegion = regions.includes(selectedRegion ?? '') ? selectedRegion : null
+  const entries = useMemo(() => activeRegion ? allEntries.filter(entry => entry.muscle === activeRegion) : allEntries, [allEntries, activeRegion])
   const referencedRegions = useMemo(
-    () => new Set(entries.map((entry) => entry.muscle)).size,
-    [entries],
+    () => regions.length,
+    [regions],
   )
   const [mounted, setMounted] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
@@ -160,6 +164,15 @@ export default function MuscleModel3D({ findings, referenceOnly = false }: { fin
             <span>{referencedRegions} linked {referencedRegions === 1 ? 'region' : 'regions'}</span>
           </div>}
         </header>
+
+        {!referenceOnly && regions.length > 0 && <div className={styles.regionButtons} role="group" aria-label="Assessment-linked regions">
+          <button type="button" className="a-secondary" aria-pressed={activeRegion === null} onClick={() => setSelectedRegion(null)}>All regions</button>
+          {regions.map(region => <button type="button" key={region} className="a-secondary" aria-pressed={activeRegion === region} onClick={() => {
+            setSelectedRegion(region)
+            if (!mounted) { setStatus('loading'); setMounted(true) }
+          }}>{region.replaceAll('_', ' ')}</button>)}
+        </div>}
+        {activeRegion && <p role="status" className="t-caption">Showing {activeRegion.replaceAll('_', ' ')}. Rotate the model to see the highlighted anatomy.</p>}
 
         <div className={styles.viewerFrame}>
           {!mounted ? (

@@ -12,6 +12,7 @@ import {
   type DeltaArrow,
   type SeverityBand,
 } from '@/components/array/severity'
+import { formatClientDate } from './clientDate'
 
 /**
  * Geometry and copy for the client-detail deviation-score chart.
@@ -29,8 +30,8 @@ import {
 
 /* ── Plot box, in the SVG's own user units ──────────────────────────────── */
 
-export const CHART_VIEWBOX = { width: 330, height: 180 } as const
-const PLOT = { left: 22, right: 308, top: 20, bottom: 152 } as const
+export const CHART_VIEWBOX = { width: 330, height: 60 } as const
+const PLOT = { left: 12, right: 318, top: 5, bottom: 54 } as const
 const SCORE_DOMAIN = 100
 /** Grid lines are reference scores, not pixel offsets. */
 const GRID_SCORES = [25, 50, 75] as const
@@ -127,11 +128,8 @@ function scoreLabel(score: number, grade: string | null): string {
 }
 
 function dateLabel(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return '—'
-  // UTC, matching every other calendar-date projection on this route, so a
-  // server render and a later browser render name the same stored day.
-  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+  const formatted = formatClientDate(iso, 'day-month-short-no-year')
+  return formatted === 'Date unavailable' ? '—' : formatted
 }
 
 /**
@@ -155,12 +153,13 @@ function buildVerdict(points: readonly TrendInputPoint[]): TrendVerdict | null {
   })
 
   const comparable = decision.status !== 'not_comparable' && decision.delta !== null
+  const magnitude = comparable ? formatDelta(decision.delta) : null
 
   return {
     text: comparisonDecisionText(decision, 'overall'),
-    magnitude: comparable
-      ? `${formatDelta(decision.delta)} pts`
-      : null,
+    // `formatDelta` intentionally returns null for zero. Interpolate only an
+    // actual formatted value so an unchanged scan can never render "null pts".
+    magnitude: magnitude ? `${magnitude} pts` : null,
     band: 'neutral',
     icon: comparable ? deltaIcon(decision.delta) : ('arrow-right-linear' as DeltaArrow),
     decision,

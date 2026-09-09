@@ -65,6 +65,11 @@ export default function DashboardExperience({
         </div>
       </header>
 
+      <nav className={styles.quickActions} aria-label="Quick actions">
+        <Link href="/assessments/new" className="a-primary">Start scan</Link>
+        <Link href="/clients/new?returnTo=capture" className="a-secondary">New client</Link>
+        <Link href="/workouts" className="a-secondary">Workouts</Link>
+      </nav>
       <section className={styles.verdict}>
         <p className="t-kicker" style={{ marginBottom: 12 }}>{model.kicker}</p>
         <h1 className="t-headline">

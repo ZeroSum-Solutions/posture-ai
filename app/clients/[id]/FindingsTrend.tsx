@@ -3,6 +3,7 @@ import { Surface } from '@/components/array/Surface'
 import { BAND_LABEL, tone } from '@/components/array/severity'
 import { REPEAT_CAPTURE_LIMITATION_COPY } from '@/lib/comparison/policy'
 import { buildFindingsTrend, SPARK_VIEWBOX, type FindingsTrendAssessment } from './findingsModel'
+import { formatClientDate } from './clientDate'
 import styles from './ClientDetail.module.css'
 
 /**
@@ -117,9 +118,7 @@ export default function FindingsTrend({
           <tbody>
             {[...assessments].reverse().map(assessment => (
               <tr key={assessment.id}>
-                <td>{new Date(assessment.assessedAt).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-                })}</td>
+                <td>{formatClientDate(assessment.assessedAt, 'day-month-short')}</td>
                 <td>{assessment.scoringEngineVersion ?? 'Unknown — not comparable'}</td>
                 {series.map(entry => {
                   const reading = assessment.findings.find(candidate => candidate.key === entry.key)

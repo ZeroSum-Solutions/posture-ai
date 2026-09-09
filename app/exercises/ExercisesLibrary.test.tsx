@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import ExercisesLibrary from './ExercisesLibrary'
 
+const approvedInstructions = 'Use the reviewed Posture AI instruction. Keep the full movement description visible so someone can read every setup and movement cue without opening another panel or relying on truncated copy.'
 const approved = {
   id: 'split-squat', name: 'Split Squat', category: 'strengthen',
-  instructions: 'Use the reviewed Posture AI instruction.', sets: 3, hold_seconds: 2, poster_url: null,
+  instructions: approvedInstructions, sets: 3, hold_seconds: 2, poster_url: null,
 }
 const goblet = {
   id: 'wger:goblet', name: 'Dumbbell Goblet Squat', category: 'legs', equipment: ['Dumbbell'],
@@ -23,32 +24,44 @@ const walk = {
 afterEach(cleanup)
 
 describe('exercise library', () => {
-  it('loads more entries and searches beyond the visible page', () => {
+  it('paginates and searches one combined collection beyond the visible page', () => {
     const references = Array.from({ length: 55 }, (_, index) => ({
       ...goblet, id: `reference-${index}`, name: `Movement ${index}`,
     }))
-    render(<ExercisesLibrary exercises={[]} referenceExercises={references} />)
-    expect(screen.getByRole('status').textContent).toBe('Showing 24 of 55 matches')
+    render(<ExercisesLibrary exercises={[approved]} referenceExercises={references} />)
+
+    expect(screen.getByRole('status').textContent).toBe('Showing 24 of 56 matches')
     expect(screen.queryByText('Movement 54')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Show more exercises' }))
     expect(screen.getByText('Movement 47')).toBeTruthy()
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Movement 54' } })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search exercises' }), { target: { value: 'Movement 54' } })
     expect(screen.getByText('Movement 54')).toBeTruthy()
     expect(screen.getByRole('status').textContent).toBe('Showing 1 of 1 matches')
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } })
-    expect(screen.getByRole('status').textContent).toBe('Showing 24 of 55 matches')
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search exercises' }), { target: { value: 'reviewed posture' } })
+    expect(screen.getByText('Split Squat')).toBeTruthy()
   })
 
-  it('preserves reviewed content while labeling attributable reference instructions', () => {
+  it('renders reviewed and reference records as one collection with visible full instructions', () => {
     render(<ExercisesLibrary exercises={[approved]} referenceExercises={[goblet, walk]} />)
 
-    expect(screen.getByText('Split Squat')).toBeTruthy()
-    expect(screen.getByText('Dumbbell Goblet Squat')).toBeTruthy()
-    expect(screen.getAllByText(/Reference · unreviewed/i)).toHaveLength(2)
-    expect(screen.getByRole('link', { name: /wger source for dumbbell goblet squat/i }).getAttribute('href'))
-      .toBe('https://wger.de/api/v2/exerciseinfo/203/')
-    expect(screen.getByRole('link', { name: /CC-BY-SA 4 license/i }).getAttribute('href'))
-      .toBe('https://creativecommons.org/licenses/by-sa/4.0/deed.en')
+    expect(screen.getByRole('heading', { name: 'Find a movement' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: /Reviewed Posture AI exercises/i })).toBeNull()
+    expect(screen.queryByRole('heading', { name: /Explore exercise instructions/i })).toBeNull()
+    expect(screen.getByText(approvedInstructions)).toBeTruthy()
+    expect(screen.getByText(goblet.instructions)).toBeTruthy()
+    expect(screen.getAllByText('Instructions')).toHaveLength(3)
+    expect(screen.getByText('Reviewed Posture AI content')).toBeTruthy()
+    expect(screen.getAllByText('Licensed reference · not program reviewed')).toHaveLength(2)
+  })
+
+  it('keeps approved provenance distinct and does not forge a manual reference binding', () => {
+    render(<ExercisesLibrary exercises={[approved]} referenceExercises={[goblet]} />)
+
+    const approvedCard = screen.getByRole('heading', { name: 'Split Squat' }).closest('article, div')?.parentElement
+    expect(approvedCard).not.toBeNull()
+    const addButton = within(approvedCard as HTMLElement).getByRole('button', { name: 'Add to workout' })
+    expect((addButton as HTMLButtonElement).disabled).toBe(true)
+    expect(within(approvedCard as HTMLElement).getByText(/Not yet available in custom workouts/i)).toBeTruthy()
   })
 
   it('shows the allowlisted RDL image with descriptive alt text and adjacent attribution', () => {
@@ -86,61 +99,52 @@ describe('exercise library', () => {
     expect(screen.getByRole('link', { name: /CC-BY-SA 4 image license/i }).getAttribute('href'))
       .toBe('https://creativecommons.org/licenses/by-sa/4.0/deed.en')
     expect(screen.getByText(/unmodified/i)).toBeTruthy()
-    expect(screen.getByText('Reference · unreviewed')).toBeTruthy()
   })
 
-  it('searches reference names and filters category and equipment', () => {
+  it('searches names and instructions and filters the combined category and equipment fields', () => {
     render(<ExercisesLibrary exercises={[approved]} referenceExercises={[goblet, walk]} />)
+    const search = screen.getByRole('searchbox', { name: 'Search exercises' })
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search reference exercises' }), {
-      target: { value: 'goblet' },
-    })
+    fireEvent.change(search, { target: { value: 'setup and movement cue' } })
+    expect(screen.getByText('Split Squat')).toBeTruthy()
+    expect(screen.queryByText('Dumbbell Goblet Squat')).toBeNull()
+
+    fireEvent.change(search, { target: { value: '' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Equipment' }), { target: { value: 'Dumbbell' } })
     expect(screen.getByText('Dumbbell Goblet Squat')).toBeTruthy()
     expect(screen.queryByText('Continuous Walking')).toBeNull()
-
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search reference exercises' }), {
-      target: { value: '' },
-    })
-    fireEvent.change(screen.getByRole('combobox', { name: 'Equipment' }), {
-      target: { value: 'Dumbbell' },
-    })
-    expect(screen.getByText('Dumbbell Goblet Squat')).toBeTruthy()
-    expect(screen.queryByText('Continuous Walking')).toBeNull()
+    expect(screen.queryByText('Split Squat')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /Cardio 1/i }))
-    expect(screen.queryByText('Dumbbell Goblet Squat')).toBeNull()
-    expect(screen.queryByText('Continuous Walking')).toBeNull()
-    expect(screen.getByText(/No reference exercises match/i)).toBeTruthy()
+    expect(screen.getByText(/No exercises match/i)).toBeTruthy()
   })
 
-  it('keeps selected reference exercises in order and opens the manual routine editor', () => {
+  it('keeps selected references in order and opens the manual workout editor', () => {
     render(<ExercisesLibrary exercises={[]} referenceExercises={[goblet, walk]} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Dumbbell Goblet Squat to routine' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add Continuous Walking to routine' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add Dumbbell Goblet Squat to workout' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add Continuous Walking to workout' }))
 
-    expect(screen.getByRole('status', { name: 'Routine selection' }).textContent).toContain('2 exercises selected')
-    const link = screen.getByRole('link', { name: 'Continue to routine' })
+    expect(screen.getByRole('status', { name: 'Workout selection' }).textContent).toContain('2 exercises selected')
+    const link = screen.getByRole('link', { name: 'Continue to workout' })
     expect(link.getAttribute('href')).toBe('/workouts/manual/new?exercise=wger%3Agoblet&exercise=wger%3Awalk')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Dumbbell Goblet Squat from routine' }))
-    expect(screen.getByRole('status', { name: 'Routine selection' }).textContent).toContain('1 exercise selected')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Dumbbell Goblet Squat from workout' }))
+    expect(screen.getByRole('status', { name: 'Workout selection' }).textContent).toContain('1 exercise selected')
     expect(link.getAttribute('href')).toBe('/workouts/manual/new?exercise=wger%3Awalk')
   })
 
-  it('bounds the URL seed while keeping the full library available in the editor', () => {
+  it('bounds the URL seed while keeping every reference available in the full library', () => {
     const references = Array.from({ length: 25 }, (_, index) => ({
       ...goblet, id: `wger:${String(index).padStart(8, '0')}-0000-4000-8000-000000000000`, name: `Seed movement ${index + 1}`,
     }))
     render(<ExercisesLibrary exercises={[]} referenceExercises={references} />)
-    references.slice(0, 24).forEach(reference => {
-      fireEvent.click(screen.getByRole('button', { name: `Add ${reference.name} to routine` }))
+    screen.getAllByRole('button', { name: /^Add Seed movement \d+ to workout$/ }).forEach(button => {
+      fireEvent.click(button)
     })
     fireEvent.click(screen.getByRole('button', { name: 'Show more exercises' }))
 
-    expect((screen.getByRole('button', { name: 'Add Seed movement 25 to routine' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByText(/search all 280 entries in the editor/i)).toBeTruthy()
-    const href = screen.getByRole('link', { name: 'Continue to routine' }).getAttribute('href') ?? ''
-    expect(new URL(href, 'http://localhost').searchParams.getAll('exercise')).toHaveLength(24)
+    expect((screen.getByRole('button', { name: /^Add Seed movement \d+ to workout$/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('status', { name: 'Workout selection' }).textContent).toContain('24 exercises selected')
   })
 })

@@ -77,7 +77,7 @@ export async function selectClientInWizard(page: Page, fullName: string) {
   const clientResult = page.getByRole('button', { name: fullName }).first()
   await expect(clientResult).toBeVisible({ timeout: 10_000 })
   await clientResult.click()
-  await page.getByRole('button', { name: /Next: (Confirm|Upload Views)/ }).click()
+  await page.getByRole('button', { name: /Next: Confirm|Choose capture method/ }).click()
 }
 
 /**

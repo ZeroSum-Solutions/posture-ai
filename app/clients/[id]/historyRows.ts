@@ -1,5 +1,6 @@
 import { compareOverallScores } from '@/lib/comparison/policy'
 import { deltaIcon, formatDelta, type DeltaArrow, type SeverityBand } from '@/components/array/severity'
+import { formatClientDate, formatClientTime } from './clientDate'
 
 /**
  * Scan-history rows, newest first, each carrying its movement against the scan
@@ -37,19 +38,11 @@ export interface HistoryRow {
 }
 
 function dateLabel(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return 'Date unavailable'
-  return parsed.toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-  })
+  return formatClientDate(iso, 'day-month-short')
 }
 
 function timeLabel(iso: string): string | null {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return null
-  return parsed.toLocaleTimeString('en-GB', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-  })
+  return formatClientTime(iso)
 }
 
 /**

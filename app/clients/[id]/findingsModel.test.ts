@@ -104,6 +104,17 @@ describe('buildFindingsTrend', () => {
     expect(series[0].verdict?.text).toBe('Recorded severity decreased')
   })
 
+  it('uses the policy wording for zero without exposing a null-point value', () => {
+    const series = buildFindingsTrend([
+      scan('a', '2026-01-01T00:00:00Z', [finding('k', 40)]),
+      scan('b', '2026-02-01T00:00:00Z', [finding('k', 40)]),
+    ])
+    expect(series[0].verdict?.decision.delta).toBe(0)
+    expect(series[0].verdict?.text).toBe('Recorded severity unchanged')
+    expect(series[0].verdict?.magnitude).toBeNull()
+    expect(JSON.stringify(series[0])).not.toContain('null pts')
+  })
+
   it('parses a severity that arrives as a numeric string', () => {
     const series = buildFindingsTrend([
       scan('a', '2026-01-01T00:00:00Z', [finding('k', '33.5')]),

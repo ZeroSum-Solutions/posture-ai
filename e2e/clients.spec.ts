@@ -18,6 +18,13 @@ async function fillField(page: Page, label: string | RegExp, value: string) {
   }).toPass({ timeout: 15_000 })
 }
 
+async function openClientWorkspace(page: Page) {
+  const disclosure = page.getByRole('button', { name: /Findings, comparison and details/ })
+  await expect(disclosure).toBeVisible()
+  if (await disclosure.getAttribute('aria-expanded') !== 'true') await disclosure.click()
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+}
+
 // Client list + bounded server search (Required Phase-2 coverage). The shared
 // practitioner accumulates clients from other specs, so this test asserts only
 // on its own two uniquely-tokened clients and waits for the debounced API result.
@@ -156,10 +163,12 @@ test.describe('client detail empty state', () => {
     await page.goto(`/clients/${client.id}`)
     await expect(page.getByRole('heading', { name: new RegExp(`Empty-${token}`) })).toBeVisible()
 
+    await page.getByRole('button', { name: /Scan history/ }).click()
     await expect(page.getByText(/No scans yet/)).toBeVisible()
     await expect(page.getByRole('link', { name: /New scan/ })).toBeVisible()
 
     // Compare needs >= 2 assessments → absent; Findings/Details always present.
+    await openClientWorkspace(page)
     await expect(page.getByRole('tab', { name: 'Findings' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Details' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
@@ -267,6 +276,7 @@ test.describe('client comparison policy', () => {
 
     await page.goto(`/clients/${client.id}`)
     await expect(page.getByRole('heading', { name: new RegExp(`Compare-${token}`) })).toBeVisible()
+    await openClientWorkspace(page)
     await page.getByRole('tab', { name: 'Compare' }).click()
     await page.getByLabel('Before (baseline)').selectOption(baselineId)
     await page.getByLabel('After (comparison)').selectOption(sameVersionId)
@@ -289,11 +299,11 @@ test.describe('client comparison policy', () => {
     // There is no separate "Progress" tab or "Load interactive charts" gate
     // anymore — TrendChart (recharts LineChart replaced by a hand-drawn SVG,
     // see app/clients/[id]/TrendChart.tsx) renders inline above the tab strip
-    // and its scoring-version history sits behind a "Recorded scores"
+    // and its scoring-version history sits behind a "Score details"
     // disclosure. Confirm the same underlying facts this test cares about:
     // the trend surfaces, and both scoring versions are represented.
     await expect(page.getByRole('heading', { name: 'Deviation score' })).toBeVisible()
-    const recordedScores = page.getByRole('button', { name: 'Recorded scores', exact: true })
+    const recordedScores = page.getByRole('button', { name: 'Score details', exact: true })
     await recordedScores.focus()
     if (browserName === 'chromium') {
       await page.keyboard.press('Shift+Tab')
@@ -368,6 +378,7 @@ test.describe('client edit', () => {
     await expect(page.getByRole('heading', { name: new RegExp(`Edited-${newToken}`) })).toBeVisible()
 
     // Details tab reflects the edited height + notes.
+    await openClientWorkspace(page)
     await page.getByRole('tab', { name: 'Details' }).click()
     await expect(page.getByText(`Edited note ${newToken}`)).toBeVisible()
     await expect(page.getByText(/70 in/)).toBeVisible()

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ReviewTabs from './ReviewTabs'
 
 afterEach(() => {
@@ -50,5 +50,27 @@ describe('ReviewTabs', () => {
 
     expect(await screen.findByText('Finding content')).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Findings/ }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('opens assessment evidence and scrolls after resolving the anatomy viewer alias', async () => {
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView })
+    window.history.replaceState(null, '', '#anatomy-viewer-title')
+
+    render(<ReviewTabs
+      defaultTabId="assessment-summary"
+      tabs={[
+        { id: 'assessment-summary', label: 'Summary', content: <p>Assessment summary</p> },
+        {
+          id: 'assessment-evidence',
+          label: 'Evidence',
+          content: <h2 id="anatomy-viewer-title">Explore anatomy in 3D</h2>,
+        },
+      ]}
+    />)
+
+    expect(await screen.findByRole('heading', { name: 'Explore anatomy in 3D' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Evidence' }).getAttribute('aria-selected')).toBe('true')
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }))
   })
 })

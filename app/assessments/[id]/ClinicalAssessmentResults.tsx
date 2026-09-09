@@ -45,6 +45,7 @@ type Assessment = AssessmentResultsPayload['assessment']
 
 const REVIEW_TAB_BASE = 'review'
 const DEFERRED_PANEL_MOUNT_MS = 300
+const ANATOMY_VIEWER_HASH = 'anatomy-viewer-title'
 
 export function canonicalAssessmentTimestamp(value: string): string | null {
   return canonicalizePostgresTimestamp(value)
@@ -1067,6 +1068,19 @@ function ReviewWorkspace({
   const [mounted, setMounted] = useState<ReadonlySet<ReviewPanel>>(
     () => new Set<ReviewPanel>(['findings']),
   )
+  const pendingAnatomyScrollRef = useRef(false)
+
+  useEffect(() => {
+    function selectHashPanel() {
+      const hashId = window.location.hash.slice(1)
+      pendingAnatomyScrollRef.current = hashId === ANATOMY_VIEWER_HASH
+      if (hashId === ANATOMY_VIEWER_HASH) setActive('evidence')
+    }
+
+    selectHashPanel()
+    window.addEventListener('hashchange', selectHashPanel)
+    return () => window.removeEventListener('hashchange', selectHashPanel)
+  }, [])
 
   useEffect(() => {
     if (mounted.has(active)) return
@@ -1080,6 +1094,17 @@ function ReviewWorkspace({
         })
       })
     }, DEFERRED_PANEL_MOUNT_MS)
+    return () => window.clearTimeout(timer)
+  }, [active, mounted])
+
+  useEffect(() => {
+    if (active !== 'evidence' || !mounted.has('evidence') || !pendingAnatomyScrollRef.current) return
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(ANATOMY_VIEWER_HASH)
+      if (!target) return
+      pendingAnatomyScrollRef.current = false
+      target.scrollIntoView({ block: 'start' })
+    }, 0)
     return () => window.clearTimeout(timer)
   }, [active, mounted])
 

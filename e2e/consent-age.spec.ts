@@ -175,7 +175,7 @@ test.describe('wizard consent recovery', () => {
     await expect(page.getByRole('button', { name: 'Send remote consent link' })).toBeVisible()
 
     await page.goto(`/assessments/new?client_id=${client.id}`)
-    const nextButton = page.getByRole('button', { name: 'Next: Upload Views' })
+    const nextButton = page.getByRole('button', { name: 'Choose capture method' })
     await expect(nextButton).toBeEnabled({ timeout: 10_000 })
     await nextButton.click()
 

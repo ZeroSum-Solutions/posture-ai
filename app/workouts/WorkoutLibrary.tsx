@@ -1,5 +1,7 @@
 'use client'
 
+import type { OperationMode } from '@/lib/prototype/runtime'
+
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -32,12 +34,14 @@ export default function WorkoutLibrary({
   loadError,
   strengthClients = [],
   trainingSessionId,
+  operationMode,
 }: {
   initialLibrary: WorkoutLibraryItem[]
   seed?: WorkoutBuilderSeed | null
   loadError?: string | null
   strengthClients?: readonly StrengthBuilderClient[]
   trainingSessionId?: string | null
+  operationMode?: OperationMode
 }) {
   const router = useRouter()
   const [library, setLibrary] = useState(initialLibrary)
@@ -215,7 +219,7 @@ export default function WorkoutLibrary({
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {message && <p role="status" className={styles.notice}>{message}</p>}
 
-        <StrengthBuilderLauncher clients={strengthClients} initialClientId={activeSeed?.clientId} />
+        <StrengthBuilderLauncher operationMode={operationMode} clients={strengthClients} initialClientId={activeSeed?.clientId} />
 
         {activeSeed && (
           <section className={styles.builder} aria-labelledby="builder-heading">

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import MuscleModel3D, { toNeutralViewerEntries } from './MuscleModel3D'
 
 afterEach(cleanup)
@@ -97,4 +97,22 @@ describe('MuscleModel3D', () => {
     }))
     expect(screen.getByRole('alert').textContent).toContain('did not load')
   })
+})
+
+
+it('lets a linked-region button isolate its highlight and restore all regions', () => {
+  render(<MuscleModel3D findings={[{ zone: 'priority', severity_pct: 70, tight_muscle_links: [
+    { slug: 'hamstrings', name: 'Hamstrings' }, { slug: 'gluteus-maximus', name: 'Gluteus maximus' },
+  ] }]} />)
+  fireEvent.click(screen.getByRole('button', { name: /^hamstrings$/ }))
+  const frame = screen.getByTitle('Interactive 3D anatomy model') as HTMLIFrameElement
+  const post = vi.spyOn(frame.contentWindow!, 'postMessage')
+  fireEvent(window, new MessageEvent('message', { data: { source: 'muscle-viewer', type: 'model-ready' }, origin: window.location.origin, source: frame.contentWindow }))
+  expect(post).toHaveBeenLastCalledWith({ source: 'posture-ai', type: 'set', entries: [
+    { muscle: 'hamstrings', side: 'left', color: 'amber', intensity: 2 },
+    { muscle: 'hamstrings', side: 'right', color: 'amber', intensity: 2 },
+  ] }, window.location.origin)
+  fireEvent.click(screen.getByRole('button', { name: 'All regions' }))
+  expect(post.mock.calls.at(-1)?.[0].entries).toHaveLength(4)
+  post.mockRestore()
 })
