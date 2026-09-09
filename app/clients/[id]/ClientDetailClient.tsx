@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
 import PrivacyLifecycleControls from '@/components/PrivacyLifecycleControls'
+import { AnatomyGlyph } from '@/components/SignalGlyphs'
 import { GradeChip } from '@/components/array/Chip'
 import Icon from '@/components/array/Icon'
 import { Surface, SurfaceLink } from '@/components/array/Surface'
@@ -20,7 +21,9 @@ import {
   sortAssessmentsChronologically,
 } from './comparison'
 import ComparisonWorkspace, { type ComparisonDeltaRow } from './ComparisonWorkspace'
+import { formatClientDate } from './clientDate'
 import FindingsTrend from './FindingsTrend'
+import { buildFindingsTrend, type FindingSeries } from './findingsModel'
 import TrendChart from './TrendChart'
 import { buildHistoryRows } from './historyRows'
 import { buildClientComparison } from '@/lib/reports/clientComparison'
@@ -87,6 +90,20 @@ type Tab = 'findings' | 'compare' | 'details'
 const TAB_ID_BASE = 'client'
 const INITIAL_HISTORY_PAGE_SIZE = 20
 const DEFERRED_WORKSPACE_MOUNT_MS = 300
+
+function findingDeltaLabel(series: FindingSeries): { compact: string; full: string } | null {
+  const verdict = series.verdict
+  if (!verdict || verdict.decision.status === 'not_comparable' || verdict.decision.delta === null) {
+    return null
+  }
+  if (verdict.decision.delta === 0) {
+    return { compact: '0 pp', full: `${verdict.text} · 0 percentage points` }
+  }
+  return verdict.magnitude ? {
+    compact: verdict.magnitude.replace(/ pts$/, ' pp'),
+    full: `${verdict.text} · ${verdict.magnitude.replace(/ pts$/, ' percentage points')}`,
+  } : null
+}
 
 function scheduleAfterPresentedFrame(callback: () => void): () => void {
   if (typeof window === 'undefined') return () => {}
@@ -248,6 +265,8 @@ function ClientDetailRoute({
   const [archiving, setArchiving] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [historyExpanded, setHistoryExpanded] = useState(false)
+  const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
   const menuContainerRef = useRef<HTMLDivElement>(null)
   const menuToggleRef = useRef<HTMLButtonElement>(null)
   // Compare selectors: older = "before", newer = "after"
@@ -436,6 +455,11 @@ function ClientDetailRoute({
     }
   }, [assessments])
 
+  const latestAssessmentId = assessments.at(-1)?.id ?? null
+  const summaryFindings = useMemo(() => buildFindingsTrend(findingsAssessments)
+    .filter((series) => series.latest !== null && series.points.at(-1)?.assessmentId === latestAssessmentId)
+    .slice(0, 3), [findingsAssessments, latestAssessmentId])
+
   const historyRows = useMemo(() => buildHistoryRows(assessments.map((assessment) => ({
     id: assessment.id,
     assessedAt: assessment.assessed_at,
@@ -453,12 +477,7 @@ function ClientDetailRoute({
     const targetAssessment = assessments.find((assessment) => assessment.id === compareTargetId)
     const comparison = baseAssessment && targetAssessment
       ? buildClientComparison({
-          priorDateStr: new Date(baseAssessment.assessed_at).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            timeZone: 'UTC',
-          }),
+          priorDateStr: formatClientDate(baseAssessment.assessed_at, 'month-day-short'),
           current: {
             grade: targetAssessment.overall_grade ?? '—',
             score: targetAssessment.overall_score,
@@ -624,7 +643,7 @@ function ClientDetailRoute({
   if (!client) return null
 
   const dob = client.date_of_birth
-    ? new Date(client.date_of_birth).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
+    ? formatClientDate(client.date_of_birth, 'day-month-long')
     : null
 
   function handleConsentRecorded() {
@@ -758,73 +777,117 @@ function ClientDetailRoute({
           </>
         )}
 
-        <TrendChart history={trendPoints} tableId="client-score-table" />
-
         <div className={styles.actionPair}>
           <Link href={`/assessments/new?client_id=${client.id}`} className="a-primary">
             <Icon name="scanner-linear" size={18} />
             New scan
           </Link>
-          <Link href="#client-workspace" className="a-secondary">
+          <Link
+            href="#client-workspace"
+            className="a-secondary"
+            onClick={() => setWorkspaceExpanded(true)}
+          >
             <Icon name="square-transfer-horizontal-linear" size={18} />
             Compare
           </Link>
         </div>
 
-        <div className={styles.sectionHead}>
-          <h2 className="t-headline-sm">Scan history</h2>
-          {nextAssessmentCursor ? <span className="t-quiet">latest {assessments.length}</span> : null}
-        </div>
-        <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+        <TrendChart history={trendPoints} tableId="client-score-table" />
 
-        {historyLoadedForId !== id ? (
-          <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
-        ) : historyRows.length === 0 ? (
-          <Surface tier="tile">
-            <p className="t-body">No scans yet.</p>
-            <p className="t-quiet" style={{ marginTop: 4 }}>
-              Capture one to establish this client&apos;s baseline.
-            </p>
+        <div className={styles.summaryGrid}>
+          <Surface tier="tile" className={styles.summaryCard}>
+            <div className={styles.summaryHead}>
+              <div>
+                <p className={styles.summaryEyebrow}>Latest assessment</p>
+                <h2 className="t-title">Top reliable findings</h2>
+              </div>
+              {latestAssessment ? (
+                <Link href={`/assessments/${latestAssessment.id}`} className={styles.summaryLink} prefetch={false}>
+                  Open scan
+                </Link>
+              ) : null}
+            </div>
+            {summaryFindings.length > 0 ? (
+              <ol className={styles.summaryFindings}>
+                {summaryFindings.map((series) => {
+                  const deltaLabel = findingDeltaLabel(series)
+                  return (
+                    <li key={series.key} className={styles.summaryFinding}>
+                      <span
+                        className={styles.severityDot}
+                        style={{ background: tone(series.latest!.band), boxShadow: `0 0 0 4px ${tint(series.latest!.band)}` }}
+                        aria-hidden="true"
+                      />
+                      <span className={styles.summaryFindingBody}>
+                        <span className={styles.summaryFindingLabel}>{series.label}</span>
+                        {deltaLabel ? (
+                          <span
+                            className={`${styles.summaryFindingDelta} n`}
+                            aria-label={deltaLabel.full}
+                            title={deltaLabel.full}
+                          >
+                            {deltaLabel.compact}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className={`${styles.summaryFindingValue} n`} style={{ color: tone(series.latest!.band) }}>
+                        {round1(series.latest!.severity)}%
+                      </span>
+                    </li>
+                  )
+                })}
+              </ol>
+            ) : (
+              <p className={styles.emptyState}>No reliable findings are available for the latest assessment.</p>
+            )}
+            <p className={styles.summaryBoundary}>Ranked by recorded severity. Unreliable readings are excluded.</p>
           </Surface>
-        ) : (
-          <>
-            {historyRows.map((row) => (
-              <SurfaceLink key={row.id} href={row.href} tier="row" prefetch={false}>
-                <span className={styles.historyRow}>
-                  <GradeChip grade={row.grade} />
-                  <span className={styles.historyBody}>
-                    <span className={styles.historyDate} style={{ display: 'block' }}>{row.dateLabel}</span>
-                    <span className={styles.historyMeta} style={{ display: 'block' }}>{row.meta}</span>
-                  </span>
-                  <span className={`${styles.historyDelta} n`} style={{ color: tone(row.deltaBand) }}>
-                    {row.deltaIcon ? <Icon name={row.deltaIcon} size={13} /> : null}
-                    {row.delta ?? row.deltaWord}
-                  </span>
-                </span>
-              </SurfaceLink>
-            ))}
-            {historyPageError && (
-              <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">{historyPageError}</p>
-            )}
-            {nextAssessmentCursor && (
-              <button
-                type="button"
-                onClick={loadMoreAssessments}
-                disabled={loadingMoreAssessments}
-                className="a-secondary a-secondary--bar"
-                style={{ minHeight: 44 }}
-              >
-                {loadingMoreAssessments ? 'Loading older assessments…' : 'Load older assessments'}
-              </button>
-            )}
-          </>
-        )}
 
-        <div id="client-workspace" className={styles.sectionHead} style={{ paddingTop: 16 }}>
-          <h2 className="t-headline-sm">Detail</h2>
+          {latestAssessment ? (
+            <SurfaceLink
+              href={`/assessments/${latestAssessment.id}#anatomy-viewer-title`}
+              tier="tile"
+              className={styles.anatomyPreview}
+              prefetch={false}
+              aria-label="Open anatomy view for the latest assessment"
+            >
+              <span className={styles.anatomyGlyph}><AnatomyGlyph size={54} /></span>
+              <span className={styles.anatomyBody}>
+                <span className={styles.summaryEyebrow}>Latest assessment</span>
+                <span className={styles.anatomyTitle}>Assessment-linked anatomy</span>
+                <span className={styles.anatomyCopy}>Explore the regions referenced by the recorded findings.</span>
+                <span className={styles.anatomyBoundary}>Shows referenced regions, not measured muscle condition.</span>
+              </span>
+              <Icon name="alt-arrow-right-linear" size={18} />
+            </SurfaceLink>
+          ) : (
+            <Surface tier="tile" className={styles.anatomyPreview}>
+              <span className={styles.anatomyGlyph}><AnatomyGlyph size={54} /></span>
+              <span className={styles.anatomyBody}>
+                <span className={styles.summaryEyebrow}>Anatomy</span>
+                <span className={styles.anatomyTitle}>No assessment yet</span>
+                <span className={styles.anatomyCopy}>Complete a scan to open its assessment-linked anatomy view.</span>
+              </span>
+            </Surface>
+          )}
         </div>
 
-        <ClientWorkspace
+        <section id="client-workspace" className={styles.disclosureSection}>
+          <button
+            type="button"
+            className={styles.disclosureButton}
+            aria-expanded={workspaceExpanded}
+            aria-controls="client-workspace-content"
+            onClick={() => setWorkspaceExpanded((expanded) => !expanded)}
+          >
+            <span>
+              <span className={styles.disclosureTitle}>Findings, comparison and details</span>
+              <span className={styles.disclosureMeta}>Open the full assessment workspace</span>
+            </span>
+            <Icon name={workspaceExpanded ? 'arrow-up-linear' : 'arrow-down-linear'} size={18} />
+          </button>
+          <div id="client-workspace-content" hidden={!workspaceExpanded} className={styles.disclosureContent}>
+            <ClientWorkspace
           hasMultipleAssessments={hasMultipleAssessments}
           findingsPanel={(
             <RetainedFindingsTrend assessments={findingsAssessments} />
@@ -833,8 +896,8 @@ function ClientDetailRoute({
             <>
               {nextAssessmentCursor && (
                 <p className={styles.loadingPanel} role="status" style={{ marginBottom: 12 }}>
-                  Comparing the latest {assessments.length} assessments. Load older assessments above
-                  for earlier options.
+                  Comparing the latest {assessments.length} assessments. Load older assessments in Scan
+                  history for earlier options.
                 </p>
               )}
               <RetainedComparisonWorkspace
@@ -887,9 +950,7 @@ function ClientDetailRoute({
                 <div>
                   <p className={styles.factLabel}>Added</p>
                   <p className={`${styles.factValue} n`}>
-                    {new Date(client.created_at).toLocaleDateString('en-GB', {
-                      year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
-                    })}
+                    {formatClientDate(client.created_at, 'day-month-short')}
                   </p>
                 </div>
                 {consentStatus !== 'checking' && (
@@ -928,7 +989,72 @@ function ClientDetailRoute({
               />
             </div>
           )}
-        />
+            />
+          </div>
+        </section>
+
+        <section className={styles.disclosureSection}>
+          <button
+            type="button"
+            className={styles.disclosureButton}
+            aria-expanded={historyExpanded}
+            aria-controls="client-scan-history"
+            onClick={() => setHistoryExpanded((expanded) => !expanded)}
+          >
+            <span>
+              <span className={styles.disclosureTitle}>Scan history</span>
+              <span className={styles.disclosureMeta}>
+                {nextAssessmentCursor ? `Latest ${assessments.length} loaded` : scanCountLabel}
+              </span>
+            </span>
+            <Icon name={historyExpanded ? 'arrow-up-linear' : 'arrow-down-linear'} size={18} />
+          </button>
+          <div id="client-scan-history" hidden={!historyExpanded} className={`${styles.disclosureContent} app-stack`}>
+            <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+            {historyLoadedForId !== id ? (
+              <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
+            ) : historyRows.length === 0 ? (
+              <Surface tier="tile">
+                <p className="t-body">No scans yet.</p>
+                <p className="t-quiet" style={{ marginTop: 4 }}>
+                  Capture one to establish this client&apos;s baseline.
+                </p>
+              </Surface>
+            ) : (
+              <>
+                {historyRows.map((row) => (
+                  <SurfaceLink key={row.id} href={row.href} tier="row" prefetch={false}>
+                    <span className={styles.historyRow}>
+                      <GradeChip grade={row.grade} />
+                      <span className={styles.historyBody}>
+                        <span className={styles.historyDate} style={{ display: 'block' }}>{row.dateLabel}</span>
+                        <span className={styles.historyMeta} style={{ display: 'block' }}>{row.meta}</span>
+                      </span>
+                      <span className={`${styles.historyDelta} n`} style={{ color: tone(row.deltaBand) }}>
+                        {row.deltaIcon ? <Icon name={row.deltaIcon} size={13} /> : null}
+                        {row.delta ?? row.deltaWord}
+                      </span>
+                    </span>
+                  </SurfaceLink>
+                ))}
+                {historyPageError && (
+                  <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">{historyPageError}</p>
+                )}
+                {nextAssessmentCursor && (
+                  <button
+                    type="button"
+                    onClick={loadMoreAssessments}
+                    disabled={loadingMoreAssessments}
+                    className="a-secondary a-secondary--bar"
+                    style={{ minHeight: 44 }}
+                  >
+                    {loadingMoreAssessments ? 'Loading older assessments…' : 'Load older assessments'}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </section>
       </div>
 
       {showArchiveConfirm && (

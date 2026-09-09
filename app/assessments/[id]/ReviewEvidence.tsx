@@ -10,8 +10,7 @@ import styles from './AssessmentReview.module.css'
 import photoStyles from './CapturePhoto.module.css'
 
 const SCAN_CAPTION =
-  'Schematic only — markers show regions of interest, not literal anatomy. '
-  + 'A 2D screening cannot locate a landmark precisely enough for one.'
+  'Generic body guide, not a reconstruction of this person. Numbered colours match the recorded finding severity below.'
 
 export interface EvidenceCapture {
   id: string

@@ -217,11 +217,12 @@ function decide(latest: Reading, prior: Reading): FindingSeries['verdict'] {
     priorUnit: prior.finding?.unit ?? null,
   })
   const comparable = decision.status !== 'not_comparable' && decision.delta !== null
+  const magnitude = comparable ? formatDelta(decision.delta, 1) : null
   return {
     text: comparisonDecisionText(decision, 'finding'),
-    magnitude: comparable
-      ? `${formatDelta(decision.delta, 1)} pts`
-      : null,
+    // Zero is expressed by the policy wording ("No recorded change"). Do not
+    // interpolate formatDelta's null sentinel into visible copy.
+    magnitude: magnitude ? `${magnitude} pts` : null,
     band: 'neutral',
     icon: comparable ? deltaIcon(decision.delta) : ('arrow-right-linear' as DeltaArrow),
     decision,

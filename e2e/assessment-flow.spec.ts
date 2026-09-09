@@ -5,7 +5,9 @@ import { createClient, selectClientInWizard } from './helpers'
 // flow exercises client creation -> wizard -> scoring -> results -> PDF link
 // -> client progress without a camera.
 test.describe('assessment golden path (test mode)', () => {
-  test('create client, run fixture assessment, see 9 findings and PDF', async ({ page }) => {
+  test('create client, run fixture assessment, see numeric findings and PDF', async ({ page }, testInfo) => {
+    const hydrationErrors: string[] = []
+    page.on('pageerror', error => { if (/hydration/i.test(error.message)) hydrationErrors.push(error.message) })
     const stamp = Date.now().toString().slice(-7)
     const client = await createClient(page, 'E2E', `Flow${stamp}`)
 
@@ -31,7 +33,9 @@ test.describe('assessment golden path (test mode)', () => {
     // carry no data-testid in this layout, so each one is counted by its
     // heading block, which is unique per row.
     const findings = page.locator('#review-panel-findings [class*="findingHead"]')
-    await expect(findings).toHaveCount(9, { timeout: 15_000 })
+    // The current fixture has eight numeric screening readings; non-numeric
+    // records are not fabricated into plotted findings.
+    await expect(findings).toHaveCount(8, { timeout: 15_000 })
 
     // Exercises are no longer their own tab — they are a nested disclosure
     // inside Program's "Matched exercises" summary.
@@ -60,6 +64,17 @@ test.describe('assessment golden path (test mode)', () => {
     // Client page (progress surface) renders for this client.
     await page.goto(`/clients/${client.id}`)
     await expect(page.getByText(`E2E Flow${stamp}`).first()).toBeVisible()
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 844 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+      await expect(page.getByText('null pts', { exact: false })).toHaveCount(0)
+      await page.screenshot({ path: testInfo.outputPath(`client-overview-${width}.png`), fullPage: true })
+    }
+    expect(hydrationErrors).toEqual([])
+    await page.getByRole('link', { name: 'Open anatomy view for the latest assessment' }).click()
+    await expect(page.getByRole('tab', { name: 'Evidence', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('heading', { name: 'Explore assessment-linked regions' })).toBeVisible()
+    await expect(page.getByTitle('Interactive 3D anatomy model')).toHaveCount(0)
   })
 
   test('wizard requires a client before continuing', async ({ page }) => {
@@ -90,4 +105,24 @@ test.describe('assessment golden path (test mode)', () => {
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
   })
+})
+
+test('the real scan entry offers a dedicated upload screen on compact layouts', async ({ page }, testInfo) => {
+  const stamp = Date.now().toString().slice(-7)
+  const client = await createClient(page, 'Upload', `Flow${stamp}`)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/assessments/new?client_id=${client.id}`)
+  await page.getByRole('button', { name: 'Choose capture method' }).click()
+  await expect(page.getByRole('button', { name: 'Start live capture' })).toBeVisible()
+  await page.getByRole('button', { name: 'Upload existing photos' }).click()
+  await expect(page.getByRole('heading', { name: 'Upload four posture views' })).toBeVisible()
+  for (const name of ['Front', 'Left Side', 'Right Side', 'Back']) {
+    await expect(page.getByRole('button', { name: `${name} Choose photo`, exact: true })).toBeVisible()
+  }
+  const chooserPromise = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Front Choose photo', exact: true }).click()
+  const chooser = await chooserPromise
+  expect(await chooser.element().getAttribute('aria-label')).toBe('Upload Front photo')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await page.screenshot({ path: testInfo.outputPath('dedicated-upload-390.png') })
 })

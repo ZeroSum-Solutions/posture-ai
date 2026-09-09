@@ -148,6 +148,7 @@ export default async function WorkoutsPage({ searchParams }: { searchParams: Pro
   return (
     <WorkoutLibrary
       key={workoutLibraryKey(library, seed)}
+      operationMode={operation.mode}
       initialLibrary={library}
       seed={seed}
       strengthClients={strengthClients}

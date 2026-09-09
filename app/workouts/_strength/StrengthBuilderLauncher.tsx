@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import ClientForm, { type ClientPayload } from '@/app/clients/ClientForm'
+import type { OperationMode } from '@/lib/prototype/runtime'
 import { Surface } from '@/components/array/Surface'
 import StrengthBuilderEntry from './StrengthBuilderEntry'
 import styles from './StrengthProgramBuilder.module.css'
@@ -22,15 +24,30 @@ function isSetupProjection(value: unknown): value is { subjectId: string; profil
     && (record.profileRevision as number) > 0
 }
 
-export default function StrengthBuilderLauncher({ clients, initialClientId }: {
+export default function StrengthBuilderLauncher({ clients, initialClientId, operationMode = 'governed' }: {
   clients: readonly StrengthBuilderClient[]
   initialClientId?: string | null
+  operationMode?: OperationMode
 }) {
   const initial = clients.some(client => client.id === initialClientId) ? initialClientId! : clients[0]?.id ?? ''
   const [selectedId, setSelectedId] = useState(initial)
   const [sampleCatalog, setSampleCatalog] = useState<'starter' | 'exercise-swap' | 'conditioning' | 'bodyweight-assistance'>('starter')
   const [sample, setSample] = useState<SampleState>({ status: 'idle' })
-  const selected = clients.find(client => client.id === selectedId)
+  const [addedClients, setAddedClients] = useState<StrengthBuilderClient[]>([])
+  const [creatingClient, setCreatingClient] = useState(false)
+  const allClients = [...clients, ...addedClients.filter(added => !clients.some(client => client.id === added.id))]
+  const selected = allClients.find(client => client.id === selectedId)
+
+  async function addClient(payload: ClientPayload) {
+    const response = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    const body = await response.json()
+    if (!response.ok || typeof body?.client?.id !== 'string' || typeof body.client.first_name !== 'string' || typeof body.client.last_name !== 'string') throw new Error('Client could not be created. Review the form and try again.')
+    const client = { id: body.client.id, name: `${body.client.first_name} ${body.client.last_name}`.trim() }
+    setAddedClients(current => [...current, client])
+    setSelectedId(client.id)
+    setSample({ status: 'idle' })
+    setCreatingClient(false)
+  }
 
   async function openSample() {
     setSample({ status: 'pending' })
@@ -50,9 +67,12 @@ export default function StrengthBuilderLauncher({ clients, initialClientId }: {
   return <section className={styles.launcher} aria-label="Strength program builder">
     {selected ? <label className={styles.clientPicker}>Build strength program for
       <select className="a-input" value={selected.id} onChange={event => { setSelectedId(event.target.value); setSample({ status: 'idle' }) }}>
-        {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
+        {allClients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
       </select>
     </label> : <p className="t-body">Add a client to build a real athlete program.</p>}
+    <button type="button" className="a-secondary" aria-expanded={creatingClient} onClick={() => setCreatingClient(value => !value)}>{creatingClient ? 'Close new client form' : 'New client'}</button>
+    {creatingClient && <ClientForm mode="create" operationMode={operationMode} cancelHref="/workouts" onSubmit={addClient} />}
+    {sample.status !== 'ready' && selected ? <StrengthBuilderEntry key={selected.id} source={{ kind: 'client', client: selected }} /> : null}
     <Surface tier="tile" innerClassName={styles.sampleEntry}>
       <div>
         <p className="t-kicker">Private practice workspace</p>
@@ -75,6 +95,6 @@ export default function StrengthBuilderLauncher({ clients, initialClientId }: {
     </Surface>
     {sample.status === 'ready'
       ? <StrengthBuilderEntry key={sample.subjectId} source={{ kind: 'subject', subject: { id: sample.subjectId, name: 'Practice Athlete' } }} />
-      : selected ? <StrengthBuilderEntry key={selected.id} source={{ kind: 'client', client: selected }} /> : null}
+      : null}
   </section>
 }

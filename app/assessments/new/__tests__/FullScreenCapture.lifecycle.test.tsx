@@ -269,6 +269,26 @@ async function setVisibility(next: DocumentVisibilityState) {
 }
 
 describe('FullScreenCapture device lifecycle', () => {
+  it('offers a dedicated upload path without requesting camera access', async () => {
+    const upload = deferred<void>()
+    const onFileUpload = vi.fn().mockReturnValue(upload.promise)
+    render(<CaptureHarness onFileUpload={onFileUpload} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload existing photos' }))
+
+    expect(screen.getByRole('heading', { name: 'Upload four posture views' })).toBeTruthy()
+    expect(getUserMedia).not.toHaveBeenCalled()
+    const input = screen.getByLabelText('Upload Front photo') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['frame'], 'front.jpg', { type: 'image/jpeg' })] } })
+    await waitFor(() => expect(onFileUpload).toHaveBeenCalledWith('front', expect.any(File)))
+    expect((screen.getByRole('button', { name: 'Capture options' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Change client' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(getUserMedia).not.toHaveBeenCalled()
+
+    await act(async () => upload.resolve())
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Capture options' }) as HTMLButtonElement).disabled).toBe(false))
+  })
+
   it('keeps the shutter disabled until the camera has a playable video frame', async () => {
     videoWidth = 0
     videoHeight = 0

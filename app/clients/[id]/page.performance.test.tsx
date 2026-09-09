@@ -45,7 +45,7 @@ vi.mock('@/components/PrivacyLifecycleControls', () => ({
   },
 }))
 
-import ClientDetailPage from './ClientDetailClient'
+import ClientDetailPage, { type ClientDetailInitialData } from './ClientDetailClient'
 
 function response(body: unknown, status = 200) {
   return {
@@ -64,6 +64,16 @@ function deferred<T>() {
 /** Every scan row carries its deviation readout, so this counts history rows. */
 function historyRows() {
   return screen.queryAllByRole('link', { name: /Deviation/ })
+}
+
+function openWorkspace() {
+  const disclosure = screen.getByRole('button', { name: /Findings, comparison and details/ })
+  if (disclosure.getAttribute('aria-expanded') !== 'true') fireEvent.click(disclosure)
+}
+
+function openHistory() {
+  const disclosure = screen.getByRole('button', { name: /Scan history/ })
+  if (disclosure.getAttribute('aria-expanded') !== 'true') fireEvent.click(disclosure)
 }
 
 const assessments = [
@@ -115,6 +125,7 @@ describe('client detail progressive rendering', () => {
     )
 
     expect(workspaceRenders.privacy).not.toHaveBeenCalled()
+    openWorkspace()
     fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
     expect(screen.getByRole('heading', { name: 'Client Information' })).toBeTruthy()
     const privacyStatus = screen.getByTestId('privacy-workspace-status')
@@ -137,6 +148,7 @@ describe('client detail progressive rendering', () => {
     vi.useFakeTimers()
     render(<ClientDetailPage initialData={seededInitialData()} />)
 
+    openWorkspace()
     fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
     const privacyStatus = screen.getByTestId('privacy-workspace-status')
     expect(privacyStatus.textContent).toBe('Preparing privacy controls…')
@@ -174,9 +186,11 @@ describe('client detail progressive rendering', () => {
       history.resolve(response({ assessments, pagination: { has_more: false, next_cursor: null } }))
     }, 50)
 
-    // Compare only exists once a second scan is known, so its tab appearing is
-    // the signal that history landed after the record had already painted.
-    expect(await screen.findByRole('tab', { name: 'Compare' })).toBeTruthy()
+    // The two-scan summary is the signal that history landed after the record
+    // had already painted. The heavier workspace stays collapsed until asked.
+    await waitFor(() => expect(screen.getAllByText('2 scans').length).toBeGreaterThan(0))
+    openWorkspace()
+    expect(screen.getByRole('tab', { name: 'Compare' })).toBeTruthy()
     expect(paintedBeforeSecondaryData).toBe(true)
     expect(vi.mocked(fetch).mock.calls.some(([input]) => (
       String(input) === '/api/clients/client-1/assessments?include_findings=true&limit=20'
@@ -203,7 +217,9 @@ describe('client detail progressive rendering', () => {
     const forcedLayoutSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
     const dateFormattingSpy = vi.spyOn(Date.prototype, 'toLocaleDateString')
     render(<ClientDetailPage />)
-    const compareTab = await screen.findByRole('tab', { name: 'Compare' })
+    await waitFor(() => expect(screen.getAllByText('2 scans').length).toBeGreaterThan(0))
+    openWorkspace()
+    const compareTab = screen.getByRole('tab', { name: 'Compare' })
     const findingsPanel = document.getElementById('client-panel-findings')!
     const comparePanel = document.getElementById('client-panel-compare')!
     // Hidden panels are hidden by class, never by aria-hidden, inert, or hidden:
@@ -272,7 +288,9 @@ describe('client detail progressive rendering', () => {
     }))
 
     render(<ClientDetailPage />)
-    const compareTab = await screen.findByRole('tab', { name: 'Compare' })
+    await waitFor(() => expect(screen.getAllByText('2 scans').length).toBeGreaterThan(0))
+    openWorkspace()
+    const compareTab = screen.getByRole('tab', { name: 'Compare' })
     vi.useFakeTimers()
     act(() => fireEvent.click(compareTab))
     act(() => fireEvent.click(screen.getByRole('tab', { name: 'Details' })))
@@ -316,10 +334,12 @@ describe('client detail progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy()
+    openWorkspace()
     expect(screen.getByRole('tab', { name: 'Compare' })).toBeTruthy()
     // Both offsets fall on the following UTC day; the row labels must name the
     // stored day, not the viewer's. Scoped to the rows because the trend card's
     // numeric table restates every date.
+    openHistory()
     const rowText = historyRows().map(row => row.textContent).join(' | ')
     expect(rowText).toContain('2 Jul 2026')
     expect(rowText).toContain('3 Jul 2026')
@@ -348,12 +368,26 @@ describe('client detail progressive rendering', () => {
 
     // Stated on the identity line and again in the Details panel's fact grid.
     expect(screen.getAllByText(/Consent status unavailable/).length).toBeGreaterThan(0)
+    openWorkspace()
     fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
     const detailsPanel = document.getElementById('client-panel-details')!
     expect(detailsPanel.className).toContain('workspacePanelActive')
     expect(detailsPanel.textContent).toContain('Consent status unavailable')
     // An unknown consent state must never offer the in-person consent form.
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
+  })
+
+  it('renders SSR-visible client dates with deterministic UTC month names', () => {
+    const initialData = seededInitialData()
+    initialData.client.date_of_birth = '1990-09-09'
+    initialData.client.created_at = '2026-09-09T23:30:00-07:00'
+
+    render(<ClientDetailPage initialData={initialData} />)
+    openWorkspace()
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }))
+
+    expect(screen.getByText('9 September 1990')).toBeTruthy()
+    expect(screen.getByText('10 Sep 2026')).toBeTruthy()
   })
 
   it('keeps the scan action available without consent controls in prototype operation', () => {
@@ -369,6 +403,54 @@ describe('client detail progressive rendering', () => {
     expect(screen.getByText('Prototype operation')).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
     expect(screen.queryByText(/Consent active|Consent not recorded|New consent required/)).toBeNull()
+  })
+
+  it('puts a compact, evidence-bounded latest-assessment summary before the collapsed detail', () => {
+    const initialData: ClientDetailInitialData = seededInitialData()
+    initialData.assessments = [
+      {
+        ...assessments[0],
+        assessment_findings: [
+          { imbalance_key: 'shoulder', label: 'Shoulder level', severity_pct: 80, zone: 'danger', region: 'shoulder', deviation: 8, standard: 0, unit: 'deg' },
+          { imbalance_key: 'pelvis', label: 'Pelvis level', severity_pct: 40, zone: 'warning', region: 'pelvis', deviation: 4, standard: 0, unit: 'deg' },
+          { imbalance_key: 'knee', label: 'Knee position', severity_pct: 20, zone: 'maintain', region: 'knee', deviation: 2, standard: 0, unit: 'deg' },
+          { imbalance_key: 'unreliable', label: 'Unreliable reading', severity_pct: 99, zone: 'unreliable', region: 'head', deviation: null, standard: 0, unit: 'deg' },
+        ],
+      },
+      {
+        ...assessments[1],
+        assessment_findings: [
+          { imbalance_key: 'shoulder', label: 'Shoulder level', severity_pct: 70, zone: 'danger', region: 'shoulder', deviation: 7, standard: 0, unit: 'deg' },
+          { imbalance_key: 'pelvis', label: 'Pelvis level', severity_pct: 55, zone: 'warning', region: 'pelvis', deviation: 5.5, standard: 0, unit: 'deg' },
+          { imbalance_key: 'knee', label: 'Knee position', severity_pct: 20, zone: 'maintain', region: 'knee', deviation: 2, standard: 0, unit: 'deg' },
+          { imbalance_key: 'unreliable', label: 'Unreliable reading', severity_pct: 100, zone: 'unreliable', region: 'head', deviation: null, standard: 0, unit: 'deg' },
+        ],
+      },
+    ]
+
+    render(<ClientDetailPage initialData={initialData} />)
+
+    expect(screen.getByRole('link', { name: /New scan/i }).getAttribute('href'))
+      .toBe('/assessments/new?client_id=client-1')
+    expect(screen.getByLabelText('Latest deviation score 12 out of 100')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Top reliable findings' })).toBeTruthy()
+    expect(screen.getByLabelText('Recorded severity decreased · −10.0 percentage points').textContent).toBe('−10.0 pp')
+    expect(screen.getByLabelText('Recorded severity increased · +15.0 percentage points').textContent).toBe('+15.0 pp')
+    expect(screen.getByLabelText('Recorded severity unchanged · 0 percentage points').textContent).toBe('0 pp')
+    expect(screen.queryByText('Unreliable reading')).toBeNull()
+    expect(document.body.textContent).not.toContain('null pts')
+    expect(document.body.textContent).not.toMatch(/tight|weak muscle/i)
+
+    const severity = screen.getByText('70%')
+    expect(severity.getAttribute('style')).toContain('rgb(239, 68, 68)')
+    const anatomy = screen.getByRole('link', { name: 'Open anatomy view for the latest assessment' })
+    expect(anatomy.getAttribute('href')).toBe('/assessments/assessment-2#anatomy-viewer-title')
+    expect(document.querySelector('iframe')).toBeNull()
+
+    expect(screen.getByRole('button', { name: /Findings, comparison and details/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByRole('button', { name: /Scan history/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('tab', { name: 'Findings' })).toBeNull()
+    expect(historyRows()).toHaveLength(0)
   })
 
   it('merges older pages by id, advances the cursor, and clears it at the end', async () => {
@@ -428,6 +510,7 @@ describe('client detail progressive rendering', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<ClientDetailPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /Scan history/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Load older assessments' }))
 
     // assessment-2 arrives again with a revised grade; the merge must replace it
@@ -442,7 +525,7 @@ describe('client detail progressive rendering', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Load older assessments' }))
 
     await waitFor(() => expect(historyRows()).toHaveLength(4))
-    expect(screen.getByText(/4 scans/)).toBeTruthy()
+    expect(screen.getAllByText(/4 scans/).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Load older assessments' })).toBeNull()
     expect(fetchMock.mock.calls.some(([input]) => (
       String(input).includes('include_findings=true&limit=50&cursor=cursor-two')
@@ -479,6 +562,7 @@ describe('client detail progressive rendering', () => {
 
     const view = render(<ClientDetailPage />)
     expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy()
+    openWorkspace()
     expect(await screen.findByRole('tab', { name: 'Compare' })).toBeTruthy()
     expect(screen.getByText(/2\+ scans/)).toBeTruthy()
 
@@ -504,6 +588,7 @@ describe('client detail progressive rendering', () => {
     expect(screen.queryByTestId('comparison-workspace')).toBeNull()
     expect(screen.queryByText(/2\+ scans/)).toBeNull()
     expect(historyRows()).toHaveLength(0)
+    openHistory()
     expect(screen.getByRole('status').textContent).toContain('Loading assessment history')
 
     await act(async () => {

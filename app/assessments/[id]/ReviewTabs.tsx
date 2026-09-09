@@ -9,6 +9,9 @@ import {
 } from 'react'
 import styles from './AssessmentReviewStudio.module.css'
 
+const ANATOMY_VIEWER_HASH = 'anatomy-viewer-title'
+const ASSESSMENT_EVIDENCE_TAB_ID = 'assessment-evidence'
+
 export type ReviewTab = Readonly<{
   id: string
   label: string
@@ -36,18 +39,37 @@ export default function ReviewTabs({
     : tabs[0]?.id ?? ''
   const [activeId, setActiveId] = useState(fallbackId)
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const pendingAnatomyScrollRef = useRef(false)
   const tabIds = tabs.map((tab) => tab.id).join('|')
 
   useEffect(() => {
     function selectHashTab() {
       const hashId = window.location.hash.slice(1)
-      if (tabIds.split('|').includes(hashId)) setActiveId(hashId)
+      const availableTabIds = tabIds.split('|')
+      const resolvedTabId = hashId === ANATOMY_VIEWER_HASH
+        && availableTabIds.includes(ASSESSMENT_EVIDENCE_TAB_ID)
+        ? ASSESSMENT_EVIDENCE_TAB_ID
+        : hashId
+      pendingAnatomyScrollRef.current = hashId === ANATOMY_VIEWER_HASH
+        && resolvedTabId === ASSESSMENT_EVIDENCE_TAB_ID
+      if (availableTabIds.includes(resolvedTabId)) setActiveId(resolvedTabId)
     }
 
     selectHashTab()
     window.addEventListener('hashchange', selectHashTab)
     return () => window.removeEventListener('hashchange', selectHashTab)
   }, [tabIds])
+
+  useEffect(() => {
+    if (activeId !== ASSESSMENT_EVIDENCE_TAB_ID || !pendingAnatomyScrollRef.current) return
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(ANATOMY_VIEWER_HASH)
+      if (!target) return
+      pendingAnatomyScrollRef.current = false
+      target.scrollIntoView({ block: 'start' })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [activeId, tabIds])
 
   if (tabs.length === 0) return null
 

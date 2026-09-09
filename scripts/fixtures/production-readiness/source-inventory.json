@@ -1470,16 +1470,16 @@
     ],
     "projects": {
       "setup": 1,
-      "desktop-chromium": 108,
-      "mobile-webkit": 100,
+      "desktop-chromium": 109,
+      "mobile-webkit": 101,
       "android-chromium-proxy": 11,
       "calibration": 1
     },
-    "expected_total": 221,
+    "expected_total": 223,
     "expected_files": 58,
-    "test_ids_sha256": "1b5d4468748405dedb22646784b2441f83396d2b686c9c8833f16cc59e8694e3"
+    "test_ids_sha256": "f9b0329a1474e81a262bc912e30d01619a93f0b1edec0070713db7fff37efc57"
   },
-  "inventory_hash": "8a7a7d3d9334b6af1f505425c39411551adc49f87f975c28c34812ab05c86db8",
+  "inventory_hash": "bce1f773d25dede814b5efe30eff0ef70cd9a045da554491c06233d2a93bd479",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
@@ -1905,9 +1905,9 @@
     "id": "PR-08-CONFIGURATION-DELTA-PROJECTION-v1",
     "base_commit": "92b31ab453b1e70c630cdfbb88d67688633a184d",
     "old_configuration_hash": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_configuration_hash": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d",
+    "new_configuration_hash": "945154f393f4c863fccc5e844b23e5fb63af9e7bf2831577e036fb401c9ff31c",
     "old_projection_sha256": "bfa014f668ab8247b1dd78482ff9e28f596baf473e12f07f38ff947af16b0ead",
-    "new_projection_sha256": "d4ffb980cbbda54c2a1b03906a2fb21057fc713e5e96f0ef6d2b4bec7e444e0d",
+    "new_projection_sha256": "945154f393f4c863fccc5e844b23e5fb63af9e7bf2831577e036fb401c9ff31c",
     "changed_covered_fields": [
       "ci_contract.global_commands",
       "e2e.approved_skips",
@@ -1923,7 +1923,7 @@
       "executed_playwright_report_contract.report_content_required_fields",
       "executed_playwright_report_contract.required_evidence_values.inventory_id"
     ],
-    "changes_sha256": "a11f9c9a8bcc1b7e8fcb09cad73bdcd08c2c1d82090e6269b716edc21b65ac4a",
+    "changes_sha256": "8966d0ab34d6465710bb3e0e117db0b0a56b62721c58d260d40997a13abce5ad",
     "changes": [
       {
         "path": "ci_contract.global_commands",
@@ -2506,12 +2506,12 @@
       {
         "path": "e2e.expected_total",
         "old_value": 133,
-        "new_value": 221
+        "new_value": 223
       },
       {
         "path": "e2e.inventory_hash",
         "old_value": "2cda1acb24e3bfd7ce87bd38060c72c5a0b87838df854f26e32770d525acaed2",
-        "new_value": "9c0c3656bb2da4798d6afee4d40de94a422581f9716b6f22f3b1053d7c2b5ce0"
+        "new_value": "437c006f9ebd74c1487fca42fea71c9eea83c0485f009d7b3b30a92eb564c8bb"
       },
       {
         "path": "e2e.inventory_id",
@@ -2544,8 +2544,8 @@
         },
         "new_value": {
           "setup": 1,
-          "desktop-chromium": 108,
-          "mobile-webkit": 100,
+          "desktop-chromium": 109,
+          "mobile-webkit": 101,
           "android-chromium-proxy": 11,
           "calibration": 1
         }

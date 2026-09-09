@@ -99,3 +99,17 @@ it('opens the fixed bodyweight and assistance sample without client-authored pro
   expect(fetchMock).toHaveBeenCalledWith('/api/training/simulation/setup?catalog=bodyweight-assistance', { method: 'POST' })
   expect(screen.getByRole('option', { name: 'Bodyweight and assisted strength' })).toBeTruthy()
 })
+
+it('creates and selects a client inside Workouts without losing the builder', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ client: { id: 'new-client', first_name: 'Taylor', last_name: 'Jones' } }, { status: 201 }))
+  vi.stubGlobal('fetch', fetchMock)
+  render(<StrengthBuilderLauncher clients={clients} operationMode="prototype" />)
+  fireEvent.click(screen.getByRole('button', { name: 'New client' }))
+  fireEvent.change(screen.getByLabelText(/First Name/), { target: { value: 'Taylor' } })
+  fireEvent.change(screen.getByLabelText(/Last Name/), { target: { value: 'Jones' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Create Client' }))
+  await waitFor(() => expect(screen.getByTestId('profile-entry').textContent).toBe('client:new-client:Taylor Jones'))
+  expect(screen.queryByRole('form', { name: 'New client form' })).toBeNull()
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/clients')
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ first_name: 'Taylor', last_name: 'Jones' })
+})

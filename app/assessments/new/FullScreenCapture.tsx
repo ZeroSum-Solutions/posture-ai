@@ -81,7 +81,7 @@ interface FullScreenCaptureProps {
   uploadError: string | null
 }
 
-type Phase = 'disclaimer' | 'live' | 'countdown' | 'review'
+type Phase = 'disclaimer' | 'upload' | 'live' | 'countdown' | 'review'
 
 // Directional prompt copy per slot (the two side slots cue opposite profiles).
 const DIRECTION: Record<CaptureSlotKey, { title: string; cue: string }> = {
@@ -646,6 +646,7 @@ export default function FullScreenCapture({
     const root = containerRef.current
     if (!root) return
     const sel = phase === 'disclaimer' ? '[data-testid="capture-disclaimer-dismiss"]'
+      : phase === 'upload' ? '[data-autofocus="upload"]'
       : phase === 'review' ? '[data-autofocus="retake"]'
       : '[data-autofocus="shutter"]'
     ;(root.querySelector<HTMLElement>(sel) ?? root).focus()
@@ -688,6 +689,14 @@ export default function FullScreenCapture({
     // Must be called from this user gesture (iOS DeviceOrientation permission).
     if (level.permission === 'needs-request') void level.requestAccess()
     void startCamera()
+  }
+
+  function chooseUploadMode() {
+    setStarted(false)
+    setCameraFailed(false)
+    setErrorMsg(null)
+    setGuidance(null)
+    setPhase('upload')
   }
 
   // ---- capture ----
@@ -980,9 +989,14 @@ export default function FullScreenCapture({
     if (phase === 'review') retakeStill()
   }
 
-  function triggerUpload() {
+  function triggerUploadFor(slot: CaptureSlotKey) {
     if (captureBusyRef.current || uploadBusyRef.current) return
-    fileInputRefs.current[activeSlot]?.click()
+    setActiveSlot(slot)
+    fileInputRefs.current[slot]?.click()
+  }
+
+  function triggerUpload() {
+    triggerUploadFor(activeSlot)
   }
 
   // Uploading a slot commits it and advances to the next uncaptured slot, so the
@@ -1099,7 +1113,15 @@ export default function FullScreenCapture({
                 className="a-primary a-primary--bar"
                 style={{ marginTop: 16 }}
               >
-                Start Capture
+                Start live capture
+              </button>
+              <button
+                type="button"
+                onClick={chooseUploadMode}
+                className="a-secondary a-secondary--bar"
+                style={{ marginTop: 10 }}
+              >
+                Upload existing photos
               </button>
               <button
                 onClick={onExit}
@@ -1110,6 +1132,112 @@ export default function FullScreenCapture({
               </button>
             </Surface>
           </div>
+        </div>
+      ) : phase === 'upload' ? (
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingBlock: 16 }}>
+          <Surface tier="feature" style={{ width: 'min(100%, 560px)' }}>
+            <h2 className="t-title" style={{ margin: '0 0 8px' }}>Upload four posture views</h2>
+            <p className="t-body" style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>
+              Choose one recent JPEG or PNG for each view. The same private storage and photo checks used by live capture apply before analysis.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+              {SLOT_ORDER.map((slot, index) => {
+                const cap = captures[slot]
+                const captured = isCaptured(cap)
+                const status = uploadingSlot === slot
+                  ? 'Preparing…'
+                  : !captured
+                    ? 'Choose photo'
+                    : cap.slotStatus === 'checking'
+                      ? 'Checking…'
+                      : cap.slotStatus === 'model_error'
+                        ? 'Check failed'
+                        : cap.slotStatus === 'no_person'
+                          ? 'No person detected'
+                          : cap.slotStatus === 'multiple_people'
+                            ? 'Multiple people detected'
+                            : cap.slotStatus === 'warnings'
+                              ? 'Ready with warning'
+                              : 'Ready'
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    data-autofocus={index === 0 ? 'upload' : undefined}
+                    onClick={() => triggerUploadFor(slot)}
+                    disabled={captureLocked}
+                    className="a-secondary"
+                    style={{ minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px', textAlign: 'left' }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ViewSilhouette slot={slot} size={26} />
+                      <span>{SLOT_LABEL[slot]}</span>
+                    </span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{status}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {uploadError && (
+              <div role="alert" style={{ marginTop: 12, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: tone('review') }}>
+                {uploadError}
+              </div>
+            )}
+            {noPersonViews.length > 0 && (
+              <div role="alert" style={{ marginTop: 12, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: tone('review') }}>
+                No person detected — replace {noPersonViews.map(slot => SLOT_LABEL[slot]).join(', ')}
+              </div>
+            )}
+            {multiplePeopleViews.length > 0 && (
+              <div role="alert" style={{ marginTop: 12, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: tone('review') }}>
+                More than one person detected — replace {multiplePeopleViews.map(slot => SLOT_LABEL[slot]).join(', ')}
+              </div>
+            )}
+            <div role="status" aria-live="polite" aria-atomic="true">
+              {captionSlot && captionWarnings.length > 0 && (
+                <div data-testid="slot-quality-caption" style={{ marginTop: 12, background: tint('monitor'), boxShadow: `inset 0 0 0 1px ${ring('monitor')}`, borderRadius: 8, padding: '8px 12px' }}>
+                  {captionWarnings.map((warning, index) => (
+                    <p key={index} style={{ color: tone('monitor'), fontSize: '0.75rem', margin: index > 0 ? '4px 0 0' : 0 }}>
+                      {index === 0 ? captionPrefix : ''}{warning}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {requiredReady && (
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '14px 0 8px', textAlign: 'center' }}>
+                Your selected photos will be saved privately with this screening for later review.
+              </p>
+            )}
+            {requiredReady && (
+              <button
+                type="button"
+                onClick={onProceed}
+                disabled={analyzeBlocked}
+                className="a-primary a-primary--bar"
+                style={{ cursor: analyzeBlocked ? 'not-allowed' : 'pointer' }}
+              >
+                {submitting ? 'Submitting…' : captureLocked ? 'Preparing photo…' : requiredChecking ? 'Checking photos…' : requiredModelFailed ? 'Retry failed photo checks' : requiredSubjectFailed ? 'Replace invalid photos' : 'Analyze Posture'}
+              </button>
+            )}
+            {requiredModelFailed && onRetryFailedChecks && (
+              <button type="button" onClick={() => void onRetryFailedChecks()} className="a-secondary a-secondary--bar" style={{ marginTop: 10 }}>
+                Retry photo checks
+              </button>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
+              <button type="button" onClick={() => setPhase('disclaimer')} disabled={captureLocked || submitting} className="a-secondary" style={{ minHeight: 44 }}>
+                Capture options
+              </button>
+              <button type="button" onClick={onExit} disabled={captureLocked || submitting} className="a-secondary" style={{ minHeight: 44 }}>
+                Change client
+              </button>
+            </div>
+          </Surface>
         </div>
       ) : (
         <>

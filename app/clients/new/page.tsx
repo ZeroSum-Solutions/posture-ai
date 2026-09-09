@@ -5,10 +5,11 @@ import NewClientPageClient from './NewClientPageClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function NewClientPage() {
+export default async function NewClientPage({ searchParams }: { searchParams?: Promise<{ returnTo?: string }> } = {}) {
+  const returnTo = (await searchParams)?.returnTo === 'capture' ? 'capture' : 'clients'
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/sign-in')
 
-  return <NewClientPageClient operationMode={operationForPractitioner(user.id).mode} />
+  return <NewClientPageClient returnTo={returnTo} operationMode={operationForPractitioner(user.id).mode} />
 }

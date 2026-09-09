@@ -124,6 +124,17 @@ describe('buildTrendChart verdict', () => {
     expect(model.footnote).toContain('Repeat-capture variability')
   })
 
+  it('uses the policy wording for zero without exposing a null-point value', () => {
+    const model = buildTrendChart([
+      point({ id: 'a', score: 40, assessedAt: '2026-01-01T00:00:00Z' }),
+      point({ id: 'b', score: 40, assessedAt: '2026-03-01T00:00:00Z' }),
+    ])
+    expect(model.verdict?.decision.delta).toBe(0)
+    expect(model.verdict?.text).toBe('Screening score unchanged')
+    expect(model.verdict?.magnitude).toBeNull()
+    expect(JSON.stringify(model)).not.toContain('null pts')
+  })
+
   it('refuses a verdict, a whisker and a claim across scoring versions', () => {
     const model = buildTrendChart([
       point({ id: 'a', score: 62, scoringEngineVersion: '1.3.0', segmentId: 'trend-segment-1', assessedAt: '2026-01-01T00:00:00Z' }),
@@ -193,5 +204,15 @@ describe('buildTrendChart labelling', () => {
     expect(model.description).not.toMatch(/better|worse|improved|regressed/i)
     expect(model.description).toContain('Screening score decreased')
     expect(model.description).toContain('meaningful change are not established')
+  })
+
+  it('uses the deterministic UTC short month in its server-rendered description', () => {
+    const model = buildTrendChart([
+      point({ id: 'september', assessedAt: '2026-09-09T23:30:00-07:00', score: 22 }),
+    ])
+
+    expect(model.points[0].dateLabel).toBe('10 Sep')
+    expect(model.description).toContain('22 · C on 10 Sep')
+    expect(model.description).not.toContain('Sept')
   })
 })

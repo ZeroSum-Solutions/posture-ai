@@ -22,24 +22,34 @@ afterEach(() => {
 })
 
 describe('TrendChart recorded-score disclosure', () => {
+  it('renders a true compact sparkline while keeping the current score in readable text', () => {
+    const { container } = render(<TrendChart history={history(2)} tableId="client-score-table" />)
+
+    expect(screen.getByLabelText('Latest deviation score 59 out of 100')).toBeTruthy()
+    const drawing = container.querySelector('svg[viewBox="0 0 330 60"]')
+    expect(drawing?.getAttribute('viewBox')).toBe('0 0 330 60')
+    expect(drawing?.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet')
+    expect(drawing?.querySelectorAll('text')).toHaveLength(0)
+  })
+
   it('keeps its server-rendered control inert until the pointer guard is installed', () => {
     const markup = renderToString(<TrendChart history={history(2)} tableId="client-score-table" />)
 
     expect(markup).toContain('disabled=""')
     expect(markup).toContain('aria-busy="true"')
-    expect(markup).toContain('aria-label="Preparing recorded scores…"')
-    expect(markup).toContain('>Preparing recorded scores…</button>')
+    expect(markup).toContain('aria-label="Preparing score details…"')
+    expect(markup).toContain('>Preparing score details…</button>')
   })
 
   it('uses a button disclosure with explicit expanded state', () => {
     render(<TrendChart history={history(2)} tableId="client-score-table" />)
 
-    const disclosure = screen.getByRole('button', { name: 'Recorded scores' })
+    const disclosure = screen.getByRole('button', { name: 'Score details' })
     expect(disclosure.getAttribute('aria-expanded')).toBe('false')
     expect(disclosure.hasAttribute('disabled')).toBe(false)
     expect(disclosure.getAttribute('aria-busy')).toBe('false')
-    expect(disclosure.getAttribute('aria-label')).toBe('Recorded scores')
-    expect(disclosure.textContent).toBe('Recorded scores')
+    expect(disclosure.getAttribute('aria-label')).toBe('Score details')
+    expect(disclosure.textContent).toBe('Score details')
     expect(disclosure.getAttribute('aria-controls')).toBe('client-score-table-panel')
     expect(document.getElementById('client-score-table-panel')).not.toBeNull()
 
@@ -53,7 +63,7 @@ describe('TrendChart recorded-score disclosure', () => {
   it('suppresses mouse focus work without blocking touch or keyboard focus', () => {
     render(<TrendChart history={history(2)} tableId="client-score-table" />)
 
-    const disclosure = screen.getByRole('button', { name: 'Recorded scores' })
+    const disclosure = screen.getByRole('button', { name: 'Score details' })
     const mousePress = createEvent.pointerDown(disclosure)
     Object.defineProperties(mousePress, {
       pointerType: { value: 'mouse' },
@@ -107,10 +117,10 @@ describe('TrendChart recorded-score disclosure', () => {
 
     expect(document.getElementById('client-score-table')).toBeNull()
 
-    fireEvent.click(screen.getByText('Recorded scores'))
+    fireEvent.click(screen.getByText('Score details'))
 
     expect(document.getElementById('client-score-table')).toBeNull()
-    expect(screen.getByRole('status').textContent).toContain('Preparing recorded scores')
+    expect(screen.getByRole('status').textContent).toContain('Preparing score details')
 
     act(() => vi.advanceTimersByTime(299))
     expect(document.getElementById('client-score-table')).toBeNull()
@@ -123,7 +133,7 @@ describe('TrendChart recorded-score disclosure', () => {
     vi.useFakeTimers()
     render(<TrendChart history={history(2)} tableId="client-score-table" />)
 
-    const summary = screen.getByText('Recorded scores')
+    const summary = screen.getByText('Score details')
     fireEvent.click(summary)
     act(() => vi.advanceTimersByTime(300))
     const table = document.getElementById('client-score-table')
