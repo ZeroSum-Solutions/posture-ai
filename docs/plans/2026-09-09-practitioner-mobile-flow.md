@@ -28,3 +28,9 @@ Focused component tests cover client creation/selection, capture entry and lifec
 - Seven client browser cases passed. The separate privacy lifecycle case stopped at `clinical_content_disabled` during share setup, before the changed UI. The installed isolated database still references an older inventory hash. The generated inventory and fresh-seed fixtures are reconciled, without changing the installed database or clinical approval ledger. This is not recorded as a privacy pass.
 - The previous main commit's engineering CI job passed, but its broad browser run had 30 failures and its performance run failed. These are pre-existing baseline results, not a pass or failure attribution for this change.
 - The new chart uses real compact SVG coordinates and deterministic UTC dates; no CSS-distorted chart text or Safari `Sept`/`Sep` hydration mismatch remains in the checked path.
+
+### Release gate follow-up
+
+Blacksmith engineering passed on `d037299d90c623b937b85fb427b56e5137eee12a`. Its fresh-database critical contract stage passed after correcting the time-expiring progression test fixture. The full browser receipt recorded 163 passed, 32 skipped and 28 failed/timed-out cases. The only newly failing journey compared with the prior baseline was the manual-routine test using the removed “Search reference exercises” label; its selectors are updated to the unified catalogue. Remaining baseline failures include authentication fixtures, outdated assertions and unverified training/3D journeys. Full accessibility and performance certification are not claimed for this checkpoint. Performance runs were cancelled during follow-up integration.
+
+The corrected manual-routine journey passed in isolated mobile WebKit (2/2 including setup), preserving save, reload, edit and exact fractional-load assertions.
