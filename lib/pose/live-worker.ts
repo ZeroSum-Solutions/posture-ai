@@ -48,6 +48,10 @@ function createLandmarker(
   return settleBeforeDeadline(
     PoseLandmarker.createFromOptions(vision, {
       baseOptions: { modelAssetPath: LITE_MODEL_URL, delegate },
+      // MediaPipe's Safari UA heuristic rejects CriOS (no Version/ token),
+      // then tries document.createElement inside this worker. Supply the
+      // supported worker canvas explicitly for both GPU and CPU delegates.
+      canvas: new OffscreenCanvas(1, 1),
       runningMode: 'VIDEO',
       numPoses: 1,
     }),

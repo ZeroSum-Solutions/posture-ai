@@ -24,6 +24,7 @@ describe('live pose worker startup contract', () => {
     vi.resetModules()
     posted = []
     listener = null
+    vi.stubGlobal('OffscreenCanvas', class OffscreenCanvas {})
     scope.self = globalThis
     scope.postMessage = (message: unknown) => posted.push(message as PostedMessage)
     scope.addEventListener = (type: string, next: MessageListener) => {
@@ -34,6 +35,7 @@ describe('live pose worker startup contract', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     for (const key of ['self', 'postMessage', 'addEventListener', 'importScripts', 'import']) {
       delete scope[key]
     }
@@ -55,6 +57,7 @@ describe('live pose worker startup contract', () => {
       { wasmLoaderPath: 'classic-loader' },
       expect.objectContaining({
         baseOptions: { modelAssetPath: LITE_MODEL_URL, delegate: 'CPU' },
+        canvas: expect.any(OffscreenCanvas),
         runningMode: 'VIDEO',
       }),
     )
