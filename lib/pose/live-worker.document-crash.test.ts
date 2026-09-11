@@ -40,6 +40,7 @@ describe('live pose worker startup in a WebKit-shaped module-worker scope', () =
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     for (const key of [
       'self',
       'postMessage',
@@ -55,7 +56,11 @@ describe('live pose worker startup in a WebKit-shaped module-worker scope', () =
     }
   })
 
-  it('boots the real wasm loader far enough to request the model asset', async () => {
+  it('boots the real wasm loader in iPhone Chrome far enough to request the model asset', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/139.0.7258.76 Mobile/15E148 Safari/604.1',
+      platform: 'iPhone',
+    })
     await import('./live-worker')
     expect(messageListener).not.toBeNull()
 
