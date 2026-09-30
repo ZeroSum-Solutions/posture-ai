@@ -120,7 +120,7 @@ test.describe('report approval gate', () => {
     expect((await crossClient.json()).error).toMatch(/same client/i)
   })
 
-  test('a cross-version client comparison is flagged not-comparable', async ({ page }) => {
+  test('a cross-version client comparison is refused, never rendered as comparable', async ({ page }) => {
     const client = await createClient(page, 'E2E', `Version-${randomUUID().slice(0, 8)}`)
     const prior = await createCompleteAssessmentFor(page, client.id)
     const current = await createCompleteAssessmentFor(page, client.id)
@@ -129,13 +129,15 @@ test.describe('report approval gate', () => {
     }
     await patchAssessmentEngineVersion(prior, '1.3.0')
 
+    // ScreeningContextV1 supports only the current engine version, so a prior
+    // scan from another engine has no descriptive measurements. The route fails
+    // closed before rendering: no PDF, no signed URL, no comparison claim.
     const report = await page.request.post('/api/reports', {
       data: { assessment_id: current, compared_to_assessment_id: prior, variant: 'client' },
     })
-    expect(report.ok(), `cross-version report failed: ${report.status()}`).toBeTruthy()
+    expect(report.status(), 'cross-version comparison must be refused').toBe(422)
     const body = await report.json()
-    expect(body.signed_url).toBeTruthy()
-    expect(body.engine_version_mismatch).toBe(true)
-    expect(body.comparison_overall).toBe('not_comparable')
+    expect(body.code).toBe('comparison_screening_context_unavailable')
+    expect(body.signed_url).toBeUndefined()
   })
 })
