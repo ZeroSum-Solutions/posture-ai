@@ -40,11 +40,32 @@ INSERT INTO public.training_simulation_runs(
   'ea848ced42813786b527296c351dc51ba2a8072a6c85ac5d2f744547de730717',now()+interval '1 hour'
 );
 
+-- The fixture below encodes a conditioning cycle relative to CURRENT_DATE
+-- instead of hard-coded calendar dates, so the "changeable" vs. "past"
+-- bouts stay on the correct side of read_training_conditioning_revision_
+-- candidate()'s clock_timestamp() comparison no matter what day this test
+-- runs. Offsets mirror the original fixture's day spacing (cycle start=0,
+-- day 3, day 7 publish, day 8, day 11/12, day 15, day 18).
+CREATE FUNCTION pg_temp.d(p_offset integer) RETURNS date
+LANGUAGE sql STABLE AS $$
+  SELECT (CURRENT_DATE - 7 + p_offset);
+$$;
+
+CREATE FUNCTION pg_temp.dt(p_offset integer) RETURNS text
+LANGUAGE sql STABLE AS $$
+  SELECT pg_temp.d(p_offset)::text;
+$$;
+
+CREATE FUNCTION pg_temp.iso(p_offset integer, p_time text) RETURNS text
+LANGUAGE sql STABLE AS $$
+  SELECT pg_temp.dt(p_offset) || 'T' || p_time || 'Z';
+$$;
+
 CREATE FUNCTION pg_temp.conditioning_bout(p_number integer, p_date text)
-RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+RETURNS jsonb LANGUAGE sql STABLE AS $$
   SELECT pg_catalog.jsonb_build_object(
     'status','accepted','acceptanceId','conditioning-initial-' || p_number,
-    'acceptedAt','2026-09-08T00:00:00.000Z',
+    'acceptedAt',pg_temp.iso(7,'00:00:00.000'),
     'acceptedByUserId','64000000-0000-4000-8000-000000000001',
     'executionContext',pg_catalog.jsonb_build_object(
       'kind','synthetic_simulation',
@@ -72,7 +93,7 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 CREATE FUNCTION pg_temp.conditioning_program(p_revision bigint)
-RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+RETURNS jsonb LANGUAGE sql STABLE AS $$
   SELECT pg_catalog.jsonb_build_object(
     'schemaVersion','training-program-revision.v1','assignmentId','revision-assignment-1',
     'revisionNumber',p_revision,'subjectId','64000000-0000-4000-8000-000000000002',
@@ -84,7 +105,7 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
       'fixtureHash','ea848ced42813786b527296c351dc51ba2a8072a6c85ac5d2f744547de730717',
       'label','Practice data'
     ),
-    'cycleStartLocalDate','2026-09-01','cycleLengthWeeks',8,
+    'cycleStartLocalDate',pg_temp.dt(0),'cycleLengthWeeks',8,
     'profileRevisionId','1',
     'eligibilitySourceRevisionId','simulation:64000000-0000-4000-8000-000000000003',
     'compilerPolicyVersion','strength-cycle-compiler.v3',
@@ -96,18 +117,18 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
       'label','Synthetic starter catalog'
     ),
     'ruleVersion','strength-progression-v1','compiledProgramRevisionId','compiled-conditioning-1',
-    'publishedAt','2026-09-08T00:00:00.000Z',
+    'publishedAt',pg_temp.iso(7,'00:00:00.000'),
     'author',pg_catalog.jsonb_build_object(
       'kind','athlete','userId','64000000-0000-4000-8000-000000000001'
     ),
     'sessions',pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object('sessionId','placeholder-strength-session',
-        'scheduledLocalDate','2026-09-01','athleteTimezone','UTC','exercises','[]'::jsonb)
+        'scheduledLocalDate',pg_temp.dt(0),'athleteTimezone','UTC','exercises','[]'::jsonb)
     ),
     'conditioningBouts',pg_catalog.jsonb_build_array(
-      pg_temp.conditioning_bout(1,'2026-09-01'),pg_temp.conditioning_bout(2,'2026-09-04'),
-      pg_temp.conditioning_bout(3,'2026-09-09'),pg_temp.conditioning_bout(4,'2026-09-12'),
-      pg_temp.conditioning_bout(5,'2026-09-16'),pg_temp.conditioning_bout(6,'2026-09-19')
+      pg_temp.conditioning_bout(1,pg_temp.dt(0)),pg_temp.conditioning_bout(2,pg_temp.dt(3)),
+      pg_temp.conditioning_bout(3,pg_temp.dt(8)),pg_temp.conditioning_bout(4,pg_temp.dt(11)),
+      pg_temp.conditioning_bout(5,pg_temp.dt(15)),pg_temp.conditioning_bout(6,pg_temp.dt(18))
     )
   );
 $$;
@@ -140,12 +161,12 @@ INSERT INTO public.training_sessions(
   id,assignment_id,subject_id,session_kind,state,scheduled_local_date,
   athlete_timezone,revision,completed_at
 ) VALUES
-  ('revision-bout-1','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','completed','2026-09-01','UTC',3,'2026-09-01T18:00:00Z'),
-  ('revision-bout-2','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','completed','2026-09-04','UTC',3,'2026-09-04T18:00:00Z'),
-  ('revision-bout-3','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled','2026-09-09','UTC',1,NULL),
-  ('revision-bout-4','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled','2026-09-12','UTC',1,NULL),
-  ('revision-bout-5','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled','2026-09-16','UTC',1,NULL),
-  ('revision-bout-6','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled','2026-09-19','UTC',1,NULL);
+  ('revision-bout-1','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','completed',pg_temp.d(0),'UTC',3,pg_temp.iso(0,'18:00:00')::timestamptz),
+  ('revision-bout-2','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','completed',pg_temp.d(3),'UTC',3,pg_temp.iso(3,'18:00:00')::timestamptz),
+  ('revision-bout-3','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled',pg_temp.d(8),'UTC',1,NULL),
+  ('revision-bout-4','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled',pg_temp.d(11),'UTC',1,NULL),
+  ('revision-bout-5','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled',pg_temp.d(15),'UTC',1,NULL),
+  ('revision-bout-6','revision-assignment-1','64000000-0000-4000-8000-000000000002','conditioning','scheduled',pg_temp.d(18),'UTC',1,NULL);
 
 INSERT INTO public.training_session_prescriptions(
   session_id,subject_id,assignment_id,program_revision_number,prescription_json,started_by_user_id
@@ -160,7 +181,7 @@ INSERT INTO public.training_session_prescriptions(
     'catalogOrigin',pg_temp.conditioning_program(1)->'catalogOrigin',
     'compiledProgramRevisionId','compiled-conditioning-1',
     'acceptedBout',pg_temp.conditioning_bout(number,
-      CASE number WHEN 1 THEN '2026-09-01' ELSE '2026-09-04' END)
+      CASE number WHEN 1 THEN pg_temp.dt(0) ELSE pg_temp.dt(3) END)
   ),'64000000-0000-4000-8000-000000000001'
 FROM generate_series(1,2) number;
 
@@ -179,18 +200,18 @@ INSERT INTO public.training_conditioning_log_events(
     'durationSeconds',600,'perceivedEffort',4,'symptomState','none',
     'actor',pg_catalog.jsonb_build_object(
       'kind','athlete','userId','64000000-0000-4000-8000-000000000001'
-    ),'occurredAt','2026-09-04T18:00:00.000Z','serverAt','2026-09-04T18:00:00.000Z'
+    ),'occurredAt',pg_temp.iso(3,'18:00:00.000'),'serverAt',pg_temp.iso(3,'18:00:00.000')
   ) FROM generate_series(1,2) number;
 SET LOCAL session_replication_role = origin;
 
 CREATE FUNCTION pg_temp.revision_replacement(p_number integer,p_date text)
-RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+RETURNS jsonb LANGUAGE sql STABLE AS $$
   SELECT pg_catalog.jsonb_build_object(
     'sourceBoutId','revision-bout-'||p_number,
     'priorModalityId','synthetic-continuous-walking.v1',
     'priorScheduledLocalDate',CASE p_number
-      WHEN 3 THEN '2026-09-09' WHEN 4 THEN '2026-09-12'
-      WHEN 5 THEN '2026-09-16' ELSE '2026-09-19' END,
+      WHEN 3 THEN pg_temp.dt(8) WHEN 4 THEN pg_temp.dt(11)
+      WHEN 5 THEN pg_temp.dt(15) ELSE pg_temp.dt(18) END,
     'priorAcceptanceId','conditioning-initial-'||p_number,
     'modalityId','synthetic-continuous-walking.v1','scheduledLocalDate',p_date,
     'athleteTimezone','UTC','acceptedDurationSeconds',660,
@@ -230,8 +251,8 @@ WITH program AS (
   'executionContext',pg_temp.conditioning_program(1)->'executionContext',
   'preservedBoutIds',pg_catalog.jsonb_build_array('revision-bout-1','revision-bout-2'),
   'replacements',pg_catalog.jsonb_build_array(
-    pg_temp.revision_replacement(3,'2026-09-09'),pg_temp.revision_replacement(4,'2026-09-13'),
-    pg_temp.revision_replacement(5,'2026-09-16'),pg_temp.revision_replacement(6,'2026-09-19')),
+    pg_temp.revision_replacement(3,pg_temp.dt(8)),pg_temp.revision_replacement(4,pg_temp.dt(12)),
+    pg_temp.revision_replacement(5,pg_temp.dt(15)),pg_temp.revision_replacement(6,pg_temp.dt(18))),
   'frequencyChange','unchanged','intensityChange','not_automated',
   'strengthPriority','strength_first_when_paired'
 )))
@@ -246,15 +267,15 @@ INSERT INTO public.training_conditioning_revision_proposals(
   program.program_hash,pg_temp.conditioning_program(1)->'executionContext',
   pg_catalog.jsonb_build_object('replacementModalityId','synthetic-continuous-walking.v1',
     'futureBouts',pg_catalog.jsonb_build_array(
-      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-3','scheduledLocalDate','2026-09-09','acceptedDurationSeconds',660,'arrangement','separate'),
-      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-4','scheduledLocalDate','2026-09-13','acceptedDurationSeconds',660,'arrangement','separate'),
-      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-5','scheduledLocalDate','2026-09-16','acceptedDurationSeconds',660,'arrangement','separate'),
-      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-6','scheduledLocalDate','2026-09-19','acceptedDurationSeconds',660,'arrangement','separate'))),
+      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-3','scheduledLocalDate',pg_temp.dt(8),'acceptedDurationSeconds',660,'arrangement','separate'),
+      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-4','scheduledLocalDate',pg_temp.dt(12),'acceptedDurationSeconds',660,'arrangement','separate'),
+      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-5','scheduledLocalDate',pg_temp.dt(15),'acceptedDurationSeconds',660,'arrangement','separate'),
+      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-6','scheduledLocalDate',pg_temp.dt(18),'acceptedDurationSeconds',660,'arrangement','separate'))),
   revision.value,pg_catalog.jsonb_build_array(
-    pg_catalog.jsonb_build_object('sessionId','revision-bout-3','sessionRevision',1,'scheduledLocalDate','2026-09-09'),
-    pg_catalog.jsonb_build_object('sessionId','revision-bout-4','sessionRevision',1,'scheduledLocalDate','2026-09-12'),
-    pg_catalog.jsonb_build_object('sessionId','revision-bout-5','sessionRevision',1,'scheduledLocalDate','2026-09-16'),
-    pg_catalog.jsonb_build_object('sessionId','revision-bout-6','sessionRevision',1,'scheduledLocalDate','2026-09-19')),
+    pg_catalog.jsonb_build_object('sessionId','revision-bout-3','sessionRevision',1,'scheduledLocalDate',pg_temp.dt(8)),
+    pg_catalog.jsonb_build_object('sessionId','revision-bout-4','sessionRevision',1,'scheduledLocalDate',pg_temp.dt(11)),
+    pg_catalog.jsonb_build_object('sessionId','revision-bout-5','sessionRevision',1,'scheduledLocalDate',pg_temp.dt(15)),
+    pg_catalog.jsonb_build_object('sessionId','revision-bout-6','sessionRevision',1,'scheduledLocalDate',pg_temp.dt(18))),
   now(),now()+interval '1 hour'
 FROM program,revision;
 INSERT INTO public.training_conditioning_revision_proposals(
@@ -299,7 +320,7 @@ SELECT is((SELECT program_json#>>'{conditioningBouts,2,progressionIdentity,evide
 SELECT is((SELECT (program_json#>>'{conditioningBouts,3,acceptedDurationSeconds}')||':'||
   (program_json#>>'{conditioningBouts,3,scheduledLocalDate}')
   FROM public.training_program_revisions WHERE assignment_id='revision-assignment-1' AND revision_number=2),
-  '660:2026-09-13','accepted duration and explicit local reschedule persist together');
+  '660:'||pg_temp.dt(12),'accepted duration and explicit local reschedule persist together');
 SELECT is(public.read_training_conditioning_progression_candidate('revision-bout-2')->>'status',
   'insufficient_history','pre-revision completions cannot progress a reset evidence epoch');
 RESET ROLE;
@@ -335,7 +356,7 @@ INSERT INTO public.training_conditioning_log_events(
     'executionContext',pg_temp.conditioning_program(1)->'executionContext',
     'durationSeconds',660,'perceivedEffort',4,'symptomState','none',
     'actor',pg_catalog.jsonb_build_object('kind','athlete','userId','64000000-0000-4000-8000-000000000001'),
-    'occurredAt','2026-09-13T18:00:00.000Z','serverAt','2026-09-13T18:00:00.000Z')
+    'occurredAt',pg_temp.iso(12,'18:00:00.000'),'serverAt',pg_temp.iso(12,'18:00:00.000'))
 FROM generate_series(3,4) number;
 SET LOCAL session_replication_role = origin;
 
@@ -395,8 +416,8 @@ INSERT INTO public.training_conditioning_revision_proposals(
   program_hash,program_json->'executionContext',
   pg_catalog.jsonb_build_object('replacementModalityId','synthetic-continuous-walking.v1',
     'futureBouts',pg_catalog.jsonb_build_array(
-      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-5','scheduledLocalDate','2026-09-16','acceptedDurationSeconds',660,'arrangement','separate'),
-      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-6','scheduledLocalDate','2026-09-19','acceptedDurationSeconds',660,'arrangement','separate'))),
+      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-5','scheduledLocalDate',pg_temp.dt(15),'acceptedDurationSeconds',660,'arrangement','separate'),
+      pg_catalog.jsonb_build_object('sourceBoutId','revision-bout-6','scheduledLocalDate',pg_temp.dt(18),'acceptedDurationSeconds',660,'arrangement','separate'))),
   pg_catalog.jsonb_build_object(
     'kind','revision_ready','status','requires_explicit_revision_acceptance',
     'assignmentId','revision-assignment-1','subjectId','64000000-0000-4000-8000-000000000002',
@@ -405,11 +426,11 @@ INSERT INTO public.training_conditioning_revision_proposals(
     'executionContext',program_json->'executionContext','preservedBoutIds',pg_catalog.jsonb_build_array(
       'revision-bout-1','revision-bout-2','revision-bout-3','revision-bout-4'),
     'replacements',pg_catalog.jsonb_build_array(
-      pg_temp.revision_replacement(5,'2026-09-16'),pg_temp.revision_replacement(6,'2026-09-19')),
+      pg_temp.revision_replacement(5,pg_temp.dt(15)),pg_temp.revision_replacement(6,pg_temp.dt(18))),
     'frequencyChange','unchanged','intensityChange','not_automated','strengthPriority','strength_first_when_paired'),
   pg_catalog.jsonb_build_array(
-    pg_catalog.jsonb_build_object('sessionId','revision-bout-5','sessionRevision',2,'scheduledLocalDate','2026-09-16'),
-    pg_catalog.jsonb_build_object('sessionId','revision-bout-6','sessionRevision',2,'scheduledLocalDate','2026-09-19')),
+    pg_catalog.jsonb_build_object('sessionId','revision-bout-5','sessionRevision',2,'scheduledLocalDate',pg_temp.dt(15)),
+    pg_catalog.jsonb_build_object('sessionId','revision-bout-6','sessionRevision',2,'scheduledLocalDate',pg_temp.dt(18))),
   now(),now()+interval '1 hour'
 FROM public.training_program_revisions WHERE assignment_id='revision-assignment-1' AND revision_number=2;
 RESET ROLE;
