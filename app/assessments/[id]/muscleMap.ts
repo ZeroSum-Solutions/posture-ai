@@ -22,6 +22,14 @@ export interface MuscleLink {
   slug: string
   name: string
   confidence?: 'high' | 'medium' | 'low'
+  /**
+   * Structured subject-side nuance from the content link (muscleLinkSchema.side),
+   * plumbed through unchanged. Only meaningful for the lateral imbalance keys
+   * (anterior_imbalanced_shoulders, posterior_imbalanced_shoulders, pelvic_obliquity);
+   * findingsToMuscleStates resolves it (with the finding's direction) into a concrete
+   * subject left/right. Absent/'both' ⇒ bilateral. Not consumed by marker resolution here.
+   */
+  side?: 'elevated' | 'lowered' | 'both'
 }
 
 export interface MarkerInput {

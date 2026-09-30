@@ -15,6 +15,7 @@ export const gluteusMedius: MuscleContent = {
       imbalanceKey: 'pelvic_obliquity',
       role: 'tight',
       confidence: 'low',
+      side: 'lowered',
       citation: 'Janda / Kendall 2005 (textbooks) — inference for ipsilateral glute-med overactivity on the elevated side; no EMG study found for this specific pattern.',
       rationale:
         'On the side opposite the elevated hip, the gluteus medius tends to become short and overactive, bearing more standing load and holding the opposite side of the pelvis up, reinforcing the obliquity. Because it is the overactive partner here, it usually benefits from release and length work rather than added strengthening — the elevated-side medius is the one that needs waking up.',
@@ -23,6 +24,7 @@ export const gluteusMedius: MuscleContent = {
       imbalanceKey: 'pelvic_obliquity',
       role: 'weak',
       confidence: 'high',
+      side: 'elevated',
       citation: 'Semciw 2016 (J Electromyogr Kinesiol 30:98) — 13-study systematic review: reduced gluteus-medius EMG amplitude consistently associated with contralateral pelvic drop in running gait.',
       rationale:
         'On the elevated (higher) side of the pelvis, the gluteus medius sits in a lengthened, stretched position and loses the strength and timing needed to hold the pelvis level, so the obliquity is reinforced through the day. In screening it shows as a pelvis that cannot stay level in single-leg stance on this side, and it typically benefits from targeted strengthening and re-timing.',

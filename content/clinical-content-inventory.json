@@ -15,7 +15,7 @@
       "id": "algorithm:recommendation-engine",
       "kind": "algorithm",
       "slug": "recommendation-engine-v1",
-      "sha256": "db8e21513b67892edb992cca2eea57c1f60a541e85319b3e8456abbedcbcb05b"
+      "sha256": "0fa1b05dc5f5fa44e396ad902be4e11a1424b4e6b119bd661b03c4c15472b18e"
     },
     {
       "id": "contraindication:seated-hamstring-stretch:knee_extension_back_knee",
@@ -1227,13 +1227,13 @@
       "id": "link:gluteus-medius:pelvic_obliquity:tight",
       "kind": "link",
       "slug": "gluteus-medius",
-      "sha256": "88c4b38c28846d5d79319c7e68cd0daffe84f22931a826515006b01ee5836dd8"
+      "sha256": "3aa9d31a933cf6660b1e587520c5728bc3176d794199e6bbc62db9b7734d0bce"
     },
     {
       "id": "link:gluteus-medius:pelvic_obliquity:weak",
       "kind": "link",
       "slug": "gluteus-medius",
-      "sha256": "bb7565a9201ae52c74c1dfecb1801c5c640de5588bcd8fd1f0ef3042c494e44e"
+      "sha256": "39e1ab54e6ab9afd78cc8fb7e93890237e1e37c252956d14f559807b31962257"
     },
     {
       "id": "link:hamstrings:knee_extension_back_knee:weak",
@@ -1263,7 +1263,7 @@
       "id": "link:hip-adductors:pelvic_obliquity:tight",
       "kind": "link",
       "slug": "hip-adductors",
-      "sha256": "acc5a0c82fd5a8857d5db96f39ff139b733c5f388f19b3ff028961befff2f2ae"
+      "sha256": "213a04b30e6f1f3d3b39dca13bbfb2b928b00abc8d56954163c66456d14cd188"
     },
     {
       "id": "link:iliopsoas:trunk_lean:tight",
@@ -1287,7 +1287,7 @@
       "id": "link:levator-scapulae:posterior_imbalanced_shoulders:tight",
       "kind": "link",
       "slug": "levator-scapulae",
-      "sha256": "580954783dfa0a3d303537bf7b49df65a454d075b89dd81ec5a6dc46b9765138"
+      "sha256": "f149a1cd165c88306bcfaf75c487e7509a6f719d19be65fbe24db50254b1e403"
     },
     {
       "id": "link:lower-trapezius:anterior_imbalanced_shoulders:weak",
@@ -1353,7 +1353,7 @@
       "id": "link:quadratus-lumborum:pelvic_obliquity:tight",
       "kind": "link",
       "slug": "quadratus-lumborum",
-      "sha256": "0971aa4b163109b0d9493e4c084b3d7985d7d928affaed8db87e6c972514a177"
+      "sha256": "05aa906fb6f99fd6be625c1cfc75a035d6a89c9719437ca4ede5c55dbc1f8485"
     },
     {
       "id": "link:quadriceps:genu_varum_valgum_left:weak",
@@ -1449,7 +1449,7 @@
       "id": "link:upper-trapezius:posterior_imbalanced_shoulders:tight",
       "kind": "link",
       "slug": "upper-trapezius",
-      "sha256": "6ce6e7e81edc5647e464fd913209f24eb44ff8958158c8debea1aec584b9e1fb"
+      "sha256": "aa14b905e21dba3d099da97bec4fbbd483a0cb3d8b0941272cadba0e8717d66a"
     },
     {
       "id": "muscle:anterior-deltoid",
@@ -1491,7 +1491,7 @@
       "id": "muscle:gluteus-medius",
       "kind": "muscle",
       "slug": "gluteus-medius",
-      "sha256": "281a577b3eacba8c2428343c3374b74fdb2616208f0a9c09081c5150a9cada93"
+      "sha256": "e96c45b9c7578211874bb2fb10face11dd043b67a8ad4f29ffbc72120490d542"
     },
     {
       "id": "muscle:hamstrings",
@@ -1503,7 +1503,7 @@
       "id": "muscle:hip-adductors",
       "kind": "muscle",
       "slug": "hip-adductors",
-      "sha256": "fac149072a23c78e68716f3917d474b21b04728d5eea65d07043585be656852e"
+      "sha256": "7e5057a3f6884b3f77f6cc638879ca39de683c10c78ea501de8119fe65dbae0e"
     },
     {
       "id": "muscle:iliopsoas",
@@ -1521,7 +1521,7 @@
       "id": "muscle:levator-scapulae",
       "kind": "muscle",
       "slug": "levator-scapulae",
-      "sha256": "139979d3748f8eec74f0812d670d13fe67d1c0f71b1000506051ce8297c641b5"
+      "sha256": "5940c48b29574e561698c5d1316bc77097cd15fc1bb979ad6ee864ce8c811f81"
     },
     {
       "id": "muscle:lower-trapezius",
@@ -1569,7 +1569,7 @@
       "id": "muscle:quadratus-lumborum",
       "kind": "muscle",
       "slug": "quadratus-lumborum",
-      "sha256": "09fa7b41851065b483d00026f38728650a703243fd6bb139f57e0186834ad56c"
+      "sha256": "a1ebe6f202c70a2875b312ec47b6101399c5ea2deb1a0bd9638d70f9f99a815c"
     },
     {
       "id": "muscle:quadriceps",
@@ -1623,7 +1623,7 @@
       "id": "muscle:upper-trapezius",
       "kind": "muscle",
       "slug": "upper-trapezius",
-      "sha256": "93221334c0d2e49e1b25ffdebd38c415083db8039e1a1e7ddcfb004e05944dc1"
+      "sha256": "b3b8a540976d34e190f7b659507a9a93655d106ae8c248c574ed5cfe377af84c"
     },
     {
       "id": "report_copy:anterior_imbalanced_shoulders",
@@ -1698,5 +1698,5 @@
       "sha256": "c9aeb1a3cc437bc0220b6dd224c490fe868d2844d86a23473c0eca05f5aebf7c"
     }
   ],
-  "inventory_sha256": "0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc"
+  "inventory_sha256": "8d16ea6355b7d51fd79cf901eb135be4e2b8299b6f67301cc44f989b8f755479"
 }

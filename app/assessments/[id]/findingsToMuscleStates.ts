@@ -4,7 +4,8 @@
 //
 // The viewer's own `fromMuscleStates` owns slug→id / role→color / severity→intensity.
 // This adapter only SHAPES the data: reliability filter, legacy-name fallback, severity
-// sanitization, per-slug dedup + tight/weak conflict collapse, and honest coverage notes.
+// sanitization, per-(slug,side) dedup + tight/weak conflict collapse, subject left/right
+// laterality resolution, and honest coverage notes.
 
 import { COORDINATE_NAME_TO_SLUG, normalizeMuscle, type MuscleLink } from './muscleMap'
 import manifest from './muscleIds.generated.json'
@@ -86,13 +87,89 @@ const CONF_RANK = { high: 3, medium: 2, low: 1 } as const
 const higherConf = (a?: 'high' | 'medium' | 'low', b?: 'high' | 'medium' | 'low') =>
   !a ? b : !b ? a : (CONF_RANK[a] >= CONF_RANK[b] ? a : b)
 
+type Side = 'left' | 'right' | 'both'
+
+// The only imbalance keys whose `direction` carries a 'Level' | 'Left Low' | 'Right Low'
+// vocabulary (see packages/posture-engine/src/metrics.ts). A link's authored side
+// ('elevated' | 'lowered') is only meaningful for these keys.
+const LATERAL_IMBALANCE_KEYS = new Set<string>([
+  'anterior_imbalanced_shoulders',
+  'posterior_imbalanced_shoulders',
+  'pelvic_obliquity',
+])
+
+// Resolve one candidate's SUBJECT side (left/right/both) from its imbalance key, the
+// finding's direction, and the link's own authored side.
+//   - genu_varum_valgum_left/_right: the key suffix IS the side, regardless of linkSide.
+//   - Any other key not in LATERAL_IMBALANCE_KEYS: always bilateral (sagittal/global).
+//   - A lateral key with no linkSide (or 'both'), or a direction that isn't 'Left Low' /
+//     'Right Low' (e.g. 'Level', or missing): bilateral — content or engine gave no basis
+//     to pick a side.
+//   - Otherwise: 'Left Low' means the subject's LEFT side is lower, so the RIGHT side is
+//     elevated (and vice versa for 'Right Low'); linkSide picks the elevated or lowered
+//     side accordingly.
+function resolveCandidateSide(
+  imbalanceKey: string | undefined,
+  direction: string | undefined,
+  linkSide: 'elevated' | 'lowered' | 'both' | undefined,
+): Side {
+  if (imbalanceKey === 'genu_varum_valgum_left') return 'left'
+  if (imbalanceKey === 'genu_varum_valgum_right') return 'right'
+  if (!imbalanceKey || !LATERAL_IMBALANCE_KEYS.has(imbalanceKey)) return 'both'
+  if (!linkSide || linkSide === 'both') return 'both'
+  if (direction !== 'Left Low' && direction !== 'Right Low') return 'both'
+  const elevatedSide: 'left' | 'right' = direction === 'Left Low' ? 'right' : 'left'
+  const loweredSide: 'left' | 'right' = elevatedSide === 'left' ? 'right' : 'left'
+  return linkSide === 'elevated' ? elevatedSide : loweredSide
+}
+
 interface Candidate {
   slug: string
   name: string
   role: Role
   severity?: number
   confidence?: 'high' | 'medium' | 'low'
+  side: Side
 }
+
+interface SideWinner {
+  role: Role
+  severity?: number
+  confidence?: 'high' | 'medium' | 'low'
+  name: string
+  collapsed: boolean
+}
+
+// Resolve the winning role for ONE subject side from a slug's full candidate group —
+// filtering to candidates that apply to that side ('both' applies to every side) — using
+// the same max-severity / tight-vs-weak-conflict rules as before, scoped per side.
+function winnerForSide(group: Candidate[], side: 'left' | 'right'): SideWinner | null {
+  const applicable = group.filter((c) => c.side === side || c.side === 'both')
+  if (applicable.length === 0) return null
+  const best = (role: Role): Candidate | null =>
+    applicable
+      .filter((c) => c.role === role)
+      .reduce<Candidate | null>((a, c) => (a && rank(a.severity) >= rank(c.severity) ? a : c), null)
+  const bestTight = best('tight')
+  const bestWeak = best('weak')
+  let winner: Candidate
+  let collapsed = false
+  if (bestTight && bestWeak) {
+    // tight-vs-weak conflict: higher severity wins; tie → tight (the actionable "release" cue).
+    winner = rank(bestTight.severity) >= rank(bestWeak.severity) ? bestTight : bestWeak
+    collapsed = true
+  } else {
+    winner = (bestTight ?? bestWeak)!
+  }
+  // Confidence must reflect the WINNING role's evidence, not the max across both roles.
+  const confidence = applicable
+    .filter((c) => c.role === winner.role)
+    .reduce<'high' | 'medium' | 'low' | undefined>((acc, c) => higherConf(acc, c.confidence), undefined)
+  return { role: winner.role, severity: winner.severity, confidence, name: winner.name, collapsed }
+}
+
+const sameWinner = (a: SideWinner, b: SideWinner): boolean =>
+  a.role === b.role && a.severity === b.severity && a.confidence === b.confidence
 
 export function findingsToMuscleStates(
   findings: AssessmentFinding[] | null | undefined,
@@ -111,28 +188,40 @@ export function findingsToMuscleStates(
       const names = role === 'tight' ? f.tight_muscles : f.weak_muscles
       if (links && links.length > 0) {
         for (const l of links) {
-          if (l?.slug) candidates.push({ slug: l.slug, name: l.name ?? l.slug, role, severity, confidence: l.confidence })
+          if (l?.slug) {
+            candidates.push({
+              slug: l.slug,
+              name: l.name ?? l.slug,
+              role,
+              severity,
+              confidence: l.confidence,
+              side: resolveCandidateSide(f.imbalance_key, f.direction, l.side),
+            })
+          }
         }
       } else if (names && names.length > 0) {
         // Legacy JSONB names (populated until the muscle KB is seeded). Resolving them keeps
         // the 3D in lockstep with the 2D map, which uses the same source. Unresolvable
         // catch-alls (e.g. the genu "lateral structures … or adductors …" string) surface
-        // in notShown instead of silently vanishing.
+        // in notShown instead of silently vanishing. This path predates link-level `side`
+        // and has no way to carry it, so it always stays bilateral — including for genu
+        // keys, which v1 deliberately over-colors on this legacy path as before.
         //
         // TODO(genu-direction): once muscle_imbalance_links.direction_applicability is
         // populated + selected by the API, gate genu varum/valgum muscles here (AND in
         // muscleMap) by f.direction. v1 deliberately mirrors the 2D map's over-coloring.
         for (const name of names) {
           const slug = legacyNameToSlug(name)
-          if (slug) candidates.push({ slug, name, role, severity })
+          if (slug) candidates.push({ slug, name, role, severity, side: 'both' })
           else legacyUnresolved.push({ slug: '', name })
         }
       }
     }
   }
 
-  // Dedup by slug (side omitted ⇒ every entry is bilateral, so the viewer's `${muscle}:${side}`
-  // last-write-wins collapses to per-slug anyway — we control the collapse deterministically).
+  // Group by slug first; each group is then resolved independently per subject side below,
+  // so we control the viewer's `${muscle}:${side}` collapse deterministically rather than
+  // relying on its last-write-wins semantics.
   const bySlug = new Map<string, Candidate[]>()
   const order: string[] = []
   for (const c of candidates) {
@@ -150,34 +239,27 @@ export function findingsToMuscleStates(
 
   for (const slug of order) {
     const group = bySlug.get(slug)!
-    const best = (role: Role): Candidate | null =>
-      group
-        .filter((c) => c.role === role)
-        .reduce<Candidate | null>(
-          (a, c) => (a && rank(a.severity) >= rank(c.severity) ? a : c),
-          null,
-        )
-    const bestTight = best('tight')
-    const bestWeak = best('weak')
+    // Resolve independently per subject side ('both'-side candidates apply to each side's
+    // computation). A muscle can carry a low-confidence tight link AND a high-confidence
+    // weak link (e.g. gluteus-medius / pelvic_obliquity) — confidence always reflects the
+    // WINNING role's evidence on that side, never borrowed from the losing role.
+    const left = winnerForSide(group, 'left')
+    const right = winnerForSide(group, 'right')
 
-    let winner: Candidate
-    if (bestTight && bestWeak) {
-      // tight-vs-weak conflict: higher severity wins; tie → tight (the actionable "release" cue).
-      winner = rank(bestTight.severity) >= rank(bestWeak.severity) ? bestTight : bestWeak
-      collapsedConflicts.push({ slug, name: winner.name })
-    } else {
-      winner = (bestTight ?? bestWeak)!
+    if (left?.collapsed || right?.collapsed) {
+      collapsedConflicts.push({ slug, name: (left ?? right)!.name })
     }
 
-    // Confidence must reflect the WINNING role's evidence, not the max across both roles.
-    // A muscle can carry a low-confidence tight link AND a high-confidence weak link
-    // (e.g. gluteus-medius / pelvic_obliquity). If tight wins by severity, borrowing the
-    // losing weak link's high confidence would paint a low-evidence signal at high intensity.
-    const winnerConf = group
-      .filter((c) => c.role === winner.role)
-      .reduce<'high' | 'medium' | 'low' | undefined>((acc, c) => higherConf(acc, c.confidence), undefined)
-    states.push({ slug, role: winner.role, severity: winner.severity, confidence: winnerConf })
-    if (!slugToViewerId(slug)) notShown.push({ slug, name: winner.name })
+    if (left && right && sameWinner(left, right)) {
+      // Both sides resolved identically (the common case: no lateral link/direction data
+      // applied, or both sides genuinely match) — keep today's bilateral shape, `side` omitted.
+      states.push({ slug, role: left.role, severity: left.severity, confidence: left.confidence })
+    } else {
+      if (left) states.push({ slug, role: left.role, severity: left.severity, confidence: left.confidence, side: 'left' })
+      if (right) states.push({ slug, role: right.role, severity: right.severity, confidence: right.confidence, side: 'right' })
+    }
+
+    if (!slugToViewerId(slug)) notShown.push({ slug, name: (left ?? right)!.name })
   }
 
   for (const u of legacyUnresolved) notShown.push(u)
