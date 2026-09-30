@@ -55,19 +55,30 @@ function sideColor(state: SideState | null): string {
 function SideDots({ muscle }: { muscle: Pick<MuscleSides, 'left' | 'right'> }) {
   // Subject's right then left, mirroring the front view.
   return (
-    <span className={styles.chipDots} aria-hidden>
+    <span className={styles.sideDots} aria-hidden>
       <span style={{ background: sideColor(muscle.right) }} />
       <span style={{ background: sideColor(muscle.left) }} />
     </span>
   )
 }
 
+/** "2 tight · 3 weak" — a muscle tight on one side and weak on the other counts in both. */
+function muscleCounts(muscles: MuscleSides[]): string {
+  if (muscles.length === 0) return 'no muscles linked'
+  const has = (role: SideState['role']) => muscles.filter((m) => m.left?.role === role || m.right?.role === role).length
+  return [
+    has('tight') > 0 ? `${has('tight')} tight` : null,
+    has('weak') > 0 ? `${has('weak')} weak` : null,
+  ].filter(Boolean).join(' · ')
+}
+
 /**
  * The results-page posture map and everything that drives it. The 3D view is never covered:
- * view controls, the findings strip, a spotlighted finding's muscles and the selected muscle's
- * info bar all sit in a dock attached under it. Tapping a finding spotlights its muscles; tapping
- * a muscle (in the dock or on the model) isolates it and shows a one-line summary with a Details
- * button — the page opens the detail sheet only from there.
+ * view controls are a bar along its top edge and a readout slot sits under it. The viewer's two
+ * edge rails do the picking — muscles head to toe on the left, this scan's findings on the right.
+ * Picking a finding spotlights its muscles; picking a muscle (rail or model) isolates it and the
+ * readout shows a one-line summary with a Details button — the page opens the detail pop-up only
+ * from there.
  */
 export default function MuscleModel3D({
   findings,
@@ -279,6 +290,28 @@ export default function MuscleModel3D({
       </h2>
 
       <div className={styles.card}>
+        {/* View controls: a bar along the model's top edge, never over it. */}
+        <div className={styles.controls} role="toolbar" aria-label="3D view controls">
+          <div className={styles.segment}>
+            <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'front' })}>Front</button>
+            <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'back' })}>Back</button>
+            <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'reset' })}>Reset</button>
+          </div>
+          <label className={styles.xray}>
+            <span>X-ray</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(xray * 100)}
+              disabled={controlsDisabled}
+              onChange={(e) => changeXray(Number(e.target.value) / 100)}
+              aria-label="X-ray depth"
+              style={{ ['--fill' as string]: `${Math.round(xray * 100)}%` }}
+            />
+          </label>
+        </div>
+
         <div className={styles.viewerFrame}>
           {mounted ? (
             <iframe
@@ -312,82 +345,10 @@ export default function MuscleModel3D({
           )}
         </div>
 
-        {/* Dock: attached under the model so nothing ever covers it. */}
-        <div className={styles.dock}>
-          <div className={styles.controls} role="toolbar" aria-label="3D view controls">
-            <div className={styles.segment}>
-              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'front' })}>Front</button>
-              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'back' })}>Back</button>
-              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'reset' })}>Reset</button>
-            </div>
-            <label className={styles.xray}>
-              <span>X-ray</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(xray * 100)}
-                disabled={controlsDisabled}
-                onChange={(e) => changeXray(Number(e.target.value) / 100)}
-                aria-label="X-ray depth"
-                style={{ ['--fill' as string]: `${Math.round(xray * 100)}%` }}
-              />
-            </label>
-          </div>
-
-          {!referenceOnly && findingOptions.length > 0 && (
-            <div className={styles.strip} role="group" aria-label="Findings">
-              <button
-                type="button"
-                className={styles.chip}
-                aria-pressed={!spotlightKey}
-                onClick={() => onSpotlight?.(null)}
-              >
-                All findings
-              </button>
-              {findingOptions.map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  className={styles.chip}
-                  aria-pressed={o.key === spotlightKey}
-                  data-testid={`map-finding-${o.key}`}
-                  onClick={() => onSpotlight?.(o.key === spotlightKey ? null : o.key)}
-                  aria-label={`${o.label}, ${o.zoneLabel}`}
-                >
-                  <span className={styles.zoneDot} style={{ background: tone(o.band) }} aria-hidden />
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {spotlight && (
-            spotlightMuscles.length > 0 ? (
-              <div className={styles.strip} role="group" aria-label={`${spotlight.label} muscles`}>
-                {spotlightMuscles.map((m) => {
-                  const id = m.viewerId ?? m.slug.replace(/-/g, '_')
-                  return (
-                    <button
-                      key={m.slug}
-                      type="button"
-                      className={styles.chip}
-                      aria-pressed={id === selectedMuscle}
-                      onClick={() => onSelectMuscle?.(id === selectedMuscle ? null : id, null)}
-                      aria-label={`${m.name}: ${sidesSummary(m)}`}
-                    >
-                      <SideDots muscle={m} />
-                      {m.name}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className={styles.stripEmpty}>No muscles are linked to {spotlight.label}.</p>
-            )
-          )}
-
-          {selectedMuscle && selectedInfo && (
+        {/* Readout under the model: the isolated muscle, else the spotlighted finding, else how
+            to use the two edge rails. One fixed-height slot, so the page never shifts. */}
+        <div className={styles.readout}>
+          {selectedMuscle && selectedInfo ? (
             <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Selected muscle">
               {selectedInfo.sides && <SideDots muscle={selectedInfo.sides} />}
               <div className={styles.infoText}>
@@ -406,6 +367,32 @@ export default function MuscleModel3D({
                 ✕
               </button>
             </div>
+          ) : spotlight ? (
+            <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Spotlighted finding">
+              <span className={styles.zoneDot} style={{ background: tone(spotlight.band) }} aria-hidden />
+              <div className={styles.infoText}>
+                <span className={styles.infoName}>{spotlight.label}</span>
+                <span className={styles.infoSummary}>
+                  {spotlight.zoneLabel} · {muscleCounts(spotlightMuscles)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className={styles.clear}
+                aria-label="Show all findings"
+                onClick={() => onSpotlight?.(null)}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <p className={styles.hint}>
+              {!mounted
+                ? null
+                : referenceOnly || findingOptions.length === 0
+                  ? 'Drag along the left edge to pick a muscle.'
+                  : 'Drag the left edge to pick a muscle, the right edge to spotlight a finding.'}
+            </p>
           )}
         </div>
       </div>

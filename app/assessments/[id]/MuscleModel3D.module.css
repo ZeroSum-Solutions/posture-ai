@@ -1,5 +1,6 @@
 /* Posture map workspace — posture-ai "Array": pure black field, hairline glass, white text.
-   One card: the 3D view on top, a dock attached under it. Nothing overlays the model. */
+   One card: a control bar along the top edge, the 3D view, and a readout slot under it.
+   Nothing overlays the model; the viewer's edge rails do the picking. */
 
 .hero { display: grid; gap: 8px; min-width: 0; }
 
@@ -13,9 +14,9 @@
 .viewerFrame {
   position: relative;
   min-width: 0;
-  /* Sized so the model + a full dock fit one phone screen above the island nav; fixed up front
-     so mounting the live model never shifts layout. */
-  height: clamp(300px, calc(100svh - 400px), 620px);
+  /* Sized so control bar + model + readout fit one phone screen above the island nav; fixed up
+     front so mounting the live model never shifts layout. */
+  height: clamp(320px, calc(100svh - 300px), 680px);
   background:
     radial-gradient(ellipse 60% 55% at 50% 42%, rgba(56, 110, 190, 0.18), rgba(18, 36, 70, 0.06) 55%, transparent 75%),
     #000;
@@ -84,16 +85,16 @@
   cursor: pointer;
 }
 
-/* ---- Dock ---- */
-.dock {
-  display: grid;
-  gap: 8px;
-  padding: 10px 10px 12px;
-  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+/* ---- Control bar (top edge) ---- */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
   background: rgba(255, 255, 255, 0.025);
 }
-
-.controls { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
 .segment {
   display: inline-flex;
@@ -104,7 +105,7 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 .segment button {
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 10px;
   border: 0;
   border-radius: 9px;
@@ -158,48 +159,31 @@
 .xray input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 999px; background: #fff; }
 .xray input:disabled { opacity: 0.4; cursor: default; }
 
-.strip {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  /* Let the strip bleed to the card edge so the next chip peeks in as a scroll cue. */
-  margin: 0 -10px;
-  padding: 0 10px;
+/* ---- Readout (bottom edge) ---- */
+.readout {
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.025);
 }
-.strip::-webkit-scrollbar { display: none; }
-.stripEmpty { color: var(--text-tertiary); font-size: 12px; padding: 4px 2px; }
 
-.chip {
-  display: inline-flex;
-  flex: 0 0 auto;
+.hint {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
+  justify-content: center;
+  min-height: 52px;
+  margin: 0;
   padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: 12px;
-  font-weight: 400;
-  white-space: nowrap;
-  scroll-snap-align: start;
-  cursor: pointer;
+  line-height: 1.4;
+  text-align: center;
 }
-.chip:hover { color: var(--text-primary); }
-.chip[aria-pressed='true'] {
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: none;
-  color: #000;
-}
-.zoneDot { width: 7px; height: 7px; border-radius: 999px; }
+
+.zoneDot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; }
 
 /* Two dots: subject's right then left, mirroring the front view. */
-.chipDots { display: inline-flex; flex: 0 0 auto; gap: 3px; }
-.chipDots span { width: 7px; height: 7px; border-radius: 999px; }
+.sideDots { display: inline-flex; flex: 0 0 auto; gap: 3px; }
+.sideDots span { width: 7px; height: 7px; border-radius: 999px; }
 
 .infoBar {
   display: flex;
@@ -244,7 +228,6 @@
 .launchButton:focus-visible,
 .retryButton:focus-visible,
 .segment button:focus-visible,
-.chip:focus-visible,
 .detailsButton:focus-visible,
 .clear:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
 

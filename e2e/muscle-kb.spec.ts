@@ -5,6 +5,9 @@ import { createClient, selectClientInWizard } from './helpers'
 // Requires the muscle KB seed migration to be applied to the e2e database.
 test.describe('muscle knowledge base', () => {
   test('a finding spotlights its muscles; a muscle opens its detail, then the full page', async ({ page }, testInfo) => {
+    // The journey now runs through the live 3D viewer's rails (mounted once the page is idle),
+    // then compiles and opens the muscle page — more than the default 30 s under a dev server.
+    test.setTimeout(90_000)
     const stamp = Date.now().toString().slice(-7)
     await createClient(page, 'E2E', `Kb${stamp}`)
 
@@ -13,20 +16,27 @@ test.describe('muscle knowledge base', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
-    // Everything is driven from the posture map: a finding chip in the dock under the model
-    // spotlights its muscles, and a muscle chip isolates the muscle (no pop-up yet).
-    const finding = page.locator('[data-testid^="map-finding-"]').first()
-    await expect(finding).toBeVisible({ timeout: 10_000 })
-    await finding.click()
-    await expect(finding).toHaveAttribute('aria-pressed', 'true')
-    const chips = page.getByRole('group', { name: / muscles$/ })
-    await expect(chips).toBeVisible()
-    await chips.getByRole('button').first().click()
+    // Everything is driven from the posture map's edge rails (keyboard-operable listboxes): the
+    // right rail spotlights a finding, the left rail isolates one of its muscles (no pop-up yet).
+    const frame = page.frameLocator('iframe[title="Interactive 3D anatomy model"]')
+    const finding = frame.getByRole('listbox', { name: 'Findings' }).getByRole('option').first()
+    await expect(finding).toBeAttached({ timeout: 30_000 })
+    // A finding option reads "<finding>. <muscle> · <muscle> · …".
+    const label = (await finding.getAttribute('aria-label')) ?? ''
+    const muscleName = label.slice(label.indexOf('. ') + 2).split(' · ')[0]
+    expect(muscleName, 'the first finding must link a drawable muscle').not.toBe('')
+    await finding.press('Enter')
+    await expect(page.getByRole('status', { name: 'Spotlighted finding' })).toBeVisible({ timeout: 10_000 })
+    const escaped = muscleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    await frame
+      .getByRole('listbox', { name: 'Muscles, head to toe' })
+      .getByRole('option', { name: new RegExp(`^${escaped}`) })
+      .press('Enter')
     const selected = page.getByRole('status', { name: 'Selected muscle' })
     await expect(selected).toBeVisible()
     await selected.getByRole('button', { name: 'Details' }).click()
 
-    // Details opens the muscle sheet over the page (no navigation).
+    // Details opens the muscle pop-up over the page (no navigation).
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 10_000 })
     await expect(dialog.getByText('What this scan found')).toBeVisible()
@@ -34,6 +44,13 @@ test.describe('muscle knowledge base', () => {
     await expect(dialog.getByText(/Screening indication, not a diagnosis/)).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('muscle-modal.png') })
     expect(page.url()).toMatch(/\/assessments\/[0-9a-f-]{36}$/)
+
+    // ✕ closes the pop-up and leaves the muscle isolated on the map; Details reopens it.
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(selected).toBeVisible()
+    await selected.getByRole('button', { name: 'Details' }).click()
+    await expect(dialog.getByText('Anatomy', { exact: true })).toBeVisible({ timeout: 10_000 })
 
     // The full muscle page stays one tap away and still carries rationale + exercises.
     await dialog.getByRole('link', { name: 'Full muscle page' }).click()

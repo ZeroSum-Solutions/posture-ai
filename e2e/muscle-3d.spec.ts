@@ -61,7 +61,7 @@ test.describe('3D posture summary', () => {
     await expect(page.getByText(/Screening indication, not a diagnosis/)).toBeVisible()
 
     const viewer = frame!.locator('[data-model-state="ready"]')
-    // View controls sit in the page's toolbar under the model (nothing overlays the 3D view).
+    // View controls sit in the page's control bar above the model (nothing overlays the 3D view).
     const toolbar = page.getByRole('toolbar', { name: '3D view controls' })
     const canvas = frame!.locator('canvas')
     await toolbar.getByRole('button', { name: 'Front' }).click()

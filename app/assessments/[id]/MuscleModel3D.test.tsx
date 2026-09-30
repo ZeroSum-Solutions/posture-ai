@@ -50,14 +50,20 @@ afterEach(() => {
 })
 
 describe('MuscleModel3D (posture map workspace)', () => {
-  it('keeps the model uncovered: controls, findings and legend live outside the 3D frame', () => {
+  it('keeps the model uncovered: a control bar above it, a readout under it, no pill rows', () => {
     render(<MuscleModel3D findings={findings} findingOptions={options} />)
     const frame = frameEl()
     expect(frame.getAttribute('src')).toBe('/muscle-viewer/index.html?embed=1&legend=0&card=0&controls=0')
     const toolbar = screen.getByRole('toolbar', { name: '3D view controls' })
-    const strip = screen.getByRole('group', { name: 'Findings' })
+    const hint = screen.getByText(/Drag the left edge to pick a muscle, the right edge to spotlight a finding/)
     expect(frame.parentElement!.contains(toolbar)).toBe(false)
-    expect(frame.parentElement!.contains(strip)).toBe(false)
+    expect(frame.parentElement!.contains(hint)).toBe(false)
+    // Document order: controls, then the model, then the readout.
+    expect(toolbar.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(frame.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The viewer's edge rails do the picking; the page draws no finding or muscle pills.
+    expect(screen.queryByRole('group', { name: 'Findings' })).toBeNull()
+    expect(screen.queryByTestId(/^map-finding-/)).toBeNull()
     expect(screen.getByLabelText('3D model legend').textContent).toMatch(/Tight.*Weak.*Screening indication/)
   })
 
@@ -94,40 +100,32 @@ describe('MuscleModel3D (posture map workspace)', () => {
     expect(groups.groups[0].muscles).toEqual(['suboccipitals', 'deep_cervical_flexors'])
   })
 
-  it('spotlights from the findings strip and from the viewer rail', () => {
+  it('spotlights from the viewer’s findings rail; the readout names the finding and clears it', () => {
     const onSpotlight = vi.fn()
-    render(<MuscleModel3D findings={findings} findingOptions={options} onSpotlight={onSpotlight} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Forward Head Posture, Monitor' }))
+    const { rerender } = render(<MuscleModel3D findings={findings} findingOptions={options} onSpotlight={onSpotlight} />)
+    viewerSays(frameEl(), { type: 'group-select', id: 'forward_head_posture' })
     expect(onSpotlight).toHaveBeenLastCalledWith('forward_head_posture')
-    viewerSays(frameEl(), { type: 'group-select', id: 'pelvic_obliquity' })
-    expect(onSpotlight).toHaveBeenLastCalledWith('pelvic_obliquity')
-  })
+    viewerSays(frameEl(), { type: 'group-select', id: null })
+    expect(onSpotlight).toHaveBeenLastCalledWith(null)
 
-  it('lists a spotlighted finding’s muscles; a chip isolates the muscle without opening details', () => {
-    const onSelectMuscle = vi.fn()
-    const onOpenDetails = vi.fn()
-    render(
-      <MuscleModel3D
-        findings={findings}
-        findingOptions={options}
-        spotlightKey="forward_head_posture"
-        onSelectMuscle={onSelectMuscle}
-        onOpenDetails={onOpenDetails}
-      />,
+    rerender(
+      <MuscleModel3D findings={findings} findingOptions={options} onSpotlight={onSpotlight} spotlightKey="forward_head_posture" />,
     )
-    const group = screen.getByRole('group', { name: 'Forward Head Posture muscles' })
-    fireEvent.click(group.querySelectorAll('button')[1])
-    expect(onSelectMuscle).toHaveBeenCalledWith('deep_cervical_flexors', null)
-    expect(onOpenDetails).not.toHaveBeenCalled()
+    const bar = screen.getByRole('status', { name: 'Spotlighted finding' })
+    expect(bar.textContent).toContain('Forward Head Posture')
+    expect(bar.textContent).toContain('Monitor · 1 tight · 1 weak')
+    fireEvent.click(screen.getByRole('button', { name: 'Show all findings' }))
+    expect(onSpotlight).toHaveBeenLastCalledWith(null)
   })
 
-  it('shows the isolated muscle in an info bar; Details opens the sheet, ✕ clears it', () => {
+  it('shows the isolated muscle in the readout (over a spotlight); Details opens the pop-up, ✕ clears it', () => {
     const onSelectMuscle = vi.fn()
     const onOpenDetails = vi.fn()
     render(
       <MuscleModel3D
         findings={findings}
         findingOptions={options}
+        spotlightKey="pelvic_obliquity"
         selectedMuscle="gluteus_medius"
         onSelectMuscle={onSelectMuscle}
         onOpenDetails={onOpenDetails}
@@ -136,6 +134,7 @@ describe('MuscleModel3D (posture map workspace)', () => {
     const bar = screen.getByRole('status', { name: 'Selected muscle' })
     expect(bar.textContent).toContain('Gluteus medius')
     expect(bar.textContent).toContain('Right weak, left tight')
+    expect(screen.queryByRole('status', { name: 'Spotlighted finding' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(onOpenDetails).toHaveBeenCalledWith('gluteus_medius')
     fireEvent.click(screen.getByRole('button', { name: 'Clear muscle selection' }))

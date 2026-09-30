@@ -1,13 +1,14 @@
 'use client'
 /**
- * Muscle detail over the results page — opened from the 3D posture map (tap a muscle) or a
- * spotlight chip, so the practitioner never leaves the page. Shows what THIS scan found on each
+ * Muscle detail pop-up over the results page — opened from the posture map's Details button, so
+ * the practitioner never leaves the page. A centered dialog: fixed header, scrolling body; close
+ * with ✕, Escape or a tap outside. Shows what THIS scan found on each
  * side and why (link rationale per finding), the program steps that work the muscle (stretch
  * when tight, strengthen when weak), and the authored anatomy/function copy. Content comes from
  * the practitioner-gated /api/clinical-content/muscles/[slug] route.
  */
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Surface } from '@/components/array/Surface'
 import { Chip } from '@/components/array/Chip'
@@ -18,7 +19,9 @@ import {
   STATE_COLORS,
   prescribedSteps,
   prettySlug,
+  severityWord,
   sidesBySlug,
+  sidesSummary,
   type BodySide,
   type ExerciseRole,
   type SideState,
@@ -47,36 +50,25 @@ const REGION_LABELS: Record<string, string> = {
   knee_leg: 'Knee & lower leg',
 }
 
-function grade(severity?: number): string {
-  if (severity == null) return ''
-  if (severity >= 67) return 'marked'
-  if (severity >= 34) return 'moderate'
-  return 'mild'
+// Matches the dialog's exit animation in MuscleDetailModal.module.css.
+const EXIT_MS = 160
+
+function sideColor(state: SideState | null): string | undefined {
+  if (!state) return undefined
+  return state.role === 'tight' ? STATE_COLORS.tight : STATE_COLORS.weak
 }
 
 function SideRow({ label, state }: { label: string; state: SideState | null }) {
-  const color = state ? (state.role === 'tight' ? STATE_COLORS.tight : STATE_COLORS.weak) : undefined
+  const color = sideColor(state)
   return (
     <div className={styles.sideRow}>
       <span className={styles.sideLabel}>{label}</span>
       <span className={styles.sideDot} style={{ background: color ?? 'var(--hairline)', boxShadow: color ? `0 0 10px ${color}` : undefined }} />
       <span className={state ? undefined : styles.muted}>
-        {state ? `${state.role === 'tight' ? 'Tight' : 'Weak'}${state.severity != null ? ` · ${grade(state.severity)}` : ''}` : 'No finding'}
+        {state ? `${state.role === 'tight' ? 'Tight' : 'Weak'}${state.severity != null ? ` · ${severityWord(state.severity)}` : ''}` : 'No finding'}
       </span>
     </div>
   )
-}
-
-function comparison(left: SideState | null, right: SideState | null): string | null {
-  if (!left && !right) return null
-  if (!left) return 'Right side only'
-  if (!right) return 'Left side only'
-  if (left.role !== right.role) return `Right ${right.role}, left ${left.role}`
-  const l = left.severity ?? 0
-  const r = right.severity ?? 0
-  if (Math.abs(l - r) < 10) return null
-  const word = left.role === 'tight' ? 'tighter' : 'weaker'
-  return r > l ? `Right ${word} than left` : `Left ${word} than right`
 }
 
 export default function MuscleDetailModal({
@@ -100,7 +92,30 @@ export default function MuscleDetailModal({
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [exercise, setExercise] = useState<{ slug: string; name: string } | null>(null)
+  const [closing, setClosing] = useState(false)
+  const exitTimer = useRef<number | null>(null)
   const dialogRef = useFocusTrap<HTMLDivElement>()
+
+  // Play the exit animation, then unmount (straight away when motion is reduced).
+  const requestClose = useCallback(() => {
+    if (exitTimer.current != null) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return onClose()
+    setClosing(true)
+    exitTimer.current = window.setTimeout(onClose, EXIT_MS)
+  }, [onClose])
+  useEffect(() => () => {
+    if (exitTimer.current != null) window.clearTimeout(exitTimer.current)
+  }, [])
+
+  // The page behind stays put while the pop-up scrolls.
+  useEffect(() => {
+    const root = document.documentElement
+    const previous = root.style.overflow
+    root.style.overflow = 'hidden'
+    return () => {
+      root.style.overflow = previous
+    }
+  }, [])
 
   useEffect(() => {
     // The page keys this modal by slug, so a new muscle remounts it with fresh state.
@@ -124,11 +139,11 @@ export default function MuscleDetailModal({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !exercise) onClose()
+      if (e.key === 'Escape' && !exercise) requestClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, exercise])
+  }, [requestClose, exercise])
 
   const sides = useMemo(() => {
     const { states } = findingsToMuscleStates(findings)
@@ -150,7 +165,6 @@ export default function MuscleDetailModal({
   }, [detail, prescribed, sides])
 
   const name = detail?.muscle.name ?? prettySlug(slug)
-  const note = comparison(sides?.left ?? null, sides?.right ?? null)
   const rationaleFor = (key: string) =>
     detail?.links.filter((l) => l.imbalance_key === key).map((l) => l.rationale) ?? []
 
@@ -158,29 +172,54 @@ export default function MuscleDetailModal({
   // the floating island nav, and a modal must sit above every page chrome.
   return createPortal(
     <>
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-        <Surface
-          tier="feature"
-          className={styles.surface}
-          innerStyle={{ maxHeight: 'min(58svh, 560px)', overflowY: 'auto', background: 'rgba(6, 8, 12, 0.94)' }}
+    <div className={[styles.layer, closing ? styles.closing : ''].filter(Boolean).join(' ')}>
+      {/* A sibling of the dialog, not its parent: a blurred ancestor would leave the dialog's own
+          glass nothing to blur. */}
+      <div className={styles.scrim} onClick={requestClose} aria-hidden />
+      <Surface
+        tier="feature"
+        className={styles.dialog}
+        innerStyle={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: '1 1 auto',
+          minHeight: 0,
+          padding: 0,
+          background: 'rgba(8, 10, 14, 0.92)',
+        }}
+      >
+        <div
+          ref={dialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="muscle-detail-title"
+          className={styles.frame}
         >
-          <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="muscle-detail-title">
-            <header className={styles.header}>
-              <div>
-                <p className="t-kicker">{detail ? REGION_LABELS[detail.muscle.region] ?? 'Muscle' : 'Muscle'}</p>
-                <h2 id="muscle-detail-title" className="t-headline-sm">{name}</h2>
-              </div>
-              <button type="button" onClick={onClose} aria-label="Close" className={styles.close}>✕</button>
-            </header>
+          <header className={styles.header}>
+            <div className={styles.titleBlock}>
+              <p className="t-kicker">{detail ? REGION_LABELS[detail.muscle.region] ?? 'Muscle' : 'Muscle'}</p>
+              <h2 id="muscle-detail-title" className="t-headline-sm">{name}</h2>
+              {sides && (
+                <p className={styles.summary}>
+                  <span className={styles.summaryDots} aria-hidden>
+                    <span style={{ background: sideColor(sides.right) ?? 'var(--hairline)' }} />
+                    <span style={{ background: sideColor(sides.left) ?? 'var(--hairline)' }} />
+                  </span>
+                  {sidesSummary(sides)}
+                </p>
+              )}
+            </div>
+            <button type="button" onClick={requestClose} aria-label="Close" className={styles.close}>✕</button>
+          </header>
 
+          <div className={styles.body}>
             <section className={styles.section} aria-labelledby="muscle-found">
               <h3 id="muscle-found" className={styles.sectionTitle}>What this scan found</h3>
               {sides ? (
                 <div className={styles.sides}>
                   <SideRow label="L" state={sides.left} />
                   <SideRow label="R" state={sides.right} />
-                  {note && <p className={styles.compare}>{note}</p>}
                   {side && <p className={styles.muted}>You tapped the {side} side.</p>}
                 </div>
               ) : (
@@ -257,8 +296,8 @@ export default function MuscleDetailModal({
               {detail && <Link href={`/muscles/${detail.muscle.slug}`}>Full muscle page</Link>}
             </footer>
           </div>
-        </Surface>
-      </div>
+        </div>
+      </Surface>
     </div>
     {/* A sibling, not a child: its own backdrop click must not bubble into this one. */}
     {exercise && <ExerciseDetailSheet slug={exercise.slug} name={exercise.name} onClose={() => setExercise(null)} />}
