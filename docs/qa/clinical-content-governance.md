@@ -18,12 +18,19 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`e1ea16902b54cdc58dbccbf7f59c37fac0c083522c8a7ab10b1d677cfbb14571`.
+`46c18777722caa03002521743a7c99ff8c5a25bf068e299e14172958a71c29cd`.
 
 Recommendation algorithm SHA-256:
-`8289ead3ec4df8585c4b598e1ad680c74af2110f8e0bc88c8f2c188568ff12e6`.
+`e11c98e525c90d728b220bc59e9da5eedbd7a60b880ca8497b7edc22b867f39e`.
 
-The latest inventory refresh (2026-09-09) binds the current governed source,
+The 2026-09-30 refresh binds structured left/right laterality on muscle links
+(`side: elevated | lowered` on six pelvic-obliquity and posterior-shoulder links, set only
+where each link's authored rationale states the side) and the per-side 3D-map adapter.
+Six link items, their five parent muscles, and the recommendation-engine fingerprint
+changed. Local QA fixture hashes were synchronized; no clinical review or production
+activation is implied, and prior review of the changed items is invalidated by design.
+
+The previous inventory refresh (2026-09-09) bound the governed source at that time,
 including the assessment-results and exercise-library presentation changes.
 Local QA fixture hashes were synchronized with this inventory; no clinical
 review or production activation is implied.
