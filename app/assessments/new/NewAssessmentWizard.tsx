@@ -2,11 +2,11 @@
 import { memo, startTransition, useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import type { PoseFrame } from '@posture-ai/engine/types'
 import type { OperationMode } from '@/lib/prototype/runtime'
 import { ageBand } from '@/lib/clients/age'
 import { parseAssessmentProcessingResult } from '@/lib/assessments/processingStatus'
-import FullScreenCapture from './FullScreenCapture'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
 import { analyzeCaptureFrames } from './analyzeFrames'
@@ -28,6 +28,10 @@ import { Surface } from '@/components/array/Surface'
 import { tone, tint, ring } from '@/components/array/severity'
 import { mergeAndRankClientMatches } from './clientSearch'
 import styles from './NewAssessment.module.css'
+
+// The capture screen only opens after a client is chosen; load it on demand to
+// keep the route inside its initial-JS budget.
+const FullScreenCapture = dynamic(() => import('./FullScreenCapture'))
 
 interface Client {
   id: string
