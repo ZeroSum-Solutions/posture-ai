@@ -18,17 +18,26 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc`.
+`8d16ea6355b7d51fd79cf901eb135be4e2b8299b6f67301cc44f989b8f755479`.
 
 Recommendation algorithm SHA-256:
-`db8e21513b67892edb992cca2eea57c1f60a541e85319b3e8456abbedcbcb05b`.
+`0fa1b05dc5f5fa44e396ad902be4e11a1424b4e6b119bd661b03c4c15472b18e`.
 
-The latest inventory refresh (2026-09-30) binds the current governed source,
-including the assessment-results and exercise-library presentation changes and
-the on-demand loading of the results page's Program and Evidence panels, report
-dock and screening-notice text (a code-splitting change with no content, scoring
-or recommendation change). Local QA fixture hashes were synchronized with this inventory; no
-clinical review or production activation is implied.
+The latest refresh (2026-09-30) binds structured left/right laterality on muscle links
+(`side: elevated | lowered` on six pelvic-obliquity and posterior-shoulder links, set only
+where each link's authored rationale states the side) and the per-side 3D-map adapter.
+Six link items, their five parent muscles, and the recommendation-engine fingerprint
+changed. Local QA fixture hashes were synchronized; no clinical review or production
+activation is implied, and prior review of the changed items is invalidated by design.
+
+The previous refresh (2026-09-30) bound the on-demand loading of the results page's
+Program and Evidence panels, report dock and screening-notice text (a code-splitting
+change with no content, scoring or recommendation change).
+
+The 2026-09-09 refresh bound the governed source at that time, including the
+assessment-results and exercise-library presentation changes. Local QA fixture hashes
+were synchronized with each inventory; no clinical review or production activation is
+implied.
 The dependency closure also retains `lib/time/calendar.ts`, added for deterministic
 UTC calendar formatting in report and comparison surfaces. Changes to either
 governed surface invalidate the prior algorithm fingerprint.
