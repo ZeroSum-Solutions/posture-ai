@@ -47,6 +47,9 @@ if (process.env.CI) {
       // hide it unless this flag is set, and muscle-kb/unreviewed-content/a11y
       // specs depend on it rendering.
       NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT: '1',
+      // NEXT_PUBLIC_* is inlined at build time; keep it equal to the
+      // playwright.config.ts webServer origin so invitation links stay local.
+      NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${env.E2E_PORT ?? '3100'}`,
     },
   })
 }
