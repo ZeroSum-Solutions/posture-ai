@@ -110,7 +110,7 @@ SELECT ok(
 SELECT is(
   public.verify_clinical_content_activation(
     'clinical-content-test-fixture-v1',
-    '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf',
+    '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc',
     repeat('f', 64),
     true, true, true, true
   ),
@@ -151,7 +151,7 @@ SELECT ok(
       ON receipt.receipt_sha256 = release.hg03_receipt_sha256
     WHERE activation.singleton = true
       AND release.id = 'clinical-content-test-fixture-v1'
-      AND release.inventory_sha256 = '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+      AND release.inventory_sha256 = '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
       AND release.release_kind = 'local_test_fixture'
       AND receipt.receipt_kind = 'local_test_fixture'
       AND receipt.attestation = 'local_test_fixture_not_clinical_approval'
@@ -290,7 +290,7 @@ SELECT public.finalize_report_upload_v2(
   NULL, 'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
   '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
   'clinical_practitioner', 'clinical-content-test-fixture-v1',
-  '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+  '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
 ) AS value;
 SELECT is(
   (SELECT value->>'status' FROM clinical_report_result),
@@ -303,7 +303,7 @@ SELECT ok(
     WHERE id = (SELECT (value->>'report_id')::uuid FROM clinical_report_result)
       AND report_scope = 'clinical_practitioner'
       AND clinical_content_version = 'clinical-content-test-fixture-v1'
-      AND clinical_inventory_sha256 = '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+      AND clinical_inventory_sha256 = '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
       AND clinical_review_receipt_sha256 = repeat('f', 64)
   ),
   'clinical report persists exact immutable release and receipt provenance'
@@ -420,7 +420,7 @@ SELECT public.create_workout_session_clinical_governed(
     ),
     'clinicalContent', pg_catalog.jsonb_build_object(
       'version', 'clinical-content-test-fixture-v1',
-      'inventorySha256', '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+      'inventorySha256', '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
     )
   ),
   60, repeat('3', 64), clock_timestamp() + interval '1 day',
@@ -428,7 +428,7 @@ SELECT public.create_workout_session_clinical_governed(
   'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
   '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
   'clinical-content-test-fixture-v1',
-  '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+  '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
 ) AS value;
 SELECT is(
   (SELECT value->>'status' FROM clinical_workout_result),
@@ -440,7 +440,7 @@ SELECT ok(
     SELECT 1 FROM public.workout_sessions
     WHERE id = (SELECT (value->>'session_id')::uuid FROM clinical_workout_result)
       AND clinical_content_version = 'clinical-content-test-fixture-v1'
-      AND clinical_inventory_sha256 = '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+      AND clinical_inventory_sha256 = '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
       AND clinical_review_receipt_sha256 = repeat('f', 64)
       AND program_snapshot->>'version' = '3'
       AND program_snapshot#>>'{clinicalContent,version}' = clinical_content_version
@@ -452,7 +452,7 @@ SELECT ok(
   EXISTS (
     SELECT 1 FROM public.resolve_workout_token(repeat('3', 64)) resolved
     WHERE resolved.clinical_content_version = 'clinical-content-test-fixture-v1'
-      AND resolved.clinical_inventory_sha256 = '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+      AND resolved.clinical_inventory_sha256 = '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
       AND resolved.clinical_review_receipt_sha256 = repeat('f', 64)
   ),
   'token resolver returns only the active versioned workout and its provenance'
@@ -603,7 +603,7 @@ SELECT ok(
     NULL, 'screening-notice-test-fixture-v1', 'test-1', repeat('c', 64),
     '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
     'clinical_client', 'clinical-content-test-fixture-v1',
-    '38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf'
+    '0d8454c61ffb6c16e1ae6aadab43c459f6017aa99a56cc2ad1fec08798d739fc'
   )->>'status' = 'clinical_content_unavailable'
   AND EXISTS (
     SELECT 1 FROM public.privacy_storage_deletion_outbox
