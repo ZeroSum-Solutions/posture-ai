@@ -56,8 +56,8 @@ export type AssessmentResultsPayload = {
     causes_text?: string
     tight_muscles?: string[]
     weak_muscles?: string[]
-    tight_muscle_links?: Array<{ slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }>
-    weak_muscle_links?: Array<{ slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }>
+    tight_muscle_links?: Array<{ slug: string; name: string; confidence?: 'high' | 'medium' | 'low'; side?: 'elevated' | 'lowered' | 'both' }>
+    weak_muscle_links?: Array<{ slug: string; name: string; confidence?: 'high' | 'medium' | 'low'; side?: 'elevated' | 'lowered' | 'both' }>
   }>
   captures: Array<{
     id: string
@@ -197,8 +197,8 @@ export async function loadAssessmentResults(
   }
 
   const linkMap: Record<string, {
-    tight: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }[]
-    weak: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low' }[]
+    tight: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low'; side?: 'elevated' | 'lowered' | 'both' }[]
+    weak: { slug: string; name: string; confidence?: 'high' | 'medium' | 'low'; side?: 'elevated' | 'lowered' | 'both' }[]
   }> = {}
   for (const { muscle, link } of completeClinicalSurface ? approvedClinicalLinks(clinicalAccess) : []) {
     if (link.scored === false || !keys.includes(link.imbalanceKey)) continue
@@ -207,6 +207,7 @@ export async function loadAssessmentResults(
       slug: muscle.slug,
       name: muscle.name,
       confidence: link.confidence,
+      side: link.side,
     })
   }
 

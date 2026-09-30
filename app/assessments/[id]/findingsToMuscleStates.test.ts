@@ -217,6 +217,128 @@ describe('findingsToMuscleStates', () => {
   })
 })
 
+describe('findingsToMuscleStates — left/right laterality', () => {
+  it('lateral key + "elevated" link side + "Left Low" direction ⇒ subject right only', () => {
+    // Left Low = the subject's left side is lower, so the right side is elevated.
+    const { states } = findingsToMuscleStates([
+      {
+        zone: 'warning', severity_pct: 60,
+        imbalance_key: 'posterior_imbalanced_shoulders', direction: 'Left Low',
+        tight_muscle_links: [{ slug: 'upper-trapezius', name: 'Upper Trapezius', side: 'elevated' }],
+        weak_muscle_links: [],
+      },
+    ])
+    expect(states).toEqual([
+      { slug: 'upper-trapezius', role: 'tight', severity: 60, side: 'right' },
+    ])
+  })
+
+  it('pelvic_obliquity "Right Low" ⇒ QL tight on the elevated (left) side, glute med weak left + tight right', () => {
+    // Right Low = the subject's right side is lower, so the left side is elevated.
+    const { states, collapsedConflicts } = findingsToMuscleStates([
+      {
+        zone: 'warning', severity_pct: 55,
+        imbalance_key: 'pelvic_obliquity', direction: 'Right Low',
+        tight_muscle_links: [
+          { slug: 'quadratus-lumborum', name: 'Quadratus Lumborum', side: 'elevated' },
+          { slug: 'gluteus-medius', name: 'Gluteus Medius', side: 'lowered' },
+        ],
+        weak_muscle_links: [
+          { slug: 'gluteus-medius', name: 'Gluteus Medius', side: 'elevated' },
+        ],
+      },
+    ])
+    expect(bySlug(states, 'quadratus-lumborum')).toEqual({
+      slug: 'quadratus-lumborum', role: 'tight', severity: 55, side: 'left',
+    })
+    const gluteMedStates = states.filter((s) => s.slug === 'gluteus-medius')
+    expect(gluteMedStates).toHaveLength(2)
+    expect(gluteMedStates).toEqual(expect.arrayContaining([
+      { slug: 'gluteus-medius', role: 'weak', severity: 55, side: 'left' },
+      { slug: 'gluteus-medius', role: 'tight', severity: 55, side: 'right' },
+    ]))
+    // Each side only carries one role — this is the motivating case, and it must NOT collapse.
+    expect(collapsedConflicts.map((c) => c.slug)).not.toContain('gluteus-medius')
+  })
+
+  it('genu_varum_valgum_left resolves to left-only states regardless of link side', () => {
+    const { states } = findingsToMuscleStates([
+      {
+        zone: 'warning', severity_pct: 45,
+        imbalance_key: 'genu_varum_valgum_left', direction: 'Valgum (Knock-Knee)',
+        tight_muscle_links: [
+          { slug: 'tfl-it-band', name: 'TFL / IT Band' },
+          { slug: 'hip-adductors', name: 'Hip Adductors' },
+        ],
+        weak_muscle_links: [],
+      },
+    ])
+    expect(states).toEqual(expect.arrayContaining([
+      { slug: 'tfl-it-band', role: 'tight', severity: 45, side: 'left' },
+      { slug: 'hip-adductors', role: 'tight', severity: 45, side: 'left' },
+    ]))
+    expect(states.every((s) => s.side === 'left')).toBe(true)
+  })
+
+  it('a sagittal/non-lateral finding is unchanged — no side key present', () => {
+    const { states } = findingsToMuscleStates([
+      finding({
+        severity_pct: 70,
+        imbalance_key: 'forward_head_posture',
+        tight_muscle_links: [link('upper-trapezius')],
+      }),
+    ])
+    const state = bySlug(states, 'upper-trapezius')
+    expect(state).toEqual({ slug: 'upper-trapezius', role: 'tight', severity: 70 })
+    expect(state).not.toHaveProperty('side')
+  })
+
+  it('"Level" direction (or an unrecognised one) on a lateral key stays bilateral', () => {
+    const level = findingsToMuscleStates([
+      {
+        zone: 'warning', severity_pct: 50, imbalance_key: 'pelvic_obliquity', direction: 'Level',
+        tight_muscle_links: [{ slug: 'quadratus-lumborum', name: 'Quadratus Lumborum', side: 'elevated' }],
+        weak_muscle_links: [],
+      },
+    ])
+    const unrecognised = findingsToMuscleStates([
+      {
+        zone: 'warning', severity_pct: 50, imbalance_key: 'pelvic_obliquity', direction: undefined,
+        tight_muscle_links: [{ slug: 'quadratus-lumborum', name: 'Quadratus Lumborum', side: 'elevated' }],
+        weak_muscle_links: [],
+      },
+    ])
+    for (const { states } of [level, unrecognised]) {
+      const state = bySlug(states, 'quadratus-lumborum')
+      expect(state).toEqual({ slug: 'quadratus-lumborum', role: 'tight', severity: 50 })
+      expect(state).not.toHaveProperty('side')
+    }
+  })
+
+  it('two findings resolving the same muscle to opposite sides emit both sides correctly', () => {
+    const { states } = findingsToMuscleStates([
+      {
+        zone: 'warning', severity_pct: 40,
+        imbalance_key: 'pelvic_obliquity', direction: 'Left Low', // elevated = right
+        tight_muscle_links: [{ slug: 'quadratus-lumborum', name: 'Quadratus Lumborum', side: 'elevated' }],
+        weak_muscle_links: [],
+      },
+      {
+        zone: 'warning', severity_pct: 55,
+        imbalance_key: 'pelvic_obliquity', direction: 'Right Low', // elevated = left
+        tight_muscle_links: [{ slug: 'quadratus-lumborum', name: 'Quadratus Lumborum', side: 'elevated' }],
+        weak_muscle_links: [],
+      },
+    ])
+    const qlStates = states.filter((s) => s.slug === 'quadratus-lumborum')
+    expect(qlStates).toHaveLength(2)
+    expect(qlStates).toEqual(expect.arrayContaining([
+      { slug: 'quadratus-lumborum', role: 'tight', severity: 55, side: 'left' },
+      { slug: 'quadratus-lumborum', role: 'tight', severity: 40, side: 'right' },
+    ]))
+  })
+})
+
 describe('slugToViewerId', () => {
   it('maps a plain slug by hyphen->underscore', () => {
     expect(slugToViewerId('upper-trapezius')).toBe('upper_trapezius')
