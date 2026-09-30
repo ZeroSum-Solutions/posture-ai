@@ -24,6 +24,11 @@ const supabaseEnv = {
   // Unreviewed muscle-KB content must render for muscle-kb/unreviewed-content/
   // a11y specs; no-op under `next dev`, required for CI's production server.
   NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT: '1',
+  // Invitation and auth links are built from this origin. Unset, it falls back
+  // to the production origin, which the local Auth redirect allow-list rejects
+  // (GoTrue rewrites redirect_to to site_url and invite preparation fails
+  // closed). The build in scripts/run-e2e.mjs inlines the same value.
+  NEXT_PUBLIC_SITE_URL: baseURL,
 }
 
 export default defineConfig({

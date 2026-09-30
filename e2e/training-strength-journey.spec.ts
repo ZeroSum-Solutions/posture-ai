@@ -27,8 +27,12 @@ test('original application persists a complete strength and conditioning journey
   for (let reopen = 0; reopen < 5; reopen += 1) {
     expect(await body(await request.post('/api/training/simulation/setup'))).toEqual(setup)
   }
+  // The practice sample is shared by every spec that opens it, and several save
+  // (then restore) its profile, which advances the revision. Reopening the
+  // sample reports a fixed profileRevision of 1, so build from the current one.
+  const profile = await body(await request.get(`/api/training/profile?subjectId=${encodeURIComponent(setup.subjectId)}`))
   const build = await body(await request.post('/api/training/programs/builds', {
-    data: { subjectId: setup.subjectId, profileRevision: setup.profileRevision, cycleStartLocalDate: '2026-09-08' },
+    data: { subjectId: setup.subjectId, profileRevision: profile.current.revision, cycleStartLocalDate: '2026-09-08' },
   }))
   expect(build.result.kind).toBe('draft_program')
   expect(build.buildId).toBeTruthy()

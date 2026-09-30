@@ -175,6 +175,10 @@ test.describe('full-screen camera capture', () => {
     // The clinical results page renders ReviewFindings, not
     // AssessmentOnlyResults — its rows carry no data-testid, so count them by
     // heading block under the findings tab panel, same as assessment-flow.spec.ts.
-    await expect(page.locator('#review-panel-findings [class*="findingHead"]')).toHaveCount(9, { timeout: 15_000 })
+    // Nine findings are persisted, but the engine caps pelvic axial rotation's
+    // confidence below the reliability floor (posture-engine metrics.ts), and
+    // the results page plots only numeric screening readings (see
+    // assessment-flow.spec.ts), so eight rows render.
+    await expect(page.locator('#review-panel-findings [class*="findingHead"]')).toHaveCount(8, { timeout: 15_000 })
   })
 })

@@ -139,7 +139,10 @@ describe('program equipment matrix (synthetic)', () => {
         }
     }
     expect(configurations).toBe(576)
-  })
+    // 576 full compilations (each run twice for determinism) take ~2-6 s on a
+    // shared 4-vCPU CI runner while the rest of the suite runs in parallel. The
+    // default 5 s budget made this flake; the assertions are unchanged.
+  }, 30_000)
   it('returns movement insufficiency instead of silently selecting unavailable equipment', () => {
     const { fixture } = equipmentFixture('barbell', 'kg')
     const result = compileTrainingProgram({ ...baseIds, catalog: fixture, profile: profile(['monday', 'thursday']) })

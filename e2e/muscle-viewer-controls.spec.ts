@@ -26,10 +26,13 @@ test('neutral anatomy responds to browser pointer controls', async ({ page, isMo
     await page.mouse.down()
     await page.mouse.move(x + 90, y + 20, { steps: 12 })
     await page.mouse.up()
-    await expect.poll(async () => beforeDrag.equals(await canvas.screenshot())).toBe(false)
+    // Each poll takes a full-viewport WebGL canvas screenshot. Under CI's
+    // software renderer one capture can use most of the default 5 s, so the
+    // image-change checks get a bounded 20 s window. The assertions are unchanged.
+    await expect.poll(async () => beforeDrag.equals(await canvas.screenshot()), { timeout: 20_000 }).toBe(false)
     const beforeZoom = await canvas.screenshot()
     await page.mouse.wheel(0, -200)
-    await expect.poll(async () => beforeZoom.equals(await canvas.screenshot())).toBe(false)
+    await expect.poll(async () => beforeZoom.equals(await canvas.screenshot()), { timeout: 20_000 }).toBe(false)
   }
   const dimensions = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width)

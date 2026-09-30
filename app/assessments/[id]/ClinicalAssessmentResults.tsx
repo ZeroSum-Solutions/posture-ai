@@ -3,10 +3,8 @@
 import { startTransition, useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import PriorityProgram from './PriorityProgram'
-import ReviewDock from './ReviewDock'
+import dynamic from 'next/dynamic'
 import GradeRail from './GradeRail'
-import ReviewEvidence from './ReviewEvidence'
 import ReviewFindings from './ReviewFindings'
 import { buildReviewModel } from './reviewModel'
 import Icon from '@/components/array/Icon'
@@ -14,7 +12,6 @@ import { Surface } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
 import { ring, tint, tone, type SeverityBand } from '@/components/array/severity'
 import styles from './AssessmentReview.module.css'
-import MuscleModel3D from './MuscleModel3D'
 import { saveOverridePatch } from './saveOverride'
 import type { AssessmentResultsPayload } from './loadAssessmentResults'
 import {
@@ -32,11 +29,19 @@ import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import { utcCalendarLabel } from '@/lib/time/calendar'
-import LegalNotice from '@/components/LegalNotice'
+import LegalNotice from './DeferredLegalNotice'
+import ReviewDock from './DeferredReviewDock'
 import {
   canonicalizePostgresTimestamp,
   comparePostgresTimestamps,
 } from '@/lib/time/postgres-timestamp'
+
+// Program and Evidence are not part of the first paint; load their code on
+// demand to keep the route inside its initial-JS budget. The report dock and
+// screening notice load when their disclosures open (Deferred* modules).
+const PriorityProgram = dynamic(() => import('./PriorityProgram'))
+const ReviewEvidence = dynamic(() => import('./ReviewEvidence'))
+const MuscleModel3D = dynamic(() => import('./MuscleModel3D'))
 
 type Finding = AssessmentResultsPayload['findings'][number]
 type NumericFinding = Finding & { deviation: number; severity_pct: number; confidence: number }

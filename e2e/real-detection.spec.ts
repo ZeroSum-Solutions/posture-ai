@@ -49,8 +49,12 @@ test.describe('real pose detection through the wizard', () => {
     // AssessmentOnlyResults — its rows carry no data-testid, so count them by
     // heading block under the findings tab panel, same as
     // assessment-flow.spec.ts / capture-camera.spec.ts.
+    // Nine findings are persisted, but the engine caps pelvic axial rotation's
+    // confidence below the reliability floor (posture-engine metrics.ts), and
+    // the results page plots only numeric screening readings (see
+    // assessment-flow.spec.ts), so eight rows render.
     const findings = page.locator('#review-panel-findings [class*="findingHead"]')
-    await expect(findings).toHaveCount(9, { timeout: 15_000 })
+    await expect(findings).toHaveCount(8, { timeout: 15_000 })
 
     // Assert that no MediaPipe assets were fetched from a CDN — they must be self-hosted
     expect(cdnRequests, `CDN requests found: ${cdnRequests.join(', ')}`).toHaveLength(0)

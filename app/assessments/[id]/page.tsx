@@ -1,6 +1,6 @@
 import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import { hasCompleteClinicalSurfaces } from '@/lib/clinical-content/surfaces'
-import AssessmentOnlyResults from './AssessmentOnlyResults'
+import AssessmentOnlyResults from './LazyAssessmentOnlyResults'
 import ClinicalAssessmentResults from './ClinicalAssessmentResults'
 import { loadAssessmentResults } from './loadAssessmentResults'
 

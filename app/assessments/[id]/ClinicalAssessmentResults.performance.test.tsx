@@ -70,6 +70,13 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+// The report dock loads when its "Report, share & compare" disclosure first opens.
+async function openReportDock() {
+  const summary = screen.getByText('Report, share & compare')
+  if (!summary.closest('details')?.open) fireEvent.click(summary)
+  return screen.findByTestId('review-dock')
+}
+
 function assessmentResponseData({
   id = 'assessment-1',
   clientId = 'client-1',
@@ -234,6 +241,7 @@ describe('assessment results progressive rendering', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
     expect(screen.queryByText('Loading results...')).toBeNull()
+    await openReportDock()
     expect(screen.getByTestId('review-dock').getAttribute('data-comparison-count')).toBe('0')
 
     priorHistory.resolve(response({
@@ -343,6 +351,7 @@ describe('assessment results progressive rendering', () => {
       />,
     )
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
+    await openReportDock()
 
     rerender(
       <ComponentWithInitialData
@@ -403,6 +412,7 @@ describe('assessment results progressive rendering', () => {
         initialData={assessmentResponseData()}
       />,
     )
+    await openReportDock()
     await screen.findByRole('button', { name: 'Select first comparison' })
     fireEvent.click(screen.getByRole('button', { name: 'Select first comparison' }))
     fireEvent.click(screen.getByRole('button', { name: 'Load older report options' }))
@@ -506,6 +516,7 @@ describe('assessment results progressive rendering', () => {
         initialData={assessmentResponseData()}
       />,
     )
+    await openReportDock()
     await waitFor(() => {
       expect(screen.getByTestId('review-dock').getAttribute('data-comparison-count')).toBe('1')
     })
@@ -564,6 +575,7 @@ describe('assessment results progressive rendering', () => {
         initialData={assessmentResponseData()}
       />,
     )
+    await openReportDock()
     await screen.findByRole('button', { name: 'Load older report options' })
     fireEvent.click(screen.getByRole('button', { name: 'Load older report options' }))
 

@@ -12,14 +12,16 @@
  * sign-in.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
+import { assessPosture } from '@posture-ai/engine'
 import pg from 'pg'
 import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 
 import { activateLocalPractitionerAal2, provisionLocalInvitedPractitioner } from '../../e2e/helpers/practitioner-auth'
+import { buildCaptureRow } from '../../lib/captures/buildCaptureRow'
 import { buildFindingRow } from '../../lib/findings/buildFindingRow'
+import { syntheticScreeningFixtureFramesV1 } from '../../lib/training/screening/syntheticFixture'
 import { hashConsent } from '../../lib/consent/policy'
 import { snapshotLegalDocument } from '../../lib/legal/policy'
 import { resolveRuntimeLegalDocument } from '../../lib/legal/runtime'
@@ -343,7 +345,13 @@ async function insertAssessmentsAndFindings(
   clientId: string,
   recordCount: number,
 ) {
-  const engineResult = assessPosture(testLandmarksFrames)
+  // Score and persist the same four explicitly asserted capture groups that the
+  // test-mode fixture path in POST /api/assessments writes. ScreeningContextV1
+  // treats a finding without its required capture group as unavailable, and a
+  // scan with no available finding shows no grade, so assessments seeded without
+  // captures cannot render the results page this fixture exists to measure.
+  const frames = syntheticScreeningFixtureFramesV1()
+  const engineResult = assessPosture(frames)
   if (engineResult.findings.length === 0) throw new Error('Performance fixture engine produced no findings')
   const assessments = Array.from({ length: recordCount }, (_, index) => {
     const assessedAt = tiedTimestamp('2026-06-30T12:00:00.000Z', index, 5, 60_000)
@@ -384,6 +392,29 @@ async function insertAssessmentsAndFindings(
          level_verified boolean, capture_stability numeric, created_at timestamptz
        )`,
     [JSON.stringify(assessments)],
+  )
+
+  const captures = assessments.flatMap((assessment, assessmentIndex) => (
+    frames.map((frame, frameIndex) => ({
+      id: deterministicUuid(`${recordCount}:capture:${assessmentIndex}:${frameIndex}`),
+      ...buildCaptureRow(frame, assessment.id, practitionerId, { useFixture: true }),
+      created_at: assessment.created_at,
+    }))
+  ))
+  await pool.query(
+    `INSERT INTO public.captures (
+       id, assessment_id, practitioner_id, view, source, profile_side, pose_frame,
+       width_px, height_px, model_version, created_at
+     )
+     SELECT x.id, x.assessment_id, x.practitioner_id, x.view::public.view_enum,
+            x.source, x.profile_side, x.pose_frame, x.width_px, x.height_px,
+            x.model_version, x.created_at
+       FROM jsonb_to_recordset($1::jsonb) AS x(
+         id uuid, assessment_id uuid, practitioner_id uuid, view text, source text,
+         profile_side text, pose_frame jsonb, width_px integer, height_px integer,
+         model_version text, created_at timestamptz
+       )`,
+    [JSON.stringify(captures)],
   )
 
   const findings = assessments.flatMap((assessment, assessmentIndex) => (

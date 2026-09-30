@@ -23,8 +23,11 @@ test('saved evidence exposes a deferred 3D model with compact controls', async (
     await page.getByRole('button', { name: /Open interactive 3D anatomy/ }).click()
     const frame = page.frameLocator('iframe[title="Interactive 3D anatomy model"]')
     await expect(frame.getByRole('button', { name: 'Front', exact: true })).toBeVisible()
-    await expect(page.getByText('Loading interactive anatomy…', { exact: true })).not.toBeVisible()
-    await expect(frame.locator('[data-model-state="ready"]')).toBeVisible()
+    // The overlay clears only after the viewer reports model-ready, i.e. after
+    // the ~9 MB GLB is parsed and drawn through software WebGL. Give that the
+    // same bounded 25 s readiness window muscle-3d.spec.ts uses.
+    await expect(page.getByText('Loading interactive anatomy…', { exact: true })).not.toBeVisible({ timeout: 25_000 })
+    await expect(frame.locator('[data-model-state="ready"]')).toBeVisible({ timeout: 25_000 })
     await expect(frame.locator('canvas')).toBeVisible()
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 900 })

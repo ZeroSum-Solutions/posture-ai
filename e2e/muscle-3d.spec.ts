@@ -5,7 +5,7 @@ import { createClient, selectClientInWizard } from './helpers'
 // CSP AND that the assessment's referenced anatomy is highlighted — not just that headers look
 // right. Requires the muscle KB seed + the copied viewer build (public/muscle-viewer/**).
 test.describe('3D posture summary', () => {
-  test('mounts on click, frames under CSP, and colors the model from findings', async ({ page }) => {
+  test('mounts on click, frames under CSP, and colors the model from findings', async ({ page, isMobile }) => {
     test.setTimeout(150_000)
     // Track that the ~9 MB GLB is not fetched until the user opts in (click-only mount).
     let glbRequested = false
@@ -96,9 +96,14 @@ test.describe('3D posture summary', () => {
     await page.mouse.move(centerX + 90, centerY + 20, { steps: 12 })
     await page.mouse.up()
     await expect.poll(async () => beforeDrag.equals(await canvas.screenshot())).toBe(false)
-    const beforeZoom = await canvas.screenshot()
-    await page.mouse.wheel(0, -200)
-    await expect.poll(async () => beforeZoom.equals(await canvas.screenshot())).toBe(false)
+    // Playwright cannot dispatch wheel events in mobile WebKit ("Mouse wheel is
+    // not supported in mobile WebKit"), so wheel zoom is proven on the desktop
+    // projects only, as in muscle-viewer-controls.spec.ts.
+    if (!isMobile) {
+      const beforeZoom = await canvas.screenshot()
+      await page.mouse.wheel(0, -200)
+      await expect.poll(async () => beforeZoom.equals(await canvas.screenshot())).toBe(false)
+    }
 
     // Exercise the real model-load failure and host retry, rather than injecting a message.
     await page.route('**/muscle-viewer/model.glb', route => route.abort('failed'))

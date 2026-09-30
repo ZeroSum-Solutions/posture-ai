@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { provisionLocalAthlete } from './helpers/athlete-auth'
+import { restoreSharedPractitionerSession } from './helpers/shared-practitioner-session'
 import { totpCode } from '../scripts/testing/totp'
 
 const responsiveWidths = [320, 390, 768, 1280, 1440] as const
@@ -31,6 +32,14 @@ async function assertFitsViewport(page: Page, locatorName: string) {
   expect(bounds!.x).toBeGreaterThanOrEqual(0)
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width)
 }
+
+// This journey ends by signing the shared practitioner out from Settings and
+// signing in as another athlete in the same browser storage. The app's sign-out
+// is GLOBAL, so it revokes the session every later spec loads from
+// e2e/.auth/user.json; restore it afterwards (also on failure).
+test.afterEach(async ({ browser }, testInfo) => {
+  await restoreSharedPractitionerSession(browser, testInfo.project.use.baseURL)
+})
 
 test('builds, accepts, and records a private sample strength program through the original Workouts UI', async ({ page, browser }, testInfo) => {
   test.setTimeout(90_000)
@@ -144,9 +153,11 @@ test('builds, accepts, and records a private sample strength program through the
   await firstSet.getByRole('button', { name: 'Save set' }).click()
   await expect(page.getByText('1 pending change on this device.', { exact: true })).toBeVisible()
   await page.reload()
-  // A terminated document can retain its bounded 30-second drain lease.
+  // A terminated document can retain its bounded 30-second drain lease. The
+  // set reads as saved from the committed first write before the reloaded
+  // document may replay its queued envelope, so the queue gets the same window.
   await expect(firstSet.getByRole('button', { name: 'Set saved' })).toBeVisible({ timeout: 40_000 })
-  await expect(page.getByText('1 pending change on this device.', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('1 pending change on this device.', { exact: true })).toHaveCount(0, { timeout: 40_000 })
   expect(setWritePayloads).toHaveLength(2)
   expect(setWritePayloads[1]).toEqual(setWritePayloads[0])
   await page.unroute('**/api/training/sessions/*/sets/*')

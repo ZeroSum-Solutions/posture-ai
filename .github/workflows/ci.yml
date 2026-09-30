@@ -66,20 +66,26 @@ jobs:
       - name: Retain sanitized Playwright and Axe receipts
         uses: actions/upload-artifact@v4
         if: always()
+        # Non-fatal: no job or step downloads these artifacts, and the org's
+        # artifact storage quota is exhausted. Short retention limits storage use.
+        continue-on-error: true
         with:
           name: playwright-accessibility-receipts
           path: |
             test-results/playwright-results.json
             test-results/a11y-receipts/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
       - name: Calibration drift gate
         run: npm run calibrate:check
       - uses: actions/upload-artifact@v4
         if: failure()
+        # Non-fatal: no job or step downloads these artifacts, and the org's
+        # artifact storage quota is exhausted. Short retention limits storage use.
+        continue-on-error: true
         with:
           name: playwright-artifacts
           path: |
             playwright-report/
             test-results/
-          retention-days: 7
+          retention-days: 3

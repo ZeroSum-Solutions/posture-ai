@@ -228,12 +228,23 @@ test.describe('grade display contract', () => {
     await setStoredGrade(service, assessmentId, 14, 'D', '1.0.0')
 
     await page.goto(`/assessments/${assessmentId}`)
-    // GradeRail's screen-reader description is only mounted when the current
-    // scale applies (see expectRailDescription's doc comment); for a
-    // historical grade the grade/score/description contract is verified via
-    // ReviewDock instead, whose props do not depend on scaleApplies.
-    await expectDockGrade(page, { grade: 'D', score: 14, description: 'Recorded screening grade' })
-    await expect(page.getByText(/current grade scale is not applied/i)).toBeVisible()
+    // ScreeningContextV1 supports only the current engine version, so a scan
+    // from another engine is 'incompatible': the results route withholds its
+    // grade entirely rather than presenting it on any scale (see
+    // loadAssessmentResults.ts and ClinicalAssessmentResults.tsx).
+    await expect(page.getByRole('heading', { name: 'No current grade is available.', exact: true })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: /unsupported engine version/i })).toBeVisible()
+    await expect(page.getByText(/Deviation score 14 out of 100/)).toHaveCount(0)
+    await expect(page.getByText('Report, share & compare', { exact: true })).toHaveCount(0)
     await expect(page.getByText('Grade Reference')).toHaveCount(0)
+
+    // Withholding the grade from display never rewrites the stored record.
+    const { data, error } = await service
+      .from('assessments')
+      .select('overall_score, overall_grade, scoring_engine_version')
+      .eq('id', assessmentId)
+      .single()
+    expect(error).toBeNull()
+    expect(data).toEqual({ overall_score: 14, overall_grade: 'D', scoring_engine_version: '1.0.0' })
   })
 })

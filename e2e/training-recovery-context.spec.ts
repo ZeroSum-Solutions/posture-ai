@@ -16,12 +16,21 @@ async function expectResponsiveLayout(page: import('@playwright/test').Page) {
   }
 }
 
+// The practice sample is shared by every spec that opens it, and several save
+// (then restore) its profile, which advances the revision. Reopening the sample
+// reports a fixed profileRevision of 1, so build from the current revision.
+async function currentProfileRevision(request: APIRequestContext, subjectId: string): Promise<number> {
+  const profile = await responseBody(await request.get(`/api/training/profile?subjectId=${encodeURIComponent(subjectId)}`))
+  expect(Number.isInteger(profile.current.revision)).toBe(true)
+  return profile.current.revision
+}
+
 async function createCompletedExercise(request: APIRequestContext) {
   const setup = await responseBody(await request.post('/api/training/simulation/setup'))
   const build = await responseBody(await request.post('/api/training/programs/builds', {
     data: {
       subjectId: setup.subjectId,
-      profileRevision: setup.profileRevision,
+      profileRevision: await currentProfileRevision(request, setup.subjectId),
       cycleStartLocalDate: '2030-01-07',
     },
   }))
