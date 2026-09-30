@@ -120,7 +120,9 @@ test.describe('report approval gate', () => {
     expect((await crossClient.json()).error).toMatch(/same client/i)
   })
 
-  test('a cross-version client comparison is refused, never rendered as comparable', async ({ page }) => {
+  // The title is bound to the approved mobile-webkit skip in
+  // docs/qa/production-readiness-manifest.json; keep it stable.
+  test('a cross-version client comparison is flagged not-comparable', async ({ page }) => {
     const client = await createClient(page, 'E2E', `Version-${randomUUID().slice(0, 8)}`)
     const prior = await createCompleteAssessmentFor(page, client.id)
     const current = await createCompleteAssessmentFor(page, client.id)
