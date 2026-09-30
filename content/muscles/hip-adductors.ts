@@ -15,6 +15,7 @@ export const hipAdductors: MuscleContent = {
       imbalanceKey: 'pelvic_obliquity',
       role: 'tight',
       confidence: 'medium',
+      side: 'elevated',
       citation: 'Yen 2021 (Spine Deform 9:1259) — review: hip-adductor contracture drives infrapelvic obliquity; mechanistic evidence indirect, no healthy-adult kinematic study found.',
       rationale:
         'On the elevated (higher) side of the pelvis, the inner-thigh adductors sit shortened and tend to become overactive, helping draw that side of the pelvis upward and holding the obliquity in place alongside the same-side quadratus lumborum. Because they are short and overactive here, the elevated-side adductors generally benefit from release and length work rather than strengthening.',

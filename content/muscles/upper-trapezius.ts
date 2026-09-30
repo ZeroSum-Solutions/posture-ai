@@ -31,6 +31,7 @@ export const upperTrapezius: MuscleContent = {
       imbalanceKey: 'posterior_imbalanced_shoulders',
       role: 'tight',
       confidence: 'high',
+      side: 'elevated',
       citation: 'Mahmoud 2023 (systematic review) — upper-trapezius overactivity consistent across scapular-posture EMG studies.',
       rationale:
         'Posterior imbalanced shoulders involve a shoulder that sits elevated or hiked upward. The upper trapezius is a primary elevator of the shoulder blade, so chronic hiking, one-sided carrying, or guarding keeps these fibers shortened and overactive on the affected side. Sustained elevation is exactly what the upper trapezius produces, so reducing its tone helps the shoulder settle back toward a level resting height.',

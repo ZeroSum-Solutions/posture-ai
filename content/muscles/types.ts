@@ -108,6 +108,17 @@ export const muscleLinkSchema = z.object({
    * (e.g. "Kendall 2005 textbook inference") for low. Screening-gated.
    */
   citation: screeningText(8, 240).optional(),
+  /**
+   * Structured subject-side nuance for LATERAL findings only — the three keys whose
+   * direction is 'Level' | 'Left Low' | 'Right Low' (anterior_imbalanced_shoulders,
+   * posterior_imbalanced_shoulders, pelvic_obliquity). 'elevated' = this link applies to
+   * the side of the finding that sits higher; 'lowered' = the side that sits lower;
+   * 'both' or absent = bilateral (today's behavior; also the default for any other key).
+   * For the genu_varum_valgum_left / genu_varum_valgum_right keys the subject side comes
+   * from the key suffix itself, so this field is ignored there. Set ONLY when the link's
+   * own `rationale` prose explicitly states the side — never inferred.
+   */
+  side: z.enum(['elevated', 'lowered', 'both']).optional(),
 })
 
 export const muscleContentSchema = z.object({
