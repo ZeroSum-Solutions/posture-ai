@@ -39,6 +39,9 @@ jobs:
       - name: Retain raw measurements and validated receipts
         uses: actions/upload-artifact@v4
         if: always()
+        # Non-fatal: no job or step downloads these artifacts, and the org's
+        # artifact storage quota is exhausted. Short retention limits storage use.
+        continue-on-error: true
         with:
           name: performance-receipts-${{ github.sha }}
           path: |
@@ -52,4 +55,4 @@ jobs:
             test-results/performance/receipts.json
             test-results/performance/validation-result.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
