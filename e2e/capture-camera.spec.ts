@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { createClient, selectClientInWizard, dismissCaptureDisclaimer } from './helpers'
+import { countEvidenceFindings, createClient, selectClientInWizard, dismissCaptureDisclaimer } from './helpers'
 
 // Exercises the NEW full-screen camera-capture flow (shutter → review →
 // auto-advance, self-timer, retake) that the upload/error specs don't cover.
@@ -171,10 +171,9 @@ test.describe('full-screen camera capture', () => {
     await page.getByRole('button', { name: 'Analyze Posture' }).click()
 
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
-    await page.getByRole('tab', { name: /^Findings/ }).click()
-    // The clinical results page renders ReviewFindings, not
-    // AssessmentOnlyResults — its rows carry no data-testid, so count them by
-    // heading block under the findings tab panel, same as assessment-flow.spec.ts.
-    await expect(page.locator('#review-panel-findings [class*="findingHead"]')).toHaveCount(9, { timeout: 15_000 })
+    // The clinical results page lists findings under their capture view in
+    // Evidence (not AssessmentOnlyResults); count them across every view, same
+    // as assessment-flow.spec.ts.
+    await expect.poll(() => countEvidenceFindings(page), { timeout: 15_000 }).toBe(8)
   })
 })

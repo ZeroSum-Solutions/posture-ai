@@ -18,10 +18,10 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`1b2e913651f67eee88a09c8ef0bf95dfd326b464ed5df249a4f0042bb574071e`.
+`4868126bd71f72ccc138b718030234d36ad9d5197db73f7076fe570f77d19ab3`.
 
 Recommendation algorithm SHA-256:
-`c9f0702466ecbaa848fb45601ef954b84b48cc0fd42418478ace29f17351f745`.
+`088b9c80a95fdccf3919362d94e40e9827c9ae526ee9693811d08723d67f8c8c`.
 
 A second 2026-09-30 refresh binds the results-page redesign: the 3D posture map as the page
 hero (per-side tight/weak coloring labelled as a screening indication), findings that spotlight

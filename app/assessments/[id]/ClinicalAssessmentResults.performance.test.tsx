@@ -174,11 +174,12 @@ describe('assessment results progressive rendering', () => {
       initialData={data}
     />)
 
-    // The map is no longer inside the Evidence tab: the deep-link target is on the page itself
-    // (the browser's native anchor scroll lands on it) and the Findings tab stays selected.
+    // The map is the page's own hero (the browser's native anchor scroll lands on it); the tabs
+    // under it are Evidence (open on arrival) and Program — findings live on the map itself.
     const hero = await screen.findByRole('heading', { name: 'Posture map' })
     expect(hero.id).toBe('anatomy-viewer-title')
-    expect(screen.getByRole('tab', { name: /Findings/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: 'Evidence' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.queryByRole('tab', { name: /Findings/ })).toBeNull()
     const tabs = screen.getByRole('tablist')
     expect(hero.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -282,7 +283,8 @@ describe('assessment results progressive rendering', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
     expect(screen.getByText('Within-burst landmark consistency 98%')).toBeTruthy()
-    expect(screen.getByText(/Re-stance repeatability and clinical accuracy are not established/)).toBeTruthy()
+    // No disclaimer copy on the page: practitioners accept the screening notice at onboarding.
+    expect(screen.queryByText(/clinical accuracy are not established/)).toBeNull()
     expect(screen.queryByText(/Capture stability/)).toBeNull()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain('/api/assessments/assessment-1')

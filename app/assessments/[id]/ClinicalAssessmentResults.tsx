@@ -7,7 +7,6 @@ import PriorityProgram from './PriorityProgram'
 import ReviewDock from './ReviewDock'
 import GradeRail from './GradeRail'
 import ReviewEvidence from './ReviewEvidence'
-import ReviewFindings from './ReviewFindings'
 import { buildReviewModel } from './reviewModel'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
@@ -37,7 +36,6 @@ import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import { utcCalendarLabel } from '@/lib/time/calendar'
-import LegalNotice from '@/components/LegalNotice'
 import {
   canonicalizePostgresTimestamp,
   comparePostgresTimestamps,
@@ -233,6 +231,31 @@ export default function ClinicalAssessmentResults({
   const [spotlightKey, setSpotlightKey] = useState<string | null>(null)
   const [selectedMuscle, setSelectedMuscle] = useState<{ viewerId: string; side: BodySide | null } | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  // The header grade is a toggle: it opens the grade scale (score beside its range) under it.
+  const [gradeOpen, setGradeOpen] = useState(false)
+  const gradePanelRef = useRef<HTMLDivElement | null>(null)
+  const gradeChipRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (!gradeOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setGradeOpen(false) }
+    // A tap anywhere outside the dropdown (and its toggle) closes it.
+    const onPointer = (e: PointerEvent) => {
+      const target = e.target as Node
+      if (gradePanelRef.current?.contains(target) || gradeChipRef.current?.contains(target)) return
+      setGradeOpen(false)
+    }
+    // A tap on the 3D model lands in its iframe and never reaches this document, but it does
+    // move focus there — which blurs this window.
+    const onBlur = () => setGradeOpen(false)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('blur', onBlur)
+    document.addEventListener('pointerdown', onPointer)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('blur', onBlur)
+      document.removeEventListener('pointerdown', onPointer)
+    }
+  }, [gradeOpen])
   const heroRef = useRef<HTMLDivElement | null>(null)
   const [approving, setApproving] = useState(false)
   // Prior scans carry their score and findings so the grade rail can draw the
@@ -767,6 +790,8 @@ export default function ClinicalAssessmentResults({
     : null
 
   const descriptiveFindings = findings.filter(hasNumericScreeningValue)
+  // The capture view each finding was measured on; Evidence lists findings under their photo.
+  const viewByKey = Object.fromEntries(descriptiveFindings.map((f) => [f.imbalance_key, f.view_used]))
   const reviewModel = buildReviewModel({
     assessment: {
       overall_score: score,
@@ -815,7 +840,7 @@ export default function ClinicalAssessmentResults({
     setDetailsOpen(false)
     setSpotlightKey(key)
   }
-  // From the Findings tab list: spotlight, then bring the whole map (and its dock) into view.
+  // From a finding row in Evidence: spotlight, then bring the whole map into view.
   const spotlightFromList = (key: string) => {
     spotlightFinding(spotlightKey === key ? null : key)
     const rect = heroRef.current?.getBoundingClientRect()
@@ -835,11 +860,23 @@ export default function ClinicalAssessmentResults({
           <Icon name="alt-arrow-left-linear" size={18} />
           {clientName}
         </Link>
-        {/* The grade, compactly: the map is the page. The full rail lives under "Score details". */}
-        <h1 className={styles.gradeChip}>
-          Grade <strong style={{ color: tone(reviewModel.rail.band) }}>{grade}</strong>
-          <span className={styles.gradeScore}> · {score}/100</span>
-          <span className="sr-only">. {reviewModel.verdict.headline.lead} {reviewModel.verdict.headline.tail ?? ''}</span>
+        {/* The grade, compactly: the map is the page. Tapping it opens the grade scale below. */}
+        <h1 className={styles.gradeHeading}>
+          <button
+            ref={gradeChipRef}
+            type="button"
+            className={styles.gradeChip}
+            aria-expanded={gradeOpen}
+            aria-controls="grade-scale"
+            onClick={() => setGradeOpen((open) => !open)}
+          >
+            Grade <strong style={{ color: tone(reviewModel.rail.band) }}>{grade}</strong>
+            <span className={styles.gradeScore}> · {score}/100</span>
+            <span className="sr-only">. {reviewModel.verdict.headline.lead} {reviewModel.verdict.headline.tail ?? ''}</span>
+            <span className={`${styles.gradeCaret} ${gradeOpen ? styles.gradeCaretOpen : ''}`} aria-hidden="true">
+              <Icon name="alt-arrow-right-linear" size={12} />
+            </span>
+          </button>
         </h1>
         {typeof assessment.level_verified === 'boolean' && (
           <span
@@ -856,10 +893,16 @@ export default function ClinicalAssessmentResults({
               : 'Camera level not verified'}
           </span>
         )}
+        {/* A dropdown over the page, under the header. Always mounted (so its screen-reader
+            summary is there); shown while the grade is open. */}
+        <div id="grade-scale" ref={gradePanelRef} className={styles.gradePanel} hidden={!gradeOpen}>
+          <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
+          <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
+        </div>
       </div>
 
       {descriptiveFindings.length > 0 && (
-        <div ref={heroRef} className="app-screen-x" style={{ scrollMarginTop: 12 }}>
+        <div ref={heroRef} className={`app-screen-x ${styles.heroWrap}`}>
           <MuscleModel3D
             findings={descriptiveFindings}
             findingOptions={findingOptions}
@@ -887,43 +930,23 @@ export default function ClinicalAssessmentResults({
         ))}
 
         <ReviewWorkspace
-          findingsCount={findings.length}
           programCount={program.priorities.length}
-          findingsPanel={(
+          evidencePanel={(
             <div className="app-stack">
-              <ReviewFindings
+              <ReviewEvidence
                 rows={reviewModel.rows}
+                viewByKey={viewByKey}
+                captures={captures}
+                levelVerified={assessment.level_verified}
                 activeKey={spotlightKey}
                 onSpotlight={descriptiveFindings.length > 0 ? spotlightFromList : undefined}
               />
-              {reviewModel.counts.unreliable > 0 && (
-                <p className={styles.scanCaption} style={{ borderTop: 0, paddingTop: 0 }}>
-                  {reviewModel.counts.unreliable === 1
-                    ? 'One reading was not usable and is listed last. Re-capture that view to score it.'
-                    : `${reviewModel.counts.unreliable} readings were not usable and are listed last. Re-capture those views to score them.`}
-                </p>
-              )}
               <details className={styles.disclosure}>
                 <summary className={styles.disclosureSummary}>Accuracy &amp; methodology</summary>
                 <div className={styles.disclosureBody}>
                   <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
                 </div>
               </details>
-              <details data-testid="disclaimer" className={styles.disclosure}>
-                <summary className={styles.disclosureSummary}>Screening notice</summary>
-                <div className={styles.disclosureBody}>
-                  <LegalNotice kind="screening_notice" compact />
-                </div>
-              </details>
-            </div>
-          )}
-          evidencePanel={(
-            <div className="app-stack">
-              <ReviewEvidence
-                findings={descriptiveFindings}
-                captures={captures}
-                levelVerified={assessment.level_verified}
-              />
             </div>
           )}
           programPanel={(
@@ -1018,14 +1041,6 @@ export default function ClinicalAssessmentResults({
             the secondary report, share and compare controls plus the dock's own
             redundant approve. Anything driving this dock -- e2e specs, the
             performance journey -- has to open the disclosure first. */}
-        <details className={styles.disclosure}>
-          <summary className={styles.disclosureSummary}>Score details</summary>
-          <div className={styles.disclosureBody}>
-            <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
-            <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
-          </div>
-        </details>
-
         <details className={styles.disclosure}>
           <summary className={styles.disclosureSummary}>Report, share &amp; compare</summary>
           <div className={styles.disclosureBody}>
@@ -1122,29 +1137,25 @@ export default function ClinicalAssessmentResults({
 }
 
 /**
- * Findings, Evidence and Program. Evidence and Program mount after the selected
- * panel has painted: the point-scan canvas and the program's override controls are
- * the two heaviest things on this route, and neither should compete with the first
- * interaction on a throttled device.
+ * Evidence and Program; the findings themselves live on the posture map above. Evidence (the
+ * capture set and each view's findings) is open on arrival. Program mounts after it has been
+ * selected and painted: its override controls are the heaviest thing on this route and should
+ * not compete with the first interaction on a throttled device.
  */
-type ReviewPanel = 'findings' | 'evidence' | 'program'
+type ReviewPanel = 'evidence' | 'program'
 
 function ReviewWorkspace({
-  findingsCount,
   programCount,
-  findingsPanel,
   evidencePanel,
   programPanel,
 }: {
-  findingsCount: number
   programCount: number
-  findingsPanel: ReactNode
   evidencePanel: ReactNode
   programPanel: ReactNode
 }) {
-  const [active, setActive] = useState<ReviewPanel>('findings')
+  const [active, setActive] = useState<ReviewPanel>('evidence')
   const [mounted, setMounted] = useState<ReadonlySet<ReviewPanel>>(
-    () => new Set<ReviewPanel>(['findings']),
+    () => new Set<ReviewPanel>(['evidence']),
   )
   useEffect(() => {
     if (mounted.has(active)) return
@@ -1170,7 +1181,6 @@ function ReviewWorkspace({
       <TabStrip
         idBase={REVIEW_TAB_BASE}
         options={[
-          { value: 'findings', label: `Findings${findingsCount > 0 ? ` ${findingsCount}` : ''}` },
           { value: 'evidence', label: 'Evidence' },
           { value: 'program', label: `Program${programCount > 0 ? ` ${programCount}` : ''}` },
         ]}
@@ -1180,13 +1190,8 @@ function ReviewWorkspace({
       />
 
       <div className={styles.workspaceStage}>
-        <div {...tabPanelProps(REVIEW_TAB_BASE, 'findings', active === 'findings')} className={panelClass('findings')}>
-          {findingsPanel}
-        </div>
         <div {...tabPanelProps(REVIEW_TAB_BASE, 'evidence', active === 'evidence')} className={panelClass('evidence')}>
-          {mounted.has('evidence')
-            ? evidencePanel
-            : <div className={styles.loadingPanel} role="status">Preparing evidence…</div>}
+          {evidencePanel}
         </div>
         <div {...tabPanelProps(REVIEW_TAB_BASE, 'program', active === 'program')} className={panelClass('program')}>
           {mounted.has('program')
@@ -1198,8 +1203,7 @@ function ReviewWorkspace({
   )
 }
 
-// Per-finding stability, angle uncertainty, capture/level status, and the
-// 2D monocular limits are shown together here.
+// Per-finding stability, angle uncertainty and capture/level status, together.
 function AccuracyCard({ assessment, findings }: { assessment: Assessment; findings: Finding[] }) {
   const withStability = findings.filter(
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
@@ -1215,9 +1219,6 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
   return (
     <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--hairline)' }}>
       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h3>
-      <p style={{ color: 'var(--text-tertiary)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0 0 16px' }}>
-        An image-based <strong style={{ color: 'var(--text-secondary)' }}>2D screening</strong> — no depth, so monocular parallax and camera tilt can affect angles. Within-burst consistency describes repeated processing inside one capture burst. Re-stance repeatability and clinical accuracy are not established.
-      </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
         {pill(assessment.level_verified === true ? 'maintain' : 'monitor', assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
         {assessment.tilt_corrected ? pill('maintain', 'Tilt-corrected') : null}

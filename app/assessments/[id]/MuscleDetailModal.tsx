@@ -291,10 +291,11 @@ export default function MuscleDetailModal({
               </section>
             )}
 
-            <footer className={styles.footer}>
-              <p>Screening indication, not a diagnosis. Confirm with hands-on testing before prescribing.</p>
-              {detail && <Link href={`/muscles/${detail.muscle.slug}`}>Full muscle page</Link>}
-            </footer>
+            {detail && (
+              <footer className={styles.footer}>
+                <Link href={`/muscles/${detail.muscle.slug}`}>Full muscle page</Link>
+              </footer>
+            )}
           </div>
         </div>
       </Surface>

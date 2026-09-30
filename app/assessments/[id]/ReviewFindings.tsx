@@ -7,9 +7,10 @@ import styles from './AssessmentReview.module.css'
 
 /**
  * One row per finding: name, zone, recorded measurement, its movement since the
- * last scan, and a banded range bar carrying the reference tick. Tapping a finding
- * that involves muscles spotlights them on the 3D posture map (no expanding card):
- * the page scrolls the map into view and lists the muscles as chips there.
+ * last scan, and a banded range bar carrying the reference tick. The Evidence tab
+ * lists them under the capture view they were measured on. Tapping a finding that
+ * involves muscles spotlights them on the 3D posture map (no expanding card) and
+ * scrolls the map into view.
  *
  * The bar's band stops and the tick come from the engine's severity ramp, so the
  * value dot lands in the band the row's zone label names. An unusable reading
@@ -55,6 +56,7 @@ export default function ReviewFindings({
   onOverride,
   activeKey = null,
   onSpotlight,
+  emptyText = 'No findings were recorded for this screening.',
 }: {
   rows: readonly ReviewFindingRow[]
   /** Opens the practitioner's override for this finding, when overrides exist. */
@@ -63,11 +65,13 @@ export default function ReviewFindings({
   activeKey?: string | null
   /** Spotlight (or clear, when already active) a finding's muscles on the 3D map. */
   onSpotlight?: (key: string) => void
+  /** What to say when there are no rows. */
+  emptyText?: string
 }) {
   if (rows.length === 0) {
     return (
       <Surface tier="tile">
-        <p className="t-body">No findings were recorded for this screening.</p>
+        <p className="t-body">{emptyText}</p>
       </Surface>
     )
   }

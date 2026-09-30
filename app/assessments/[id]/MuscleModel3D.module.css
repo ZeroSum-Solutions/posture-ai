@@ -165,7 +165,18 @@
 .xray input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 999px; background: #fff; }
 .xray input:disabled { opacity: 0.4; cursor: default; }
 
-.readout { display: grid; min-height: 52px; }
+.readout { position: relative; display: grid; min-height: 52px; }
+
+/* A picked muscle or finding: its card pops over the key/hint text in the same slot. */
+.readout > .overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #111317;
+  animation: readoutIn 200ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+@keyframes readoutIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .readout > .overlay { animation: none; } }
 
 /* Nothing selected: the tight/weak key and how to use the rails. */
 .idle {

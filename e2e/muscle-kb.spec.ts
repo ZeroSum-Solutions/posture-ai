@@ -41,7 +41,7 @@ test.describe('muscle knowledge base', () => {
     await expect(dialog).toBeVisible({ timeout: 10_000 })
     await expect(dialog.getByText('What this scan found')).toBeVisible()
     await expect(dialog.getByText('Anatomy', { exact: true })).toBeVisible({ timeout: 10_000 })
-    await expect(dialog.getByText(/Screening indication, not a diagnosis/)).toBeVisible()
+    await expect(dialog.getByText(/not a diagnosis/)).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('muscle-modal.png') })
     expect(page.url()).toMatch(/\/assessments\/[0-9a-f-]{36}$/)
 

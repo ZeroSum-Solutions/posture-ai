@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import path from 'node:path'
-import { createClient, selectClientInWizard, dismissCaptureDisclaimer, setCaptureUpload } from './helpers'
+import { countEvidenceFindings, createClient, selectClientInWizard, dismissCaptureDisclaimer, setCaptureUpload } from './helpers'
 
 // Uploads real standing-posture photos through the actual detectPose path
 // (MediaPipe WASM in the browser) — no test mode. Chromium-only via project
@@ -44,13 +44,10 @@ test.describe('real pose detection through the wizard', () => {
     // detectPose runs per view at submit (model download + WASM init on first call).
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 240_000 })
 
-    await page.getByRole('tab', { name: /^Findings/ }).click()
-    // The clinical results page renders ReviewFindings, not
-    // AssessmentOnlyResults — its rows carry no data-testid, so count them by
-    // heading block under the findings tab panel, same as
-    // assessment-flow.spec.ts / capture-camera.spec.ts.
-    const findings = page.locator('#review-panel-findings [class*="findingHead"]')
-    await expect(findings).toHaveCount(9, { timeout: 15_000 })
+    // The clinical results page lists findings under their capture view in
+    // Evidence (not AssessmentOnlyResults); count them across every view, same
+    // as assessment-flow.spec.ts / capture-camera.spec.ts.
+    await expect.poll(() => countEvidenceFindings(page), { timeout: 15_000 }).toBe(8)
 
     // Assert that no MediaPipe assets were fetched from a CDN — they must be self-hosted
     expect(cdnRequests, `CDN requests found: ${cdnRequests.join(', ')}`).toHaveLength(0)

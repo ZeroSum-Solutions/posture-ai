@@ -50,7 +50,7 @@ afterEach(() => {
 })
 
 describe('MuscleModel3D (posture map workspace)', () => {
-  it('keeps the model uncovered: one box under it holds the readout, controls and credit', () => {
+  it('keeps the model uncovered: one box under it holds the controls, readout and credit', () => {
     render(<MuscleModel3D findings={findings} findingOptions={options} />)
     const frame = frameEl()
     expect(frame.getAttribute('src')).toBe('/muscle-viewer/index.html?embed=1&legend=0&card=0&controls=0')
@@ -59,10 +59,10 @@ describe('MuscleModel3D (posture map workspace)', () => {
     expect(frame.parentElement!.contains(toolbar)).toBe(false)
     expect(frame.parentElement!.contains(hint)).toBe(false)
     const credit = screen.getByText(/BodyParts3D, © The Database Center for Life Science — CC BY-SA 2\.1 JP/)
-    // Document order: the model, then the readout, the controls, and the credit last.
-    expect(frame.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(hint.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(toolbar.compareDocumentPosition(credit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Document order: the model, then the controls, the readout, and the credit last.
+    expect(frame.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(toolbar.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(hint.compareDocumentPosition(credit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // The viewer's edge rails do the picking; the page draws no finding or muscle pills.
     expect(screen.queryByRole('group', { name: 'Findings' })).toBeNull()
     expect(screen.queryByTestId(/^map-finding-/)).toBeNull()
@@ -139,6 +139,8 @@ describe('MuscleModel3D (posture map workspace)', () => {
     expect(bar.textContent).toContain('Gluteus medius')
     expect(bar.textContent).toContain('Right weak, left tight')
     expect(screen.queryByRole('status', { name: 'Spotlighted finding' })).toBeNull()
+    // The card pops over the key/hint text, which is hidden from assistive tech meanwhile.
+    expect(screen.getByLabelText('3D model legend').closest('[aria-hidden="true"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(onOpenDetails).toHaveBeenCalledWith('gluteus_medius')
     fireEvent.click(screen.getByRole('button', { name: 'Clear muscle selection' }))
