@@ -163,7 +163,7 @@ export default function MuscleModel3D({
 
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin || event.source !== iframeRef.current?.contentWindow) return
-      const data = event.data as { source?: string; type?: string; muscle?: unknown; side?: unknown } | null
+      const data = event.data as { source?: string; type?: string; muscle?: unknown; side?: unknown; origin?: unknown } | null
       if (!data || data.source !== 'muscle-viewer') return
       if (data.type === 'ready') {
         stopPing()
@@ -179,6 +179,9 @@ export default function MuscleModel3D({
         window.clearTimeout(timeout)
         setStatus('unavailable')
       } else if (data.type === 'selection') {
+        // Only the practitioner's own picks in the viewer drive the page; selections the viewer
+        // makes in response to this page's commands must not echo back (e.g. close the modal).
+        if (data.origin === 'host') return
         const muscle = typeof data.muscle === 'string' ? data.muscle : null
         const side = data.side === 'left' || data.side === 'right' ? data.side : null
         viewerSelectionRef.current = muscle
@@ -244,13 +247,6 @@ export default function MuscleModel3D({
           />
         ) : null}
 
-        {!referenceOnly && (
-          <div className={styles.legend} aria-label="3D model legend">
-            <span><i style={{ background: 'var(--review)' }} aria-hidden />Tight</span>
-            <span><i style={{ background: 'var(--info)' }} aria-hidden />Weak</span>
-          </div>
-        )}
-
         {!mounted && (
           <button type="button" onClick={load} className={styles.launchButton}>
             <span className={styles.glyph} aria-hidden><AnatomyGlyph size={54} /></span>
@@ -297,6 +293,13 @@ export default function MuscleModel3D({
         )}
       </div>
 
+      {!referenceOnly && (
+        <div className={styles.legend} aria-label="3D model legend">
+          <span><i style={{ background: 'var(--review)' }} aria-hidden />Tight</span>
+          <span><i style={{ background: 'var(--info)' }} aria-hidden />Weak</span>
+          <span className={styles.legendNote}>shaded by severity</span>
+        </div>
+      )}
       <p className={styles.boundary}>
         {referenceOnly
           ? 'A general anatomy illustration, not a reconstruction of the captured person.'

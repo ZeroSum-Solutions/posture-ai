@@ -5,7 +5,7 @@ import { createClient } from './helpers'
 test('results hero mounts the 3D posture map with overlay controls at phone and desktop widths', async ({ page }, testInfo) => {
   // CI renders the full GLB through software WebGL, then exercises two viewports.
   // Keep each readiness assertion bounded while allowing the whole journey to finish.
-  test.setTimeout(60_000)
+  test.setTimeout(120_000)
   const hydrationErrors: string[] = []
   page.on('pageerror', error => {
     if (/hydration|hydrating|server rendered/i.test(error.message)) hydrationErrors.push(error.message)

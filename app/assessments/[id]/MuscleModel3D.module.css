@@ -18,23 +18,19 @@
 
 .iframe { display: block; width: 100%; height: 100%; border: 0; }
 
+/* Legend sits under the frame so it never competes with the viewer's own controls. */
 .legend {
-  position: absolute;
-  top: 14px;
-  left: 14px;
   display: flex;
-  gap: 12px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(24px);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 0 4px;
   color: var(--text-secondary);
   font-size: 11px;
-  pointer-events: none;
 }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 8px; height: 8px; border-radius: 999px; box-shadow: 0 0 10px currentColor; }
+.legend i { width: 8px; height: 8px; border-radius: 999px; }
+.legendNote { color: var(--text-tertiary); }
 
 .launchButton {
   position: absolute;

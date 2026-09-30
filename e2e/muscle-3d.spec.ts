@@ -5,7 +5,7 @@ import { createClient, selectClientInWizard } from './helpers'
 // CSP AND that the assessment's referenced anatomy is highlighted — not just that headers look
 // right. Requires the muscle KB seed + the copied viewer build (public/muscle-viewer/**).
 test.describe('3D posture summary', () => {
-  test('mounts as the page hero, frames under CSP, and paints tight/weak from findings', async ({ page }) => {
+  test('mounts as the page hero, frames under CSP, and paints tight/weak from findings', async ({ page, isMobile }) => {
     test.setTimeout(150_000)
     // A blocked frame surfaces a CSP console error; collect any to assert none fired.
     const cspErrors: string[] = []
@@ -72,6 +72,9 @@ test.describe('3D posture summary', () => {
     await frame!.getByRole('button', { name: /Reset/ }).click()
     await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
 
+    // CI rasterizes WebGL in software (SwiftShader); the glass scene takes ~1 s per frame there,
+    // so give each visual change a generous window and keep the drag to a few steps.
+    const RENDER_WINDOW = { timeout: 30_000 }
     const beforeDrag = await canvas.screenshot()
     const canvasBounds = await canvas.boundingBox()
     expect(canvasBounds).not.toBeNull()
@@ -79,12 +82,15 @@ test.describe('3D posture summary', () => {
     const centerY = canvasBounds!.y + canvasBounds!.height / 2
     await page.mouse.move(centerX, centerY)
     await page.mouse.down()
-    await page.mouse.move(centerX + 90, centerY + 20, { steps: 12 })
+    await page.mouse.move(centerX + 90, centerY + 20, { steps: 4 })
     await page.mouse.up()
-    await expect.poll(async () => beforeDrag.equals(await canvas.screenshot())).toBe(false)
-    const beforeZoom = await canvas.screenshot()
-    await page.mouse.wheel(0, -200)
-    await expect.poll(async () => beforeZoom.equals(await canvas.screenshot())).toBe(false)
+    await expect.poll(async () => beforeDrag.equals(await canvas.screenshot()), RENDER_WINDOW).toBe(false)
+    // Wheel zoom is a desktop gesture (mobile WebKit has no wheel; phones pinch).
+    if (!isMobile) {
+      const beforeZoom = await canvas.screenshot()
+      await page.mouse.wheel(0, -200)
+      await expect.poll(async () => beforeZoom.equals(await canvas.screenshot()), RENDER_WINDOW).toBe(false)
+    }
 
     // Exercise the real model-load failure and host retry, rather than injecting a message.
     await page.route('**/muscle-viewer/model.glb', route => route.abort('failed'))

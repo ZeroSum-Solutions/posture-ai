@@ -119,8 +119,12 @@ describe('MuscleModel3D (hero posture map)', () => {
     const onSelectMuscle = vi.fn()
     const { rerender } = render(<MuscleModel3D findings={findings} onSelectMuscle={onSelectMuscle} />)
     const frame = mountedFrame()
-    viewerSays(frame, { type: 'selection', muscle: 'gluteus_medius', side: 'right' })
+    viewerSays(frame, { type: 'selection', muscle: 'gluteus_medius', side: 'right', origin: 'user' })
     expect(onSelectMuscle).toHaveBeenCalledWith('gluteus_medius', 'right')
+    // Echoes of this page's own commands never drive it.
+    onSelectMuscle.mockClear()
+    viewerSays(frame, { type: 'selection', muscle: null, side: null, origin: 'host' })
+    expect(onSelectMuscle).not.toHaveBeenCalled()
 
     const post = vi.spyOn(frame.contentWindow!, 'postMessage')
     act(() => {

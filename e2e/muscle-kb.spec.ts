@@ -4,7 +4,7 @@ import { createClient, selectClientInWizard } from './helpers'
 // Findings -> muscle page -> exercises navigation (muscle knowledge base).
 // Requires the muscle KB seed migration to be applied to the e2e database.
 test.describe('muscle knowledge base', () => {
-  test('a finding spotlights its muscles; a muscle opens its detail, then the full page', async ({ page }) => {
+  test('a finding spotlights its muscles; a muscle opens its detail, then the full page', async ({ page }, testInfo) => {
     const stamp = Date.now().toString().slice(-7)
     await createClient(page, 'E2E', `Kb${stamp}`)
 
@@ -30,6 +30,7 @@ test.describe('muscle knowledge base', () => {
     await expect(dialog.getByText('What this scan found')).toBeVisible()
     await expect(dialog.getByText('Anatomy', { exact: true })).toBeVisible({ timeout: 10_000 })
     await expect(dialog.getByText(/Screening indication, not a diagnosis/)).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('muscle-modal.png') })
     expect(page.url()).toMatch(/\/assessments\/[0-9a-f-]{36}$/)
 
     // The full muscle page stays one tap away and still carries rationale + exercises.

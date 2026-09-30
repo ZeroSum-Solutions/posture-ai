@@ -804,9 +804,13 @@ export default function ClinicalAssessmentResults({
   const toggleSpotlight = (key: string) => {
     setOpenMuscle(null)
     setSpotlightKey((current) => (current === key ? null : key))
-    // Bring the map into view: the finding list sits below it.
-    const top = heroRef.current?.getBoundingClientRect().top
-    if (top != null && top < 0) heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Bring the whole map into view: the finding list sits below it, and the spotlight's muscle
+    // chips live at the bottom of the frame.
+    const rect = heroRef.current?.getBoundingClientRect()
+    if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      heroRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    }
   }
   const selectMuscle = (viewerId: string | null, side: BodySide | null) =>
     setOpenMuscle(viewerId ? { viewerId, side } : null)

@@ -8,6 +8,7 @@
  */
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Surface } from '@/components/array/Surface'
 import { Chip } from '@/components/array/Chip'
 import type { ClinicalProgramReport } from '@/lib/program/clinicalProjection'
@@ -152,11 +153,17 @@ export default function MuscleDetailModal({
   const rationaleFor = (key: string) =>
     detail?.links.filter((l) => l.imbalance_key === key).map((l) => l.rationale) ?? []
 
-  return (
+  // Portaled to <body>: the results page lives inside the app shell's stacking context, under
+  // the floating island nav, and a modal must sit above every page chrome.
+  return createPortal(
     <>
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-        <Surface tier="feature" className={styles.surface} innerStyle={{ maxHeight: '86svh', overflowY: 'auto' }}>
+        <Surface
+          tier="feature"
+          className={styles.surface}
+          innerStyle={{ maxHeight: '86svh', overflowY: 'auto', background: 'rgba(6, 8, 12, 0.94)' }}
+        >
           <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="muscle-detail-title">
             <header className={styles.header}>
               <div>
@@ -254,6 +261,7 @@ export default function MuscleDetailModal({
     </div>
     {/* A sibling, not a child: its own backdrop click must not bubble into this one. */}
     {exercise && <ExerciseDetailSheet slug={exercise.slug} name={exercise.name} onClose={() => setExercise(null)} />}
-    </>
+    </>,
+    document.body,
   )
 }
