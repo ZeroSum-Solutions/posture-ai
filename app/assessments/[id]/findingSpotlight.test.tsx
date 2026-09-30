@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
-// The muscle map's own rendering is irrelevant to the disclosure's semantics.
-vi.mock('./MuscleBodyMap', () => ({ default: () => null }))
 
 import { canonicalAssessmentTimestamp } from './ClinicalAssessmentResults'
 import ReviewFindings from './ReviewFindings'
@@ -39,30 +37,29 @@ function rows() {
   }).rows
 }
 
-describe('finding muscle-analysis disclosure', () => {
-  it('exposes its expanded state to assistive technology (WCAG 4.1.2)', () => {
-    render(<ReviewFindings rows={rows()} />)
-    // A native details/summary reports expanded state on its own, so there is no
-    // hand-maintained aria-expanded to drift out of step with the panel.
-    const summary = screen.getByText('Muscle Analysis')
-    expect(summary.tagName).toBe('SUMMARY')
-    const details = summary.closest('details')
-    expect(details).toBeTruthy()
-    expect(details!.open).toBe(false)
+describe('finding spotlight (3D posture map)', () => {
+  it('makes a finding with muscles a toggle button that spotlights it', () => {
+    const onSpotlight = vi.fn()
+    render(<ReviewFindings rows={rows()} onSpotlight={onSpotlight} />)
+    const button = screen.getByRole('button', { name: /Trunk Lean/ })
+    expect(button.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(button)
+    expect(onSpotlight).toHaveBeenCalledWith('trunk_lean')
   })
 
-  it('omits the disclosure when a finding has no muscle links and no causes', () => {
-    const bare = rows().map(row => ({
-      ...row, causes: null, tightMuscles: [], weakMuscles: [], tightLinks: [], weakLinks: [],
-    }))
-    render(<ReviewFindings rows={bare} />)
+  it('reports the active finding as pressed (WCAG 4.1.2) and no longer expands a card', () => {
+    render(<ReviewFindings rows={rows()} onSpotlight={() => {}} activeKey="trunk_lean" />)
+    expect(screen.getByRole('button', { name: /Trunk Lean/ }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.queryByText('Muscle Analysis')).toBeNull()
   })
 
-  it('draws no range bar for an unusable reading', () => {
-    const unusable = rows().map(row => ({ ...row, reliable: false }))
-    const { container } = render(<ReviewFindings rows={unusable} />)
-    expect(container.textContent).toContain('Reading not usable')
+  it('is not a button when a finding has no muscle links', () => {
+    const bare = rows().map(row => ({
+      ...row, causes: null, tightMuscles: [], weakMuscles: [], tightLinks: [], weakLinks: [],
+    }))
+    render(<ReviewFindings rows={bare} onSpotlight={() => {}} />)
+    expect(screen.queryByRole('button', { name: /Trunk Lean/ })).toBeNull()
+    expect(screen.getByText('Trunk Lean')).toBeTruthy()
   })
 })
 

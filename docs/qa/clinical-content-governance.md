@@ -18,12 +18,20 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`46c18777722caa03002521743a7c99ff8c5a25bf068e299e14172958a71c29cd`.
+`c797bcf52fc82ba9d95358ef08ddb2dd808572b430d95dae8a55fb9485b84bf6`.
 
 Recommendation algorithm SHA-256:
-`e11c98e525c90d728b220bc59e9da5eedbd7a60b880ca8497b7edc22b867f39e`.
+`84b22e3a9cfb5d4befdb5f94a9e8fb47c7f67792da06bc2bd39e2a7274dee87c`.
 
-The 2026-09-30 refresh binds structured left/right laterality on muscle links
+A second 2026-09-30 refresh binds the results-page redesign: the 3D posture map as the page
+hero (per-side tight/weak coloring labelled as a screening indication), findings that spotlight
+their muscles on it, and a muscle detail modal that reads the approved muscle, link, and
+exercise-muscle catalog through a new practitioner-gated route
+(`/api/clinical-content/muscles/[slug]`, same gates as the `/muscles/[slug]` page). No
+authored clinical content changed. Local QA fixture hashes were synchronized; no clinical
+review or production activation is implied.
+
+The first 2026-09-30 refresh binds structured left/right laterality on muscle links
 (`side: elevated | lowered` on six pelvic-obliquity and posterior-shoulder links, set only
 where each link's authored rationale states the side) and the per-side 3D-map adapter.
 Six link items, their five parent muscles, and the recommendation-engine fingerprint

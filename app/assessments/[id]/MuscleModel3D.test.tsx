@@ -1,118 +1,141 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import MuscleModel3D, { toNeutralViewerEntries } from './MuscleModel3D'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import MuscleModel3D from './MuscleModel3D'
+import type { AssessmentFinding } from './findingsToMuscleStates'
 
-afterEach(cleanup)
+const findings: AssessmentFinding[] = [
+  {
+    zone: 'warning',
+    severity_pct: 72,
+    imbalance_key: 'forward_head_posture',
+    tight_muscle_links: [{ slug: 'suboccipitals', name: 'Suboccipitals', confidence: 'high' }],
+    weak_muscle_links: [{ slug: 'deep-cervical-flexors', name: 'Deep cervical flexors', confidence: 'high' }],
+  },
+  {
+    zone: 'warning',
+    severity_pct: 60,
+    imbalance_key: 'pelvic_obliquity',
+    direction: 'Left Low',
+    weak_muscle_links: [{ slug: 'gluteus-medius', name: 'Gluteus medius', side: 'elevated' }],
+    tight_muscle_links: [{ slug: 'gluteus-medius', name: 'Gluteus medius', side: 'lowered' }],
+  },
+]
 
-describe('toNeutralViewerEntries', () => {
-  it('drops historical condition roles and emits the same neutral bilateral references', () => {
-    const tight = toNeutralViewerEntries([{ slug: 'hamstrings', role: 'tight', severity: 90 }])
-    const weak = toNeutralViewerEntries([{ slug: 'hamstrings', role: 'weak', severity: 10 }])
+function viewerSays(frame: HTMLIFrameElement, data: Record<string, unknown>) {
+  fireEvent(window, new MessageEvent('message', {
+    data: { source: 'muscle-viewer', ...data },
+    origin: window.location.origin,
+    source: frame.contentWindow,
+  }))
+}
 
-    expect(tight).toEqual(weak)
-    expect(tight).toEqual([
-      { muscle: 'hamstrings', side: 'left', color: 'amber', intensity: 2 },
-      { muscle: 'hamstrings', side: 'right', color: 'amber', intensity: 2 },
-    ])
+function mountedFrame() {
+  return screen.getByTitle('Interactive 3D anatomy model') as HTMLIFrameElement
+}
+
+beforeEach(() => {
+  // Run the idle-time mount immediately.
+  vi.stubGlobal('requestIdleCallback', (cb: () => void) => {
+    cb()
+    return 1
   })
-
-  it('keeps an asserted side and omits unknown viewer anatomy', () => {
-    expect(toNeutralViewerEntries([
-      { slug: 'gluteus-maximus', role: 'weak', side: 'right' },
-      { slug: 'not-in-viewer', role: 'tight' },
-    ])).toEqual([
-      { muscle: 'gluteus_maximus', side: 'right', color: 'amber', intensity: 2 },
-    ])
-  })
+  vi.stubGlobal('cancelIdleCallback', () => {})
 })
 
-describe('MuscleModel3D', () => {
-  const findings = [{
-    zone: 'priority',
-    severity_pct: 72,
-    tight_muscle_links: [{ slug: 'hamstrings', name: 'Hamstrings', confidence: 'high' as const }],
-  }]
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
-  it('presents the model as a neutral anatomy reference with a clear load action', () => {
+describe('MuscleModel3D (hero posture map)', () => {
+  it('presents a tight/weak legend and the screening boundary', () => {
     render(<MuscleModel3D findings={findings} />)
-
-    expect(screen.getByRole('heading', { name: 'Explore assessment-linked regions' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /open interactive 3d anatomy/i })).toBeTruthy()
-    expect(screen.getByText(/did not test muscle tightness, strength, inhibition, or injury/i)).toBeTruthy()
-    expect(screen.queryByText(/^Tight$/)).toBeNull()
-    expect(screen.queryByText(/^Weak$/)).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Posture map' })).toBeTruthy()
+    const legend = screen.getByLabelText('3D model legend')
+    expect(legend.textContent).toContain('Tight')
+    expect(legend.textContent).toContain('Weak')
+    expect(screen.getByText(/Screening indication, not a diagnosis/)).toBeTruthy()
   })
 
-  it('keeps the general reference view separate from supplied assessment mappings', () => {
+  it('mounts the live model once the page is idle, with the viewer card disabled', () => {
+    render(<MuscleModel3D findings={findings} />)
+    expect(mountedFrame().getAttribute('src')).toBe('/muscle-viewer/index.html?embed=1&legend=0&card=0')
+    expect(screen.getByRole('status').textContent).toContain('Loading your posture map')
+  })
+
+  it('waits for rendered geometry, then paints per-side states', () => {
+    render(<MuscleModel3D findings={findings} />)
+    const frame = mountedFrame()
+    const post = vi.spyOn(frame.contentWindow!, 'postMessage')
+
+    viewerSays(frame, { type: 'ready' })
+    expect(screen.getByRole('status')).toBeTruthy()
+
+    viewerSays(frame, { type: 'model-ready' })
+    expect(screen.queryByRole('status')).toBeNull()
+    const states = post.mock.calls.map((c) => c[0]).findLast((m) => m.type === 'applyMuscleStates')?.states
+    expect(states).toEqual(expect.arrayContaining([
+      expect.objectContaining({ slug: 'suboccipitals', role: 'tight' }),
+      expect.objectContaining({ slug: 'gluteus-medius', role: 'weak', side: 'right' }),
+      expect.objectContaining({ slug: 'gluteus-medius', role: 'tight', side: 'left' }),
+    ]))
+    expect(post.mock.calls.map((c) => c[0]).findLast((m) => m.type === 'highlight')?.muscles).toBeNull()
+  })
+
+  it('surfaces an authoritative model-unavailable event with a retry', () => {
+    render(<MuscleModel3D findings={findings} />)
+    viewerSays(mountedFrame(), { type: 'model-unavailable' })
+    expect(screen.getByRole('alert').textContent).toContain('did not load')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  })
+
+  it('spotlights one finding: highlights its muscles and lists them as chips', () => {
+    const onSelectMuscle = vi.fn()
+    const { rerender } = render(<MuscleModel3D findings={findings} onSelectMuscle={onSelectMuscle} />)
+    const frame = mountedFrame()
+    viewerSays(frame, { type: 'model-ready' })
+    const post = vi.spyOn(frame.contentWindow!, 'postMessage')
+
+    rerender(
+      <MuscleModel3D
+        findings={findings}
+        spotlight={{ label: 'Forward head posture', finding: findings[0] }}
+        onSelectMuscle={onSelectMuscle}
+      />,
+    )
+    expect(post).toHaveBeenCalledWith(
+      { source: 'posture-ai', type: 'highlight', muscles: ['suboccipitals', 'deep_cervical_flexors'] },
+      window.location.origin,
+    )
+    const group = screen.getByRole('group', { name: 'Forward head posture muscles' })
+    expect(group.textContent).toContain('Suboccipitals')
+    fireEvent.click(screen.getByRole('button', { name: /Deep cervical flexors/ }))
+    expect(onSelectMuscle).toHaveBeenCalledWith('deep_cervical_flexors', null)
+  })
+
+  it('reports taps on the model and forwards the page selection to the viewer', () => {
+    const onSelectMuscle = vi.fn()
+    const { rerender } = render(<MuscleModel3D findings={findings} onSelectMuscle={onSelectMuscle} />)
+    const frame = mountedFrame()
+    viewerSays(frame, { type: 'selection', muscle: 'gluteus_medius', side: 'right' })
+    expect(onSelectMuscle).toHaveBeenCalledWith('gluteus_medius', 'right')
+
+    const post = vi.spyOn(frame.contentWindow!, 'postMessage')
+    act(() => {
+      rerender(<MuscleModel3D findings={findings} onSelectMuscle={onSelectMuscle} selectedMuscle="rhomboids" />)
+    })
+    expect(post).toHaveBeenCalledWith({ source: 'posture-ai', type: 'select', muscle: 'rhomboids' }, window.location.origin)
+  })
+
+  it('keeps reference-only anatomy an explicit tap, with no assessment legend', () => {
     render(<MuscleModel3D findings={findings} referenceOnly />)
     expect(screen.getByRole('heading', { name: 'Explore anatomy in 3D' })).toBeTruthy()
-    expect(screen.getByText(/No assessment findings are mapped/)).toBeTruthy()
     expect(screen.queryByLabelText('3D model legend')).toBeNull()
+    expect(screen.queryByTitle('Interactive 3D anatomy model')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /open interactive 3d anatomy/i }))
+    expect(mountedFrame()).toBeTruthy()
     expect(screen.getByText(/not a reconstruction of the captured person/)).toBeTruthy()
   })
-
-  it('mounts the large viewer only after the explicit action', () => {
-    render(<MuscleModel3D findings={findings} />)
-    expect(screen.queryByTitle('Interactive 3D anatomy model')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: /open interactive 3d anatomy/i }))
-
-    expect(screen.getByTitle('Interactive 3D anatomy model').getAttribute('src')).toBe(
-      '/muscle-viewer/index.html?embed=1&legend=0',
-    )
-    expect(screen.getByRole('status').textContent).toContain('Loading interactive anatomy')
-  })
-
-  it('keeps the host loading after command readiness until model geometry renders', () => {
-    render(<MuscleModel3D findings={findings} />)
-    fireEvent.click(screen.getByRole('button', { name: /open interactive 3d anatomy/i }))
-    const frame = screen.getByTitle('Interactive 3D anatomy model') as HTMLIFrameElement
-
-    fireEvent(window, new MessageEvent('message', {
-      data: { source: 'muscle-viewer', type: 'ready' },
-      origin: window.location.origin,
-      source: frame.contentWindow,
-    }))
-    expect(screen.getByRole('status').textContent).toContain('Loading interactive anatomy')
-
-    fireEvent(window, new MessageEvent('message', {
-      data: { source: 'muscle-viewer', type: 'model-ready' },
-      origin: window.location.origin,
-      source: frame.contentWindow,
-    }))
-    expect(screen.queryByRole('status')).toBeNull()
-  })
-
-  it('surfaces an authoritative model-unavailable event', () => {
-    render(<MuscleModel3D findings={findings} />)
-    fireEvent.click(screen.getByRole('button', { name: /open interactive 3d anatomy/i }))
-    const frame = screen.getByTitle('Interactive 3D anatomy model') as HTMLIFrameElement
-
-    fireEvent(window, new MessageEvent('message', {
-      data: { source: 'muscle-viewer', type: 'model-unavailable' },
-      origin: window.location.origin,
-      source: frame.contentWindow,
-    }))
-    expect(screen.getByRole('alert').textContent).toContain('did not load')
-  })
-})
-
-
-it('lets a linked-region button isolate its highlight and restore all regions', () => {
-  render(<MuscleModel3D findings={[{ zone: 'priority', severity_pct: 70, tight_muscle_links: [
-    { slug: 'hamstrings', name: 'Hamstrings' }, { slug: 'gluteus-maximus', name: 'Gluteus maximus' },
-  ] }]} />)
-  fireEvent.click(screen.getByRole('button', { name: /^hamstrings$/ }))
-  const frame = screen.getByTitle('Interactive 3D anatomy model') as HTMLIFrameElement
-  const post = vi.spyOn(frame.contentWindow!, 'postMessage')
-  fireEvent(window, new MessageEvent('message', { data: { source: 'muscle-viewer', type: 'model-ready' }, origin: window.location.origin, source: frame.contentWindow }))
-  expect(post).toHaveBeenLastCalledWith({ source: 'posture-ai', type: 'set', entries: [
-    { muscle: 'hamstrings', side: 'left', color: 'amber', intensity: 2 },
-    { muscle: 'hamstrings', side: 'right', color: 'amber', intensity: 2 },
-  ] }, window.location.origin)
-  fireEvent.click(screen.getByRole('button', { name: 'All regions' }))
-  expect(post.mock.calls.at(-1)?.[0].entries).toHaveLength(4)
-  post.mockRestore()
 })

@@ -72,9 +72,11 @@ test.describe('assessment golden path (test mode)', () => {
     }
     expect(hydrationErrors).toEqual([])
     await page.getByRole('link', { name: 'Open anatomy view for the latest assessment' }).click()
-    await expect(page.getByRole('tab', { name: 'Evidence', exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('heading', { name: 'Explore assessment-linked regions' })).toBeVisible()
-    await expect(page.getByTitle('Interactive 3D anatomy model')).toHaveCount(0)
+    // The posture map is the results page hero: the deep link lands on it, Findings stays the
+    // selected tab, and the live model mounts on its own once the page is idle.
+    await expect(page.locator('#anatomy-viewer-title')).toBeAttached()
+    await expect(page.getByRole('tab', { name: /Findings/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTitle('Interactive 3D anatomy model')).toHaveCount(1, { timeout: 15_000 })
   })
 
   test('wizard requires a client before continuing', async ({ page }) => {

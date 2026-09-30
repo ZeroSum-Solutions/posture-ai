@@ -15,6 +15,9 @@ import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
 import { ring, tint, tone, type SeverityBand } from '@/components/array/severity'
 import styles from './AssessmentReview.module.css'
 import MuscleModel3D from './MuscleModel3D'
+import MuscleDetailModal from './MuscleDetailModal'
+import { musclesForFinding, slugForViewerId, type BodySide } from './anatomyFocus'
+import { findingsToMuscleStates } from './findingsToMuscleStates'
 import { saveOverridePatch } from './saveOverride'
 import type { AssessmentResultsPayload } from './loadAssessmentResults'
 import {
@@ -45,7 +48,6 @@ type Assessment = AssessmentResultsPayload['assessment']
 
 const REVIEW_TAB_BASE = 'review'
 const DEFERRED_PANEL_MOUNT_MS = 300
-const ANATOMY_VIEWER_HASH = 'anatomy-viewer-title'
 
 export function canonicalAssessmentTimestamp(value: string): string | null {
   return canonicalizePostgresTimestamp(value)
@@ -225,6 +227,10 @@ export default function ClinicalAssessmentResults({
   const [pdfKind, setPdfKind] = useState<'practitioner' | 'client'>('practitioner')
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [approved, setApproved] = useState(false)
+  // 3D posture map: the finding spotlighted on it, and the muscle whose detail modal is open.
+  const [spotlightKey, setSpotlightKey] = useState<string | null>(null)
+  const [openMuscle, setOpenMuscle] = useState<{ viewerId: string; side: BodySide | null } | null>(null)
+  const heroRef = useRef<HTMLDivElement | null>(null)
   const [approving, setApproving] = useState(false)
   // Prior scans carry their score and findings so the grade rail can draw the
   // previous reading and each finding row can show a real movement. Both come
@@ -780,6 +786,30 @@ export default function ClinicalAssessmentResults({
     scanLabel: `Screening · ${assessedAtShort}`,
     priorLabel: mostRecentPrior ? utcCalendarLabel(mostRecentPrior.assessed_at, 'short') : null,
   })
+  const spotlightRow = spotlightKey ? reviewModel.rows.find((row) => row.key === spotlightKey) ?? null : null
+  const spotlightFinding = spotlightKey
+    ? descriptiveFindings.find((finding) => finding.imbalance_key === spotlightKey) ?? null
+    : null
+  const spotlight = spotlightRow && spotlightFinding ? { label: spotlightRow.label, finding: spotlightFinding } : null
+  const openMuscleSlug = openMuscle
+    ? slugForViewerId(openMuscle.viewerId, findingsToMuscleStates(descriptiveFindings).states)
+    : null
+  const linkedFindings = openMuscleSlug
+    ? reviewModel.rows.flatMap((row) => {
+        const finding = descriptiveFindings.find((f) => f.imbalance_key === row.key)
+        if (!finding || !musclesForFinding(finding).some((m) => m.slug === openMuscleSlug)) return []
+        return [{ key: row.key, label: row.label, zoneLabel: row.zoneLabel, finding }]
+      })
+    : []
+  const toggleSpotlight = (key: string) => {
+    setOpenMuscle(null)
+    setSpotlightKey((current) => (current === key ? null : key))
+    // Bring the map into view: the finding list sits below it.
+    const top = heroRef.current?.getBoundingClientRect().top
+    if (top != null && top < 0) heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const selectMuscle = (viewerId: string | null, side: BodySide | null) =>
+    setOpenMuscle(viewerId ? { viewerId, side } : null)
   return (
     <div className="app-screen app-screen--bar">
       <div className={styles.topBar}>
@@ -803,6 +833,21 @@ export default function ClinicalAssessmentResults({
           </span>
         )}
       </div>
+
+      {descriptiveFindings.length > 0 && (
+        <div ref={heroRef} className="app-screen-x" style={{ scrollMarginTop: 12 }}>
+          <MuscleModel3D
+            findings={descriptiveFindings}
+            spotlight={spotlight}
+            onClearSpotlight={() => {
+              setOpenMuscle(null)
+              setSpotlightKey(null)
+            }}
+            selectedMuscle={openMuscle?.viewerId ?? null}
+            onSelectMuscle={selectMuscle}
+          />
+        </div>
+      )}
 
       <section className={styles.verdict}>
         <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
@@ -834,7 +879,11 @@ export default function ClinicalAssessmentResults({
           programCount={program.priorities.length}
           findingsPanel={(
             <div className="app-stack">
-              <ReviewFindings rows={reviewModel.rows} />
+              <ReviewFindings
+                rows={reviewModel.rows}
+                activeKey={spotlightKey}
+                onSpotlight={descriptiveFindings.length > 0 ? toggleSpotlight : undefined}
+              />
               {reviewModel.counts.unreliable > 0 && (
                 <p className={styles.scanCaption} style={{ borderTop: 0, paddingTop: 0 }}>
                   {reviewModel.counts.unreliable === 1
@@ -863,9 +912,6 @@ export default function ClinicalAssessmentResults({
                 captures={captures}
                 levelVerified={assessment.level_verified}
               />
-              {descriptiveFindings.length > 0 && (
-                <MuscleModel3D findings={descriptiveFindings} />
-              )}
             </div>
           )}
           programPanel={(
@@ -1002,6 +1048,18 @@ export default function ClinicalAssessmentResults({
         </details>
       </div>
 
+      {openMuscle && openMuscleSlug && (
+        <MuscleDetailModal
+          key={openMuscleSlug}
+          slug={openMuscleSlug}
+          side={openMuscle.side}
+          findings={descriptiveFindings}
+          linkedFindings={linkedFindings}
+          program={program}
+          onClose={() => setOpenMuscle(null)}
+        />
+      )}
+
       {/* Sign-off stays reachable from anywhere on the screen. The dock above
           still owns every other action, including its own approve control, so
           nothing here is the only route to it. */}
@@ -1068,20 +1126,6 @@ function ReviewWorkspace({
   const [mounted, setMounted] = useState<ReadonlySet<ReviewPanel>>(
     () => new Set<ReviewPanel>(['findings']),
   )
-  const pendingAnatomyScrollRef = useRef(false)
-
-  useEffect(() => {
-    function selectHashPanel() {
-      const hashId = window.location.hash.slice(1)
-      pendingAnatomyScrollRef.current = hashId === ANATOMY_VIEWER_HASH
-      if (hashId === ANATOMY_VIEWER_HASH) setActive('evidence')
-    }
-
-    selectHashPanel()
-    window.addEventListener('hashchange', selectHashPanel)
-    return () => window.removeEventListener('hashchange', selectHashPanel)
-  }, [])
-
   useEffect(() => {
     if (mounted.has(active)) return
     const timer = window.setTimeout(() => {
@@ -1094,17 +1138,6 @@ function ReviewWorkspace({
         })
       })
     }, DEFERRED_PANEL_MOUNT_MS)
-    return () => window.clearTimeout(timer)
-  }, [active, mounted])
-
-  useEffect(() => {
-    if (active !== 'evidence' || !mounted.has('evidence') || !pendingAnatomyScrollRef.current) return
-    const timer = window.setTimeout(() => {
-      const target = document.getElementById(ANATOMY_VIEWER_HASH)
-      if (!target) return
-      pendingAnatomyScrollRef.current = false
-      target.scrollIntoView({ block: 'start' })
-    }, 0)
     return () => window.clearTimeout(timer)
   }, [active, mounted])
 
