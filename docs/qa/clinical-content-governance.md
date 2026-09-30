@@ -18,15 +18,17 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`e1ea16902b54cdc58dbccbf7f59c37fac0c083522c8a7ab10b1d677cfbb14571`.
+`38c296cda24413f218db05f60fd8d6b1b4bec0bb1187a7de17efad2c73222bdf`.
 
 Recommendation algorithm SHA-256:
-`8289ead3ec4df8585c4b598e1ad680c74af2110f8e0bc88c8f2c188568ff12e6`.
+`a43f9e867e4147e55ccf18fef61d28a6e45d1a00f98861654a6e20c3aa619c2d`.
 
-The latest inventory refresh (2026-09-09) binds the current governed source,
-including the assessment-results and exercise-library presentation changes.
-Local QA fixture hashes were synchronized with this inventory; no clinical
-review or production activation is implied.
+The latest inventory refresh (2026-09-30) binds the current governed source,
+including the assessment-results and exercise-library presentation changes and
+the on-demand loading of the results page's Program, Evidence and report-dock
+components (a code-splitting change with no content, scoring or recommendation
+change). Local QA fixture hashes were synchronized with this inventory; no
+clinical review or production activation is implied.
 The dependency closure also retains `lib/time/calendar.ts`, added for deterministic
 UTC calendar formatting in report and comparison surfaces. Changes to either
 governed surface invalidate the prior algorithm fingerprint.
