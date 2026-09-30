@@ -1477,9 +1477,9 @@
     },
     "expected_total": 223,
     "expected_files": 58,
-    "test_ids_sha256": "ee6e1de1989626b3fc90950c80d24dc7a62fb545b91106cecc553c1ec5fa01c6"
+    "test_ids_sha256": "f9b0329a1474e81a262bc912e30d01619a93f0b1edec0070713db7fff37efc57"
   },
-  "inventory_hash": "9d72fde65f62dd9f6bb93b1e8dd253d2be7770493497b9a48011ab8a526fc5c4",
+  "inventory_hash": "44fe636e3413fec17361a7d8c33b8e7da053ccc300f48f04fa88337c23c011b3",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
