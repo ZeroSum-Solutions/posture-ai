@@ -50,7 +50,7 @@ afterEach(() => {
 })
 
 describe('MuscleModel3D (posture map workspace)', () => {
-  it('keeps the model uncovered: a control bar above it, a readout under it, no pill rows', () => {
+  it('keeps the model uncovered: one box under it holds the readout, controls and credit', () => {
     render(<MuscleModel3D findings={findings} findingOptions={options} />)
     const frame = frameEl()
     expect(frame.getAttribute('src')).toBe('/muscle-viewer/index.html?embed=1&legend=0&card=0&controls=0')
@@ -58,13 +58,17 @@ describe('MuscleModel3D (posture map workspace)', () => {
     const hint = screen.getByText(/Drag the left edge to pick a muscle, the right edge to spotlight a finding/)
     expect(frame.parentElement!.contains(toolbar)).toBe(false)
     expect(frame.parentElement!.contains(hint)).toBe(false)
-    // Document order: controls, then the model, then the readout.
-    expect(toolbar.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const credit = screen.getByText(/BodyParts3D, © The Database Center for Life Science — CC BY-SA 2\.1 JP/)
+    // Document order: the model, then the readout, the controls, and the credit last.
     expect(frame.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(hint.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(toolbar.compareDocumentPosition(credit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // The viewer's edge rails do the picking; the page draws no finding or muscle pills.
     expect(screen.queryByRole('group', { name: 'Findings' })).toBeNull()
     expect(screen.queryByTestId(/^map-finding-/)).toBeNull()
-    expect(screen.getByLabelText('3D model legend').textContent).toMatch(/Tight.*Weak.*Screening indication/)
+    // The tight/weak key lives in the idle readout; no disclaimer copy around the map.
+    expect(screen.getByLabelText('3D model legend').textContent).toMatch(/Tight.*Weak/)
+    expect(screen.queryByText(/Screening indication/)).toBeNull()
   })
 
   it('enables Front/Back/Reset/X-ray once the model renders and drives the viewer with them', () => {

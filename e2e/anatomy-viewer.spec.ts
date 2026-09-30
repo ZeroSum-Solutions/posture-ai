@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test } from '@playwright/test'
 import { createClient } from './helpers'
 
-test('results hero mounts the 3D posture map with its control bar attached above it at phone and desktop widths', async ({ page }, testInfo) => {
+test('results hero mounts the 3D posture map with its controls in the box under it at phone and desktop widths', async ({ page }, testInfo) => {
   // CI renders the full GLB through software WebGL, then exercises two viewports.
   // Keep each readiness assertion bounded while allowing the whole journey to finish.
   test.setTimeout(120_000)
@@ -31,12 +31,12 @@ test('results hero mounts the 3D posture map with its control bar attached above
       await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 10_000 })
       await toolbar.getByRole('button', { name: 'Reset', exact: true }).click()
       await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 10_000 })
-      // Nothing overlays the model: the control bar sits entirely above the 3D frame.
+      // Nothing overlays the model: the controls sit entirely below the 3D frame.
       const frameBounds = await page.locator('iframe[title="Interactive 3D anatomy model"]').boundingBox()
       const controlBounds = await toolbar.boundingBox()
       expect(frameBounds).not.toBeNull()
       expect(controlBounds).not.toBeNull()
-      expect(controlBounds!.y + controlBounds!.height).toBeLessThanOrEqual(frameBounds!.y + 1)
+      expect(controlBounds!.y).toBeGreaterThanOrEqual(frameBounds!.y + frameBounds!.height - 1)
       await page.locator('iframe[title="Interactive 3D anatomy model"]').scrollIntoViewIfNeeded()
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
       await page.screenshot({ path: testInfo.outputPath(`anatomy-${width}.png`) })

@@ -74,7 +74,7 @@ function muscleCounts(muscles: MuscleSides[]): string {
 
 /**
  * The results-page posture map and everything that drives it. The 3D view is never covered:
- * view controls are a bar along its top edge and a readout slot sits under it. The viewer's two
+ * one box under it holds a readout slot, the view controls and the anatomy credit. The viewer's two
  * edge rails do the picking — muscles head to toe on the left, this scan's findings on the right.
  * Picking a finding spotlights its muscles; picking a muscle (rail or model) isolates it and the
  * readout shows a one-line summary with a Details button — the page opens the detail pop-up only
@@ -290,28 +290,6 @@ export default function MuscleModel3D({
       </h2>
 
       <div className={styles.card}>
-        {/* View controls: a bar along the model's top edge, never over it. */}
-        <div className={styles.controls} role="toolbar" aria-label="3D view controls">
-          <div className={styles.segment}>
-            <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'front' })}>Front</button>
-            <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'back' })}>Back</button>
-            <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'reset' })}>Reset</button>
-          </div>
-          <label className={styles.xray}>
-            <span>X-ray</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(xray * 100)}
-              disabled={controlsDisabled}
-              onChange={(e) => changeXray(Number(e.target.value) / 100)}
-              aria-label="X-ray depth"
-              style={{ ['--fill' as string]: `${Math.round(xray * 100)}%` }}
-            />
-          </label>
-        </div>
-
         <div className={styles.viewerFrame}>
           {mounted ? (
             <iframe
@@ -345,74 +323,101 @@ export default function MuscleModel3D({
           )}
         </div>
 
-        {/* Readout under the model: the isolated muscle, else the spotlighted finding, else how
-            to use the two edge rails. One fixed-height slot, so the page never shifts. */}
-        <div className={styles.readout}>
-          {selectedMuscle && selectedInfo ? (
-            <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Selected muscle">
-              {selectedInfo.sides && <SideDots muscle={selectedInfo.sides} />}
-              <div className={styles.infoText}>
-                <span className={styles.infoName}>{selectedInfo.name}</span>
-                <span className={styles.infoSummary}>{sidesSummary(selectedInfo.sides)}</span>
+        {/* The box under the model holds everything that drives it, so nothing ever covers it:
+            the readout, the view controls, and the anatomy credit along the very bottom. */}
+        <div className={styles.dock}>
+          {/* Readout: the isolated muscle, else the spotlighted finding, else the color key and
+              how to use the two edge rails. A fixed-height slot, so the page never shifts. */}
+          <div className={styles.readout}>
+            {selectedMuscle && selectedInfo ? (
+              <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Selected muscle">
+                {selectedInfo.sides && <SideDots muscle={selectedInfo.sides} />}
+                <div className={styles.infoText}>
+                  <span className={styles.infoName}>{selectedInfo.name}</span>
+                  <span className={styles.infoSummary}>{sidesSummary(selectedInfo.sides)}</span>
+                </div>
+                <button type="button" className={styles.detailsButton} onClick={() => onOpenDetails?.(selectedMuscle)}>
+                  Details
+                </button>
+                <button
+                  type="button"
+                  className={styles.clear}
+                  aria-label="Clear muscle selection"
+                  onClick={() => onSelectMuscle?.(null, null)}
+                >
+                  ✕
+                </button>
               </div>
-              <button type="button" className={styles.detailsButton} onClick={() => onOpenDetails?.(selectedMuscle)}>
-                Details
-              </button>
-              <button
-                type="button"
-                className={styles.clear}
-                aria-label="Clear muscle selection"
-                onClick={() => onSelectMuscle?.(null, null)}
-              >
-                ✕
-              </button>
-            </div>
-          ) : spotlight ? (
-            <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Spotlighted finding">
-              <span className={styles.zoneDot} style={{ background: tone(spotlight.band) }} aria-hidden />
-              <div className={styles.infoText}>
-                <span className={styles.infoName}>{spotlight.label}</span>
-                <span className={styles.infoSummary}>
-                  {spotlight.zoneLabel} · {muscleCounts(spotlightMuscles)}
-                </span>
+            ) : spotlight ? (
+              <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Spotlighted finding">
+                <span className={styles.zoneDot} style={{ background: tone(spotlight.band) }} aria-hidden />
+                <div className={styles.infoText}>
+                  <span className={styles.infoName}>{spotlight.label}</span>
+                  <span className={styles.infoSummary}>
+                    {spotlight.zoneLabel} · {muscleCounts(spotlightMuscles)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.clear}
+                  aria-label="Show all findings"
+                  onClick={() => onSpotlight?.(null)}
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                className={styles.clear}
-                aria-label="Show all findings"
-                onClick={() => onSpotlight?.(null)}
-              >
-                ✕
-              </button>
+            ) : (
+              <div className={styles.idle}>
+                {referenceOnly ? (
+                  <span className={styles.idleNote}>
+                    A general anatomy illustration, not a reconstruction of the captured person.
+                  </span>
+                ) : (
+                  <div className={styles.key} aria-label="3D model legend">
+                    <span><i style={{ background: STATE_COLORS.tight }} aria-hidden />Tight</span>
+                    <span><i style={{ background: STATE_COLORS.weak }} aria-hidden />Weak</span>
+                    {adapted.notShown.length > 0 && (
+                      <span className={styles.idleNote}>
+                        Not drawn: {adapted.notShown.map((item) => item.name).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {mounted && (
+                  <span className={styles.hint}>
+                    {referenceOnly || findingOptions.length === 0
+                      ? 'Drag along the left edge to pick a muscle.'
+                      : 'Drag the left edge to pick a muscle, the right edge to spotlight a finding.'}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className={styles.controls} role="toolbar" aria-label="3D view controls">
+            <div className={styles.segment}>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'front' })}>Front</button>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'back' })}>Back</button>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'reset' })}>Reset</button>
             </div>
-          ) : (
-            <p className={styles.hint}>
-              {!mounted
-                ? null
-                : referenceOnly || findingOptions.length === 0
-                  ? 'Drag along the left edge to pick a muscle.'
-                  : 'Drag the left edge to pick a muscle, the right edge to spotlight a finding.'}
-            </p>
-          )}
+            <label className={styles.xray}>
+              <span>X-ray</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(xray * 100)}
+                disabled={controlsDisabled}
+                onChange={(e) => changeXray(Number(e.target.value) / 100)}
+                aria-label="X-ray depth"
+                style={{ ['--fill' as string]: `${Math.round(xray * 100)}%` }}
+              />
+            </label>
+          </div>
+          <p className={styles.attribution}>
+            BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP
+          </p>
         </div>
       </div>
-
-      {!referenceOnly && (
-        <div className={styles.legend} aria-label="3D model legend">
-          <span><i style={{ background: STATE_COLORS.tight }} aria-hidden />Tight</span>
-          <span><i style={{ background: STATE_COLORS.weak }} aria-hidden />Weak</span>
-          <span className={styles.legendNote}>
-            Screening indication, not a diagnosis — confirm with hands-on testing.
-            {adapted.notShown.length > 0
-              ? ` Not drawn: ${adapted.notShown.map((item) => item.name).join(', ')}.`
-              : ''}
-          </span>
-        </div>
-      )}
-      {referenceOnly && (
-        <p className={styles.boundary}>A general anatomy illustration, not a reconstruction of the captured person.</p>
-      )}
-      <p className={styles.attribution}>Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP.</p>
     </section>
   )
 }

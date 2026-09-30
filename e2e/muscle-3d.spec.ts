@@ -55,13 +55,13 @@ test.describe('3D posture summary', () => {
     )
     const assessment = (await handle.jsonValue()) as Record<string, { color: string }>
     const keys = Object.keys(assessment)
-    // Findings paint per side: red = tight, blue = weak (a screening indication, labelled as such).
+    // Findings paint per side: red = tight, blue = weak, named by the key under the model.
     expect(keys.length, 'viewer store should locate referenced anatomy').toBeGreaterThan(0)
     expect(keys.every(key => ['red', 'blue'].includes(assessment[key].color))).toBe(true)
-    await expect(page.getByText(/Screening indication, not a diagnosis/)).toBeVisible()
+    await expect(page.locator('[aria-label="3D model legend"]')).toContainText(/Tight\s*Weak/)
 
     const viewer = frame!.locator('[data-model-state="ready"]')
-    // View controls sit in the page's control bar above the model (nothing overlays the 3D view).
+    // View controls sit in the box under the model (nothing overlays the 3D view).
     const toolbar = page.getByRole('toolbar', { name: '3D view controls' })
     const canvas = frame!.locator('canvas')
     await toolbar.getByRole('button', { name: 'Front' }).click()
