@@ -206,6 +206,10 @@ export function findingsToMuscleStates(
         // in notShown instead of silently vanishing. This path predates link-level `side`
         // and has no way to carry it, so it always stays bilateral — including for genu
         // keys, which v1 deliberately over-colors on this legacy path as before.
+        //
+        // TODO(genu-direction): once muscle_imbalance_links.direction_applicability is
+        // populated + selected by the API, gate genu varum/valgum muscles here (AND in
+        // muscleMap) by f.direction. v1 deliberately mirrors the 2D map's over-coloring.
         for (const name of names) {
           const slug = legacyNameToSlug(name)
           if (slug) candidates.push({ slug, name, role, severity, side: 'both' })
