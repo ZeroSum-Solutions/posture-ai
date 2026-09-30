@@ -39,8 +39,9 @@ import {
 } from '@/lib/time/postgres-timestamp'
 
 // Load the heavier pieces on demand to keep the route inside its initial-JS
-// budget: the posture map host, the Evidence and Program panels, and the muscle
-// pop-up. The report dock loads when its disclosure opens (DeferredReviewDock).
+// budget: the posture map host, the Evidence and Program panels (mounted just
+// after first paint, see ReviewWorkspace), and the muscle pop-up. The report
+// dock loads when its disclosure opens (DeferredReviewDock).
 const PriorityProgram = dynamic(() => import('./PriorityProgram'))
 const ReviewEvidence = dynamic(() => import('./ReviewEvidence'))
 const MuscleModel3D = dynamic(() => import('./MuscleModel3D'))
@@ -1144,9 +1145,10 @@ export default function ClinicalAssessmentResults({
 
 /**
  * Evidence and Program; the findings themselves live on the posture map above. Evidence (the
- * capture set and each view's findings) is open on arrival. Program mounts after it has been
- * selected and painted: its override controls are the heaviest thing on this route and should
- * not compete with the first interaction on a throttled device.
+ * capture set and each view's findings) is the selected tab on arrival. Each panel mounts just
+ * after it is selected and the page has painted, so neither panel's code is part of the route's
+ * initial JavaScript nor competes with the first interaction on a throttled device; the tabs
+ * sit under the map, so the short wait is off screen on a phone.
  */
 type ReviewPanel = 'evidence' | 'program'
 
@@ -1160,9 +1162,7 @@ function ReviewWorkspace({
   programPanel: ReactNode
 }) {
   const [active, setActive] = useState<ReviewPanel>('evidence')
-  const [mounted, setMounted] = useState<ReadonlySet<ReviewPanel>>(
-    () => new Set<ReviewPanel>(['evidence']),
-  )
+  const [mounted, setMounted] = useState<ReadonlySet<ReviewPanel>>(() => new Set<ReviewPanel>())
   useEffect(() => {
     if (mounted.has(active)) return
     const timer = window.setTimeout(() => {
@@ -1197,7 +1197,9 @@ function ReviewWorkspace({
 
       <div className={styles.workspaceStage}>
         <div {...tabPanelProps(REVIEW_TAB_BASE, 'evidence', active === 'evidence')} className={panelClass('evidence')}>
-          {evidencePanel}
+          {mounted.has('evidence')
+            ? evidencePanel
+            : <div className={styles.loadingPanel} role="status">Preparing evidence…</div>}
         </div>
         <div {...tabPanelProps(REVIEW_TAB_BASE, 'program', active === 'program')} className={panelClass('program')}>
           {mounted.has('program')

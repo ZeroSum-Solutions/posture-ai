@@ -290,7 +290,8 @@ describe('assessment results progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
-    expect(screen.getByText('Within-burst landmark consistency 98%')).toBeTruthy()
+    // Accuracy lives in the Evidence panel, which mounts just after first paint.
+    expect(await screen.findByText('Within-burst landmark consistency 98%')).toBeTruthy()
     // No disclaimer copy on the page: practitioners accept the screening notice at onboarding.
     expect(screen.queryByText(/clinical accuracy are not established/)).toBeNull()
     expect(screen.queryByText(/Capture stability/)).toBeNull()

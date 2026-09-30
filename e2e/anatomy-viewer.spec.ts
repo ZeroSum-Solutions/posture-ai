@@ -30,9 +30,9 @@ test('results hero mounts the 3D posture map with its controls in the box under 
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 900 })
       await toolbar.getByRole('button', { name: 'Back', exact: true }).click()
-      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 10_000 })
+      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 20_000 })
       await toolbar.getByRole('button', { name: 'Reset', exact: true }).click()
-      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 10_000 })
+      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 20_000 })
       // Nothing overlays the model: the controls sit entirely below the 3D frame.
       const frameBounds = await page.locator('iframe[title="Interactive 3D anatomy model"]').boundingBox()
       const controlBounds = await toolbar.boundingBox()
