@@ -104,3 +104,23 @@ export async function setCaptureUpload(page: Page, index: number, file: string |
     await expect(page.getByRole('button', { name: `${labels[index + 1]} (required), current` })).toBeVisible()
   }
 }
+
+/**
+ * Counts the finding rows on the results page's Evidence tab. Each finding is listed under the
+ * capture view it was measured on, so this selects every view in turn and sums its rows.
+ */
+export async function countEvidenceFindings(page: Page): Promise<number> {
+  await page.getByRole('tab', { name: /^Evidence/ }).click()
+  const panel = page.locator('#review-panel-evidence')
+  await expect(panel.locator('[data-view]').first()).toBeVisible()
+  const views = [...new Set(await panel.locator('[data-view]').evaluateAll(
+    elements => elements.map(element => element.getAttribute('data-view') ?? ''),
+  ))]
+  let total = 0
+  for (const view of views) {
+    await panel.locator(`[data-view="${view}"] button[aria-pressed]`).first().click()
+    await expect(panel.locator(`[data-evidence-view="${view}"]`)).toBeVisible()
+    total += await panel.locator('[data-evidence-view] [class*="findingHead"]').count()
+  }
+  return total
+}

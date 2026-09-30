@@ -3,14 +3,10 @@ import { useMemo, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { tint, tone } from '@/components/array/severity'
-import PointScanBody from './PointScanBody'
 import CapturePhoto from './CapturePhoto'
-import { buildScanView, viewsWithMarkers, type ScanFindingInput, type ScanView } from './scanMarkers'
+import ReviewFindings from './ReviewFindings'
+import type { ReviewFindingRow } from './reviewModel'
 import styles from './AssessmentReview.module.css'
-import photoStyles from './CapturePhoto.module.css'
-
-const SCAN_CAPTION =
-  'Generic body guide, not a reconstruction of this person. Numbered colours match the recorded finding severity below.'
 
 export interface EvidenceCapture {
   id: string
@@ -20,72 +16,61 @@ export interface EvidenceCapture {
   capture_roll_deg: number | null
 }
 
+const VIEW_ORDER = ['front', 'side', 'back']
+const VIEW_NAME: Record<string, string> = { front: 'Front', side: 'Side', back: 'Back' }
+
+function viewName(view: string): string {
+  return VIEW_NAME[view] ?? view.charAt(0).toUpperCase() + view.slice(1)
+}
+
+function viewRank(view: string): number {
+  const index = VIEW_ORDER.indexOf(view)
+  return index === -1 ? VIEW_ORDER.length : index
+}
+
+/**
+ * The capture set is the evidence: every saved photo, in view order. Tapping a photo selects
+ * its view — that view's photos take a highlighted border — and the findings measured on it
+ * list right below (unusable readings included, flagged for re-capture). Each finding belongs
+ * to the one view it was measured on, so stepping through the views covers the whole screening.
+ */
 export default function ReviewEvidence({
-  findings,
+  rows,
+  viewByKey,
   captures,
   levelVerified,
+  activeKey = null,
+  onSpotlight,
 }: {
-  findings: readonly ScanFindingInput[]
+  rows: readonly ReviewFindingRow[]
+  /** The view each finding was measured on, by imbalance key. */
+  viewByKey: Readonly<Record<string, string>>
   captures: readonly EvidenceCapture[]
   levelVerified: boolean | null
+  activeKey?: string | null
+  onSpotlight?: (key: string) => void
 }) {
-  const available = useMemo(() => viewsWithMarkers(findings), [findings])
-  const [view, setView] = useState<ScanView>(() => available[0] ?? 'side')
-  const scan = useMemo(() => buildScanView(findings, view), [findings, view])
+  // Every view that has a photo or a finding, front → side → back. A view with findings but no
+  // saved photo still gets a tile, so its findings stay reachable.
+  const tiles = useMemo(() => {
+    const photoViews = new Set(captures.map(capture => capture.view))
+    const orphanViews = [...new Set(rows.map(row => viewByKey[row.key]).filter(Boolean))]
+      .filter(view => !photoViews.has(view))
+    return [
+      ...captures.map(capture => ({ key: capture.id, view: capture.view, capture })),
+      ...orphanViews.map(view => ({ key: `view-${view}`, view, capture: null })),
+    ].sort((left, right) => viewRank(left.view) - viewRank(right.view))
+  }, [captures, rows, viewByKey])
 
-  const unplaceable = findings.filter(finding => finding.zone !== 'unreliable').length
-    - (buildScanView(findings, 'side').rows.length + buildScanView(findings, 'front').rows.length)
+  const rowsFor = (view: string) => rows.filter(row => viewByKey[row.key] === view)
+  const [view, setView] = useState<string | null>(
+    () => tiles.find(tile => rowsFor(tile.view).length > 0)?.view ?? tiles[0]?.view ?? null,
+  )
+  const viewRows = view ? rowsFor(view) : []
 
   return (
     <div className="app-stack">
       <Surface tier="feature">
-        <PointScanBody
-          view={view}
-          onViewChange={setView}
-          markers={scan.markers}
-          caption={SCAN_CAPTION}
-        />
-
-        {scan.empty ? (
-          <p className={styles.emptyState} style={{ marginTop: 14 }}>
-            No findings from this screening can be placed on the {view} view.
-            {available.length > 0 && !available.includes(view)
-              ? ` Switch to the ${available[0]} view to see the ones that can.`
-              : ''}
-          </p>
-        ) : (
-          <div className="app-stack" style={{ marginTop: 14 }}>
-            {scan.rows.map(row => (
-              <div key={row.number} className={styles.zoneRow}>
-                <span
-                  className={`${styles.zoneNumber} n`}
-                  style={{ background: tone(row.band) }}
-                  aria-hidden="true"
-                >
-                  {row.number}
-                </span>
-                <span className={styles.zoneBody}>
-                  <span className={styles.zoneName} style={{ display: 'block' }}>{row.name}</span>
-                  <span className={styles.zoneMeta} style={{ display: 'block' }}>{row.region}</span>
-                </span>
-                <span className="n" style={{ color: tone(row.band), flexShrink: 0, fontWeight: 500 }}>
-                  {row.severity.toFixed(1)}%
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {unplaceable > 0 ? (
-          <p className={styles.scanCaption}>
-            {unplaceable === 1
-              ? 'One further finding has no position on either view and is listed under Findings only.'
-              : `${unplaceable} further findings have no position on either view and are listed under Findings only.`}
-          </p>
-        ) : null}
-      </Surface>
-
-      <Surface tier="tile">
         <div className={styles.captureHead}>
           <h3 className="t-title">Capture set</h3>
           {levelVerified === true ? (
@@ -107,32 +92,40 @@ export default function ReviewEvidence({
           ) : null}
         </div>
 
-        {captures.length === 0 ? (
+        {tiles.length === 0 ? (
           <p className={styles.emptyState}>No captures are stored for this screening.</p>
         ) : (
-          <div className={`${styles.captureGrid} ${photoStyles.gallery}`}>
-            {captures.map(capture => {
-              const label = capture.profile_side
-                ? `${capture.view} ${capture.profile_side}`
-                : capture.view
+          <div className={styles.captureGrid} role="group" aria-label="Capture views">
+            {tiles.map(({ key, view: tileView, capture }) => {
+              const label = capture?.profile_side
+                ? `${tileView} ${capture.profile_side}`
+                : tileView
               // Roll is the recorded device tilt. A capture with none was not
               // measured for level, which is not the same as being level.
-              const rolled = capture.capture_roll_deg !== null
-                && Math.abs(capture.capture_roll_deg) > 3
+              const roll = capture?.capture_roll_deg ?? null
+              const rolled = roll !== null && Math.abs(roll) > 3
+              const selected = tileView === view
               return (
-                <div key={capture.id} className={styles.captureTile}>
-                  <div className={styles.captureFrame}>
-                    <CapturePhoto key={capture.signed_url ?? capture.id} url={capture.signed_url} label={label} />
-                    {capture.capture_roll_deg !== null ? <span className={styles.captureBadge} aria-hidden="true">
-                      <Icon
-                        name={rolled ? 'flag-linear' : 'check-circle-bold'}
-                        size={14}
-                      />
+                <div key={key} className={styles.captureTile}>
+                  <div
+                    className={[styles.captureFrame, selected ? styles.captureFrameSelected : '']
+                      .filter(Boolean).join(' ')}
+                    data-view={tileView}
+                  >
+                    <CapturePhoto
+                      key={capture?.signed_url ?? key}
+                      url={capture?.signed_url ?? null}
+                      label={label}
+                      selected={selected}
+                      onSelect={() => setView(tileView)}
+                    />
+                    {roll !== null ? <span className={styles.captureBadge} aria-hidden="true">
+                      <Icon name={rolled ? 'flag-linear' : 'check-circle-bold'} size={14} />
                     </span> : null}
                   </div>
                   <span className={styles.captureLabel}>
                     {label}
-                    {rolled ? ` · ${capture.capture_roll_deg?.toFixed(0)}° roll` : ''}
+                    {rolled ? ` · ${roll?.toFixed(0)}° roll` : ''}
                   </span>
                 </div>
               )
@@ -140,6 +133,23 @@ export default function ReviewEvidence({
           </div>
         )}
       </Surface>
+
+      {view && (
+        <section className="app-stack" aria-labelledby="evidence-view-title" data-evidence-view={view}>
+          <h3 id="evidence-view-title" className={styles.viewTitle}>
+            {viewName(view)} view
+            <span className="n">
+              {viewRows.length === 1 ? '1 finding' : `${viewRows.length} findings`}
+            </span>
+          </h3>
+          <ReviewFindings
+            rows={viewRows}
+            activeKey={activeKey}
+            onSpotlight={onSpotlight}
+            emptyText={`No findings were measured on the ${viewName(view).toLowerCase()} view.`}
+          />
+        </section>
+      )}
     </div>
   )
 }

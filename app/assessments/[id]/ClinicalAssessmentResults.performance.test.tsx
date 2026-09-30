@@ -46,7 +46,7 @@ vi.mock('./ReviewDock', () => ({
   ),
 }))
 vi.mock('./MuscleBodyMap', () => ({ default: () => null }))
-vi.mock('./MuscleModel3D', () => ({ default: () => <h2 id="anatomy-viewer-title">Explore assessment-linked regions</h2> }))
+vi.mock('./MuscleModel3D', () => ({ default: () => <h2 id="anatomy-viewer-title">Posture map</h2> }))
 vi.mock('@/components/LegalNotice', () => ({ default: () => null }))
 
 import ClinicalAssessmentResults from './ClinicalAssessmentResults'
@@ -145,9 +145,7 @@ afterEach(() => {
 })
 
 describe('assessment results progressive rendering', () => {
-  it('opens deferred evidence and scrolls to anatomy for the viewer deep link', async () => {
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView })
+  it('renders the posture map as the page hero, ahead of the tabs, for the viewer deep link', async () => {
     window.history.replaceState(null, '', '#anatomy-viewer-title')
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -183,9 +181,14 @@ describe('assessment results progressive rendering', () => {
       initialData={data}
     />)
 
-    expect(await screen.findByRole('heading', { name: 'Explore assessment-linked regions' })).toBeTruthy()
+    // The map is the page's own hero (the browser's native anchor scroll lands on it); the tabs
+    // under it are Evidence (open on arrival) and Program — findings live on the map itself.
+    const hero = await screen.findByRole('heading', { name: 'Posture map' })
+    expect(hero.id).toBe('anatomy-viewer-title')
     expect(screen.getByRole('tab', { name: 'Evidence' }).getAttribute('aria-selected')).toBe('true')
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }))
+    expect(screen.queryByRole('tab', { name: /Findings/ })).toBeNull()
+    const tabs = screen.getByRole('tablist')
+    expect(hero.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('states when an incompatible scan cannot drive the corrective report or program', () => {
@@ -288,7 +291,8 @@ describe('assessment results progressive rendering', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
     expect(screen.getByText('Within-burst landmark consistency 98%')).toBeTruthy()
-    expect(screen.getByText(/Re-stance repeatability and clinical accuracy are not established/)).toBeTruthy()
+    // No disclaimer copy on the page: practitioners accept the screening notice at onboarding.
+    expect(screen.queryByText(/clinical accuracy are not established/)).toBeNull()
     expect(screen.queryByText(/Capture stability/)).toBeNull()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain('/api/assessments/assessment-1')

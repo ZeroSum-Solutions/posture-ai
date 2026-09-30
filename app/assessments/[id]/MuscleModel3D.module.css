@@ -1,54 +1,28 @@
-.shell { display: grid; gap: 16px; min-width: 0; }
+/* Posture map workspace — posture-ai "Array": pure black field, hairline glass, white text.
+   One card: the 3D view, then one box under it (readout, view controls, anatomy credit).
+   Nothing overlays the model and nothing sits outside the card; the edge rails do the picking. */
 
-.header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 18px;
-}
+.hero { display: grid; gap: 8px; min-width: 0; }
 
-.headingCopy { display: grid; gap: 6px; min-width: 0; }
-
-.eyebrow {
-  color: var(--signal, #e5ad55);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.legend {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 8px 11px;
-  border-radius: 999px;
-  background: rgba(229, 173, 85, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(229, 173, 85, 0.22);
-  color: var(--text-secondary);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.swatch {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #e5ad55;
-  box-shadow: 0 0 16px rgba(229, 173, 85, 0.45);
+.card {
+  overflow: hidden;
+  border-radius: 24px;
+  background: #000;
+  box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.1)), 0 25px 50px -12px rgba(0, 0, 0, 0.4);
 }
 
 .viewerFrame {
   position: relative;
   min-width: 0;
-  height: clamp(420px, 64svh, 680px);
-  overflow: hidden;
-  border-radius: 18px;
-  background: radial-gradient(circle at 50% 34%, rgba(71, 85, 105, 0.28), transparent 46%), #080a0f;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 22px 52px rgba(0, 0, 0, 0.24);
+  /* Sized so model + the box under it fit one phone screen above the island nav; fixed up front
+     so mounting the live model never shifts layout. */
+  height: clamp(320px, calc(100svh - 300px), 680px);
+  background:
+    radial-gradient(ellipse 60% 55% at 50% 42%, rgba(56, 110, 190, 0.18), rgba(18, 36, 70, 0.06) 55%, transparent 75%),
+    #000;
 }
+
+.iframe { display: block; width: 100%; height: 100%; border: 0; }
 
 .launchButton {
   position: absolute;
@@ -61,43 +35,27 @@
   width: 100%;
   padding: 28px;
   border: 0;
-  background: radial-gradient(circle at 50% 43%, rgba(229, 173, 85, 0.13), transparent 28%), linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent);
+  background: transparent;
   color: var(--text-primary);
   text-align: center;
   cursor: pointer;
 }
 
-.launchButton:focus-visible,
-.retryButton:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: -4px; }
-
-.glyph {
+.glyph, .glyphPulse {
   display: grid;
   place-items: center;
   width: 76px;
   height: 76px;
-  margin-bottom: 4px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.055);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 18px 48px rgba(0, 0, 0, 0.28);
-  transition: transform 160ms ease, background 160ms ease;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
+.glyphPulse { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .glyphPulse { animation: none; } }
 
-.launchButton:hover .glyph { transform: translateY(-3px); background: rgba(229, 173, 85, 0.1); }
-.launchTitle { font-size: clamp(18px, 3vw, 24px); font-weight: 650; letter-spacing: -0.025em; }
-.launchMeta { color: var(--text-quiet); font-size: 11px; }
-
-.launchAction {
-  margin-top: 8px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.iframe { display: block; width: 100%; height: 100%; border: 0; }
+.launchTitle { font-size: clamp(18px, 3vw, 22px); font-weight: 300; letter-spacing: -0.025em; }
+.launchMeta { color: var(--text-tertiary); font-size: 11px; }
 
 .statusOverlay {
   position: absolute;
@@ -108,7 +66,7 @@
   justify-content: center;
   gap: 14px;
   padding: 28px;
-  background: rgba(8, 10, 15, 0.88);
+  background: rgba(0, 0, 0, 0.72);
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.55;
@@ -120,46 +78,189 @@
   padding: 10px 16px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text-primary);
+  background: #fff;
+  color: #000;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.instructions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-.instructions span {
-  min-width: 0;
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
-  box-shadow: inset 0 0 0 1px var(--hairline-soft);
-  color: var(--text-secondary);
-  font-size: 10px;
-  overflow-wrap: anywhere;
+/* ---- The box under the model ---- */
+.dock {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 6px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.025);
 }
 
-.boundary,
+.controls { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.segment {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.segment button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.segment button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+.segment button:disabled { opacity: 0.4; cursor: default; }
+/* Narrow phones: give the X-ray slider room to be a real target. */
+@media (max-width: 360px) {
+  .controls { gap: 8px; }
+  .segment button { padding: 0 8px; }
+  .xray { gap: 6px; }
+}
+
+.xray {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.xray input {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 28px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.xray input::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(190, 225, 255, 0.95) var(--fill, 0%), rgba(255, 255, 255, 0.14) var(--fill, 0%));
+}
+.xray input::-moz-range-track { height: 2px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.xray input::-moz-range-progress { height: 2px; border-radius: 999px; background: rgba(190, 225, 255, 0.95); }
+.xray input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -8px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(160, 210, 255, 0.18), 0 0 14px rgba(140, 200, 255, 0.5);
+}
+.xray input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 999px; background: #fff; }
+.xray input:disabled { opacity: 0.4; cursor: default; }
+
+.readout { position: relative; display: grid; min-height: 52px; }
+
+/* A picked muscle or finding: its card pops over the key/hint text in the same slot. */
+.readout > .overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #111317;
+  animation: readoutIn 200ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+@keyframes readoutIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .readout > .overlay { animation: none; } }
+
+/* Nothing selected: the tight/weak key and how to use the rails. */
+.idle {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  text-align: center;
+}
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.key > span { display: inline-flex; align-items: center; gap: 6px; }
+.key i { width: 7px; height: 7px; border-radius: 999px; }
+.idleNote { color: var(--text-tertiary); font-size: 11px; }
+.hint { color: var(--text-tertiary); font-size: 12px; line-height: 1.4; }
+
+.zoneDot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; }
+
+/* Two dots: subject's right then left, mirroring the front view. */
+.sideDots { display: inline-flex; flex: 0 0 auto; gap: 3px; }
+.sideDots span { width: 7px; height: 7px; border-radius: 999px; }
+
+.infoBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.infoText { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.infoName { overflow: hidden; color: var(--text-primary); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.infoSummary { color: var(--text-tertiary); font-size: 12px; }
+
+.detailsButton {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.clear {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.launchButton:focus-visible,
+.retryButton:focus-visible,
+.segment button:focus-visible,
+.detailsButton:focus-visible,
+.clear:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
+
+/* Required CC BY-SA credit: the last line of the box, centered and as small as stays legible. */
 .attribution {
   margin: 0;
-  color: var(--text-quiet);
-  font-size: 10px;
-  font-weight: 300;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  color: var(--text-tertiary);
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-align: center;
+  text-wrap: balance;
+  opacity: 0.55;
 }
-
-.boundary { color: var(--text-secondary); }
-
-@media (max-width: 600px) {
-  .header { grid-template-columns: minmax(0, 1fr); align-items: start; }
-  .legend { width: fit-content; max-width: 100%; white-space: normal; }
-  .viewerFrame { height: clamp(400px, 62svh, 520px); border-radius: 14px; }
-  .launchButton { padding: 20px; }
-  .instructions { display: grid; grid-template-columns: minmax(0, 1fr); }
-}
-
-@media (prefers-reduced-motion: reduce) { .glyph { transition: none; } }
-
-.regionButtons { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
-.regionButtons > button { min-height: 44px; white-space: normal; text-transform: capitalize; }
-.regionButtons > button[aria-pressed="true"] { background: var(--text-primary); color: var(--background, #080a0f); }

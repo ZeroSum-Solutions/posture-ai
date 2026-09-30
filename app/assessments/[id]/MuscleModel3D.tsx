@@ -2,233 +2,421 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnatomyGlyph } from '../../../components/SignalGlyphs'
-import { Surface } from '../../../components/array/Surface'
+import { BAND_TONE, tone, type SeverityBand } from '@/components/array/severity'
+import { findingsToMuscleStates, type AssessmentFinding } from './findingsToMuscleStates'
 import {
-  findingsToMuscleStates,
-  slugToViewerId,
-  type AssessmentFinding,
-  type MuscleStateInput,
-} from './findingsToMuscleStates'
+  STATE_COLORS,
+  musclesForFinding,
+  prettySlug,
+  sidesBySlug,
+  sidesSummary,
+  spotlightIds,
+  viewerStates,
+  type BodySide,
+  type MuscleSides,
+  type SideState,
+} from './anatomyFocus'
 import styles from './MuscleModel3D.module.css'
 
-interface ViewerEntry {
-  muscle: string
-  side: 'left' | 'right'
-  color: 'amber'
-  intensity: 2
-}
-
-/** Static scans do not establish a muscle condition, so historical roles never cross this wire. */
-export function toNeutralViewerEntries(states: MuscleStateInput[]): ViewerEntry[] {
-  const entries = new Map<string, ViewerEntry>()
-  for (const state of states) {
-    const muscle = slugToViewerId(state.slug)
-    if (!muscle) continue
-    const sides: Array<'left' | 'right'> =
-      state.side === 'left' ? ['left'] : state.side === 'right' ? ['right'] : ['left', 'right']
-    for (const side of sides) {
-      const entry = { muscle, side, color: 'amber', intensity: 2 } as const
-      entries.set(`${muscle}:${side}`, entry)
-    }
-  }
-  return [...entries.values()]
-}
-
-const VIEWER_SRC = '/muscle-viewer/index.html?embed=1&legend=0'
+// Same-origin viewer build (public/muscle-viewer/**). The page owns the controls and the muscle
+// detail, so the viewer shows anatomy plus its two edge rails: muscles head-to-toe on the left
+// (drag a finger, release to isolate) and this assessment's findings on the right. No card
+// (card=0), no in-canvas control panel (controls=0).
+const VIEWER_SRC = '/muscle-viewer/index.html?embed=1&legend=0&card=0&controls=0'
 const HELLO_INTERVAL_MS = 300
 const HELLO_MAX_TRIES = 40
 const MODEL_READY_TIMEOUT_MS = 30_000
+// The live model shares this page's main thread (same-origin iframe). It mounts once the page
+// has gone idle, so parsing three.js and the ~11 MB of anatomy never competes with first paint
+// or the first interactions.
+const IDLE_MOUNT_TIMEOUT_MS = 2_500
 
-export default function MuscleModel3D({ findings, referenceOnly = false }: { findings: AssessmentFinding[]; referenceOnly?: boolean }) {
-  const { states, notShown } = useMemo(() => findingsToMuscleStates(referenceOnly ? [] : findings), [findings, referenceOnly])
-  const allEntries = useMemo(() => toNeutralViewerEntries(states), [states])
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
-  const regions = useMemo(() => [...new Set(allEntries.map(entry => entry.muscle))], [allEntries])
-  const activeRegion = regions.includes(selectedRegion ?? '') ? selectedRegion : null
-  const entries = useMemo(() => activeRegion ? allEntries.filter(entry => entry.muscle === activeRegion) : allEntries, [allEntries, activeRegion])
-  const referencedRegions = useMemo(
-    () => regions.length,
-    [regions],
+/** A finding that can be spotlighted on the map. */
+export interface FindingOption {
+  key: string
+  label: string
+  zoneLabel: string
+  band: SeverityBand
+  finding: AssessmentFinding
+}
+
+type Status = 'idle' | 'loading' | 'ready' | 'unavailable'
+
+function prefersDataSaving(): boolean {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+  return connection?.saveData === true
+}
+
+function sideColor(state: SideState | null): string {
+  if (!state) return 'var(--hairline)'
+  return state.role === 'tight' ? STATE_COLORS.tight : STATE_COLORS.weak
+}
+
+function SideDots({ muscle }: { muscle: Pick<MuscleSides, 'left' | 'right'> }) {
+  // Subject's right then left, mirroring the front view.
+  return (
+    <span className={styles.sideDots} aria-hidden>
+      <span style={{ background: sideColor(muscle.right) }} />
+      <span style={{ background: sideColor(muscle.left) }} />
+    </span>
   )
+}
+
+/** "2 tight · 3 weak" — a muscle tight on one side and weak on the other counts in both. */
+function muscleCounts(muscles: MuscleSides[]): string {
+  if (muscles.length === 0) return 'no muscles linked'
+  const has = (role: SideState['role']) => muscles.filter((m) => m.left?.role === role || m.right?.role === role).length
+  return [
+    has('tight') > 0 ? `${has('tight')} tight` : null,
+    has('weak') > 0 ? `${has('weak')} weak` : null,
+  ].filter(Boolean).join(' · ')
+}
+
+/**
+ * The results-page posture map and everything that drives it. The 3D view is never covered:
+ * one box under it holds the view controls, a readout slot and the anatomy credit. The viewer's two
+ * edge rails do the picking — muscles head to toe on the left, this scan's findings on the right.
+ * Picking a finding spotlights its muscles; picking a muscle (rail or model) isolates it and the
+ * readout shows a one-line summary with a Details button — the page opens the detail pop-up only
+ * from there.
+ */
+export default function MuscleModel3D({
+  findings,
+  referenceOnly = false,
+  findingOptions = [],
+  spotlightKey = null,
+  onSpotlight,
+  selectedMuscle = null,
+  onSelectMuscle,
+  onOpenDetails,
+}: {
+  findings: AssessmentFinding[]
+  referenceOnly?: boolean
+  findingOptions?: FindingOption[]
+  spotlightKey?: string | null
+  onSpotlight?: (key: string | null) => void
+  /** Viewer id of the isolated muscle, or null. */
+  selectedMuscle?: string | null
+  onSelectMuscle?: (viewerId: string | null, side: BodySide | null) => void
+  onOpenDetails?: (viewerId: string) => void
+}) {
+  const adapted = useMemo(() => findingsToMuscleStates(referenceOnly ? [] : findings), [findings, referenceOnly])
+  const allStates = useMemo(() => viewerStates(adapted.states), [adapted])
+  const allMuscles = useMemo(() => {
+    const names: Record<string, string> = {}
+    for (const f of findings)
+      for (const l of [...(f.tight_muscle_links ?? []), ...(f.weak_muscle_links ?? [])])
+        if (l?.slug && l.name) names[l.slug] = l.name
+    return sidesBySlug(adapted.states, names)
+  }, [adapted, findings])
+
+  const spotlight = findingOptions.find((o) => o.key === spotlightKey) ?? null
+  const spotlightMuscles = useMemo(() => (spotlight ? musclesForFinding(spotlight.finding) : []), [spotlight])
+  const spotlightStates = useMemo(
+    () => (spotlight ? viewerStates(findingsToMuscleStates([spotlight.finding]).states) : null),
+    [spotlight],
+  )
+  const highlight = useMemo(() => (spotlight ? spotlightIds(spotlightMuscles) : null), [spotlight, spotlightMuscles])
+  // The viewer's right-hand rail: one group per finding (hex tone — CSS vars don't cross the frame).
+  const groups = useMemo(
+    () =>
+      findingOptions.map((o) => ({
+        id: o.key,
+        label: o.label,
+        meta: o.zoneLabel,
+        tone: BAND_TONE[o.band],
+        muscles: spotlightIds(musclesForFinding(o.finding)),
+      })),
+    [findingOptions],
+  )
+
+  const selectedInfo = useMemo(() => {
+    if (!selectedMuscle) return null
+    const m =
+      spotlightMuscles.find((x) => x.viewerId === selectedMuscle) ??
+      allMuscles.find((x) => x.viewerId === selectedMuscle)
+    return { name: m?.name ?? prettySlug(selectedMuscle), sides: m ?? null }
+  }, [selectedMuscle, spotlightMuscles, allMuscles])
+
   const [mounted, setMounted] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading')
+  const [status, setStatus] = useState<Status>('idle')
+  const [xray, setXray] = useState(0)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const readyRef = useRef(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const modelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const entriesRef = useRef(entries)
-
+  const viewerSelectionRef = useRef<string | null>(null)
+  const latest = useRef({ states: spotlightStates ?? allStates, highlight, selectedMuscle, onSelectMuscle, onSpotlight, xray, groups, spotlightKey })
   useEffect(() => {
-    entriesRef.current = entries
-  }, [entries])
+    latest.current = { states: spotlightStates ?? allStates, highlight, selectedMuscle, onSelectMuscle, onSpotlight, xray, groups, spotlightKey }
+  })
 
+  // Mount the live model once the page is idle (or on tap when the browser asks to save data).
+  useEffect(() => {
+    // Reference-only anatomy (no assessment mapped) stays an explicit tap: nothing to show yet.
+    if (mounted || referenceOnly || prefersDataSaving()) return
+    const start = () => {
+      setStatus('loading')
+      setMounted(true)
+    }
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number })
+      .requestIdleCallback
+    if (idle) {
+      const id = idle(start, { timeout: IDLE_MOUNT_TIMEOUT_MS })
+      return () => (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id)
+    }
+    const timer = window.setTimeout(start, IDLE_MOUNT_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [mounted, referenceOnly])
+
+  const post = (message: Record<string, unknown>) => {
+    const frame = iframeRef.current?.contentWindow
+    if (!frame) return
+    try {
+      frame.postMessage({ source: 'posture-ai', ...message }, window.location.origin)
+    } catch {
+      // The frame may be torn down while navigation completes.
+    }
+  }
+  const postRef = useRef(post)
+  useEffect(() => {
+    postRef.current = post
+  })
+
+  // Handshake + event intake for the mounted frame.
   useEffect(() => {
     if (!mounted) return
     const origin = window.location.origin
-    const post = (message: unknown) => {
-      const frame = iframeRef.current?.contentWindow
-      if (!frame) return
-      try {
-        frame.postMessage(message, origin)
-      } catch {
-        // The frame may be torn down while navigation completes.
-      }
+    let tries = 0
+    let ping: ReturnType<typeof setInterval> | null = null
+    const stopPing = () => {
+      if (ping) clearInterval(ping)
+      ping = null
     }
-    const applyEntries = () => post({ source: 'posture-ai', type: 'set', entries: entriesRef.current })
-    const clearPing = () => {
-      if (!intervalRef.current) return
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
+    const sync = () => {
+      const { states, highlight: ids, selectedMuscle: selected, xray: depth, groups: rail, spotlightKey: active } = latest.current
+      postRef.current({ type: 'applyMuscleStates', states })
+      postRef.current({ type: 'groups', groups: rail, active })
+      postRef.current({ type: 'highlight', muscles: ids })
+      postRef.current({ type: 'setXray', value: depth })
+      if (selected) postRef.current({ type: 'select', muscle: selected })
     }
-    const clearModelTimeout = () => {
-      if (!modelTimeoutRef.current) return
-      clearTimeout(modelTimeoutRef.current)
-      modelTimeoutRef.current = null
-    }
+    const timeout = window.setTimeout(() => {
+      if (!readyRef.current) setStatus('unavailable')
+    }, MODEL_READY_TIMEOUT_MS)
+
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin || event.source !== iframeRef.current?.contentWindow) return
-      const data = event.data as { source?: string; type?: string } | null
+      const data = event.data as { source?: string; type?: string; muscle?: unknown; side?: unknown; origin?: unknown } | null
       if (!data || data.source !== 'muscle-viewer') return
-      if (data.type === 'model-ready') {
+      if (data.type === 'ready') {
+        stopPing()
+        sync()
+      } else if (data.type === 'model-ready') {
         readyRef.current = true
+        stopPing()
+        window.clearTimeout(timeout)
         setStatus('ready')
-        clearPing()
-        clearModelTimeout()
-        applyEntries()
-        return
-      }
-      if (data.type === 'model-unavailable') {
+        sync()
+      } else if (data.type === 'model-unavailable') {
+        stopPing()
+        window.clearTimeout(timeout)
         setStatus('unavailable')
-        clearPing()
-        clearModelTimeout()
-        return
+      } else if (data.type === 'group-select') {
+        // A finding picked (or cleared) on the viewer's right-hand rail.
+        const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null
+        latest.current.onSpotlight?.(id)
+      } else if (data.type === 'selection') {
+        // Only the practitioner's own picks in the viewer drive the page; selections the viewer
+        // makes in response to this page's commands must not echo back.
+        if (data.origin === 'host') return
+        const muscle = typeof data.muscle === 'string' ? data.muscle : null
+        const side = data.side === 'left' || data.side === 'right' ? data.side : null
+        viewerSelectionRef.current = muscle
+        latest.current.onSelectMuscle?.(muscle, side)
       }
-      if (data.type !== 'ready') return
-      readyRef.current = true
-      clearPing()
-      applyEntries()
     }
     window.addEventListener('message', onMessage)
-
-    let tries = 0
-    const ping = () => {
-      if (readyRef.current) return clearPing()
-      post({ source: 'posture-ai', type: 'hello' })
+    const hello = () => {
+      postRef.current({ type: 'hello' })
       tries += 1
-      if (tries >= HELLO_MAX_TRIES) {
-        clearPing()
-        if (!readyRef.current) setStatus('unavailable')
-      }
+      if (tries >= HELLO_MAX_TRIES) stopPing()
     }
-    ping()
-    intervalRef.current = setInterval(ping, HELLO_INTERVAL_MS)
-    modelTimeoutRef.current = setTimeout(() => {
-      setStatus('unavailable')
-    }, MODEL_READY_TIMEOUT_MS)
+    hello()
+    ping = setInterval(hello, HELLO_INTERVAL_MS)
 
     return () => {
       window.removeEventListener('message', onMessage)
-      clearPing()
-      clearModelTimeout()
-      post({ source: 'posture-ai', type: 'clear' })
+      stopPing()
+      window.clearTimeout(timeout)
+      postRef.current({ type: 'clear' })
       readyRef.current = false
     }
   }, [frameKey, mounted])
 
+  // Keep the viewer in step with the page: states + spotlight, and the isolated muscle.
   useEffect(() => {
-    if (!mounted || !readyRef.current) return
-    iframeRef.current?.contentWindow?.postMessage(
-      { source: 'posture-ai', type: 'set', entries },
-      window.location.origin,
-    )
-  }, [entries, mounted])
+    if (!mounted) return
+    post({ type: 'applyMuscleStates', states: spotlightStates ?? allStates })
+    post({ type: 'highlight', muscles: highlight })
+    post({ type: 'groups', groups, active: spotlightKey })
+  }, [mounted, allStates, spotlightStates, highlight, groups, spotlightKey])
 
-  const retryViewer = () => {
+  useEffect(() => {
+    if (!mounted || viewerSelectionRef.current === selectedMuscle) return
+    viewerSelectionRef.current = selectedMuscle
+    post({ type: 'select', muscle: selectedMuscle })
+  }, [mounted, selectedMuscle])
+
+  const load = () => {
+    setStatus('loading')
+    setMounted(true)
+  }
+  const retry = () => {
     readyRef.current = false
     setStatus('loading')
     setFrameKey((key) => key + 1)
   }
+  const changeXray = (value: number) => {
+    setXray(value)
+    post({ type: 'setXray', value })
+  }
+
+  const controlsDisabled = status !== 'ready'
+  // A picked muscle or finding pops its card over the key/hint text.
+  const covered = !!((selectedMuscle && selectedInfo) || spotlight)
 
   return (
-    <Surface tier="feature">
-      <section className={styles.shell} aria-labelledby="anatomy-viewer-title">
-        <header className={styles.header}>
-          <div className={styles.headingCopy}>
-            <span className={styles.eyebrow}>Interactive anatomy</span>
-            <h2 id="anatomy-viewer-title" className="t-title">{referenceOnly ? 'Explore anatomy in 3D' : 'Explore assessment-linked regions'}</h2>
-            <p className="t-body">{referenceOnly ? 'Rotate the model to explore general anatomy. No assessment findings are mapped onto this view.' : 'Rotate the model to locate anatomy referenced by this saved assessment.'}</p>
-          </div>
-          {!referenceOnly && <div className={styles.legend} aria-label="3D model legend">
-            <span className={styles.swatch} aria-hidden />
-            <span>{referencedRegions} linked {referencedRegions === 1 ? 'region' : 'regions'}</span>
-          </div>}
-        </header>
+    <section className={styles.hero} aria-labelledby="anatomy-viewer-title">
+      <h2 id="anatomy-viewer-title" className="sr-only">
+        {referenceOnly ? 'Explore anatomy in 3D' : 'Posture map'}
+      </h2>
 
-        {!referenceOnly && regions.length > 0 && <div className={styles.regionButtons} role="group" aria-label="Assessment-linked regions">
-          <button type="button" className="a-secondary" aria-pressed={activeRegion === null} onClick={() => setSelectedRegion(null)}>All regions</button>
-          {regions.map(region => <button type="button" key={region} className="a-secondary" aria-pressed={activeRegion === region} onClick={() => {
-            setSelectedRegion(region)
-            if (!mounted) { setStatus('loading'); setMounted(true) }
-          }}>{region.replaceAll('_', ' ')}</button>)}
-        </div>}
-        {activeRegion && <p role="status" className="t-caption">Showing {activeRegion.replaceAll('_', ' ')}. Rotate the model to see the highlighted anatomy.</p>}
-
+      <div className={styles.card}>
         <div className={styles.viewerFrame}>
-          {!mounted ? (
-            <button
-              type="button"
-              onClick={() => { setStatus('loading'); setMounted(true) }}
-              className={styles.launchButton}
-            >
+          {mounted ? (
+            <iframe
+              key={frameKey}
+              ref={iframeRef}
+              src={VIEWER_SRC}
+              title="Interactive 3D anatomy model"
+              className={styles.iframe}
+              data-status={status}
+            />
+          ) : null}
+
+          {!mounted && (
+            <button type="button" onClick={load} className={styles.launchButton}>
               <span className={styles.glyph} aria-hidden><AnatomyGlyph size={54} /></span>
               <span className={styles.launchTitle}>Open interactive 3D anatomy</span>
-              <span className={styles.launchMeta}>Loads once on request · about 9 MB</span>
-              <span className={styles.launchAction}>Explore in 3D</span>
+              <span className={styles.launchMeta}>About 11 MB · loads once</span>
             </button>
-          ) : (
-            <>
-              <iframe
-                key={frameKey}
-                ref={iframeRef}
-                src={VIEWER_SRC}
-                title="Interactive 3D anatomy model"
-                loading="lazy"
-                className={styles.iframe}
-              />
-              {status === 'loading' && (
-                <div className={styles.statusOverlay} role="status">Loading interactive anatomy…</div>
-              )}
-              {status === 'unavailable' && (
-                <div className={styles.statusOverlay} role="alert">
-                  <p>The 3D view did not load. The recorded scan values remain available above.</p>
-                  <button type="button" onClick={retryViewer} className={styles.retryButton}>Try again</button>
-                </div>
-              )}
-            </>
+          )}
+          {mounted && status === 'loading' && (
+            <div className={styles.statusOverlay} role="status">
+              <span className={styles.glyphPulse} aria-hidden><AnatomyGlyph size={46} /></span>
+              Loading your posture map…
+            </div>
+          )}
+          {status === 'unavailable' && (
+            <div className={styles.statusOverlay} role="alert">
+              <p>The 3D view did not load. Findings and measurements remain available below.</p>
+              <button type="button" onClick={retry} className={styles.retryButton}>Try again</button>
+            </div>
           )}
         </div>
 
-        <div className={styles.instructions} aria-label="3D model instructions">
-          <span>Drag to rotate</span>
-          <span>Pinch or scroll to zoom</span>
-          <span>Use Front and Back to reorient</span>
-        </div>
+        {/* The box under the model holds everything that drives it, so nothing ever covers it:
+            the readout, the view controls, and the anatomy credit along the very bottom. */}
+        <div className={styles.dock}>
+          <div className={styles.controls} role="toolbar" aria-label="3D view controls">
+            <div className={styles.segment}>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'front' })}>Front</button>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'back' })}>Back</button>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'reset' })}>Reset</button>
+            </div>
+            <label className={styles.xray}>
+              <span>X-ray</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(xray * 100)}
+                disabled={controlsDisabled}
+                onChange={(e) => changeXray(Number(e.target.value) / 100)}
+                aria-label="X-ray depth"
+                style={{ ['--fill' as string]: `${Math.round(xray * 100)}%` }}
+              />
+            </label>
+          </div>
 
-        {notShown.length > 0 && (
-          <p className="t-body">
-            {notShown.length} referenced {notShown.length === 1 ? 'area is' : 'areas are'} not available in this anatomy model: {notShown.map((item) => item.name).join(', ')}.
+          {/* Readout under the controls: the color key and how to use the two edge rails. Picking a
+              muscle or a finding pops its card over that text — a fixed-height slot, so nothing
+              shifts. */}
+          <div className={styles.readout}>
+            <div className={styles.idle} aria-hidden={covered || undefined}>
+              {!referenceOnly && (
+                <div className={styles.key} aria-label="3D model legend">
+                  <span><i style={{ background: STATE_COLORS.tight }} aria-hidden />Tight</span>
+                  <span><i style={{ background: STATE_COLORS.weak }} aria-hidden />Weak</span>
+                  {adapted.notShown.length > 0 && (
+                    <span className={styles.idleNote}>
+                      Not drawn: {adapted.notShown.map((item) => item.name).join(', ')}
+                    </span>
+                  )}
+                </div>
+              )}
+              {mounted && (
+                <span className={styles.hint}>
+                  {referenceOnly || findingOptions.length === 0
+                    ? 'Drag along the left edge to pick a muscle.'
+                    : 'Drag the left edge to pick a muscle, the right edge to spotlight a finding.'}
+                </span>
+              )}
+            </div>
+            {selectedMuscle && selectedInfo ? (
+              <div key={`muscle-${selectedMuscle}`} className={`${styles.infoBar} ${styles.overlay}`} role="status" aria-live="polite" aria-label="Selected muscle">
+                {selectedInfo.sides && <SideDots muscle={selectedInfo.sides} />}
+                <div className={styles.infoText}>
+                  <span className={styles.infoName}>{selectedInfo.name}</span>
+                  <span className={styles.infoSummary}>{sidesSummary(selectedInfo.sides)}</span>
+                </div>
+                <button type="button" className={styles.detailsButton} onClick={() => onOpenDetails?.(selectedMuscle)}>
+                  Details
+                </button>
+                <button
+                  type="button"
+                  className={styles.clear}
+                  aria-label="Clear muscle selection"
+                  onClick={() => onSelectMuscle?.(null, null)}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : spotlight ? (
+              <div key={`finding-${spotlight.key}`} className={`${styles.infoBar} ${styles.overlay}`} role="status" aria-live="polite" aria-label="Spotlighted finding">
+                <span className={styles.zoneDot} style={{ background: tone(spotlight.band) }} aria-hidden />
+                <div className={styles.infoText}>
+                  <span className={styles.infoName}>{spotlight.label}</span>
+                  <span className={styles.infoSummary}>
+                    {spotlight.zoneLabel} · {muscleCounts(spotlightMuscles)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.clear}
+                  aria-label="Show all findings"
+                  onClick={() => onSpotlight?.(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <p className={styles.attribution}>
+            BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP
           </p>
-        )}
-
-        <p className={styles.boundary}>
-          {referenceOnly ? 'This is a general anatomy illustration, not a reconstruction of the captured person.' : 'Gold marks anatomy referenced by the assessment record.'} The scan did not test muscle
-          tightness, strength, inhibition, or injury.
-        </p>
-        <p className={styles.attribution}>
-          Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP.
-        </p>
-      </section>
-    </Surface>
+        </div>
+      </div>
+    </section>
   )
 }

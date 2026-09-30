@@ -4,8 +4,13 @@
  * exact 3-week ramp the client receives, plus the override surface (capability
  * dial, per-exercise swap, demote-to-monitor). Presentational — the parent
  * receives a server-computed, release-scoped program and persists overrides.
+ *
+ * Phone-first: each focus is an accordion (the first opens by default) and each
+ * exercise is a compact row whose 3-week ramp reads as one line, so nothing is
+ * wider than the screen.
  */
 import { useState } from 'react'
+import Icon from '@/components/array/Icon'
 import type {
   ClinicalProgramPriority,
   ClinicalProgramReport,
@@ -39,7 +44,7 @@ const STEP_COLOR: Record<string, string> = {
   Strengthen: '#38BDF8',
   Connect: '#A78BFA',
 }
-const WEEK_THEME = ['Learn & Own', 'Reinforce', 'Consolidate']
+const WEEK_THEME = ['learn & own', 'reinforce', 'consolidate']
 const MOVEMENT_ACTION: Record<string, string> = {
   stretch: 'lengthens',
   strengthen: 'strengthens',
@@ -123,7 +128,7 @@ function SwapControl({
   )
 }
 
-function RampTable({
+function ExerciseList({
   priority,
   onSwap,
   onOpenDetail,
@@ -135,116 +140,131 @@ function RampTable({
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
 }) {
   return (
-    <div className={styles.tableWrap}>
-      <table className={styles.table}>
-        <thead>
-          <tr className={styles.theadRow}>
-            <th className={`${styles.th} t-kicker`} style={{ width: '46%' }}>Step &amp; Exercise</th>
-            {WEEK_THEME.map((theme, i) => (
-              <th key={i} className={`${styles.th} ${styles.thWeek} t-kicker`}>
-                <div>Week {i + 1}</div>
-                <div className={styles.thTheme}>{theme}</div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {priority.steps.map((s) => {
-            const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--info)'
-            return (
-              <tr key={s.baseSlug}>
-                <td className={styles.td}>
-                  <div className={styles.stepRow}>
-                    <StepPill text={s.stepLabel} color={stepColor} />
-                    <button
-                      data-testid={`exercise-detail-${s.slug}`}
-                      onClick={() => onOpenDetail(s.slug, s.name)}
-                      className={styles.exerciseButton}
-                    >
-                      {s.name}
-                    </button>
-                    <button
-                      data-testid={`why-this-${s.slug}`}
-                      onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
-                      className={styles.whyThisButton}
-                    >
-                      Why this?
-                    </button>
-                  </div>
-                  <div className={`${styles.stepMeta} t-quiet`}>
-                    {s.freq}
-                    {s.repRange ? ` · target ${s.repRange.min}–${s.repRange.max} reps` : ''}
-                    {s.isIntegrative ? ' · new in week 3' : ''}
-                  </div>
-                  <SwapControl priority={priority} step={s} onSwap={onSwap} />
-                </td>
-                {s.weeks.map((dose, i) => (
-                  <td
-                    key={i}
-                    className={`${styles.td} ${styles.tdWeek} n`}
-                    style={{ color: dose ? 'var(--text-primary)' : 'var(--text-quiet)' }}
-                  >
-                    {renderDose(dose)}
-                  </td>
+    <ol className={styles.exerciseList}>
+      {priority.steps.map((s) => {
+        const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--info)'
+        const ramp = s.weeks.map((dose) => renderDose(dose))
+        return (
+          <li key={s.baseSlug} className={styles.exerciseRow}>
+            <div className={styles.stepRow}>
+              <StepPill text={s.stepLabel} color={stepColor} />
+              <button
+                type="button"
+                data-testid={`exercise-detail-${s.slug}`}
+                onClick={() => onOpenDetail(s.slug, s.name)}
+                className={styles.exerciseButton}
+              >
+                {s.name}
+              </button>
+            </div>
+            <p className={`${styles.stepMeta} n`}>
+              <span>
+                {s.freq}
+                {s.repRange ? ` · ${s.repRange.min}–${s.repRange.max} reps` : ''}
+              </span>
+              {/* The exact 3-week ramp, week 1 → 3, as one line. */}
+              <span className={styles.ramp} aria-hidden="true">
+                {ramp.map((dose, i) => (
+                  <span key={i} className={styles.rampDose} style={{ color: s.weeks[i] ? undefined : 'var(--text-quiet)' }}>
+                    {i > 0 ? <span className={styles.rampArrow}>→</span> : null}
+                    {dose}
+                  </span>
                 ))}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+              </span>
+              <span className="sr-only">
+                {ramp.map((dose, i) => `Week ${i + 1} (${WEEK_THEME[i]}): ${dose}.`).join(' ')}
+              </span>
+              {s.isIntegrative ? <span>new in week 3</span> : null}
+            </p>
+            <div className={styles.exerciseActions}>
+              <button
+                type="button"
+                data-testid={`why-this-${s.slug}`}
+                onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
+                className={styles.whyThisButton}
+              >
+                Why this?
+              </button>
+              <SwapControl priority={priority} step={s} onSwap={onSwap} />
+            </div>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
 function PriorityCard({
   priority,
+  open,
+  onToggle,
   onDemote,
   onSwap,
   onOpenDetail,
   onWhyThis,
 }: {
   priority: ClinicalProgramPriority
+  open: boolean
+  onToggle: () => void
   onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
 } & Pick<OverrideHandlers, 'onDemote' | 'onSwap'>) {
   const band = ZONE_BAND[priority.zone]
   const principle = priority.hasConnect ? 'Loosen → Strengthen → Connect' : 'Loosen → Strengthen'
+  const bodyId = `priority-body-${priority.primaryKey}`
+  const count = priority.steps.length
 
   return (
     <div data-testid={`priority-card-${priority.primaryKey}`}>
-      <Surface tier="tile">
-        <div className={styles.cardHead}>
+      <Surface tier="tile" pad="snug">
+        <button
+          type="button"
+          className={styles.cardHead}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={onToggle}
+        >
           <span
             className={styles.rank}
             style={{ background: tint(band), boxShadow: `inset 0 0 0 1px ${ring(band)}`, color: tone(band) }}
           >
             {priority.rank}
           </span>
-          <span className={`t-title ${styles.cardTitle}`}>{priority.label}</span>
-          <Chip band={band} size="sm">{priority.severityWord} · {priority.zone}</Chip>
-          <button
-            data-testid={`demote-${priority.primaryKey}`}
-            onClick={() => onDemote(priority.primaryKey)}
-            title="Demote to monitor only — removes the program for this focus"
-            className={styles.demoteButton}
-          >
-            Monitor only
-          </button>
-        </div>
+          <span className={styles.cardTitleBlock}>
+            <span className={`t-title ${styles.cardTitle}`}>{priority.label}</span>
+            <span className={styles.cardSub}>
+              <span style={{ color: tone('info') }}>{principle}</span>
+              {` · ${count} ${count === 1 ? 'exercise' : 'exercises'}`}
+            </span>
+          </span>
+          <Chip band={band} size="sm">{priority.severityWord}</Chip>
+          <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
+            <Icon name="alt-arrow-right-linear" size={16} />
+          </span>
+        </button>
 
-        <p className="t-body" style={{ marginBottom: 14 }}>{priority.copy.whatItMeans}</p>
-
-        <p className={styles.principle}>
-          <span style={{ color: tone('info') }}>{principle}</span>{' '}
-          <span className="t-quiet">— the order is what makes it stick</span>
-        </p>
-
-        <RampTable
-          priority={priority}
-          onSwap={onSwap}
-          onOpenDetail={onOpenDetail}
-          onWhyThis={onWhyThis}
-        />
+        {open && (
+          <div id={bodyId} className={styles.cardBody}>
+            <p className={styles.whatItMeans}>{priority.copy.whatItMeans}</p>
+            <ExerciseList
+              priority={priority}
+              onSwap={onSwap}
+              onOpenDetail={onOpenDetail}
+              onWhyThis={onWhyThis}
+            />
+            <div className={styles.cardFoot}>
+              <button
+                type="button"
+                data-testid={`demote-${priority.primaryKey}`}
+                onClick={() => onDemote(priority.primaryKey)}
+                title="Demote to monitor only — removes the program for this focus"
+                className={styles.demoteButton}
+              >
+                Monitor only
+              </button>
+            </div>
+          </div>
+        )}
       </Surface>
     </div>
   )
@@ -265,6 +285,8 @@ export default function PriorityProgram({
   onCapabilityChange: (c: Capability) => void
 } & OverrideHandlers) {
   const [detail, setDetail] = useState<{ slug: string; name: string } | null>(null)
+  // One focus open at a time; the first (highest priority) opens by default.
+  const [openKey, setOpenKey] = useState<string | null>(report.priorities[0]?.primaryKey ?? null)
   const [whyThis, setWhyThis] = useState<{
     slug: string
     name: string
@@ -277,7 +299,9 @@ export default function PriorityProgram({
       <div className={styles.header}>
         <div>
           <h3 className="t-kicker">Corrective Program</h3>
-          <p className="t-body" style={{ marginTop: 4 }}>{report.screeningSummary}</p>
+          <p className={styles.summary}>
+            {report.screeningSummary} Each exercise ramps over 3 weeks: {WEEK_THEME.join(' → ')}.
+          </p>
         </div>
         <label className={styles.capabilityField}>
           <span className="t-kicker">Client capability</span>
@@ -320,6 +344,8 @@ export default function PriorityProgram({
             <PriorityCard
               key={p.primaryKey}
               priority={p}
+              open={openKey === p.primaryKey}
+              onToggle={() => setOpenKey((key) => (key === p.primaryKey ? null : p.primaryKey))}
               onDemote={onDemote}
               onSwap={onSwap}
               onOpenDetail={(slug, name) => setDetail({ slug, name })}

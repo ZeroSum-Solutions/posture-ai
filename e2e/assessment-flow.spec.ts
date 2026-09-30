@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { createClient, selectClientInWizard } from './helpers'
+import { countEvidenceFindings, createClient, selectClientInWizard } from './helpers'
 
 // Golden path in test mode: fixture landmarks stand in for MediaPipe so the
 // flow exercises client creation -> wizard -> scoring -> results -> PDF link
@@ -21,21 +21,19 @@ test.describe('assessment golden path (test mode)', () => {
     // Synchronous scoring + status polling ends on the results page.
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
-    // Results open with the grade verdict always on screen (outside the tab
-    // strip) and Findings as the default, keyboard-accessible tab — secondary
-    // concerns (Evidence, Program) are separate tabs rather than one long
-    // document.
-    await expect(page.getByRole('tab', { name: /^Findings/ })).toHaveAttribute('aria-selected', 'true')
+    // Results open with the grade always on screen (outside the tab strip) and
+    // Evidence as the default, keyboard-accessible tab; the findings themselves
+    // live on the posture map, and Program is the other tab. No disclaimer copy
+    // on the page: the screening notice is accepted at onboarding.
+    await expect(page.getByRole('tab', { name: /^Evidence/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Findings/ })).toHaveCount(0)
     await expect(page.getByText(/Grade C/i).first()).toBeVisible()
-    await expect(page.locator('[data-testid="disclaimer"]')).toBeVisible()
+    await expect(page.locator('[data-testid="disclaimer"]')).toHaveCount(0)
 
-    // Findings render directly under the (default-active) Findings tab. Rows
-    // carry no data-testid in this layout, so each one is counted by its
-    // heading block, which is unique per row.
-    const findings = page.locator('#review-panel-findings [class*="findingHead"]')
+    // Evidence lists each finding under the capture view it was measured on.
     // The current fixture has eight numeric screening readings; non-numeric
     // records are not fabricated into plotted findings.
-    await expect(findings).toHaveCount(8, { timeout: 15_000 })
+    await expect.poll(() => countEvidenceFindings(page), { timeout: 15_000 }).toBe(8)
 
     // Exercises are no longer their own tab — they are a nested disclosure
     // inside Program's "Matched exercises" summary.
@@ -72,9 +70,11 @@ test.describe('assessment golden path (test mode)', () => {
     }
     expect(hydrationErrors).toEqual([])
     await page.getByRole('link', { name: 'Open anatomy view for the latest assessment' }).click()
-    await expect(page.getByRole('tab', { name: 'Evidence', exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('heading', { name: 'Explore assessment-linked regions' })).toBeVisible()
-    await expect(page.getByTitle('Interactive 3D anatomy model')).toHaveCount(0)
+    // The posture map is the results page hero: the deep link lands on it, Evidence stays the
+    // selected tab, and the live model mounts on its own once the page is idle.
+    await expect(page.locator('#anatomy-viewer-title')).toBeAttached()
+    await expect(page.getByRole('tab', { name: /^Evidence/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTitle('Interactive 3D anatomy model')).toHaveCount(1, { timeout: 15_000 })
   })
 
   test('wizard requires a client before continuing', async ({ page }) => {
