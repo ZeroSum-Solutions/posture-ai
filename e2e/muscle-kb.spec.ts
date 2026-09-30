@@ -13,18 +13,20 @@ test.describe('muscle knowledge base', () => {
     await page.getByRole('button', { name: 'Run Test Analysis' }).click()
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
-    // Findings no longer expand in place: tapping one spotlights its muscles on the 3D posture
-    // map at the top of the page and lists them as chips there.
-    await page.getByRole('tab', { name: /Findings/ }).click()
-    const finding = page.locator('[data-testid^="finding-spotlight-"]').first()
+    // Everything is driven from the posture map: a finding chip in the dock under the model
+    // spotlights its muscles, and a muscle chip isolates the muscle (no pop-up yet).
+    const finding = page.locator('[data-testid^="map-finding-"]').first()
     await expect(finding).toBeVisible({ timeout: 10_000 })
     await finding.click()
     await expect(finding).toHaveAttribute('aria-pressed', 'true')
     const chips = page.getByRole('group', { name: / muscles$/ })
     await expect(chips).toBeVisible()
     await chips.getByRole('button').first().click()
+    const selected = page.getByRole('status', { name: 'Selected muscle' })
+    await expect(selected).toBeVisible()
+    await selected.getByRole('button', { name: 'Details' }).click()
 
-    // Muscle detail opens as a modal over the page (no navigation).
+    // Details opens the muscle sheet over the page (no navigation).
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 10_000 })
     await expect(dialog.getByText('What this scan found')).toBeVisible()

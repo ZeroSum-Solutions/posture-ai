@@ -1,4 +1,5 @@
-/* Bottom sheet on phones, centered dialog on wider screens. Sits above the pinned action bar;
+/* A bottom sheet at every width, capped near half the screen so the posture map stays visible
+   above it (the isolated muscle keeps its place on the model). Sits above the island nav;
    ExerciseDetailSheet (z-index 120) opens above it. */
 .backdrop {
   position: fixed;
@@ -8,16 +9,11 @@
   align-items: flex-end;
   justify-content: center;
   /* No backdrop-filter here: a filtered ancestor would become the sheet's backdrop root and
-     leave its own glass blur nothing to blur. */
-  background: rgba(0, 0, 0, 0.6);
+     leave its own glass blur nothing to blur. Light scrim: the model above stays readable. */
+  background: rgba(0, 0, 0, 0.35);
 }
 .sheet { width: 100%; max-width: 560px; }
 .surface { border-radius: 24px 24px 0 0; }
-
-@media (min-width: 720px) {
-  .backdrop { align-items: center; padding: 24px; }
-  .surface { border-radius: 24px; }
-}
 
 .header {
   display: flex;

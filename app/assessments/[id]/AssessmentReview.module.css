@@ -809,3 +809,21 @@
 .findingSpot[aria-pressed='true'] .findingSpotHint { color: var(--text-primary); }
 .findingActive { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 32px -8px rgba(160, 210, 255, 0.35); border-radius: 16px; }
 .findingCauses { margin-top: 12px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+
+/* Compact grade in the top bar — the page's h1. The full rail sits under "Score details". */
+.gradeChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0 auto 0 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.gradeChip strong { font-size: 15px; font-weight: 600; }
+.gradeScore { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }

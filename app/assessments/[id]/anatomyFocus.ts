@@ -15,6 +15,35 @@ import manifest from './muscleIds.generated.json'
 
 export type BodySide = 'left' | 'right'
 
+/**
+ * Tight/weak colors, identical to the 3D viewer's mid-intensity glass (muscle-viewer
+ * src/data/stateColors.ts) so page chips, legend and detail dots match what the model paints.
+ */
+export const STATE_COLORS = { tight: '#ff5f5f', weak: '#4db0f7' } as const
+
+export function severityWord(severity?: number): string {
+  if (severity == null) return ''
+  if (severity >= 67) return 'marked'
+  if (severity >= 34) return 'moderate'
+  return 'mild'
+}
+
+/** One line for a muscle's two sides, e.g. "Tight · both sides" or "Right weaker than left". */
+export function sidesSummary(m: Pick<MuscleSides, 'left' | 'right'> | null): string {
+  const l = m?.left ?? null
+  const r = m?.right ?? null
+  if (!l && !r) return 'No finding in this scan'
+  if (!l) return `${r!.role === 'tight' ? 'Tight' : 'Weak'} · right side only`
+  if (!r) return `${l.role === 'tight' ? 'Tight' : 'Weak'} · left side only`
+  if (l.role !== r.role) return `Right ${r.role}, left ${l.role}`
+  const dl = l.severity ?? 0
+  const dr = r.severity ?? 0
+  const role = l.role === 'tight' ? 'Tight' : 'Weak'
+  if (Math.abs(dl - dr) < 10) return `${role} · both sides${severityWord(Math.max(dl, dr)) ? ` (${severityWord(Math.max(dl, dr))})` : ''}`
+  const word = l.role === 'tight' ? 'tighter' : 'weaker'
+  return dr > dl ? `Right ${word} than left` : `Left ${word} than right`
+}
+
 export interface SideState {
   role: Role
   severity?: number

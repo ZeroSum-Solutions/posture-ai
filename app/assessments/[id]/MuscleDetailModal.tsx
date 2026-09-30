@@ -15,6 +15,7 @@ import type { ClinicalProgramReport } from '@/lib/program/clinicalProjection'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
 import { useFocusTrap } from './useFocusTrap'
 import {
+  STATE_COLORS,
   prescribedSteps,
   prettySlug,
   sidesBySlug,
@@ -54,7 +55,7 @@ function grade(severity?: number): string {
 }
 
 function SideRow({ label, state }: { label: string; state: SideState | null }) {
-  const color = state ? (state.role === 'tight' ? 'var(--review)' : 'var(--info)') : undefined
+  const color = state ? (state.role === 'tight' ? STATE_COLORS.tight : STATE_COLORS.weak) : undefined
   return (
     <div className={styles.sideRow}>
       <span className={styles.sideLabel}>{label}</span>
@@ -162,7 +163,7 @@ export default function MuscleDetailModal({
         <Surface
           tier="feature"
           className={styles.surface}
-          innerStyle={{ maxHeight: '86svh', overflowY: 'auto', background: 'rgba(6, 8, 12, 0.94)' }}
+          innerStyle={{ maxHeight: 'min(58svh, 560px)', overflowY: 'auto', background: 'rgba(6, 8, 12, 0.94)' }}
         >
           <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="muscle-detail-title">
             <header className={styles.header}>

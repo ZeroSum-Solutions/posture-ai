@@ -17,6 +17,8 @@ import styles from './AssessmentReview.module.css'
 import MuscleModel3D from './MuscleModel3D'
 import MuscleDetailModal from './MuscleDetailModal'
 import { musclesForFinding, slugForViewerId, type BodySide } from './anatomyFocus'
+import { hasAnyMuscle } from './muscleMap'
+import type { FindingOption } from './MuscleModel3D'
 import { findingsToMuscleStates } from './findingsToMuscleStates'
 import { saveOverridePatch } from './saveOverride'
 import type { AssessmentResultsPayload } from './loadAssessmentResults'
@@ -229,7 +231,8 @@ export default function ClinicalAssessmentResults({
   const [approved, setApproved] = useState(false)
   // 3D posture map: the finding spotlighted on it, and the muscle whose detail modal is open.
   const [spotlightKey, setSpotlightKey] = useState<string | null>(null)
-  const [openMuscle, setOpenMuscle] = useState<{ viewerId: string; side: BodySide | null } | null>(null)
+  const [selectedMuscle, setSelectedMuscle] = useState<{ viewerId: string; side: BodySide | null } | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const heroRef = useRef<HTMLDivElement | null>(null)
   const [approving, setApproving] = useState(false)
   // Prior scans carry their score and findings so the grade rail can draw the
@@ -786,34 +789,45 @@ export default function ClinicalAssessmentResults({
     scanLabel: `Screening · ${assessedAtShort}`,
     priorLabel: mostRecentPrior ? utcCalendarLabel(mostRecentPrior.assessed_at, 'short') : null,
   })
-  const spotlightRow = spotlightKey ? reviewModel.rows.find((row) => row.key === spotlightKey) ?? null : null
-  const spotlightFinding = spotlightKey
-    ? descriptiveFindings.find((finding) => finding.imbalance_key === spotlightKey) ?? null
+  // Findings the map can spotlight: reliable readings that name muscles.
+  const findingOptions: FindingOption[] = reviewModel.rows.flatMap((row) => {
+    const finding = descriptiveFindings.find((f) => f.imbalance_key === row.key)
+    if (!finding || !row.reliable || !hasAnyMuscle({
+      tightMuscles: row.tightMuscles,
+      weakMuscles: row.weakMuscles,
+      tightLinks: row.tightLinks,
+      weakLinks: row.weakLinks,
+    })) return []
+    return [{ key: row.key, label: row.label, zoneLabel: row.zoneLabel, band: row.band, finding }]
+  })
+  const selectedSlug = selectedMuscle
+    ? slugForViewerId(selectedMuscle.viewerId, findingsToMuscleStates(descriptiveFindings).states)
     : null
-  const spotlight = spotlightRow && spotlightFinding ? { label: spotlightRow.label, finding: spotlightFinding } : null
-  const openMuscleSlug = openMuscle
-    ? slugForViewerId(openMuscle.viewerId, findingsToMuscleStates(descriptiveFindings).states)
-    : null
-  const linkedFindings = openMuscleSlug
-    ? reviewModel.rows.flatMap((row) => {
-        const finding = descriptiveFindings.find((f) => f.imbalance_key === row.key)
-        if (!finding || !musclesForFinding(finding).some((m) => m.slug === openMuscleSlug)) return []
-        return [{ key: row.key, label: row.label, zoneLabel: row.zoneLabel, finding }]
-      })
+  const linkedFindings = selectedSlug
+    ? findingOptions.flatMap((o) =>
+        musclesForFinding(o.finding).some((m) => m.slug === selectedSlug)
+          ? [{ key: o.key, label: o.label, zoneLabel: o.zoneLabel, finding: o.finding }]
+          : [],
+      )
     : []
-  const toggleSpotlight = (key: string) => {
-    setOpenMuscle(null)
-    setSpotlightKey((current) => (current === key ? null : key))
-    // Bring the whole map into view: the finding list sits below it, and the spotlight's muscle
-    // chips live at the bottom of the frame.
+  const spotlightFinding = (key: string | null) => {
+    setSelectedMuscle(null)
+    setDetailsOpen(false)
+    setSpotlightKey(key)
+  }
+  // From the Findings tab list: spotlight, then bring the whole map (and its dock) into view.
+  const spotlightFromList = (key: string) => {
+    spotlightFinding(spotlightKey === key ? null : key)
     const rect = heroRef.current?.getBoundingClientRect()
     if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
       const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       heroRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
     }
   }
-  const selectMuscle = (viewerId: string | null, side: BodySide | null) =>
-    setOpenMuscle(viewerId ? { viewerId, side } : null)
+  const selectMuscle = (viewerId: string | null, side: BodySide | null) => {
+    setSelectedMuscle(viewerId ? { viewerId, side } : null)
+    if (!viewerId) setDetailsOpen(false)
+  }
   return (
     <div className="app-screen app-screen--bar">
       <div className={styles.topBar}>
@@ -821,6 +835,12 @@ export default function ClinicalAssessmentResults({
           <Icon name="alt-arrow-left-linear" size={18} />
           {clientName}
         </Link>
+        {/* The grade, compactly: the map is the page. The full rail lives under "Score details". */}
+        <h1 className={styles.gradeChip}>
+          Grade <strong style={{ color: tone(reviewModel.rail.band) }}>{grade}</strong>
+          <span className={styles.gradeScore}> · {score}/100</span>
+          <span className="sr-only">. {reviewModel.verdict.headline.lead} {reviewModel.verdict.headline.tail ?? ''}</span>
+        </h1>
         {typeof assessment.level_verified === 'boolean' && (
           <span
             className={styles.verifiedChip}
@@ -842,26 +862,15 @@ export default function ClinicalAssessmentResults({
         <div ref={heroRef} className="app-screen-x" style={{ scrollMarginTop: 12 }}>
           <MuscleModel3D
             findings={descriptiveFindings}
-            spotlight={spotlight}
-            onClearSpotlight={() => {
-              setOpenMuscle(null)
-              setSpotlightKey(null)
-            }}
-            selectedMuscle={openMuscle?.viewerId ?? null}
+            findingOptions={findingOptions}
+            spotlightKey={spotlightKey}
+            onSpotlight={spotlightFinding}
+            selectedMuscle={selectedMuscle?.viewerId ?? null}
             onSelectMuscle={selectMuscle}
+            onOpenDetails={() => setDetailsOpen(true)}
           />
         </div>
       )}
-
-      <section className={styles.verdict}>
-        <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
-        <h1 className="t-headline">
-          {reviewModel.verdict.headline.lead}
-          {reviewModel.verdict.headline.tail
-            ? <> <em>{reviewModel.verdict.headline.tail}</em></>
-            : null}
-        </h1>
-      </section>
 
       <div className="app-screen-x app-stack">
         {screeningBoundaryMessage && (
@@ -869,7 +878,6 @@ export default function ClinicalAssessmentResults({
             {screeningBoundaryMessage}
           </p>
         )}
-        <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
 
         {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
           <p key={message} className={`${styles.notice} ${styles.errorNotice}`} role="alert">
@@ -886,7 +894,7 @@ export default function ClinicalAssessmentResults({
               <ReviewFindings
                 rows={reviewModel.rows}
                 activeKey={spotlightKey}
-                onSpotlight={descriptiveFindings.length > 0 ? toggleSpotlight : undefined}
+                onSpotlight={descriptiveFindings.length > 0 ? spotlightFromList : undefined}
               />
               {reviewModel.counts.unreliable > 0 && (
                 <p className={styles.scanCaption} style={{ borderTop: 0, paddingTop: 0 }}>
@@ -1011,6 +1019,14 @@ export default function ClinicalAssessmentResults({
             redundant approve. Anything driving this dock -- e2e specs, the
             performance journey -- has to open the disclosure first. */}
         <details className={styles.disclosure}>
+          <summary className={styles.disclosureSummary}>Score details</summary>
+          <div className={styles.disclosureBody}>
+            <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
+            <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
+          </div>
+        </details>
+
+        <details className={styles.disclosure}>
           <summary className={styles.disclosureSummary}>Report, share &amp; compare</summary>
           <div className={styles.disclosureBody}>
             <ReviewDock
@@ -1052,15 +1068,15 @@ export default function ClinicalAssessmentResults({
         </details>
       </div>
 
-      {openMuscle && openMuscleSlug && (
+      {detailsOpen && selectedMuscle && selectedSlug && (
         <MuscleDetailModal
-          key={openMuscleSlug}
-          slug={openMuscleSlug}
-          side={openMuscle.side}
+          key={selectedSlug}
+          slug={selectedSlug}
+          side={selectedMuscle.side}
           findings={descriptiveFindings}
           linkedFindings={linkedFindings}
           program={program}
-          onClose={() => setOpenMuscle(null)}
+          onClose={() => setDetailsOpen(false)}
         />
       )}
 

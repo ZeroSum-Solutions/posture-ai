@@ -2,9 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnatomyGlyph } from '../../../components/SignalGlyphs'
+import { BAND_TONE, tone, type SeverityBand } from '@/components/array/severity'
 import { findingsToMuscleStates, type AssessmentFinding } from './findingsToMuscleStates'
 import {
+  STATE_COLORS,
   musclesForFinding,
+  prettySlug,
+  sidesBySlug,
+  sidesSummary,
   spotlightIds,
   viewerStates,
   type BodySide,
@@ -13,9 +18,11 @@ import {
 } from './anatomyFocus'
 import styles from './MuscleModel3D.module.css'
 
-// Same-origin viewer build (public/muscle-viewer/**). card=0: this page shows its own muscle
-// detail modal on the viewer's `selection` event instead of the viewer's built-in card.
-const VIEWER_SRC = '/muscle-viewer/index.html?embed=1&legend=0&card=0'
+// Same-origin viewer build (public/muscle-viewer/**). The page owns the controls and the muscle
+// detail, so the viewer shows anatomy plus its two edge rails: muscles head-to-toe on the left
+// (drag a finger, release to isolate) and this assessment's findings on the right. No card
+// (card=0), no in-canvas control panel (controls=0).
+const VIEWER_SRC = '/muscle-viewer/index.html?embed=1&legend=0&card=0&controls=0'
 const HELLO_INTERVAL_MS = 300
 const HELLO_MAX_TRIES = 40
 const MODEL_READY_TIMEOUT_MS = 30_000
@@ -24,9 +31,12 @@ const MODEL_READY_TIMEOUT_MS = 30_000
 // or the first interactions.
 const IDLE_MOUNT_TIMEOUT_MS = 2_500
 
-export interface AnatomySpotlight {
-  /** Finding label shown on the spotlight bar, e.g. "Forward head posture". */
+/** A finding that can be spotlighted on the map. */
+export interface FindingOption {
+  key: string
   label: string
+  zoneLabel: string
+  band: SeverityBand
   finding: AssessmentFinding
 }
 
@@ -37,76 +47,96 @@ function prefersDataSaving(): boolean {
   return connection?.saveData === true
 }
 
-function sideTone(state: SideState | null): string | undefined {
-  if (!state) return undefined
-  return state.role === 'tight' ? 'var(--review)' : 'var(--info)'
+function sideColor(state: SideState | null): string {
+  if (!state) return 'var(--hairline)'
+  return state.role === 'tight' ? STATE_COLORS.tight : STATE_COLORS.weak
 }
 
-function MuscleChip({ muscle, active, onSelect }: { muscle: MuscleSides; active: boolean; onSelect: () => void }) {
-  const left = sideTone(muscle.left)
-  const right = sideTone(muscle.right)
-  const describe = (label: string, s: SideState | null) =>
-    s ? `${label} ${s.role === 'tight' ? 'tight' : 'weak'}` : `${label} no finding`
+function SideDots({ muscle }: { muscle: Pick<MuscleSides, 'left' | 'right'> }) {
+  // Subject's right then left, mirroring the front view.
   return (
-    <button
-      type="button"
-      className={styles.muscleChip}
-      aria-pressed={active}
-      onClick={onSelect}
-      aria-label={`${muscle.name}: ${describe('left', muscle.left)}, ${describe('right', muscle.right)}. Open details`}
-    >
-      <span className={styles.chipDots} aria-hidden>
-        <span style={{ background: right ?? 'var(--hairline)' }} />
-        <span style={{ background: left ?? 'var(--hairline)' }} />
-      </span>
-      {muscle.name}
-    </button>
+    <span className={styles.chipDots} aria-hidden>
+      <span style={{ background: sideColor(muscle.right) }} />
+      <span style={{ background: sideColor(muscle.left) }} />
+    </span>
   )
 }
 
 /**
- * Hero 3D posture map for the results page. Paints every finding's muscles per side (tight red,
- * weak blue, shaded by severity × evidence), spotlights one finding's muscles when the page
- * selects it, and reports taps on the model through `onSelectMuscle` so the page can open its
- * muscle detail modal. `referenceOnly` shows plain anatomy with no assessment mapping.
+ * The results-page posture map and everything that drives it. The 3D view is never covered:
+ * view controls, the findings strip, a spotlighted finding's muscles and the selected muscle's
+ * info bar all sit in a dock attached under it. Tapping a finding spotlights its muscles; tapping
+ * a muscle (in the dock or on the model) isolates it and shows a one-line summary with a Details
+ * button — the page opens the detail sheet only from there.
  */
 export default function MuscleModel3D({
   findings,
   referenceOnly = false,
-  spotlight = null,
-  onClearSpotlight,
+  findingOptions = [],
+  spotlightKey = null,
+  onSpotlight,
   selectedMuscle = null,
   onSelectMuscle,
+  onOpenDetails,
 }: {
   findings: AssessmentFinding[]
   referenceOnly?: boolean
-  spotlight?: AnatomySpotlight | null
-  onClearSpotlight?: () => void
-  /** Viewer id of the muscle whose detail is open, or null. */
+  findingOptions?: FindingOption[]
+  spotlightKey?: string | null
+  onSpotlight?: (key: string | null) => void
+  /** Viewer id of the isolated muscle, or null. */
   selectedMuscle?: string | null
   onSelectMuscle?: (viewerId: string | null, side: BodySide | null) => void
+  onOpenDetails?: (viewerId: string) => void
 }) {
-  const { notShown } = useMemo(() => findingsToMuscleStates(referenceOnly ? [] : findings), [findings, referenceOnly])
-  const allStates = useMemo(
-    () => viewerStates(findingsToMuscleStates(referenceOnly ? [] : findings).states),
-    [findings, referenceOnly],
-  )
+  const adapted = useMemo(() => findingsToMuscleStates(referenceOnly ? [] : findings), [findings, referenceOnly])
+  const allStates = useMemo(() => viewerStates(adapted.states), [adapted])
+  const allMuscles = useMemo(() => {
+    const names: Record<string, string> = {}
+    for (const f of findings)
+      for (const l of [...(f.tight_muscle_links ?? []), ...(f.weak_muscle_links ?? [])])
+        if (l?.slug && l.name) names[l.slug] = l.name
+    return sidesBySlug(adapted.states, names)
+  }, [adapted, findings])
+
+  const spotlight = findingOptions.find((o) => o.key === spotlightKey) ?? null
   const spotlightMuscles = useMemo(() => (spotlight ? musclesForFinding(spotlight.finding) : []), [spotlight])
   const spotlightStates = useMemo(
     () => (spotlight ? viewerStates(findingsToMuscleStates([spotlight.finding]).states) : null),
     [spotlight],
   )
   const highlight = useMemo(() => (spotlight ? spotlightIds(spotlightMuscles) : null), [spotlight, spotlightMuscles])
+  // The viewer's right-hand rail: one group per finding (hex tone — CSS vars don't cross the frame).
+  const groups = useMemo(
+    () =>
+      findingOptions.map((o) => ({
+        id: o.key,
+        label: o.label,
+        meta: o.zoneLabel,
+        tone: BAND_TONE[o.band],
+        muscles: spotlightIds(musclesForFinding(o.finding)),
+      })),
+    [findingOptions],
+  )
+
+  const selectedInfo = useMemo(() => {
+    if (!selectedMuscle) return null
+    const m =
+      spotlightMuscles.find((x) => x.viewerId === selectedMuscle) ??
+      allMuscles.find((x) => x.viewerId === selectedMuscle)
+    return { name: m?.name ?? prettySlug(selectedMuscle), sides: m ?? null }
+  }, [selectedMuscle, spotlightMuscles, allMuscles])
 
   const [mounted, setMounted] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
   const [status, setStatus] = useState<Status>('idle')
+  const [xray, setXray] = useState(0)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const readyRef = useRef(false)
   const viewerSelectionRef = useRef<string | null>(null)
-  const latest = useRef({ states: spotlightStates ?? allStates, highlight, selectedMuscle, onSelectMuscle })
+  const latest = useRef({ states: spotlightStates ?? allStates, highlight, selectedMuscle, onSelectMuscle, onSpotlight, xray, groups, spotlightKey })
   useEffect(() => {
-    latest.current = { states: spotlightStates ?? allStates, highlight, selectedMuscle, onSelectMuscle }
+    latest.current = { states: spotlightStates ?? allStates, highlight, selectedMuscle, onSelectMuscle, onSpotlight, xray, groups, spotlightKey }
   })
 
   // Mount the live model once the page is idle (or on tap when the browser asks to save data).
@@ -152,9 +182,11 @@ export default function MuscleModel3D({
       ping = null
     }
     const sync = () => {
-      const { states, highlight: ids, selectedMuscle: selected } = latest.current
+      const { states, highlight: ids, selectedMuscle: selected, xray: depth, groups: rail, spotlightKey: active } = latest.current
       postRef.current({ type: 'applyMuscleStates', states })
+      postRef.current({ type: 'groups', groups: rail, active })
       postRef.current({ type: 'highlight', muscles: ids })
+      postRef.current({ type: 'setXray', value: depth })
       if (selected) postRef.current({ type: 'select', muscle: selected })
     }
     const timeout = window.setTimeout(() => {
@@ -178,9 +210,13 @@ export default function MuscleModel3D({
         stopPing()
         window.clearTimeout(timeout)
         setStatus('unavailable')
+      } else if (data.type === 'group-select') {
+        // A finding picked (or cleared) on the viewer's right-hand rail.
+        const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null
+        latest.current.onSpotlight?.(id)
       } else if (data.type === 'selection') {
         // Only the practitioner's own picks in the viewer drive the page; selections the viewer
-        // makes in response to this page's commands must not echo back (e.g. close the modal).
+        // makes in response to this page's commands must not echo back.
         if (data.origin === 'host') return
         const muscle = typeof data.muscle === 'string' ? data.muscle : null
         const side = data.side === 'left' || data.side === 'right' ? data.side : null
@@ -206,12 +242,13 @@ export default function MuscleModel3D({
     }
   }, [frameKey, mounted])
 
-  // Keep the viewer in step with the page: states + spotlight, and the open muscle.
+  // Keep the viewer in step with the page: states + spotlight, and the isolated muscle.
   useEffect(() => {
     if (!mounted) return
     post({ type: 'applyMuscleStates', states: spotlightStates ?? allStates })
     post({ type: 'highlight', muscles: highlight })
-  }, [mounted, allStates, spotlightStates, highlight])
+    post({ type: 'groups', groups, active: spotlightKey })
+  }, [mounted, allStates, spotlightStates, highlight, groups, spotlightKey])
 
   useEffect(() => {
     if (!mounted || viewerSelectionRef.current === selectedMuscle) return
@@ -228,6 +265,12 @@ export default function MuscleModel3D({
     setStatus('loading')
     setFrameKey((key) => key + 1)
   }
+  const changeXray = (value: number) => {
+    setXray(value)
+    post({ type: 'setXray', value })
+  }
+
+  const controlsDisabled = status !== 'ready'
 
   return (
     <section className={styles.hero} aria-labelledby="anatomy-viewer-title">
@@ -235,79 +278,153 @@ export default function MuscleModel3D({
         {referenceOnly ? 'Explore anatomy in 3D' : 'Posture map'}
       </h2>
 
-      <div className={styles.viewerFrame}>
-        {mounted ? (
-          <iframe
-            key={frameKey}
-            ref={iframeRef}
-            src={VIEWER_SRC}
-            title="Interactive 3D anatomy model"
-            className={styles.iframe}
-            data-status={status}
-          />
-        ) : null}
+      <div className={styles.card}>
+        <div className={styles.viewerFrame}>
+          {mounted ? (
+            <iframe
+              key={frameKey}
+              ref={iframeRef}
+              src={VIEWER_SRC}
+              title="Interactive 3D anatomy model"
+              className={styles.iframe}
+              data-status={status}
+            />
+          ) : null}
 
-        {!mounted && (
-          <button type="button" onClick={load} className={styles.launchButton}>
-            <span className={styles.glyph} aria-hidden><AnatomyGlyph size={54} /></span>
-            <span className={styles.launchTitle}>Open interactive 3D anatomy</span>
-            <span className={styles.launchMeta}>About 11 MB · loads once</span>
-          </button>
-        )}
-        {mounted && status === 'loading' && (
-          <div className={styles.statusOverlay} role="status">
-            <span className={styles.glyphPulse} aria-hidden><AnatomyGlyph size={46} /></span>
-            Loading your posture map…
-          </div>
-        )}
-        {status === 'unavailable' && (
-          <div className={styles.statusOverlay} role="alert">
-            <p>The 3D view did not load. Findings and measurements remain available below.</p>
-            <button type="button" onClick={retry} className={styles.retryButton}>Try again</button>
-          </div>
-        )}
+          {!mounted && (
+            <button type="button" onClick={load} className={styles.launchButton}>
+              <span className={styles.glyph} aria-hidden><AnatomyGlyph size={54} /></span>
+              <span className={styles.launchTitle}>Open interactive 3D anatomy</span>
+              <span className={styles.launchMeta}>About 11 MB · loads once</span>
+            </button>
+          )}
+          {mounted && status === 'loading' && (
+            <div className={styles.statusOverlay} role="status">
+              <span className={styles.glyphPulse} aria-hidden><AnatomyGlyph size={46} /></span>
+              Loading your posture map…
+            </div>
+          )}
+          {status === 'unavailable' && (
+            <div className={styles.statusOverlay} role="alert">
+              <p>The 3D view did not load. Findings and measurements remain available below.</p>
+              <button type="button" onClick={retry} className={styles.retryButton}>Try again</button>
+            </div>
+          )}
+        </div>
 
-        {spotlight && (
-          <div className={styles.spotlight}>
-            <div className={styles.spotlightHead}>
-              <span className={styles.spotlightLabel}>{spotlight.label}</span>
-              <button type="button" className={styles.clear} onClick={onClearSpotlight} aria-label="Show all findings">
+        {/* Dock: attached under the model so nothing ever covers it. */}
+        <div className={styles.dock}>
+          <div className={styles.controls} role="toolbar" aria-label="3D view controls">
+            <div className={styles.segment}>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'front' })}>Front</button>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'view', direction: 'back' })}>Back</button>
+              <button type="button" disabled={controlsDisabled} onClick={() => post({ type: 'reset' })}>Reset</button>
+            </div>
+            <label className={styles.xray}>
+              <span>X-ray</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(xray * 100)}
+                disabled={controlsDisabled}
+                onChange={(e) => changeXray(Number(e.target.value) / 100)}
+                aria-label="X-ray depth"
+                style={{ ['--fill' as string]: `${Math.round(xray * 100)}%` }}
+              />
+            </label>
+          </div>
+
+          {!referenceOnly && findingOptions.length > 0 && (
+            <div className={styles.strip} role="group" aria-label="Findings">
+              <button
+                type="button"
+                className={styles.chip}
+                aria-pressed={!spotlightKey}
+                onClick={() => onSpotlight?.(null)}
+              >
+                All findings
+              </button>
+              {findingOptions.map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  className={styles.chip}
+                  aria-pressed={o.key === spotlightKey}
+                  data-testid={`map-finding-${o.key}`}
+                  onClick={() => onSpotlight?.(o.key === spotlightKey ? null : o.key)}
+                  aria-label={`${o.label}, ${o.zoneLabel}`}
+                >
+                  <span className={styles.zoneDot} style={{ background: tone(o.band) }} aria-hidden />
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {spotlight && (
+            spotlightMuscles.length > 0 ? (
+              <div className={styles.strip} role="group" aria-label={`${spotlight.label} muscles`}>
+                {spotlightMuscles.map((m) => {
+                  const id = m.viewerId ?? m.slug.replace(/-/g, '_')
+                  return (
+                    <button
+                      key={m.slug}
+                      type="button"
+                      className={styles.chip}
+                      aria-pressed={id === selectedMuscle}
+                      onClick={() => onSelectMuscle?.(id === selectedMuscle ? null : id, null)}
+                      aria-label={`${m.name}: ${sidesSummary(m)}`}
+                    >
+                      <SideDots muscle={m} />
+                      {m.name}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className={styles.stripEmpty}>No muscles are linked to {spotlight.label}.</p>
+            )
+          )}
+
+          {selectedMuscle && selectedInfo && (
+            <div className={styles.infoBar} role="status" aria-live="polite" aria-label="Selected muscle">
+              {selectedInfo.sides && <SideDots muscle={selectedInfo.sides} />}
+              <div className={styles.infoText}>
+                <span className={styles.infoName}>{selectedInfo.name}</span>
+                <span className={styles.infoSummary}>{sidesSummary(selectedInfo.sides)}</span>
+              </div>
+              <button type="button" className={styles.detailsButton} onClick={() => onOpenDetails?.(selectedMuscle)}>
+                Details
+              </button>
+              <button
+                type="button"
+                className={styles.clear}
+                aria-label="Clear muscle selection"
+                onClick={() => onSelectMuscle?.(null, null)}
+              >
                 ✕
               </button>
             </div>
-            {spotlightMuscles.length > 0 ? (
-              <div className={styles.chips} role="group" aria-label={`${spotlight.label} muscles`}>
-                {spotlightMuscles.map((m) => (
-                  <MuscleChip
-                    key={m.slug}
-                    muscle={m}
-                    active={!!m.viewerId && m.viewerId === selectedMuscle}
-                    onSelect={() => onSelectMuscle?.(m.viewerId ?? m.slug.replace(/-/g, '_'), null)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className={styles.spotlightEmpty}>No muscles are linked to this finding.</p>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {!referenceOnly && (
         <div className={styles.legend} aria-label="3D model legend">
-          <span><i style={{ background: 'var(--review)' }} aria-hidden />Tight</span>
-          <span><i style={{ background: 'var(--info)' }} aria-hidden />Weak</span>
-          <span className={styles.legendNote}>shaded by severity</span>
+          <span><i style={{ background: STATE_COLORS.tight }} aria-hidden />Tight</span>
+          <span><i style={{ background: STATE_COLORS.weak }} aria-hidden />Weak</span>
+          <span className={styles.legendNote}>
+            Screening indication, not a diagnosis — confirm with hands-on testing.
+            {adapted.notShown.length > 0
+              ? ` Not drawn: ${adapted.notShown.map((item) => item.name).join(', ')}.`
+              : ''}
+          </span>
         </div>
       )}
-      <p className={styles.boundary}>
-        {referenceOnly
-          ? 'A general anatomy illustration, not a reconstruction of the captured person.'
-          : 'Screening indication, not a diagnosis. Colors show where this scan suggests muscles may be tight or weak; confirm with hands-on testing.'}
-        {notShown.length > 0 && !referenceOnly
-          ? ` Not drawn in this model: ${notShown.map((item) => item.name).join(', ')}.`
-          : ''}
-      </p>
+      {referenceOnly && (
+        <p className={styles.boundary}>A general anatomy illustration, not a reconstruction of the captured person.</p>
+      )}
       <p className={styles.attribution}>Anatomy: BodyParts3D, © The Database Center for Life Science — CC BY-SA 2.1 JP.</p>
     </section>
   )

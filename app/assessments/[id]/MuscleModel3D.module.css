@@ -1,36 +1,27 @@
-/* Hero posture map — posture-ai "Array": pure black field, hairline glass, white text.
-   Tight = --review, weak = --info (matching the viewer's red/blue). */
+/* Posture map workspace — posture-ai "Array": pure black field, hairline glass, white text.
+   One card: the 3D view on top, a dock attached under it. Nothing overlays the model. */
 
-.hero { display: grid; gap: 10px; min-width: 0; }
+.hero { display: grid; gap: 8px; min-width: 0; }
+
+.card {
+  overflow: hidden;
+  border-radius: 24px;
+  background: #000;
+  box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.1)), 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
 
 .viewerFrame {
   position: relative;
   min-width: 0;
-  /* Fixed height up front so mounting the live model never shifts layout. */
-  height: clamp(420px, 62svh, 640px);
-  overflow: hidden;
-  border-radius: 24px;
+  /* Sized so the model + a full dock fit one phone screen above the island nav; fixed up front
+     so mounting the live model never shifts layout. */
+  height: clamp(300px, calc(100svh - 400px), 620px);
   background:
     radial-gradient(ellipse 60% 55% at 50% 42%, rgba(56, 110, 190, 0.18), rgba(18, 36, 70, 0.06) 55%, transparent 75%),
     #000;
-  box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.1)), 0 25px 50px -12px rgba(0, 0, 0, 0.4);
 }
 
 .iframe { display: block; width: 100%; height: 100%; border: 0; }
-
-/* Legend sits under the frame so it never competes with the viewer's own controls. */
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px;
-  padding: 0 4px;
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 8px; height: 8px; border-radius: 999px; }
-.legendNote { color: var(--text-tertiary); }
 
 .launchButton {
   position: absolute;
@@ -48,10 +39,6 @@
   text-align: center;
   cursor: pointer;
 }
-.launchButton:focus-visible,
-.retryButton:focus-visible,
-.muscleChip:focus-visible,
-.clear:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
 
 .glyph, .glyphPulse {
   display: grid;
@@ -97,40 +84,94 @@
   cursor: pointer;
 }
 
-/* Spotlight: the finding being shown, and its muscles as tappable chips. */
-.spotlight {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+/* ---- Dock ---- */
+.dock {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(24px);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  gap: 8px;
+  padding: 10px 10px 12px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.025);
 }
-.spotlightHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.spotlightLabel { color: var(--text-primary); font-size: 14px; font-weight: 400; letter-spacing: 0.01em; }
-.spotlightEmpty { color: var(--text-tertiary); font-size: 12px; }
 
-.clear {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
+.controls { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.segment {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.segment button {
+  min-height: 36px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: transparent;
   color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
 }
+.segment button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+.segment button:disabled { opacity: 0.4; cursor: default; }
 
-.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-.chips::-webkit-scrollbar { display: none; }
+.xray {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.xray input {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 28px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.xray input::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(190, 225, 255, 0.95) var(--fill, 0%), rgba(255, 255, 255, 0.14) var(--fill, 0%));
+}
+.xray input::-moz-range-track { height: 2px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.xray input::-moz-range-progress { height: 2px; border-radius: 999px; background: rgba(190, 225, 255, 0.95); }
+.xray input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -8px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(160, 210, 255, 0.18), 0 0 14px rgba(140, 200, 255, 0.5);
+}
+.xray input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 999px; background: #fff; }
+.xray input:disabled { opacity: 0.4; cursor: default; }
 
-.muscleChip {
+.strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  /* Let the strip bleed to the card edge so the next chip peeks in as a scroll cue. */
+  margin: 0 -10px;
+  padding: 0 10px;
+}
+.strip::-webkit-scrollbar { display: none; }
+.stripEmpty { color: var(--text-tertiary); font-size: 12px; padding: 4px 2px; }
+
+.chip {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -139,19 +180,87 @@
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 300;
+  font-weight: 400;
   white-space: nowrap;
+  scroll-snap-align: start;
   cursor: pointer;
 }
-.muscleChip[aria-pressed='true'] { background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4); }
+.chip:hover { color: var(--text-primary); }
+.chip[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
+  color: #000;
+}
+.zoneDot { width: 7px; height: 7px; border-radius: 999px; }
 
 /* Two dots: subject's right then left, mirroring the front view. */
-.chipDots { display: inline-flex; gap: 3px; }
+.chipDots { display: inline-flex; flex: 0 0 auto; gap: 3px; }
 .chipDots span { width: 7px; height: 7px; border-radius: 999px; }
 
+.infoBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.infoText { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.infoName { overflow: hidden; color: var(--text-primary); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.infoSummary { color: var(--text-tertiary); font-size: 12px; }
+
+.detailsButton {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.clear {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.launchButton:focus-visible,
+.retryButton:focus-visible,
+.segment button:focus-visible,
+.chip:focus-visible,
+.detailsButton:focus-visible,
+.clear:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
+
+/* ---- Under the card ---- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 0 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 8px; height: 8px; border-radius: 999px; }
+.legendNote { color: var(--text-tertiary); }
+
 .boundary { color: var(--text-tertiary); font-size: 11px; line-height: 1.5; padding: 0 4px; }
-.attribution { color: var(--text-tertiary); font-size: 10px; opacity: 0.7; padding: 0 4px; }
+.attribution { color: var(--text-tertiary); font-size: 10px; opacity: 0.6; padding: 0 4px; }

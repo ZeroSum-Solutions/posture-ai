@@ -61,15 +61,17 @@ test.describe('3D posture summary', () => {
     await expect(page.getByText(/Screening indication, not a diagnosis/)).toBeVisible()
 
     const viewer = frame!.locator('[data-model-state="ready"]')
+    // View controls sit in the page's toolbar under the model (nothing overlays the 3D view).
+    const toolbar = page.getByRole('toolbar', { name: '3D view controls' })
     const canvas = frame!.locator('canvas')
-    await frame!.getByRole('button', { name: /Front/ }).click()
+    await toolbar.getByRole('button', { name: 'Front' }).click()
     await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
     const frontImage = await canvas.screenshot()
-    await frame!.getByRole('button', { name: /Back/ }).click()
+    await toolbar.getByRole('button', { name: 'Back' }).click()
     await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
     const backImage = await canvas.screenshot()
     expect(frontImage.equals(backImage), 'Back must visibly change the rendered anatomy view').toBe(false)
-    await frame!.getByRole('button', { name: /Reset/ }).click()
+    await toolbar.getByRole('button', { name: 'Reset' }).click()
     await expect(viewer).toHaveAttribute('data-camera-state', 'settled')
 
     // CI rasterizes WebGL in software (SwiftShader); the glass scene takes ~1 s per frame there,

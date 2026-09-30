@@ -175,6 +175,8 @@ async function expectStoredGradeCases(
     // the readout it sits next to, and GradeRail only draws it when the current
     // scale applies to this scan -- which is the guarantee the historical-grade
     // case below depends on.
+    // The compact grade sits in the header; the full rail (with its range) is under "Score details".
+    await page.getByText('Score details', { exact: true }).click()
     await expect(
       page.getByText(fixture.range, { exact: true }),
       `grade ${fixture.grade}'s range "${fixture.range}" is not rendered beside the deviation score`,

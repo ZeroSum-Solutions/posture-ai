@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  sidesSummary,
   musclesForFinding,
   prescribedSteps,
   sidesBySlug,
@@ -120,5 +121,15 @@ describe('prescribedSteps', () => {
 
   it('is empty without a program', () => {
     expect(prescribedSteps(null, catalog, null)).toEqual([])
+  })
+})
+
+describe('sidesSummary', () => {
+  it('reads both sides in one line', () => {
+    expect(sidesSummary({ left: { role: 'tight', severity: 70 }, right: { role: 'tight', severity: 72 } })).toBe('Tight · both sides (marked)')
+    expect(sidesSummary({ left: { role: 'weak', severity: 20 }, right: { role: 'weak', severity: 70 } })).toBe('Right weaker than left')
+    expect(sidesSummary({ left: { role: 'tight' }, right: { role: 'weak' } })).toBe('Right weak, left tight')
+    expect(sidesSummary({ left: null, right: { role: 'weak' } })).toBe('Weak · right side only')
+    expect(sidesSummary(null)).toBe('No finding in this scan')
   })
 })
