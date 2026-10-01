@@ -110,7 +110,7 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.78); /* AA on the dock's near-black */
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -131,7 +131,7 @@
   gap: 8px;
   white-space: nowrap;
   min-width: 0;
-  color: var(--text-tertiary);
+  color: rgba(255, 255, 255, 0.66);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.16em;
@@ -198,8 +198,8 @@
 }
 .key > span { display: inline-flex; align-items: center; gap: 6px; }
 .key i { width: 7px; height: 7px; border-radius: 999px; }
-.idleNote { color: var(--text-tertiary); font-size: 11px; }
-.hint { color: var(--text-tertiary); font-size: 12px; line-height: 1.4; }
+.idleNote { color: rgba(255, 255, 255, 0.66); font-size: 11px; }
+.hint { color: rgba(255, 255, 255, 0.66); font-size: 12px; line-height: 1.4; }
 
 .zoneDot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; }
 
@@ -219,7 +219,7 @@
 }
 .infoText { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
 .infoName { overflow: hidden; color: var(--text-primary); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.infoSummary { color: var(--text-tertiary); font-size: 12px; }
+.infoSummary { color: rgba(255, 255, 255, 0.66); font-size: 12px; }
 
 .detailsButton {
   flex: 0 0 auto;
