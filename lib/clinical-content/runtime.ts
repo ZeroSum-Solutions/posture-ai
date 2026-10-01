@@ -4,22 +4,13 @@ import type { PractitionerOperation } from '@/lib/prototype/runtime'
 import { resolveClinicalContentAccess, type ClinicalContentAccess } from './policy'
 
 /**
- * Server-only runtime resolver. Public NEXT_PUBLIC_* state is never sufficient:
- * the complete fixture catalog also requires POSTURE_TEST_MODE_ENABLED, while a
- * production release requires an exact source-controlled release id + HG-03
- * receipt hash pair.
+ * Server-only runtime resolver. The clinical-content review gate (HG-03 release
+ * + receipt) was removed by the product owner on 2026-10-01: every practitioner
+ * gets the full catalog, recorded as an "open" content version whose database
+ * receipt states that no clinical review took place.
  */
 export function clinicalContentAccess(): ClinicalContentAccess {
-  const testFixtureEnabled = process.env.VERCEL_ENV !== 'production'
-    && process.env.POSTURE_TEST_MODE_ENABLED === '1'
-    && process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT === '1'
-  return resolveClinicalContentAccess({
-    inventory,
-    ledger,
-    releaseId: process.env.CLINICAL_CONTENT_RELEASE_ID,
-    hg03ReceiptSha256: process.env.CLINICAL_CONTENT_HG03_RECEIPT_SHA256,
-    testFixtureEnabled,
-  })
+  return resolveClinicalContentAccess({ inventory, ledger, openAccess: true })
 }
 
 /** Resolve the catalog for an already-admitted practitioner's operation. */

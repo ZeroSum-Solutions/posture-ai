@@ -90,8 +90,8 @@ describe('GET /api/health schema readiness', () => {
     expect(await response.json()).toMatchObject({
       schema: 'ready',
       clinical_content: {
-        status: 'assessment_only',
-        reason: 'hg03_activation_absent',
+        status: 'active',
+        reason: 'clinical_content_gate_removed',
       },
     })
   })

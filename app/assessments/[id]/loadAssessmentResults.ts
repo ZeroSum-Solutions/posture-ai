@@ -159,7 +159,7 @@ export async function loadAssessmentResults(
   const keys = (findings || []).map((finding: { imbalance_key: string }) => finding.imbalance_key)
   const service = createSupabaseServiceClient()
   const [defsRes, capturesRes] = await Promise.all([
-    keys.length > 0 && clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
+    keys.length > 0 && (clinicalAccess.mode === 'test_fixture' || clinicalAccess.mode === 'open') && clinicalAccess.surfaces.recommendations
       ? service.from('imbalance_definitions').select('key, causes_text, tight_muscles, weak_muscles').in('key', keys)
       : Promise.resolve({ data: [] as { key: string; causes_text: string; tight_muscles: unknown; weak_muscles: unknown }[] }),
     service.from('captures').select(
@@ -252,7 +252,7 @@ export async function loadAssessmentResults(
         uncertainty_deg: observation.quality.withinCaptureProcessing.uncertaintyDeg,
         borderline: descriptive.borderline,
         metric_validity: observation.validity.persistedFrame,
-        explanation: clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.recommendations
+        explanation: (clinicalAccess.mode === 'test_fixture' || clinicalAccess.mode === 'open') && clinicalAccess.surfaces.recommendations
           ? finding.explanation ?? null
           : null,
         causes_text: defMap[descriptive.imbalance_key]?.causes_text || '',

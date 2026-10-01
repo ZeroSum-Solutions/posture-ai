@@ -65,7 +65,6 @@ declared scope passes, not that emulation substitutes for the physical matrix in
 | `health.spec.ts` | `GET /api/health` → ok / connected / schema ready | both |
 | `logout.spec.ts` | NavBar logout → cleared session (restores shared session in `afterEach`) | both |
 | `muscle-kb.spec.ts` | finding → muscle page → exercises; muscle library + search | both |
-| `unreviewed-content.spec.ts` | "Pending review" badge on an unreviewed muscle (dev/preview) | both |
 | `wizard-nav.spec.ts` | wizard back-navigation; abandon mid-wizard | both |
 | `real-detection.spec.ts` | real photo upload → MediaPipe → score; no-CDN assertion | chromium |
 | `capture-errors.spec.ts` | camera permission denied; no-orientation-sensor; no-person upload | chromium |

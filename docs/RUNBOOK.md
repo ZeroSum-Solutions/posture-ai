@@ -33,9 +33,8 @@ credential names and verified scopes, but never their values.
 | `CRON_SECRET` | prod/preview only | Vercel bearer secret for the daily privacy-maintenance route; required or the route returns 503 |
 | `POSTURE_TEST_MODE_ENABLED` | **never in production** | Server gate for fixture scoring; set to `1` only by the e2e runner/CI |
 | `NEXT_PUBLIC_POSE_MODEL` | optional | `lite` (default) or `full` MediaPipe model |
-| `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` | **never in production** | Public half of the explicit clinical test fixture; has no effect unless the server-only test flag is also `1` |
-| `CLINICAL_CONTENT_RELEASE_ID` | server-only; absent until HG-03 | Exact approved release ID committed in `content/clinical-review-ledger.json` |
-| `CLINICAL_CONTENT_HG03_RECEIPT_SHA256` | server-only; absent until HG-03 | SHA-256 of the signed licensed-clinician receipt for that exact release |
+| `NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT` | unused | No effect since the clinical-content gate was removed (2026-10-01); safe to delete |
+| `CLINICAL_CONTENT_RELEASE_ID` / `CLINICAL_CONTENT_HG03_RECEIPT_SHA256` | unused | The HG-03 activation gate was removed (2026-10-01); these are no longer read |
 
 ## Deploy
 
@@ -244,7 +243,16 @@ Operational response:
    production launch still requires HG-07/HG-08 proof for orphan inventory and
    backup expiration/restore behavior.
 
-### PR-07 clinical-content governance (HG-03)
+### PR-07 clinical-content governance (HG-03) — gate removed 2026-10-01
+
+**Current state:** the product owner removed the clinical-content review gate on
+2026-10-01 (migration `20261001000000_remove_clinical_content_gate.sql`). Every
+practitioner gets the full catalog — recommendations, programs, workouts,
+knowledge links and clinical reports — with no HG-03 activation. Content is
+recorded as `clinical-content-open-<inventory-prefix>`, backed by a receipt of
+kind `open_ungated` whose attestation is `no_clinical_review`, so stored
+provenance never claims a review. The procedure below is historical.
+
 
 The production-safe default is assessment-only. With both clinical activation
 variables absent, the server disables recommendations, programs, workouts, and
@@ -454,10 +462,8 @@ cutover time and the one-hour drain completion in the release evidence.
   red/green but cannot hard-block merges. Process rule: never merge red.
 - **GitHub Actions minutes** are account-wide; when exhausted, new runs are
   silently refused (PR checks never appear). Check Settings → Billing.
-- **Clinical review gate**: the source-controlled HG-03 ledger is intentionally
-  empty, so the beta stays assessment-only. Per-row `reviewed_by` timestamps are
-  not an activation mechanism. Follow the PR-07 procedure above; Kimi/Fable
-  reviews are advisory and cannot replace the licensed-clinician receipt.
+- **Clinical review gate**: removed 2026-10-01 (see PR-07 above). Clinical
+  content is served without licensed-clinician review; provenance records say so.
 - **Real-device matrix**: `docs/qa/device-release-contract.json` and
   `docs/qa/device-evidence-checklist.md` are the canonical iPhone/Android
   contract and collection procedure. Raw physical photos/video remain in the
