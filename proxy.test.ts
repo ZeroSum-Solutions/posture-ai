@@ -128,13 +128,19 @@ describe('proxy PR-04 admission boundary', () => {
     '/muscle-viewer/index.html',
     '/muscle-viewer/favicon.svg',
     '/muscle-viewer/model.glb',
-    '/audio/workout-coach-river/a635741e.mp3',
     '/demos/dead-bug.jpg',
     '/demos/dead-bug.mp4',
-  ])('denies the direct clinical static path %s before authentication', async (path) => {
+  ])('serves the practitioner-only clinical static path %s through normal authentication (no review gate)', async (path) => {
     const response = await proxy(new NextRequest(`http://localhost${path}`))
 
-    expect(response.status).toBe(404)
+    expect(response.status).toBe(200)
+    expect(getUser).toHaveBeenCalled()
+  })
+
+  test('shared-workout coach audio stays public', async () => {
+    const response = await proxy(new NextRequest('http://localhost/audio/workout-coach-river/a635741e.mp3'))
+
+    expect(response.status).toBe(200)
     expect(getUser).not.toHaveBeenCalled()
   })
 
@@ -142,15 +148,6 @@ describe('proxy PR-04 admission boundary', () => {
     expect(config.matcher).toContain('/muscle-viewer/:path*')
     expect(config.matcher).toContain('/audio/workout-coach-river/:path*')
     expect(config.matcher).toContain('/demos/:path*')
-  })
-
-  test('allows clinical static assets only in the explicit two-flag test fixture', async () => {
-    process.env.NEXT_PUBLIC_SHOW_UNREVIEWED_CONTENT = '1'
-
-    const response = await proxy(new NextRequest('http://localhost/muscle-viewer/model.glb'))
-
-    expect(response.status).toBe(200)
-    expect(getUser).toHaveBeenCalled()
   })
 
   test('preserves refreshed cookies when redirecting an unauthenticated page request', async () => {

@@ -18,12 +18,18 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`f1b0a7ed80acdb90bdb73c1d37933bab940f500128078e8ca95826f2c59900f5`.
+`f2416851b62abb623bf2152dde5c0133dee3f3115f4a5427a44e9d63adca0ff9`.
 
 Recommendation algorithm SHA-256:
-`1dbbbf766a65aa23e553869b22a9f081c14c7aaaa3ab2702c64bf01988861ee7`.
+`6ecc52be9a1bcd34222e9758bf7a1dbdd36c3f45b2215adb0f959dd22383878f`.
 
-The latest refresh (2026-09-30) binds the results-page redesign: the 3D posture map as the
+**2026-10-01: the HG-03 activation gate is removed** (owner decision). The runtime
+serves the full catalog to every practitioner as `clinical-content-open-<inventory prefix>`,
+and migration `20261001000000_remove_clinical_content_gate.sql` makes that version active
+for every surface, backed by an `open_ungated` receipt attested `no_clinical_review`. The
+inventory and hash pins below remain as provenance; they no longer gate anything.
+
+The 2026-09-30 refresh binds the results-page redesign: the 3D posture map as the
 page hero (per-side tight/weak coloring), findings that spotlight their muscles on it, an
 Evidence tab built from the saved capture set, a phone-first corrective program, and a muscle
 detail pop-up that reads the approved muscle, link, and exercise-muscle catalog through a new

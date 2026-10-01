@@ -82,7 +82,7 @@ export type ClinicalInventory = z.infer<typeof clinicalInventorySchema>
 export type ClinicalReviewLedger = z.infer<typeof clinicalReviewLedgerSchema>
 
 export interface ClinicalContentAccess {
-  mode: 'disabled' | 'test_fixture' | 'prototype' | 'approved'
+  mode: 'disabled' | 'test_fixture' | 'prototype' | 'approved' | 'open'
   reason: string
   contentVersion: string | null
   inventorySha256: string
@@ -104,6 +104,13 @@ export interface ResolveClinicalContentInput {
   hg03ReceiptSha256?: string | null
   testFixtureEnabled?: boolean
   prototypeEnabled?: boolean
+  /** The clinical-content review gate is removed: serve the full catalog. */
+  openAccess?: boolean
+}
+
+/** Release id for open (ungated) content, keyed to the exact inventory. */
+export function openClinicalContentVersion(inventorySha256: string): string {
+  return `clinical-content-open-${inventorySha256.slice(0, 12)}`
 }
 
 const DISABLED_SURFACES: ClinicalSurfaceAccess = {
@@ -180,13 +187,18 @@ export function resolveClinicalContentAccess(input: ResolveClinicalContentInput)
   }
   const inventory = inventoryResult.data
 
-  if (input.prototypeEnabled === true || input.testFixtureEnabled === true) {
+  if (input.prototypeEnabled === true || input.testFixtureEnabled === true || input.openAccess === true) {
     const allIds = new Set(inventory.items.map((item) => item.id))
     const prototype = input.prototypeEnabled === true
+    const open = !prototype && input.openAccess === true
     return {
-      mode: prototype ? 'prototype' : 'test_fixture',
-      reason: prototype ? 'explicit_prototype_operation' : 'explicit_test_fixture',
-      contentVersion: prototype ? 'clinical-content-prototype-v1' : 'clinical-content-test-fixture-v1',
+      mode: prototype ? 'prototype' : open ? 'open' : 'test_fixture',
+      reason: prototype ? 'explicit_prototype_operation' : open ? 'clinical_content_gate_removed' : 'explicit_test_fixture',
+      contentVersion: prototype
+        ? 'clinical-content-prototype-v1'
+        : open
+          ? openClinicalContentVersion(inventory.inventory_sha256)
+          : 'clinical-content-test-fixture-v1',
       inventorySha256: inventory.inventory_sha256,
       surfaces: {
         recommendations: true,

@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     }
     return []
   }
-  if (keys.length > 0 && clinicalAccess.mode === 'test_fixture' && clinicalAccess.surfaces.knowledgeLinks) {
+  if (keys.length > 0 && (clinicalAccess.mode === 'test_fixture' || clinicalAccess.mode === 'open') && clinicalAccess.surfaces.knowledgeLinks) {
     const { data: defs } = await createSupabaseServiceClient()
       .from('imbalance_definitions')
       .select('key, causes_text, tight_muscles, weak_muscles')
