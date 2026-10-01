@@ -116,7 +116,7 @@
   cursor: pointer;
 }
 .segment button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
-.segment button:disabled { opacity: 0.4; cursor: default; }
+.segment button:disabled { color: rgba(255, 255, 255, 0.55); cursor: default; } /* dimmed, still AA */
 /* Narrow phones: give the X-ray slider room to be a real target. */
 @media (max-width: 360px) {
   .controls { gap: 8px; }
