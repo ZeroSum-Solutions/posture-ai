@@ -83,6 +83,7 @@ function muscleCounts(muscles: MuscleSides[]): string {
 export default function MuscleModel3D({
   findings,
   referenceOnly = false,
+  fullBleed = false,
   findingOptions = [],
   spotlightKey = null,
   onSpotlight,
@@ -92,6 +93,8 @@ export default function MuscleModel3D({
 }: {
   findings: AssessmentFinding[]
   referenceOnly?: boolean
+  /** Page hero: runs edge to edge on a phone with a taller model frame. */
+  fullBleed?: boolean
   findingOptions?: FindingOption[]
   spotlightKey?: string | null
   onSpotlight?: (key: string | null) => void
@@ -291,8 +294,8 @@ export default function MuscleModel3D({
         {referenceOnly ? 'Explore anatomy in 3D' : 'Posture map'}
       </h2>
 
-      <div className={styles.card}>
-        <div className={styles.viewerFrame}>
+      <div className={fullBleed ? `${styles.card} ${styles.cardBleed}` : styles.card}>
+        <div className={fullBleed ? `${styles.viewerFrame} ${styles.viewerFrameTall}` : styles.viewerFrame}>
           {mounted ? (
             <iframe
               key={frameKey}

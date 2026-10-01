@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeSlotHref, islandSlots, isIslandHidden } from './islandPolicy'
+import { activeSlotHref, islandSlots, isIslandHidden, isIslandScrollRevealed } from './islandPolicy'
 
 describe('islandSlots', () => {
   it('offers five slots with Capture in the middle when clinical content is live', () => {
@@ -51,6 +51,19 @@ describe('isIslandHidden', () => {
     'shows the island on the practitioner route %s',
     (pathname) => {
       expect(isIslandHidden(pathname)).toBe(false)
+    },
+  )
+})
+
+describe('isIslandScrollRevealed', () => {
+  it.each(['/assessments/abc-123', '/assessments/abc-123/'])('tucks the island away on the results page %s', (pathname) => {
+    expect(isIslandScrollRevealed(pathname)).toBe(true)
+  })
+
+  it.each(['/assessments/new', '/assessments/new/review', '/assessments', '/clients/abc', '/dashboard'])(
+    'keeps the island pinned on %s',
+    (pathname) => {
+      expect(isIslandScrollRevealed(pathname)).toBe(false)
     },
   )
 })

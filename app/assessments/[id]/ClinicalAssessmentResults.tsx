@@ -909,8 +909,9 @@ export default function ClinicalAssessmentResults({
       </div>
 
       {descriptiveFindings.length > 0 && (
-        <div ref={heroRef} className={`app-screen-x ${styles.heroWrap}`}>
+        <div ref={heroRef} className={styles.heroWrap}>
           <MuscleModel3D
+            fullBleed
             findings={descriptiveFindings}
             findingOptions={findingOptions}
             spotlightKey={spotlightKey}

@@ -3,9 +3,10 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import type { IconName } from './icons'
-import { islandSlots, isIslandHidden, activeSlotHref, type IslandAudience } from './islandPolicy'
+import { islandSlots, isIslandHidden, isIslandScrollRevealed, activeSlotHref, type IslandAudience } from './islandPolicy'
 import styles from './IslandNav.module.css'
 
 /**
@@ -15,8 +16,49 @@ import styles from './IslandNav.module.css'
  * `:has([data-immersive-surface])` rule and show only the home indicator, so
  * this component does not need to know about them.
  */
+/** Scroll distance in one direction before the island changes state, so jitter does not flicker it. */
+const REVEAL_THRESHOLD_PX = 12
+
+/**
+ * On scroll-revealed routes: tucked away at first, shown while the user scrolls up, tucked away
+ * again on the way down. Always shown elsewhere.
+ */
+function useScrollRevealed(enabled: boolean, pathname: string): boolean {
+  // Keyed by route so a navigation starts tucked again without resetting state in the effect.
+  const [revealedOn, setRevealedOn] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!enabled) return
+    let lastY = window.scrollY
+    let travel = 0
+    let frame = 0
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        const y = window.scrollY
+        const dy = y - lastY
+        lastY = y
+        // Restart the run whenever the direction flips.
+        travel = Math.sign(dy) === Math.sign(travel) ? travel + dy : dy
+        if (travel <= -REVEAL_THRESHOLD_PX) setRevealedOn(pathname)
+        else if (travel >= REVEAL_THRESHOLD_PX) setRevealedOn(null)
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [enabled, pathname])
+
+  return !enabled || revealedOn === pathname
+}
+
 export default function IslandNav({ clinicalContentEnabled, audience = 'practitioner' }: { clinicalContentEnabled: boolean; audience?: IslandAudience }) {
   const pathname = usePathname() ?? ''
+  const scrollRevealed = isIslandScrollRevealed(pathname)
+  const shown = useScrollRevealed(scrollRevealed, pathname)
   if (isIslandHidden(pathname)) return null
 
   const slots = islandSlots(clinicalContentEnabled, audience)
@@ -24,7 +66,10 @@ export default function IslandNav({ clinicalContentEnabled, audience = 'practiti
   const active = activeSlotHref(pathname, slots)
 
   return (
-    <div className={`${styles.island} app-island`}>
+    <div
+      className={`${styles.island} ${shown ? '' : styles.islandTucked} app-island`}
+      data-island-state={shown ? 'shown' : 'tucked'}
+    >
       <div className={styles.fade} aria-hidden="true" />
       <div className={styles.dock}>
         <motion.div
