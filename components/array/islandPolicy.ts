@@ -44,6 +44,16 @@ export function isIslandHidden(pathname: string): boolean {
   return HIDDEN_PREFIXES.some(prefix => pathname.startsWith(prefix))
 }
 
+const RESULTS_PAGE = /^\/assessments\/(?!new(?:\/|$))[^/]+\/?$/
+
+/**
+ * The assessment results page gives the phone screen to the 3D model: the island starts
+ * tucked away and only comes back while the user scrolls up.
+ */
+export function isIslandScrollRevealed(pathname: string): boolean {
+  return RESULTS_PAGE.test(pathname)
+}
+
 /**
  * Which slot owns the current route. Assessment review lives under the client
  * that owns it, so it lights Clients rather than the Capture action; only the
