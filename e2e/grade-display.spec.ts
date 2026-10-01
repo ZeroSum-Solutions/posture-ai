@@ -147,9 +147,10 @@ async function expectDockGrade(
 ): Promise<void> {
   await openReportDisclosure(page)
   const dock = page.getByTestId('review-dock')
+  // The dock's code loads when its disclosure first opens; allow for a slow CI engine.
   await expect(
     dock.locator(`[aria-label="Grade ${fixture.grade}, deviation ${fixture.score} out of 100"]`),
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 15_000 })
   await expect(dock.getByText(fixture.description, { exact: true })).toBeVisible()
 }
 
