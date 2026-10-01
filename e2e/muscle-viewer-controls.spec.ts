@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 
 test('neutral anatomy responds to browser pointer controls', async ({ page, isMobile }) => {
+  // The glass viewer re-renders on every pointer step; under CI's software WebGL that is about a
+  // second a frame, so the drag keeps to a few steps and the journey gets a longer budget.
+  test.setTimeout(90_000)
   await page.goto('/muscle-viewer/index.html?embed=1')
   const viewer = page.locator('[data-model-state="ready"]')
   await expect(viewer).toBeVisible({ timeout: 25_000 })
@@ -24,7 +27,7 @@ test('neutral anatomy responds to browser pointer controls', async ({ page, isMo
     const beforeDrag = await canvas.screenshot()
     await page.mouse.move(x, y)
     await page.mouse.down()
-    await page.mouse.move(x + 90, y + 20, { steps: 12 })
+    await page.mouse.move(x + 90, y + 20, { steps: 4 })
     await page.mouse.up()
     // Each poll takes a full-viewport WebGL canvas screenshot. Under CI's
     // software renderer one capture can use most of the default 5 s, so the

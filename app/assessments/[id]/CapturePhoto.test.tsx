@@ -23,3 +23,20 @@ it('does not invent a photograph for historical landmark-only captures', () => {
   expect(screen.getByText('Photo not saved')).toBeTruthy()
   expect(screen.queryByRole('button')).toBeNull()
 })
+
+it('selects its view when tapped, apart from the enlarge control', () => {
+  const onSelect = vi.fn()
+  const show = vi.fn()
+  HTMLDialogElement.prototype.showModal = show
+  const { rerender } = render(<CapturePhoto url="/api/captures/capture-2/image" label="front" onSelect={onSelect} />)
+  const tile = screen.getByRole('button', { name: 'front view' })
+  expect(tile.getAttribute('aria-pressed')).toBe('false')
+  fireEvent.click(tile)
+  expect(onSelect).toHaveBeenCalledOnce()
+  expect(show).not.toHaveBeenCalled()
+  rerender(<CapturePhoto url="/api/captures/capture-2/image" label="front" onSelect={onSelect} selected />)
+  expect(screen.getByRole('button', { name: 'front view' }).getAttribute('aria-pressed')).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: 'Enlarge front capture' }))
+  expect(show).toHaveBeenCalledOnce()
+  expect(onSelect).toHaveBeenCalledOnce()
+})
