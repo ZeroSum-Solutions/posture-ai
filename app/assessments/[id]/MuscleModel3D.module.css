@@ -256,11 +256,11 @@
 /* Required CC BY-SA credit: the last line of the box, centered and as small as stays legible. */
 .attribution {
   margin: 0;
-  color: var(--text-tertiary);
-  font-size: 8.5px;
+  /* Small but at full contrast (WCAG AA): no opacity fade. */
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 9px;
   letter-spacing: 0.02em;
   line-height: 1.3;
   text-align: center;
   text-wrap: balance;
-  opacity: 0.55;
 }

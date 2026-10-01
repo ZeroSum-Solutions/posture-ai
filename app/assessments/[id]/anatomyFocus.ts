@@ -122,7 +122,7 @@ export function slugForViewerId(viewerId: string, states: MuscleStateInput[]): s
 
 export type ExerciseRole = 'stretch' | 'strengthen'
 
-export interface PrescribedStep {
+export interface ProgramStepMatch {
   step: ClinicalProgramStep
   role: ExerciseRole
   priorityLabel: string
@@ -133,11 +133,11 @@ export interface PrescribedStep {
  * lengthening (stretch), a weak side for strengthening; `exercises` is the muscle's approved
  * exercise catalog with its role for each.
  */
-export function prescribedSteps(
+export function programStepsFor(
   program: ClinicalProgramReport | null,
   exercises: Array<{ slug: string; role: ExerciseRole }>,
   sides: Pick<MuscleSides, 'left' | 'right'> | null,
-): PrescribedStep[] {
+): ProgramStepMatch[] {
   if (!program) return []
   const wanted = new Set<ExerciseRole>()
   for (const s of [sides?.left, sides?.right]) {
@@ -146,7 +146,7 @@ export function prescribedSteps(
   }
   const roleBySlug = new Map<string, ExerciseRole>()
   for (const e of exercises) if (wanted.size === 0 || wanted.has(e.role)) roleBySlug.set(e.slug, e.role)
-  const out: PrescribedStep[] = []
+  const out: ProgramStepMatch[] = []
   const seen = new Set<string>()
   for (const priority of program.priorities)
     for (const step of priority.steps) {

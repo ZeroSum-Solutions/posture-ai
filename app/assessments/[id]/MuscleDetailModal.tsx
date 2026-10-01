@@ -17,7 +17,7 @@ import ExerciseDetailSheet from './ExerciseDetailSheet'
 import { useFocusTrap } from './useFocusTrap'
 import {
   STATE_COLORS,
-  prescribedSteps,
+  programStepsFor,
   prettySlug,
   severityWord,
   sidesBySlug,
@@ -149,12 +149,12 @@ export default function MuscleDetailModal({
     const { states } = findingsToMuscleStates(findings)
     return sidesBySlug(states).find((m) => m.slug === slug) ?? null
   }, [findings, slug])
-  const prescribed = useMemo(
-    () => prescribedSteps(program, detail?.exercises ?? [], sides),
+  const inProgram = useMemo(
+    () => programStepsFor(program, detail?.exercises ?? [], sides),
     [program, detail, sides],
   )
   const libraryOptions = useMemo(() => {
-    if (!detail || prescribed.length > 0) return []
+    if (!detail || inProgram.length > 0) return []
     const wanted = new Set<ExerciseRole>()
     if (sides?.left?.role === 'tight' || sides?.right?.role === 'tight') wanted.add('stretch')
     if (sides?.left?.role === 'weak' || sides?.right?.role === 'weak') wanted.add('strengthen')
@@ -162,7 +162,7 @@ export default function MuscleDetailModal({
     return detail.exercises
       .filter((e) => (wanted.size === 0 || wanted.has(e.role)) && !seen.has(e.slug) && seen.add(e.slug))
       .slice(0, 4)
-  }, [detail, prescribed, sides])
+  }, [detail, inProgram, sides])
 
   const name = detail?.muscle.name ?? prettySlug(slug)
   const rationaleFor = (key: string) =>
@@ -239,12 +239,12 @@ export default function MuscleDetailModal({
 
             <section className={styles.section} aria-labelledby="muscle-program">
               <h3 id="muscle-program" className={styles.sectionTitle}>
-                {prescribed.length > 0 ? 'In this program' : 'Correctives'}
+                {inProgram.length > 0 ? 'In this program' : 'Correctives'}
               </h3>
               {!detail && !error && <p className={styles.muted}>Loading…</p>}
-              {prescribed.length > 0 && (
+              {inProgram.length > 0 && (
                 <ul className={styles.list}>
-                  {prescribed.map(({ step, role, priorityLabel }) => (
+                  {inProgram.map(({ step, role, priorityLabel }) => (
                     <li key={step.slug}>
                       <button type="button" className={styles.exercise} onClick={() => setExercise({ slug: step.slug, name: step.name })}>
                         <span>
@@ -276,7 +276,7 @@ export default function MuscleDetailModal({
                   </ul>
                 </>
               )}
-              {detail && prescribed.length === 0 && libraryOptions.length === 0 && (
+              {detail && inProgram.length === 0 && libraryOptions.length === 0 && (
                 <p className={styles.muted}>No approved exercises target this muscle yet.</p>
               )}
             </section>

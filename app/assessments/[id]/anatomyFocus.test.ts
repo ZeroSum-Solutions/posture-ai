@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   sidesSummary,
   musclesForFinding,
-  prescribedSteps,
+  programStepsFor,
   sidesBySlug,
   slugForViewerId,
   spotlightIds,
@@ -87,7 +87,7 @@ describe('slugForViewerId', () => {
   })
 })
 
-describe('prescribedSteps', () => {
+describe('programStepsFor', () => {
   const step = (slug: string) => ({
     stepLabel: 'Lengthen', slug, baseSlug: slug, name: slug, category: 'stretch' as const, freq: 'daily',
     isIntegrative: false, repRange: null, weeks: [null, null, null] as [null, null, null], alternatives: [],
@@ -104,23 +104,23 @@ describe('prescribedSteps', () => {
   ]
 
   it('returns stretches for a tight muscle, once, in program order', () => {
-    const out = prescribedSteps(program, catalog, { left: { role: 'tight' }, right: { role: 'tight' } })
+    const out = programStepsFor(program, catalog, { left: { role: 'tight' }, right: { role: 'tight' } })
     expect(out.map((p) => [p.step.slug, p.role, p.priorityLabel])).toEqual([
       ['doorway-pec-stretch', 'stretch', 'Forward head posture'],
     ])
   })
 
   it('returns strengthening for a weak muscle and both for a split muscle', () => {
-    expect(prescribedSteps(program, catalog, { left: { role: 'weak' }, right: null }).map((p) => p.step.slug)).toEqual([
+    expect(programStepsFor(program, catalog, { left: { role: 'weak' }, right: null }).map((p) => p.step.slug)).toEqual([
       'wall-angels',
     ])
     expect(
-      prescribedSteps(program, catalog, { left: { role: 'tight' }, right: { role: 'weak' } }).map((p) => p.role),
+      programStepsFor(program, catalog, { left: { role: 'tight' }, right: { role: 'weak' } }).map((p) => p.role),
     ).toEqual(['stretch', 'strengthen'])
   })
 
   it('is empty without a program', () => {
-    expect(prescribedSteps(null, catalog, null)).toEqual([])
+    expect(programStepsFor(null, catalog, null)).toEqual([])
   })
 })
 
