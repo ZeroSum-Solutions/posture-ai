@@ -22,6 +22,8 @@
     "voice:build": "vite-node scripts/generate-workout-voice-pack.ts --generate",
     "voice:verify": "vite-node scripts/generate-workout-voice-pack.ts --verify",
     "qa:seed": "vite-node --config vitest.config.ts scripts/qa-seed.ts",
+    "qa:preflight": "node scripts/check-autonomous-qa-preflight.mjs",
+    "qa:preflight:test": "node --test scripts/check-autonomous-qa-preflight.node.mjs",
     "auth:practitioner": "npx vite-node scripts/practitioner-access.ts",
     "device:evidence:check": "node scripts/check-device-evidence.mjs",
     "performance:budgets:check": "node scripts/check-performance-budgets.mjs",
