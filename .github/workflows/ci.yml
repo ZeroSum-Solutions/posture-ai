@@ -35,6 +35,10 @@ jobs:
   e2e:
     name: Playwright e2e (local Supabase stack)
     runs-on: ubuntu-latest
+    # GitHub-hosted runners take close to an hour for this suite (slower than
+    # the former Blacksmith runners); keep real headroom above that instead of
+    # relying on GitHub's 360-minute default.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

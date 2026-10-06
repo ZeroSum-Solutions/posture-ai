@@ -30,14 +30,16 @@ export async function restoreSharedPractitionerSession(browser: Browser, baseURL
     await page.locator('input[type="email"]').fill(fixture.email)
     await page.locator('input[type="password"]').fill(fixture.password)
     await page.getByRole('button', { name: 'Sign in' }).click()
-    await page.waitForURL(/\/auth\/mfa/, { timeout: 15_000 })
+    // GitHub-hosted runners are slower than the former Blacksmith runners;
+    // give each redirect extra headroom.
+    await page.waitForURL(/\/auth\/mfa/, { timeout: 25_000 })
     await page.getByLabel('Authenticator code').fill(totpCode(fixture.secret))
     await page.getByRole('button', { name: 'Verify and continue' }).click()
-    await page.waitForURL((url) => !url.pathname.startsWith('/auth/'), { timeout: 15_000 })
+    await page.waitForURL((url) => !url.pathname.startsWith('/auth/'), { timeout: 25_000 })
     if (page.url().includes('/onboarding')) {
       await page.getByRole('checkbox').check()
       await page.getByRole('button', { name: 'Accept and Continue' }).click()
-      await page.waitForURL((url) => !url.pathname.startsWith('/onboarding'), { timeout: 15_000 })
+      await page.waitForURL((url) => !url.pathname.startsWith('/onboarding'), { timeout: 25_000 })
     }
     await context.storageState({ path: SHARED_STORAGE_STATE })
   } finally {

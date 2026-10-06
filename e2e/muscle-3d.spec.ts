@@ -6,7 +6,9 @@ import { createClient, selectClientInWizard } from './helpers'
 // right. Requires the muscle KB seed + the copied viewer build (public/muscle-viewer/**).
 test.describe('3D posture summary', () => {
   test('mounts as the page hero, frames under CSP, and paints tight/weak from findings', async ({ page, isMobile }) => {
-    test.setTimeout(150_000)
+    // GitHub-hosted runners rasterize software WebGL noticeably slower than the
+    // former Blacksmith runners did; the budget below gives that headroom back.
+    test.setTimeout(220_000)
     // A blocked frame surfaces a CSP console error; collect any to assert none fired.
     const cspErrors: string[] = []
     page.on('console', (msg) => {
@@ -40,8 +42,8 @@ test.describe('3D posture summary', () => {
     expect(frame, 'viewer iframe must have a content frame (i.e. it framed, not blocked)').not.toBeNull()
 
     // Real render: the viewer's WebGL canvas actually mounts inside the frame.
-    await frame!.waitForSelector('[data-model-state="ready"]', { timeout: 25_000 })
-    await frame!.waitForSelector('canvas', { timeout: 25_000 })
+    await frame!.waitForSelector('[data-model-state="ready"]', { timeout: 45_000 })
+    await frame!.waitForSelector('canvas', { timeout: 45_000 })
 
     // Applied coloring: the handshake delivered the findings and the store is colored.
     const handle = await frame!.waitForFunction(
@@ -76,7 +78,7 @@ test.describe('3D posture summary', () => {
 
     // CI rasterizes WebGL in software (SwiftShader); the glass scene takes ~1 s per frame there,
     // so give each visual change a generous window and keep the drag to a few steps.
-    const RENDER_WINDOW = { timeout: 30_000 }
+    const RENDER_WINDOW = { timeout: 40_000 }
     const beforeDrag = await canvas.screenshot()
     const canvasBounds = await canvas.boundingBox()
     expect(canvasBounds).not.toBeNull()
@@ -100,7 +102,7 @@ test.describe('3D posture summary', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'The 3D view did not load.' })).toBeVisible({ timeout: 40_000 })
     await page.unroute('**/muscle-viewer/model.glb')
     await page.getByRole('button', { name: 'Try again', exact: true }).click()
-    await expect(page.frameLocator('iframe[title="Interactive 3D anatomy model"]').locator('[data-model-state="ready"]')).toBeVisible({ timeout: 30_000 })
+    await expect(page.frameLocator('iframe[title="Interactive 3D anatomy model"]').locator('[data-model-state="ready"]')).toBeVisible({ timeout: 45_000 })
 
     // Framing was not blocked by CSP.
     expect(cspErrors, `CSP errors: ${cspErrors.join(' | ')}`).toEqual([])

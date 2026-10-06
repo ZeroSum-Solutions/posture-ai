@@ -64,7 +64,15 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'desktop-chromium',
-      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/user.json',
+        // GitHub-hosted runners have no GPU: recent Chromium refuses to create a
+        // WebGL context in headless mode unless software rendering is explicitly
+        // allowed. Without this flag the 3D posture-map canvas never reports
+        // model-ready and every WebGL-dependent spec times out waiting for it.
+        launchOptions: { args: ['--enable-unsafe-swiftshader'] },
+      },
       dependencies: ['setup'],
       // The real multi-person model case is WebKit-scoped: Chromium's full
       // landmarker call exceeds the product's fixed 10 s fail-closed deadline
@@ -84,7 +92,11 @@ export default defineConfig({
       // project deliberately scoped so it does not duplicate the broad suite.
       name: 'android-chromium-proxy',
       testMatch: /(?:a11y|device-accessibility-harness)\.spec\.ts/,
-      use: { ...devices['Pixel 7'], storageState: 'e2e/.auth/user.json' },
+      use: {
+        ...devices['Pixel 7'],
+        storageState: 'e2e/.auth/user.json',
+        launchOptions: { args: ['--enable-unsafe-swiftshader'] },
+      },
       dependencies: ['setup'],
     },
     {
@@ -94,7 +106,11 @@ export default defineConfig({
       // inside desktop-chromium/mobile-webkit and they never run it.
       name: 'calibration',
       testMatch: /pixel-calibration\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/user.json',
+        launchOptions: { args: ['--enable-unsafe-swiftshader'] },
+      },
       dependencies: ['setup'],
     },
   ],
