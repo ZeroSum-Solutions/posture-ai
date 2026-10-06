@@ -12,7 +12,7 @@ concurrency:
 jobs:
   official-performance:
     name: Performance budgets (official)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     # The frozen 150/300/1000 workload took ~43 minutes to reach browser
     # measurement on GitHub's runner. Keep the samples/budgets fixed and give
     # the orchestration enough room to finish camera and receipt validation.

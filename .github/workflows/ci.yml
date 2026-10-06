@@ -12,7 +12,7 @@ concurrency:
 jobs:
   checks:
     name: Lint, typecheck, unit tests, build
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -34,7 +34,7 @@ jobs:
 
   e2e:
     name: Playwright e2e (local Supabase stack)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
