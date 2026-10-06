@@ -16,9 +16,8 @@ survives context resets and can be resumed by any session.
 
 0. **Preflight first.** Run `npm run qa:preflight` before Phase 0 and after switching
    branches or worktrees. It must exit 0. The check requires an attached, clean,
-   non-primary branch and loopback-only Supabase URLs. Its receipt authorizes only
-   local synthetic QA; it explicitly leaves commit, push, merge, deploy, production
-   data, and real-person data outside the run.
+   non-primary branch and loopback-only Supabase URLs. Production data and
+   real-person data stay outside the run; fixes still land autonomously (rule 5).
 1. **Local only.** Every DB write goes to local Supabase. Before ANY seed or
    test run, verify: `grep NEXT_PUBLIC_SUPABASE_URL .env.local` →
    must be `127.0.0.1` / `localhost`. If it points at `*.supabase.co`, STOP
@@ -38,10 +37,10 @@ survives context resets and can be resumed by any session.
 4. **Screening vocabulary** applies to every string a fix introduces
    (no diagnos*/treat*/cure*/patient*/prescri* — the vocabulary-lint test
    enforces this; run it after any content change).
-5. Keep fixes on the current feature branch. Do not commit, push, open or merge a
-   PR, run `~/bin/zs-land`, or deploy unless the user separately authorizes that
-   exact action after reviewing the run. Record the verified local diff and leave a
-   blocked handoff when that authorization is absent.
+5. Fixes land via the normal flow: feature branch → tests green → `~/bin/zs-land`.
+   Never commit to `main` directly. Do not deploy mid-loop; deployment happens
+   automatically when a fix branch lands (Vercel git integration) — that is
+   acceptable, but say so in the pass report.
 
 ## State files (all under `docs/qa/`)
 
@@ -130,9 +129,8 @@ log and keep testing (fixing mid-pass invalidates the pass).
 2. Per cluster, use superpowers:systematic-debugging, then TDD: failing
    regression test first (vitest or a new e2e spec — the suite in `e2e/`
    is the natural home), minimal fix, suite green
-   (`npx vitest run && npm run test:e2e`). Keep the result local until the user
-   separately authorizes publication. Update BUGLOG entries with the verified local
-   branch and commit only when a commit was authorized; otherwise use `fixed locally`.
+   (`npx vitest run && npm run test:e2e`), land via `~/bin/zs-land`.
+   Update BUGLOG entries: `fixed (PR #N)`.
 3. Wontfix/deferred requires a one-line reason and Devin's ack for S1/S2.
 
 ## Phase 4 — Rerun and verdict

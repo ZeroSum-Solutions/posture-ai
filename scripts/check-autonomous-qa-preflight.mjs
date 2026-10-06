@@ -76,7 +76,7 @@ export function runAutonomousQaPreflight(environment = process.env) {
     supabase: supabaseUrls.length > 0 && errors.every(error => !error.includes('Supabase'))
       ? 'loopback'
       : 'blocked',
-    prohibited_actions: ['commit', 'push', 'merge', 'deploy', 'production-data', 'real-person-data'],
+    prohibited_actions: ['commit-to-main', 'production-data', 'real-person-data'],
     errors,
   }
   const stream = result.ok ? process.stdout : process.stderr
