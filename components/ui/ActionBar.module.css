@@ -7,7 +7,8 @@
   position: fixed;
   left: max(0px, var(--sa-l));
   right: max(0px, var(--sa-r));
-  bottom: calc(var(--tabbar-h) + var(--sa-b));
+  /* Sits above the tab bar AND the raised Capture circle. */
+  bottom: calc(var(--tabbar-h) + var(--capture-raise) + var(--sa-b));
   z-index: var(--z-actionbar);
   width: min(var(--content-max), 100%);
   margin: 0 auto;

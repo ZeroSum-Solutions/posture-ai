@@ -84,11 +84,11 @@ export function ListRow({
 
   if (href && !disabled) {
     return (
-      <motion.div whileTap={{ scale: 0.985 }} transition={spring.press}>
-        <Link href={href} {...commonProps}>
-          {content}
-        </Link>
-      </motion.div>
+      // Press feedback is CSS (:active) — a framer tap wrapper would add an
+      // extra tab stop around the link.
+      <Link href={href} {...commonProps}>
+        {content}
+      </Link>
     )
   }
   if (onPress) {

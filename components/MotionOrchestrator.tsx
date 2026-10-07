@@ -1,9 +1,9 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
-import { spring, reduced } from '@/lib/motion'
+import { spring } from '@/lib/motion'
 import { shouldAnimateRouteEntrance } from './motionOrchestratorPolicy'
 import { consumeNavigationDirection } from './routeDirection'
 
@@ -14,8 +14,9 @@ import { consumeNavigationDirection } from './routeDirection'
  *
  * Direction-aware per spec §6.2: a forward navigation (Link click,
  * `router.push`) enters from +24px, a browser Back/Forward enters from -24px.
- * The exit is opacity-only at the `reduced` (150ms) timing, never a transform,
- * so `prefers-reduced-motion` already covers it without extra branching.
+ * Entrance only: an exit animation (AnimatePresence) would hold the old App
+ * Router tree on screen during navigation. Reduced motion removes the transform
+ * (MotionConfig reducedMotion="user").
  */
 export default function MotionOrchestrator({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? ''
@@ -38,18 +39,15 @@ export default function MotionOrchestrator({ children }: { children: ReactNode }
   const x = direction === 'back' ? -24 : 24
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.main
-        key={pathname}
-        id="main"
-        className="app-shell-main"
-        initial={{ opacity: 0, x }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, transition: reduced }}
-        transition={spring.page}
-      >
-        {children}
-      </motion.main>
-    </AnimatePresence>
+    <motion.main
+      key={pathname}
+      id="main"
+      className="app-shell-main"
+      initial={{ opacity: 0, x }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={spring.page}
+    >
+      {children}
+    </motion.main>
   )
 }

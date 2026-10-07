@@ -56,3 +56,6 @@ work/
 
 # Conductor machine-local settings (shared .conductor/settings.toml stays tracked)
 .conductor/settings.local.toml
+
+# Local QA scratch (screenshots, captured sessions)
+qa-tmp/

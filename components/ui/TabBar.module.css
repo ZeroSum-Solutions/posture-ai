@@ -146,3 +146,11 @@
   outline-offset: 2px;
   border-radius: var(--r-md);
 }
+
+/* Press feedback in CSS: framer tap gestures would add extra tab stops. */
+.slotInner, .actionCircle { transition: transform var(--duration-press) var(--ease-spring); }
+.slot:active .slotInner { transform: scale(0.9); }
+.action:active .actionCircle { transform: scale(0.9); }
+@media (prefers-reduced-motion: reduce) {
+  .slot:active .slotInner, .action:active .actionCircle { transform: none; }
+}

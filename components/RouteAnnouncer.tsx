@@ -1,18 +1,17 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 /**
- * Route-change accessibility: a visually hidden polite live region announces
- * the new page, and focus moves to the page's `<h1>` (or `#main` if the page
+ * Route-change accessibility: Next.js announces the new page; this moves focus
+ * to the page's `<h1>` (or `#main` if the page
  * has none) so a screen-reader or keyboard user lands somewhere meaningful
  * instead of staying on a now-stale control. Never fires on the first paint —
  * only a client-side navigation counts as a "route change".
  */
 export default function RouteAnnouncer() {
   const pathname = usePathname() ?? ''
-  const [message, setMessage] = useState('')
   const isFirstRender = useRef(true)
 
   useEffect(() => {
@@ -25,8 +24,6 @@ export default function RouteAnnouncer() {
     const frame = requestAnimationFrame(() => {
       const main = document.getElementById('main')
       const heading = main?.querySelector('h1') ?? null
-      const text = heading?.textContent?.trim() || document.title
-      setMessage(text)
 
       const target = heading ?? main
       if (!target) return
@@ -36,9 +33,8 @@ export default function RouteAnnouncer() {
     return () => cancelAnimationFrame(frame)
   }, [pathname])
 
-  return (
-    <div role="status" aria-live="polite" className="sr-only">
-      {message}
-    </div>
-  )
+  // Next.js's own route announcer speaks the new page title; this component
+  // only moves focus (a second live region would double the announcement and
+  // collide with pages' own role="status" regions).
+  return null
 }

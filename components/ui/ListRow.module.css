@@ -109,3 +109,8 @@
   height: 1px;
   background: var(--hairline);
 }
+
+/* Link rows press in CSS (a framer tap wrapper would add a tab stop). */
+a.row { transition: transform var(--duration-press) var(--ease-spring); }
+a.row:active { transform: scale(0.985); }
+@media (prefers-reduced-motion: reduce) { a.row:active { transform: none; } }

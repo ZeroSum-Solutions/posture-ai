@@ -121,6 +121,8 @@
   --sa-b: env(safe-area-inset-bottom, 0px);
   --sa-l: env(safe-area-inset-left, 0px);
   --tabbar-h: 56px;
+  /* The raised Capture circle protrudes this far above the tab bar. */
+  --capture-raise: 12px;
   --topbar-h: 52px;
   --actionbar-h: 80px;
   /* Set by the shell: tab bar (+ ActionBar when mounted) + safe area. */
@@ -201,7 +203,7 @@ button, a.a-primary, a.a-secondary, a.a-quiet { min-height: 44px; }
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 
-.app-shell { min-height: 100dvh; display: flex; flex-direction: column; position: relative; isolation: isolate; }
+.app-shell { min-height: 100dvh; display: flex; flex-direction: column; position: relative; isolation: isolate; overflow-x: clip; }
 .app-shell-main { flex: 1; position: relative; z-index: var(--z-content); overflow-x: clip; }
 
 /* Immersive surfaces (capture, player) own the whole frame: their background is
@@ -221,13 +223,13 @@ button, a.a-primary, a.a-secondary, a.a-quiet { min-height: 44px; }
    override above still wins (it is declared first and immersive routes never
    also appear in the tab-bar-hidden list). */
 .app-shell {
-  --chrome-bottom: calc(var(--tabbar-h) + 12px + var(--sa-b));
+  --chrome-bottom: calc(var(--tabbar-h) + var(--capture-raise) + var(--sa-b));
 }
 .app-shell[data-tabbar-hidden='true'] {
   --chrome-bottom: var(--sa-b);
 }
 .app-shell:has(.app-actionbar) {
-  --chrome-bottom: calc(var(--tabbar-h) + 12px + var(--sa-b) + var(--actionbar-h));
+  --chrome-bottom: calc(var(--tabbar-h) + var(--capture-raise) + var(--sa-b) + var(--actionbar-h));
 }
 .app-shell[data-tabbar-hidden='true']:has(.app-actionbar) {
   --chrome-bottom: calc(var(--sa-b) + var(--actionbar-h));
@@ -376,8 +378,8 @@ input[type='range'] { min-height: 48px; padding: 0; background: none; box-shadow
 /* ── Focus — a double ring visible on black and on any glass. ──────────── */
 
 :focus { outline: none; }
-:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: inherit; }
-a:focus-visible { border-radius: var(--r-sm); }
+/* A 2px solid outline (visible on black and on any glass) with an offset. */
+:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.95); outline-offset: 2px; }
 
 /* ── Loading ───────────────────────────────────────────────────────────── */
 
@@ -398,7 +400,7 @@ a:focus-visible { border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
-    transition-duration: var(--duration-reduced) !important;
+    transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
