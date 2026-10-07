@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui'
 import {
   RecoveryContextChoiceV1Schema,
   RecoveryContextSignalV1Schema,
@@ -19,15 +20,17 @@ export function RecoveryContextFields({ value, onChange, disabled = false }: {
   return <fieldset className={styles.fields} disabled={disabled}>
     <legend>Recovery check-in</legend>
     <p className="t-footnote">Share any concerns before reviewing your next target. Unknown answers stay unknown.</p>
-    {fields.map(([field, label]) => <label key={field}>{label}<select
+    {fields.map(([field, label]) => <Select
+      key={field}
+      label={label}
       value={value.report[field]}
       onChange={event => onChange({ ...value, report: { ...value.report, [field]: RecoveryContextSignalV1Schema.parse(event.target.value) } })}
     >
       <option value="unknown">Not sure / not answered</option>
       <option value="no_concern_reported">No concern to report</option>
       <option value="concern_reported">I have a concern</option>
-    </select></label>)}
-    <label>What would you like to review?<select value={value.choice ?? ''} onChange={event => {
+    </Select>)}
+    <Select label="What would you like to review?" value={value.choice ?? ''} onChange={event => {
       if (event.target.value === '') {
         onChange({ report: value.report })
       } else {
@@ -38,7 +41,7 @@ export function RecoveryContextFields({ value, onChange, disabled = false }: {
       <option value="hold">Keep the current target</option>
       <option value="request_review">Request a program review</option>
       <option value="new_familiarization">Review a fresh starting point</option>
-    </select></label>
+    </Select>
     <p className="t-footnote">A check-in does not change saved workouts or automatically reduce your training. Review the result before accepting any new target.</p>
   </fieldset>
 }

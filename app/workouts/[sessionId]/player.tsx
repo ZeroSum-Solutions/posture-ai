@@ -7,6 +7,7 @@ import {
   type RatingPayload,
 } from '../_player/WorkoutPlayer'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
+import { Button } from '@/components/ui'
 
 interface RunSaveResult {
   ok: boolean
@@ -220,18 +221,18 @@ export default function AuthedPlayer({
         <div
           role={saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'alert' : 'status'}
           aria-live={saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'assertive' : 'polite'}
+          className="t-footnote"
           style={{
             position: 'fixed',
             top: 'max(12px, env(safe-area-inset-top, 0px))',
             left: 'max(12px, env(safe-area-inset-left, 0px))',
-            zIndex: 107,
+            zIndex: 'calc(var(--z-immersive) + 1)',
             maxWidth: 300,
-            padding: '10px 12px',
-            borderRadius: 'var(--radius-sm)',
+            padding: 'var(--s-12)',
+            borderRadius: 'var(--r-sm)',
             border: `1px solid ${saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'var(--review)' : 'var(--hairline)'}`,
-            background: 'var(--surface-glass-strong)',
-            color: 'var(--text-primary)',
-            fontSize: 13,
+            background: 'var(--glass-card)',
+            color: 'var(--text-1)',
           }}
         >
           {saveStatus === 'saving' ? (
@@ -239,21 +240,22 @@ export default function AuthedPlayer({
           ) : saveStatus === 'conflict' ? (
             <>
               <div>{saveError}</div>
-              <button
+              <Button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="a-secondary"
-                style={{ marginTop: 8, minHeight: 36 }}
+                variant="secondary"
+                size="sm"
+                style={{ marginTop: 8 }}
               >
                 Reload latest progress
-              </button>
+              </Button>
             </>
           ) : (
             <>
               <div>Progress is not saved. {saveError}</div>
-              <button type="button" onClick={retry} className="a-secondary" style={{ marginTop: 8, minHeight: 36 }}>
+              <Button type="button" onClick={retry} variant="secondary" size="sm" style={{ marginTop: 8 }}>
                 Retry saving
-              </button>
+              </Button>
             </>
           )}
         </div>

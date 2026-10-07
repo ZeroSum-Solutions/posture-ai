@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button } from '@/components/ui'
 import {
   AcceptConditioningRevisionProposalInputV1Schema,
   ConditioningRevisionAcceptanceV1Schema,
@@ -225,8 +226,8 @@ function RevisionPanel({ assignmentId, onAccepted }: Props) {
     <p>Review dates, duration, and activity before changing future bouts. Completed and started sessions remain unchanged.</p>
     {loadState === 'loading' ? <p role="status">Loading conditioning options…</p> : null}
     {loadState === 'blocked' ? <p role="alert">You do not have permission to revise this conditioning plan.</p> : null}
-    {loadState === 'error' ? <><p role="alert">{message}</p><button type="button" className="a-secondary" onClick={() => void loadOptions()}>Try again</button></> : null}
-    {loadState === 'refresh' ? <><p role="alert">This conditioning plan changed. Reload the current options before continuing.</p><button type="button" className="a-secondary" onClick={() => void loadOptions()}>Reload conditioning options</button></> : null}
+    {loadState === 'error' ? <><p role="alert">{message}</p><Button variant="secondary" size="sm" onClick={() => void loadOptions()}>Try again</Button></> : null}
+    {loadState === 'refresh' ? <><p role="alert">This conditioning plan changed. Reload the current options before continuing.</p><Button variant="secondary" size="sm" onClick={() => void loadOptions()}>Reload conditioning options</Button></> : null}
     {loadState === 'ready' && !options ? <p>{message}</p> : null}
     {options?.executionContext.kind === 'synthetic_simulation' ? <p className={styles.practiceBanner}>Practice data · Simulation</p> : null}
     {options ? <ConditioningRevisionForm
@@ -252,7 +253,7 @@ function RevisionPanel({ assignmentId, onAccepted }: Props) {
     {isPreviewing ? <p role="status">Preparing conditioning preview…</p> : null}
     {message && options && loadState === 'ready' ? <p role="alert" className={styles.error}>{message}</p> : null}
     {result?.kind === 'reschedule_required' ? <section aria-label="Schedule conflicts">
-      <h4>Choose another schedule</h4>
+      <h4 className="t-headline">Choose another schedule</h4>
       {result.conflicts.map(conflict => <div key={`${conflict.sourceBoutId}:${conflict.requestedLocalDate}`}>
         <p>{conflict.requestedLocalDate}: {conflictCopy[conflict.reason]}</p>
         {conflict.offDayAlternatives.length > 0 ? <p>Available off days: {conflict.offDayAlternatives.join(', ')}.</p> : null}
@@ -261,7 +262,7 @@ function RevisionPanel({ assignmentId, onAccepted }: Props) {
     </section> : null}
     {result?.kind === 'unavailable' ? <p>{unavailableCopy[result.reason]} Nothing was changed.</p> : null}
     {confirmed ? <section aria-label="Conditioning revision preview">
-      <h4>Confirm future conditioning changes</h4>
+      <h4 className="t-headline">Confirm future conditioning changes</h4>
       <ul>{confirmed.replacements.map(replacement => <li key={replacement.sourceBoutId}>
         <strong>{replacement.scheduledLocalDate}</strong>: {modalityLabel(replacement.priorModalityId)} → {modalityLabel(replacement.modalityId)}; {durationLabel(replacement.acceptedDurationSeconds)}; {replacement.effortCue}. {replacement.arrangement === 'paired_strength_first' ? 'Strength is completed first on the paired day.' : 'Scheduled on a separate day from strength.'}
       </li>)}</ul>
@@ -270,11 +271,11 @@ function RevisionPanel({ assignmentId, onAccepted }: Props) {
         ? 'Changed duration or activity starts a new evidence window for the affected bouts. Saved history remains available.'
         : 'Comparable evidence remains connected because activity and duration are unchanged. Saved history remains available.'}</p>
       {acceptanceState === 'idle' ? <div className={styles.actionRow}>
-        <button type="button" className="a-secondary" onClick={editConfirmedPreview}>Edit changes</button>
-        <button type="button" className="a-primary" onClick={() => void accept()}>Accept conditioning revision</button>
+        <Button variant="secondary" size="sm" onClick={editConfirmedPreview}>Edit changes</Button>
+        <Button onClick={() => void accept()}>Accept conditioning revision</Button>
       </div> : null}
       {acceptanceState === 'accepting' ? <p role="status">Confirming conditioning revision…</p> : null}
-      {acceptanceState === 'retry' ? <button type="button" className="a-primary" onClick={() => void accept()}>Retry conditioning acceptance</button> : null}
+      {acceptanceState === 'retry' ? <Button onClick={() => void accept()}>Retry conditioning acceptance</Button> : null}
       {acceptanceState === 'accepted' ? <p role="status">Conditioning revision accepted. Future sessions can now reload the updated plan.</p> : null}
     </section> : null}
   </Surface>

@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TrainingProgramOptionsV1 } from '@/lib/training/contracts/program-options'
-import { Chip } from '@/components/array/Chip'
 import { Surface } from '@/components/array/Surface'
-import { TabStrip, tabPanelProps, type TabOption } from '@/components/array/Tabs'
+import { Badge, Button, ChipRow, FilterChip, Select, Tabs, tabPanelProps, type TabOption } from '@/components/ui'
 import type { AthleteTrainingProfileV1 } from '@/lib/training/contracts/profile'
 import {
   profileOptionValues,
@@ -401,7 +400,7 @@ export default function StrengthProgramBuilder({
         <div className={styles.heroCopy}>
           <div className={styles.eyebrowRow}>
             <p className="t-overline">Strength program</p>
-            <Chip band="neutral" size="sm">{profile.cycleLengthWeeks}-week foundation</Chip>
+            <Badge>{profile.cycleLengthWeeks}-week foundation</Badge>
           </div>
           <h2 id="strength-builder-heading" className="t-title-2">Build a strength program</h2>
           <p className="t-body">
@@ -415,7 +414,7 @@ export default function StrengthProgramBuilder({
         </div>
       </Surface>
 
-      <TabStrip idBase="strength-builder" options={tabs} value={activeTab} onChange={setActiveTab} label="Strength program setup" />
+      <Tabs idBase="strength-builder" options={tabs} value={activeTab} onChange={setActiveTab} label="Strength program setup" />
 
       <Surface tier="tile" innerClassName={styles.formSurface}>
         <div {...tabPanelProps('strength-builder', 'profile', activeTab === 'profile')} hidden={activeTab !== 'profile'}>
@@ -424,40 +423,30 @@ export default function StrengthProgramBuilder({
             <span className="t-footnote">No scan required</span>
           </div>
           <div className={styles.fieldGrid}>
-            <label>Training goal
-              <select className="a-input" value={profile.goal} onChange={event => changeProfile({ ...profile, goal: event.target.value as AthleteTrainingProfileV1['goal'] })}>
-                {profileOptionValues.goals.map(value => <option key={value} value={value}>{goalLabels[value]}</option>)}
-              </select>
-            </label>
-            <label>Experience
-              <select className="a-input" value={profile.experience} onChange={event => {
-                const experience = event.target.value as AthleteTrainingProfileV1['experience']
-                const nextProfile = { ...profile, experience }
-                if (experience !== 'intermediate') delete nextProfile.strengthProgrammingStyle
-                changeProfile(nextProfile)
-              }}>
-                {profileOptionValues.experience.map(value => <option key={value} value={value}>{experienceLabels[value]}</option>)}
-              </select>
-            </label>
+            <Select label="Training goal" value={profile.goal} onChange={event => changeProfile({ ...profile, goal: event.target.value as AthleteTrainingProfileV1['goal'] })}>
+              {profileOptionValues.goals.map(value => <option key={value} value={value}>{goalLabels[value]}</option>)}
+            </Select>
+            <Select label="Experience" value={profile.experience} onChange={event => {
+              const experience = event.target.value as AthleteTrainingProfileV1['experience']
+              const nextProfile = { ...profile, experience }
+              if (experience !== 'intermediate') delete nextProfile.strengthProgrammingStyle
+              changeProfile(nextProfile)
+            }}>
+              {profileOptionValues.experience.map(value => <option key={value} value={value}>{experienceLabels[value]}</option>)}
+            </Select>
             {profile.experience === 'intermediate' ? <div className={styles.spanTwo}>
-              <label>Strength programming
-                <select className="a-input" value={profile.strengthProgrammingStyle ?? 'repeatable'} onChange={event => changeProfile({ ...profile, strengthProgrammingStyle: event.target.value as AthleteTrainingProfileV1['strengthProgrammingStyle'] })}>
-                  <option value="repeatable">Repeatable sessions</option>
-                  <option value="intermediate_undulating">Alternating heavy and volume sessions</option>
-                </select>
-              </label>
+              <Select label="Strength programming" value={profile.strengthProgrammingStyle ?? 'repeatable'} onChange={event => changeProfile({ ...profile, strengthProgrammingStyle: event.target.value as AthleteTrainingProfileV1['strengthProgrammingStyle'] })}>
+                <option value="repeatable">Repeatable sessions</option>
+                <option value="intermediate_undulating">Alternating heavy and volume sessions</option>
+              </Select>
               <p className="t-footnote">Heavy and volume sessions keep separate starting loads and progression history. Choose the rhythm you prefer; neither approach guarantees better results.</p>
             </div> : null}
-            <label>Recent consistency
-              <select className="a-input" value={profile.recentConsistency} onChange={event => changeProfile({ ...profile, recentConsistency: event.target.value as AthleteTrainingProfileV1['recentConsistency'] })}>
-                {profileOptionValues.recentConsistency.map(value => <option key={value} value={value}>{consistencyLabels[value]}</option>)}
-              </select>
-            </label>
-            <label>Preferred load unit
-              <select className="a-input" value={profile.preferredLoadUnit} onChange={event => changeProfile({ ...profile, preferredLoadUnit: event.target.value as AthleteTrainingProfileV1['preferredLoadUnit'] })}>
-                {profileOptionValues.loadUnits.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}
-              </select>
-            </label>
+            <Select label="Recent consistency" value={profile.recentConsistency} onChange={event => changeProfile({ ...profile, recentConsistency: event.target.value as AthleteTrainingProfileV1['recentConsistency'] })}>
+              {profileOptionValues.recentConsistency.map(value => <option key={value} value={value}>{consistencyLabels[value]}</option>)}
+            </Select>
+            <Select label="Preferred load unit" value={profile.preferredLoadUnit} onChange={event => changeProfile({ ...profile, preferredLoadUnit: event.target.value as AthleteTrainingProfileV1['preferredLoadUnit'] })}>
+              {profileOptionValues.loadUnits.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}
+            </Select>
             <label className={styles.spanTwo}>Local timezone
               <input className="a-input" value={profile.localTimezone} onChange={event => changeProfile({ ...profile, localTimezone: event.target.value })} />
             </label>
@@ -488,15 +477,15 @@ export default function StrengthProgramBuilder({
           </fieldset>
           <fieldset className={styles.fieldset}>
             <legend>Strength days</legend>
-            <div className={styles.dayGrid}>
-              {profileOptionValues.weekdays.map(day => <button key={day} type="button" className={styles.dayButton} aria-pressed={profile.strengthDays.includes(day)} onClick={() => toggleDay(day)}>{weekdayLabels[day]}</button>)}
-            </div>
+            <ChipRow label="Strength days">
+              {profileOptionValues.weekdays.map(day => (
+                <FilterChip key={day} label={weekdayLabels[day]} selected={profile.strengthDays.includes(day)} onToggle={() => toggleDay(day)} />
+              ))}
+            </ChipRow>
           </fieldset>
-          <label className={styles.budgetField}>Session time budget
-            <select className="a-input" value={profile.sessionTimeBudgetMinutes} onChange={event => changeProfile({ ...profile, sessionTimeBudgetMinutes: Number(event.target.value) as AthleteTrainingProfileV1['sessionTimeBudgetMinutes'] })}>
-              {profileOptionValues.sessionMinutes.map(value => <option key={value} value={value}>{value} minutes</option>)}
-            </select>
-          </label>
+          <Select label="Session time budget" className={styles.budgetField} value={profile.sessionTimeBudgetMinutes} onChange={event => changeProfile({ ...profile, sessionTimeBudgetMinutes: Number(event.target.value) as AthleteTrainingProfileV1['sessionTimeBudgetMinutes'] })}>
+            {profileOptionValues.sessionMinutes.map(value => <option key={value} value={value}>{value} minutes</option>)}
+          </Select>
           <label className={styles.budgetField}>Cycle start date
             <input className="a-input" type="date" value={cycleStartLocalDate} onChange={event => { draftVersion.current += 1; setCycleStartLocalDate(event.target.value); setPracticeState({ status: 'idle' }) }} />
           </label>
@@ -514,22 +503,18 @@ export default function StrengthProgramBuilder({
           <div className={styles.equipmentList}>
             {profile.equipmentInventory.map(item => item.kind === 'dumbbell' ? <div key={item.equipmentId} className={styles.equipmentCard}>
               <div><p className="t-overline">Dumbbell set</p><strong>{item.equipmentId}</strong></div>
-              <label>Unit for {item.equipmentId}
-                <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
-                  {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
-                </select>
-              </label>
+              <Select label={`Unit for ${item.equipmentId}`} value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
+                {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
+              </Select>
               <label>Available weights per dumbbell ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="2.5, 5, 7.5, 10" value={item.perHandLoads.join(', ')} onChange={event => setDumbbellLoads(item.equipmentId, event.target.value)} />
               </label>
               <p className="t-footnote">One listed dumbbell can be held with two hands for goblet work. Paired movements use two dumbbells at the selected per-hand weight.</p>
             </div> : item.kind === 'barbell' ? <div key={item.equipmentId} className={styles.equipmentCard}>
               <div><p className="t-overline">Barbell setup</p><strong>{item.equipmentId}</strong></div>
-              <label>Unit for {item.equipmentId}
-                <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
-                  {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
-                </select>
-              </label>
+              <Select label={`Unit for ${item.equipmentId}`} value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
+                {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
+              </Select>
               <div className={styles.fieldGrid}>
                 <label>Bar weight for {item.equipmentId} ({item.unit})
                   <input className="a-input" inputMode="decimal" value={item.barWeight} onChange={event => setBarbellWeight(item.equipmentId, 'barWeight', event.target.value)} />
@@ -546,48 +531,42 @@ export default function StrengthProgramBuilder({
                   <input className="a-input" type="number" min="0" step="1" value={plate.count} onChange={event => setBarbellPlate(item.equipmentId, index, { count: Number(event.target.value) })} />
                 </label>
               </div>)}
-              <button type="button" className="a-secondary" aria-label={`Add plate denomination for ${item.equipmentId}`} onClick={() => addBarbellPlate(item.equipmentId)}>Add plate denomination</button>
+              <Button variant="secondary" aria-label={`Add plate denomination for ${item.equipmentId}`} onClick={() => addBarbellPlate(item.equipmentId)}>Add plate denomination</Button>
               <p className="t-footnote">Plate count is the total inventory. Achievable bar loads use symmetric pairs plus the configured bar and collars.</p>
             </div> : item.kind === 'machine' ? <div key={item.equipmentId} className={styles.equipmentCard}>
               <div><p className="t-overline">Machine stack</p><strong>{item.equipmentId}</strong></div>
-              <label>Unit for {item.equipmentId}
-                <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
-                  {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
-                </select>
-              </label>
+              <Select label={`Unit for ${item.equipmentId}`} value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
+                {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
+              </Select>
               <label>Available stack weights for {item.equipmentId} ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="5, 7.5, 10" value={item.stackLoads.join(', ')} onChange={event => setMachineLoads(item.equipmentId, event.target.value)} />
               </label>
               <p className="t-footnote">These exact resistance values apply only to this machine ID.</p>
             </div> : item.kind === 'bodyweight_external' ? <div key={item.equipmentId} className={styles.equipmentCard}>
               <div><p className="t-overline">Bodyweight plus external load</p><strong>{item.equipmentId}</strong></div>
-              <label>Unit for {item.equipmentId}
-                <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
-                  {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
-                </select>
-              </label>
+              <Select label={`Unit for ${item.equipmentId}`} value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
+                {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
+              </Select>
               <label>Available added external loads for {item.equipmentId} ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="0, 2.5, 5, 10" value={item.externalLoads.join(', ')} onChange={event => setBodyweightExternalLoads(item.equipmentId, event.target.value)} />
               </label>
               <p className="t-footnote">Record added external load only. Enter 0 for bodyweight without added load; body mass is never added to this value.</p>
             </div> : <div key={item.equipmentId} className={styles.equipmentCard}>
               <div><p className="t-overline">Assistance machine</p><strong>{item.equipmentId}</strong></div>
-              <label>Unit for {item.equipmentId}
-                <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
-                  {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
-                </select>
-              </label>
+              <Select label={`Unit for ${item.equipmentId}`} value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
+                {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
+              </Select>
               <label>Available assistance settings for {item.equipmentId} ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="10, 20, 30, 40" value={item.assistanceLoads.join(', ')} onChange={event => setAssistanceMachineLoads(item.equipmentId, event.target.value)} />
               </label>
               <p className="t-footnote">Record the nonnegative assistance value shown by this machine. Do not encode assistance as a negative load.</p>
             </div>)}
             <div className={styles.saveActions}>
-              <button type="button" className="a-secondary" onClick={addDumbbellInventory}>Add dumbbell set</button>
-              <button type="button" className="a-secondary" onClick={addBarbellInventory}>Add barbell setup</button>
-              <button type="button" className="a-secondary" onClick={addMachineInventory}>Add machine stack</button>
-              <button type="button" className="a-secondary" onClick={addBodyweightExternalInventory}>Add bodyweight external loads</button>
-              <button type="button" className="a-secondary" onClick={addAssistanceMachineInventory}>Add assistance machine</button>
+              <Button variant="secondary" onClick={addDumbbellInventory}>Add dumbbell set</Button>
+              <Button variant="secondary" onClick={addBarbellInventory}>Add barbell setup</Button>
+              <Button variant="secondary" onClick={addMachineInventory}>Add machine stack</Button>
+              <Button variant="secondary" onClick={addBodyweightExternalInventory}>Add bodyweight external loads</Button>
+              <Button variant="secondary" onClick={addAssistanceMachineInventory}>Add assistance machine</Button>
             </div>
           </div>
         </div>
@@ -602,13 +581,14 @@ export default function StrengthProgramBuilder({
             <p className="t-body">Starting-load acceptance becomes available after reviewed exercise variants are connected. A recalled load remains context, not progression evidence.</p>
           </div>
           {onLoadProgramOptions && !currentOptions ? <p role="status">{optionsError || 'Loading program choices…'}</p> : null}
-          {onLoadProgramOptions && optionsError ? <button type="button" className="a-secondary" onClick={() => {
+          {onLoadProgramOptions && optionsError ? <Button variant="secondary" onClick={() => {
             setProgramOptions(null)
             setOptionsError('')
             setOptionsAttempt(value => value + 1)
-          }}>Retry program choices</button> : null}
+          }}>Retry program choices</Button> : null}
           {currentOptions ? <div className={styles.fieldGrid}>
-            <label>Preferred conditioning activity<select
+            <Select
+              label="Preferred conditioning activity"
               value={profile.conditioningPreference?.catalogVersion === currentOptions.catalogVersion ? profile.conditioningPreference.preferredModalityIds[0] : ''}
               onChange={event => {
                 if (!currentOptions.conditioningModes.some(mode => mode.modalityId === event.target.value)) return
@@ -620,7 +600,7 @@ export default function StrengthProgramBuilder({
             >
               <option value="">Choose an activity</option>
               {currentOptions.conditioningModes.map(mode => <option key={mode.modalityId} value={mode.modalityId}>{mode.label}</option>)}
-            </select></label>
+            </Select>
             <p className="t-footnote">Choose the activity you want in this cycle, then save your profile.</p>
           </div> : null}
           <StartingHistoryEditor
@@ -663,7 +643,7 @@ export default function StrengthProgramBuilder({
         </div>
         <div className={styles.saveActions}>
           {onBuildPracticeDraft ? <button type="button" className="a-secondary" disabled={practiceState.status === 'building' || !canBuildProgram} onClick={() => void buildPractice()}>{practiceState.status === 'building' ? `Building ${programContext === 'practice' ? 'practice ' : ''}draft…` : `Build ${programContext === 'practice' ? 'practice ' : 'program '}draft`}</button> : null}
-          {saveState.status === 'conflict' ? <button type="button" className="a-secondary" onClick={loadConflict}>Load revision {saveState.current.revision}</button> : null}
+          {saveState.status === 'conflict' ? <Button variant="secondary" onClick={loadConflict}>Load revision {saveState.current.revision}</Button> : null}
           <button
             type="button"
             className="a-primary"

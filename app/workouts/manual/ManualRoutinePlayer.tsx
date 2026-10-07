@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useState } from 'react'
-import { Surface } from '@/components/array/Surface'
+import { Button, Surface } from '@/components/ui'
 import type { ManualRoutine, ManualRoutineItem } from './ManualRoutine.types'
 import styles from './ManualRoutines.module.css'
 
@@ -38,7 +38,7 @@ export default function ManualRoutinePlayer({ routine }: { routine: Pick<ManualR
         <p className="t-footnote">Image by {display.media.source.author} · <a href={display.media.source.assetUrl} target="_blank" rel="noreferrer">wger image source</a> · <a href={display.media.source.license.url} target="_blank" rel="noreferrer">{display.media.source.license.shortName}</a> · unmodified</p>
       </> : display.media ? <p role="status" className="t-footnote">Image unavailable. Follow the written instructions below.</p> : null}
       <div><p className="t-overline">Exercise {String(index + 1).padStart(2, '0')}</p><h3 className="t-headline">{display.name}</h3></div>
-      <p className={styles.target}>{item.kind === 'strength'
+      <p className={`t-readout-md ${styles.target}`}>{item.kind === 'strength'
         ? `${item.sets} set${item.sets === 1 ? '' : 's'} × ${item.reps} rep${item.reps === 1 ? '' : 's'} · ${item.load.value} ${item.load.unit}`
         : duration(item.durationSeconds)}</p>
       {item.restSeconds !== undefined ? <p className="t-footnote">Rest {duration(item.restSeconds)}</p> : null}
@@ -47,10 +47,10 @@ export default function ManualRoutinePlayer({ routine }: { routine: Pick<ManualR
     </Surface>
     {finished ? <p role="status" className={styles.notice}>You reached the end of this routine. No workout completion was recorded.</p> : null}
     <div className={styles.actions}>
-      <button type="button" className="a-secondary" disabled={index === 0} onClick={() => { setIndex(value => value - 1); setFinished(false) }}>Previous exercise</button>
+      {index > 0 ? <Button variant="secondary" onClick={() => { setIndex(value => value - 1); setFinished(false) }}>Previous exercise</Button> : null}
       {index < routine.items.length - 1
-        ? <button type="button" className="a-primary" onClick={() => { setIndex(value => value + 1); setFinished(false) }}>Next exercise</button>
-        : <button type="button" className="a-primary" onClick={() => setFinished(true)}>Finish viewing routine</button>}
+        ? <Button variant="primary" onClick={() => { setIndex(value => value + 1); setFinished(false) }}>Next exercise</Button>
+        : <Button variant="primary" onClick={() => setFinished(true)}>Finish viewing routine</Button>}
     </div>
   </section>
 }

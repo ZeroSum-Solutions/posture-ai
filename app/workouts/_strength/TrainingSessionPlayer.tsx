@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button } from '@/components/ui'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { TrainingSetLogEventV1 } from '@/lib/training/contracts/logs'
 import type { TrainingConditioningSessionPrescriptionV1, TrainingSessionPrescriptionV1 } from '@/lib/training/contracts/session'
@@ -731,7 +732,7 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
   }
 
   if (load.status === 'loading') return <Surface tier="tile" innerClassName={styles.entryState}><p role="status">Loading training session…</p></Surface>
-  if (load.status === 'error') return <Surface tier="tile" innerClassName={styles.entryState}><p role="alert">{load.message}</p><button className="a-secondary" onClick={() => void reload()}>Retry session</button></Surface>
+  if (load.status === 'error') return <Surface tier="tile" innerClassName={styles.entryState}><p role="alert">{load.message}</p><Button variant="secondary" size="md" onClick={() => void reload()}>Retry session</Button></Surface>
 
   const projection = load.projection
   const practice = projection.executionContext.kind === 'synthetic_simulation'
@@ -753,12 +754,12 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
     {offlineQueue.pendingCount > 0 ? <Surface tier="tile" innerClassName={styles.entryState}>
       <p role="status"><strong>{offlineQueue.pendingCount} pending {offlineQueue.pendingCount === 1 ? 'change' : 'changes'} on this device.</strong> These changes are not saved on the server yet.</p>
       {offlineQueue.conflictRequestId
-        ? <button type="button" className="a-secondary" onClick={() => void discardOfflineConflict()}>Discard conflicting local change and reload</button>
-        : <button type="button" className="a-secondary" onClick={() => void retryOfflineQueue()}>Retry pending saves</button>}
+        ? <Button type="button" variant="secondary" size="md" onClick={() => void discardOfflineConflict()}>Discard conflicting local change and reload</Button>
+        : <Button type="button" variant="secondary" size="md" onClick={() => void retryOfflineQueue()}>Retry pending saves</Button>}
     </Surface> : null}
     {projection.session.stopped_for_symptoms ? <p role="alert" className={styles.error}>Adverse symptoms were reported. Do not continue this session until they have been addressed.</p> : null}
     {projection.session.state === 'scheduled'
-      ? <button type="button" className="a-primary" disabled={pending} onClick={() => void start(projection)}>{pending ? 'Starting session…' : 'Start session'}</button>
+      ? <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void start(projection)}>Start session</Button>
       : null}
     {projection.session.state !== 'scheduled' && projection.session.session_kind === 'strength'
       ? <StrengthSession projection={projection} update={applyAck} conflict={conflict} copyLocked={offlineQueue.pendingCount > 0 || offlineQueue.conflictRequestId !== null} saveSet={attempt => submitOfflineMutation({
@@ -779,20 +780,18 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
       ? <div className={styles.finishBar}>
         <p className="t-body">Save actuals first. Finishing with missing items records omissions explicitly. Stopping preserves saved actuals without advancing progression.</p>
         {pendingCompletion
-          ? <button type="button" className="a-primary" disabled={pending} onClick={() => void finish(projection)}>
-            {pending
-              ? pendingCompletion.finishMode === 'abort' ? 'Stopping…' : 'Finishing…'
-              : pendingCompletion.finishMode === 'abort'
-                ? 'Retry stop session'
-                : pendingCompletion.finishMode === 'finish_with_omissions'
-                  ? `Retry finish with ${missing} omission${missing === 1 ? '' : 's'}`
-                  : 'Retry finish session'}
-          </button>
+          ? <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void finish(projection)}>
+            {pendingCompletion.finishMode === 'abort'
+              ? 'Retry stop session'
+              : pendingCompletion.finishMode === 'finish_with_omissions'
+                ? `Retry finish with ${missing} omission${missing === 1 ? '' : 's'}`
+                : 'Retry finish session'}
+          </Button>
           : projection.session.stopped_for_symptoms
-            ? <button type="button" className="a-primary" disabled={pending} onClick={() => void finish(projection, 'abort')}>{pending ? 'Stopping…' : 'Stop session'}</button>
+            ? <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void finish(projection, 'abort')}>Stop session</Button>
             : <>
-              <button type="button" className="a-primary" disabled={pending} onClick={() => void finish(projection)}>{pending ? 'Finishing…' : missing > 0 ? `Finish with ${missing} omission${missing === 1 ? '' : 's'}` : 'Finish session'}</button>
-              <button type="button" className="a-secondary" disabled={pending} onClick={() => void finish(projection, 'abort')}>Stop session</button>
+              <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void finish(projection)}>{missing > 0 ? `Finish with ${missing} omission${missing === 1 ? '' : 's'}` : 'Finish session'}</Button>
+              <Button type="button" variant="secondary" size="md" loading={pending} onClick={() => void finish(projection, 'abort')}>Stop session</Button>
             </>}
       </div>
       : terminal

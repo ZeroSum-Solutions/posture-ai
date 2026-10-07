@@ -1,21 +1,23 @@
-// Array (v2) token mapping. Keys, shape, and the CSS-custom-property-string
-// contract are unchanged — WorkoutPlayer/CountdownRing/RateForm read these
-// values but do not own their source. Values below point at the live tokens
-// in /app/globals.css; where the v1 token had no direct successor (well,
-// strong border, copper accent, gradient, glow, control radius) they resolve
-// to the closest live equivalent rather than a reintroduced v1 custom property.
+// Array v3 token mapping (DESIGN.md › Tokens v3, spec §2). Keys and shape are
+// unchanged — WorkoutPlayer/CountdownRing/RateForm read these values but do
+// not own their source. Values below point directly at the canonical v3
+// custom properties in /app/globals.css (not the back-compat v2 aliases, e.g.
+// `--text-primary`/`--surface-glass`), so this file reads as migrated rather
+// than riding the compatibility layer. `borderStrong` and `glow` have no v3
+// token at their exact alpha (.2 / .4 white) and stay literal by design — they
+// predate this pass and are called out here rather than silently kept.
 export const workoutTheme = {
   background: 'var(--background)',
-  backgroundSunken: 'var(--surface-glass)',
-  surface: 'var(--surface-glass-strong)',
-  surfaceWell: 'rgba(255, 255, 255, 0.06)',
-  surfaceStrong: 'var(--secondary-surface)',
-  textPrimary: 'var(--text-primary)',
-  textSecondary: 'var(--text-secondary)',
-  textMuted: 'var(--text-tertiary)',
+  backgroundSunken: 'var(--surface-flat)',
+  surface: 'var(--glass-card)',
+  surfaceWell: 'var(--overlay-hover)',
+  surfaceStrong: 'var(--surface-field)',
+  textPrimary: 'var(--text-1)',
+  textSecondary: 'var(--text-2)',
+  textMuted: 'var(--text-3)',
   border: 'var(--hairline)',
   borderStrong: 'rgba(255, 255, 255, 0.2)',
-  primary: 'var(--text-secondary)',
+  primary: 'var(--text-2)',
   primaryStrong: 'var(--action)',
   copper: 'var(--monitor)',
   maintain: 'var(--maintain)',
@@ -23,8 +25,8 @@ export const workoutTheme = {
   danger: 'var(--review)',
   gradient: 'var(--shell-gradient)',
   glow: 'rgba(255, 255, 255, 0.4)',
-  radiusControl: 'var(--radius-sm)',
-  radiusCard: 'var(--radius-card)',
+  radiusControl: 'var(--r-sm)',
+  radiusCard: 'var(--r-lg)',
 } as const
 
 export function colorMix(color: string, percent: number): string {

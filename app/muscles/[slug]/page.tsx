@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { Disclaimer } from '@/components/Disclaimer'
-import Icon from '@/components/array/Icon'
 import { Chip } from '@/components/array/Chip'
+import { Disclaimer } from '@/components/Disclaimer'
 import { Surface } from '@/components/array/Surface'
 import { tone, type SeverityBand } from '@/components/array/severity'
+import { SeverityChip, TopBar } from '@/components/ui'
 import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import {
   approvedClinicalExercises,
@@ -99,20 +98,13 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="app-screen">
+      <TopBar
+        title={muscle.name}
+        subtitle={REGION_LABELS[muscle.region] ?? muscle.region}
+        back={{ href: '/muscles', label: 'Back to Muscle guide' }}
+        actions={access.mode === 'test_fixture' ? <SeverityChip band="monitor" size="sm" label="Pending review" /> : undefined}
+      />
       <div className="app-screen-x app-stack">
-        <Link href="/muscles" className="a-quiet" style={{ paddingLeft: 4 }}>
-          <Icon name="alt-arrow-left-linear" size={16} />
-          Muscle Guide
-        </Link>
-
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 className="t-title-1">{muscle.name}</h1>
-            {access.mode === 'test_fixture' && <Chip band="monitor" size="sm">Pending review</Chip>}
-          </div>
-          <p className="t-footnote" style={{ marginTop: 4 }}>{REGION_LABELS[muscle.region] ?? muscle.region}</p>
-        </div>
-
         <Surface tier="tile">
           <h2 className="t-headline" style={{ marginBottom: 8 }}>Anatomy</h2>
           <p className="t-body">{muscle.anatomySummary}</p>

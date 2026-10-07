@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button } from '@/components/ui'
 import { requestTrainingPrograms, type TrainingProgramListProjection } from './StrengthBuilder.gateway'
 import styles from './StrengthProgramBuilder.module.css'
 
@@ -42,7 +42,7 @@ export default function TrainingProgramResumeList({
   }, [subjectId])
 
   if (state.status === 'loading') return <p role="status" className="t-footnote">Loading saved strength programs…</p>
-  if (state.status === 'error') return <Surface tier="tile" innerClassName={styles.entryState}><p role="alert">{state.message}</p><button type="button" className="a-secondary" onClick={() => void load()}>Retry programs</button></Surface>
+  if (state.status === 'error') return <Surface tier="tile" innerClassName={styles.entryState}><p role="alert">{state.message}</p><Button variant="secondary" size="sm" onClick={() => void load()}>Retry programs</Button></Surface>
   if (state.value.programs.length === 0) return null
 
   return <section className={styles.resumeList} aria-labelledby="saved-strength-heading">
@@ -59,10 +59,10 @@ export default function TrainingProgramResumeList({
           <p className="t-footnote">Created {program.created_at.slice(0, 10)} · {program.sessions.length} sessions</p>
         </div>
         <div className={styles.resumeSessions}>
-          <Link className="a-secondary" href={`${programHrefBase}?training_program_id=${encodeURIComponent(program.id)}`}>View program</Link>
-          {resumable.slice(0, 4).map(session => <Link key={session.id} className="a-secondary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(session.id)}`}>
+          <Button variant="secondary" size="sm" href={`${programHrefBase}?training_program_id=${encodeURIComponent(program.id)}`}>View program</Button>
+          {resumable.slice(0, 4).map(session => <Button key={session.id} variant="secondary" size="sm" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(session.id)}`}>
             {session.state === 'in_progress' ? 'Resume' : 'Open'} {session.session_kind} · {session.scheduled_local_date}
-          </Link>)}
+          </Button>)}
           {resumable.length === 0 ? <span className="t-footnote">No scheduled or in-progress sessions.</span> : null}
         </div>
       </Surface>

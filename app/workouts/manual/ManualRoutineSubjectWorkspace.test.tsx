@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ resolve: vi.fn(), createAttempt: vi.fn(), create: vi.fn(), load: vi.fn(), push: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }), usePathname: () => '/workouts/manual/new' }))
 vi.mock('./ManualRoutine.gateway', () => ({
   resolveManualRoutineSubject: mocks.resolve,
   createManualRoutineAttempt: mocks.createAttempt,

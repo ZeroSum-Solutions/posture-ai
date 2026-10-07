@@ -20,6 +20,7 @@ import { CountdownRing } from './CountdownRing'
 import { RateForm, WorkoutLegalNotice } from './RateForm'
 import { AudioGlyph } from '@/components/SignalGlyphs'
 import { Surface } from '@/components/array/Surface'
+import { Button, IconButton } from '@/components/ui'
 import { colorMix, workoutTheme as theme } from './theme'
 
 // ---- public contract ----------------------------------------------------
@@ -375,14 +376,16 @@ export function WorkoutPlayer({
 
       {/* top: segmented progress + exit */}
       {active && (
-        <div data-testid="workout-chrome-progress" aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 3, padding: `14px ${onExit ? 112 : 16}px 0 16px`, ...chromeStyle }}>
+        <div data-testid="workout-chrome-progress" aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 3, padding: `14px ${onExit ? 72 : 16}px 0 16px`, ...chromeStyle }}>
           <SegmentedProgress total={total} index={state.index} results={state.results} accent={accent} />
         </div>
       )}
       {onExit && (
-        <button
+        <IconButton
+          icon="close-linear"
+          label="Exit session"
+          variant="glass"
           onClick={onExit}
-          aria-label="Exit session"
           tabIndex={0}
           data-workout-chrome-controls
           style={{
@@ -390,30 +393,8 @@ export function WorkoutPlayer({
             top: 'max(12px, env(safe-area-inset-top, 0px))',
             right: 'max(12px, env(safe-area-inset-right, 0px))',
             zIndex: 6,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            padding: '0 14px',
-            height: 44,
-            minHeight: 44,
-            borderRadius: theme.radiusControl,
-            border: `1px solid ${colorMix(theme.textPrimary, 18)}`,
-            background: colorMix(theme.background, 84),
-            color: theme.textPrimary,
-            fontFamily: uiFont,
-            fontSize: 13,
-            fontWeight: 700,
-            letterSpacing: '0.01em',
-            WebkitBackdropFilter: 'blur(18px)',
-            backdropFilter: 'blur(18px)',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.36)',
-            cursor: 'pointer',
           }}
-        >
-          <span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1 }}>×</span>
-          <span>Exit</span>
-        </button>
+        />
       )}
 
       {/* voice + caption toggles */}
@@ -433,7 +414,8 @@ export function WorkoutPlayer({
             aria-label={captionsOn ? 'Hide captions' : 'Show captions'}
             aria-pressed={captionsOn}
             tabIndex={chromeVisible ? 0 : -1}
-            style={{ ...roundToggle(captionsOn), fontSize: 13, fontWeight: 800, letterSpacing: '0.02em' }}
+            className="t-caption"
+            style={roundToggle(captionsOn)}
           >
             CC
           </button>
@@ -478,7 +460,7 @@ export function WorkoutPlayer({
                 {/* Largest element on screen, tabular-nums via t-readout-xl so the
                     3-2-1 countdown never reflows as it drops a digit. */}
                 <div className="t-readout-xl">{secs(state.remainingMs)}</div>
-                <div style={{ marginTop: 10, color: theme.textSecondary, fontWeight: 600 }}>{item.name}</div>
+                <div className="t-headline" style={{ marginTop: 10 }}>{item.name}</div>
               </div>
             </Fade>
           )}
@@ -641,16 +623,13 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
       )}
       {showGradient && item && (
         <div
+          className="t-readout-xl"
           style={{
             position: 'absolute',
             inset: 0,
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            fontFamily: uiFont,
-            fontSize: '56px',
-            fontWeight: 700,
-            letterSpacing: 0,
             color: colorMix(theme.primary, 8),
             textAlign: 'center',
             padding: '20% 24px 0',
@@ -673,7 +652,7 @@ const SegmentedProgress = memo(function SegmentedProgress({ total, index, result
         const r = results[i]
         const isPast = i < index
         const fill = r?.completed ? accent : r?.skipped ? theme.borderStrong : isPast ? accent : i === index ? colorMix(accent, 52) : theme.border
-        return <div key={i} style={{ flex: 1, height: 4, borderRadius: 3, background: fill }} />
+        return <div key={i} style={{ flex: 1, height: 4, borderRadius: 'var(--r-full)', background: fill }} />
       })}
     </div>
   )
@@ -684,7 +663,7 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
   const mins = Math.max(1, Math.round(snapshot.estimatedDurationSec / 60))
   return (
     <Surface tier="feature">
-      {clientFirstName && <p style={{ color: accent, fontSize: 13, fontWeight: 400, margin: '0 0 8px' }}>Hi {clientFirstName}</p>}
+      {clientFirstName && <p className="t-footnote" style={{ color: accent, margin: '0 0 8px' }}>Hi {clientFirstName}</p>}
       <h1 className="t-title-1" style={{ margin: '0 0 10px' }}>Your guided session</h1>
       <p className="t-body" style={{ margin: '0 0 4px' }}>
         {snapshot.items.length} movements · about {mins} min
@@ -696,9 +675,9 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
             ? { legacyDisclaimer: snapshot.disclaimer }
             : { legalNotice: snapshot.legalNotice })}
       />
-      <button onClick={onBegin} className="a-primary" style={{ padding: '0 40px', minHeight: 56, width: '100%' }}>
+      <Button onClick={onBegin} variant="primary" size="lg" block>
         Begin session
-      </button>
+      </Button>
     </Surface>
   )
 }
@@ -710,7 +689,7 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
       <p className="t-overline" style={{ marginBottom: 10 }}>
         Up next · {index + 1} of {total}
       </p>
-      <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, background: colorMix(accent, 14), color: accent, fontWeight: 600, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: 0, marginBottom: 12 }}>
+      <div className="t-overline" style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--r-full)', background: colorMix(accent, 14), color: accent, marginBottom: 12 }}>
         {item.stepLabel}
       </div>
       <h2 className="t-title-1" style={{ margin: '0 0 8px' }}>{item.name}</h2>
@@ -734,9 +713,9 @@ function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; in
           ))}
         </ol>
       )}
-      <button onClick={onStart} className="a-secondary" style={{ padding: '0 34px' }}>
+      <Button onClick={onStart} variant="secondary" size="md">
         Start now →
-      </button>
+      </Button>
     </Surface>
   )
 }
@@ -752,10 +731,16 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
 
   return (
     <Surface tier="feature" innerStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-      <div style={{ minHeight: 22, color: theme.textSecondary, fontWeight: 600, fontSize: '0.95rem' }}>
-        {isRest ? 'Rest' : item.name}
-        {!isRest && <span style={{ color: theme.textSecondary }}> · set {state.set} of {item.timing.sets}</span>}
-      </div>
+      {isRest ? (
+        <p className="t-overline" style={{ minHeight: 22, margin: 0 }}>Rest</p>
+      ) : (
+        // Exercise title at Title-2 role (spec §5 "Workout session"); the
+        // reps×sets readout rides alongside it in a lighter secondary tier.
+        <h2 className="t-title-2" style={{ minHeight: 22, margin: 0 }}>
+          {item.name}
+          <span className="t-callout"> · set {state.set} of {item.timing.sets}</span>
+        </h2>
+      )}
 
       {isRest || isHold ? (
         // The seconds readout is the largest thing on screen — legible from arm's
@@ -779,37 +764,49 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
       </p>
 
       {!isRest && !isHold && (
-        <button onClick={onNext} className="a-primary" style={{ padding: '0 40px', minHeight: 52 }}>
+        // The screen's one primary action for this phase — marking the set
+        // done. haptic="success" overrides Button's default tap pulse per
+        // the task's explicit "haptic on set done" requirement.
+        <Button onClick={onNext} variant="primary" size="lg" haptic="success">
           Done, next →
-        </button>
+        </Button>
       )}
     </Surface>
   )
 }
 
 function Transport({ paused, onBack, onPauseToggle, onSkip, atStart, isVisible }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean; isVisible: boolean }) {
-  // The Pause/Resume control is the screen's one primary action; Back/Skip are
-  // secondary. a-primary already sets color: var(--action-text) against its
-  // white fill — the hand-rolled version here previously paired that same
-  // white background with var(--text-primary), which is white-on-white.
-  const btn = (label: string, onClick: () => void, opts: { primary?: boolean; disabled?: boolean; icon?: string } = {}) => (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      disabled={opts.disabled}
-      tabIndex={isVisible ? 0 : -1}
-      className={opts.primary ? 'a-primary' : 'a-secondary'}
-      style={{ minWidth: opts.primary ? 108 : 64, minHeight: 52 }}
-    >
-      {opts.icon && <span aria-hidden="true">{opts.icon}</span>}
-      {label}
-    </button>
-  )
+  // Pause/Resume is the screen's one primary action here; Skip is tertiary
+  // (spec §5 vocabulary). Back stays a native button: BACK at index 0 is not
+  // a no-op (playerMachine resets the current item's result), so it needs a
+  // true native `disabled` — Button only exposes `disabledReason` (aria-disabled,
+  // clicks swallowed but still focusable), which doesn't convey the same
+  // "can't go further back" affordance in this dense three-up row.
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      {btn('Back', onBack, { disabled: atStart })}
-      {btn(paused ? 'Resume' : 'Pause', onPauseToggle, { primary: true, icon: paused ? '▶' : '❚❚' })}
-      {btn('Skip', onSkip)}
+      <button
+        onClick={onBack}
+        aria-label="Back"
+        disabled={atStart}
+        tabIndex={isVisible ? 0 : -1}
+        className="a-secondary"
+        style={{ minWidth: 64, minHeight: 48 }}
+      >
+        Back
+      </button>
+      <Button
+        onClick={onPauseToggle}
+        variant="primary"
+        size="md"
+        icon={paused ? undefined : 'pause-linear'}
+        tabIndex={isVisible ? 0 : -1}
+        style={{ minWidth: 108 }}
+      >
+        {paused ? 'Resume' : 'Pause'}
+      </Button>
+      <Button onClick={onSkip} variant="tertiary" size="md" tabIndex={isVisible ? 0 : -1}>
+        Skip
+      </Button>
     </div>
   )
 }
@@ -838,23 +835,13 @@ function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () 
       <h2 className="t-title-1" style={{ margin: '0 0 20px' }}>
         Before you start — are you feeling any sharp or worsening pain right now?
       </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-        <button
-          onClick={onClear}
-          data-testid="red-flag-no"
-          className="a-primary"
-          style={{ minHeight: 56, width: '100%', maxWidth: 320 }}
-        >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', maxWidth: 320 }}>
+        <Button onClick={onClear} data-testid="red-flag-no" variant="primary" size="lg" block>
           No, I feel okay
-        </button>
-        <button
-          onClick={onStop}
-          data-testid="red-flag-yes"
-          className="a-secondary"
-          style={{ width: '100%', maxWidth: 320, color: accent }}
-        >
+        </Button>
+        <Button onClick={onStop} data-testid="red-flag-yes" variant="secondary" size="md" block style={{ color: accent }}>
           Yes
-        </button>
+        </Button>
       </div>
     </Surface>
   )
@@ -873,9 +860,9 @@ function StopCard({ onDismiss }: { onDismiss?: () => void }) {
         <p className="t-body" style={{ margin: '0 auto 28px', maxWidth: 360 }}>
           Sharp pain is worth checking with a movement professional before continuing.
         </p>
-        <button onClick={onDismiss} data-testid="stop-card-dismiss" className="a-secondary" style={{ padding: '0 34px' }}>
+        <Button onClick={onDismiss} data-testid="stop-card-dismiss" variant="secondary" size="md">
           End session
-        </button>
+        </Button>
       </Surface>
     </div>
   )

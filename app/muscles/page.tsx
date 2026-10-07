@@ -1,4 +1,5 @@
 import { Disclaimer } from '@/components/Disclaimer'
+import { TopBar } from '@/components/ui'
 import { MuscleLibrary } from './MuscleLibrary'
 import { notFound } from 'next/navigation'
 import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
@@ -22,15 +23,11 @@ export default async function MusclesPage() {
 
   return (
     <div className="app-screen">
+      <TopBar
+        title="Muscle guide"
+        subtitle="Anatomy, function, and corrective exercise guidance for every muscle implicated in the ten postural screening measures."
+      />
       <div className="app-screen-x app-stack">
-        <div>
-          <p className="t-overline" style={{ marginBottom: 10 }}>Anatomy reference</p>
-          <h1 className="t-title-1">Muscle guide</h1>
-          <p className="t-body" style={{ marginTop: 8 }}>
-            Anatomy, function, and corrective exercise guidance for every muscle implicated in the
-            ten postural screening measures.
-          </p>
-        </div>
         <Disclaimer compact />
         <MuscleLibrary muscles={muscles} />
       </div>

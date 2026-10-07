@@ -8,6 +8,7 @@ import {
 } from '@/lib/training/contracts/manual-recalibration-persistence'
 import type { TrainingProgressionProjectionV1 } from '@/lib/training/contracts/progression'
 import type { ManualRecalibrationOfferV1 } from '@/lib/training/contracts/manual-recalibration'
+import { Button } from '@/components/ui'
 import ManualRecalibrationChoices, { type ManualCalibrationConfirmation, type ManualCalibrationConfirmationOutcome } from './ManualRecalibrationChoices'
 
 type Props = {
@@ -88,9 +89,9 @@ function Panel({ sessionId, exerciseInstanceId, expected, executionContext }: Pr
   return <section aria-label="Effort-based familiarization">
     {executionContext.kind !== 'live' ? <p>Practice data · Simulation</p> : null}
     {projection ? <ManualRecalibrationChoices offer={projection.offer} onConfirm={confirm} /> : <>
-      <button type="button" className="a-secondary" disabled={loading} onClick={() => void loadOffer()}>
+      <Button variant="secondary" size="sm" loading={loading} onClick={() => void loadOffer()}>
         {loading ? 'Loading settings…' : 'Review starting settings'}
-      </button>
+      </Button>
       {error ? <p role="alert">{error}</p> : null}
     </>}
   </section>
