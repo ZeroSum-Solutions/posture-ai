@@ -41,11 +41,16 @@ export function tabBarSlots(clinicalContentEnabled: boolean, audience: TabBarAud
 }
 
 const HIDDEN_EXACT = new Set(['/', '/privacy', '/terms'])
-const HIDDEN_PREFIXES = ['/auth', '/onboarding', '/consent/', '/s/']
+const HIDDEN_PREFIXES = ['/auth', '/onboarding', '/consent/', '/s/', '/assessments/new']
 
 /**
  * Marketing, auth, onboarding and the public consent/share documents carry no
  * app navigation — a client following a share link is not a practitioner.
+ *
+ * The capture wizard (`/assessments/new`) hides it too (spec §5 "Capture:
+ * client step"): the wizard pins its own ActionBar, and a docked TabBar below
+ * that would stack two bottom bars on a route with no tab destination of its
+ * own (Capture is an action, not a place you navigate to from inside itself).
  */
 export function isTabBarHidden(pathname: string): boolean {
   if (HIDDEN_EXACT.has(pathname)) return true

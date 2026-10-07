@@ -21,6 +21,7 @@ import { renderDose } from '../../../lib/program/dosage'
 import { Surface } from '@/components/array/Surface'
 import { Chip } from '@/components/array/Chip'
 import { bandFromZone, ring, tint, tone, type SeverityBand } from '@/components/array/severity'
+import { Button, IconButton, ListRow, Sheet } from '@/components/ui'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
 import WhyThisSheet from './WhyThisSheet'
 import styles from './PriorityProgram.module.css'
@@ -128,6 +129,55 @@ function SwapControl({
   )
 }
 
+/**
+ * The per-exercise action surface, collapsed into one overflow "…" menu
+ * (spec §5 Results — "replacing the four buttons per item"): Exercise
+ * details, Why this, and Swap (when alternatives exist). Same handlers,
+ * same testids on the actions themselves — only their container changed.
+ */
+function ExerciseActionsSheet({
+  priority,
+  step,
+  onSwap,
+  onOpenDetail,
+  onWhyThis,
+  onClose,
+}: {
+  priority: ClinicalProgramPriority
+  step: ClinicalProgramStep
+  onSwap: OverrideHandlers['onSwap']
+  onOpenDetail: (slug: string, name: string) => void
+  onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
+  onClose: () => void
+}) {
+  return (
+    <Sheet open onOpenChange={(next) => { if (!next) onClose() }} title={step.name} detents={['compact']}>
+      <div className="app-stack">
+        <Button
+          variant="secondary"
+          block
+          data-testid={`exercise-detail-${step.slug}`}
+          onClick={() => { onOpenDetail(step.slug, step.name); onClose() }}
+        >
+          Exercise details
+        </Button>
+        <Button
+          variant="secondary"
+          block
+          data-testid={`why-this-${step.slug}`}
+          onClick={() => {
+            onWhyThis(step.slug, step.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[step.category] ?? 'targets')
+            onClose()
+          }}
+        >
+          Why this?
+        </Button>
+        {step.alternatives.length > 1 && <SwapControl priority={priority} step={step} onSwap={onSwap} />}
+      </div>
+    </Sheet>
+  )
+}
+
 function ExerciseList({
   priority,
   onSwap,
@@ -139,58 +189,59 @@ function ExerciseList({
   onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
 }) {
+  const [openSlug, setOpenSlug] = useState<string | null>(null)
+  const openStep = priority.steps.find((s) => s.baseSlug === openSlug) ?? null
   return (
-    <ol className={styles.exerciseList}>
-      {priority.steps.map((s) => {
-        const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--info)'
-        const ramp = s.weeks.map((dose) => renderDose(dose))
-        return (
-          <li key={s.baseSlug} className={styles.exerciseRow}>
-            <div className={styles.stepRow}>
-              <StepPill text={s.stepLabel} color={stepColor} />
-              <button
-                type="button"
-                data-testid={`exercise-detail-${s.slug}`}
-                onClick={() => onOpenDetail(s.slug, s.name)}
-                className={styles.exerciseButton}
-              >
-                {s.name}
-              </button>
-            </div>
-            <p className={`${styles.stepMeta} n`}>
-              <span>
-                {s.freq}
-                {s.repRange ? ` · ${s.repRange.min}–${s.repRange.max} reps` : ''}
-              </span>
-              {/* The exact 3-week ramp, week 1 → 3, as one line. */}
-              <span className={styles.ramp} aria-hidden="true">
-                {ramp.map((dose, i) => (
-                  <span key={i} className={styles.rampDose} style={{ color: s.weeks[i] ? undefined : 'var(--text-quiet)' }}>
-                    {i > 0 ? <span className={styles.rampArrow}>→</span> : null}
-                    {dose}
-                  </span>
-                ))}
-              </span>
-              <span className="sr-only">
-                {ramp.map((dose, i) => `Week ${i + 1} (${WEEK_THEME[i]}): ${dose}.`).join(' ')}
-              </span>
-              {s.isIntegrative ? <span>new in week 3</span> : null}
-            </p>
-            <div className={styles.exerciseActions}>
-              <button
-                type="button"
-                data-testid={`why-this-${s.slug}`}
-                onClick={() => onWhyThis(s.slug, s.name, priority.primaryKey, priority.label, MOVEMENT_ACTION[s.category] ?? 'targets')}
-                className={styles.whyThisButton}
-              >
-                Why this?
-              </button>
-              <SwapControl priority={priority} step={s} onSwap={onSwap} />
-            </div>
-          </li>
-        )
-      })}
-    </ol>
+    <>
+      <ul className={styles.exerciseList} aria-label={`${priority.label} exercises`}>
+        {priority.steps.map((s) => {
+          const stepColor = STEP_COLOR[s.stepLabel] ?? 'var(--info)'
+          const ramp = s.weeks.map((dose) => renderDose(dose))
+          return (
+            <li key={s.baseSlug} className={styles.exerciseRow}>
+              <ListRow
+                leading={<StepPill text={s.stepLabel} color={stepColor} />}
+                title={s.name}
+                subtitle={`${s.freq}${s.repRange ? ` · ${s.repRange.min}–${s.repRange.max} reps` : ''}`}
+                trailing={
+                  <IconButton
+                    icon="menu-dots-linear"
+                    label={`More actions for ${s.name}`}
+                    variant="plain"
+                    onClick={() => setOpenSlug(s.baseSlug)}
+                  />
+                }
+              />
+              <p className={`${styles.stepMeta} n`} style={{ paddingLeft: 56 }}>
+                {/* The exact 3-week ramp, week 1 → 3, as one line. */}
+                <span className={styles.ramp} aria-hidden="true">
+                  {ramp.map((dose, i) => (
+                    <span key={i} className={styles.rampDose} style={{ color: s.weeks[i] ? undefined : 'var(--text-3)' }}>
+                      {i > 0 ? <span className={styles.rampArrow}>→</span> : null}
+                      {dose}
+                    </span>
+                  ))}
+                </span>
+                <span className="sr-only">
+                  {ramp.map((dose, i) => `Week ${i + 1} (${WEEK_THEME[i]}): ${dose}.`).join(' ')}
+                </span>
+                {s.isIntegrative ? <span>new in week 3</span> : null}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+      {openStep && (
+        <ExerciseActionsSheet
+          priority={priority}
+          step={openStep}
+          onSwap={onSwap}
+          onOpenDetail={onOpenDetail}
+          onWhyThis={onWhyThis}
+          onClose={() => setOpenSlug(null)}
+        />
+      )}
+    </>
   )
 }
 
@@ -253,15 +304,15 @@ function PriorityCard({
               onWhyThis={onWhyThis}
             />
             <div className={styles.cardFoot}>
-              <button
-                type="button"
+              <Button
+                variant="tertiary"
+                size="sm"
                 data-testid={`demote-${priority.primaryKey}`}
                 onClick={() => onDemote(priority.primaryKey)}
                 title="Demote to monitor only — removes the program for this focus"
-                className={styles.demoteButton}
               >
                 Monitor only
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -377,14 +428,14 @@ export default function PriorityProgram({
                   <Chip band={band} size="sm">{m.severityWord} · {m.zone}</Chip>
                   <span className="t-body" style={{ flex: 1 }}>{m.label}</span>
                   {report.priorities.length < 3 && (
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       data-testid={`promote-${m.primaryKey}`}
                       onClick={() => onPromote(m.primaryKey)}
-                      className={styles.promoteButton}
-                      style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, color: tone('info') }}
                     >
                       Add to program
-                    </button>
+                    </Button>
                   )}
                 </div>
               )

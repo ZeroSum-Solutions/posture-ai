@@ -3,7 +3,7 @@ import { Surface } from '@/components/array/Surface'
 import { ring, tint, tone } from '@/components/array/severity'
 import { GRADE_DISPLAY_BANDS } from '@/lib/scoring/grade-display'
 import type { GradeRailModel } from './reviewModel'
-import styles from './AssessmentReview.module.css'
+import styles from './Results.module.css'
 
 /**
  * The screen's subject: the grade, the deviation score, and where both sit on the

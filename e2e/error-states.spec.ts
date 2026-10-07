@@ -136,7 +136,7 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
 
     await page.goto(`/assessments/${assessmentId}`)
     // Wait for results to load
-    await expect(page.getByRole('tab', { name: 'Evidence' })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('tab', { name: 'Findings' })).toBeVisible({ timeout: 15_000 })
 
     await page.route('**/api/reports**', route =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'PDF generation failed' }) })

@@ -26,7 +26,12 @@ export default function CapturePhoto({
   const hasPhoto = !!url && !failed
   const face = hasPhoto
     ? <Image src={url} alt={`${label} capture`} width={240} height={320} unoptimized onError={() => setFailed(true)} />
-    : <span className={styles.missing}>{failed ? 'Photo unavailable' : 'Photo not saved'}</span>
+    : (
+      <span className={styles.missing}>
+        <Icon name="image-off-linear" size={18} />
+        <span>{failed ? 'Photo unavailable' : 'No photo for this view'}</span>
+      </span>
+    )
 
   return <>
     {onSelect

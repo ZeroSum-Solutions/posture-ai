@@ -106,21 +106,20 @@ export async function setCaptureUpload(page: Page, index: number, file: string |
 }
 
 /**
- * Counts the finding rows on the results page's Evidence tab. Each finding is listed under the
- * capture view it was measured on, so this selects every view in turn and sums its rows.
+ * Counts the finding rows on the results page's Findings tab (renamed from
+ * "Evidence" — array-v3-spec.md §5; the tab/panel ids are unchanged). Every
+ * finding is listed, grouped by severity rather than gated behind a per-view
+ * toggle; only the Maintain group collapses by default, so this opens it (if
+ * present) before counting every `[data-testid="finding-row"]` in the panel.
  */
 export async function countEvidenceFindings(page: Page): Promise<number> {
-  await page.getByRole('tab', { name: /^Evidence/ }).click()
+  await page.getByRole('tab', { name: /^Findings/ }).click()
   const panel = page.locator('#review-panel-evidence')
-  await expect(panel.locator('[data-view]').first()).toBeVisible()
-  const views = [...new Set(await panel.locator('[data-view]').evaluateAll(
-    elements => elements.map(element => element.getAttribute('data-view') ?? ''),
-  ))]
-  let total = 0
-  for (const view of views) {
-    await panel.locator(`[data-view="${view}"] button[aria-pressed]`).first().click()
-    await expect(panel.locator(`[data-evidence-view="${view}"]`)).toBeVisible()
-    total += await panel.locator('[data-evidence-view] [class*="findingHead"]').count()
+  await expect(panel.locator('[data-testid="finding-row"]').first()).toBeVisible()
+  const maintainToggle = panel.getByRole('button', { name: /^Maintain \(\d+\)/ })
+  if (await maintainToggle.count() > 0) {
+    const expanded = await maintainToggle.first().getAttribute('aria-expanded')
+    if (expanded !== 'true') await maintainToggle.first().click()
   }
-  return total
+  return panel.locator('[data-testid="finding-row"]').count()
 }

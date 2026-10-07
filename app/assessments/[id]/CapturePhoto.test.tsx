@@ -20,7 +20,7 @@ it('opens and closes the saved view in an accessible photo dialog', () => {
 
 it('does not invent a photograph for historical landmark-only captures', () => {
   render(<CapturePhoto url={null} label="front" />)
-  expect(screen.getByText('Photo not saved')).toBeTruthy()
+  expect(screen.getByText('No photo for this view')).toBeTruthy()
   expect(screen.queryByRole('button')).toBeNull()
 })
 
