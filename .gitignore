@@ -53,3 +53,6 @@ datasets/moti/
 
 # Local release proofs, isolated stacks, and agent scratch (preserved locally)
 work/
+
+# Conductor machine-local settings (shared .conductor/settings.toml stays tracked)
+.conductor/settings.local.toml

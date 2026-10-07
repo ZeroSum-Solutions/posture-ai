@@ -14,6 +14,10 @@ survives context resets and can be resumed by any session.
 
 ## Hard guardrails (read before anything)
 
+0. **Preflight first.** Run `npm run qa:preflight` before Phase 0 and after switching
+   branches or worktrees. It must exit 0. The check requires an attached, clean,
+   non-primary branch and loopback-only Supabase URLs. Production data and
+   real-person data stay outside the run; fixes still land autonomously (rule 5).
 1. **Local only.** Every DB write goes to local Supabase. Before ANY seed or
    test run, verify: `grep NEXT_PUBLIC_SUPABASE_URL .env.local` →
    must be `127.0.0.1` / `localhost`. If it points at `*.supabase.co`, STOP
@@ -99,9 +103,10 @@ survives context resets and can be resumed by any session.
 Work through INVENTORY.md top to bottom against :3100. Do not stop to fix —
 log and keep testing (fixing mid-pass invalidates the pass).
 
-- Drive a real browser via the chrome-devtools MCP tools (`new_page`,
-  `navigate_page`, `take_snapshot`, `click`, `fill_form`, `take_screenshot`,
-  `list_console_messages`, `list_network_requests`). Mobile viewport first
+- Drive a real browser in a named EGO Lite task space using the available EGO
+  controller. Do not create a blank or ephemeral browser profile. If EGO cannot
+  drive a required local surface, mark that browser item BLOCKED and continue with
+  the remaining inventory. Mobile viewport first
   (390×844 via `resize_page`/`emulate`) — this is a mobile-web product; then
   spot-check desktop.
 - For each item: walk the acceptance criteria, then its edge cases. Mark
