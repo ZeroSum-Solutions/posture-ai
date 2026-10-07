@@ -8,6 +8,10 @@ import { IconButton } from './IconButton'
 import { useKeyboardInset } from './useKeyboardInset'
 import styles from './Sheet.module.css'
 
+/** Open sheets, innermost last: only the top sheet answers Escape, Tab and back. */
+const openSheets: string[] = []
+const isTopSheet = (id: string) => openSheets[openSheets.length - 1] === id
+
 export type SheetDetent = 'compact' | 'medium' | 'large'
 
 const DETENT_VH: Record<SheetDetent, number> = { compact: 50, medium: 62, large: 92 }
@@ -95,7 +99,10 @@ export function Sheet({
     triggerRef.current = document.activeElement as HTMLElement | null
     titleRef.current?.focus()
 
-    const siblings = Array.from(document.body.children).filter((el) => el !== container)
+    openSheets.push(titleId)
+    // Only mark what isn't inert yet, so closing a nested sheet doesn't wake the
+    // page underneath its parent sheet.
+    const siblings = Array.from(document.body.children).filter((el) => el !== container && !el.hasAttribute('inert'))
     siblings.forEach((el) => el.setAttribute('inert', ''))
     const previousOverflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = 'hidden'
@@ -103,12 +110,14 @@ export function Sheet({
     // Android/hardware back closes the sheet instead of leaving the page.
     window.history.pushState({ uiSheet: true }, '')
     const onPopState = () => {
+      if (!isTopSheet(titleId)) return
       poppedByHistoryRef.current = true
       onOpenChange(false)
     }
     window.addEventListener('popstate', onPopState)
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!isTopSheet(titleId)) return
       if (e.key === 'Escape') {
         if (!dismissible) return
         e.preventDefault()
@@ -133,6 +142,8 @@ export function Sheet({
     document.addEventListener('keydown', onKeyDown)
 
     return () => {
+      const at = openSheets.lastIndexOf(titleId)
+      if (at !== -1) openSheets.splice(at, 1)
       siblings.forEach((el) => el.removeAttribute('inert'))
       document.documentElement.style.overflow = previousOverflow
       window.removeEventListener('popstate', onPopState)
