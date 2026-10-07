@@ -42,34 +42,31 @@ export default function TopBar({ title, subtitle, back, actions, large = true }:
     return () => observer.disconnect()
   }, [large])
 
-  // Only meaningful while `large` is true: otherwise there is a single copy
-  // of each, so neither is ever inert.
-  const collapsedChromeInert = large && !collapsed
-  const largeChromeInert = large && collapsed
-
-  function renderBack(inert: boolean) {
-    if (!back) return null
-    return (
-      <Link
-        href={back.href}
-        aria-label={back.label}
-        className={styles.backButton}
-        inert={inert}
-        aria-hidden={inert || undefined}
-      >
-        <Icon name="alt-arrow-left-linear" size={20} />
-      </Link>
-    )
-  }
+  // One bar row holds back + actions at all times (iOS navigation bar); only
+  // its centred title fades in once the large title scrolls away. Nothing is
+  // rendered twice. With no back and no actions the empty row overlays the
+  // content instead of pushing the large title down.
+  const emptyBar = !back && !actions
 
   return (
     <>
-      <div className={[styles.collapsed, collapsed ? styles.collapsedVisible : ''].filter(Boolean).join(' ')}>
+      <div
+        className={[
+          styles.collapsed,
+          collapsed ? styles.collapsedVisible : '',
+          large && emptyBar ? styles.overlay : '',
+        ].filter(Boolean).join(' ')}
+      >
         <div className={styles.collapsedInner}>
-          {renderBack(collapsedChromeInert)}
+          {back ? (
+            <Link href={back.href} aria-label={back.label} className={styles.backButton}>
+              <Icon name="alt-arrow-left-linear" size={20} />
+            </Link>
+          ) : null}
           {large ? (
             <motion.span
               className={styles.collapsedTitle}
+              aria-hidden="true"
               initial={false}
               animate={{ opacity: collapsed ? 1 : 0 }}
               transition={spring.state}
@@ -79,24 +76,12 @@ export default function TopBar({ title, subtitle, back, actions, large = true }:
           ) : (
             <h1 className={styles.collapsedTitle}>{title}</h1>
           )}
-          {actions && (
-            <div className={styles.actions} inert={collapsedChromeInert} aria-hidden={collapsedChromeInert || undefined}>
-              {actions}
-            </div>
-          )}
+          {actions ? <div className={styles.actions}>{actions}</div> : null}
         </div>
       </div>
 
       {large && (
         <div className={styles.largeWrap}>
-          <div className={styles.largeHeader}>
-            {renderBack(largeChromeInert)}
-            {actions && (
-              <div className={styles.actions} inert={largeChromeInert} aria-hidden={largeChromeInert || undefined}>
-                {actions}
-              </div>
-            )}
-          </div>
           <h1 className={`${styles.largeTitle} t-display`}>{title}</h1>
           {subtitle && <p className={`${styles.subtitle} t-body`}>{subtitle}</p>}
           <div ref={sentinelRef} aria-hidden="true" className={styles.sentinel} />

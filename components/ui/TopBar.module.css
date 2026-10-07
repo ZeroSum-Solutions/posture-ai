@@ -68,27 +68,27 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: var(--s-4);
-  margin-left: var(--s-8);
+  gap: var(--s-8);
+  margin-left: auto;
+  margin-right: calc(-1 * var(--s-8));
 }
 
 .largeWrap {
   width: min(var(--content-max), 100%);
   margin: 0 auto;
   padding-inline: max(var(--screen-x), var(--sa-l)) max(var(--screen-x), var(--sa-r));
-  padding-top: var(--s-12);
-}
-
-.largeHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 48px;
-  margin-left: calc(-1 * var(--s-12));
+  padding-top: var(--s-4);
 }
 
 .largeTitle {
-  margin-top: var(--s-8);
+  margin-top: 0;
+}
+
+/* No back and no actions: the bar row overlays the content (transparent until
+   collapsed) instead of reserving 52px above the large title. */
+.overlay {
+  margin-bottom: calc(-1 * (52px + var(--sa-t)));
+  pointer-events: none;
 }
 
 .subtitle {
