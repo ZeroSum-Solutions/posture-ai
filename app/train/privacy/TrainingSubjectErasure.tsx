@@ -2,6 +2,8 @@
 
 import { useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Banner } from '@/components/ui/Banner'
+import { Checkbox } from '@/components/ui/Checkbox'
 import { getTrainingOfflineBrowserOutbox } from '@/lib/training/offline'
 import { eraseTrainingSubject } from './TrainingSubjectErasure.gateway'
 import styles from './TrainingSubjectErasure.module.css'
@@ -73,15 +75,16 @@ export default function TrainingSubjectErasure({
     </div></Surface>
     <section className={styles.danger} aria-labelledby="training-erasure-confirmation">
       <h3 id="training-erasure-confirmation" className="t-headline">Confirm permanent erasure</h3>
-      <label className={styles.confirm}>
-        <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
-        <span>I understand this will remove my saved programs, training history, eligibility answers, and pending changes.</span>
-      </label>
+      <Checkbox
+        checked={confirmed}
+        onChange={event => setConfirmed(event.target.checked)}
+        label="I understand this will remove my saved programs, training history, eligibility answers, and pending changes."
+      />
       <label className={styles.field}>
-        <span>Type <strong>{CONFIRMATION}</strong> to confirm</span>
+        <span className="t-body">Type <strong>{CONFIRMATION}</strong> to confirm</span>
         <input className="a-input" value={phrase} onChange={event => setPhrase(event.target.value)} aria-label="Type ERASE MY TRAINING to confirm" autoComplete="off" />
       </label>
-      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+      {error ? <Banner variant="error">{error}</Banner> : null}
       <div className={styles.actions}>
         {stage === 'retry_cleanup'
           ? <button type="button" className="a-secondary" onClick={() => void clearDeviceQueue()}>Retry device cleanup</button>

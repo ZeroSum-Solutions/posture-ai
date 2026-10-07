@@ -56,6 +56,10 @@ test.describe('gate integrity (regression: security fixes)', () => {
       })
     )
 
+    // Array v3: password change moved from the flat page into the "Privacy & data"
+    // sheet (components/ui/Sheet) under Profile's grouped rows.
+    await page.getByRole('button', { name: 'Privacy & data' }).click()
+
     // Fill current password (wrong) and new password
     await page.getByLabel('Current password').fill('wrongpassword123')
     await page.getByLabel('New password').fill('NewValidPass99!')

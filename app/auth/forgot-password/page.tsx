@@ -3,6 +3,9 @@ import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { TextField } from '@/components/ui/TextField'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -33,53 +36,54 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthFrame title="Reset password" description="Request a secure link to regain access to your workspace.">
-        {sent ? (
-          <>
-            <p className="a-help" style={{ marginBottom: '24px' }}>
-              If an account exists for <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>, we&apos;ve sent a
-              link to reset your password. Check your inbox.
+      {sent ? (
+        <div className="app-stack">
+          <p className="t-body" style={{ color: 'var(--text-2)' }}>
+            If an account exists for <strong style={{ color: 'var(--text-1)' }}>{email}</strong>, we&apos;ve sent a
+            link to reset your password. Check your inbox.
+          </p>
+          <Link
+            href="/auth/sign-in"
+            className="t-footnote"
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+          >
+            ← Back to sign in
+          </Link>
+        </div>
+      ) : (
+        <>
+          <p className="t-body" style={{ color: 'var(--text-2)', marginBottom: 'var(--s-24)' }}>
+            Enter your email and we&apos;ll send you a link to reset your password.
+          </p>
+          {error && (
+            <Banner variant="error" className="app-stack" data-testid="forgot-password-error">{error}</Banner>
+          )}
+          <form onSubmit={handleSubmit} noValidate className="app-stack" style={{ marginTop: error ? 'var(--s-16)' : 0 }}>
+            <TextField
+              id="email"
+              label="Email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+              autoComplete="email"
+              inputMode="email"
+            />
+            <Button type="submit" variant="primary" size="lg" block loading={loading}>
+              Send reset link
+            </Button>
+            <p className="t-footnote" style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+              <Link
+                href="/auth/sign-in"
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, color: 'var(--text-2)', textDecoration: 'underline' }}
+              >
+                Back to sign in
+              </Link>
             </p>
-            <Link href="/auth/sign-in" className="a-label" style={{ textDecoration: 'underline' }}>
-              ← Back to sign in
-            </Link>
-          </>
-        ) : (
-          <>
-            <p className="a-help" style={{ marginBottom: '24px' }}>
-              Enter your email and we&apos;ll send you a link to reset your password.
-            </p>
-            {error && (
-              <p className="a-error" role="alert" aria-live="assertive" style={{ marginBottom: 16 }}>
-                {error}
-              </p>
-            )}
-            <form onSubmit={handleSubmit} noValidate className="a-form">
-              <div className="a-field">
-                <label className="a-label" htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  className="a-input"
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  placeholder="you@example.com"
-                  aria-label="Email"
-                  autoComplete="email"
-                  inputMode="email"
-                />
-              </div>
-              <button type="submit" disabled={loading} className="a-primary a-primary--bar" style={{ marginTop: 6 }}>
-                {loading ? 'Sending...' : 'Send reset link'}
-              </button>
-              <p className="a-help" style={{ textAlign: 'center' }}>
-                <Link href="/auth/sign-in" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-                  Back to sign in
-                </Link>
-              </p>
-            </form>
-          </>
-        )}
+          </form>
+        </>
+      )}
     </AuthFrame>
   )
 }

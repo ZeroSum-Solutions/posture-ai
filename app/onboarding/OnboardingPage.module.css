@@ -2,25 +2,23 @@
    documents read as long-form text rather than a phone-app screen. Still
    phone-first: the column shrinks to the viewport, never overflows it. */
 
-.page {
+.header {
   width: 100%;
-  max-width: 760px;
+  max-width: 38rem;
   margin: 0 auto;
-  padding: 40px 20px 64px;
+  padding-top: var(--s-24);
 }
 
-.header { margin-bottom: 24px; }
+.stepper { margin-top: var(--s-20); }
 
 .documents {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  width: 100%;
+  max-width: 38rem;
+  margin: var(--s-20) auto 0;
 }
 
-.acceptRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
+.error {
+  width: 100%;
+  max-width: 38rem;
+  margin: var(--s-16) auto 0;
 }
-.acceptRow[data-disabled='true'] { cursor: not-allowed; }

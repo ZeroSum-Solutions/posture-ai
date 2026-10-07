@@ -18,9 +18,13 @@ describe('ConsentResponder', () => {
 
     render(<ConsentResponder token="t1" document={SUBJECT_CONSENT_SNAPSHOT} />)
     expect(screen.getByRole('article', { name: 'Consent to Posture Screening' })).toBeTruthy()
+
+    // Array v3: a Stepper ("Read · Sign") gates the sign-in-place form behind
+    // the first "I agree" click; the second click submits.
+    fireEvent.click(screen.getByRole('button', { name: 'I agree' }))
     fireEvent.change(screen.getByLabelText(/Type full name/i), { target: { value: 'Jane Doe' } })
     fireEvent.click(screen.getByRole('checkbox'))
-    fireEvent.click(screen.getByRole('button', { name: /Agree & Sign/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'I agree' }))
 
     const confirmation = await screen.findByText('Consent recorded')
     expect(confirmation.closest('[role="status"]')).toBeTruthy()
@@ -33,14 +37,14 @@ describe('ConsentResponder', () => {
     })
   })
 
-  it('disables signing and exposes a stable live error for an unavailable or superseded link', () => {
+  it('shows an ErrorState instead of a signable form for an unavailable or superseded link', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     render(<ConsentResponder token="t1" document={null} />)
-    expect(screen.getByRole('alert').textContent).toMatch(/unavailable or has been superseded/i)
-    expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: /Agree & Sign/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('heading', { name: 'This link is unavailable' })).toBeTruthy()
+    expect(screen.getByText(/unavailable or has been superseded/i)).toBeTruthy()
+    expect(screen.queryByRole('checkbox')).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -48,8 +52,9 @@ describe('ConsentResponder', () => {
     vi.stubGlobal('fetch', vi.fn())
 
     render(<ConsentResponder token="t1" document={SUBJECT_CONSENT_SNAPSHOT} />)
+    fireEvent.click(screen.getByRole('button', { name: 'I agree' }))
     fireEvent.change(screen.getByLabelText(/Type full name/i), { target: { value: 'Jane Doe' } })
-    fireEvent.click(screen.getByRole('button', { name: /Agree & Sign/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'I agree' }))
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/read and agree/i))
   })
 })

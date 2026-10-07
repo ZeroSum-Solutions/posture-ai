@@ -1,0 +1,36 @@
+/* The authenticator-code field reads large tabular digits (spec §5 "Auth") —
+   the one deliberate exception to TextField's standard 16px body type, since
+   this page exists to collect a single six-digit code glanced at from an
+   authenticator app a few feet away. */
+.codeInput {
+  font: var(--t-ro-md);
+  letter-spacing: 0.12em;
+}
+
+.setupKey {
+  margin: 0;
+  padding: var(--s-12);
+  border-radius: var(--r-md);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-1);
+  word-break: break-all;
+  user-select: all;
+}
+
+.qrImage {
+  display: block;
+  max-width: 100%;
+  margin: var(--s-16) auto 0;
+  /* A QR code must sit on a solid white quiet zone to stay scannable,
+     independent of theme — `--action` is the token that happens to be pure
+     white (#FFFFFF), so this reads from the token layer rather than a
+     literal. */
+  background: var(--action);
+  padding: var(--s-8);
+  border-radius: var(--r-md);
+}
+
+.summary {
+  cursor: pointer;
+}

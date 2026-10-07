@@ -75,16 +75,22 @@ describe('SettingsPage sign-out', () => {
     submitSpy.mockRestore()
   })
 
+  // Array v3: Sign Out is a danger row that opens a confirm Dialog
+  // (components/ui/Dialog) rather than acting on the first click — clicking
+  // the row then its "Yes, sign out" confirm button exercises the same
+  // performSignOut() path the old single-click submit button did.
   async function renderSettled() {
     render(<SettingsPage />)
-    return screen.findByRole('button', { name: 'Sign Out' })
+    const row = await screen.findByRole('button', { name: 'Sign Out' })
+    fireEvent.click(row)
+    return screen.findByRole('button', { name: 'Yes, sign out' })
   }
 
   it('broadcasts and redirects only after the server confirms the session is revoked', async () => {
     vi.stubGlobal('fetch', mockFetch(async () => ({ ok: true })))
-    const button = await renderSettled()
+    const confirmButton = await renderSettled()
 
-    fireEvent.click(button)
+    fireEvent.click(confirmButton)
 
     await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
     expect(assignSpy).toHaveBeenCalledWith('/auth/sign-in')
@@ -93,9 +99,9 @@ describe('SettingsPage sign-out', () => {
 
   it('does not broadcast a false sign-out when the server reports 503 with the session intact', async () => {
     vi.stubGlobal('fetch', mockFetch(async () => ({ ok: false })))
-    const button = await renderSettled()
+    const confirmButton = await renderSettled()
 
-    fireEvent.click(button)
+    fireEvent.click(confirmButton)
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/could not sign out/i)
     expect(signOut).not.toHaveBeenCalled()
@@ -105,9 +111,9 @@ describe('SettingsPage sign-out', () => {
 
   it('still attempts the broadcast and falls back to the native form on genuine network failure', async () => {
     vi.stubGlobal('fetch', mockFetch(() => Promise.reject(new Error('network offline'))))
-    const button = await renderSettled()
+    const confirmButton = await renderSettled()
 
-    fireEvent.click(button)
+    fireEvent.click(confirmButton)
 
     await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(1))
     expect(signOut).toHaveBeenCalledTimes(1)

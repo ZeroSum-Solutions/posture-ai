@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 import LegalDocumentView from './LegalDocumentView'
 import { SUBJECT_CONSENT_SNAPSHOT } from './legal-test-fixture'
@@ -26,5 +26,16 @@ describe('LegalDocumentView', () => {
   it('visibly announces non-production fixture content', () => {
     render(<LegalDocumentView document={SUBJECT_CONSENT_SNAPSHOT} />)
     expect(screen.getByRole('status').textContent).toContain('NON-PRODUCTION LEGAL FIXTURE')
+  })
+
+  it('collapses version/effective-date/scope and the fingerprint behind a Document details disclosure when opted in', () => {
+    render(<LegalDocumentView document={SUBJECT_CONSENT_SNAPSHOT} headingLevel={2} collapseFingerprint />)
+
+    const article = screen.getByRole('article', { name: 'Consent to Posture Screening' })
+    expect(within(article).queryByText(/Version test-1/)).toBeNull()
+
+    fireEvent.click(within(article).getByRole('button', { name: 'Document details' }))
+    expect(within(article).getByText(/Version test-1/)).toBeTruthy()
+    expect(within(article).getByText(new RegExp(SUBJECT_CONSENT_SNAPSHOT.bodySha256))).toBeTruthy()
   })
 })

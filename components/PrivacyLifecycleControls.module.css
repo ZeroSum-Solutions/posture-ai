@@ -4,21 +4,19 @@
    that cannot be undone. */
 
 .stack {
-  margin-top: 20px;
+  margin-top: var(--s-20);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--s-16);
 }
-
-.sectionTitle { margin-bottom: 10px; }
 
 .shareRow {
   display: flex;
-  gap: 10px;
+  gap: var(--s-12);
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  padding: 12px 0;
+  padding: var(--s-12) 0;
   border-top: 1px solid var(--hairline);
 }
 .shareRow:first-of-type { border-top: 0; }
@@ -26,14 +24,13 @@
 .shareState { text-transform: capitalize; }
 
 .shareMeta {
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-left: 8px;
+  color: var(--text-2);
+  margin-left: var(--s-8);
 }
 
-.shareActions { display: flex; gap: 8px; }
+.shareActions { display: flex; gap: var(--s-8); }
 
-.newLinkField { display: block; margin-top: 12px; }
+.newLinkField { display: block; margin-top: var(--s-12); }
 
 /* The erase panel is the one place in this component that must read as
    irreversible — a review-tinted ring on the shell, never a filled block. */

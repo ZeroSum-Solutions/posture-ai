@@ -59,10 +59,13 @@ setup('authenticate test practitioner', async ({ page }) => {
   await page.getByRole('button', { name: 'Verify and continue' }).click()
   await page.waitForURL((url) => !url.pathname.startsWith('/auth/'), { timeout: 15_000 })
 
-  // First sign-in lands on the non-diagnostic acknowledgement gate.
+  // First sign-in lands on the non-diagnostic acknowledgement gate. Array v3:
+  // one document per step (Stepper "1 of 3"), each advanced by the same
+  // sticky "I agree" button; the third click submits acceptance.
   if (page.url().includes('/onboarding')) {
-    await page.getByRole('checkbox').check()
-    await page.getByRole('button', { name: 'Accept and Continue' }).click()
+    for (let step = 0; step < 3; step += 1) {
+      await page.getByRole('button', { name: 'I agree' }).click()
+    }
     await page.waitForURL((url) => !url.pathname.startsWith('/onboarding'), { timeout: 15_000 })
   }
 
