@@ -881,8 +881,11 @@ export default function ClinicalAssessmentResults({
       <div className="app-screen-x">
         <div className={styles.gradeSection}>
           <p className={`t-overline ${styles.gradeSectionKicker}`}>{reviewModel.verdict.kicker}</p>
-          <h1 className="t-title-1" style={{ margin: '0 0 var(--s-12)' }}>
-            Grade {grade} <span className="t-footnote" style={{ color: 'var(--text-3)' }}>· {score}/100</span>
+          {/* The rail below shows the grade badge and score; the page heading
+              carries the same facts for assistive tech only, so they are not
+              shown twice (DESIGN.md › Don't). */}
+          <h1 className="sr-only">
+            Grade {grade} · {score}/100
           </h1>
           <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
         </div>
