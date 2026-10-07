@@ -97,7 +97,7 @@ Three text tiers only: `--text-1` (.95) titles and values, `--text-2` (.72) body
 and secondary, `--text-3` (.58) metadata, hints, placeholders. The v2 `--text-quiet`
 (.30) tier is gone. Disabled content is 38% opacity with a reason line above it.
 
-`--accent` (#4DB2FF) is the one interactive accent: links, focus inner ring,
+`--accent` (#4DB2FF) is the one interactive accent: links,
 progress fills, selected tints, spinners. `--capture` (#34D399) belongs to the
 Capture button and capture-ready states only.
 
@@ -112,7 +112,8 @@ Severity is never colour alone: a chip is tint (16%) + ring (42%) + icon + word.
 The v2 hues (`#10B981/#F59E0B/#EF4444`) survive only as chart fills. A severity
 band appears once per row, never twice.
 
-Focus ring: `0 0 0 2px #000, 0 0 0 4px #fff` on `:focus-visible`, every control.
+Focus: a 2px white outline offset 2px on `:focus-visible` (fields and buttons may draw the same
+ring as `--focus-ring`, a black gap plus a white ring). Programmatically focused headings show none.
 
 ## Materials — three, no more
 

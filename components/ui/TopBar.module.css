@@ -4,6 +4,9 @@
 .collapsed {
   position: sticky;
   top: 0;
+  /* Full-bleed even when the page puts the TopBar inside padded content. */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
   z-index: var(--z-sticky);
   display: flex;
   justify-content: center;
@@ -15,7 +18,8 @@
 }
 
 .collapsedVisible {
-  background: var(--glass-chrome);
+  /* Stronger than other chrome: titles sit directly over scrolling text. */
+  background: var(--glass-chrome-strong);
   -webkit-backdrop-filter: var(--glass-chrome-filter);
   backdrop-filter: var(--glass-chrome-filter);
   border-bottom-color: var(--hairline);
@@ -58,7 +62,7 @@
   text-decoration: none;
   border-radius: var(--r-full);
 }
-.backButton:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.backButton:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.95); outline-offset: 2px; }
 
 .actions {
   flex: none;

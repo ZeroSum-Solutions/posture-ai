@@ -20,7 +20,7 @@
   align-items: center;
   gap: var(--s-8);
   min-height: 56px;
-  width: min(100% - 32px, 400px);
+  width: min(100%, 400px);
   padding: var(--s-12) var(--s-16);
   border-radius: var(--r-lg);
   background: var(--glass-chrome);

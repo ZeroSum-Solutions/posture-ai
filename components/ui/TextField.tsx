@@ -8,6 +8,8 @@ import styles from './Field.module.css'
 type NativeInputProps = Omit<ComponentPropsWithoutRef<'input'>, 'className'>
 
 export interface TextFieldProps extends NativeInputProps {
+  /** Shown above the control when the field is disabled (DESIGN.md › Colour: disabled states say why). */
+  disabledReason?: string
   label: string
   hint?: string
   error?: string
@@ -25,14 +27,14 @@ export interface TextFieldProps extends NativeInputProps {
  * (16px type — no iOS zoom), hint or error below. See DESIGN.md › spec §3.2.
  */
 export const TextField = forwardRef(function TextField(
-  { label, hint, error, required, leading, trailing, className, controlClassName, id, ...rest }: TextFieldProps,
+  { label, hint, error, required, leading, trailing, className, controlClassName, id, disabledReason, ...rest }: TextFieldProps,
   ref: ForwardedRef<HTMLInputElement>,
 ) {
   const autoId = useId()
   const inputId = id ?? autoId
   const hintId = `${inputId}-hint`
   const errorId = `${inputId}-error`
-  const describedBy = error ? errorId : hint ? hintId : undefined
+  const describedBy = [error ? errorId : hint ? hintId : undefined, rest.disabled && disabledReason ? `${inputId}-reason` : undefined].filter(Boolean).join(' ') || undefined
 
   return (
     <div className={[styles.field, className].filter(Boolean).join(' ')}>
@@ -42,6 +44,9 @@ export const TextField = forwardRef(function TextField(
         </label>
         {required ? <span className={styles.required}>Required</span> : null}
       </div>
+      {rest.disabled && disabledReason ? (
+        <p id={`${inputId}-reason`} className={styles.disabledReason}>{disabledReason}</p>
+      ) : null}
       <div className={styles.controlWrap}>
         {leading ? (
           <span className={styles.leading}>

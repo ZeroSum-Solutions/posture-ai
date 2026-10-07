@@ -298,7 +298,7 @@ export default function ComponentKitPage() {
         <Section title="Fields">
           <TextField label="Client name" placeholder="Jane Doe" />
           <TextField label="Email" error="Enter a valid email address" defaultValue="not-an-email" />
-          <TextField label="Notes" disabled defaultValue="Locked while syncing" />
+          <TextField label="Notes" disabled disabledReason="Locked while this session syncs." defaultValue="Warm-up done" />
           <Textarea label="Session notes" placeholder="What did you observe?" />
           <SearchField label="Search clients" onQueryChange={() => {}} />
           <Select label="Sort by" defaultValue="score">

@@ -95,49 +95,57 @@
 }
 .labelActive { color: var(--text-1); }
 
-/* Capture: a raised circle, never an "active" slot. */
+/* Capture: a raised circle, never an "active" slot. The label sits on the same
+   baseline as the other slots' labels; only the circle rises above the bar, by
+   --capture-raise (which --chrome-bottom also reserves). */
 .actionWrap {
+  position: relative;
   flex: 0 0 auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   width: 72px;
-  min-height: 48px;
+  height: var(--tabbar-h);
 }
 
 .action {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  position: absolute;
+  inset: 0;
+  display: block;
   text-decoration: none;
   color: var(--text-1);
-  transform: translateY(-10px);
+  border-radius: var(--r-md);
 }
 
 .actionCircle {
+  position: absolute;
+  left: 50%;
+  /* Circle bottom clears the label line (label occupies the bottom 20px). */
+  bottom: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 56px;
   height: 56px;
+  margin-left: -28px;
   border-radius: var(--r-full);
   background: var(--capture);
-  color: #000;
-  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.55);
+  color: var(--text-on-action);
+  box-shadow: var(--shadow-float);
 }
 
 .actionLabel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
   font: var(--t-caption);
   letter-spacing: 0.01em;
+  text-align: center;
   color: var(--text-1);
 }
 
 /* Below 360px the circle shrinks so it keeps 8px clear of its neighbours. */
 @media (max-width: 360px) {
   .actionWrap { width: 64px; }
-  .actionCircle { width: 48px; height: 48px; }
-  .action { transform: translateY(-8px); }
+  .actionCircle { width: 48px; height: 48px; margin-left: -24px; }
 }
 
 .slot:focus-visible,
@@ -149,8 +157,8 @@
 
 /* Press feedback in CSS: framer tap gestures would add extra tab stops. */
 .slotInner, .actionCircle { transition: transform var(--duration-press) var(--ease-spring); }
-.slot:active .slotInner { transform: scale(0.9); }
-.action:active .actionCircle { transform: scale(0.9); }
+.slot:active .slotInner { transform: scale(0.97); }
+.action:active .actionCircle { transform: scale(0.94); }
 @media (prefers-reduced-motion: reduce) {
   .slot:active .slotInner, .action:active .actionCircle { transform: none; }
 }
