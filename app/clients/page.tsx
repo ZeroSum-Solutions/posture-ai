@@ -213,10 +213,10 @@ export default function ClientsPage() {
     <div className="app-screen">
       <header className={styles.header}>
         <div>
-          <p className="t-kicker" style={{ marginBottom: 10 }}>
+          <p className="t-overline" style={{ marginBottom: 10 }}>
             Directory{summary ? ` — ${summary.total} active` : ''}
           </p>
-          <h1 className="t-headline">Clients</h1>
+          <h1 className="t-title-1">Clients</h1>
         </div>
         <Link href="/clients/new" className={styles.add} aria-label="Add a new client">
           <Icon name="user-plus-linear" size={20} />
@@ -275,10 +275,10 @@ export default function ClientsPage() {
             />
           ))}
         </FilterRow>
-        <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+        <p className="t-footnote">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
 
         <div className={styles.sortRow}>
-          <span className="t-quiet">Sorted by date added</span>
+          <span className="t-footnote">Sorted by date added</span>
           <span className={styles.sortValue}>
             <Icon name="sort-vertical-linear" size={14} />
             Newest first
@@ -320,7 +320,7 @@ export default function ClientsPage() {
         ) : rows.length === 0 ? (
           <Surface tier="tile" pad="rowy">
             <div className={styles.empty}>
-              <p className="t-title">
+              <p className="t-headline">
                 {search.trim()
                   ? 'No matching clients'
                   : filter === 'all' ? 'No clients yet' : `Nothing under ${activeLabel.toLowerCase()}`}

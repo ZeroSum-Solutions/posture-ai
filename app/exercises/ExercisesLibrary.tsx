@@ -129,12 +129,12 @@ export default function ExercisesLibrary({
     <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
         <div>
-          <p className="t-kicker">Movement library</p>
-          <h1 className="t-headline">Exercises</h1>
+          <p className="t-overline">Movement library</p>
+          <h1 className="t-title-1">Exercises</h1>
           <p className="t-body">Explore exercise instructions and build your workout.</p>
         </div>
         <Surface tier="tile" pad="snug" innerClassName={styles.headerMetric}>
-          <span className="t-quiet">Matching</span>
+          <span className="t-footnote">Matching</span>
           <strong className="t-readout-md n">{filteredCollection.length}</strong>
           <em>{filteredCollection.length === 1 ? 'movement' : 'movements'}</em>
         </Surface>
@@ -144,11 +144,11 @@ export default function ExercisesLibrary({
         <section className="app-stack" aria-labelledby="exercise-collection-heading">
           <div className={styles.sectionHeader}>
             <div>
-              <p className="t-kicker">Exercise collection</p>
-              <h2 id="exercise-collection-heading" className="t-headline-sm">Find a movement</h2>
+              <p className="t-overline">Exercise collection</p>
+              <h2 id="exercise-collection-heading" className="t-title-2">Find a movement</h2>
               <p className="t-body">Review status and source details stay attached to each exercise.</p>
             </div>
-            <span className="t-quiet" role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</span>
+            <span className="t-footnote" role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</span>
           </div>
 
           <div className={styles.controls}>
@@ -185,7 +185,7 @@ export default function ExercisesLibrary({
             <div className={styles.selectionTray} role="status" aria-label="Workout selection">
               <div>
                 <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
-                <p className="t-quiet">Selections stay in the order you add them. You can refine the routine next.</p>
+                <p className="t-footnote">Selections stay in the order you add them. You can refine the routine next.</p>
               </div>
               <Link className="a-primary" href={manualRoutineHref}>Continue to workout</Link>
             </div>
@@ -222,7 +222,7 @@ export default function ExercisesLibrary({
                           decoding="async"
                         />
                       </div>
-                      <p className={`t-quiet ${styles.source}`}>
+                      <p className={`t-footnote ${styles.source}`}>
                         Image by {referenceExercise.media.source.author} via{' '}
                         <a href={referenceExercise.media.source.assetUrl} target="_blank" rel="noreferrer" aria-label={`wger image source for ${exercise.name}`}>wger</a>
                         {' · '}
@@ -233,7 +233,7 @@ export default function ExercisesLibrary({
                   )}
 
                   <div className={styles.cardHeader}>
-                    <h3 className="t-title">{exercise.name}</h3>
+                    <h3 className="t-headline">{exercise.name}</h3>
                     <Chip band={band} size="sm">{CATEGORY_LABELS[exercise.category] || label(exercise.category)}</Chip>
                   </div>
 
@@ -243,8 +243,8 @@ export default function ExercisesLibrary({
 
                   {referenceExercise && (
                     <div className={styles.metadata}>
-                      <p className="t-quiet">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
-                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-quiet">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
+                      <p className="t-footnote">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
+                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-footnote">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
                     </div>
                   )}
 
@@ -272,7 +272,7 @@ export default function ExercisesLibrary({
                         >
                           {isSelected ? 'Added to workout' : 'Add to workout'}
                         </button>
-                        <p className={`t-quiet ${styles.source}`}>
+                        <p className={`t-footnote ${styles.source}`}>
                           Instructions by {referenceExercise.source.author}.{' '}
                           <a href={referenceExercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`wger source for ${exercise.name}`}>Source</a>
                           {' · '}
@@ -282,7 +282,7 @@ export default function ExercisesLibrary({
                     ) : (
                       <>
                         <button type="button" className="a-secondary" disabled>Add to workout</button>
-                        <p className="t-quiet">Not yet available in custom workouts.</p>
+                        <p className="t-footnote">Not yet available in custom workouts.</p>
                       </>
                     )}
                   </div>

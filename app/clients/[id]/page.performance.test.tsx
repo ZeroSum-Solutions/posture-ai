@@ -442,7 +442,7 @@ describe('client detail progressive rendering', () => {
     expect(document.body.textContent).not.toMatch(/tight|weak muscle/i)
 
     const severity = screen.getByText('70%')
-    expect(severity.getAttribute('style')).toContain('rgb(239, 68, 68)')
+    expect(severity.getAttribute('style')).toContain('rgb(255, 122, 122)')
     const anatomy = screen.getByRole('link', { name: 'Open anatomy view for the latest assessment' })
     expect(anatomy.getAttribute('href')).toBe('/assessments/assessment-2#anatomy-viewer-title')
     expect(document.querySelector('iframe')).toBeNull()

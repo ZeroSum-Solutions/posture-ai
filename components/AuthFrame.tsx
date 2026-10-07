@@ -39,7 +39,7 @@ export default function AuthFrame({
       <div className={styles.column}>
         <Surface tier="feature">
           <div className={styles.head}>
-            <p className="t-kicker">Secure workspace</p>
+            <p className="t-overline">Secure workspace</p>
             <h1 className={styles.title}>{title}</h1>
             <p className={styles.description}>{description}</p>
           </div>

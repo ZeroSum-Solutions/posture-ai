@@ -330,8 +330,8 @@ function TrainingProgressionPanelState({
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
     <div className={styles.sessionHeader}>
       <div>
-        <p className="t-kicker">Next target</p>
-        <h3 className="t-headline-sm">Progression suggestion</h3>
+        <p className="t-overline">Next target</p>
+        <h3 className="t-title-2">Progression suggestion</h3>
         <p className="t-body">Review a suggestion based on saved results from this exercise. Nothing changes until you accept it.</p>
       </div>
       {panelState.status === 'idle' || panelState.status === 'error'
@@ -372,7 +372,7 @@ function TrainingProgressionPanelState({
 
     {panelState.status === 'ready' && panelState.projection.result.kind === 'recovery_review'
       ? <div className={styles.pendingPanel}>
-          <p className="t-kicker">Recovery check-in</p>
+          <p className="t-overline">Recovery check-in</p>
           <h4>{recoveryReviewCopy(panelState.projection.result).heading}</h4>
           <p>{recoveryReviewCopy(panelState.projection.result).body}</p>
           <p className={styles.notice}>No numeric load, rep, or session change is available from this review.</p>
@@ -396,7 +396,7 @@ function TrainingProgressionPanelState({
               </div>
             : null}
           <div className={styles.pendingPanel}>
-            <p className="t-kicker">Next matching target</p>
+            <p className="t-overline">Next matching target</p>
             <p><time dateTime={panelState.projection.result.target.scheduledLocalDate}>{panelState.projection.result.target.scheduledLocalDate}</time></p>
             {panelState.projection.result.kind === 'proposal'
               ? <>

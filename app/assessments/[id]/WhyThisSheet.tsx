@@ -49,7 +49,7 @@ export interface WhyThisBodyProps {
   exerciseName: string
 }
 
-// Section overline: t-label (Medium 500) plus the uppercase and tracking
+// Section overline: t-caption (Medium 500) plus the uppercase and tracking
 // already established for this folder's small caption labels, see
 // MuscleBodyMap's "Tight"/"Weak"/"Possible" headers.
 //
@@ -68,14 +68,14 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Block 1 — finding */}
       <div>
-        <div className="t-label" style={sectionLabelStyle}>Finding</div>
-        <div className="t-title">{findingLabel}</div>
+        <div className="t-caption" style={sectionLabelStyle}>Finding</div>
+        <div className="t-headline">{findingLabel}</div>
       </div>
 
       {/* Block 2 — implicated muscles with evidence grade */}
       {muscles.length > 0 && (
         <div>
-          <div className="t-label" style={sectionLabelStyle}>Muscles involved in this finding</div>
+          <div className="t-caption" style={sectionLabelStyle}>Muscles involved in this finding</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {muscles.map((m) => (
               <div key={m.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -93,7 +93,7 @@ export function WhyThisBody({ findingLabel, muscles, movementAction, exerciseNam
 
       {/* Block 3 — movement action */}
       <div>
-        <div className="t-label" style={sectionLabelStyle}>What this movement does</div>
+        <div className="t-caption" style={sectionLabelStyle}>What this movement does</div>
         <div className="t-body">
           <strong style={{ color: 'var(--text-primary)' }}>{exerciseName}</strong>{' '}
           {muscles.length > 0
@@ -184,7 +184,7 @@ export default function WhyThisSheet({
             <div
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
             >
-              <h3 className="t-headline-sm">Why this?</h3>
+              <h3 className="t-title-2">Why this?</h3>
               <button
                 onClick={onClose}
                 aria-label="Close"

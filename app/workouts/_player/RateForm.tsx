@@ -79,7 +79,7 @@ export function RateForm({
     return (
       <Surface tier="feature" style={{ textAlign: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><CheckGlyph size={48} /></div>
-        <h2 className="t-headline" style={{ margin: '0 0 6px' }}>Thanks for the feedback</h2>
+        <h2 className="t-title-1" style={{ margin: '0 0 6px' }}>Thanks for the feedback</h2>
         <p className="t-body" style={{ margin: '0 0 22px' }}>It helps tune your next session.</p>
         {onExit && <button onClick={onExit} className="a-primary" style={{ padding: '0 32px', minHeight: 52 }}>Done</button>}
       </Surface>
@@ -88,7 +88,7 @@ export function RateForm({
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void onSubmit() }} style={{ width: '100%', textAlign: 'center' }}>
-      <h2 className="t-headline" style={{ margin: '0 0 14px' }}>Nice work</h2>
+      <h2 className="t-title-1" style={{ margin: '0 0 14px' }}>Nice work</h2>
       <div style={{ display: 'inline-flex', gap: 18, marginBottom: 22, color: theme.textSecondary, fontSize: '0.9rem' }}>
         <span><strong style={{ color: theme.maintain }}>{done}</strong> / {total} done</span>
         {skipped > 0 && <span><strong style={{ color: theme.textSecondary }}>{skipped}</strong> skipped</span>}

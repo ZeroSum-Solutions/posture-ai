@@ -1,0 +1,9 @@
+.sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.1), transparent 60%);
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+  pointer-events: none;
+}

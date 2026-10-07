@@ -176,8 +176,8 @@ function StrengthBuilderEntryState({ source }: { source: StrengthBuilderSource }
   }
   if (loadState.status === 'setup_required') {
     return <Surface tier="tile" innerClassName={styles.entryState}>
-      <p className="t-kicker">Athlete setup required</p>
-      <h2 className="t-headline-sm">Connect {identity.name} to a training account.</h2>
+      <p className="t-overline">Athlete setup required</p>
+      <h2 className="t-title-2">Connect {identity.name} to a training account.</h2>
       <p className="t-body">Create an athlete invitation and active coaching relationship before reading or saving a training profile. No account or relationship was created automatically.</p>
       {source.kind === 'client' ? <CoachAthleteInvitation client={source.client} /> : null}
     </Surface>

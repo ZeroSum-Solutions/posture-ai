@@ -107,25 +107,25 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 className="t-headline">{muscle.name}</h1>
+            <h1 className="t-title-1">{muscle.name}</h1>
             {access.mode === 'test_fixture' && <Chip band="monitor" size="sm">Pending review</Chip>}
           </div>
-          <p className="t-quiet" style={{ marginTop: 4 }}>{REGION_LABELS[muscle.region] ?? muscle.region}</p>
+          <p className="t-footnote" style={{ marginTop: 4 }}>{REGION_LABELS[muscle.region] ?? muscle.region}</p>
         </div>
 
         <Surface tier="tile">
-          <h2 className="t-title" style={{ marginBottom: 8 }}>Anatomy</h2>
+          <h2 className="t-headline" style={{ marginBottom: 8 }}>Anatomy</h2>
           <p className="t-body">{muscle.anatomySummary}</p>
         </Surface>
 
         <Surface tier="tile">
-          <h2 className="t-title" style={{ marginBottom: 8 }}>What it does</h2>
+          <h2 className="t-headline" style={{ marginBottom: 8 }}>What it does</h2>
           <p className="t-body">{muscle.functionText}</p>
         </Surface>
 
         {muscle.screeningNotes && (
           <Surface tier="tile">
-            <h2 className="t-title" style={{ marginBottom: 8 }}>In posture screening</h2>
+            <h2 className="t-headline" style={{ marginBottom: 8 }}>In posture screening</h2>
             <p className="t-body">{muscle.screeningNotes}</p>
           </Surface>
         )}
@@ -133,7 +133,7 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
         {(tightLinks.length > 0 || weakLinks.length > 0) && (
           <div data-testid="related-findings">
             <Surface tier="tile">
-              <h2 className="t-title" style={{ marginBottom: 12 }}>Related posture findings</h2>
+              <h2 className="t-headline" style={{ marginBottom: 12 }}>Related posture findings</h2>
               {tightLinks.map((l, i) => (
                 <div key={`t${i}`} style={{ marginBottom: 12 }}>
                   <p className="t-body" style={{ fontWeight: 500, color: tone('review'), marginBottom: 4 }}>
@@ -157,7 +157,7 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
         {stretches.length > 0 && (
           <div data-testid="stretch-exercises">
             <Surface tier="tile">
-              <h2 className="t-title" style={{ marginBottom: 4 }}>Stretching</h2>
+              <h2 className="t-headline" style={{ marginBottom: 4 }}>Stretching</h2>
               {stretches.map((e, i) => (
                 <ExerciseRow key={i} row={e} />
               ))}
@@ -168,7 +168,7 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
         {strengthening.length > 0 && (
           <div data-testid="strengthen-exercises">
             <Surface tier="tile">
-              <h2 className="t-title" style={{ marginBottom: 4 }}>Strengthening progressions</h2>
+              <h2 className="t-headline" style={{ marginBottom: 4 }}>Strengthening progressions</h2>
               {strengthening.map((e, i) => (
                 <ExerciseRow key={i} row={e} showLevel />
               ))}
@@ -187,7 +187,7 @@ function ExerciseRow({ row, showLevel = false }: { row: ExerciseMuscleRow; showL
   return (
     <div style={{ padding: '10px 0', borderTop: '1px solid var(--hairline-soft)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="t-title">{ex.name}</span>
+        <span className="t-headline">{ex.name}</span>
         <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {showLevel && (
             <Chip band={LEVEL_BANDS[row.progression_level] ?? 'neutral'} size="sm">
@@ -195,7 +195,7 @@ function ExerciseRow({ row, showLevel = false }: { row: ExerciseMuscleRow; showL
             </Chip>
           )}
           {(ex.sets || ex.hold_seconds) && (
-            <span className="t-quiet n">
+            <span className="t-footnote n">
               {ex.sets ? `${ex.sets} sets` : ''}{ex.sets && ex.hold_seconds ? ' · ' : ''}{ex.hold_seconds ? `${ex.hold_seconds}s` : ''}
             </span>
           )}

@@ -16,11 +16,11 @@ function TrainingAccessUnavailable() {
   return (
     <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
-        <div><p className="t-kicker">Athlete workspace</p><h1 className="t-headline">Train</h1></div>
+        <div><p className="t-overline">Athlete workspace</p><h1 className="t-title-1">Train</h1></div>
       </header>
-      <main className={`app-screen-x app-stack ${styles.main}`}>
+      <div className={`app-screen-x app-stack ${styles.main}`}>
         <p role="alert" className={styles.error}>Training access is unavailable. Sign in again or ask your coach to verify access.</p>
-      </main>
+      </div>
     </div>
   )
 }
@@ -46,12 +46,12 @@ export default async function TrainPage({ searchParams }: { searchParams: Promis
     return (
       <div className={`app-screen ${styles.screen}`}>
         <header className={styles.header}>
-          <div><p className="t-kicker">Training program</p><h1 className="t-headline">My program</h1></div>
+          <div><p className="t-overline">Training program</p><h1 className="t-title-1">My program</h1></div>
           <Link href="/train" className="a-secondary">Back to my training</Link>
         </header>
-        <main className={`app-screen-x app-stack ${styles.main}`}>
+        <div className={`app-screen-x app-stack ${styles.main}`}>
           <TrainingProgramWorkspace assignmentId={selectedProgramId} sessionHrefBase="/train" backHref="/train" />
-        </main>
+        </div>
       </div>
     )
   }
@@ -60,12 +60,12 @@ export default async function TrainPage({ searchParams }: { searchParams: Promis
     return (
       <div className={`app-screen ${styles.screen}`}>
         <header className={styles.header}>
-          <div><p className="t-kicker">Training program</p><h1 className="t-headline">Session</h1></div>
+          <div><p className="t-overline">Training program</p><h1 className="t-title-1">Session</h1></div>
           <Link href="/train" className="a-secondary">Back to my training</Link>
         </header>
-        <main className={`app-screen-x app-stack ${styles.main}`}>
+        <div className={`app-screen-x app-stack ${styles.main}`}>
           <TrainingSessionPlayer key={selectedSessionId} sessionId={selectedSessionId} />
-        </main>
+        </div>
       </div>
     )
   }
@@ -73,20 +73,20 @@ export default async function TrainPage({ searchParams }: { searchParams: Promis
   return (
     <div className={`app-screen ${styles.screen}`}>
       <header className={styles.header}>
-        <div><p className="t-kicker">Athlete workspace</p><h1 className="t-headline">My training</h1></div>
+        <div><p className="t-overline">Athlete workspace</p><h1 className="t-title-1">My training</h1></div>
         <nav aria-label="Workout tools" className={styles.actions}>
           <Link href="/workouts/manual" className="a-secondary">My routines</Link>
           <Link href="/exercises" className="a-secondary">Exercise library</Link>
           <Link href="/train/privacy" className="a-secondary">Training data</Link>
         </nav>
       </header>
-      <main className={`app-screen-x app-stack ${styles.main}`}>
+      <div className={`app-screen-x app-stack ${styles.main}`}>
         <TrainingEligibilityForm />
         <StrengthBuilderEntry source={{
           kind: 'live_subject',
           subject: { id: actor.subjectId, name: 'Your training' },
         }} />
-      </main>
+      </div>
     </div>
   )
 }

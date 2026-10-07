@@ -58,9 +58,9 @@ export function StartingHistoryEditor({ options, entries, onChange, disabled = f
   }
 
   return <section className={styles.editor} aria-label="Recent working sets">
-    <h4>Recent working sets <span className="t-quiet">Optional</span></h4>
+    <h4>Recent working sets <span className="t-footnote">Optional</span></h4>
     <p className="t-body">Remember a recent set? Add it as starting context. You will still choose your starting loads. Recalled sets do not count as recorded progress.</p>
-    {options.length === 0 ? <p className="t-quiet">Exercise choices appear when a program catalog and compatible equipment are available.</p> : <fieldset className={styles.fields} disabled={disabled}>
+    {options.length === 0 ? <p className="t-footnote">Exercise choices appear when a program catalog and compatible equipment are available.</p> : <fieldset className={styles.fields} disabled={disabled}>
       <legend>Add a recalled set</legend>
       <label>Exercise<select value={exerciseId} onChange={event => { setExerciseId(event.target.value); setEquipmentKey(''); setLoad(''); setError(null) }}>
         <option value="">Choose exercise</option>
@@ -73,7 +73,7 @@ export function StartingHistoryEditor({ options, entries, onChange, disabled = f
         </option>)}
       </select></label>
       <label>Load{equipment ? ` (${equipment.unit})` : ''}<input inputMode="decimal" value={load} onChange={event => setLoad(event.target.value)} /></label>
-      {equipment ? <p className="t-quiet">{loadHelp(equipment.basis)}</p> : null}
+      {equipment ? <p className="t-footnote">{loadHelp(equipment.basis)}</p> : null}
       <label>Repetitions<input inputMode="numeric" value={reps} onChange={event => setReps(event.target.value)} /></label>
       <button type="button" className="a-secondary" onClick={add}>Add recent set</button>
     </fieldset>}

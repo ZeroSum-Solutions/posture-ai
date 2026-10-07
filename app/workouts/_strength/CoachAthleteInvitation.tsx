@@ -186,8 +186,8 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
 
   if (state.kind === 'prepared') {
     return <section className={styles.pendingPanel} aria-labelledby="invitation-ready-heading">
-      <p className="t-kicker">Prepared privately</p>
-      <h3 id="invitation-ready-heading" className="t-headline-sm">Invitation ready</h3>
+      <p className="t-overline">Prepared privately</p>
+      <h3 id="invitation-ready-heading" className="t-title-2">Invitation ready</h3>
       <p className="t-body">Share this link directly with {state.clientName}. No message was sent automatically.</p>
       <label className="t-body">
         Invitation link

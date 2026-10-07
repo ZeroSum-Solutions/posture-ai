@@ -69,7 +69,7 @@ export default function InPersonConsentForm({
     <Surface tier="tile">
       <form aria-label="Record in-person consent" onSubmit={submit} className="a-form">
         <div>
-          <h3 className="t-title">Record consent for {subjectName}</h3>
+          <h3 className="t-headline">Record consent for {subjectName}</h3>
           <p className="a-help" style={{ marginTop: 4 }}>
             The client, parent, or legal guardian can review and sign on this device. The camera remains locked until this is complete.
           </p>

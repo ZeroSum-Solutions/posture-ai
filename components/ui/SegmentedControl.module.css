@@ -1,0 +1,69 @@
+.track {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  min-height: 44px;
+  border-radius: var(--r-full);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.trackSm {
+  min-height: 36px;
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-full);
+  color: var(--text-2);
+  font: var(--t-subhead);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segment:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  z-index: 0;
+  width: calc((100% - 8px - (var(--seg-count) - 1) * 2px) / var(--seg-count));
+  transform: translateX(calc(var(--seg-index) * (100% + 2px)));
+  border-radius: var(--r-full);
+  background: var(--action);
+  transition: transform var(--duration-layout) var(--ease-spring);
+  pointer-events: none;
+}
+
+.label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.labelActive {
+  color: var(--text-on-action);
+}

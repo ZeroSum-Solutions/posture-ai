@@ -59,7 +59,7 @@ function Choices({ offer, disabled = false, onConfirm }: Props) {
   }
 
   return <form className={styles.formSurface} aria-label="Choose a new familiarization setting" onSubmit={event => void confirm(event)}>
-    <h3 className="t-headline-sm">A fresh starting point</h3>
+    <h3 className="t-title-2">A fresh starting point</h3>
     <p>Current setting: {loadLabel(offer.currentLoad)}.</p>
     {offer.kind === 'unavailable' ? <p role="status">No easier setting is available with this equipment. Keep the current target or request a program review.</p> : <>
       <p>Choose an achievable easier setting for future sessions. Confirming starts a new performance track; completed and started workouts stay unchanged.</p>

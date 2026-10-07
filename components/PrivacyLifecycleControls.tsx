@@ -188,12 +188,12 @@ export default function PrivacyLifecycleControls({
   return (
     <section aria-labelledby="privacy-lifecycle-heading" className={styles.stack}>
       <Surface tier="feature">
-        <h2 id="privacy-lifecycle-heading" className="t-title" style={{ marginBottom: 6 }}>Privacy controls</h2>
+        <h2 id="privacy-lifecycle-heading" className="t-headline" style={{ marginBottom: 6 }}>Privacy controls</h2>
         <p className="t-body" style={{ marginBottom: 18 }}>
           Consent, shared workout links, and permanent erasure are separate actions. Each change is recorded with a controlled reason.
         </p>
 
-        <h3 className="t-title" style={{ marginBottom: 10 }}>Workout share links</h3>
+        <h3 className="t-headline" style={{ marginBottom: 10 }}>Workout share links</h3>
         {sharesError && <p role="alert" className="a-error">{sharesError}</p>}
         {shares.length === 0 ? (
           <p className="t-body">No workout share links have been created.</p>
@@ -224,7 +224,7 @@ export default function PrivacyLifecycleControls({
       {hasConsent && (
         <Surface tier="feature">
           <form onSubmit={withdrawConsent} className="a-form" aria-label="Withdraw consent">
-            <h3 className="t-title" style={{ marginBottom: 6 }}>Withdraw subject consent</h3>
+            <h3 className="t-headline" style={{ marginBottom: 6 }}>Withdraw subject consent</h3>
             <p className="t-body" style={{ marginBottom: 8 }}>
               This blocks new captures and immediately revokes every active workout share link. It does not erase the client record.
             </p>
@@ -250,7 +250,7 @@ export default function PrivacyLifecycleControls({
 
       <Surface tier="feature" className={styles.erasePanel}>
         <form onSubmit={eraseClient} className="a-form" aria-label="Permanently erase client">
-          <h3 className="t-title" style={{ marginBottom: 6, color: 'var(--review)' }}>Permanently erase client</h3>
+          <h3 className="t-headline" style={{ marginBottom: 6, color: 'var(--review)' }}>Permanently erase client</h3>
           <p className="t-body" style={{ marginBottom: 8 }}>
             Irreversible. Screening data is deleted in one database transaction. Stored report files are queued for retry until deletion completes.
           </p>

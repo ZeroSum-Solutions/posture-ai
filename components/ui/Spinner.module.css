@@ -1,0 +1,44 @@
+.spinner {
+  display: inline-block;
+  flex: none;
+  rotate: 0deg;
+  animation: spinner-rotate 0.9s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to { rotate: 360deg; }
+}
+
+.arc {
+  fill: none;
+  stroke-linecap: round;
+  animation: spinner-breathe 1.8s var(--ease-spring) infinite;
+}
+
+/* 25 → 70 → 25 (% of the normalized 100-unit pathLength), per DESIGN.md ›
+   Loaders: the spring overshoot makes the arc stretch and snap rather than
+   ease like a generic spinner. */
+@keyframes spinner-breathe {
+  0%, 100% { stroke-dasharray: 25 75; }
+  50% { stroke-dasharray: 70 30; }
+}
+
+.accent { stroke: var(--accent); }
+.onAction { stroke: var(--text-on-action); }
+.muted { stroke: var(--text-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none !important;
+    rotate: 0deg !important;
+  }
+  .arc {
+    animation: spinner-pulse 1.6s ease-in-out infinite !important;
+    stroke-dasharray: 70 30 !important;
+  }
+}
+
+@keyframes spinner-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}

@@ -1,0 +1,63 @@
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  height: 36px;
+  padding: 0 var(--s-12);
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 48px hit area via ::after inset, without growing the 36px visual. */
+.chip::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Selected: accent tint + accent ring + a leading check — white stays
+   reserved for the one primary action per screen. */
+.selected {
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+  color: var(--text-1);
+}
+.check {
+  color: var(--accent);
+}
+
+.label {
+  font: var(--t-subhead);
+  font-weight: 500;
+}
+.count {
+  font: var(--t-caption);
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Edge fade mask — no blur, no wrap. */
+.rowMask {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+}
+.row {
+  display: flex;
+  gap: var(--s-8);
+  overflow-x: auto;
+  padding: var(--s-4) var(--s-16);
+  scrollbar-width: none;
+}
+.row::-webkit-scrollbar {
+  display: none;
+}

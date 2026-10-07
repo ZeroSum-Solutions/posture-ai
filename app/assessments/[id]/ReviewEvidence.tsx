@@ -72,7 +72,7 @@ export default function ReviewEvidence({
     <div className="app-stack">
       <Surface tier="feature">
         <div className={styles.captureHead}>
-          <h3 className="t-title">Capture set</h3>
+          <h3 className="t-headline">Capture set</h3>
           {levelVerified === true ? (
             <span
               className={styles.verifiedChip}

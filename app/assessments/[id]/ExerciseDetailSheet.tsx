@@ -71,7 +71,7 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
         >
           <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${name} details`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 className="t-headline-sm">{name}</h3>
+              <h3 className="t-title-2">{name}</h3>
               <button onClick={onClose} aria-label="Close" className="a-secondary" style={{ width: 44, padding: 0 }}>✕</button>
             </div>
 

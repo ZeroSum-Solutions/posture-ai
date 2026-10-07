@@ -86,7 +86,7 @@ function ConditioningPanel({ sessionId }: { sessionId: string }) {
     ? projection.result.decision
     : undefined
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
-    <h3 className="t-headline-sm">Next conditioning targets</h3>
+    <h3 className="t-title-2">Next conditioning targets</h3>
     <p>Review your saved duration and effort. Future targets change only after you accept a suggestion.</p>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     {status === 'idle' || status === 'stale' ? <button type="button" className="a-secondary" onClick={() => void review()}>{status === 'stale' ? 'Refresh conditioning suggestion' : 'Review conditioning targets'}</button> : null}

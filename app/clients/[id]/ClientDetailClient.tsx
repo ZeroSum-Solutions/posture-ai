@@ -730,7 +730,7 @@ function ClientDetailRoute({
 
       <section className={styles.identity}>
         <div className={styles.identityBody}>
-          <h1 className="t-headline">{client.first_name} {client.last_name}</h1>
+          <h1 className="t-title-1">{client.first_name} {client.last_name}</h1>
           <p className={styles.identityMeta}>
             <span className={styles.consentIcon} style={{ color: tone(consentSummary.band) }}>
               <Icon name={consentSummary.icon} size={14} />
@@ -799,7 +799,7 @@ function ClientDetailRoute({
             <div className={styles.summaryHead}>
               <div>
                 <p className={styles.summaryEyebrow}>Latest assessment</p>
-                <h2 className="t-title">Top reliable findings</h2>
+                <h2 className="t-headline">Top reliable findings</h2>
               </div>
               {latestAssessment ? (
                 <Link href={`/assessments/${latestAssessment.id}`} className={styles.summaryLink} prefetch={false}>
@@ -913,7 +913,7 @@ function ClientDetailRoute({
           )}
           detailsPanel={(
             <Surface tier="tile">
-              <h2 className="t-title" style={{ marginBottom: 14 }}>Client Information</h2>
+              <h2 className="t-headline" style={{ marginBottom: 14 }}>Client Information</h2>
               <div className={styles.factGrid}>
                 {dob && (
                   <div>
@@ -1010,13 +1010,13 @@ function ClientDetailRoute({
             <Icon name={historyExpanded ? 'arrow-up-linear' : 'arrow-down-linear'} size={18} />
           </button>
           <div id="client-scan-history" hidden={!historyExpanded} className={`${styles.disclosureContent} app-stack`}>
-            <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+            <p className="t-footnote">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
             {historyLoadedForId !== id ? (
               <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
             ) : historyRows.length === 0 ? (
               <Surface tier="tile">
                 <p className="t-body">No scans yet.</p>
-                <p className="t-quiet" style={{ marginTop: 4 }}>
+                <p className="t-footnote" style={{ marginTop: 4 }}>
                   Capture one to establish this client&apos;s baseline.
                 </p>
               </Surface>

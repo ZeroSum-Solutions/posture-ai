@@ -53,8 +53,8 @@ export default function EditClientPage() {
             <Icon name="alt-arrow-left-linear" size={18} />
             Client
           </Link>
-          <p className="t-kicker" style={{ marginTop: 12 }}>Client record</p>
-          <h1 className="t-headline">
+          <p className="t-overline" style={{ marginTop: 12 }}>Client record</p>
+          <h1 className="t-title-1">
             Edit client{name ? <span style={{ color: 'var(--text-secondary)' }}> — {name}</span> : null}
           </h1>
         </div>

@@ -1,5 +1,6 @@
 import type { CSSProperties, ElementType, ReactNode } from 'react'
 import Link from 'next/link'
+import { SurfaceSheen } from './SurfaceSheen'
 import styles from './Surface.module.css'
 
 type Tier = 'feature' | 'tile' | 'row'
@@ -20,15 +21,36 @@ type BaseProps = {
   style?: CSSProperties
   innerClassName?: string
   innerStyle?: CSSProperties
+  /**
+   * Press physics (scale .985, DESIGN.md › Motion) for a Surface a parent
+   * makes clickable itself (e.g. by wrapping it in its own button). Always on
+   * for SurfaceLink and SurfaceButton, since those ARE the pressable target.
+   */
+  interactive?: boolean
+  /**
+   * `feature` tier only: a pointer-tracked radial highlight (see
+   * `SurfaceSheen`). Decorative, opacity-only, off under reduced motion.
+   */
+  sheen?: boolean
+  'data-testid'?: string
 }
 
 /**
- * A gradient-shell glass surface — the only two elevations in the system.
+ * The system's one card material, in three tiers (DESIGN.md › Materials):
  *
- * `feature` (tier 1) is the screen's subject: one per screen, two at most.
- * `tile`/`row` (tier 2) is everything else. The shell is a 1px gradient border
- * drawn as a padded wrapper, so the inner radius is always one pixel tighter
- * than the outer.
+ *  - `feature` → card glass (M1). One per screen, two at most. A single
+ *    element carries the blur, the fill and a conic "edge light" border (a
+ *    `padding-box`/`border-box` double background, so the ring reads as a lit
+ *    edge rather than a flat line) plus an inset top highlight.
+ *  - `tile` / `row` → flat (M0). No blur, ever — a solid fill and a 1px
+ *    hairline, inset via `box-shadow` so it never fights a native
+ *    button/link border reset.
+ *
+ * This replaces the v2 double-wrapper (a decorative `.gradient` sibling plus
+ * an `.inner` content node): the border styling now lives directly on this
+ * element. The one remaining inner wrapper exists only so `innerClassName`/
+ * `innerStyle` keep working for every existing caller (grepped before this
+ * rewrite) that reaches past the shell for scroll/overflow/background needs.
  */
 export function Surface({
   tier = 'tile',
@@ -38,10 +60,17 @@ export function Surface({
   style,
   innerClassName,
   innerStyle,
+  interactive = false,
+  sheen = false,
+  'data-testid': testId,
 }: BaseProps) {
   return (
-    <div className={[styles.shell, styles[tier], padClass[pad], className].filter(Boolean).join(' ')} style={style}>
-      <div className={styles.gradient} />
+    <div
+      className={[styles.shell, styles[tier], interactive ? styles.interactive : '', padClass[pad], className].filter(Boolean).join(' ')}
+      style={style}
+      data-testid={testId}
+    >
+      {sheen && tier === 'feature' ? <SurfaceSheen /> : null}
       <div className={[styles.inner, innerClassName].filter(Boolean).join(' ')} style={innerStyle}>
         {children}
       </div>
@@ -59,7 +88,9 @@ export function SurfaceLink({
   style,
   innerClassName,
   innerStyle,
+  sheen = false,
   'aria-label': ariaLabel,
+  'data-testid': testId,
   prefetch,
 }: BaseProps & { href: string; 'aria-label'?: string; prefetch?: boolean }) {
   return (
@@ -71,8 +102,9 @@ export function SurfaceLink({
       prefetch={prefetch}
       className={[styles.shell, styles[tier], styles.interactive, padClass[pad], className].filter(Boolean).join(' ')}
       style={style}
+      data-testid={testId}
     >
-      <span className={styles.gradient} />
+      {sheen && tier === 'feature' ? <SurfaceSheen /> : null}
       <span className={[styles.inner, innerClassName].filter(Boolean).join(' ')} style={innerStyle}>
         {children}
       </span>
@@ -90,9 +122,11 @@ export function SurfaceButton({
   innerClassName,
   innerStyle,
   disabled,
+  sheen = false,
   as = 'button',
   'aria-label': ariaLabel,
   'aria-pressed': ariaPressed,
+  'data-testid': testId,
 }: BaseProps & {
   onClick?: () => void
   disabled?: boolean
@@ -110,8 +144,9 @@ export function SurfaceButton({
       aria-pressed={ariaPressed}
       className={[styles.shell, styles[tier], styles.interactive, padClass[pad], className].filter(Boolean).join(' ')}
       style={{ opacity: disabled ? 0.45 : undefined, cursor: disabled ? 'not-allowed' : undefined, ...style }}
+      data-testid={testId}
     >
-      <span className={styles.gradient} />
+      {sheen && tier === 'feature' ? <SurfaceSheen /> : null}
       <span className={[styles.inner, innerClassName].filter(Boolean).join(' ')} style={innerStyle}>
         {children}
       </span>

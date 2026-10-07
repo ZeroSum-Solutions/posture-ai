@@ -1,0 +1,28 @@
+.track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.label {
+  font: var(--t-footnote);
+  color: var(--text-3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}

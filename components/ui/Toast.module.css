@@ -1,0 +1,52 @@
+.viewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Clears the tab/action bar AND the virtual keyboard, whichever sits
+     higher (DESIGN.md › 3.9; keyboard rule per §7.22). */
+  bottom: max(calc(var(--chrome-bottom) + var(--s-8)), calc(var(--keyboard-inset, 0px) + var(--s-8)));
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-8);
+  padding: 0 var(--s-16);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 56px;
+  width: min(100% - 32px, 400px);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-lg);
+  background: var(--glass-chrome);
+  -webkit-backdrop-filter: var(--glass-chrome-filter);
+  backdrop-filter: var(--glass-chrome-filter);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  touch-action: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .toast {
+    background: var(--glass-chrome-solid);
+    backdrop-filter: none;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .toast {
+    background: var(--glass-chrome-solid);
+  }
+}
+
+.icon {
+  flex: 0 0 auto;
+  display: flex;
+}
+.action {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 0 var(--s-8);
+}

@@ -198,8 +198,8 @@ export default function MuscleDetailModal({
         >
           <header className={styles.header}>
             <div className={styles.titleBlock}>
-              <p className="t-kicker">{detail ? REGION_LABELS[detail.muscle.region] ?? 'Muscle' : 'Muscle'}</p>
-              <h2 id="muscle-detail-title" className="t-headline-sm">{name}</h2>
+              <p className="t-overline">{detail ? REGION_LABELS[detail.muscle.region] ?? 'Muscle' : 'Muscle'}</p>
+              <h2 id="muscle-detail-title" className="t-title-2">{name}</h2>
               {sides && (
                 <p className={styles.summary}>
                   <span className={styles.summaryDots} aria-hidden>

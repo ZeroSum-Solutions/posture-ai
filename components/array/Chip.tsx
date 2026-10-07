@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import Icon from './Icon'
 import type { IconName } from './icons'
-import { bandFromGrade, ring, tint, tone, type SeverityBand } from './severity'
+import { ring, tint, tone, type SeverityBand } from './severity'
+import { GradeBadge as GradeBadgeV3 } from '../ui/GradeBadge'
 import styles from './Chip.module.css'
 
 /** A 16%-tint chip with a 42% ring. The system's only coloured container. */
@@ -54,19 +55,34 @@ export function DeltaChip({
   )
 }
 
-/** The engine letter grade, leading its row. Neutral when there is no grade. */
+/**
+ * The engine letter grade, leading its row. Neutral when there is no grade.
+ *
+ * v3: delegates to `components/ui/GradeBadge` (DESIGN.md › 3.13 — "GradeChip
+ * becomes GradeBadge"), which adds the band's icon at the corner so severity
+ * is never colour alone. No call site asks for `size="lg"` today; it is kept
+ * working as a 1.3× scale of the one size GradeBadge draws, rather than
+ * forking a second stylesheet for a variant nothing currently uses.
+ */
 export function GradeChip({ grade, size = 'md' }: { grade: string | null | undefined; size?: 'md' | 'lg' }) {
-  const band = bandFromGrade(grade)
-  return (
-    <span
-      className={[styles.grade, size === 'lg' ? styles.gradeLg : ''].filter(Boolean).join(' ')}
-      style={{ background: tint(band), boxShadow: `inset 0 0 0 1px ${ring(band)}`, color: tone(band) }}
-    >
-      {grade?.trim() ? grade : '—'}
-    </span>
-  )
+  if (size === 'lg') {
+    return (
+      <span style={{ display: 'inline-block', transform: 'scale(1.3)', transformOrigin: 'center' }}>
+        <GradeBadgeV3 grade={grade} />
+      </span>
+    )
+  }
+  return <GradeBadgeV3 grade={grade} />
 }
 
+/**
+ * v3: a selected filter is an accent tint, not a white fill — white stays
+ * reserved for the screen's one primary action (coordinator amendment on
+ * top of DESIGN.md › 3.4). A band-coloured active filter (e.g. "Needs
+ * review") keeps its own tint instead, same as before. `components/ui`'s
+ * `FilterChip` covers the plain (no `band` override) case; this one stays
+ * because several screens rely on the band-colour behaviour it alone has.
+ */
 export function FilterChip({
   label,
   count,
@@ -82,7 +98,7 @@ export function FilterChip({
   onClick: () => void
 }) {
   const activeStyle = band === 'neutral'
-    ? { background: '#fff', color: '#000', boxShadow: 'none' }
+    ? { background: 'var(--accent-tint)', color: 'var(--text-1)', boxShadow: 'inset 0 0 0 1px var(--accent-ring)' }
     : { background: tint(band), color: tone(band), boxShadow: `inset 0 0 0 1px ${ring(band)}` }
   return (
     <button
@@ -92,8 +108,9 @@ export function FilterChip({
       className={styles.filter}
       style={active
         ? activeStyle
-        : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.14)' }}
+        : { background: 'var(--surface-flat)', color: 'var(--text-2)', boxShadow: 'inset 0 0 0 1px var(--border)' }}
     >
+      {active && band === 'neutral' ? <Icon name="check-linear" size={13} /> : null}
       {label}
       {count == null ? null : <span className={styles.filterCount}>{count}</span>}
     </button>

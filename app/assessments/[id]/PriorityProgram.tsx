@@ -101,7 +101,7 @@ function SwapControl({
   const controlId = `swap-${priority.primaryKey}-${step.baseSlug}`
   return (
     <div className={styles.swapRow}>
-      <label htmlFor={controlId} className="t-kicker">Swap</label>
+      <label htmlFor={controlId} className="t-overline">Swap</label>
       <select
         id={controlId}
         name={controlId}
@@ -231,7 +231,7 @@ function PriorityCard({
             {priority.rank}
           </span>
           <span className={styles.cardTitleBlock}>
-            <span className={`t-title ${styles.cardTitle}`}>{priority.label}</span>
+            <span className={`t-headline ${styles.cardTitle}`}>{priority.label}</span>
             <span className={styles.cardSub}>
               <span style={{ color: tone('info') }}>{principle}</span>
               {` · ${count} ${count === 1 ? 'exercise' : 'exercises'}`}
@@ -298,13 +298,13 @@ export default function PriorityProgram({
     <div data-testid="corrective-program" className={`app-stack ${styles.root}`}>
       <div className={styles.header}>
         <div>
-          <h3 className="t-kicker">Corrective Program</h3>
+          <h3 className="t-overline">Corrective Program</h3>
           <p className={styles.summary}>
             {report.screeningSummary} Each exercise ramps over 3 weeks: {WEEK_THEME.join(' → ')}.
           </p>
         </div>
         <label className={styles.capabilityField}>
-          <span className="t-kicker">Client capability</span>
+          <span className="t-overline">Client capability</span>
           <select
             id="client-capability"
             name="client-capability"
@@ -366,7 +366,7 @@ export default function PriorityProgram({
 
       {report.monitored.length > 0 && (
         <Surface tier="tile">
-          <p className="t-kicker" style={{ marginBottom: 8 }}>
+          <p className="t-overline" style={{ marginBottom: 8 }}>
             Monitor only — no program ({report.monitored.length})
           </p>
           <div className={styles.monitoredList}>
@@ -395,7 +395,7 @@ export default function PriorityProgram({
 
       {unreliable.length > 0 && (
         <Surface tier="tile">
-          <p className="t-kicker" style={{ marginBottom: 4 }}>
+          <p className="t-overline" style={{ marginBottom: 4 }}>
             Couldn&apos;t be read reliably ({unreliable.length})
           </p>
           <p className="t-body">

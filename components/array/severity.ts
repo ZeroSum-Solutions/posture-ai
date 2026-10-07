@@ -1,13 +1,14 @@
 import { GRADE_BANDS } from '@posture-ai/engine/thresholds'
+import type { IconName } from './icons'
 
 /**
  * Severity — three bands mapped from the engine grade, plus `info`.
  *
  * | Band     | Colour    | Grades  | Means                     |
  * |----------|-----------|---------|---------------------------|
- * | Maintain | #10B981   | S, A, B | Inside range, keep going  |
- * | Monitor  | #F59E0B   | C       | Outside range, not urgent |
- * | Review   | #EF4444   | D, E    | Flag and address          |
+ * | Maintain | #34D399   | S, A, B | Inside range, keep going  |
+ * | Monitor  | #FBBF24   | C       | Outside range, not urgent |
+ * | Review   | #FF7A7A   | D, E    | Flag and address          |
  *
  * A screening grade is a ramp, not a pass/fail — hence three bands rather than
  * the source contract's emerald/red pair. Colour appears as a 16%-tint chip with
@@ -20,16 +21,52 @@ import { GRADE_BANDS } from '@posture-ai/engine/thresholds'
  * palette. This module follows the design contract for on-screen band colour;
  * the engine remains the sole owner of which grade a score is. S is not in the
  * contract's table and reads as Maintain — it is the least-deviation grade.
+ *
+ * v3 (DESIGN.md §Colour / array-v3-spec §2.4): the fg hexes below were lightened
+ * from v2's `#10B981/#F59E0B/#EF4444` so small text clears 4.5:1 on the worst-case
+ * `#1C1C1E` glass backdrop; the old hues survive only as `--chart-*` fills. `info`
+ * moved from `#0A83C9` to the v3 accent `#4DB2FF` for the same reason — it is not
+ * a severity band, just the closest existing tint for non-severity colour (e.g.
+ * "strengthen" vs. "stretch" muscle-role chips). These stay literal hex, not
+ * `var(--token)`: BAND_TONE crosses into the Three.js frame in MuscleModel3D and
+ * into CSS `color-mix()` gradients in Bars.tsx, neither of which can resolve a
+ * custom property from this module's scope — see the comment in Bars.tsx.
  */
 
 export type SeverityBand = 'maintain' | 'monitor' | 'review' | 'info' | 'neutral'
 
 export const BAND_TONE: Record<SeverityBand, string> = {
+  maintain: '#34D399',
+  monitor: '#FBBF24',
+  review: '#FF7A7A',
+  info: '#4DB2FF',
+  neutral: 'rgba(255,255,255,0.55)',
+}
+
+/**
+ * v2 hues, kept for the 3D posture map and chart fills. The 3D map's look is out
+ * of scope for the v3 redesign, so MuscleModel3D paints with these, not BAND_TONE.
+ */
+export const BAND_CHART: Record<SeverityBand, string> = {
   maintain: '#10B981',
   monitor: '#F59E0B',
   review: '#EF4444',
   info: '#0A83C9',
   neutral: 'rgba(255,255,255,0.55)',
+}
+
+/**
+ * Severity is never colour alone: SeverityChip and GradeBadge pair every band
+ * with this icon. `info` and `neutral` are not severity bands in the v3 sense
+ * (SeverityChip's own type omits them) but keep an icon here so callers that
+ * still thread a `SeverityBand` through (e.g. the muscle-role Chip) have one.
+ */
+export const BAND_ICON: Record<SeverityBand, IconName> = {
+  maintain: 'check-circle-linear',
+  monitor: 'eye-linear',
+  review: 'flag-linear',
+  info: 'info-circle-linear',
+  neutral: 'minus-circle-linear',
 }
 
 export const BAND_LABEL: Record<SeverityBand, string> = {

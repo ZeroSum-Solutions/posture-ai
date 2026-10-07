@@ -46,7 +46,7 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <span style={{ flexShrink: 0, color: 'var(--text-tertiary)' }}><AnatomyGlyph /></span>
             <div>
-              <h2 className="t-title">
+              <h2 className="t-headline">
                 {muscles.length === 0 ? 'The reviewed guide is being prepared' : 'No matching muscles'}
               </h2>
               <p className="t-body" style={{ marginTop: 4 }}>
@@ -61,13 +61,13 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
 
       {regions.map(region => (
         <section key={region} className="app-stack">
-          <h2 className="t-headline-sm">{REGION_LABELS[region] ?? region}</h2>
+          <h2 className="t-title-2">{REGION_LABELS[region] ?? region}</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
             {filtered.filter(m => m.region === region).map(m => (
               <SurfaceLink key={m.slug} href={`/muscles/${m.slug}`} tier="row">
                 <span data-testid={`muscle-card-${m.slug}`} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <span className="t-title">{m.name}</span>
+                    <span className="t-headline">{m.name}</span>
                     {!m.reviewed_at && <Chip band="monitor" size="sm">Pending review</Chip>}
                   </span>
                   <span className="t-body">

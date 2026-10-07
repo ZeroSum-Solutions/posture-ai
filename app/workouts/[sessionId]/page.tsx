@@ -38,9 +38,9 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
     inventorySha256: clinicalAccess.inventorySha256,
   })) {
     return (
-      <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
-        <p className="t-kicker">Saved workout</p>
-        <h1 className="t-headline">This plan needs a current copy.</h1>
+      <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+        <p className="t-overline">Saved workout</p>
+        <h1 className="t-title-1">This plan needs a current copy.</h1>
         <p className="t-body">
           Its saved catalog provenance does not match the current operation. The original remains in your library.
         </p>
@@ -52,7 +52,7 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
             Back to workouts
           </Link>
         </div>
-      </main>
+      </div>
     )
   }
 

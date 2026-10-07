@@ -1,0 +1,152 @@
+/* Shared chrome for TextField, Textarea, SearchField and Select — one field
+   vocabulary per DESIGN.md › spec §3.2: label above, 52px solid control
+   (no backdrop-filter on fields), hint or error below. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-8);
+}
+
+.label {
+  font: var(--t-subhead);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.required {
+  font: var(--t-footnote);
+  color: var(--text-3);
+}
+
+.controlWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.control {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--s-16);
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-field);
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--border-field);
+  font: var(--t-body);
+  font-size: 16px;
+  caret-color: var(--accent);
+  transition: box-shadow var(--duration-state) var(--ease-standard);
+}
+
+.control::placeholder {
+  color: var(--text-3);
+}
+
+/* Autofill paints its own background in most browsers; force it back to the
+   field's own fill instead of a flash of white/yellow. */
+.control:-webkit-autofill,
+.control:-webkit-autofill:hover,
+.control:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-1);
+  box-shadow: inset 0 0 0 100px var(--surface-solid), inset 0 0 0 1px var(--border-field);
+  caret-color: var(--accent);
+}
+
+.control:hover:not(:disabled):not(:focus) {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.control:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--text-1), var(--focus-ring);
+}
+
+.control[aria-invalid='true'] {
+  box-shadow: inset 0 0 0 1px var(--review);
+}
+
+.control[aria-invalid='true']:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--review), var(--focus-ring);
+}
+
+.control:disabled {
+  opacity: var(--text-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* Leading/trailing adornments (search icon, clear button, chevron) float
+   inside the control's padding box without affecting its own layout. */
+.withLeading {
+  padding-left: var(--s-48);
+}
+
+.withTrailing {
+  padding-right: calc(var(--s-48) + var(--s-8));
+}
+
+.leading {
+  position: absolute;
+  top: 50%;
+  left: var(--s-16);
+  display: flex;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.trailing {
+  position: absolute;
+  top: 50%;
+  right: var(--s-8);
+  display: flex;
+  transform: translateY(-50%);
+}
+
+.textarea {
+  min-height: 112px;
+  padding: var(--s-12) var(--s-16);
+  resize: vertical;
+  line-height: 1.5rem;
+}
+
+.selectControl {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--s-48);
+}
+
+.chevron {
+  position: absolute;
+  right: var(--s-16);
+  display: flex;
+  color: var(--text-2);
+  pointer-events: none;
+}
+
+.hint {
+  font: var(--t-footnote);
+  color: var(--text-3);
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+  font: var(--t-footnote);
+  font-weight: 500;
+  color: var(--review);
+}
+
+.errorIcon {
+  flex: none;
+  margin-top: 1px;
+}

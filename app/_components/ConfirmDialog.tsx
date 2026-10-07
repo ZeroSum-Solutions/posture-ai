@@ -69,7 +69,7 @@ export function ConfirmDialog({
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420 }}>
         <Surface tier="feature">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-            <h2 id={titleId} className="t-headline-sm" style={{ marginBottom: 12 }}>{title}</h2>
+            <h2 id={titleId} className="t-title-2" style={{ marginBottom: 12 }}>{title}</h2>
             {/* A destructive confirm carries its weight in the consequence, not
                 in a red button — the contract in /DESIGN.md forbids one outright.
                 The review band appears the way every other severity does: a 16%

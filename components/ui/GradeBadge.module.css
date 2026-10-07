@@ -1,0 +1,27 @@
+.badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+}
+.letter {
+  font: var(--t-title-2);
+  font-weight: 300;
+  color: inherit;
+}
+.corner {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-full);
+  background: var(--surface-solid);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: inherit;
+}

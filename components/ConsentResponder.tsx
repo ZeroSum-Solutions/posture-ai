@@ -59,20 +59,20 @@ export default function ConsentResponder({
 
   if (status === 'done') {
     return (
-      <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }} role="status" aria-live="polite">
-        <h1 ref={doneRef} tabIndex={-1} className="t-headline">Consent recorded</h1>
+      <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }} role="status" aria-live="polite">
+        <h1 ref={doneRef} tabIndex={-1} className="t-title-1">Consent recorded</h1>
         <p className="t-body">
           Thank you. Your consent has been recorded. You can close this page.
         </p>
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+    <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
       <div>
-        <p className="t-kicker">Consent request</p>
-        <h1 className="t-headline" style={{ marginTop: 10 }}>Posture Screening Consent</h1>
+        <p className="t-overline">Consent request</p>
+        <h1 className="t-title-1" style={{ marginTop: 10 }}>Posture Screening Consent</h1>
       </div>
 
       {!document && (
@@ -126,6 +126,6 @@ export default function ConsentResponder({
           </button>
         </form>
       </Surface>
-    </main>
+    </div>
   )
 }

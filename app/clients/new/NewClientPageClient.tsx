@@ -29,8 +29,8 @@ export default function NewClientPageClient({ operationMode, returnTo = 'clients
             <Icon name="alt-arrow-left-linear" size={18} />
             {returnTo === 'capture' ? 'Back to scan' : 'Clients'}
           </Link>
-          <p className="t-kicker" style={{ marginTop: 12 }}>Practice directory</p>
-          <h1 className="t-headline">New client</h1>
+          <p className="t-overline" style={{ marginTop: 12 }}>Practice directory</p>
+          <h1 className="t-title-1">New client</h1>
           <p className="t-body" style={{ marginTop: 8 }}>
             {operationMode === 'prototype'
               ? 'Create a prototype record for the next posture screen.'

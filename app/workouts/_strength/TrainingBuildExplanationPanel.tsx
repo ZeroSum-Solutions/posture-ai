@@ -90,12 +90,12 @@ export default function TrainingBuildExplanationPanel({
 
   return <section className={styles.calibrationCard} aria-labelledby="training-build-explanation-heading">
     <div>
-      <p className="t-kicker">Draft explanation</p>
+      <p className="t-overline">Draft explanation</p>
       <h4 id="training-build-explanation-heading">Why this draft looks this way</h4>
     </div>
     {displayState === 'ready' && verifiedExplanation
       ? <>
-          <p className="t-quiet">These facts describe the current draft. They do not change its targets.</p>
+          <p className="t-footnote">These facts describe the current draft. They do not change its targets.</p>
           <ul>
             {verifiedExplanation.facts.map(fact => <li key={fact.factId}>{fact.text}</li>)}
           </ul>

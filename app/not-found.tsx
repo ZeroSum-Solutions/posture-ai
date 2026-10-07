@@ -12,7 +12,7 @@ export default function NotFound() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
           <Icon name="magnifer-linear" size={32} />
           <h1 className="t-readout-xl n">404</h1>
-          <h2 className="t-headline-sm">Page Not Found</h2>
+          <h2 className="t-title-2">Page Not Found</h2>
           <p className="t-body">
             The page you are looking for does not exist or has been moved.
           </p>

@@ -19,7 +19,7 @@ export function generateMetadata(): Metadata {
 export default function TermsPage() {
   const resolution = resolveRuntimeLegalDocument({ kind: 'terms' })
   return (
-    <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+    <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
       <Link
         href="/"
         style={{
@@ -30,7 +30,7 @@ export default function TermsPage() {
       >
         <BrandMark size={32} /><span>Posture AI</span>
       </Link>
-      <p className="t-kicker">Usage agreement</p>
+      <p className="t-overline">Usage agreement</p>
       {resolution.ok ? (
         <LegalNotice document={snapshotLegalDocument(resolution.document)} headingLevel={1} />
       ) : (
@@ -44,6 +44,6 @@ export default function TermsPage() {
           Privacy Policy
         </Link>.
       </p>
-    </main>
+    </div>
   )
 }

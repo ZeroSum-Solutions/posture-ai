@@ -221,7 +221,7 @@ function RevisionPanel({ assignmentId, onAccepted }: Props) {
   const modalityLabel = (id: string) => options?.modalities.find(modality => modality.modalityId === id)?.label ?? id
 
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
-    <h3 className="t-headline-sm">Revise future conditioning</h3>
+    <h3 className="t-title-2">Revise future conditioning</h3>
     <p>Review dates, duration, and activity before changing future bouts. Completed and started sessions remain unchanged.</p>
     {loadState === 'loading' ? <p role="status">Loading conditioning options…</p> : null}
     {loadState === 'blocked' ? <p role="alert">You do not have permission to revise this conditioning plan.</p> : null}

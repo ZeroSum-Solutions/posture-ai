@@ -717,8 +717,8 @@ export default function ClinicalAssessmentResults({
     return (
       <div className={styles.routeState}>
         <div>
-          <p className="t-kicker">Screening unavailable</p>
-          <h1 className="t-headline">No current grade is available.</h1>
+          <p className="t-overline">Screening unavailable</p>
+          <h1 className="t-title-1">No current grade is available.</h1>
           <p role="alert" style={{ color: 'var(--review)', margin: '16px 0' }}>
             {screeningBoundaryMessage ?? 'This screening cannot provide a current clinical summary.'}
           </p>
@@ -748,8 +748,8 @@ export default function ClinicalAssessmentResults({
     return (
       <div className={styles.routeState}>
         <div>
-          <p className="t-kicker">Screening unavailable</p>
-          <h1 className="t-headline">No current grade is available.</h1>
+          <p className="t-overline">Screening unavailable</p>
+          <h1 className="t-title-1">No current grade is available.</h1>
           <p role="alert" style={{ color: 'var(--review)', margin: '16px 0' }}>
             The current screening summary is incomplete and cannot be presented as a numeric result.
           </p>
@@ -903,7 +903,7 @@ export default function ClinicalAssessmentResults({
         {/* A dropdown over the page, under the header. Always mounted (so its screen-reader
             summary is there); shown while the grade is open. */}
         <div id="grade-scale" ref={gradePanelRef} className={styles.gradePanel} hidden={!gradeOpen}>
-          <p className="t-kicker" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
+          <p className="t-overline" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
           <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
         </div>
       </div>
@@ -998,13 +998,13 @@ export default function ClinicalAssessmentResults({
 
               {sessionPreview ? (
                 <Surface tier="tile">
-                  <h3 className="t-title">Guided corrective session ready</h3>
+                  <h3 className="t-headline">Guided corrective session ready</h3>
                   <p className="t-body" style={{ marginTop: 4 }}>
                     {sessionPreview.itemCount} movements · about{' '}
                     {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
                   </p>
                   {!isApproved && (
-                    <p className="t-quiet" style={{ marginTop: 6 }}>
+                    <p className="t-footnote" style={{ marginTop: 6 }}>
                       Practitioner approval is required before launch.
                     </p>
                   )}
@@ -1018,7 +1018,7 @@ export default function ClinicalAssessmentResults({
                 </Surface>
               ) : (
                 <Surface tier="tile">
-                  <h3 className="t-title">No guided session available</h3>
+                  <h3 className="t-headline">No guided session available</h3>
                   <p className="t-body" style={{ marginTop: 4 }}>
                     There are not enough reliably measured findings. Re-capture clear front and
                     side photos to build a session.

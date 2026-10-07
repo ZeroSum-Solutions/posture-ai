@@ -1,14 +1,16 @@
-/* Colour appears as a 16%-tint chip with a 42% ring, a 4px progress fill, or a
-   7px dot — never as a filled block behind body text. */
+/* Colour appears as a 16%-tint chip with a 42% ring — never as a filled
+   block behind body text. v3: tokens only, no raw literals (DESIGN.md ›
+   "Tokens or nothing"). `GradeChip` delegates to `components/ui/GradeBadge`
+   now, so the old `.grade`/`.gradeLg` square and the unused `.dot` are gone. */
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--s-4);
   height: 28px;
-  padding: 0 10px;
-  border-radius: 9999px;
-  font-size: 12px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-full);
+  font: var(--t-subhead);
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
@@ -16,23 +18,35 @@
 
 .chipSm {
   height: 24px;
-  padding: 0 8px;
-  font-size: 11px;
+  padding: 0 var(--s-8);
+  font: var(--t-caption);
 }
 
-/* Filter chips are a control, so they carry the 44px target rule via padding. */
+/* Filter chips are a control: 36 visual, 48 hit via ::after (DESIGN.md › 3.4). */
 .filter {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  min-height: 34px;
-  padding: 0 14px;
+  gap: var(--s-4);
+  height: 36px;
+  min-height: 36px;
+  padding: 0 var(--s-12);
   border: 0;
-  border-radius: 9999px;
-  font: 500 12px/1 var(--font-sans);
+  border-radius: var(--r-full);
+  font: var(--t-subhead);
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.filter:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .filterCount {
   opacity: 0.55;
@@ -40,31 +54,6 @@
 }
 .filterRow {
   display: flex;
-  gap: 8px;
+  gap: var(--s-8);
   flex-wrap: wrap;
-}
-
-/* The grade chip: a letter in a 40px tinted square, leading its row. */
-.grade {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 300;
-}
-.gradeLg {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  font-size: 24px;
-}
-
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 9999px;
-  flex-shrink: 0;
 }

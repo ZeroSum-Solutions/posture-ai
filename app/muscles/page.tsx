@@ -24,8 +24,8 @@ export default async function MusclesPage() {
     <div className="app-screen">
       <div className="app-screen-x app-stack">
         <div>
-          <p className="t-kicker" style={{ marginBottom: 10 }}>Anatomy reference</p>
-          <h1 className="t-headline">Muscle guide</h1>
+          <p className="t-overline" style={{ marginBottom: 10 }}>Anatomy reference</p>
+          <h1 className="t-title-1">Muscle guide</h1>
           <p className="t-body" style={{ marginTop: 8 }}>
             Anatomy, function, and corrective exercise guidance for every muscle implicated in the
             ten postural screening measures.

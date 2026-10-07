@@ -400,18 +400,18 @@ export default function StrengthProgramBuilder({
       <Surface tier="feature" innerClassName={styles.hero}>
         <div className={styles.heroCopy}>
           <div className={styles.eyebrowRow}>
-            <p className="t-kicker">Strength program</p>
+            <p className="t-overline">Strength program</p>
             <Chip band="neutral" size="sm">{profile.cycleLengthWeeks}-week foundation</Chip>
           </div>
-          <h2 id="strength-builder-heading" className="t-headline-sm">Build a strength program</h2>
+          <h2 id="strength-builder-heading" className="t-title-2">Build a strength program</h2>
           <p className="t-body">
             Set the athlete profile, weekly rhythm, exact equipment, and starting loads before reviewing a draft.
           </p>
         </div>
         <div className={styles.subjectCard}>
-          <span className="t-kicker">Athlete</span>
+          <span className="t-overline">Athlete</span>
           <strong>{subject?.name ?? 'No linked athlete selected'}</strong>
-          <span className="t-quiet">{subject ? `Profile revision ${revision}` : 'A linked training subject is required to save.'}</span>
+          <span className="t-footnote">{subject ? `Profile revision ${revision}` : 'A linked training subject is required to save.'}</span>
         </div>
       </Surface>
 
@@ -420,8 +420,8 @@ export default function StrengthProgramBuilder({
       <Surface tier="tile" innerClassName={styles.formSurface}>
         <div {...tabPanelProps('strength-builder', 'profile', activeTab === 'profile')} hidden={activeTab !== 'profile'}>
           <div className={styles.sectionHeading}>
-            <div><p className="t-kicker">01 · Profile</p><h3 className="t-headline-sm">Training starting point</h3></div>
-            <span className="t-quiet">No scan required</span>
+            <div><p className="t-overline">01 · Profile</p><h3 className="t-title-2">Training starting point</h3></div>
+            <span className="t-footnote">No scan required</span>
           </div>
           <div className={styles.fieldGrid}>
             <label>Training goal
@@ -446,7 +446,7 @@ export default function StrengthProgramBuilder({
                   <option value="intermediate_undulating">Alternating heavy and volume sessions</option>
                 </select>
               </label>
-              <p className="t-quiet">Heavy and volume sessions keep separate starting loads and progression history. Choose the rhythm you prefer; neither approach guarantees better results.</p>
+              <p className="t-footnote">Heavy and volume sessions keep separate starting loads and progression history. Choose the rhythm you prefer; neither approach guarantees better results.</p>
             </div> : null}
             <label>Recent consistency
               <select className="a-input" value={profile.recentConsistency} onChange={event => changeProfile({ ...profile, recentConsistency: event.target.value as AthleteTrainingProfileV1['recentConsistency'] })}>
@@ -466,8 +466,8 @@ export default function StrengthProgramBuilder({
 
         <div {...tabPanelProps('strength-builder', 'schedule', activeTab === 'schedule')} hidden={activeTab !== 'schedule'}>
           <div className={styles.sectionHeading}>
-            <div><p className="t-kicker">02 · Schedule</p><h3 className="t-headline-sm">Choose the weekly rhythm</h3></div>
-            <span className="t-quiet">2–4 strength days</span>
+            <div><p className="t-overline">02 · Schedule</p><h3 className="t-title-2">Choose the weekly rhythm</h3></div>
+            <span className="t-footnote">2–4 strength days</span>
           </div>
           <fieldset className={styles.fieldset}>
             <legend>Cycle length</legend>
@@ -504,8 +504,8 @@ export default function StrengthProgramBuilder({
 
         <div {...tabPanelProps('strength-builder', 'equipment', activeTab === 'equipment')} hidden={activeTab !== 'equipment'}>
           <div className={styles.sectionHeading}>
-            <div><p className="t-kicker">03 · Equipment</p><h3 className="t-headline-sm">Record exact available loads</h3></div>
-            <span className="t-quiet">Values stay in the entered unit</span>
+            <div><p className="t-overline">03 · Equipment</p><h3 className="t-title-2">Record exact available loads</h3></div>
+            <span className="t-footnote">Values stay in the entered unit</span>
           </div>
           <div className={styles.pendingPanel} role={displayedCatalogState.status === 'pending' ? 'status' : undefined}>
             <strong>{displayedCatalogState.status === 'ready' ? `${displayedCatalogState.reviewedExerciseCount} ${displayedCatalogState.kind === 'practice' ? 'synthetic practice' : 'reviewed'} exercise variants available` : 'Catalog connection pending'}</strong>
@@ -513,7 +513,7 @@ export default function StrengthProgramBuilder({
           </div>
           <div className={styles.equipmentList}>
             {profile.equipmentInventory.map(item => item.kind === 'dumbbell' ? <div key={item.equipmentId} className={styles.equipmentCard}>
-              <div><p className="t-kicker">Dumbbell set</p><strong>{item.equipmentId}</strong></div>
+              <div><p className="t-overline">Dumbbell set</p><strong>{item.equipmentId}</strong></div>
               <label>Unit for {item.equipmentId}
                 <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
                   {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
@@ -522,9 +522,9 @@ export default function StrengthProgramBuilder({
               <label>Available weights per dumbbell ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="2.5, 5, 7.5, 10" value={item.perHandLoads.join(', ')} onChange={event => setDumbbellLoads(item.equipmentId, event.target.value)} />
               </label>
-              <p className="t-quiet">One listed dumbbell can be held with two hands for goblet work. Paired movements use two dumbbells at the selected per-hand weight.</p>
+              <p className="t-footnote">One listed dumbbell can be held with two hands for goblet work. Paired movements use two dumbbells at the selected per-hand weight.</p>
             </div> : item.kind === 'barbell' ? <div key={item.equipmentId} className={styles.equipmentCard}>
-              <div><p className="t-kicker">Barbell setup</p><strong>{item.equipmentId}</strong></div>
+              <div><p className="t-overline">Barbell setup</p><strong>{item.equipmentId}</strong></div>
               <label>Unit for {item.equipmentId}
                 <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
                   {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
@@ -547,9 +547,9 @@ export default function StrengthProgramBuilder({
                 </label>
               </div>)}
               <button type="button" className="a-secondary" aria-label={`Add plate denomination for ${item.equipmentId}`} onClick={() => addBarbellPlate(item.equipmentId)}>Add plate denomination</button>
-              <p className="t-quiet">Plate count is the total inventory. Achievable bar loads use symmetric pairs plus the configured bar and collars.</p>
+              <p className="t-footnote">Plate count is the total inventory. Achievable bar loads use symmetric pairs plus the configured bar and collars.</p>
             </div> : item.kind === 'machine' ? <div key={item.equipmentId} className={styles.equipmentCard}>
-              <div><p className="t-kicker">Machine stack</p><strong>{item.equipmentId}</strong></div>
+              <div><p className="t-overline">Machine stack</p><strong>{item.equipmentId}</strong></div>
               <label>Unit for {item.equipmentId}
                 <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
                   {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
@@ -558,9 +558,9 @@ export default function StrengthProgramBuilder({
               <label>Available stack weights for {item.equipmentId} ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="5, 7.5, 10" value={item.stackLoads.join(', ')} onChange={event => setMachineLoads(item.equipmentId, event.target.value)} />
               </label>
-              <p className="t-quiet">These exact resistance values apply only to this machine ID.</p>
+              <p className="t-footnote">These exact resistance values apply only to this machine ID.</p>
             </div> : item.kind === 'bodyweight_external' ? <div key={item.equipmentId} className={styles.equipmentCard}>
-              <div><p className="t-kicker">Bodyweight plus external load</p><strong>{item.equipmentId}</strong></div>
+              <div><p className="t-overline">Bodyweight plus external load</p><strong>{item.equipmentId}</strong></div>
               <label>Unit for {item.equipmentId}
                 <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
                   {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
@@ -569,9 +569,9 @@ export default function StrengthProgramBuilder({
               <label>Available added external loads for {item.equipmentId} ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="0, 2.5, 5, 10" value={item.externalLoads.join(', ')} onChange={event => setBodyweightExternalLoads(item.equipmentId, event.target.value)} />
               </label>
-              <p className="t-quiet">Record added external load only. Enter 0 for bodyweight without added load; body mass is never added to this value.</p>
+              <p className="t-footnote">Record added external load only. Enter 0 for bodyweight without added load; body mass is never added to this value.</p>
             </div> : <div key={item.equipmentId} className={styles.equipmentCard}>
-              <div><p className="t-kicker">Assistance machine</p><strong>{item.equipmentId}</strong></div>
+              <div><p className="t-overline">Assistance machine</p><strong>{item.equipmentId}</strong></div>
               <label>Unit for {item.equipmentId}
                 <select className="a-input" value={item.unit} onChange={event => setEquipmentUnit(item.equipmentId, event.target.value as EquipmentInventory['unit'])}>
                   {profileOptionValues.loadUnits.map(unit => <option key={unit} value={unit}>{unit.toUpperCase()}</option>)}
@@ -580,7 +580,7 @@ export default function StrengthProgramBuilder({
               <label>Available assistance settings for {item.equipmentId} ({item.unit})
                 <input className="a-input" inputMode="decimal" placeholder="10, 20, 30, 40" value={item.assistanceLoads.join(', ')} onChange={event => setAssistanceMachineLoads(item.equipmentId, event.target.value)} />
               </label>
-              <p className="t-quiet">Record the nonnegative assistance value shown by this machine. Do not encode assistance as a negative load.</p>
+              <p className="t-footnote">Record the nonnegative assistance value shown by this machine. Do not encode assistance as a negative load.</p>
             </div>)}
             <div className={styles.saveActions}>
               <button type="button" className="a-secondary" onClick={addDumbbellInventory}>Add dumbbell set</button>
@@ -594,8 +594,8 @@ export default function StrengthProgramBuilder({
 
         <div {...tabPanelProps('strength-builder', 'calibration', activeTab === 'calibration')} hidden={activeTab !== 'calibration'}>
           <div className={styles.sectionHeading}>
-            <div><p className="t-kicker">04 · Starting loads</p><h3 className="t-headline-sm">Calibrate each reviewed variant</h3></div>
-            <span className="t-quiet">Explicit acceptance required</span>
+            <div><p className="t-overline">04 · Starting loads</p><h3 className="t-title-2">Calibrate each reviewed variant</h3></div>
+            <span className="t-footnote">Explicit acceptance required</span>
           </div>
           <div className={styles.pendingPanel}>
             <strong>No load is inferred from posture or body size.</strong>
@@ -621,7 +621,7 @@ export default function StrengthProgramBuilder({
               <option value="">Choose an activity</option>
               {currentOptions.conditioningModes.map(mode => <option key={mode.modalityId} value={mode.modalityId}>{mode.label}</option>)}
             </select></label>
-            <p className="t-quiet">Choose the activity you want in this cycle, then save your profile.</p>
+            <p className="t-footnote">Choose the activity you want in this cycle, then save your profile.</p>
           </div> : null}
           <StartingHistoryEditor
             options={(currentOptions?.exerciseOptions ?? startingHistoryOptions).map(option => ({
@@ -657,7 +657,7 @@ export default function StrengthProgramBuilder({
 
       <div className={styles.saveBar}>
         <div>
-          <span className="t-kicker">Profile state</span>
+          <span className="t-overline">Profile state</span>
           <p className="t-body" role={stateRole}>{stateText}</p>
           {validationMessage ? <p className={styles.error} role="alert">{validationMessage}</p> : null}
         </div>

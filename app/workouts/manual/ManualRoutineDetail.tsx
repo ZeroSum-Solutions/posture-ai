@@ -36,7 +36,7 @@ export default function ManualRoutineDetail({ routineId, availableExercises }: {
     return () => { active = false }
   }, [routineId])
 
-  if (state.status === 'loading') return <p role="status" className="t-quiet">Loading routine…</p>
+  if (state.status === 'loading') return <p role="status" className="t-footnote">Loading routine…</p>
   if (state.status === 'error') return <Surface tier="tile" innerClassName={styles.empty}><p role="alert">{state.message}</p><button type="button" className="a-secondary" onClick={() => void retry()}>Retry routine</button></Surface>
   const routine = state.routine
 

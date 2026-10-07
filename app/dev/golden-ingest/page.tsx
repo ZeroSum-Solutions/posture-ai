@@ -14,7 +14,7 @@ export default function GoldenIngestPage() {
   if (process.env.NODE_ENV === 'production') notFound()
 
   return (
-    <main style={{ padding: 24, fontFamily: 'monospace' }}>
+    <div style={{ padding: 24, fontFamily: 'monospace' }}>
       <h1>Tier B reliability study (dev only)</h1>
       <p role="status" style={{ color: '#9b1c1c', fontWeight: 700 }}>
         Collection not authorized
@@ -63,6 +63,6 @@ export default function GoldenIngestPage() {
       <p id="tier-b-lock-reason">
         No test flag or local bypass unlocks collection.
       </p>
-    </main>
+    </div>
   )
 }

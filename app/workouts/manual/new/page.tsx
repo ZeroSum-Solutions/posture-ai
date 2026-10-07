@@ -30,13 +30,13 @@ export default async function NewManualRoutinePage({ searchParams }: { searchPar
 
   return <div className={`app-screen ${styles.screen}`}>
     <header className={styles.header}>
-      <div><p className="t-kicker">Manual routine</p><h1 className="t-headline">Create routine</h1></div>
+      <div><p className="t-overline">Manual routine</p><h1 className="t-title-1">Create routine</h1></div>
       <Link className="a-secondary" href="/exercises">Back to exercise library</Link>
     </header>
-    <main className={`app-screen-x app-stack ${styles.main}`}>
+    <div className={`app-screen-x app-stack ${styles.main}`}>
       {identity.kind === 'unavailable'
         ? <p role="alert" className={styles.error}>Training access is unavailable. Sign in again or verify the athlete relationship.</p>
         : <ManualRoutineSubjectWorkspace identity={identity} mode="create" exercises={selected} availableExercises={allExercises} />}
-    </main>
+    </div>
   </div>
 }

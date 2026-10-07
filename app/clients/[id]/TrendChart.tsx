@@ -130,8 +130,8 @@ export default function TrendChart({
   if (model.points.length === 0) {
     return (
       <Surface tier="feature">
-        <h2 className="t-title">Deviation score</h2>
-        <p className="t-quiet" style={{ marginTop: 6 }}>
+        <h2 className="t-headline">Deviation score</h2>
+        <p className="t-footnote" style={{ marginTop: 6 }}>
           No screening score has been recorded yet. The first completed scan starts this trend.
         </p>
       </Surface>
@@ -145,8 +145,8 @@ export default function TrendChart({
     <Surface tier="feature" pad="snug">
       <div className={styles.trendHead}>
         <div>
-          <h2 className="t-title">Deviation score</h2>
-          <p className="t-quiet" style={{ marginTop: 2 }}>Lower is better</p>
+          <h2 className="t-headline">Deviation score</h2>
+          <p className="t-footnote" style={{ marginTop: 2 }}>Lower is better</p>
         </div>
         <div className={styles.trendHeadAside}>
           <span className={styles.latestScore} aria-label={`Latest deviation score ${Math.round(latestPoint.score)} out of 100`}>

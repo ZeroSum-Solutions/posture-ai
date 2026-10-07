@@ -23,7 +23,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         padding: '32px',
         textAlign: 'center',
       }}>
-        <h1 className="t-headline-sm" style={{ marginBottom: '12px' }}>
+        <h1 className="t-title-2" style={{ marginBottom: '12px' }}>
           Something went wrong
         </h1>
         <p className="t-body" style={{ marginBottom: '28px', maxWidth: '420px' }}>

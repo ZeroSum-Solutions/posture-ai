@@ -75,8 +75,8 @@ export default function StrengthBuilderLauncher({ clients, initialClientId, oper
     {sample.status !== 'ready' && selected ? <StrengthBuilderEntry key={selected.id} source={{ kind: 'client', client: selected }} /> : null}
     <Surface tier="tile" innerClassName={styles.sampleEntry}>
       <div>
-        <p className="t-kicker">Private practice workspace</p>
-        <h2 className="t-headline-sm">Try a sample program</h2>
+        <p className="t-overline">Private practice workspace</p>
+        <h2 className="t-title-2">Try a sample program</h2>
         <p className="t-body">Use a separate private practice athlete to explore the strength program builder without changing a real client.</p>
       </div>
       <label className={styles.clientPicker}>Sample program

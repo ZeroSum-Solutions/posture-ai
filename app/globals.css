@@ -1,134 +1,273 @@
 @import "tailwindcss";
 
-/* Posture AI — Array (v2) tokens. The contract lives in /DESIGN.md.
-   Replaces the v1 "Posture AI Dark" system: two surface tiers instead of one,
-   seven type roles instead of eleven, Roboto tabular numerals instead of a
-   monospace face. Do not reintroduce --glass-*, the orange→black→cyan border
-   gradient, or IBM Plex Mono. */
+/* Posture AI — Array v3 tokens. The contract lives in /DESIGN.md; component and
+   screen detail in docs/design/array-v3-spec.md. Components read tokens only:
+   no raw font-size, colour or radius literals in component CSS. The v2 names at
+   the bottom of :root are aliases kept while screens migrate. */
 @theme {
   --color-background: #000000;
   --color-action: #ffffff;
   --color-action-text: #000000;
-  --color-maintain: #10b981;
-  --color-monitor: #f59e0b;
-  --color-review: #ef4444;
-  --color-info: #0a83c9;
-  --radius-sm: 12px;
-  --radius-md: 15px;
-  --radius-lg: 16px;
-  --radius-card: 23px;
-  --radius-shell: 24px;
+  --color-accent: #4db2ff;
+  --color-capture: #34d399;
+  --color-maintain: #34d399;
+  --color-monitor: #fbbf24;
+  --color-review: #ff7a7a;
+  --color-info: #4db2ff;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-card: 20px;
+  --radius-shell: 20px;
   --radius-full: 9999px;
-  --container-app: 430px;
+  --container-app: 480px;
   --container-marketing: 1280px;
 }
 
 :root {
+  color-scheme: dark;
   --background: #000000;
 
-  /* Surfaces — two tiers only. Tier 1 = feature card, tier 2 = tile/row. */
-  --surface-glass: rgba(0, 0, 0, 0.3);
-  --surface-glass-strong: rgba(0, 0, 0, 0.45);
-  --shell-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05) 46%, rgba(255, 255, 255, 0.1));
-  --shell-gradient-tile: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05) 48%, transparent);
-  --shell-gradient-row: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.05) 48%, transparent);
-  --shell-gradient-island: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.2));
-  --blur-card: 40px;
-  --blur-tile: 24px;
-  --blur-ambient: 4px;
+  /* ── Type roles (rem so OS text scaling reflows; 1rem = 16px) ── */
+  /* Platform system font: SF on Apple devices (HIG), Roboto on Android (M3). */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --t-display: 300 2.125rem/2.5rem var(--font-sans);
+  --t-title-1: 300 1.75rem/2.125rem var(--font-sans);
+  --t-title-2: 500 1.375rem/1.75rem var(--font-sans);
+  --t-headline: 500 1.0625rem/1.375rem var(--font-sans);
+  --t-body: 400 1rem/1.5rem var(--font-sans);
+  --t-callout: 400 0.9375rem/1.375rem var(--font-sans);
+  --t-subhead: 400 0.875rem/1.25rem var(--font-sans);
+  --t-footnote: 400 0.8125rem/1.125rem var(--font-sans);
+  --t-caption: 500 0.75rem/1rem var(--font-sans);
+  --t-readout-xl: 300 3.5rem/3.5rem var(--font-sans);
+  --t-readout-lg: 400 1.75rem/2rem var(--font-sans);
+  --t-readout-md: 500 1.25rem/1.5rem var(--font-sans);
+  --t-readout-sm: 500 0.9375rem/1.25rem var(--font-sans);
 
-  /* Text */
-  --text-primary: rgba(255, 255, 255, 0.95);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  /* 0.48, not the 0.45 the handoff drew. Over the pure-black field 0.45
-     composites to #737373, which is 4.429:1 — it misses the 4.5:1 floor for
-     small text by less than a tenth of a point, and e2e/a11y.spec.ts fails it
-     as a serious violation on the capture slot labels and the footer. 0.48 is
-     #7A7A7A at 4.892:1. The hierarchy against --text-secondary (0.60) is
-     preserved; anything lower cannot carry body-size text on this background. */
-  --text-tertiary: rgba(255, 255, 255, 0.48);
-  /* KNOWN RISK, not fixed here: 0.3 is #4D4D4D, about 2.3:1 on the black field.
-     Axe does not currently flag it because the surfaces using it were not in a
-     sampled state, but it does carry real text (ClientDetail, AssessmentReview,
-     LegalDocumentView, the dashboard footnote and input placeholders). Raising
-     it to pass 4.5:1 would land it on top of --text-tertiary and flatten a tier
-     out of the type hierarchy, so it is a design call rather than a token edit. */
-  --text-quiet: rgba(255, 255, 255, 0.3);
+  /* ── Spacing: 4px base ── */
+  --s-0: 0px; --s-4: 4px; --s-8: 8px; --s-12: 12px; --s-16: 16px; --s-20: 20px;
+  --s-24: 24px; --s-32: 32px; --s-40: 40px; --s-48: 48px; --s-64: 64px;
+  --screen-x: 16px;
+  --content-max: 480px;
+
+  /* ── Radius ── */
+  --r-sm: 8px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-full: 9999px;
+
+  /* ── Text — three tiers, each ≥4.5:1 on the #1C1C1E worst-case glass ── */
+  --text-1: rgba(255, 255, 255, 0.95);
+  --text-2: rgba(255, 255, 255, 0.72);
+  --text-3: rgba(255, 255, 255, 0.58);
+  --text-on-action: #000000;
+  --text-disabled-opacity: 0.38;
+
+  /* ── Surfaces & borders ── */
+  --surface-flat: rgba(255, 255, 255, 0.07);
+  --surface-flat-pressed: rgba(255, 255, 255, 0.12);
+  --surface-field: rgba(255, 255, 255, 0.08);
+  --surface-solid: #141417;
+  --surface-dialog: #161618;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-field: rgba(255, 255, 255, 0.38);
   --hairline: rgba(255, 255, 255, 0.1);
-  --hairline-soft: rgba(255, 255, 255, 0.07);
+  --overlay-hover: rgba(255, 255, 255, 0.06);
+  --overlay-pressed: rgba(255, 255, 255, 0.12);
 
-  /* Actions */
+  /* ── Materials: flat / card glass / chrome glass ── */
+  --glass-card: rgba(24, 24, 28, 0.72);
+  --glass-card-solid: #17171a;
+  --glass-card-filter: blur(20px) saturate(1.3);
+  --glass-card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --glass-card-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.5);
+  --glass-chrome: rgba(18, 18, 22, 0.78);
+  --glass-chrome-solid: #141417;
+  --glass-chrome-filter: blur(24px) saturate(1.4);
+  --scrim: rgba(0, 0, 0, 0.56);
+  --scrim-media: rgba(0, 0, 0, 0.6);
+
+  /* ── Action & accent ── */
   --action: #ffffff;
-  --action-text: #000000;
-  --action-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-  --secondary-surface: rgba(0, 0, 0, 0.5);
+  --accent: #4db2ff;
+  --accent-tint: rgba(77, 178, 255, 0.16);
+  --accent-ring: rgba(77, 178, 255, 0.42);
+  --capture: #34d399;
+  --violet: #6d4aff;
 
-  /* Severity — three bands mapped from the engine grade, plus info. */
-  --maintain: #10b981;
-  --monitor: #f59e0b;
-  --review: #ef4444;
-  --info: #0a83c9;
+  /* ── Severity: fg for text/icons, tint + ring for chips, chart hues for fills ── */
+  --maintain: #34d399;
+  --maintain-tint: rgba(52, 211, 153, 0.16);
+  --maintain-ring: rgba(52, 211, 153, 0.42);
+  --monitor: #fbbf24;
+  --monitor-tint: rgba(251, 191, 36, 0.16);
+  --monitor-ring: rgba(251, 191, 36, 0.42);
+  --review: #ff7a7a;
+  --review-tint: rgba(255, 122, 122, 0.16);
+  --review-ring: rgba(255, 122, 122, 0.42);
+  --chart-maintain: #10b981;
+  --chart-monitor: #f59e0b;
+  --chart-review: #ef4444;
 
-  --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
-  --shadow-island: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  /* ── Focus ── */
+  --focus-ring: 0 0 0 2px #000, 0 0 0 4px #fff;
 
-  --font-sans: var(--font-ui, 'Roboto'), system-ui, sans-serif;
-  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --duration-state: 150ms;
-  --duration-layout: 300ms;
+  /* ── Layers ── */
+  --z-field: 0; --z-content: 1; --z-sticky: 10; --z-actionbar: 20; --z-tabbar: 30;
+  --z-scrim: 50; --z-sheet: 60; --z-dialog: 70; --z-toast: 80; --z-immersive: 100;
 
-  /* Bottom clearance: island (44px + 6px padding ×2 + 12px inset) or action bar. */
-  --island-clearance: 92px;
-  --bar-clearance: 74px;
+  /* ── Safe areas & chrome ── */
+  --sa-t: env(safe-area-inset-top, 0px);
+  --sa-r: env(safe-area-inset-right, 0px);
+  --sa-b: env(safe-area-inset-bottom, 0px);
+  --sa-l: env(safe-area-inset-left, 0px);
+  --tabbar-h: 56px;
+  --topbar-h: 52px;
+  --actionbar-h: 80px;
+  /* Set by the shell: tab bar (+ ActionBar when mounted) + safe area. */
+  --chrome-bottom: calc(var(--tabbar-h) + var(--sa-b));
+
+  /* ── Motion (CSS fallbacks; components use the springs in lib/motion.ts) ── */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: linear(0, 0.38 9%, 0.86 21%, 1.03 30%, 1.05 36%, 1.01 49%, 0.995 62%, 1);
+  --duration-press: 120ms;
+  --duration-state: 200ms;
+  --duration-layout: 340ms;
+  --duration-reduced: 150ms;
+
+  /* ── v2 aliases (remove once every screen reads v3 names) ── */
+  --text-primary: var(--text-1);
+  --text-secondary: var(--text-2);
+  --text-tertiary: var(--text-3);
+  --text-quiet: var(--text-3);
+  --hairline-soft: var(--hairline);
+  --surface-glass: var(--surface-flat);
+  --surface-glass-strong: var(--glass-card);
+  --shell-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 46%, rgba(255, 255, 255, 0.08));
+  --shell-gradient-tile: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 48%, transparent);
+  --shell-gradient-row: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 48%, transparent);
+  --shell-gradient-island: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.14));
+  --blur-card: 20px;
+  --blur-tile: 0px;
+  --blur-ambient: 0px;
+  --action-text: var(--text-on-action);
+  --action-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.5);
+  --secondary-surface: var(--surface-field);
+  --info: var(--accent);
+  --shadow-card: var(--glass-card-shadow);
+  --shadow-island: 0 -1px 0 var(--hairline);
+  --island-clearance: var(--tabbar-h);
+  --bar-clearance: var(--actionbar-h);
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-2: rgba(255, 255, 255, 0.85);
+    --text-3: rgba(255, 255, 255, 0.7);
+    --border: rgba(255, 255, 255, 0.3);
+    --border-field: rgba(255, 255, 255, 0.55);
+    --hairline: rgba(255, 255, 255, 0.22);
+  }
 }
 
 * { box-sizing: border-box; padding: 0; margin: 0; }
 
-html { background: var(--background); }
+html {
+  background: var(--background);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 
 body {
   background: var(--background);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-weight: 300;
-  line-height: 1.5;
+  color: var(--text-1);
+  font: var(--t-body);
+  font-synthesis: none;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
+
+button, [role='button'], a, summary, label, input, select, textarea { touch-action: manipulation; }
+::selection { background: var(--accent-tint); color: var(--text-1); }
+input, textarea { caret-color: var(--accent); }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-1);
+  box-shadow: inset 0 0 0 100px var(--surface-solid), inset 0 0 0 1px var(--border-field);
+  transition: background-color 9999s ease-out 0s;
+}
+/* Legacy target guard for screens not yet on components/ui (removed in the cleanup
+   batch): components size their own hit areas. */
+button, a.a-primary, a.a-secondary, a.a-quiet { min-height: 44px; }
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 
-.app-shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; position: relative; isolation: isolate; }
-.app-shell-main { flex: 1; position: relative; z-index: 1; overflow-x: clip; }
+.app-shell { min-height: 100dvh; display: flex; flex-direction: column; position: relative; isolation: isolate; }
+.app-shell-main { flex: 1; position: relative; z-index: var(--z-content); overflow-x: clip; }
 
 /* Immersive surfaces (capture, player) own the whole frame: their background is
-   the live camera or video, so the field, island and footer all stand down. */
+   the live camera or video, so the field, tab bar and footer all stand down. */
 .app-shell:has([data-immersive-surface]) > .app-island,
 .app-shell:has([data-immersive-surface]) > .app-ambient-field,
 .app-shell:has([data-immersive-surface]) > .app-footer { display: none !important; }
-.app-shell:has([data-immersive-surface]) > .app-shell-main { z-index: 100; }
+.app-shell:has([data-immersive-surface]) > .app-shell-main { z-index: var(--z-immersive); }
+.app-shell:has([data-immersive-surface]) { --chrome-bottom: var(--sa-b); }
+
+/* Chrome-bottom contract: the shell (AppShell) publishes this for scrolling
+   content to pad by. Base is the tab bar + its raised Capture circle's 12px
+   overhang (TabBar.module.css's `.action` translateY) + safe area; a hidden
+   tab bar (TabBar's own tabBarPolicy hidden routes — AppShell sets the
+   attribute) drops to just the safe area; an ActionBar mounted anywhere in
+   the tree (`.app-actionbar`) adds its own height on top. The immersive
+   override above still wins (it is declared first and immersive routes never
+   also appear in the tab-bar-hidden list). */
+.app-shell {
+  --chrome-bottom: calc(var(--tabbar-h) + 12px + var(--sa-b));
+}
+.app-shell[data-tabbar-hidden='true'] {
+  --chrome-bottom: var(--sa-b);
+}
+.app-shell:has(.app-actionbar) {
+  --chrome-bottom: calc(var(--tabbar-h) + 12px + var(--sa-b) + var(--actionbar-h));
+}
+.app-shell[data-tabbar-hidden='true']:has(.app-actionbar) {
+  --chrome-bottom: calc(var(--sa-b) + var(--actionbar-h));
+}
+
+.skip-link {
+  position: absolute; left: var(--s-16); top: calc(var(--sa-t) + var(--s-8)); z-index: var(--z-toast);
+  padding: var(--s-12) var(--s-16); border-radius: var(--r-full);
+  background: var(--action); color: var(--text-on-action); font: var(--t-callout); font-weight: 500;
+  text-decoration: none; transform: translateY(-200%);
+}
+.skip-link:focus-visible { transform: none; }
 
 /* ── Screen scaffold ───────────────────────────────────────────────────── */
 
-/* The inset is not optional: the island is positioned at 12px + safe-area, so a
-   flat clearance leaves the last row under it by exactly the home-indicator
-   height. `.app-screen--bar` and `.app-footer` already add it. */
-.app-screen { width: min(430px, 100%); margin: 0 auto; padding-bottom: calc(var(--island-clearance) + env(safe-area-inset-bottom)); }
-.app-screen--bar { padding-bottom: calc(var(--bar-clearance) + env(safe-area-inset-bottom)); }
-.app-screen-x { padding-inline: 16px; }
-.app-prose-x { padding-inline: 24px; }
-.app-stack { display: flex; flex-direction: column; gap: 12px; }
+.app-screen {
+  width: min(var(--content-max), 100%); margin: 0 auto;
+  padding-top: var(--sa-t);
+  padding-bottom: calc(var(--chrome-bottom) + var(--s-16));
+}
+.app-screen--bar { padding-bottom: calc(var(--chrome-bottom) + var(--actionbar-h) + var(--s-16)); }
+.app-screen-x { padding-inline: max(var(--screen-x), var(--sa-l)) max(var(--screen-x), var(--sa-r)); }
+.app-prose-x { padding-inline: max(var(--s-24), var(--sa-l)) max(var(--s-24), var(--sa-r)); }
+.app-stack { display: flex; flex-direction: column; gap: var(--s-12); }
+.app-section { display: flex; flex-direction: column; gap: var(--s-8); margin-top: var(--s-24); }
 
-/* ── Type — seven roles. Never bold a headline; never set body above 14px. ─ */
+/* ── Type roles — the only way to set type. ────────────────────────────── */
 
-.t-headline { font-size: 30px; font-weight: 300; line-height: 1.12; letter-spacing: -0.025em; color: var(--text-primary); }
-.t-headline em { font-style: normal; color: var(--text-tertiary); }
-.t-headline-sm { font-size: 20px; font-weight: 300; line-height: 1.2; letter-spacing: -0.025em; color: var(--text-primary); }
-.t-title { font-size: 14px; font-weight: 400; letter-spacing: 0.01em; color: rgba(255, 255, 255, 0.9); }
-.t-body { font-size: 12px; font-weight: 300; line-height: 1.62; color: var(--text-secondary); }
-.t-label { font-size: 12px; font-weight: 500; line-height: 16px; }
-.t-kicker { font-size: 12px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
-.t-quiet { font-size: 12px; font-weight: 300; color: var(--text-tertiary); }
+.t-display { font: var(--t-display); letter-spacing: -0.02em; color: var(--text-1); }
+.t-title-1 { font: var(--t-title-1); letter-spacing: -0.015em; color: var(--text-1); }
+.t-title-1 em { font-style: normal; color: var(--text-3); }
+.t-title-2 { font: var(--t-title-2); letter-spacing: -0.01em; color: var(--text-1); }
+.t-headline { font: var(--t-headline); color: var(--text-1); }
+.t-body { font: var(--t-body); color: var(--text-2); }
+.t-callout { font: var(--t-callout); color: var(--text-2); }
+.t-subhead { font: var(--t-subhead); letter-spacing: 0.005em; color: var(--text-2); }
+.t-footnote { font: var(--t-footnote); letter-spacing: 0.005em; color: var(--text-3); }
+.t-caption { font: var(--t-caption); letter-spacing: 0.01em; }
+.t-overline { font: var(--t-caption); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.t-prose { max-width: 38rem; }
 
 /* Available to assistive tech only: expands a compact readout such as "−8" into
    the sentence a screen reader needs, without repeating it on screen. */
@@ -142,142 +281,138 @@ body {
   border: 0;
 }
 
-/* Numbers are content, not chrome: Roboto Light with tabular figures. */
+/* Numbers are content: tabular figures. */
 .n { font-variant-numeric: tabular-nums; }
-.t-readout-xl { font-size: 64px; font-weight: 100; letter-spacing: -0.03em; line-height: 0.9; font-variant-numeric: tabular-nums; }
-.t-readout-lg { font-size: 24px; font-weight: 300; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
-.t-readout-md { font-size: 20px; font-weight: 300; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
+.t-readout-xl { font: var(--t-readout-xl); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.t-readout-lg { font: var(--t-readout-lg); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.t-readout-md { font: var(--t-readout-md); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.t-readout-sm { font: var(--t-readout-sm); font-variant-numeric: tabular-nums; }
 
-h1, h2, h3 { font-family: var(--font-sans); font-weight: 300; line-height: 1.12; letter-spacing: -0.025em; }
+h1, h2, h3, h4 { font-family: var(--font-sans); font-weight: inherit; }
 
-/* ── Actions — one primary per screen. ─────────────────────────────────── */
+/* ── Actions — one primary per screen. Legacy class names map onto the v3
+   Button (components/ui/Button); new code uses the component. ─────────── */
 
-.a-primary {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 44px; padding: 0 18px; border: 0; border-radius: 9999px;
-  background: var(--action); color: var(--action-text);
-  font: 500 13px/1 var(--font-sans); text-decoration: none; cursor: pointer;
-  box-shadow: var(--action-shadow);
-  transition: opacity var(--duration-state) var(--ease-standard), transform var(--duration-state) var(--ease-standard);
+.a-primary, .a-secondary {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-8);
+  min-height: 48px; padding: 0 var(--s-20); border: 0; border-radius: var(--r-full);
+  font: var(--t-body); font-weight: 500; line-height: 1; text-decoration: none; cursor: pointer;
+  user-select: none;
+  transition: transform var(--duration-press) var(--ease-spring), background-color var(--duration-state) var(--ease-standard), opacity var(--duration-state) var(--ease-standard);
 }
-.a-primary--bar { width: 100%; height: 50px; border-radius: 16px; }
-.a-secondary {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 44px; padding: 0 16px; border: 0; border-radius: 9999px;
-  background: var(--secondary-surface); color: rgba(255, 255, 255, 0.9);
-  -webkit-backdrop-filter: blur(var(--blur-tile)); backdrop-filter: blur(var(--blur-tile));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
-  font: 500 13px/1 var(--font-sans); text-decoration: none; cursor: pointer;
-  transition: opacity var(--duration-state) var(--ease-standard);
+.a-primary { background: var(--action); color: var(--text-on-action); box-shadow: var(--action-shadow); }
+.a-secondary { background: var(--surface-field); color: var(--text-1); box-shadow: inset 0 0 0 1px var(--border); }
+.a-primary--bar, .a-secondary--bar { width: 100%; min-height: 56px; font: var(--t-headline); }
+@media (hover: hover) and (pointer: fine) {
+  .a-secondary:not(:disabled):hover { background: var(--surface-flat-pressed); }
+  .a-primary:not(:disabled):hover { background: #f2f2f2; }
 }
-.a-secondary--bar { height: 50px; border-radius: 16px; }
+.a-primary:not(:disabled):active, .a-secondary:not(:disabled):active { transform: scale(0.97); }
+.a-secondary:not(:disabled):active { background: var(--surface-flat-pressed); }
 /* Blocked actions dim and state the reason above them. Never a red button. */
-.a-primary:disabled, .a-secondary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-.a-primary:not(:disabled):active, .a-secondary:not(:disabled):active { transform: scale(0.98); }
-
-/* ── Forms ─────────────────────────────────────────────────────────────────
-   One field vocabulary for every form in the app — auth, client records,
-   settings, consent. Inputs are 44px minimum so a thumb can reach them, and the
-   focus ring is a visible outline rather than a colour shift, because a colour
-   shift on a glass surface is not reliably perceivable. */
-
-.a-form { display: flex; flex-direction: column; gap: 14px; }
-
-.a-field { display: flex; flex-direction: column; gap: 6px; }
-
-.a-label { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
-
-.a-input, .a-select, .a-textarea {
-  width: 100%; min-height: 48px; padding: 12px 14px;
-  border: 0; border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  color: var(--text-primary);
-  font: 400 14px/1.4 var(--font-sans);
-  /* 14px minimum: iOS Safari zooms the viewport on focus below 16px, but the
-     design's body scale tops out at 14px, so the shell locks the viewport
-     instead of inflating the type. */
-}
-
-.a-textarea { min-height: 96px; resize: vertical; }
-
-.a-input::placeholder, .a-textarea::placeholder { color: var(--text-quiet); }
-
-.a-input:focus-visible, .a-select:focus-visible, .a-textarea:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.85);
-  outline-offset: 2px;
-}
-
-.a-input:disabled, .a-select:disabled, .a-textarea:disabled {
-  opacity: 0.5; cursor: not-allowed;
-}
-
-.a-help { font-size: 12px; font-weight: 300; line-height: 1.55; color: var(--text-tertiary); }
-
-/* An error states what happened; it never relies on colour alone. */
-.a-error {
-  display: flex; align-items: flex-start; gap: 6px;
-  font-size: 12px; font-weight: 400; line-height: 1.55; color: var(--review);
-}
+.a-primary:disabled, .a-secondary:disabled,
+.a-primary[aria-disabled='true'], .a-secondary[aria-disabled='true'] { opacity: var(--text-disabled-opacity); cursor: not-allowed; box-shadow: none; }
 
 .a-quiet {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px;
-  border: 0; border-radius: 9999px; background: transparent; color: rgba(255, 255, 255, 0.75);
-  font: 500 12px/1 var(--font-sans); text-decoration: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--s-8); min-height: 48px; padding: 0 var(--s-12);
+  border: 0; border-radius: var(--r-full); background: transparent; color: var(--accent);
+  font: var(--t-callout); font-weight: 500; text-decoration: none; cursor: pointer;
 }
 
-/* A pinned bottom bar sits above a 150px to-top black fade. */
-.a-bar {
-  position: fixed; inset: auto 0 0; z-index: 30;
-  width: min(430px, 100%); margin: 0 auto;
+/* ── Forms — one field vocabulary: 52px, 16px type (no iOS focus zoom), a 3:1
+   field border, a visible label above, help or error below. ───────────── */
+
+.a-form { display: flex; flex-direction: column; gap: var(--s-16); }
+.a-field { display: flex; flex-direction: column; gap: var(--s-8); }
+.a-label, label { display: block; font: var(--t-subhead); font-weight: 500; color: var(--text-2); }
+.a-field > label, .a-field > .a-label { margin-bottom: 0; }
+
+input, textarea, select, .a-input, .a-select, .a-textarea {
+  width: 100%; min-height: 52px; padding: 0 var(--s-16);
+  border: 0; border-radius: var(--r-md);
+  background: var(--surface-field); color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--border-field);
+  font: var(--t-body); font-size: 16px;
+  transition: box-shadow var(--duration-state) var(--ease-standard);
 }
-.a-bar-fade { position: absolute; inset: auto 0 0; height: 150px; background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent); pointer-events: none; }
-.a-bar-inner { position: relative; display: flex; gap: 10px; padding: 0 16px 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-
-/* ── Motion — 150ms state, 300ms layout. No parallax on data, ever. ────── */
-
-button, a { transition: background var(--duration-state) var(--ease-standard), color var(--duration-state) var(--ease-standard), box-shadow var(--duration-state) var(--ease-standard), opacity var(--duration-state) var(--ease-standard); }
-button, a { min-height: 44px; }
-
-.skeleton {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.6s ease-in-out infinite;
-  border-radius: 12px;
+textarea, .a-textarea { min-height: 112px; padding: var(--s-12) var(--s-16); resize: vertical; line-height: 1.5rem; }
+select, .a-select {
+  appearance: none; -webkit-appearance: none; padding-right: var(--s-40);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='rgba(255,255,255,0.72)' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
 }
-@keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+input::placeholder, textarea::placeholder { color: var(--text-3); }
+input:hover:not(:disabled):not(:focus), textarea:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5); }
+input:focus-visible, textarea:focus-visible, select:focus-visible,
+.a-input:focus-visible, .a-select:focus-visible, .a-textarea:focus-visible {
+  outline: none; box-shadow: inset 0 0 0 1px var(--text-1), var(--focus-ring);
 }
-
-/* ── Forms ─────────────────────────────────────────────────────────────── */
-
-input, textarea, select {
-  min-height: 44px; width: 100%; padding: 0 16px;
-  border: 0; border-radius: 9999px;
-  background: var(--surface-glass); color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font: 300 14px/1 var(--font-sans);
-  -webkit-backdrop-filter: blur(var(--blur-tile)); backdrop-filter: blur(var(--blur-tile));
+input[aria-invalid='true'], textarea[aria-invalid='true'], select[aria-invalid='true'] { box-shadow: inset 0 0 0 1px var(--review); }
+input:disabled, textarea:disabled, select:disabled { opacity: var(--text-disabled-opacity); cursor: not-allowed; }
+input[type='checkbox'], input[type='radio'] {
+  width: 22px; height: 22px; min-height: 22px; padding: 0; flex: none;
+  box-shadow: none; background: none; accent-color: var(--accent);
 }
-textarea { min-height: 96px; padding: 12px 16px; border-radius: 15px; line-height: 1.5; }
-input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
-label { display: block; font: 500 12px/16px var(--font-sans); color: var(--text-secondary); margin-bottom: 6px; }
-select { appearance: none; -webkit-appearance: none; }
-input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; height: 20px; padding: 0; accent-color: #fff; }
-
-:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.85); outline-offset: 2px; }
-input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.85); outline-offset: 0; }
+input[type='range'] { min-height: 48px; padding: 0; background: none; box-shadow: none; accent-color: var(--accent); }
 
 @media (pointer: coarse) {
-  input[type="date"] { -webkit-appearance: none; appearance: none; min-width: 0; }
+  input[type='date'] { -webkit-appearance: none; appearance: none; min-width: 0; }
 }
 
-/* ── Footer ────────────────────────────────────────────────────────────── */
+.a-help { font: var(--t-footnote); color: var(--text-3); }
 
-.app-footer { position: relative; z-index: 0; padding: 20px 24px calc(var(--island-clearance) + env(safe-area-inset-bottom)); color: var(--text-tertiary); font-size: 12px; font-weight: 300; text-align: center; }
-/* The screen already reserves island clearance; the footer must not double it. */
-.app-shell:has(.app-screen) > .app-footer { padding-top: 4px; }
-.app-footer-links { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; }
-.app-footer a { color: rgba(255, 255, 255, 0.6); text-decoration: none; }
+/* An error states what happened; it never relies on colour alone. */
+.a-error { display: flex; align-items: flex-start; gap: var(--s-8); font: var(--t-footnote); font-weight: 500; color: var(--review); }
+
+/* A pinned bottom bar: the ActionBar component replaces this. */
+.a-bar {
+  position: fixed; inset: auto 0 var(--chrome-bottom); z-index: var(--z-actionbar);
+  width: min(var(--content-max), 100%); margin: 0 auto;
+}
+.a-bar-fade { display: none; }
+.a-bar-inner { position: relative; display: flex; gap: var(--s-12); padding: var(--s-12) var(--screen-x); }
+
+/* ── Focus — a double ring visible on black and on any glass. ──────────── */
+
+:focus { outline: none; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: inherit; }
+a:focus-visible { border-radius: var(--r-sm); }
+
+/* ── Loading ───────────────────────────────────────────────────────────── */
+
+.skeleton {
+  position: relative; overflow: hidden; border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.06);
+}
+.skeleton::after {
+  content: ''; position: absolute; inset: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.4s var(--ease-standard) infinite;
+}
+@keyframes skeleton-sweep { to { transform: translateX(260%); } }
+
+/* ── Reduced motion and transparency ───────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: var(--duration-reduced) !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .skeleton::after { display: none; }
+}
+
+/* ── Footer — one line at the end of the scroll, never fixed. ─────────── */
+
+.app-footer {
+  position: relative; z-index: 0;
+  padding: var(--s-24) var(--s-24) calc(var(--chrome-bottom) + var(--s-24));
+  color: var(--text-3); font: var(--t-footnote); text-align: center;
+}
+/* The screen already reserves chrome clearance; the footer must not double it. */
+.app-shell:has(.app-screen) > .app-footer { padding-top: 0; margin-top: calc(-1 * (var(--chrome-bottom))); }
+.app-footer-links { display: flex; justify-content: center; align-items: center; gap: var(--s-8); margin-top: var(--s-4); }
+.app-footer a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--s-8); color: var(--text-2); text-decoration: none; }

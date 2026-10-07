@@ -1,0 +1,118 @@
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--duration-press) var(--ease-spring);
+}
+
+/* The visible 44px circle, inset from the 48px hit area. */
+.visual {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-full);
+}
+
+.visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--overlay-pressed);
+  opacity: 0;
+  transition: opacity 60ms linear;
+  pointer-events: none;
+}
+
+.btn:active:not([aria-disabled='true']):not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:active:not([aria-disabled='true']):not(:disabled) .visual::before {
+  opacity: 1;
+}
+
+.btn:focus-visible {
+  outline: none;
+}
+
+.btn:focus-visible .visual {
+  box-shadow: var(--focus-ring);
+}
+
+.plain .visual {
+  background: transparent;
+}
+
+.filled .visual {
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Chrome glass for sitting over the camera/3D hero. Falls back to a solid
+   fill under prefers-reduced-transparency or when backdrop-filter is unsupported. */
+.glass .visual {
+  background: var(--glass-chrome);
+  -webkit-backdrop-filter: var(--glass-chrome-filter);
+  backdrop-filter: var(--glass-chrome-filter);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass .visual {
+    background: var(--glass-chrome-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass .visual {
+    background: var(--glass-chrome-solid);
+  }
+}
+
+.btn[aria-disabled='true'],
+.btn:disabled {
+  opacity: var(--text-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--review);
+  color: var(--action);
+  font: var(--t-caption);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.badgeDot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--review);
+}

@@ -15,17 +15,17 @@ export default async function ManualRoutinesPage() {
 
   return <div className={`app-screen ${styles.screen}`}>
     <header className={styles.header}>
-      <div><p className="t-kicker">Your own targets</p><h1 className="t-headline">Manual routines</h1></div>
+      <div><p className="t-overline">Your own targets</p><h1 className="t-title-1">Manual routines</h1></div>
       <div className={styles.actions}>
         <Link className="a-secondary" href={identity.kind === 'athlete' ? '/train' : '/workouts'}>{identity.kind === 'athlete' ? 'My training' : 'Workouts'}</Link>
         <Link className="a-primary" href="/exercises">Create from exercises</Link>
       </div>
     </header>
-    <main className={`app-screen-x app-stack ${styles.main}`}>
+    <div className={`app-screen-x app-stack ${styles.main}`}>
       <p className="t-body">Build durable routines from attributed reference instructions. You choose every target; scans and automatic progression are not used.</p>
       {identity.kind === 'unavailable'
         ? <p role="alert" className={styles.error}>Training access is unavailable. Sign in again or verify the athlete relationship.</p>
         : <ManualRoutineSubjectWorkspace identity={identity} mode="list" />}
-    </main>
+    </div>
   </div>
 }

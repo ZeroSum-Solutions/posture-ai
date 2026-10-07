@@ -283,8 +283,8 @@ export default function SettingsPage() {
   return (
     <div className="app-screen app-screen-x app-stack">
       <header className={styles.header}>
-        <p className="t-kicker" style={{ marginBottom: 10 }}>Workspace control</p>
-        <h1 className="t-headline">Settings</h1>
+        <p className="t-overline" style={{ marginBottom: 10 }}>Workspace control</p>
+        <h1 className="t-title-1">Settings</h1>
         <p className="t-body" style={{ marginTop: 8 }}>Manage your identity, organization, and account security in one place.</p>
       </header>
 
@@ -296,7 +296,7 @@ export default function SettingsPage() {
 
       {/* Profile section */}
       <Surface tier="feature">
-        <h2 className="t-title" style={{ marginBottom: 16 }}>Profile</h2>
+        <h2 className="t-headline" style={{ marginBottom: 16 }}>Profile</h2>
         <form onSubmit={handleSaveProfile} className="a-form">
           <div className="a-field">
             <label className="a-label" htmlFor="display_name">Display Name</label>
@@ -330,7 +330,7 @@ export default function SettingsPage() {
 
       {/* Organization & Compliance section */}
       <Surface tier="feature">
-        <h2 className="t-title" style={{ marginBottom: 16 }}>Organization &amp; Compliance</h2>
+        <h2 className="t-headline" style={{ marginBottom: 16 }}>Organization &amp; Compliance</h2>
         <form onSubmit={handleSaveOrg} className="a-form">
           <div className="a-field">
             <label className="a-label" htmlFor="org_name">Organization Name</label>
@@ -406,7 +406,7 @@ export default function SettingsPage() {
 
       {/* Logo section */}
       <Surface tier="feature">
-        <h2 className="t-title" style={{ marginBottom: 16 }}>Practice Logo</h2>
+        <h2 className="t-headline" style={{ marginBottom: 16 }}>Practice Logo</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -435,7 +435,7 @@ export default function SettingsPage() {
 
       {/* Password section */}
       <Surface tier="feature">
-        <h2 className="t-title" style={{ marginBottom: 16 }}>Change Password</h2>
+        <h2 className="t-headline" style={{ marginBottom: 16 }}>Change Password</h2>
         <form onSubmit={handlePasswordChange} className="a-form">
           <div className="a-field">
             <label className="a-label" htmlFor="current_password">Current Password</label>

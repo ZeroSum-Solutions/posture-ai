@@ -1,0 +1,35 @@
+.disclosure {
+  width: 100%;
+}
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--s-12) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--r-sm);
+}
+.chevron {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--text-3);
+}
+.content {
+  overflow: hidden;
+}
+.contentInner {
+  padding-bottom: var(--s-16);
+}

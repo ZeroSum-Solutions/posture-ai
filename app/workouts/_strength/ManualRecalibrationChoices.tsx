@@ -61,7 +61,7 @@ function Choices({ offer, disabled = false, onConfirm }: Props) {
   }
 
   return <form className={styles.formSurface} aria-label="Choose a new setting after effort review" onSubmit={event => void confirm(event)}>
-    <h3 className="t-headline-sm">Review your starting setting</h3>
+    <h3 className="t-title-2">Review your starting setting</h3>
     <p>Current setting: {loadLabel(offer.currentLoad)}.</p>
     <p>Last comparable recorded load: {loadLabel(offer.sourceBindings.sourceDecision.lastComparableActualLoad)}.</p>
     {offer.kind === 'unavailable' ? <p role="status">No higher-resistance setting is available with this equipment. Keep the current target or request a program review.</p> : <>

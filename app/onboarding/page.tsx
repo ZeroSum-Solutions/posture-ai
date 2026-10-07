@@ -54,10 +54,10 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
-        <p className="t-kicker" style={{ marginBottom: 10 }}>Practitioner agreement</p>
-        <h1 className="t-headline">Review and accept the legal terms</h1>
+        <p className="t-overline" style={{ marginBottom: 10 }}>Practitioner agreement</p>
+        <h1 className="t-title-1">Review and accept the legal terms</h1>
         <p className="t-body" style={{ marginTop: 8 }}>
           Read each complete document below. Acceptance is recorded against the exact versions shown.
         </p>
@@ -108,6 +108,6 @@ export default function OnboardingPage() {
           {loading ? 'Saving…' : 'Accept and Continue'}
         </button>
       </Surface>
-    </main>
+    </div>
   )
 }

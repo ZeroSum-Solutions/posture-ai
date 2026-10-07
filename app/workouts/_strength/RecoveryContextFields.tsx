@@ -18,7 +18,7 @@ export function RecoveryContextFields({ value, onChange, disabled = false }: {
 }) {
   return <fieldset className={styles.fields} disabled={disabled}>
     <legend>Recovery check-in</legend>
-    <p className="t-quiet">Share any concerns before reviewing your next target. Unknown answers stay unknown.</p>
+    <p className="t-footnote">Share any concerns before reviewing your next target. Unknown answers stay unknown.</p>
     {fields.map(([field, label]) => <label key={field}>{label}<select
       value={value.report[field]}
       onChange={event => onChange({ ...value, report: { ...value.report, [field]: RecoveryContextSignalV1Schema.parse(event.target.value) } })}
@@ -39,6 +39,6 @@ export function RecoveryContextFields({ value, onChange, disabled = false }: {
       <option value="request_review">Request a program review</option>
       <option value="new_familiarization">Review a fresh starting point</option>
     </select></label>
-    <p className="t-quiet">A check-in does not change saved workouts or automatically reduce your training. Review the result before accepting any new target.</p>
+    <p className="t-footnote">A check-in does not change saved workouts or automatically reduce your training. Review the result before accepting any new target.</p>
   </fieldset>
 }

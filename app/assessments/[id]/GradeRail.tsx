@@ -52,7 +52,7 @@ export default function GradeRail({
               {Math.round(rail.score)}
               <span className={styles.railScoreUnit}> /100</span>
             </p>
-            <p className="t-quiet">deviation score</p>
+            <p className="t-footnote">deviation score</p>
           </div>
         </div>
         {rail.delta ? (

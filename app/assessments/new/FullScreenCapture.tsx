@@ -1103,7 +1103,7 @@ export default function FullScreenCapture({
                 <LegalNotice document={screeningNotice} compact />
               ) : (
                 <div>
-                  <h2 className="t-title" style={{ margin: '0 0 8px' }}>Ready to capture four views</h2>
+                  <h2 className="t-headline" style={{ margin: '0 0 8px' }}>Ready to capture four views</h2>
                   <p className="t-body" style={{ margin: 0 }}>Use a well-lit space and keep the client’s full body in frame.</p>
                 </div>
               )}
@@ -1136,7 +1136,7 @@ export default function FullScreenCapture({
       ) : phase === 'upload' ? (
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingBlock: 16 }}>
           <Surface tier="feature" style={{ width: 'min(100%, 560px)' }}>
-            <h2 className="t-title" style={{ margin: '0 0 8px' }}>Upload four posture views</h2>
+            <h2 className="t-headline" style={{ margin: '0 0 8px' }}>Upload four posture views</h2>
             <p className="t-body" style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>
               Choose one recent JPEG or PNG for each view. The same private storage and photo checks used by live capture apply before analysis.
             </p>

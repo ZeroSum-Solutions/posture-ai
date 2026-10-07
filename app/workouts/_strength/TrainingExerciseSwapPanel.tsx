@@ -169,8 +169,8 @@ function TrainingExerciseSwapPanelState({ sessionId, exerciseInstanceId, onAccep
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
     <div className={styles.sessionHeader} style={{ gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <div style={{ minWidth: 0, flex: '1 1 14rem' }}>
-        <p className="t-kicker">Future sessions</p>
-        <h3 className="t-headline-sm">Exercise alternatives</h3>
+        <p className="t-overline">Future sessions</p>
+        <h3 className="t-title-2">Exercise alternatives</h3>
         <p className="t-body">Review exact authored differences and choose a new starting target. Earlier and already-started sessions remain unchanged.</p>
       </div>
       {panel.status === 'idle' || panel.status === 'error'
@@ -205,7 +205,7 @@ function TrainingExerciseSwapPanelState({ sessionId, exerciseInstanceId, onAccep
             const selectedIndex = selection?.proposalId === proposal.proposalId ? selection.optionIndex : null
             const locked = acceptance.status === 'accepting' || acceptance.status === 'unknown' || acceptance.status === 'accepted'
             return <section key={proposal.proposalId} className={styles.pendingPanel} style={{ minWidth: 0 }}>
-              <p className="t-kicker">Alternative for {proposal.sourceExercise.label}</p>
+              <p className="t-overline">Alternative for {proposal.sourceExercise.label}</p>
               <h4>{proposal.replacementExercise.label}</h4>
               <ul>
                 {proposal.replacementExercise.differences.map((difference, index) => (

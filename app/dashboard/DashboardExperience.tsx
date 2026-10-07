@@ -33,8 +33,8 @@ export default function DashboardExperience({
     return (
       <div className="app-screen app-screen-x">
         <section className={styles.verdict} role="alert">
-          <p className="t-kicker" style={{ marginBottom: 12 }}>Dashboard unavailable</p>
-          <h1 className="t-headline">Practice data could not load.</h1>
+          <p className="t-overline" style={{ marginBottom: 12 }}>Dashboard unavailable</p>
+          <h1 className="t-title-1">Practice data could not load.</h1>
         </section>
         <Surface tier="feature">
           <p className="t-body">{loadError}</p>
@@ -71,8 +71,8 @@ export default function DashboardExperience({
         <Link href="/workouts" className="a-secondary">Workouts</Link>
       </nav>
       <section className={styles.verdict}>
-        <p className="t-kicker" style={{ marginBottom: 12 }}>{model.kicker}</p>
-        <h1 className="t-headline">
+        <p className="t-overline" style={{ marginBottom: 12 }}>{model.kicker}</p>
+        <h1 className="t-title-1">
           {model.headline.lead}
           {model.headline.tail ? <> <em>{model.headline.tail}</em></> : null}
         </h1>
@@ -82,7 +82,7 @@ export default function DashboardExperience({
         {/* Tier 1 — the screen's subject. */}
         <Surface tier="feature">
           <div className={styles.queueHead}>
-            <h2 className="t-title">Awaiting your sign-off</h2>
+            <h2 className="t-headline">Awaiting your sign-off</h2>
             {model.queueTotal > 0
               ? <Chip band="monitor" size="sm"><span className="n">{model.queueTotal}</span> due</Chip>
               : <Chip band="maintain" size="sm" icon="check-circle-linear">Clear</Chip>}
@@ -91,7 +91,7 @@ export default function DashboardExperience({
           {model.queue.length === 0 ? (
             <div className={styles.empty}>
               <p className="t-body">Every completed scan has been signed off.</p>
-              <p className="t-quiet">New captures land here the moment scoring finishes.</p>
+              <p className="t-footnote">New captures land here the moment scoring finishes.</p>
             </div>
           ) : (
             <div>
@@ -137,7 +137,7 @@ export default function DashboardExperience({
                 <span className={styles.scanName} style={{ display: 'block' }}>{model.rescan.name}</span>
                 <span className={styles.scanMeta} style={{ display: 'block' }}>{model.rescan.meta}</span>
               </span>
-              <span className="t-quiet" style={{ flexShrink: 0 }}>{model.rescan.readout}</span>
+              <span className="t-footnote" style={{ flexShrink: 0 }}>{model.rescan.readout}</span>
             </span>
           </SurfaceLink>
         ) : null}
@@ -160,7 +160,7 @@ export default function DashboardExperience({
         </div>
 
         <div className={styles.sectionHead}>
-          <h2 className="t-headline-sm">Recent scans</h2>
+          <h2 className="t-title-2">Recent scans</h2>
           <Link href="/clients" className={styles.seeAll}>
             See all
             <Icon name="arrow-right-up-linear" size={14} />

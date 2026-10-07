@@ -60,18 +60,18 @@ export default function ManualRoutineList({ subjectId }: { subjectId: string }) 
     }
   }
 
-  if (visibleState.status === 'loading') return <p role="status" className="t-quiet">Loading manual routines…</p>
+  if (visibleState.status === 'loading') return <p role="status" className="t-footnote">Loading manual routines…</p>
   if (visibleState.status === 'error') return <Surface tier="tile" innerClassName={styles.empty}><p role="alert">{visibleState.message}</p><button type="button" className="a-secondary" onClick={() => void retry()}>Retry routines</button></Surface>
   if (visibleState.routines.length === 0) return <Surface tier="tile" innerClassName={styles.empty}>
-    <h2 className="t-headline-sm">No manual routines yet</h2>
+    <h2 className="t-title-2">No manual routines yet</h2>
     <p className="t-body">Choose movements from the reference library and enter your own targets.</p>
     <Link className="a-primary" href="/exercises">Choose exercises</Link>
   </Surface>
 
   return <section className={styles.routineList} aria-labelledby="manual-routines-heading">
-    <div className={styles.sectionHeading}><div><p className="t-kicker">Saved</p><h2 id="manual-routines-heading" className="t-headline-sm">Manual routines</h2></div><span className="t-quiet">{visibleState.routines.length} routine{visibleState.routines.length === 1 ? '' : 's'}</span></div>
+    <div className={styles.sectionHeading}><div><p className="t-overline">Saved</p><h2 id="manual-routines-heading" className="t-title-2">Manual routines</h2></div><span className="t-footnote">{visibleState.routines.length} routine{visibleState.routines.length === 1 ? '' : 's'}</span></div>
     {visibleState.routines.map(routine => <Surface key={routine.routineId} tier="tile" innerClassName={styles.listCard}>
-      <div><strong>{routine.title}</strong><p className="t-quiet">{routine.itemCount} exercise{routine.itemCount === 1 ? '' : 's'} · Updated {routine.updatedAt.slice(0, 10)}</p></div>
+      <div><strong>{routine.title}</strong><p className="t-footnote">{routine.itemCount} exercise{routine.itemCount === 1 ? '' : 's'} · Updated {routine.updatedAt.slice(0, 10)}</p></div>
       <Link className="a-secondary" href={`/workouts/manual/${encodeURIComponent(routine.routineId)}`}>Open routine</Link>
     </Surface>)}
     {visibleState.pageStatus === 'error' ? <p role="alert" className={styles.error}>More routines could not be loaded. Try again.</p> : null}

@@ -88,10 +88,10 @@ function ExerciseReference({ item }: { item: DraftItem }) {
   return <>
     {item.exercise.media ? <>
       <Image className={styles.image} src={item.exercise.media.posterUrl} alt={item.exercise.media.alt} width={item.exercise.media.width} height={item.exercise.media.height} />
-      <p className="t-quiet">Image by {item.exercise.media.source.author} · <a href={item.exercise.media.source.assetUrl} target="_blank" rel="noreferrer">wger image source</a> · <a href={item.exercise.media.source.license.url} target="_blank" rel="noreferrer">{item.exercise.media.source.license.shortName}</a> · unmodified</p>
+      <p className="t-footnote">Image by {item.exercise.media.source.author} · <a href={item.exercise.media.source.assetUrl} target="_blank" rel="noreferrer">wger image source</a> · <a href={item.exercise.media.source.license.url} target="_blank" rel="noreferrer">{item.exercise.media.source.license.shortName}</a> · unmodified</p>
     </> : null}
     <p className="t-body">{item.exercise.instructions}</p>
-    <p className="t-quiet">By {item.exercise.source.author} · <a href={item.exercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`Source for ${item.exercise.name}`}>wger source</a> · <a href={item.exercise.source.license.url} target="_blank" rel="noreferrer">{item.exercise.source.license.shortName}</a></p>
+    <p className="t-footnote">By {item.exercise.source.author} · <a href={item.exercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`Source for ${item.exercise.name}`}>wger source</a> · <a href={item.exercise.source.license.url} target="_blank" rel="noreferrer">{item.exercise.source.license.shortName}</a></p>
   </>
 }
 
@@ -159,21 +159,21 @@ export default function ManualRoutineEditor({
 
   return <section className={styles.editor} aria-labelledby="manual-editor-heading">
     <div>
-      <p className="t-kicker">Manual routine</p>
-      <h2 id="manual-editor-heading" className="t-headline-sm">Set your own targets</h2>
+      <p className="t-overline">Manual routine</p>
+      <h2 id="manual-editor-heading" className="t-title-2">Set your own targets</h2>
       <p className="t-body">Reference instructions are shown for context. Targets are entered by you, with no screening influence or automatic progression.</p>
     </div>
     <label className={styles.field}>Routine name
       <input className="a-input" value={title} maxLength={120} disabled={disabled} onChange={event => { setTitle(event.target.value); setState({ status: 'idle' }) }} />
     </label>
     <Surface tier="tile" innerClassName={styles.addExercise}>
-      <div><p className="t-kicker">Exercise library</p><h3 className="t-title">Add another exercise</h3></div>
+      <div><p className="t-overline">Exercise library</p><h3 className="t-headline">Add another exercise</h3></div>
       <label className={styles.field}>Search all reference exercises
         <input className="a-input" type="search" value={query} disabled={disabled} onChange={event => setQuery(event.target.value)} placeholder="Search name, category, or equipment" />
       </label>
       <div className={styles.exerciseChoices}>
         {available.map(exercise => <button key={exercise.id} type="button" className="a-secondary" disabled={disabled || items.length >= 280} onClick={() => setItems(current => current.length >= 280 ? current : [...current, initialItem(exercise)])}>Add {exercise.name}</button>)}
-        {available.length === 0 ? <span className="t-quiet">No additional exercises match.</span> : null}
+        {available.length === 0 ? <span className="t-footnote">No additional exercises match.</span> : null}
       </div>
     </Surface>
     {items.length === 0 ? <Surface tier="tile" innerClassName={styles.empty}><p className="t-body">Add at least one exercise to save this routine.</p></Surface> : null}
@@ -181,7 +181,7 @@ export default function ManualRoutineEditor({
       {items.map((item, index) => <li key={item.itemId}>
         <Surface tier="tile" innerClassName={styles.editorCard}>
           <div className={styles.itemHeading}>
-            <div><span className="t-kicker">{String(index + 1).padStart(2, '0')}</span><h3 className="t-title">{item.exercise.name}</h3></div>
+            <div><span className="t-overline">{String(index + 1).padStart(2, '0')}</span><h3 className="t-headline">{item.exercise.name}</h3></div>
             <div className={styles.compactActions}>
               <button type="button" className="a-secondary" disabled={disabled || index === 0} aria-label={`Move ${item.exercise.name} up`} onClick={() => move(index, -1)}>↑</button>
               <button type="button" className="a-secondary" disabled={disabled || index === items.length - 1} aria-label={`Move ${item.exercise.name} down`} onClick={() => move(index, 1)}>↓</button>

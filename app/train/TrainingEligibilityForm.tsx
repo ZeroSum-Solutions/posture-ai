@@ -226,8 +226,8 @@ export default function TrainingEligibilityForm() {
     <form className={styles.builder} onSubmit={event => void save(event)}>
       <div className={styles.sectionHeading}>
         <div>
-          <p className="t-kicker">Before you train</p>
-          <h2 className="t-headline-sm">Tell us about your current situation</h2>
+          <p className="t-overline">Before you train</p>
+          <h2 className="t-title-2">Tell us about your current situation</h2>
           <p className="t-body">Your answers are saved for review. Saving them does not approve a program or clear you to train.</p>
         </div>
         <span className="a-badge">{loadState.projection.revision === 0 ? 'No answers saved yet' : `Saved response ${loadState.projection.revision}`}</span>

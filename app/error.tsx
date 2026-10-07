@@ -17,12 +17,12 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <Surface tier="feature">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
           <Icon name="close-circle-linear" size={32} />
-          <h1 className="t-headline-sm">Something went wrong</h1>
+          <h1 className="t-title-2">Something went wrong</h1>
           <p className="t-body" role="alert" aria-live="assertive">
             An unexpected error occurred while loading this page. Your data has not been affected.
           </p>
           {error.digest && (
-            <p className="t-quiet n">Error reference: {error.digest}</p>
+            <p className="t-footnote n">Error reference: {error.digest}</p>
           )}
           <button type="button" onClick={reset} className="a-primary" style={{ marginTop: 8 }}>
             Try again

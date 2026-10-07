@@ -84,7 +84,7 @@ export default function ManualRoutineSubjectWorkspace({ identity, mode, exercise
 
   return <div className={styles.subjectWorkspace}>
     {identity.kind === 'practitioner' ? <Surface tier="tile" innerClassName={styles.subjectPicker}>
-      <div><p className="t-kicker">Athlete</p><h2 className="t-title">Choose who this routine is for</h2></div>
+      <div><p className="t-overline">Athlete</p><h2 className="t-headline">Choose who this routine is for</h2></div>
       <label className={styles.field}>Client
         <select className="a-input" value={clientId} disabled={createState !== 'idle'} onChange={event => void selectClient(event.target.value)}>
           <option value="">Choose a connected client</option>
@@ -92,7 +92,7 @@ export default function ManualRoutineSubjectWorkspace({ identity, mode, exercise
         </select>
       </label>
       {identity.clients.length === 0 ? <p className="t-body">No connected athlete accounts are available. Set up an athlete account before saving a routine.</p> : null}
-      {state === 'loading' ? <p role="status" className="t-quiet">Loading athlete access…</p> : null}
+      {state === 'loading' ? <p role="status" className="t-footnote">Loading athlete access…</p> : null}
       {state === 'error' ? <p role="alert" className={styles.error}>This client is not connected to an active athlete training account.</p> : null}
     </Surface> : null}
 

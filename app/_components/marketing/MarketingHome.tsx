@@ -30,7 +30,7 @@ export function MarketingHome() {
         </div>
       </header>
 
-      <main>
+      <div>
         <section className={styles.hero} aria-labelledby="hero-title">
           <div className={styles.heroCopy}>
             <p className={styles.kicker}><span /> Built for movement professionals</p>
@@ -92,7 +92,7 @@ export function MarketingHome() {
         </section>
 
         <section className={styles.finalCta} aria-labelledby="cta-title"><p className={styles.kicker}><span /> Start with a baseline</p><h2 id="cta-title">Give every client a better starting point.</h2><p>Private capture and clear screening signals for a more focused way to coach movement.</p><Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture screen <span aria-hidden="true">↗</span></Link></section>
-      </main>
+      </div>
     </div>
   )
 }

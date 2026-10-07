@@ -95,11 +95,11 @@ export default function RestTimer({ durationSeconds, exerciseLabel }: {
   return <section className={styles.restTimer} aria-label={`${exerciseLabel} rest timer`}>
     <CountdownRing progress={progress} color="var(--text-secondary)" size={152} strokeWidth={8} dimmed={state !== 'running'}>
       <output className="t-readout-xl" role="timer" aria-label={`Rest time remaining ${timeLabel}`}>{time}</output>
-      <span className="t-kicker">rest</span>
+      <span className="t-overline">rest</span>
     </CountdownRing>
     <div className={styles.restTimerDetails}>
       <div>
-        <p className="t-kicker">Optional rest timer</p>
+        <p className="t-overline">Optional rest timer</p>
         <p className="t-body">{nextAction(state)}</p>
       </div>
       <div className={styles.restTimerControls}>

@@ -169,10 +169,10 @@ export default function TrainingCoachingRelationshipsPanel({
   const active = projection?.relationships.filter(relationship => relationship.status === 'active') ?? []
   const ended = projection?.relationships.filter(relationship => relationship.status === 'revoked') ?? []
   return <Surface tier="tile" innerClassName={styles.pendingPanel}>
-    <p className="t-kicker">Coaching access</p>
-    <h2 className="t-headline-sm">Coaching connections</h2>
+    <p className="t-overline">Coaching access</p>
+    <h2 className="t-title-2">Coaching connections</h2>
     <p className="t-body">Review what a connected coach can do and end an active connection.</p>
-    {loadState === 'loading' ? <p role="status" className="t-quiet">Loading coaching connections…</p> : null}
+    {loadState === 'loading' ? <p role="status" className="t-footnote">Loading coaching connections…</p> : null}
     {loadState === 'blocked' ? <p role="alert" className={styles.error}>You do not have permission to manage these coaching connections.</p> : null}
     {loadState === 'error' ? <div>
       <p role="alert" className={styles.error}>{message}</p>
@@ -181,9 +181,9 @@ export default function TrainingCoachingRelationshipsPanel({
     {loadState === 'ready' ? <>
       {message ? <p role={revokeState === 'uncertain' || revokeState === 'conflict' ? 'alert' : 'status'} className="t-body">{message}</p> : null}
       {revokeState === 'conflict' ? <button type="button" className="a-secondary" onClick={() => void load(undefined, 'Current coaching connections loaded.')}>Reload connections</button> : null}
-      {active.length === 0 ? <p className="t-quiet">No active coaching connection.</p> : <div className="app-stack">
+      {active.length === 0 ? <p className="t-footnote">No active coaching connection.</p> : <div className="app-stack">
         {active.map((relationship, index) => <section key={relationship.relationshipId} aria-labelledby={`coaching-relationship-${index}`} className={styles.entryState}>
-          <h3 id={`coaching-relationship-${index}`} className="t-headline-sm">
+          <h3 id={`coaching-relationship-${index}`} className="t-title-2">
             {relationship.counterpartyDisplayLabel
               ?? `${projection?.viewerRole === 'athlete' ? 'Coach name unavailable' : 'Athlete name unavailable'} · connection ${relationship.connectionReference}`}
           </h3>
@@ -194,7 +194,7 @@ export default function TrainingCoachingRelationshipsPanel({
           </details>
           {relationship.canRevoke
             ? <button type="button" className="a-secondary" onClick={() => { requestId.current = null; setSelected(relationship); setRevokeState('idle'); setMessage('') }}>End coaching connection</button>
-            : <p className="t-quiet">Only the athlete or a coach with permission can end this connection.</p>}
+            : <p className="t-footnote">Only the athlete or a coach with permission can end this connection.</p>}
         </section>)}
       </div>}
       {ended.length > 0 ? <details>
@@ -204,7 +204,7 @@ export default function TrainingCoachingRelationshipsPanel({
         </li>)}</ul>
       </details> : null}
       {selected ? <section role="alertdialog" aria-labelledby="end-coaching-heading" aria-describedby="end-coaching-description" className={styles.pendingPanel}>
-        <h3 id="end-coaching-heading" className="t-headline-sm">End this coaching connection?</h3>
+        <h3 id="end-coaching-heading" className="t-title-2">End this coaching connection?</h3>
         <p id="end-coaching-description" className="t-body">The coach will lose future access, and active coach-assigned training will end. Existing planned sessions and training history stay available to the athlete. This does not create or convert a self-directed program.</p>
         <div className={styles.saveActions}>
           <button type="button" className="a-secondary" disabled={revokeState === 'submitting'} onClick={() => { requestId.current = null; setSelected(null); setRevokeState('idle') }}>Keep connection</button>

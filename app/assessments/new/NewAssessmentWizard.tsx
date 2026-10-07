@@ -1015,9 +1015,9 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
               <Icon name="alt-arrow-left-linear" size={16} /> Back to Clients
             </Link>
           </div>
-          <p className="t-kicker" style={{ marginBottom: 10 }}>Guided capture</p>
+          <p className="t-overline" style={{ marginBottom: 10 }}>Guided capture</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-            <h1 className="t-headline" style={{ margin: 0 }}>New assessment</h1>
+            <h1 className="t-title-1" style={{ margin: 0 }}>New assessment</h1>
             {testMode && <Chip band="info" size="sm">TEST MODE</Chip>}
           </div>
 
@@ -1064,7 +1064,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         <div>
           <div className={styles.clientStepHeader}>
             <div>
-              <h2 className="t-title" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 1: Select Client</h2>
+              <h2 className="t-headline" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 1: Select Client</h2>
               <p className="t-body" style={{ margin: 0 }}>Choose an existing client or add someone new.</p>
             </div>
             <Link href="/clients/new?returnTo=capture" className={`a-primary ${styles.newClientAction}`}>
@@ -1242,12 +1242,12 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
         testMode ? (
           <div>
             <div style={{ marginBottom: '16px' }}>
-              <h2 className="t-title" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 2: Confirm Test Mode</h2>
+              <h2 className="t-headline" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>Step 2: Confirm Test Mode</h2>
               <p className="t-body" style={{ margin: 0 }}>Test mode — no client required</p>
             </div>
             <Surface tier="feature">
               <div style={{ background: tint('info'), boxShadow: `inset 0 0 0 1px ${ring('info')}`, borderRadius: 'var(--radius-sm)', padding: '16px' }}>
-                <p className="t-title" style={{ color: tone('info'), margin: '0 0 8px' }}>Test Mode Active</p>
+                <p className="t-headline" style={{ color: tone('info'), margin: '0 0 8px' }}>Test Mode Active</p>
                 <p className="t-body" style={{ margin: 0 }}>
                   Pre-computed fixture landmarks will be injected directly into the scoring engine.
                   Results will be saved to the database and you will be redirected to the results page.
@@ -1284,7 +1284,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
             // Error state with retry
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <Surface tier="tile" style={{ maxWidth: 400 }}>
-                <p className="t-title" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Screening needs attention</p>
+                <p className="t-headline" style={{ color: tone('review'), fontWeight: 700, fontSize: '1.1rem', margin: '0 0 8px' }}>Screening needs attention</p>
                 <p className="t-body" style={{ margin: '0 0 20px' }}>{processingError}</p>
                 <button onClick={handleRetry} className="a-primary">Try Again</button>
               </Surface>
@@ -1296,7 +1296,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
             <div role="status" aria-live="polite">
               <div aria-hidden="true" style={{ width: '64px', height: '64px', border: '4px solid rgba(255,255,255,0.12)', borderTop: '4px solid var(--action)', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
               <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-              <h2 className="t-headline-sm" style={{ marginBottom: '8px' }}>
+              <h2 className="t-title-2" style={{ marginBottom: '8px' }}>
                 {savingCaptureImages ? 'Saving capture photos…' : testMode ? 'Running Test Analysis...' : 'Analyzing Posture...'}
               </h2>
               <p className="t-body">
@@ -1325,7 +1325,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
                 </div>
               )}
               {assessmentId && (
-                <p className="t-quiet" style={{ marginTop: '8px' }}>
+                <p className="t-footnote" style={{ marginTop: '8px' }}>
                   Assessment ID: {assessmentId}
                 </p>
               )}

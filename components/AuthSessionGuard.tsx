@@ -68,7 +68,7 @@ export default function AuthSessionGuard({
 
   if (endedReason) {
     return (
-      <main
+      <div
         role="status"
         aria-live="polite"
         className="app-screen app-screen-x"
@@ -76,13 +76,13 @@ export default function AuthSessionGuard({
       >
         <Surface tier="feature">
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-            <h1 className="t-headline-sm">{endedReason === 'account_changed' ? 'Account changed' : 'Session ended'}</h1>
+            <h1 className="t-title-2">{endedReason === 'account_changed' ? 'Account changed' : 'Session ended'}</h1>
             <p className="t-body">{endedReason === 'account_changed'
               ? 'Reloading this page for the current account…'
               : 'This device was signed out. Returning to the secure sign-in page…'}</p>
           </div>
         </Surface>
-      </main>
+      </div>
     )
   }
 

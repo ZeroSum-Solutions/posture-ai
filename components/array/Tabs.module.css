@@ -1,47 +1,76 @@
+/* Restyled to the v3 segmented look (DESIGN.md › spec §3.3): same track as
+   SegmentedControl, but `role=tablist` with panels, for content panes rather
+   than inline mode toggles. Max 3 tabs on a phone. */
 .strip {
+  position: relative;
   display: flex;
   gap: 2px;
   padding: 4px;
-  border-radius: 9999px;
-  border: 1px solid var(--hairline);
-  background: rgba(0, 0, 0, 0.4);
-  -webkit-backdrop-filter: blur(var(--blur-tile));
-  backdrop-filter: blur(var(--blur-tile));
+  /* Equal-width segments so the CSS thumb lines up with each tab. */
+  isolation: isolate;
+  min-height: 44px;
+  border-radius: var(--r-full);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .tab {
-  flex: 1;
-  min-width: 0;
-  /* 40px + the strip's 4px padding clears the 44px touch target. */
-  min-height: 40px;
-  padding: 0 6px;
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 48px;
+  /* 44px + the strip's 4px padding clears the 48 touch target. */
+  min-height: 36px;
+  padding: 0 var(--s-8);
   border: 0;
-  border-radius: 9999px;
+  border-radius: var(--r-full);
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 13px;
+  color: var(--text-2);
+  font: var(--t-subhead);
   font-weight: 500;
-  letter-spacing: -0.01em;
   cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   /* Labels stay on one line: a wrapping tab bar changes the strip's height and
      shifts every panel below it. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 140ms ease, background 140ms ease;
 }
 
-.tab:hover:not(.tabActive) {
-  color: rgba(255, 255, 255, 0.85);
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover:not(.tabActive) {
+    color: var(--text-1);
+  }
 }
 
-.tabActive {
-  background: #fff;
-  color: #000;
-  box-shadow: 0 8px 14px -6px rgba(0, 0, 0, 0.5);
+.thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  z-index: 0;
+  /* Equal segments: (track − padding − gaps) / count; slides by one segment +
+     one gap per index. */
+  width: calc((100% - 8px - (var(--tab-count) - 1) * 2px) / var(--tab-count));
+  transform: translateX(calc(var(--tab-index) * (100% + 2px)));
+  border-radius: var(--r-full);
+  background: var(--action);
+  transition: transform var(--duration-layout) var(--ease-spring);
+  pointer-events: none;
+}
+
+.tabLabel {
+  position: relative;
+  z-index: 1;
+}
+
+.tabActive .tabLabel {
+  color: var(--text-on-action);
 }
 
 .tab:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.85);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }

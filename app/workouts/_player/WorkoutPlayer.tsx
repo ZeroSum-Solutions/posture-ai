@@ -474,7 +474,7 @@ export function WorkoutPlayer({
           {redFlag === 'clear' && state.phase === 'preroll' && item && (
             <Fade key={`preroll-${state.index}`} reduce={!!reduceMotion}>
               <div>
-                <p className="t-kicker" style={{ color: accent, marginBottom: 8 }}>Get ready</p>
+                <p className="t-overline" style={{ color: accent, marginBottom: 8 }}>Get ready</p>
                 {/* Largest element on screen, tabular-nums via t-readout-xl so the
                     3-2-1 countdown never reflows as it drops a digit. */}
                 <div className="t-readout-xl">{secs(state.remainingMs)}</div>
@@ -685,7 +685,7 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
   return (
     <Surface tier="feature">
       {clientFirstName && <p style={{ color: accent, fontSize: 13, fontWeight: 400, margin: '0 0 8px' }}>Hi {clientFirstName}</p>}
-      <h1 className="t-headline" style={{ margin: '0 0 10px' }}>Your guided session</h1>
+      <h1 className="t-title-1" style={{ margin: '0 0 10px' }}>Your guided session</h1>
       <p className="t-body" style={{ margin: '0 0 4px' }}>
         {snapshot.items.length} movements · about {mins} min
       </p>
@@ -707,13 +707,13 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
 function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; index: number; total: number; accent: string; onStart: () => void }) {
   return (
     <Surface tier="feature">
-      <p className="t-kicker" style={{ marginBottom: 10 }}>
+      <p className="t-overline" style={{ marginBottom: 10 }}>
         Up next · {index + 1} of {total}
       </p>
       <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, background: colorMix(accent, 14), color: accent, fontWeight: 600, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: 0, marginBottom: 12 }}>
         {item.stepLabel}
       </div>
-      <h2 className="t-headline" style={{ margin: '0 0 8px' }}>{item.name}</h2>
+      <h2 className="t-title-1" style={{ margin: '0 0 8px' }}>{item.name}</h2>
       <p className="t-body" style={{ margin: '0 0 6px' }}>{timingLabel(item)}</p>
       <p className="t-body" style={{ maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
       {item.steps && item.steps.length > 0 && (
@@ -763,11 +763,11 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
         // width so a counting-down timer never reflows digit to digit.
         <CountdownRing progress={progress} color={ringColor} dimmed={isRest}>
           <div className="t-readout-xl">{secs(state.remainingMs)}</div>
-          <p className="t-kicker">{isRest ? 'seconds' : 'hold'}</p>
+          <p className="t-overline">{isRest ? 'seconds' : 'hold'}</p>
         </CountdownRing>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <p className="t-kicker">Target</p>
+          <p className="t-overline">Target</p>
           <div className="t-readout-xl" style={{ color: accent }}>×{repsPerSet}</div>
           <div className="t-body">controlled reps</div>
         </div>
@@ -835,7 +835,7 @@ function roundToggle(on: boolean): React.CSSProperties {
 function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () => void; onStop: () => void }) {
   return (
     <Surface tier="feature">
-      <h2 className="t-headline" style={{ margin: '0 0 20px' }}>
+      <h2 className="t-title-1" style={{ margin: '0 0 20px' }}>
         Before you start — are you feeling any sharp or worsening pain right now?
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
@@ -867,7 +867,7 @@ function StopCard({ onDismiss }: { onDismiss?: () => void }) {
     // props, so the e2e hook has to sit outside it.
     <div data-testid="stop-card">
       <Surface tier="feature">
-        <h2 className="t-headline" style={{ margin: '0 0 16px' }}>
+        <h2 className="t-title-1" style={{ margin: '0 0 16px' }}>
           Let&apos;s pause here.
         </h2>
         <p className="t-body" style={{ margin: '0 auto 28px', maxWidth: 360 }}>

@@ -1,0 +1,99 @@
+/**
+ * Barrel for the v3 component library (DESIGN.md › Components). Three agents
+ * land exports here concurrently (shell / controls+loaders / content+overlay)
+ * — APPEND your block, never rewrite another agent's lines or re-order the
+ * file. `/dev/kit` imports everything from this one module.
+ */
+
+// ── Surface, Card, ListRow, SectionHeader, Disclosure, Avatar, Banner (content agent) ──
+export { Surface, SurfaceLink, SurfaceButton } from './Surface'
+export { Card } from './Card'
+export type { CardProps } from './Card'
+export { ListRow, ListGroup } from './ListRow'
+export type { ListRowProps } from './ListRow'
+export { SectionHeader } from './SectionHeader'
+export type { SectionHeaderProps } from './SectionHeader'
+export { Disclosure } from './Disclosure'
+export type { DisclosureProps } from './Disclosure'
+export { Avatar } from './Avatar'
+export type { AvatarProps } from './Avatar'
+export { Banner } from './Banner'
+export type { BannerProps, BannerVariant } from './Banner'
+
+// ── Chips & badges (content agent) ──
+export { FilterChip, ChipRow } from './FilterChip'
+export type { FilterChipProps } from './FilterChip'
+export { Badge } from './Badge'
+export type { BadgeProps } from './Badge'
+export { SeverityChip } from './SeverityChip'
+export type { SeverityChipBand, SeverityChipProps } from './SeverityChip'
+export { GradeBadge } from './GradeBadge'
+export type { GradeBadgeProps } from './GradeBadge'
+
+// ── Overlays (content agent) ──
+export { Sheet } from './Sheet'
+export type { SheetDetent, SheetProps } from './Sheet'
+export { Dialog } from './Dialog'
+export type { DialogProps } from './Dialog'
+export { ToastProvider, useToast } from './Toast'
+export type { ToastOptions, ToastTone } from './Toast'
+
+// ── Empty / error / stat / readout / stepper (content agent) ──
+export { EmptyState } from './EmptyState'
+export type { EmptyStateProps } from './EmptyState'
+export { ErrorState } from './ErrorState'
+export type { ErrorStateProps } from './ErrorState'
+export { Stat } from './Stat'
+export type { StatProps } from './Stat'
+export { Readout } from './Readout'
+export type { ReadoutBand, ReadoutProps } from './Readout'
+export { Stepper } from './Stepper'
+export type { StepperProps, StepperStep } from './Stepper'
+
+// ── Controls (controls+loaders agent) ──
+export { Button } from './Button'
+export type { ButtonProps, ButtonVariant, ButtonSize } from './Button'
+export { IconButton } from './IconButton'
+export type { IconButtonProps, IconButtonVariant } from './IconButton'
+export { TextField } from './TextField'
+export type { TextFieldProps } from './TextField'
+export { Textarea } from './Textarea'
+export type { TextareaProps } from './Textarea'
+export { SearchField } from './SearchField'
+export type { SearchFieldProps } from './SearchField'
+export { Select } from './Select'
+export type { SelectProps } from './Select'
+export { SegmentedControl } from './SegmentedControl'
+export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl'
+export { Tabs, tabId, tabPanelId, tabPanelProps } from './Tabs'
+export type { TabOption } from './Tabs'
+export { Switch } from './Switch'
+export type { SwitchProps } from './Switch'
+export { Checkbox } from './Checkbox'
+export type { CheckboxProps } from './Checkbox'
+export { Radio } from './Radio'
+export type { RadioProps } from './Radio'
+
+// ── Springy loader family (controls+loaders agent) ──
+export { Spinner } from './Spinner'
+export type { SpinnerProps, SpinnerSize, SpinnerTone } from './Spinner'
+export { BlobLoader } from './BlobLoader'
+export type { BlobLoaderProps } from './BlobLoader'
+export { DotsBounce } from './DotsBounce'
+export type { DotsBounceProps } from './DotsBounce'
+export { Skeleton, ListRowSkeleton, CardSkeleton } from './Skeleton'
+export type { SkeletonProps, SkeletonShape } from './Skeleton'
+export { ProgressBar } from './ProgressBar'
+export type { ProgressBarProps } from './ProgressBar'
+export { ProgressRing } from './ProgressRing'
+export type { ProgressRingProps, ProgressRingSize } from './ProgressRing'
+export { PullToRefresh } from './PullToRefresh'
+export type { PullToRefreshProps } from './PullToRefresh'
+export { useDelayedBusy } from './useDelayedBusy'
+export type { DelayedBusyOptions } from './useDelayedBusy'
+
+// ── Shell (shell agent) ──
+export { default as TabBar } from './TabBar'
+export { default as TopBar } from './TopBar'
+export { default as ActionBar } from './ActionBar'
+export { default as RouteProgress } from './RouteProgress'

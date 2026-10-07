@@ -1,0 +1,40 @@
+/* Supporting primitive, spec §3.15. Deliberately SOLID, never glass: with the
+   tab bar (chrome glass) and a collapsed TopBar (chrome glass) both already
+   on screen, a third blurred layer here would bust the 2-blur budget
+   (spec §6.5) and §2.5's "never more than two blurred layers visible". */
+
+.bar {
+  position: fixed;
+  left: max(0px, var(--sa-l));
+  right: max(0px, var(--sa-r));
+  bottom: calc(var(--tabbar-h) + var(--sa-b));
+  z-index: var(--z-actionbar);
+  width: min(var(--content-max), 100%);
+  margin: 0 auto;
+  min-height: var(--actionbar-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s-4);
+  padding: var(--s-12) var(--screen-x);
+  background: var(--surface-solid);
+  border-top: 1px solid var(--hairline);
+}
+
+/* The tab bar is hidden (wizard/consent/share routes, or the keyboard is
+   open): this becomes the bottom-most chrome, so it — not something below
+   it — clears the home indicator. Flat `--actionbar-h` otherwise, with no
+   safe-area padding baked in twice. */
+.bar[data-standalone='true'] {
+  bottom: 0;
+  padding-bottom: calc(var(--s-12) + var(--sa-b));
+}
+
+.reason {
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  gap: var(--s-12);
+}

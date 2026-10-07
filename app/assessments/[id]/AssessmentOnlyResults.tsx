@@ -154,7 +154,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
     <div className={styles.reviewPage} data-testid="assessment-only-results">
       <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to client</Link>
       <header className={styles.studioHeader}>
-        <p className="t-kicker">Screening review</p>
+        <p className="t-overline">Screening review</p>
         <h1>Screening results</h1>
         <p>{hasCurrentGrade
           ? 'Start with the grade, then open the practitioner findings when you are ready to review them.'
@@ -200,7 +200,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
           </div>
         </aside>
 
-        <main className={styles.canvas}>
+        <div className={styles.canvas}>
           <ReviewTabs
             defaultTabId="assessment-summary"
             label="Assessment result details"
@@ -318,7 +318,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
               },
             ]}
           />
-        </main>
+        </div>
       </div>
     </div>
   )
