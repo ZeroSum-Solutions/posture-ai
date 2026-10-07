@@ -50,16 +50,7 @@
   overflow: hidden;
   border-radius: var(--r-xl);
   border: 1px solid transparent;
-  background:
-    linear-gradient(var(--glass-card), var(--glass-card)) padding-box,
-    conic-gradient(
-        from var(--field-angle, 210deg),
-        rgba(255, 255, 255, 0.32),
-        rgba(255, 255, 255, 0.04) 30%,
-        rgba(255, 255, 255, 0.04) 70%,
-        rgba(255, 255, 255, 0.26)
-      )
-      border-box;
+  background: var(--glass-card) padding-box;
   -webkit-backdrop-filter: var(--glass-card-filter);
   backdrop-filter: var(--glass-card-filter);
   box-shadow: var(--glass-card-highlight), var(--glass-card-shadow);
@@ -124,4 +115,28 @@
 }
 .padFlush > .inner {
   padding: 0;
+}
+
+/* Edge light: the conic gradient is masked to the 1px border ring only, so the
+   translucent panel never shows it through its middle. */
+.feature::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--field-angle, 210deg),
+    rgba(255, 255, 255, 0.32),
+    rgba(255, 255, 255, 0.04) 30%,
+    rgba(255, 255, 255, 0.04) 70%,
+    rgba(255, 255, 255, 0.26)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .feature::before { display: none; }
 }
