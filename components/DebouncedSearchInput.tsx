@@ -13,6 +13,8 @@ interface DebouncedSearchInputProps {
   /** Optional, purely additive: lets a caller apply its own field chrome (e.g. components/ui/SearchField). */
   className?: string
   enterKeyHint?: 'search' | 'enter' | 'done' | 'go' | 'next' | 'previous' | 'send'
+  /** 'search' gives the field the searchbox role; defaults to a plain text field. */
+  type?: 'text' | 'search'
 }
 
 /**
@@ -29,6 +31,7 @@ export default function DebouncedSearchInput({
   style,
   className,
   enterKeyHint,
+  type,
 }: DebouncedSearchInputProps) {
   const latestCallback = useRef(onQueryChange)
   const latestActivityCallback = useRef(onInputActivity)
@@ -56,7 +59,7 @@ export default function DebouncedSearchInput({
   return (
     <input
       ref={inputElement}
-      type="text"
+      type={type ?? 'text'}
       disabled
       className={className}
       placeholder={placeholder}

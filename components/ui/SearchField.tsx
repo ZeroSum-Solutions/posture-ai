@@ -9,6 +9,8 @@ import styles from './Field.module.css'
 export interface SearchFieldProps {
   /** Accessible name; the field has no visible label (the leading icon carries the affordance). */
   label: string
+  /** 'search' gives the field the searchbox role (default 'text'). */
+  inputType?: 'text' | 'search'
   placeholder?: string
   onQueryChange: (query: string) => void
   onInputActivity?: () => boolean | void
@@ -27,6 +29,7 @@ export interface SearchFieldProps {
  */
 export function SearchField({
   label,
+  inputType,
   placeholder = 'Search',
   onQueryChange,
   onInputActivity,
@@ -65,6 +68,7 @@ export function SearchField({
       </span>
       <DebouncedSearchInput
         ariaLabel={label}
+        type={inputType}
         placeholder={placeholder}
         initialValue={initialValue}
         debounceMs={debounceMs}

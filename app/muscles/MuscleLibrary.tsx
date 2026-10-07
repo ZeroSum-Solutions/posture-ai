@@ -33,7 +33,7 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
 
   return (
     <>
-      <SearchField label="Search muscles" placeholder="Search muscles…" onQueryChange={setSearch} />
+      <SearchField label="Search muscles" inputType="search" placeholder="Search muscles…" onQueryChange={setSearch} />
 
       {filtered.length === 0 && (
         <EmptyState

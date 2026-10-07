@@ -234,3 +234,6 @@ select.swapSelect {
 }
 
 .promoteButton:hover { opacity: 0.85; }
+
+/* Row trailing actions: Details + overflow, 8px apart (48px targets). */
+.rowActions { display: inline-flex; align-items: center; gap: var(--s-8); }

@@ -139,28 +139,18 @@ function ExerciseActionsSheet({
   priority,
   step,
   onSwap,
-  onOpenDetail,
   onWhyThis,
   onClose,
 }: {
   priority: ClinicalProgramPriority
   step: ClinicalProgramStep
   onSwap: OverrideHandlers['onSwap']
-  onOpenDetail: (slug: string, name: string) => void
   onWhyThis: (slug: string, name: string, findingKey: string, findingLabel: string, movementAction: string) => void
   onClose: () => void
 }) {
   return (
     <Sheet open onOpenChange={(next) => { if (!next) onClose() }} title={step.name} detents={['compact']}>
       <div className="app-stack">
-        <Button
-          variant="secondary"
-          block
-          data-testid={`exercise-detail-${step.slug}`}
-          onClick={() => { onOpenDetail(step.slug, step.name); onClose() }}
-        >
-          Exercise details
-        </Button>
         <Button
           variant="secondary"
           block
@@ -204,12 +194,23 @@ function ExerciseList({
                 title={s.name}
                 subtitle={`${s.freq}${s.repRange ? ` · ${s.repRange.min}–${s.repRange.max} reps` : ''}`}
                 trailing={
-                  <IconButton
-                    icon="menu-dots-linear"
-                    label={`More actions for ${s.name}`}
-                    variant="plain"
-                    onClick={() => setOpenSlug(s.baseSlug)}
-                  />
+                  <span className={styles.rowActions}>
+                    {/* Details is the row's main action, one tap away; the
+                        overflow menu holds the rest (Why this?, Swap). */}
+                    <IconButton
+                      icon="info-circle-linear"
+                      label={`Details for ${s.name}`}
+                      variant="plain"
+                      data-testid={`exercise-detail-${s.slug}`}
+                      onClick={() => onOpenDetail(s.slug, s.name)}
+                    />
+                    <IconButton
+                      icon="menu-dots-linear"
+                      label={`More actions for ${s.name}`}
+                      variant="plain"
+                      onClick={() => setOpenSlug(s.baseSlug)}
+                    />
+                  </span>
                 }
               />
               <p className={`${styles.stepMeta} n`} style={{ paddingLeft: 56 }}>
@@ -236,7 +237,6 @@ function ExerciseList({
           priority={priority}
           step={openStep}
           onSwap={onSwap}
-          onOpenDetail={onOpenDetail}
           onWhyThis={onWhyThis}
           onClose={() => setOpenSlug(null)}
         />
