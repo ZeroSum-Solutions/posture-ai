@@ -2,76 +2,56 @@
    terms. Sits on its own Surface tile; compact mode tightens the vertical
    rhythm for use inside another panel (e.g. the client-consent form). */
 
+.column {
+  max-width: 38rem;
+}
+
 .fixtureNotice {
-  margin: 0 0 14px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
+  margin: 0 0 var(--s-12);
+  padding: var(--s-8) var(--s-12);
+  border-radius: var(--r-sm);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--monitor) 45%, transparent);
   color: var(--monitor);
-  font-size: 12px;
-  font-weight: 500;
   letter-spacing: 0.04em;
 }
 
-.header { margin-bottom: 20px; }
-.headerCompact { margin-bottom: 14px; }
+.header { margin-bottom: var(--s-20); }
+.headerCompact { margin-bottom: var(--s-12); }
 
-.title {
-  margin: 0 0 8px;
-  font-size: 20px;
-  font-weight: 300;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
-  color: var(--text-primary);
-}
+.details { margin-top: var(--s-8); }
 
 .meta {
   margin: 0;
-  font-size: 12px;
-  font-weight: 300;
-  line-height: 1.6;
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .fingerprint {
-  margin: 8px 0 0;
-  font-size: 11px;
-  font-weight: 300;
-  line-height: 1.5;
-  color: var(--text-quiet);
+  margin: var(--s-8) 0 0;
+  color: var(--text-3);
   overflow-wrap: anywhere;
 }
 
-.section { margin-top: 20px; }
-.sectionCompact { margin-top: 14px; }
-
-.sectionHeading {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-primary);
+.toc { margin-top: var(--s-16); }
+.tocList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--s-8);
 }
 
-/* The design system caps body text at 14px; this is the largest role it
-   allows, because long consent copy still has to read comfortably on a
-   phone. */
+.section { margin-top: var(--s-20); }
+.sectionCompact { margin-top: var(--s-12); }
+
 .paragraph {
-  margin: 0 0 10px;
-  font-size: 14px;
-  font-weight: 300;
-  line-height: 1.65;
-  color: var(--text-secondary);
+  margin: 0 0 var(--s-12);
 }
 
 .bullets {
-  margin: 8px 0 10px;
-  padding-left: 22px;
+  margin: var(--s-8) 0 var(--s-12);
+  padding-left: var(--s-20);
 }
 
 .bullet {
-  margin-bottom: 6px;
-  font-size: 14px;
-  font-weight: 300;
-  line-height: 1.65;
-  color: var(--text-secondary);
+  margin-bottom: var(--s-8);
 }

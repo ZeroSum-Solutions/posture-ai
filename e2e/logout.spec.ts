@@ -25,7 +25,9 @@ test.describe('logout', () => {
     await expect(secondTab).toHaveURL(/\/dashboard/)
 
     await page.goto('/settings')
+    // Array v3: Sign Out opens a confirm Dialog before it acts.
     await page.getByRole('button', { name: 'Sign Out' }).click()
+    await page.getByRole('button', { name: 'Yes, sign out' }).click()
 
     await page.waitForURL(/\/auth\/sign-in/, { timeout: 15_000 })
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()

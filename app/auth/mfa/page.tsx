@@ -5,7 +5,11 @@ import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { safeNextPath } from '@/lib/auth/safe-next'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { TextField } from '@/components/ui/TextField'
 import { completionMessage, groupSecret } from './mfa-format'
+import styles from './page.module.css'
 
 type Phase = 'loading' | 'enroll' | 'challenge' | 'error'
 
@@ -225,30 +229,34 @@ export default function MfaPage() {
       description="A second factor is required for every protected session."
     >
       {recoveryCopy && (
-        <p className="a-help" style={{ marginBottom: 18 }}>{recoveryCopy}</p>
+        <Banner variant="info" className="app-stack" data-testid="mfa-recovery-note">{recoveryCopy}</Banner>
       )}
 
       {phase === 'loading' && (
-        <p className="a-help" role="status">Checking your account security…</p>
+        <p className="t-body" role="status" style={{ color: 'var(--text-2)' }}>Checking your account security…</p>
       )}
 
       {phase === 'error' && (
-        <div className="a-form">
-          <p className="a-error" role="alert">{error}</p>
-          <button type="button" onClick={() => void initialize()} className="a-secondary a-secondary--bar">
+        <div className="app-stack">
+          <Banner variant="error" data-testid="mfa-error">{error}</Banner>
+          <Button variant="secondary" size="lg" block onClick={() => void initialize()}>
             Try again
-          </button>
-          <Link href="/auth/sign-in" className="a-help" style={{ textAlign: 'center', textDecoration: 'underline' }}>
+          </Button>
+          <Link
+            href="/auth/sign-in"
+            className="t-footnote"
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+          >
             Return to sign in
           </Link>
         </div>
       )}
 
       {(phase === 'enroll' || phase === 'challenge') && factorId && (
-        <form onSubmit={handleVerify} noValidate className="a-form">
+        <form onSubmit={handleVerify} noValidate className="app-stack">
           {phase === 'enroll' && (
-            <div>
-              <p className="a-help">
+            <div className="app-stack">
+              <p className="t-body" style={{ color: 'var(--text-2)' }}>
                 Connect an authenticator app, then enter the 6-digit code it shows.
               </p>
 
@@ -257,45 +265,32 @@ export default function MfaPage() {
                   registered by Google Authenticator, 1Password, Authy and Duo, so
                   the app opens already holding this account. */}
               {otpauthUri && (
-                <a href={otpauthUri} className="a-primary a-primary--bar" style={{ marginTop: 14 }}>
+                <Button href={otpauthUri} variant="primary" size="lg" block>
                   Open in your authenticator app
-                </a>
+                </Button>
               )}
 
               {secret && (
-                <div style={{ marginTop: 18 }}>
-                  <p className="a-label" style={{ marginBottom: 6 }}>Or enter this setup key</p>
-                  <p
-                    className="n"
-                    style={{
-                      margin: 0, padding: '10px 12px', borderRadius: 12,
-                      background: 'var(--surface-glass)', border: '1px solid var(--hairline)',
-                      color: 'var(--text-primary)', fontSize: 15, letterSpacing: '0.08em',
-                      wordBreak: 'break-all', userSelect: 'all',
-                    }}
-                  >
+                <div>
+                  <p className="t-subhead" style={{ marginBottom: 'var(--s-4)', color: 'var(--text-2)' }}>Or enter this setup key</p>
+                  <p className={`t-body n ${styles.setupKey}`}>
                     {groupSecret(secret)}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => void handleCopySecret()}
-                    className="a-secondary"
-                    style={{ marginTop: 8 }}
-                  >
+                  <Button variant="secondary" size="sm" style={{ marginTop: 'var(--s-8)' }} onClick={() => void handleCopySecret()}>
                     Copy setup key
-                  </button>
-                  <span role="status" aria-live="polite" className="a-help">
+                  </Button>
+                  <span role="status" aria-live="polite" className="t-footnote" style={{ color: 'var(--text-3)' }}>
                     {copied ? ' Copied to clipboard.' : ''}
                   </span>
-                  <p className="a-help" style={{ marginTop: 6 }}>
+                  <p className="t-footnote" style={{ marginTop: 'var(--s-4)', color: 'var(--text-3)' }}>
                     In your authenticator app choose to add an account manually, then paste this key.
                   </p>
                 </div>
               )}
 
               {qrCode && (
-                <details style={{ marginTop: 18 }}>
-                  <summary className="a-help" style={{ cursor: 'pointer' }}>
+                <details>
+                  <summary className={`t-footnote ${styles.summary}`} style={{ color: 'var(--text-2)' }}>
                     Setting up from a different device? Show QR code
                   </summary>
                   {/* Supabase returns a short-lived data URL; it is never persisted. */}
@@ -305,10 +300,7 @@ export default function MfaPage() {
                     alt="QR code for Posture AI authenticator setup"
                     width={220}
                     height={220}
-                    style={{
-                      display: 'block', maxWidth: '100%', margin: '14px auto',
-                      background: '#fff', padding: 8, borderRadius: 12,
-                    }}
+                    className={styles.qrImage}
                   />
                 </details>
               )}
@@ -316,37 +308,34 @@ export default function MfaPage() {
           )}
 
           {phase === 'challenge' && (
-            <p className="a-help">
+            <p className="t-body" style={{ color: 'var(--text-2)' }}>
               Enter the current code from the authenticator app already connected to your account.
             </p>
           )}
 
-          {error && <p className="a-error" role="alert" aria-live="assertive">{error}</p>}
+          {error && <Banner variant="error" data-testid="mfa-verify-error">{error}</Banner>}
 
-          <div className="a-field">
-            <label className="a-label" htmlFor="mfa_code">Authenticator code</label>
-            <input
-              id="mfa_code"
-              className="a-input n"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="000000"
-              // The page exists to collect this one value, and the code expires
-              // on a 30s window, so the caret starts here rather than making a
-              // keyboard or screen-reader user tab to the only field present.
-              autoFocus
-              // 7, not 6: authenticators show "123 456" and handleVerify strips
-              // whitespace before validating. See page.test.tsx.
-              maxLength={7}
-              style={{ letterSpacing: '0.16em' }}
-            />
-          </div>
+          <TextField
+            id="mfa_code"
+            label="Authenticator code"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="000000"
+            // The page exists to collect this one value, and the code expires
+            // on a 30s window, so the caret starts here rather than making a
+            // keyboard or screen-reader user tab to the only field present.
+            autoFocus
+            // 7, not 6: authenticators show "123 456" and handleVerify strips
+            // whitespace before validating. See page.test.tsx.
+            maxLength={7}
+            controlClassName={styles.codeInput}
+          />
 
-          <button type="submit" disabled={submitting} className="a-primary a-primary--bar">
-            {submitting ? 'Verifying…' : 'Verify and continue'}
-          </button>
+          <Button type="submit" variant="primary" size="lg" block loading={submitting}>
+            Verify and continue
+          </Button>
         </form>
       )}
     </AuthFrame>

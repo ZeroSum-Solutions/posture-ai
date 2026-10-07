@@ -4,24 +4,44 @@ import { useState } from 'react'
 
 import LegalDocumentView from '@/components/LegalDocumentView'
 import useLegalDocument from '@/components/useLegalDocument'
-import { Surface } from '@/components/array/Surface'
+import ActionBar from '@/components/ui/ActionBar'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { Stepper, type StepperStep } from '@/components/ui/Stepper'
 import styles from './OnboardingPage.module.css'
 
+const STEPS: StepperStep[] = [
+  { id: 'terms', label: 'Terms of Use' },
+  { id: 'privacy', label: 'Privacy Policy' },
+  { id: 'screening_notice', label: 'Screening Notice' },
+]
+
 export default function OnboardingPage() {
-  const [accepted, setAccepted] = useState(false)
+  const [stepIndex, setStepIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const terms = useLegalDocument('terms')
   const privacy = useLegalDocument('privacy')
   const screeningNotice = useLegalDocument('screening_notice')
 
-  const states = [terms, privacy, screeningNotice]
-  const isLegalLoading = states.some((state) => state.isLoading)
-  const legalError = states.find((state) => state.error)?.error ?? null
-  const areDocumentsReady = states.every((state) => state.document !== null)
+  const states = { terms, privacy, screening_notice: screeningNotice }
+  const allStates = [terms, privacy, screeningNotice]
+  const isLegalLoading = allStates.some((state) => state.isLoading)
+  const legalUnavailable = allStates.some((state) => state.error)
+  const areDocumentsReady = allStates.every((state) => state.document !== null)
+
+  const currentStep = STEPS[stepIndex]!
+  const currentState = states[currentStep.id as keyof typeof states]
+  const isLastStep = stepIndex === STEPS.length - 1
 
   async function handleAccept() {
-    if (!accepted || loading || !areDocumentsReady) return
+    if (loading || !areDocumentsReady) return
+    if (!isLastStep) {
+      setStepIndex((index) => index + 1)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -29,7 +49,7 @@ export default function OnboardingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          documents: states.map((state) => ({
+          documents: allStates.map((state) => ({
             document_id: state.document!.documentId,
             body_sha256: state.document!.bodySha256,
           })),
@@ -53,61 +73,64 @@ export default function OnboardingPage() {
     }
   }
 
+  if (legalUnavailable) {
+    return (
+      <div className="app-screen app-screen-x">
+        <ErrorState
+          variant="blocking"
+          title="Legal documents unavailable"
+          body="Required legal text could not be loaded, so acceptance is disabled. Check your connection and try again."
+          onRetry={() => window.location.reload()}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className={styles.page}>
+    <div className="app-screen app-screen--bar app-screen-x">
       <header className={styles.header}>
-        <p className="t-overline" style={{ marginBottom: 10 }}>Practitioner agreement</p>
+        <p className="t-overline">Practitioner agreement</p>
         <h1 className="t-title-1">Review and accept the legal terms</h1>
-        <p className="t-body" style={{ marginTop: 8 }}>
-          Read each complete document below. Acceptance is recorded against the exact versions shown.
+        <p className="t-body" style={{ marginTop: 'var(--s-8)', color: 'var(--text-2)' }}>
+          Read each document. Acceptance is recorded against the exact versions shown.
         </p>
+        <Stepper
+          steps={STEPS}
+          current={currentStep.id}
+          onBack={(id) => setStepIndex(STEPS.findIndex((step) => step.id === id))}
+          className={styles.stepper}
+        />
       </header>
 
-      {isLegalLoading && <p role="status" aria-live="polite" className="t-body">Loading required legal documents…</p>}
-      {legalError && (
-        <p role="alert" aria-live="assertive" className="a-error" style={{ marginBottom: 16 }}>
-          {legalError} Acceptance is disabled until every required document is available.
-        </p>
-      )}
-
       <div className={styles.documents}>
-        {states.map((state) => state.document && (
+        {currentState.isLoading || !currentState.document ? (
+          <Skeleton shape="card" />
+        ) : (
           <LegalDocumentView
-            key={state.document.documentId}
-            document={state.document}
+            key={currentState.document.documentId}
+            document={currentState.document}
             headingLevel={2}
+            collapseFingerprint
           />
-        ))}
+        )}
       </div>
 
-      <Surface tier="feature" style={{ marginTop: 24 }}>
-        <label htmlFor="accept_terms" className={styles.acceptRow} data-disabled={!areDocumentsReady || undefined} style={{ marginBottom: 20 }}>
-          <input
-            id="accept_terms"
-            type="checkbox"
-            checked={accepted}
-            disabled={!areDocumentsReady}
-            onChange={(event) => setAccepted(event.target.checked)}
-          />
-          <span className="t-body">
-            I have read and accept the Terms of Use, Privacy Policy, and Screening Notice versions shown above.
-          </span>
-        </label>
+      {error && (
+        <Banner variant="error" className={styles.error} data-testid="onboarding-accept-error">{error}</Banner>
+      )}
 
-        {error && (
-          <p role="alert" aria-live="assertive" className="a-error" style={{ marginBottom: 16 }}>
-            {error}
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={handleAccept}
-          disabled={!accepted || loading || !areDocumentsReady}
-          className="a-primary a-primary--bar"
+      <ActionBar>
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          loading={loading}
+          disabledReason={isLegalLoading ? 'Required legal text is still loading.' : undefined}
+          onClick={() => void handleAccept()}
         >
-          {loading ? 'Saving…' : 'Accept and Continue'}
-        </button>
-      </Surface>
+          I agree
+        </Button>
+      </ActionBar>
     </div>
   )
 }

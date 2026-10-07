@@ -122,8 +122,11 @@ async function createFreshPractitioner(browser: Browser, baseUrl: string) {
   await page.getByRole('button', { name: 'Verify and continue' }).click()
   await page.waitForURL(url => !url.pathname.startsWith('/auth/'))
   if (page.url().includes('/onboarding')) {
-    await page.getByRole('checkbox').check()
-    await page.getByRole('button', { name: 'Accept and Continue' }).click()
+    // Array v3: one document per step; the same sticky "I agree" button
+    // advances each step and submits acceptance on the third click.
+    for (let step = 0; step < 3; step += 1) {
+      await page.getByRole('button', { name: 'I agree' }).click()
+    }
     await page.waitForURL(url => !url.pathname.startsWith('/onboarding'))
   }
   return { context, page }

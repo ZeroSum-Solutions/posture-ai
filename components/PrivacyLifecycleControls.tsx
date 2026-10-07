@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Banner } from '@/components/ui/Banner'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { Select } from '@/components/ui/Select'
+import { TextField } from '@/components/ui/TextField'
 import styles from './PrivacyLifecycleControls.module.css'
 
 type ShareState = 'active' | 'expired' | 'revoked' | 'inactive'
@@ -188,20 +192,20 @@ export default function PrivacyLifecycleControls({
   return (
     <section aria-labelledby="privacy-lifecycle-heading" className={styles.stack}>
       <Surface tier="feature">
-        <h2 id="privacy-lifecycle-heading" className="t-headline" style={{ marginBottom: 6 }}>Privacy controls</h2>
-        <p className="t-body" style={{ marginBottom: 18 }}>
+        <h2 id="privacy-lifecycle-heading" className="t-headline" style={{ marginBottom: 'var(--s-4)' }}>Privacy controls</h2>
+        <p className="t-body" style={{ marginBottom: 'var(--s-16)' }}>
           Consent, shared workout links, and permanent erasure are separate actions. Each change is recorded with a controlled reason.
         </p>
 
-        <h3 className="t-headline" style={{ marginBottom: 10 }}>Workout share links</h3>
-        {sharesError && <p role="alert" className="a-error">{sharesError}</p>}
+        <h3 className="t-headline" style={{ marginBottom: 'var(--s-12)' }}>Workout share links</h3>
+        {sharesError && <Banner variant="error">{sharesError}</Banner>}
         {shares.length === 0 ? (
           <p className="t-body">No workout share links have been created.</p>
         ) : shares.map((share) => (
           <div key={share.session_id} className={styles.shareRow}>
             <div>
               <strong className={styles.shareState}>{share.state}</strong>
-              <span className={styles.shareMeta}>
+              <span className={`t-caption ${styles.shareMeta}`}>
                 Created {new Date(share.created_at).toLocaleDateString()} · generation {share.share_generation}
               </span>
             </div>
@@ -214,52 +218,80 @@ export default function PrivacyLifecycleControls({
           </div>
         ))}
         {newLink && (
-          <label className={`a-field ${styles.newLinkField}`}>
-            <span className="a-label">New link — copy it now; the old link no longer works.</span>
-            <input readOnly value={newLink} onFocus={(event) => event.currentTarget.select()} className="a-input" />
-          </label>
+          <div className={styles.newLinkField}>
+            <TextField
+              label="New link — copy it now; the old link no longer works."
+              readOnly
+              value={newLink}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          </div>
         )}
       </Surface>
 
       {hasConsent && (
         <Surface tier="feature">
-          <form onSubmit={withdrawConsent} className="a-form" aria-label="Withdraw consent">
-            <h3 className="t-headline" style={{ marginBottom: 6 }}>Withdraw subject consent</h3>
-            <p className="t-body" style={{ marginBottom: 8 }}>
+          <form onSubmit={withdrawConsent} className="app-stack" aria-label="Withdraw consent">
+            <h3 className="t-headline" style={{ marginBottom: 'var(--s-4)' }}>Withdraw subject consent</h3>
+            <p className="t-body" style={{ marginBottom: 'var(--s-8)' }}>
               This blocks new captures and immediately revokes every active workout share link. It does not erase the client record.
             </p>
-            <select aria-label="Withdrawal reason" className="a-select" value={withdrawReason} onChange={(event) => setWithdrawReason(event.target.value as typeof withdrawReason)}>
+            <Select
+              label="Withdrawal reason"
+              value={withdrawReason}
+              onChange={(event) => setWithdrawReason(event.target.value as typeof withdrawReason)}
+            >
               <option value="subject_request">Client requested withdrawal</option>
               <option value="guardian_request">Guardian requested withdrawal</option>
               <option value="practitioner_correction">Practitioner correction</option>
-            </select>
-            <select aria-label="Withdrawal signer relationship" className="a-select" value={relationship} onChange={(event) => setRelationship(event.target.value as typeof relationship)}>
+            </Select>
+            <Select
+              label="Withdrawal signer relationship"
+              value={relationship}
+              onChange={(event) => setRelationship(event.target.value as typeof relationship)}
+            >
               <option value="self">Client</option><option value="parent">Parent</option>
               <option value="legal_guardian">Legal guardian</option><option value="other">Authorized representative</option>
-            </select>
-            <input aria-label="Withdrawal signer name" className="a-input" value={signerName} onChange={(event) => setSignerName(event.target.value)} placeholder="Signer’s full name" />
-            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <input type="checkbox" checked={withdrawConfirmed} onChange={(event) => setWithdrawConfirmed(event.target.checked)} />
-              <span className="t-body">I confirm the signer asked to withdraw consent.</span>
-            </label>
-            {withdrawError && <p role="alert" className="a-error">{withdrawError}</p>}
+            </Select>
+            <TextField
+              label="Withdrawal signer name"
+              value={signerName}
+              onChange={(event) => setSignerName(event.target.value)}
+              placeholder="Signer’s full name"
+            />
+            <Checkbox
+              checked={withdrawConfirmed}
+              onChange={(event) => setWithdrawConfirmed(event.target.checked)}
+              label="I confirm the signer asked to withdraw consent."
+            />
+            {withdrawError && <Banner variant="error">{withdrawError}</Banner>}
             <button type="submit" className="a-primary" disabled={withdrawing}>{withdrawing ? 'Recording…' : 'Withdraw consent'}</button>
           </form>
         </Surface>
       )}
 
       <Surface tier="feature" className={styles.erasePanel}>
-        <form onSubmit={eraseClient} className="a-form" aria-label="Permanently erase client">
-          <h3 className="t-headline" style={{ marginBottom: 6, color: 'var(--review)' }}>Permanently erase client</h3>
-          <p className="t-body" style={{ marginBottom: 8 }}>
+        <form onSubmit={eraseClient} className="app-stack" aria-label="Permanently erase client">
+          <h3 className="t-headline" style={{ marginBottom: 'var(--s-4)', color: 'var(--review)' }}>Permanently erase client</h3>
+          <p className="t-body" style={{ marginBottom: 'var(--s-8)' }}>
             Irreversible. Screening data is deleted in one database transaction. Stored report files are queued for retry until deletion completes.
           </p>
-          <select aria-label="Erasure reason" className="a-select" value={erasureReason} onChange={(event) => setErasureReason(event.target.value as typeof erasureReason)}>
+          <Select
+            label="Erasure reason"
+            value={erasureReason}
+            onChange={(event) => setErasureReason(event.target.value as typeof erasureReason)}
+          >
             <option value="subject_request">Client request</option><option value="guardian_request">Guardian request</option>
             <option value="duplicate_record">Duplicate record</option><option value="practitioner_correction">Practitioner correction</option>
-          </select>
-          <input aria-label="Type ERASE to confirm" className="a-input" value={erasePhrase} onChange={(event) => setErasePhrase(event.target.value)} placeholder="Type ERASE" autoComplete="off" />
-          {eraseError && <p role="alert" className="a-error">{eraseError}</p>}
+          </Select>
+          <TextField
+            label="Type ERASE to confirm"
+            value={erasePhrase}
+            onChange={(event) => setErasePhrase(event.target.value)}
+            placeholder="Type ERASE"
+            autoComplete="off"
+          />
+          {eraseError && <Banner variant="error">{eraseError}</Banner>}
           {/* The system rule is "never a filled red button" (see globals.css) —
               destructiveness reads through the review-tinted panel ring, the
               red heading, and this label color, not a solid fill. */}

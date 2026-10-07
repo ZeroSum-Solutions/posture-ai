@@ -3,13 +3,35 @@ import { useState, useEffect, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
-import { Surface } from '@/components/array/Surface'
+import { Avatar } from '@/components/ui/Avatar'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { Dialog } from '@/components/ui/Dialog'
+import { ListGroup, ListRow } from '@/components/ui/ListRow'
+import { Select } from '@/components/ui/Select'
+import { Sheet } from '@/components/ui/Sheet'
+import { Switch } from '@/components/ui/Switch'
+import { TextField } from '@/components/ui/TextField'
+import TopBar from '@/components/ui/TopBar'
 import styles from './SettingsPage.module.css'
 
 type Practitioner = {
   display_name: string | null
   practice_name: string | null
   logo_storage_path: string | null
+}
+
+type SheetKey = 'practice' | 'privacy' | 'legal' | 'help' | null
+
+function readHapticsEnabled(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return localStorage.getItem('pa:haptics') !== 'off'
+  } catch {
+    return true
+  }
 }
 
 export default function SettingsPage() {
@@ -31,6 +53,9 @@ export default function SettingsPage() {
   const [baaStatus, setBaaStatus] = useState<'not_required' | 'pending' | 'signed'>('not_required')
   const [baaSignedAt, setBaaSignedAt] = useState('')
   const [orgSaving, setOrgSaving] = useState(false)
+  const [openSheet, setOpenSheet] = useState<SheetKey>(null)
+  const [hapticsEnabled, setHapticsEnabled] = useState(readHapticsEnabled)
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
@@ -122,8 +147,13 @@ export default function SettingsPage() {
   //                         common case where our own same-origin fetch failed (blocked
   //                         extension, CORS misconfig) without the SDK's request failing
   //                         the same way.
-  async function handleSignOut(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  //
+  // The visible row below is a `type="submit"` button inside this form for the no-JS
+  // fallback (its action/method attributes POST directly with no JS at all), but its
+  // onClick always prevents that default and opens a confirm Dialog instead — the
+  // Dialog's own confirm button calls performSignOut() directly, never through a submit
+  // event, so the native-fallback path and the JS-confirmed path can't double-fire.
+  async function performSignOut() {
     let res: Response
     try {
       res = await fetch('/api/auth/sign-out', { method: 'POST' })
@@ -272,207 +302,262 @@ export default function SettingsPage() {
     }
   }
 
+  function handleHapticsChange(enabled: boolean) {
+    setHapticsEnabled(enabled)
+    try {
+      if (enabled) localStorage.removeItem('pa:haptics')
+      else localStorage.setItem('pa:haptics', 'off')
+    } catch {
+      /* private mode / quota — the switch still reflects the chosen state this session */
+    }
+  }
+
   if (loading) {
     return (
       <div className="app-screen app-screen-x">
-        <p className="t-body">Loading settings...</p>
+        <p className="t-body" style={{ color: 'var(--text-2)' }}>Loading settings…</p>
       </div>
     )
   }
 
+  const profileName = displayName || practitioner?.display_name || 'Your profile'
+
   return (
-    <div className="app-screen app-screen-x app-stack">
-      <header className={styles.header}>
-        <p className="t-overline" style={{ marginBottom: 10 }}>Workspace control</p>
-        <h1 className="t-title-1">Settings</h1>
-        <p className="t-body" style={{ marginTop: 8 }}>Manage your identity, organization, and account security in one place.</p>
-      </header>
+    <div className="app-screen app-screen-x">
+      <TopBar title="Profile" />
 
       {toast && (
-        <div role="alert" aria-live="polite" className={styles.toast} data-variant={toast.type}>
-          {toast.message}
+        <div className={styles.toastWrap}>
+          <Banner variant={toast.type === 'success' ? 'success' : 'error'}>{toast.message}</Banner>
         </div>
       )}
 
-      {/* Profile section */}
-      <Surface tier="feature">
-        <h2 className="t-headline" style={{ marginBottom: 16 }}>Profile</h2>
-        <form onSubmit={handleSaveProfile} className="a-form">
-          <div className="a-field">
-            <label className="a-label" htmlFor="display_name">Display Name</label>
-            <input
-              id="display_name"
-              className="a-input"
-              type="text"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              placeholder="Your display name"
-              aria-label="Display name"
-            />
+      <div className="app-stack">
+        <Card>
+          <div className={styles.profileRow}>
+            <Avatar name={profileName} size={72} />
+            <div>
+              <p className="t-headline">{profileName}</p>
+              {practiceName && <p className="t-callout" style={{ color: 'var(--text-2)' }}>{practiceName}</p>}
+            </div>
           </div>
-          <div className="a-field">
-            <label className="a-label" htmlFor="practice_name">Practice Name</label>
-            <input
-              id="practice_name"
-              className="a-input"
-              type="text"
-              value={practiceName}
-              onChange={e => setPracticeName(e.target.value)}
-              placeholder="Your practice name"
-              aria-label="Practice name"
-            />
-          </div>
-          <button type="submit" disabled={saving} className="a-primary">
-            {saving ? 'Saving...' : 'Save Changes'}
+        </Card>
+
+        <ListGroup label="Settings">
+          <ListRow title="Practice info" chevron onPress={() => setOpenSheet('practice')} data-testid="settings-practice-info" />
+          <ListRow title="Privacy & data" chevron onPress={() => setOpenSheet('privacy')} data-testid="settings-privacy" />
+          <ListRow title="Legal" chevron onPress={() => setOpenSheet('legal')} data-testid="settings-legal" />
+          <ListRow title="Help" chevron onPress={() => setOpenSheet('help')} data-testid="settings-help" />
+          <Switch
+            label="Haptics"
+            className={styles.hapticsRow}
+            checked={hapticsEnabled}
+            onChange={(e) => handleHapticsChange(e.target.checked)}
+          />
+        </ListGroup>
+
+        {/* A real <form>, not a styled ListRow: the action/method attributes are
+            the no-JS fallback (a direct native POST), and the submit button's
+            onClick always prevents that default to open the confirm Dialog
+            instead — see performSignOut's comment above. */}
+        <form ref={signOutFormRef} action="/api/auth/sign-out" method="POST">
+          <button
+            type="submit"
+            className={styles.signOutRow}
+            onClick={(e) => { e.preventDefault(); setShowSignOutConfirm(true) }}
+          >
+            <span className="t-headline" style={{ color: 'var(--review)' }}>Sign Out</span>
           </button>
         </form>
-      </Surface>
 
-      {/* Organization & Compliance section */}
-      <Surface tier="feature">
-        <h2 className="t-headline" style={{ marginBottom: 16 }}>Organization &amp; Compliance</h2>
-        <form onSubmit={handleSaveOrg} className="a-form">
-          <div className="a-field">
-            <label className="a-label" htmlFor="org_name">Organization Name</label>
+        <p className="t-footnote" style={{ color: 'var(--text-3)' }}>
+          Screening support only — not a medical diagnosis.
+        </p>
+      </div>
+
+      <Dialog
+        open={showSignOutConfirm}
+        onOpenChange={setShowSignOutConfirm}
+        title="Sign out?"
+        description="You'll need to sign in again to continue."
+        confirm={{
+          label: 'Yes, sign out',
+          tone: 'danger',
+          onConfirm: () => {
+            setShowSignOutConfirm(false)
+            void performSignOut()
+          },
+        }}
+      />
+
+      <Sheet
+        open={openSheet === 'practice'}
+        onOpenChange={(open) => !open && setOpenSheet(null)}
+        title="Practice info"
+        detents={['medium', 'large']}
+        footer={
+          <Button type="submit" form="practice-info-form" variant="primary" size="lg" block loading={saving}>
+            Save changes
+          </Button>
+        }
+      >
+        <form onSubmit={handleSaveProfile} className="app-stack" id="practice-info-form">
+          <TextField
+            id="display_name"
+            label="Display name"
+            type="text"
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            placeholder="Your display name"
+          />
+          <TextField
+            id="practice_name"
+            label="Practice name"
+            type="text"
+            value={practiceName}
+            onChange={e => setPracticeName(e.target.value)}
+            placeholder="Your practice name"
+          />
+          <div className="app-stack" style={{ gap: 'var(--s-12)' }}>
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Practice logo preview" className={styles.logoPreview} />
+            )}
             <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleLogoUpload}
+              style={{ display: 'none' }}
+              aria-label="Upload practice logo"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              loading={logoUploading}
+              onClick={() => logoInputRef.current?.click()}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              {logoUrl ? 'Replace logo' : 'Upload logo'}
+            </Button>
+            <p className="t-footnote" style={{ color: 'var(--text-3)' }}>JPEG, PNG, or WebP. Shown on PDF reports.</p>
+          </div>
+        </form>
+      </Sheet>
+
+      <Sheet
+        open={openSheet === 'privacy'}
+        onOpenChange={(open) => !open && setOpenSheet(null)}
+        title="Privacy & data"
+        detents={['medium', 'large']}
+      >
+        <div className="app-stack">
+          <form onSubmit={handleSaveOrg} className="app-stack" id="org-settings-form">
+            <TextField
               id="org_name"
-              className="a-input"
+              label="Organization name"
               type="text"
               value={orgName}
               onChange={e => setOrgName(e.target.value)}
               placeholder="Your organization name"
-              aria-label="Organization name"
             />
-          </div>
 
-          <label htmlFor="covered_entity" className={styles.checkRow}>
-            <input
+            <Checkbox
               id="covered_entity"
-              type="checkbox"
               checked={isCoveredEntity}
               onChange={e => setIsCoveredEntity(e.target.checked)}
+              label={
+                <>
+                  This organization is a HIPAA covered entity
+                  <span className="t-footnote" style={{ display: 'block', marginTop: 'var(--s-4)', color: 'var(--text-3)' }}>
+                    Turning this on requires a signed Business Associate Agreement before practitioner mode can be used.
+                  </span>
+                </>
+              }
             />
-            <span className="t-body">
-              This organization is a HIPAA covered entity
-              <span className="a-help" style={{ display: 'block', marginTop: 4 }}>
-                Turning this on requires a signed Business Associate Agreement before practitioner mode can be used.
-              </span>
-            </span>
-          </label>
 
-          <div className="a-field">
-            <label className="a-label" htmlFor="baa_status">Business Associate Agreement (BAA) status</label>
-            <select
+            <Select
               id="baa_status"
-              className="a-select"
+              label="Business Associate Agreement (BAA) status"
               value={baaStatus}
               onChange={e => setBaaStatus(e.target.value as 'not_required' | 'pending' | 'signed')}
-              aria-label="BAA status"
             >
               <option value="not_required">Not required</option>
               <option value="pending">Pending</option>
               <option value="signed">Signed</option>
-            </select>
-          </div>
+            </Select>
 
-          {baaStatus === 'signed' && (
-            <div className="a-field">
-              <label className="a-label" htmlFor="baa_signed_at">BAA signed date</label>
-              <input
+            {baaStatus === 'signed' && (
+              <TextField
                 id="baa_signed_at"
-                className="a-input"
+                label="BAA signed date"
                 type="date"
                 value={baaSignedAt}
                 onChange={e => setBaaSignedAt(e.target.value)}
-                aria-label="BAA signed date"
               />
-            </div>
-          )}
+            )}
 
-          {isCoveredEntity && baaStatus !== 'signed' && (
-            <p role="status" className={`t-body ${styles.baaWarning}`}>
-              Practitioner mode is currently blocked for this organization until a signed BAA is recorded.
+            {isCoveredEntity && baaStatus !== 'signed' && (
+              <Banner variant="warn">
+                Practitioner mode is currently blocked for this organization until a signed BAA is recorded.
+              </Banner>
+            )}
+
+            <Button type="submit" variant="primary" loading={orgSaving}>
+              Save organization
+            </Button>
+            <p className="t-footnote" style={{ color: 'var(--text-3)' }}>
+              These compliance details are self-attested by you and control whether the BAA gate applies.
             </p>
-          )}
+          </form>
 
-          <button type="submit" disabled={orgSaving} className="a-primary">
-            {orgSaving ? 'Saving...' : 'Save Organization'}
-          </button>
-          <p className="a-help">
-            These compliance details are self-attested by you and control whether the BAA gate applies.
-          </p>
-        </form>
-      </Surface>
-
-      {/* Logo section */}
-      <Surface tier="feature">
-        <h2 className="t-headline" style={{ marginBottom: 16 }}>Practice Logo</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="Practice logo preview" className={styles.logoPreview} />
-          )}
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleLogoUpload}
-            style={{ display: 'none' }}
-            aria-label="Upload practice logo"
-          />
-          <button
-            type="button"
-            disabled={logoUploading}
-            onClick={() => logoInputRef.current?.click()}
-            className="a-secondary"
-            style={{ alignSelf: 'flex-start' }}
-          >
-            {logoUploading ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
-          </button>
-          <p className="a-help">JPEG, PNG, or WebP. Shown on PDF reports.</p>
-        </div>
-      </Surface>
-
-      {/* Password section */}
-      <Surface tier="feature">
-        <h2 className="t-headline" style={{ marginBottom: 16 }}>Change Password</h2>
-        <form onSubmit={handlePasswordChange} className="a-form">
-          <div className="a-field">
-            <label className="a-label" htmlFor="current_password">Current Password</label>
-            <input
+          <form onSubmit={handlePasswordChange} className="app-stack" id="password-change-form">
+            <p className="t-headline">Change password</p>
+            <TextField
               id="current_password"
-              className="a-input"
+              label="Current password"
               type="password"
               value={currentPassword}
               onChange={e => setCurrentPassword(e.target.value)}
               placeholder="Current password"
-              aria-label="Current password"
+              autoComplete="current-password"
             />
-          </div>
-          <div className="a-field">
-            <label className="a-label" htmlFor="new_password">New Password</label>
-            <input
+            <TextField
               id="new_password"
-              className="a-input"
+              label="New password"
               type="password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               placeholder={`New password (min ${MIN_PASSWORD_LENGTH} characters)`}
-              aria-label="New password"
+              autoComplete="new-password"
             />
-          </div>
-          <button type="submit" disabled={passwordSaving || !newPassword.trim()} className="a-primary">
-            {passwordSaving ? 'Updating...' : 'Update Password'}
-          </button>
-        </form>
-      </Surface>
+            <Button type="submit" variant="primary" loading={passwordSaving}>
+              Update Password
+            </Button>
+          </form>
+        </div>
+      </Sheet>
 
-      {/* Sign out */}
-      <form ref={signOutFormRef} action="/api/auth/sign-out" method="POST" onSubmit={handleSignOut}>
-        <button type="submit" className={`a-quiet ${styles.signOut}`} style={{ color: 'var(--review)' }}>
-          Sign Out
-        </button>
-      </form>
+      <Sheet
+        open={openSheet === 'legal'}
+        onOpenChange={(open) => !open && setOpenSheet(null)}
+        title="Legal"
+      >
+        <ListGroup label="Legal documents">
+          <ListRow title="Privacy Policy" href="/privacy" chevron />
+          <ListRow title="Terms of Use" href="/terms" chevron />
+        </ListGroup>
+      </Sheet>
+
+      <Sheet
+        open={openSheet === 'help'}
+        onOpenChange={(open) => !open && setOpenSheet(null)}
+        title="Help"
+      >
+        <p className="t-body" style={{ color: 'var(--text-2)' }}>
+          Contact your beta administrator for help with your account or practice settings.
+        </p>
+      </Sheet>
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { isPublicPath } from '@/lib/auth/public-paths'
-import { Surface } from '@/components/array/Surface'
+import { EmptyState } from '@/components/ui/EmptyState'
 import {
   synchronizeTrainingOfflineAuth,
   trainingOfflineAuthState,
@@ -74,14 +74,14 @@ export default function AuthSessionGuard({
         className="app-screen app-screen-x"
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}
       >
-        <Surface tier="feature">
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-            <h1 className="t-title-2">{endedReason === 'account_changed' ? 'Account changed' : 'Session ended'}</h1>
-            <p className="t-body">{endedReason === 'account_changed'
-              ? 'Reloading this page for the current account…'
-              : 'This device was signed out. Returning to the secure sign-in page…'}</p>
-          </div>
-        </Surface>
+        <EmptyState
+          variant="page"
+          icon={endedReason === 'account_changed' ? 'square-transfer-horizontal-linear' : 'lock-keyhole-minimalistic-linear'}
+          title={endedReason === 'account_changed' ? 'Account changed' : 'Session ended'}
+          body={endedReason === 'account_changed'
+            ? 'Reloading this page for the current account…'
+            : 'This device was signed out. Returning to the secure sign-in page…'}
+        />
       </div>
     )
   }

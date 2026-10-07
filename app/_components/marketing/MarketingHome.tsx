@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import BrandMark from '@/components/BrandMark'
+import { Button } from '@/components/ui/Button'
 import styles from './MarketingHome.module.css'
 
 const workflow = [
@@ -37,8 +38,8 @@ export function MarketingHome() {
             <h1 id="hero-title">See what to coach next.</h1>
             <p className={styles.heroBody}>Capture a client baseline, review the movement signals that deserve attention, and leave every session with a focused next step.</p>
             <div className={styles.ctas}>
-              <Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture screen <span aria-hidden="true">↗</span></Link>
-              <a href="#workflow" className={styles.secondaryButton}>See the workflow</a>
+              <Button href="/auth/sign-in" size="lg" variant="primary" trailingIcon="arrow-right-up-linear">Run a posture screen</Button>
+              <Button href="#workflow" size="lg" variant="secondary">See the workflow</Button>
             </div>
             <div className={styles.heroProof}>
               <span>Private capture</span>
@@ -91,7 +92,7 @@ export function MarketingHome() {
           <div className={styles.coachingCopy}><p className={styles.kicker}><span /> A plan they can follow</p><h2 id="coaching-title">Screen once. Coach with intent.</h2><p>Use a client’s baseline to shape the next conversation and build a routine they can follow between sessions.</p></div>
         </section>
 
-        <section className={styles.finalCta} aria-labelledby="cta-title"><p className={styles.kicker}><span /> Start with a baseline</p><h2 id="cta-title">Give every client a better starting point.</h2><p>Private capture and clear screening signals for a more focused way to coach movement.</p><Link href="/auth/sign-in" className={styles.primaryButton}>Run a posture screen <span aria-hidden="true">↗</span></Link></section>
+        <section className={styles.finalCta} aria-labelledby="cta-title"><p className={styles.kicker}><span /> Start with a baseline</p><h2 id="cta-title">Give every client a better starting point.</h2><p>Private capture and clear screening signals for a more focused way to coach movement.</p><div className={styles.finalCtaButton}><Button href="/auth/sign-in" size="lg" variant="primary" trailingIcon="arrow-right-up-linear">Run a posture screen</Button></div></section>
       </div>
     </div>
   )

@@ -1,6 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { TextField } from '@/components/ui/TextField'
 import styles from './RemoteConsentButton.module.css'
 
 /** Practitioner-side entry point for remote subject consent: mints a link + QR
@@ -43,22 +46,21 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
   if (state === 'ready' && link) {
     return (
       <Surface tier="tile" innerClassName={styles.panel}>
-        <p className="a-help">
+        <p className="t-callout" style={{ color: 'var(--text-2)' }}>
           Consent pending — share this link or QR with the subject. It is single-use and expires in 7 days.
         </p>
         <div className={styles.linkRow}>
-          <input
-            readOnly value={link.url} onFocus={e => e.currentTarget.select()}
-            className={`a-input ${styles.linkInput}`}
+          <TextField
+            label="Consent link"
+            readOnly
+            value={link.url}
+            onFocus={e => e.currentTarget.select()}
           />
-          <button
-            onClick={() => copyLink(link.url)}
-            className="a-secondary"
-          >
+          <Button variant="secondary" style={{ alignSelf: 'flex-start' }} onClick={() => copyLink(link.url)}>
             {copied ? 'Copied' : 'Copy link'}
-          </button>
+          </Button>
         </div>
-        {error && <p role="alert" className="a-error">{error}</p>}
+        {error && <Banner variant="error">{error}</Banner>}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={link.qr} alt="Remote consent QR code" width={160} height={160} className={styles.qr} />
       </Surface>
@@ -67,17 +69,14 @@ export default function RemoteConsentButton({ clientId }: { clientId: string }) 
 
   return (
     <Surface tier="tile" innerClassName={styles.panel}>
-      <p className="a-help">
+      <p className="t-callout" style={{ color: 'var(--text-2)' }}>
         Subject consent is pending. Capture is blocked until the subject (or their guardian) consents.
       </p>
       <div className={styles.actionRow}>
-        <button
-          onClick={generate} disabled={state === 'loading'}
-          className="a-secondary"
-        >
-          {state === 'loading' ? 'Generating…' : 'Send remote consent link'}
-        </button>
-        {error && <span role="alert" className="a-error">{error}</span>}
+        <Button variant="secondary" loading={state === 'loading'} onClick={generate}>
+          Send remote consent link
+        </Button>
+        {error && <Banner variant="error">{error}</Banner>}
       </div>
     </Surface>
   )
