@@ -18,10 +18,10 @@ The canonical artifact is `content/clinical-content-inventory.json`.
 | Recommendation algorithms | 1 |
 
 Inventory SHA-256:
-`47bd528839ecee27c21ee511a794a65b39f8620bd9b50bf8abf62e61c8283f11`.
+`9436dca67ecf94fa74d583a84c624b09cc50df6b22fafc83073e79259a36f085`.
 
 Recommendation algorithm SHA-256:
-`eb330b1e0285826980af0adeee7b1b3bcf557bc22c085fb8015de38123ddfaff`.
+`c36bbb12c86d859f627bdad2f0226104fc69b83c1ba3b250f2cff3a26246f051`.
 
 **2026-10-01: the HG-03 activation gate is removed** (owner decision). The runtime
 serves the full catalog to every practitioner as `clinical-content-open-<inventory prefix>`,

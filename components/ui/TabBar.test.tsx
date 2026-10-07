@@ -32,7 +32,9 @@ describe('TabBar', () => {
   })
 
   it('never marks Capture as the active destination', () => {
-    navigation.pathname = '/assessments/new'
+    // The capture wizard itself hides the tab bar; an assessment route under
+    // the same prefix still shows it and must not mark Capture as current.
+    navigation.pathname = '/assessments/abc-123'
     render(<TabBar clinicalContentEnabled audience="practitioner" />)
 
     const nav = screen.getByRole('navigation', { name: 'Primary' })
