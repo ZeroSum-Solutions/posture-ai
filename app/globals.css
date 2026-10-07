@@ -397,6 +397,9 @@ input[type='range'] { min-height: 48px; padding: 0; background: none; box-shadow
 :focus { outline: none; }
 /* A 2px solid outline (visible on black and on any glass) with an offset. */
 :focus-visible { outline: 2px solid rgba(255, 255, 255, 0.95); outline-offset: 2px; }
+/* Headings and <main> receive programmatic focus on route change; they are not
+   controls, so they never show a ring. */
+[tabindex='-1']:focus, [tabindex='-1']:focus-visible { outline: none; box-shadow: none; }
 
 /* ── Loading ───────────────────────────────────────────────────────────── */
 
