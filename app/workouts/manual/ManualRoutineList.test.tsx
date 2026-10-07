@@ -21,7 +21,7 @@ describe('ManualRoutineList', () => {
 
     await waitFor(() => expect(mocks.load).toHaveBeenCalledWith(subjectId))
     expect(screen.getByText('Saturday basics')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Open routine' }).getAttribute('href')).toBe('/workouts/manual/54000000-0000-4000-8000-000000000004')
+    expect(screen.getByRole('link', { name: 'Open Saturday basics' }).getAttribute('href')).toBe('/workouts/manual/54000000-0000-4000-8000-000000000004')
   })
 
   it('loads another opaque page and deduplicates routine IDs while preserving server updates', async () => {
@@ -51,7 +51,7 @@ describe('ManualRoutineList', () => {
     expect(await screen.findByText('Travel updated')).toBeTruthy()
     expect(screen.queryByText('Travel')).toBeNull()
     expect(screen.getByText('Sunday walk')).toBeTruthy()
-    expect(screen.getAllByRole('link', { name: 'Open routine' })).toHaveLength(3)
+    expect(screen.getAllByRole('link', { name: /^Open /u })).toHaveLength(3)
     expect(screen.queryByRole('button', { name: 'Load more routines' })).toBeNull()
   })
 

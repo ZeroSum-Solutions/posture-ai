@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
+import { Banner, Button, TextField } from '@/components/ui'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { MIN_PASSWORD_LENGTH, validatePasswordReset } from '@/lib/auth/password'
 
@@ -49,48 +49,40 @@ export default function AthleteAcceptInvitePage() {
       description="Protect your invited account before opening your training workspace."
     >
       {checking ? (
-        <p className="a-help" role="status">Verifying your secure invitation…</p>
+        <p className="t-footnote" role="status">Verifying your secure invitation…</p>
       ) : !hasInviteSession ? (
-        <div role="alert">
-          <p className="a-help" style={{ marginBottom: 16 }}>
+        <div className="a-form">
+          <Banner variant="error">
             This invitation link is invalid, expired, or has already been used.
-          </p>
-          <Link href="/auth/sign-in" className="a-label" style={{ textDecoration: 'underline' }}>
-            Return to sign in
-          </Link>
+          </Banner>
+          <Button href="/auth/sign-in" variant="tertiary">Return to sign in</Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} noValidate className="a-form">
-          <p className="a-help">
+          <p className="t-footnote">
             Choose a password, then connect an authenticator before training access is activated.
           </p>
-          {error && <p className="a-error" role="alert">{error}</p>}
-          <div className="a-field">
-            <label className="a-label" htmlFor="athlete_invite_password">Password</label>
-            <input
-              id="athlete_invite_password"
-              className="a-input"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="new-password"
-              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-            />
-          </div>
-          <div className="a-field">
-            <label className="a-label" htmlFor="athlete_invite_password_confirm">Confirm password</label>
-            <input
-              id="athlete_invite_password_confirm"
-              className="a-input"
-              type="password"
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-              autoComplete="new-password"
-            />
-          </div>
-          <button type="submit" disabled={loading} className="a-primary a-primary--bar">
-            {loading ? 'Saving password…' : 'Continue to multi-factor setup'}
-          </button>
+          {error && <Banner variant="error">{error}</Banner>}
+          <TextField
+            label="Password"
+            id="athlete_invite_password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="new-password"
+            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+          />
+          <TextField
+            label="Confirm password"
+            id="athlete_invite_password_confirm"
+            type="password"
+            value={confirm}
+            onChange={(event) => setConfirm(event.target.value)}
+            autoComplete="new-password"
+          />
+          <Button type="submit" size="lg" block loading={loading}>
+            Continue to multi-factor setup
+          </Button>
         </form>
       )}
     </AuthFrame>

@@ -517,7 +517,7 @@ SELECT throws_ok(
       '10000000-0000-0000-0000-000000000001'::uuid,
       1,
       'standard',
-      '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"wrong-id","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"3341779760f41c560f8108e202a3e7225fdaba4ed891bf2821d5ad78fcd21ae3"}}'::jsonb,
+      '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"wrong-id","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"96130aba98e2129ef4b37e25ea8c77ed9226aeedd28ef3d523d366c8b74c0589"}}'::jsonb,
       repeat('5', 64),
       clock_timestamp() + interval '1 day',
       'screening-notice-test-fixture-v1',
@@ -528,7 +528,7 @@ SELECT throws_ok(
       'us_fitness_wellness_assessment_beta_v1',
       'governed',
       'clinical-content-test-fixture-v1',
-      '3341779760f41c560f8108e202a3e7225fdaba4ed891bf2821d5ad78fcd21ae3',
+      '96130aba98e2129ef4b37e25ea8c77ed9226aeedd28ef3d523d366c8b74c0589',
       repeat('f', 64)
     )
   $$,
@@ -553,7 +553,7 @@ SELECT lives_ok(
       '10000000-0000-0000-0000-000000000001'::uuid,
       1,
       'standard',
-      '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"3341779760f41c560f8108e202a3e7225fdaba4ed891bf2821d5ad78fcd21ae3"}}'::jsonb,
+      '{"version":3,"week":1,"capability":"standard","priorities":[],"items":[],"estimatedDurationSec":60,"legalNotice":{"schemaVersion":1,"documentId":"screening-notice-test-fixture-v1","kind":"screening_notice","version":"test-fixture-v1","effectiveAt":"2026-07-20T00:00:00Z","jurisdiction":"US","productScope":"us_fitness_wellness_assessment_beta_v1","bodySha256":"7777777777777777777777777777777777777777777777777777777777777777"},"clinicalContent":{"version":"clinical-content-test-fixture-v1","inventorySha256":"96130aba98e2129ef4b37e25ea8c77ed9226aeedd28ef3d523d366c8b74c0589"}}'::jsonb,
       repeat('6', 64),
       clock_timestamp() + interval '1 day',
       'screening-notice-test-fixture-v1',
@@ -564,7 +564,7 @@ SELECT lives_ok(
       'us_fitness_wellness_assessment_beta_v1',
       'governed',
       'clinical-content-test-fixture-v1',
-      '3341779760f41c560f8108e202a3e7225fdaba4ed891bf2821d5ad78fcd21ae3',
+      '96130aba98e2129ef4b37e25ea8c77ed9226aeedd28ef3d523d366c8b74c0589',
       repeat('f', 64)
     )
   $$,

@@ -77,8 +77,8 @@ function Media({ projection }: { projection: TrainingLaunchMediaProjectionV1 | n
         style={{ display: 'block', width: '100%', height: 'auto' }} onError={() => setPosterFailed(true)} />
       : <p className="t-footnote" role="status">Exercise media could not load. Follow the written instructions above.</p>}
     <figcaption className="t-footnote">
-      <a href={projection.source.sourcePageUrl} target="_blank" rel="noopener noreferrer">{projection.source.author}</a>
-      {' · '}<a href={projection.source.license.url} target="_blank" rel="noopener noreferrer">{projection.source.license.name}</a>
+      <a href={projection.source.sourcePageUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{projection.source.author}</a>
+      {' · '}<a href={projection.source.license.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{projection.source.license.name}</a>
     </figcaption>
   </figure>
 }

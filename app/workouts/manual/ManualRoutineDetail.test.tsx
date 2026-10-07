@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ load: vi.fn(), update: vi.fn(), archive: vi.fn(), push: vi.fn(), refresh: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }), usePathname: () => '/workouts/manual/54000000-0000-4000-8000-000000000004' }))
 vi.mock('./ManualRoutine.gateway', async original => {
   const actual = await original<typeof import('./ManualRoutine.gateway')>()
   return { ...actual, loadManualRoutine: mocks.load, updateManualRoutine: mocks.update, archiveManualRoutine: mocks.archive }

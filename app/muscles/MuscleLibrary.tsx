@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { AnatomyGlyph } from '@/components/SignalGlyphs'
-import { Chip } from '@/components/array/Chip'
-import { Surface, SurfaceLink } from '@/components/array/Surface'
+import { EmptyState, SearchField, SeverityChip } from '@/components/ui'
+import { SurfaceLink } from '@/components/array/Surface'
 
 interface MuscleRow {
   slug: string
@@ -33,46 +33,34 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
 
   return (
     <>
-      <input
-        type="search"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        placeholder="Search muscles…"
-        aria-label="Search muscles"
-      />
+      <SearchField label="Search muscles" placeholder="Search muscles…" onQueryChange={setSearch} />
 
       {filtered.length === 0 && (
-        <Surface tier="tile" pad="rowy">
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <span style={{ flexShrink: 0, color: 'var(--text-tertiary)' }}><AnatomyGlyph /></span>
-            <div>
-              <h2 className="t-headline">
-                {muscles.length === 0 ? 'The reviewed guide is being prepared' : 'No matching muscles'}
-              </h2>
-              <p className="t-body" style={{ marginTop: 4 }}>
-                {muscles.length === 0
-                  ? 'Reviewed anatomy entries will appear here as they clear the content gate.'
-                  : <>Try a different muscle or region than &ldquo;{search}&rdquo;.</>}
-              </p>
-            </div>
-          </div>
-        </Surface>
+        <EmptyState
+          icon="magnifer-linear"
+          title={muscles.length === 0 ? 'The reviewed guide is being prepared' : 'No matching muscles'}
+          body={muscles.length === 0
+            ? 'Reviewed anatomy entries will appear here as they clear the content gate.'
+            : `Try a different muscle or region than "${search}".`}
+        />
       )}
 
       {regions.map(region => (
         <section key={region} className="app-stack">
           <h2 className="t-title-2">{REGION_LABELS[region] ?? region}</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--s-12)' }}>
             {filtered.filter(m => m.region === region).map(m => (
-              <SurfaceLink key={m.slug} href={`/muscles/${m.slug}`} tier="row">
-                <span data-testid={`muscle-card-${m.slug}`} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <span className="t-headline">{m.name}</span>
-                    {!m.reviewed_at && <Chip band="monitor" size="sm">Pending review</Chip>}
-                  </span>
-                  <span className="t-body">
-                    {m.function_text.length > 110 ? m.function_text.slice(0, 107) + '…' : m.function_text}
-                  </span>
+              <SurfaceLink
+                key={m.slug}
+                href={`/muscles/${m.slug}`}
+                tier="tile"
+                style={{ minHeight: 96 }}
+                innerStyle={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--s-8)', height: '100%' }}
+              >
+                <span data-testid={`muscle-card-${m.slug}`} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', minWidth: 0 }}>
+                  <span style={{ color: 'var(--text-3)' }} aria-hidden="true"><AnatomyGlyph /></span>
+                  <span className="t-headline" style={{ overflowWrap: 'anywhere' }}>{m.name}</span>
+                  {!m.reviewed_at && <SeverityChip band="monitor" size="sm" label="Pending review" />}
                 </span>
               </SurfaceLink>
             ))}

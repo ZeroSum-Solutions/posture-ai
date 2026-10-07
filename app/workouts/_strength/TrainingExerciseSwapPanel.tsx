@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button, Radio } from '@/components/ui'
 import {
   ExerciseSwapAcceptanceV1Schema,
   ExerciseSwapProposalProjectionV1Schema,
@@ -167,71 +168,74 @@ function TrainingExerciseSwapPanelState({ sessionId, exerciseInstanceId, onAccep
   }
 
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
-    <div className={styles.sessionHeader} style={{ gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+    <div className={styles.sessionHeader} style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <div style={{ minWidth: 0, flex: '1 1 14rem' }}>
         <p className="t-overline">Future sessions</p>
         <h3 className="t-title-2">Exercise alternatives</h3>
         <p className="t-body">Review exact authored differences and choose a new starting target. Earlier and already-started sessions remain unchanged.</p>
       </div>
-      {panel.status === 'idle' || panel.status === 'error'
-        ? <button type="button" className="a-secondary" onClick={() => void loadProposals()}>
+      {panel.status === 'idle' || panel.status === 'error' || panel.status === 'loading'
+        ? <Button
+            variant="secondary"
+            size="sm"
+            loading={panel.status === 'loading'}
+            onClick={() => void loadProposals()}
+          >
             {panel.status === 'error' ? 'Try alternatives again' : 'Find alternatives'}
-          </button>
+          </Button>
         : null}
     </div>
 
-    {panel.status === 'loading' ? <p role="status">Loading exercise alternatives…</p> : null}
+    {panel.status === 'loading' ? <p role="status" className="t-footnote">Loading exercise alternatives…</p> : null}
     {panel.status === 'error' ? <p role="alert" className={styles.error}>{panel.message}</p> : null}
     {panel.status === 'forbidden'
-      ? <p role="status">Exercise alternatives are available only to the athlete or the coach who owns this program.</p>
+      ? <p role="status" className="t-body">Exercise alternatives are available only to the athlete or the coach who owns this program.</p>
       : null}
 
     {panel.status === 'ready' && panel.projection.result.kind === 'no_reviewed_alternative'
       ? <div className={styles.pendingPanel}>
-          <h4>No reviewed alternative is available</h4>
-          <p>The current exercise stays in future sessions. Nothing was changed.</p>
+          <p><strong>No reviewed alternative is available</strong></p>
+          <p className="t-body">The current exercise stays in future sessions. Nothing was changed.</p>
         </div>
       : null}
     {panel.status === 'ready' && panel.projection.result.kind === 'no_future_target'
       ? <div className={styles.pendingPanel}>
-          <h4>No future session can be changed</h4>
-          <p>Started and completed prescriptions remain fixed. Nothing was changed.</p>
+          <p><strong>No future session can be changed</strong></p>
+          <p className="t-body">Started and completed prescriptions remain fixed. Nothing was changed.</p>
         </div>
       : null}
 
     {panel.status === 'ready' && panel.projection.result.kind === 'proposals'
-      ? <div style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
+      ? <div style={{ display: 'grid', gap: 'var(--s-16)', minWidth: 0 }}>
           {panel.projection.result.proposals.map(proposal => {
             const selectedIndex = selection?.proposalId === proposal.proposalId ? selection.optionIndex : null
             const locked = acceptance.status === 'accepting' || acceptance.status === 'unknown' || acceptance.status === 'accepted'
             return <section key={proposal.proposalId} className={styles.pendingPanel} style={{ minWidth: 0 }}>
               <p className="t-overline">Alternative for {proposal.sourceExercise.label}</p>
-              <h4>{proposal.replacementExercise.label}</h4>
-              <ul>
+              <h4 className="t-headline" style={{ margin: 0 }}>{proposal.replacementExercise.label}</h4>
+              <ul className="t-body" style={{ paddingLeft: 'var(--s-20)' }}>
                 {proposal.replacementExercise.differences.map((difference, index) => (
-                  <li key={`${difference.kind}:${index}`}><strong>{difference.kind.replaceAll('_', ' ')}:</strong> {difference.description}</li>
+                  <li key={`${difference.kind}:${index}`}>
+                    <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>{difference.kind.replaceAll('_', ' ')}:</span> {difference.description}
+                  </li>
                 ))}
               </ul>
               <p className={styles.notice}>Changing exercise variation resets its load comparison. Choose an achievable starting target to confirm; this does not infer equivalent strength.</p>
-              <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: '1rem 0', minWidth: 0 }}>
-                <legend><strong>Starting target to confirm</strong></legend>
-                <div style={{ display: 'grid', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  {proposal.loadOptions.map(option => (
-                    <label key={option.optionIndex} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', minWidth: 0 }}>
-                      <input
-                        type="radio"
-                        name={`swap-load-${proposal.proposalId}`}
-                        checked={selectedIndex === option.optionIndex}
-                        onChange={() => chooseLoad(proposal.proposalId, option.optionIndex)}
-                      />
-                      <span style={{ overflowWrap: 'anywhere' }}>{exactLoadLabel(option)}</span>
-                    </label>
-                  ))}
-                </div>
+              <fieldset disabled={locked} className={styles.fieldset} style={{ minWidth: 0 }}>
+                <legend>Starting target to confirm</legend>
+                {proposal.loadOptions.map(option => (
+                  <Radio
+                    key={option.optionIndex}
+                    name={`swap-load-${proposal.proposalId}`}
+                    checked={selectedIndex === option.optionIndex}
+                    onChange={() => chooseLoad(proposal.proposalId, option.optionIndex)}
+                    label={<span style={{ overflowWrap: 'anywhere' }}>{exactLoadLabel(option)}</span>}
+                  />
+                ))}
               </fieldset>
-              <p>{proposal.affectedFutureSessions.length} future {proposal.affectedFutureSessions.length === 1 ? 'session' : 'sessions'} will use this variation after acceptance.</p>
+              <p className="t-footnote">{proposal.affectedFutureSessions.length} future {proposal.affectedFutureSessions.length === 1 ? 'session' : 'sessions'} will use this variation after acceptance.</p>
               {acceptance.status === 'accepted' && selection?.proposalId === proposal.proposalId
-                ? <p role="status">Exercise swap confirmed in program revision {acceptance.programRevisionNumber}.</p>
+                ? <p role="status" className="t-body">Exercise swap confirmed in program revision {acceptance.programRevisionNumber}.</p>
                 : null}
               {acceptance.status === 'unknown' && envelope?.proposalId === proposal.proposalId
                 ? <p role="alert" className={styles.error}>{acceptance.message}</p>
@@ -246,7 +250,7 @@ function TrainingExerciseSwapPanelState({ sessionId, exerciseInstanceId, onAccep
                 ? <p role="alert" className={styles.error}>This proposal is out of date. Refresh alternatives before choosing again.</p>
                 : null}
               {acceptance.status === 'stale' && acceptance.proposalId === proposal.proposalId
-                ? <button type="button" className="a-secondary" onClick={() => void loadProposals()}>Refresh alternatives</button>
+                ? <Button variant="secondary" size="sm" onClick={() => void loadProposals()}>Refresh alternatives</Button>
                 : acceptance.status === 'accepted' || acceptance.status === 'forbidden' || acceptance.status === 'stale'
                   ? null
                   : <button

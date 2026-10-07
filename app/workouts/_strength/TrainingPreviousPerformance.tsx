@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { TrainingPreviousPerformanceV1Schema, type TrainingPreviousPerformanceV1 } from '@/lib/training/contracts/previous-performance'
 import type { EquipmentLoadBasis } from '@/lib/training/equipment'
+import { Button } from '@/components/ui'
 import styles from './StrengthProgramBuilder.module.css'
 
 type Props = { sessionId: string; exerciseInstanceId: string }
@@ -40,11 +41,11 @@ function PreviousPerformance({ sessionId, exerciseInstanceId }: Props) {
 
   const result = state.kind === 'ready' ? state.result : null
   return <aside className={styles.pendingPanel} aria-label="Previous comparable session">
-    <h4>Previous comparable session</h4>
+    <h4 className="t-headline">Previous comparable session</h4>
     {state.kind === 'loading' ? <p role="status">Loading saved performance…</p> : null}
     {state.kind === 'error' || result?.kind === 'unavailable' ? <>
       <p>Comparable saved performance is unavailable. Use your prescribed targets below.</p>
-      <button type="button" className="a-secondary" onClick={() => { setState({ kind: 'loading' }); setAttempt(value => value + 1) }}>Retry previous performance</button>
+      <Button variant="secondary" size="sm" onClick={() => { setState({ kind: 'loading' }); setAttempt(value => value + 1) }}>Retry previous performance</Button>
     </> : null}
     {result?.kind === 'none' ? <p>No comparable saved session yet.</p> : null}
     {result?.kind === 'available' ? <>

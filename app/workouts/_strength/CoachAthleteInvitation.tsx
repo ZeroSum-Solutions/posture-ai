@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { Button, Checkbox, TextField } from '@/components/ui'
 import styles from './StrengthProgramBuilder.module.css'
 
 const PERMISSION_OPTIONS = [
@@ -189,42 +190,36 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
       <p className="t-overline">Prepared privately</p>
       <h3 id="invitation-ready-heading" className="t-title-2">Invitation ready</h3>
       <p className="t-body">Share this link directly with {state.clientName}. No message was sent automatically.</p>
-      <label className="t-body">
-        Invitation link
-        <input aria-label="Invitation link" readOnly value={state.receipt.invitationUrl} />
-      </label>
+      <TextField label="Invitation link" readOnly value={state.receipt.invitationUrl} />
       <p className="t-caption">Expires <time dateTime={state.receipt.expiresAt}>{new Date(state.receipt.expiresAt).toLocaleString()}</time></p>
       <div className={styles.saveActions}>
-        <button type="button" className="a-primary" onClick={() => void copyInvitationLink()}>Copy invitation link</button>
+        <Button onClick={() => void copyInvitationLink()}>Copy invitation link</Button>
       </div>
       {copyMessage ? <p role="status" className="t-caption">{copyMessage}</p> : null}
     </section>
   }
 
   return <form className={styles.entryState} onSubmit={submit} noValidate>
-    <label className="t-body">
-      Athlete email
-      <input
-        aria-label="Athlete email"
-        autoComplete="email"
-        disabled={fieldsFrozen}
-        inputMode="email"
-        onChange={event => setEmail(event.target.value)}
-        type="email"
-        value={email}
-      />
-    </label>
+    <TextField
+      label="Athlete email"
+      autoComplete="email"
+      disabled={fieldsFrozen}
+      inputMode="email"
+      onChange={event => setEmail(event.target.value)}
+      type="email"
+      value={email}
+    />
     <fieldset className={styles.fieldset} disabled={fieldsFrozen}>
       <legend>Choose what this coach may do after the athlete accepts</legend>
-      <div className={styles.fieldGrid}>
-        {PERMISSION_OPTIONS.map(option => <label key={option.value} className="t-caption">
-          <input
+      <div className={styles.fieldGrid2}>
+        {PERMISSION_OPTIONS.map(option => (
+          <Checkbox
+            key={option.value}
             checked={permissions.includes(option.value)}
             onChange={() => togglePermission(option.value)}
-            type="checkbox"
+            label={option.label}
           />
-          {option.label}
-        </label>)}
+        ))}
       </div>
     </fieldset>
     {state.kind === 'error' || state.kind === 'uncertain'
@@ -232,10 +227,10 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
       : null}
     <div className={styles.saveActions}>
       {state.kind === 'uncertain' && frozenRequest
-        ? <button type="button" className="a-primary" onClick={() => void prepare(frozenRequest)}>Retry same invitation request</button>
-        : <button type="submit" className="a-primary" disabled={state.kind === 'submitting'}>
+        ? <Button onClick={() => void prepare(frozenRequest)}>Retry same invitation request</Button>
+        : <Button type="submit" loading={state.kind === 'submitting'}>
           {state.kind === 'submitting' ? 'Preparing invitation…' : 'Prepare invitation'}
-        </button>}
+        </Button>}
     </div>
   </form>
 }

@@ -6,7 +6,9 @@ import { type WorkoutLibraryItem, workoutLibraryKey } from './WorkoutLibrary.mod
 import { DEFAULT_WORKOUT_PREFERENCES } from '@/lib/workout/personalize'
 
 const push = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }))
+// v3's shared `ActionBar`/`TopBar` read `usePathname` (tab-bar/chrome-bottom
+// policy), so the navigation mock now needs it alongside `useRouter`.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh: vi.fn() }), usePathname: () => '/workouts' }))
 vi.mock('./_strength/StrengthBuilderEntry', () => ({
   default: ({ source }: { source: { kind: 'client'; client: { id: string; name: string } } }) => <div data-testid="strength-builder-entry">{source.kind}:{source.client.id}:{source.client.name}</div>,
 }))
@@ -114,6 +116,9 @@ describe('original workout library', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<WorkoutLibrary initialLibrary={[item]} />)
 
+    // v3 moves the per-row Edit/Archive pair into a "…" overflow Sheet
+    // (DESIGN.md / spec §5 "Workouts hub") — open it before reaching Archive.
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Tuesday movement' }))
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
 
     await waitFor(() => expect(screen.queryByText('Tuesday movement')).toBeNull())
@@ -125,6 +130,7 @@ describe('original workout library', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<WorkoutLibrary initialLibrary={[item]} />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Tuesday movement' }))
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
 
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/offline/i))

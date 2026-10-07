@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Surface } from '@/components/array/Surface'
+import { Button, Select, Surface } from '@/components/ui'
 import {
   createManualRoutine,
   createManualRoutineAttempt,
@@ -85,12 +85,10 @@ export default function ManualRoutineSubjectWorkspace({ identity, mode, exercise
   return <div className={styles.subjectWorkspace}>
     {identity.kind === 'practitioner' ? <Surface tier="tile" innerClassName={styles.subjectPicker}>
       <div><p className="t-overline">Athlete</p><h2 className="t-headline">Choose who this routine is for</h2></div>
-      <label className={styles.field}>Client
-        <select className="a-input" value={clientId} disabled={createState !== 'idle'} onChange={event => void selectClient(event.target.value)}>
-          <option value="">Choose a connected client</option>
-          {identity.clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-        </select>
-      </label>
+      <Select label="Client" value={clientId} disabled={createState !== 'idle'} onChange={event => void selectClient(event.target.value)}>
+        <option value="">Choose a connected client</option>
+        {identity.clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
+      </Select>
       {identity.clients.length === 0 ? <p className="t-body">No connected athlete accounts are available. Set up an athlete account before saving a routine.</p> : null}
       {state === 'loading' ? <p role="status" className="t-footnote">Loading athlete access…</p> : null}
       {state === 'error' ? <p role="alert" className={styles.error}>This client is not connected to an active athlete training account.</p> : null}
@@ -140,7 +138,7 @@ export default function ManualRoutineSubjectWorkspace({ identity, mode, exercise
       />
       {createState === 'uncertain' ? <Surface tier="tile" innerClassName={styles.empty}>
         <p role="status" className="t-body">The save may already have completed. Keep this draft unchanged and retry the original save.</p>
-        <button type="button" className="a-primary" onClick={() => {
+        <Button variant="primary" onClick={() => {
           const attempt = createAttempt.current
           const owner = createAttemptOwner.current
           if (!attempt || !owner) return
@@ -176,7 +174,7 @@ export default function ManualRoutineSubjectWorkspace({ identity, mode, exercise
           createInFlight.current = operation
           const release = () => { if (createInFlight.current === operation) createInFlight.current = null }
           void operation.then(release, release)
-        }}>Retry original save</button>
+        }}>Retry original save</Button>
       </Surface> : null}
       {retryError ? <p role="alert" className={styles.error}>{retryError}</p> : null}
     </> : null}
