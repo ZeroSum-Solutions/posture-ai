@@ -57,7 +57,7 @@ INSERT INTO public.clinical_content_release_items (
   'algorithm:recommendation-engine',
   'algorithm',
   'recommendation-engine-v1',
-  '11dd63b5b49ed219e6336677b6e3954e62818281a2865750846176bc48ff8160',
+  'd77a91c6c2186fa8f4b232a773363d920ec3dfc158e13f2bb2c9c79169d4b9b3',
   'approved',
   '2026-07-20T00:00:00Z',
   repeat('e', 64)

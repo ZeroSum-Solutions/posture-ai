@@ -21,7 +21,7 @@ Inventory SHA-256:
 `bc186c6addd51b1c7fa7d63146577d652d0c83d2260184f0a9d26a8ab81aa2f4`.
 
 Recommendation algorithm SHA-256:
-`11dd63b5b49ed219e6336677b6e3954e62818281a2865750846176bc48ff8160`.
+`d77a91c6c2186fa8f4b232a773363d920ec3dfc158e13f2bb2c9c79169d4b9b3`.
 
 **2026-10-01: the HG-03 activation gate is removed** (owner decision). The runtime
 serves the full catalog to every practitioner as `clinical-content-open-<inventory prefix>`,
