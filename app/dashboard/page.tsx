@@ -86,7 +86,9 @@ export default async function DashboardPage() {
       .eq('practitioner_approved', false)
       .is('clients.deleted_at', null)
       .order('created_at', { ascending: true })
-      .limit(4),
+      // "Needs attention" shows at most 3 rows total, shared with the re-scan
+      // reminder (DESIGN.md › Today) — no need to fetch a 4th.
+      .limit(3),
     supabase
       .from('assessments')
       .select('id, clients!inner(deleted_at)', { count: 'exact', head: true })
@@ -101,7 +103,8 @@ export default async function DashboardPage() {
       .eq('status', 'complete')
       .is('clients.deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(4),
+      // "Recent scans" shows at most 3 rows (DESIGN.md › Today).
+      .limit(3),
     // Longest since a scan, resolved in SQL. A capped feed of recent assessments
     // cannot answer this: the client who has waited longest is precisely the one
     // whose last scan sits furthest behind any cap.

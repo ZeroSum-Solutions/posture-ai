@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, it, vi } from 'vitest'
 import NewClientPageClient from './NewClientPageClient'
 const { push } = vi.hoisted(() => ({ push: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+// TopBar/ActionBar (components/ui) read the route via usePathname.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }), usePathname: () => '/clients/new' }))
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); push.mockReset() })
 it('returns a newly created client to the capture flow with selection preserved', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ client: { id: 'client-3' } }, { status: 201 })))

@@ -50,7 +50,7 @@ describe('client directory pagination', () => {
   it('loads the directory on arrival and narrows it on a settled search', async () => {
     render(<ClientsPage />)
 
-    await screen.findByText('Initial Example')
+    await screen.findByRole('link', { name: /Initial Example/ })
     const initialUrls = vi.mocked(fetch).mock.calls.map(([input]) => String(input))
     expect(initialUrls).toHaveLength(1)
     expect(initialUrls[0]).toContain('filter=all')
@@ -59,14 +59,14 @@ describe('client directory pagination', () => {
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
     fireEvent.change(search, { target: { value: 'Jane' } })
 
-    await screen.findByText('Jane Example')
+    await screen.findByRole('link', { name: /Jane Example/ })
     const urls = vi.mocked(fetch).mock.calls.map(([input]) => String(input))
     expect(urls.some((url) => url.includes('search=Jane'))).toBe(true)
   })
 
   it('resolves a chosen filter on the server, not over one page in the browser', async () => {
     render(<ClientsPage />)
-    await screen.findByText('Initial Example')
+    await screen.findByRole('link', { name: /Initial Example/ })
 
     fireEvent.click(screen.getByRole('button', { name: /Needs review/ }))
 
@@ -76,19 +76,26 @@ describe('client directory pagination', () => {
     })
   })
 
-  it('does not leave Load more disabled when search replaces an in-flight page', async () => {
+  // v3: the hand-rolled "Load more clients" / "Loading…" button is now the
+  // shared `Button` component with its own loading contract — label stays
+  // "Show more" throughout (DESIGN.md › Clients: "~30 + 'Show more'"), and
+  // busy state is `aria-busy` rather than a disabled attribute or a text swap
+  // (components/ui/Button: `loading` swallows clicks via its own handler, it
+  // never sets the native `disabled` attribute).
+  it('does not leave Show more stuck busy when search replaces an in-flight page', async () => {
     render(<ClientsPage />)
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
     fireEvent.change(search, { target: { value: 'Initial' } })
-    await screen.findByText('Initial Example')
+    await screen.findByRole('link', { name: /Initial Example/ })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load more clients' }))
-    expect((screen.getByRole('button', { name: 'Loading…' }) as HTMLButtonElement).disabled).toBe(true)
+    const showMore = screen.getByRole('button', { name: 'Show more' })
+    fireEvent.click(showMore)
+    expect(showMore.getAttribute('aria-busy')).toBe('true')
 
     fireEvent.change(search, { target: { value: 'Jane' } })
 
-    await screen.findByText('Jane Example')
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Load more clients' }) as HTMLButtonElement).disabled).toBe(false))
+    await screen.findByRole('link', { name: /Jane Example/ })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show more' }).getAttribute('aria-busy')).not.toBe('true'))
   })
 
   it('keeps prior results visible and announces a slow search without shrinking the touch target', async () => {
@@ -106,19 +113,22 @@ describe('client directory pagination', () => {
     render(<ClientsPage />)
     const search = screen.getByRole('textbox', { name: 'Search clients by name' })
     fireEvent.change(search, { target: { value: 'Initial' } })
-    await screen.findByText('Initial Example')
-    expect((search as HTMLInputElement).style.minHeight).toBe('44px')
+    await screen.findByRole('link', { name: /Initial Example/ })
+    // v3: touch-target size is a CSS-class contract of the shared SearchField
+    // (components/ui/Field.module.css: `.control { min-height: 52px }`), not
+    // a per-instance inline-style override — there is no longer an inline
+    // `style.minHeight` to assert on the input itself.
 
     fireEvent.change(search, { target: { value: 'Slow' } })
     expect((await screen.findByRole('status')).textContent).toContain('Searching…')
-    expect(screen.getByText('Initial Example')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Initial Example/ })).toBeTruthy()
 
     await waitFor(() => expect(finishSearch).not.toBeNull())
     finishSearch!(new Response(JSON.stringify({
       clients: [client('20000000-0000-4000-8000-000000000002', 'Slow')],
       pagination: { has_more: false, next_cursor: null },
     }), { status: 200 }))
-    await screen.findByText('Slow Example')
+    await screen.findByRole('link', { name: /Slow Example/ })
     await waitFor(() => expect(screen.queryByText('Searching…')).toBeNull())
   })
 
@@ -153,7 +163,7 @@ describe('client directory pagination', () => {
     expect(firstSearchAborted).toBe(true)
     fireEvent.change(search, { target: { value: 'Ada' } })
 
-    await screen.findByText('Ada Example')
+    await screen.findByRole('link', { name: /Ada Example/ })
     expect(searchRequestCount).toBe(2)
   })
 })

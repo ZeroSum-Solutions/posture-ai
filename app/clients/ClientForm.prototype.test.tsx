@@ -6,6 +6,8 @@ import ClientForm from './ClientForm'
 vi.mock('@/components/useLegalDocument', () => ({
   default: vi.fn(() => ({ document: null, error: 'unavailable', isLoading: false })),
 }))
+// ActionBar (components/ui) reads the route via usePathname.
+vi.mock('next/navigation', () => ({ usePathname: () => '/clients/new' }))
 
 describe('ClientForm prototype operation', () => {
   test('creates a prototype record without rendering or submitting signature evidence', async () => {

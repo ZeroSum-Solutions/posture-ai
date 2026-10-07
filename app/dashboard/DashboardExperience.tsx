@@ -1,18 +1,28 @@
-import Link from 'next/link'
-import { Chip, DeltaChip, GradeChip } from '@/components/array/Chip'
+'use client'
+
 import Icon from '@/components/array/Icon'
-import { Surface, SurfaceLink } from '@/components/array/Surface'
-import { tone } from '@/components/array/severity'
-import type { TodayModel } from './todayModel'
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  ListGroup,
+  ListRow,
+  ProgressRing,
+  SectionHeader,
+  SeverityChip,
+  Stat,
+  TopBar,
+} from '@/components/ui'
+import type { SetupChecklist, TodayModel } from './todayModel'
 import styles from './DashboardExperience.module.css'
 
 /**
  * Today — the triage screen. It answers one question before any chrome: whose
- * report is waiting, and which one to open first.
+ * report is waiting, and which one to open first (DESIGN.md › Today).
  */
 export default function DashboardExperience({
   model,
-  practitionerInitials,
   todayLabel,
   loadError,
 }: {
@@ -21,174 +31,154 @@ export default function DashboardExperience({
   todayLabel: string
   loadError: string | null
 }) {
-  // A failed query and an empty practice are indistinguishable once the counts
-  // fall back to zero, so a Supabase blip would otherwise render as "no clients,
-  // queue clear" — the most dangerous possible reading of a triage screen. Bail
-  // out before any of that is drawn, and say so assertively.
-  //
-  // The retry is a plain anchor rather than a Link: this is a server component,
-  // so recovery needs a fresh document request, and the client router would be
-  // happy to serve the same failed render back from its cache.
-  if (loadError) {
-    return (
-      <div className="app-screen app-screen-x">
-        <section className={styles.verdict} role="alert">
-          <p className="t-overline" style={{ marginBottom: 12 }}>Dashboard unavailable</p>
-          <h1 className="t-title-1">Practice data could not load.</h1>
-        </section>
-        <Surface tier="feature">
-          <p className="t-body">{loadError}</p>
-          <a href="/dashboard" className="a-primary a-primary--bar" style={{ marginTop: 16 }}>
-            Refresh dashboard
-          </a>
-        </Surface>
-      </div>
-    )
-  }
-
   return (
     <div className="app-screen">
-      <header className={styles.header}>
-        <div className={styles.identity}>
-          <span className={styles.avatar} aria-hidden="true">{practitionerInitials}</span>
-          <div>
-            <p className={styles.wordmark}>
-              <span className={styles.live} aria-hidden="true" />
-              Posture AI
-            </p>
-            <p className={styles.today}>
-              {todayLabel}
-              {' · '}
-              <span className={styles.todayQuiet}>{model.queueTotal} awaiting review</span>
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <nav className={styles.quickActions} aria-label="Quick actions">
-        <Link href="/assessments/new" className="a-primary">Start scan</Link>
-        <Link href="/clients/new?returnTo=capture" className="a-secondary">New client</Link>
-        <Link href="/workouts" className="a-secondary">Workouts</Link>
-      </nav>
-      <section className={styles.verdict}>
-        <p className="t-overline" style={{ marginBottom: 12 }}>{model.kicker}</p>
-        <h1 className="t-title-1">
-          {model.headline.lead}
-          {model.headline.tail ? <> <em>{model.headline.tail}</em></> : null}
-        </h1>
-      </section>
+      <TopBar title="Today" subtitle={todayLabel} />
 
       <div className="app-screen-x app-stack">
-        {/* Tier 1 — the screen's subject. */}
-        <Surface tier="feature">
-          <div className={styles.queueHead}>
-            <h2 className="t-headline">Awaiting your sign-off</h2>
-            {model.queueTotal > 0
-              ? <Chip band="monitor" size="sm"><span className="n">{model.queueTotal}</span> due</Chip>
-              : <Chip band="maintain" size="sm" icon="check-circle-linear">Clear</Chip>}
-          </div>
+        {loadError ? (
+          // A failed query and an empty practice are indistinguishable once the
+          // counts fall back to zero, so a Supabase blip would otherwise render
+          // as "no clients, queue clear" — the most dangerous possible reading
+          // of a triage screen. Bail out before any of that is drawn.
+          //
+          // `reload()` rather than a client-side retry: this page's data comes
+          // from a server component, so recovery needs a fresh document request.
+          <ErrorState
+            variant="page"
+            title="Practice data could not load."
+            body={loadError}
+            onRetry={() => window.location.reload()}
+          />
+        ) : model.isFirstRun ? (
+          <>
+            <EmptyState
+              icon="users-group-rounded-linear"
+              title="Get set up"
+              body="Add your first client, then run a scan and build a workout for them."
+              primary={{ label: 'Add your first client', href: '/clients/new' }}
+            />
+            <SetupChecklistCard setup={model.setup} />
+          </>
+        ) : (
+          <>
+            {model.setup.doneCount < model.setup.total ? (
+              <SetupChecklistRow setup={model.setup} />
+            ) : null}
 
-          {model.queue.length === 0 ? (
-            <div className={styles.empty}>
-              <p className="t-body">Every completed scan has been signed off.</p>
-              <p className="t-footnote">New captures land here the moment scoring finishes.</p>
-            </div>
-          ) : (
-            <div>
-              {model.queue.map(item => (
-                <Link key={item.id} href={item.href} className={styles.queueRow}>
-                  <span className={styles.queueAvatar} aria-hidden="true">{item.initials}</span>
-                  <span className={styles.queueBody}>
-                    <span className={styles.queueName} style={{ display: 'block' }}>{item.name}</span>
-                    <span className={styles.queueMeta} style={{ display: 'block' }}>{item.meta}</span>
-                  </span>
-                  {item.wait ? (
-                    <span
-                      className={`${styles.queueWait} n`}
-                      style={{ color: item.oldest ? tone('monitor') : 'rgba(255,255,255,0.6)' }}
-                    >
-                      {item.wait}
-                    </span>
-                  ) : null}
-                </Link>
+            {model.hero ? (
+              <Card tier="feature" data-testid="today-hero">
+                <p className="t-body" style={{ color: 'var(--text-1)' }}>{model.hero.sentence}</p>
+                <Button href={model.hero.action.href} size="lg" block style={{ marginTop: 'var(--s-16)' }}>
+                  {model.hero.action.label}
+                </Button>
+              </Card>
+            ) : null}
+
+            {model.needsAttention.length > 0 ? (
+              <section>
+                <SectionHeader
+                  title="Needs attention"
+                  action={{ label: 'See all', href: '/clients?filter=needs-review' }}
+                />
+                <ListGroup label="Needs attention">
+                  {model.needsAttention.map(item => (
+                    <ListRow
+                      key={item.id}
+                      href={item.href}
+                      title={item.name}
+                      subtitle={item.subtitle}
+                      chevron
+                    />
+                  ))}
+                </ListGroup>
+              </section>
+            ) : null}
+
+            <section>
+              <SectionHeader title="Recent scans" action={{ label: 'See all', href: '/clients' }} />
+              {model.recent.length === 0 ? (
+                <ListGroup label="Recent scans">
+                  <ListRow title="No completed scans yet" subtitle="Capture one to start a history." />
+                </ListGroup>
+              ) : (
+                <ListGroup label="Recent scans">
+                  {model.recent.map(scan => (
+                    <ListRow
+                      key={scan.id}
+                      href={scan.href}
+                      title={scan.name}
+                      subtitle={scan.meta}
+                      trailing={<SeverityChip band={scan.band} size="sm" />}
+                      chevron
+                    />
+                  ))}
+                </ListGroup>
+              )}
+            </section>
+
+            <div className={styles.statsStrip} aria-label="This week">
+              {model.metrics.map(metric => (
+                <Stat key={metric.key} label={metric.label} value={metric.value} delta={metric.delta ?? undefined} />
               ))}
             </div>
-          )}
-
-          {model.primaryAction ? (
-            <div className={styles.queueAction}>
-              <Link href={model.primaryAction.href} className={`a-primary ${styles.fullBar}`}>
-                {model.primaryAction.label}
-              </Link>
-            </div>
-          ) : null}
-        </Surface>
-
-        {/* This product has no scheduling table, so the slot the design gives to
-            "next booked session" carries the truthful equivalent: the client who
-            has gone longest without a scan. Never presented as a booking. */}
-        {model.rescan ? (
-          <SurfaceLink href={model.rescan.href} tier="tile" pad="rowy">
-            <span className={styles.infoRow}>
-              <span className={styles.infoIcon} aria-hidden="true">
-                <Icon name="calendar-linear" size={20} />
-              </span>
-              <span className={styles.infoBody}>
-                <span className={styles.scanName} style={{ display: 'block' }}>{model.rescan.name}</span>
-                <span className={styles.scanMeta} style={{ display: 'block' }}>{model.rescan.meta}</span>
-              </span>
-              <span className="t-footnote" style={{ flexShrink: 0 }}>{model.rescan.readout}</span>
-            </span>
-          </SurfaceLink>
-        ) : null}
-
-        <div className={styles.metrics}>
-          {model.metrics.map(metric => (
-            <Surface key={metric.key} tier="tile" innerClassName={styles.metric}>
-              <div className={styles.metricTop}>
-                <Icon name={metric.icon} size={17} />
-                {metric.delta
-                  ? <DeltaChip band={metric.deltaBand} icon={metric.deltaIcon}>{metric.delta}</DeltaChip>
-                  : null}
-              </div>
-              <div>
-                <p className={`${styles.metricValue} n`}>{metric.value}</p>
-                <p className={styles.metricLabel}>{metric.label}</p>
-              </div>
-            </Surface>
-          ))}
-        </div>
-
-        <div className={styles.sectionHead}>
-          <h2 className="t-title-2">Recent scans</h2>
-          <Link href="/clients" className={styles.seeAll}>
-            See all
-            <Icon name="arrow-right-up-linear" size={14} />
-          </Link>
-        </div>
-
-        {model.recent.length === 0 ? (
-          <Surface tier="row" pad="rowy">
-            <p className="t-body">No completed scans yet. Capture one to start a history.</p>
-          </Surface>
-        ) : (
-          model.recent.map(scan => (
-            <SurfaceLink key={scan.id} href={scan.href} tier="row">
-              <span className={styles.scanRow}>
-                <GradeChip grade={scan.grade} />
-                <span className={styles.scanBody}>
-                  <span className={styles.scanName} style={{ display: 'block' }}>{scan.name}</span>
-                  <span className={styles.scanMeta} style={{ display: 'block' }}>{scan.meta}</span>
-                </span>
-                <span style={{ flexShrink: 0, color: tone(scan.band) }}>
-                  <Icon name={scan.icon} size={19} />
-                </span>
-              </span>
-            </SurfaceLink>
-          ))
+          </>
         )}
-
       </div>
     </div>
+  )
+}
+
+/** Done = a filled check circle in `--maintain`; not done = a plain numbered outline. */
+function StepIndicator({ done, position }: { done: boolean; position: number }) {
+  if (done) {
+    return (
+      <span className={styles.stepDone} aria-hidden="true">
+        <Icon name="check-circle-bold" size={22} />
+      </span>
+    )
+  }
+  return <span className={styles.stepPending} aria-hidden="true">{position}</span>
+}
+
+/** Expanded setup card — first-run only, the screen's one card-glass hero. */
+function SetupChecklistCard({ setup }: { setup: SetupChecklist }) {
+  return (
+    <Card tier="feature" data-testid="setup-checklist">
+      <div className={styles.setupHead}>
+        <h2 className="t-headline">Get set up · 3 steps</h2>
+        <ProgressRing value={setup.doneCount / setup.total} size={48} label="Setup checklist" />
+      </div>
+      <ListGroup label="Setup steps">
+        {setup.steps.map((step, index) => (
+          <ListRow
+            key={step.id}
+            leading={<StepIndicator done={step.done} position={index + 1} />}
+            title={step.label}
+            href={step.done ? undefined : step.href}
+            chevron={!step.done}
+            aria-label={step.done ? `${step.label}, done` : step.label}
+          />
+        ))}
+      </ListGroup>
+    </Card>
+  )
+}
+
+/** Collapsed one-line row — shown above the hero once the practice is past
+ * first-run but the checklist isn't finished yet. Flat (never a second
+ * card-glass surface alongside the hero). */
+function SetupChecklistRow({ setup }: { setup: SetupChecklist }) {
+  const next = setup.steps.find(step => !step.done)
+  return (
+    <ListGroup label="Setup checklist">
+      <ListRow
+        leading={<ProgressRing value={setup.doneCount / setup.total} size={48} label="Setup checklist" />}
+        title={`Setup — ${setup.doneCount} of ${setup.total}`}
+        subtitle={next ? `Next: ${next.label}` : undefined}
+        href={next?.href ?? '/clients/new'}
+        chevron
+      />
+    </ListGroup>
   )
 }
