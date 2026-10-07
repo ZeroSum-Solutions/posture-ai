@@ -161,6 +161,23 @@
   --bar-clearance: var(--actionbar-h);
 }
 
+/* Reduced transparency (and no backdrop-filter support): every glass token goes
+   solid at the source, so no component can keep a blur by accident. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-card: var(--glass-card-solid);
+    --glass-chrome: var(--glass-chrome-solid);
+    --glass-card-filter: none;
+    --glass-chrome-filter: none;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --glass-card: var(--glass-card-solid);
+    --glass-chrome: var(--glass-chrome-solid);
+  }
+}
+
 @media (prefers-contrast: more) {
   :root {
     --text-2: rgba(255, 255, 255, 0.85);

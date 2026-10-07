@@ -29,6 +29,7 @@ export function Stepper({ steps, current, onBack, className, 'data-testid': test
       <div
         className={styles.track}
         role="progressbar"
+        aria-label="Progress"
         aria-valuemin={1}
         aria-valuemax={steps.length}
         aria-valuenow={currentIndex + 1}

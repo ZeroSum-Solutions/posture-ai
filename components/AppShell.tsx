@@ -37,7 +37,7 @@ export default function AppShell({
           area instead of tab-bar-height + safe area. */}
       <div className="app-shell" data-tabbar-hidden={tabBarHidden ? 'true' : undefined}>
         {/* First focusable element in the shell, per DESIGN.md › Accessibility. */}
-        <a href="#main" className="skip-link">Skip to content</a>
+        <nav aria-label="Skip links"><a href="#main" className="skip-link">Skip to content</a></nav>
         <ChunkErrorRecovery />
         <RouteProgress />
         <RouteAnnouncer />

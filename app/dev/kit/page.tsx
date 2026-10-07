@@ -50,6 +50,7 @@ import {
   Select,
   SegmentedControl,
   Tabs,
+  tabPanelProps,
   Switch,
   Checkbox,
   Radio,
@@ -318,6 +319,8 @@ export default function ComponentKitPage() {
           </Demo>
           <Demo label="Tabs — content panes">
             <Tabs idBase="kit-demo" label="Results sections" value={tab} onChange={setTab} options={[{ value: 'findings', label: 'Findings' }, { value: 'program', label: 'Program' }]} />
+            <div {...tabPanelProps('kit-demo', 'findings', tab === 'findings')} hidden={tab !== 'findings'} className="t-callout" style={{ paddingTop: 8 }}>Findings panel</div>
+            <div {...tabPanelProps('kit-demo', 'program', tab === 'program')} hidden={tab !== 'program'} className="t-callout" style={{ paddingTop: 8 }}>Program panel</div>
           </Demo>
         </Section>
 

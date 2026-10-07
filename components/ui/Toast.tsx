@@ -74,9 +74,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!container) return
-    document.body.appendChild(container)
+    // Mount inside the shell so the toast reads the shell's live
+    // --chrome-bottom (tab bar + ActionBar) and never covers the ActionBar.
+    const host = document.querySelector('.app-shell') ?? document.body
+    host.appendChild(container)
     return () => {
-      document.body.removeChild(container)
+      container.remove()
     }
   }, [container])
 
