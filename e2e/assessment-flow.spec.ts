@@ -6,6 +6,10 @@ import { countEvidenceFindings, createClient, selectClientInWizard } from './hel
 // -> client progress without a camera.
 test.describe('assessment golden path (test mode)', () => {
   test('create client, run fixture assessment, see numeric findings and PDF', async ({ page }, testInfo) => {
+    // This journey's results-page navigation also mounts the 3D posture-map
+    // hero (GLB load + software WebGL render); the default 30s budget is too
+    // tight for that on top of the rest of the flow.
+    test.setTimeout(90_000)
     const hydrationErrors: string[] = []
     page.on('pageerror', error => { if (/hydration/i.test(error.message)) hydrationErrors.push(error.message) })
     const stamp = Date.now().toString().slice(-7)

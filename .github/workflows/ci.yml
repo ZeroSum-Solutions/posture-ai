@@ -66,7 +66,13 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Run e2e suite
+        # Every spec that mounts the 3D posture-map viewer runs in the
+        # parallel e2e-webgl job instead (see playwright.config.ts); this
+        # keeps one slow WebGL spec from starving the rest of the suite on a
+        # single 2-vCPU runner.
         run: npm run test:e2e
+        env:
+          E2E_SUITE: main
       - name: Retain sanitized Playwright and Axe receipts
         uses: actions/upload-artifact@v4
         if: always()
@@ -80,8 +86,6 @@ jobs:
             test-results/a11y-receipts/
           if-no-files-found: error
           retention-days: 3
-      - name: Calibration drift gate
-        run: npm run calibrate:check
       - uses: actions/upload-artifact@v4
         if: failure()
         # Non-fatal: no job or step downloads these artifacts, and the org's
@@ -89,6 +93,67 @@ jobs:
         continue-on-error: true
         with:
           name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 3
+
+  e2e-webgl:
+    name: Playwright e2e — 3D viewer specs (local Supabase stack)
+    runs-on: ubuntu-latest
+    # This job only runs the handful of specs that mount the Three.js
+    # posture-map viewer (anatomy-viewer, muscle-3d, muscle-viewer-controls,
+    # muscle-kb, assessment-flow) plus the pixel-quality calibration gate.
+    # Split out of the main `e2e` job (2026-10) because, on GitHub-hosted
+    # runners' 2 vCPUs, the slow software-WebGL rendering these specs do was
+    # starving unrelated specs later in the same single-worker run.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start local Supabase (applies migrations)
+        shell: bash
+        run: |
+          attempt=1
+          until npx supabase start -x studio,inbucket,imgproxy,edge-runtime,logflare,vector; do
+            if (( attempt >= 3 )); then
+              echo "Supabase failed to start after ${attempt} attempts." >&2
+              exit 1
+            fi
+
+            wait_seconds=$((attempt * 15))
+            echo "Supabase start attempt ${attempt} failed; retrying in ${wait_seconds}s." >&2
+            sleep "${wait_seconds}"
+            attempt=$((attempt + 1))
+          done
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run 3D viewer e2e specs
+        run: npm run test:e2e
+        env:
+          E2E_SUITE: webgl
+      - name: Calibration drift gate
+        run: npm run calibrate:check
+      - name: Retain sanitized Playwright and Axe receipts
+        uses: actions/upload-artifact@v4
+        if: always()
+        continue-on-error: true
+        with:
+          name: playwright-accessibility-receipts-webgl
+          path: |
+            test-results/playwright-results.json
+            test-results/a11y-receipts/
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        continue-on-error: true
+        with:
+          name: playwright-artifacts-webgl
           path: |
             playwright-report/
             test-results/

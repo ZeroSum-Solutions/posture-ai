@@ -188,7 +188,10 @@ async function expectStoredGradeCases(
 test.describe('grade display contract', () => {
   for (const group of GRADE_CASE_GROUPS) {
     test(`${group.label} grade boundaries agree with the current display contract`, async ({ page }) => {
-      test.setTimeout(60_000)
+      // Each case's route load also mounts the 3D posture-map hero now (GLB +
+      // software WebGL render); the "B and C" group's 7 cases were timing
+      // out at 60s because of that added per-case cost.
+      test.setTimeout(100_000)
       const service = localService()
       const assessmentId = await createAssessment(page)
       await expectStoredGradeCases(page, service, assessmentId, group.cases)
@@ -196,6 +199,9 @@ test.describe('grade display contract', () => {
   }
 
   test('score 14 agrees in responsive web and PDF export', async ({ page }) => {
+    // Two route loads each mount the 3D posture-map hero; give this more
+    // room than the 30s default on top of the PDF export round trip.
+    test.setTimeout(90_000)
     const service = localService()
     const assessmentId = await createAssessment(page)
     await setStoredGrade(service, assessmentId, 14, 'B')
@@ -226,6 +232,9 @@ test.describe('grade display contract', () => {
   })
 
   test('historical grades remain stored and do not receive the current scale', async ({ page }) => {
+    // The route load also mounts the 3D posture-map hero; give some
+    // headroom over the 30s default for that.
+    test.setTimeout(60_000)
     const service = localService()
     const assessmentId = await createAssessment(page)
     await setStoredGrade(service, assessmentId, 14, 'D', '1.0.0')
