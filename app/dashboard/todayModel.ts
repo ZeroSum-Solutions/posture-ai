@@ -1,6 +1,12 @@
-import { bandFromGrade, deltaBand, deltaIcon, formatDelta, type DeltaArrow, type SeverityBand } from '@/components/array/severity'
-import type { IconName } from '@/components/array/icons'
+import { bandFromGrade, type SeverityBand } from '@/components/array/severity'
+import type { SeverityChipBand } from '@/components/ui'
 import { relativeDay, waitedFor } from '@/lib/time/relative'
+
+/** `bandFromGrade` is typed for the wider engine `SeverityBand`, but it never
+ * actually returns 'info' — narrow it to what `SeverityChip` accepts. */
+function chipBand(band: SeverityBand): SeverityChipBand {
+  return band === 'info' ? 'neutral' : band
+}
 
 /* ── Inputs: the shapes the dashboard query returns ─────────────────────── */
 
@@ -42,58 +48,67 @@ export interface TodayCounts {
 
 /* ── Outputs ────────────────────────────────────────────────────────────── */
 
-export interface QueueItem {
+/** The single hero sentence + primary action, chosen by DESIGN.md's Today rule. */
+export interface HeroState {
+  sentence: string
+  action: { label: string; href: string }
+}
+
+export type SetupStepId = 'client' | 'scan' | 'workout'
+
+export interface SetupStep {
+  id: SetupStepId
+  label: string
+  done: boolean
+  href: string
+}
+
+export interface SetupChecklist {
+  steps: SetupStep[]
+  doneCount: number
+  total: number
+}
+
+/** A row in the merged "Needs attention" list — a review-queue item or the re-scan reminder. */
+export interface NeedsAttentionItem {
   id: string
   href: string
   name: string
-  initials: string
-  meta: string
-  wait: string | null
-  /** The oldest item is the one the primary action commits to. */
-  oldest: boolean
+  subtitle: string
+  /** Oldest queue item: the hero button commits to this one. */
+  isHeroTarget: boolean
 }
 
 export interface MetricTile {
   key: 'active' | 'scans' | 'score'
-  icon: IconName
   value: string
   label: string
-  delta: string | null
-  deltaIcon: DeltaArrow
-  deltaBand: SeverityBand
+  /** Raw numeric delta; Stat derives its own band/icon from severity.ts, so this stays unformatted. */
+  delta: { value: number; goodDirection: 'up' | 'down' } | null
 }
 
 export interface RecentScanItem {
   id: string
   href: string
   name: string
-  grade: string | null
   meta: string
-  icon: IconName
-  band: SeverityBand
+  band: SeverityChipBand
 }
 
 export interface TodayModel {
-  /** Two-tone headline: the verdict, then the detail at 45% white. */
-  headline: { lead: string; tail: string | null }
-  kicker: string
+  /** True when the practice has no clients yet — Today renders the first-run setup screen instead. */
+  isFirstRun: boolean
+  /** Null only when `isFirstRun`: first-run has no "next up" to name. */
+  hero: HeroState | null
+  setup: SetupChecklist
   queueTotal: number
-  queue: QueueItem[]
-  primaryAction: { label: string; href: string } | null
-  metrics: MetricTile[]
+  needsAttention: NeedsAttentionItem[]
   recent: RecentScanItem[]
-  rescan: { name: string; href: string; meta: string; readout: string } | null
+  metrics: MetricTile[]
 }
 
-const SMALL_NUMBERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
-
-/** Spelled out below ten, numeral at ten and above — a headline is prose. */
-export function countWord(n: number): string {
-  const word = SMALL_NUMBERS[n]
-  if (!word) return String(n)
-  return word.charAt(0).toUpperCase() + word.slice(1)
-}
-
+/** Practitioner-avatar initials. Today no longer shows an avatar itself (TopBar
+ * owns the header), but `page.tsx` still computes this for its own data test. */
 export function initialsOf(first: string, last: string): string {
   const a = first.trim().charAt(0)
   const b = last.trim().charAt(0)
@@ -138,34 +153,73 @@ export function buildTodayModel({
   counts: TodayCounts
   now: number
 }): TodayModel {
-  const queue: QueueItem[] = awaiting.map((row, index) => ({
-    id: row.id,
-    href: `/assessments/${row.id}`,
-    name: fullName(row.first_name, row.last_name),
-    initials: initialsOf(row.first_name, row.last_name),
-    meta: [
-      row.scan_index ? `Scan ${String(row.scan_index).padStart(2, '0')}` : null,
-      `${row.finding_count} ${plural(row.finding_count, 'finding', 'findings')}`,
-    ].filter(Boolean).join(' · '),
-    wait: waitedFor(row.created_at, now),
-    oldest: index === 0,
-  }))
+  const isFirstRun = counts.activeClients === 0
 
-  const oldest = queue[0] ?? null
-  const oldestFirstName = awaiting[0]?.first_name?.trim() ?? null
+  /* ── Needs attention: review queue first (oldest first already), then the
+     re-scan reminder if there's still room — capped at 3 rows total. ──── */
+  const queueItems: NeedsAttentionItem[] = awaiting.map((row, index) => {
+    const name = fullName(row.first_name, row.last_name)
+    const wait = waitedFor(row.created_at, now)
+    return {
+      id: row.id,
+      href: `/assessments/${row.id}`,
+      name,
+      subtitle: [
+        `${row.finding_count} ${plural(row.finding_count, 'finding', 'findings')}`,
+        wait ? `waiting ${wait.toLowerCase()}` : null,
+      ].filter(Boolean).join(' · '),
+      isHeroTarget: index === 0,
+    }
+  })
 
-  const headline = awaitingTotal > 0
+  const rescanItem: NeedsAttentionItem | null = rescan && relativeDay(rescan.last_scan_at, now)
     ? {
-      lead: `${countWord(awaitingTotal)} ${plural(awaitingTotal, 'report is', 'reports are')} waiting.`,
-      tail: oldestFirstName ? `${oldestFirstName} has waited longest.` : null,
+      id: `rescan-${rescan.id}`,
+      href: `/clients/${rescan.id}`,
+      name: fullName(rescan.first_name, rescan.last_name),
+      subtitle: `Last scanned ${relativeDay(rescan.last_scan_at, now)!.toLowerCase()} · re-scan due`,
+      isHeroTarget: false,
     }
-    : {
-      lead: 'Nothing waiting for sign-off.',
-      tail: counts.scansThisWeek > 0
-        ? `${countWord(counts.scansThisWeek)} ${plural(counts.scansThisWeek, 'scan', 'scans')} this week.`
-        : 'No scans captured this week.',
-    }
+    : null
 
+  const needsAttention = [...queueItems, ...(rescanItem ? [rescanItem] : [])].slice(0, 3)
+
+  /* ── Hero: one sentence + one button, chosen by rule (DESIGN.md › Today). ── */
+  const oldest = awaiting[0] ?? null
+  const oldestFirstName = oldest?.first_name?.trim() ?? null
+
+  let hero: HeroState | null = null
+  if (isFirstRun) {
+    hero = null
+  } else if (awaitingTotal > 0 && oldest && oldestFirstName) {
+    const sentence = awaitingTotal === 1
+      ? `1 report is waiting on ${oldestFirstName}.`
+      : `${awaitingTotal} reports are waiting · ${oldestFirstName} has waited longest.`
+    hero = { sentence, action: { label: `Review ${oldestFirstName} first`, href: `/assessments/${oldest.id}` } }
+  } else if (rescan) {
+    const since = relativeDay(rescan.last_scan_at, now)
+    hero = {
+      sentence: since
+        ? `${rescan.first_name.trim()} is due for a re-scan — last seen ${since.toLowerCase()}.`
+        : `${rescan.first_name.trim()} is due for a re-scan.`,
+      action: { label: 'Start scan', href: `/assessments/new?client_id=${rescan.id}` },
+    }
+  } else {
+    hero = { sentence: 'Ready for your next client.', action: { label: 'Start scan', href: '/assessments/new' } }
+  }
+
+  /* ── First-run setup checklist. Steps 1-2 are derived from data already
+     loaded on this page; step 3 ("Build a workout") has no signal in this
+     query set and so never auto-completes — a known gap, not a guess. ──── */
+  const hasScan = recent.length > 0 || awaitingTotal > 0
+  const steps: SetupStep[] = [
+    { id: 'client', label: 'Add your first client', done: counts.activeClients > 0, href: '/clients/new' },
+    { id: 'scan', label: 'Run a first scan', done: hasScan, href: '/assessments/new' },
+    { id: 'workout', label: 'Build a workout', done: false, href: '/workouts' },
+  ]
+  const setup: SetupChecklist = { steps, doneCount: steps.filter(s => s.done).length, total: steps.length }
+
+  /* ── Metrics strip: raw deltas only — Stat derives band/icon itself. ──── */
   const scoreDelta = counts.averageScoreThisWeek != null && counts.averageScorePriorWeek != null
     ? counts.averageScoreThisWeek - counts.averageScorePriorWeek
     : null
@@ -174,32 +228,22 @@ export function buildTodayModel({
   const metrics: MetricTile[] = [
     {
       key: 'active',
-      icon: 'users-group-rounded-linear',
       value: String(counts.activeClients),
       label: 'Active',
-      delta: formatDelta(counts.clientsAddedThisWeek),
-      deltaIcon: deltaIcon(counts.clientsAddedThisWeek),
-      // More clients on the books is the good direction.
-      deltaBand: deltaBand(counts.clientsAddedThisWeek, false),
+      delta: counts.clientsAddedThisWeek !== 0 ? { value: counts.clientsAddedThisWeek, goodDirection: 'up' } : null,
     },
     {
       key: 'scans',
-      icon: 'scanner-linear',
       value: String(counts.scansThisWeek),
       label: 'Scans / wk',
-      delta: formatDelta(scansDelta),
-      deltaIcon: deltaIcon(scansDelta),
-      deltaBand: deltaBand(scansDelta, false),
+      delta: scansDelta !== 0 ? { value: scansDelta, goodDirection: 'up' } : null,
     },
     {
       key: 'score',
-      icon: 'graph-down-linear',
       value: counts.averageScoreThisWeek == null ? '—' : String(counts.averageScoreThisWeek),
       label: 'Avg score',
-      delta: formatDelta(scoreDelta),
-      deltaIcon: deltaIcon(scoreDelta),
       // Deviation score: lower is better.
-      deltaBand: deltaBand(scoreDelta, true),
+      delta: scoreDelta != null && scoreDelta !== 0 ? { value: scoreDelta, goodDirection: 'down' } : null,
     },
   ]
 
@@ -207,7 +251,6 @@ export function buildTodayModel({
     id: row.id,
     href: `/assessments/${row.id}`,
     name: fullName(row.first_name, row.last_name),
-    grade: row.overall_grade,
     meta: [
       relativeDay(row.created_at, now),
       // practitioner_approved records sign-off, not report generation or delivery
@@ -215,39 +258,16 @@ export function buildTodayModel({
       // not claim a report was sent.
       row.practitioner_approved ? 'Approved' : 'Awaiting review',
     ].filter(Boolean).join(' · '),
-    icon: row.practitioner_approved ? 'check-circle-linear' : 'clock-circle-linear',
-    // The trailing icon reports review state, not grade — the chip already
-    // carries the grade, and an amber tick on an approved C reads as a warning.
-    band: row.practitioner_approved ? 'maintain' : 'monitor',
+    band: chipBand(bandFromGrade(row.overall_grade)),
   }))
 
   return {
-    headline,
-    kicker: awaitingTotal > 0 ? 'Review queue — live' : 'Review queue — clear',
+    isFirstRun,
+    hero,
+    setup,
     queueTotal: awaitingTotal,
-    queue,
-    primaryAction: oldest && oldestFirstName
-      ? { label: `Review ${oldestFirstName} first`, href: oldest.href }
-      : null,
-    metrics,
+    needsAttention,
     recent: recentItems,
-    rescan: buildRescan(rescan, now),
-  }
-}
-
-/**
- * The design's "next booked session" row. This app has no scheduling table, so
- * the slot carries the truthful equivalent instead: the client who has gone
- * longest without a scan. It is never presented as a booking.
- */
-function buildRescan(row: RescanRow | null, now: number): TodayModel['rescan'] {
-  if (!row) return null
-  const since = relativeDay(row.last_scan_at, now)
-  if (!since) return null
-  return {
-    name: `Due for re-scan — ${fullName(row.first_name, row.last_name)}`,
-    href: `/clients/${row.id}`,
-    meta: `Last scanned ${since.toLowerCase()}`,
-    readout: 'Longest wait',
+    metrics,
   }
 }

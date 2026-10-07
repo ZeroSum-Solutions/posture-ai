@@ -2,16 +2,28 @@
 import { memo, startTransition, useCallback, useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ConfirmDialog } from '@/app/_components/ConfirmDialog'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
 import PrivacyLifecycleControls from '@/components/PrivacyLifecycleControls'
 import { AnatomyGlyph } from '@/components/SignalGlyphs'
-import { GradeChip } from '@/components/array/Chip'
 import Icon from '@/components/array/Icon'
 import { Surface, SurfaceLink } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps, type TabOption } from '@/components/array/Tabs'
-import { bandFromGrade, ring, tint, tone } from '@/components/array/severity'
+import { bandFromGrade, tint, tone, type SeverityBand } from '@/components/array/severity'
+import {
+  ActionBar,
+  Avatar,
+  Banner,
+  Button,
+  Dialog,
+  EmptyState,
+  IconButton,
+  ListGroup,
+  ListRow,
+  SeverityChip,
+  TopBar,
+  type SeverityChipBand,
+} from '@/components/ui'
 import { cmToInches, kgToPounds, round1 } from '@/lib/units'
 import { toNum } from './numeric'
 import {
@@ -103,6 +115,13 @@ function findingDeltaLabel(series: FindingSeries): { compact: string; full: stri
     compact: verdict.magnitude.replace(/ pts$/, ' pp'),
     full: `${verdict.text} · ${verdict.magnitude.replace(/ pts$/, ' percentage points')}`,
   } : null
+}
+
+/** `bandFromGrade`/`tone` etc. are typed for the wider engine `SeverityBand`
+ * (it also covers 'info'), but a grade band never actually resolves to 'info'. */
+function chipBandFromGrade(grade: string | null | undefined): SeverityChipBand {
+  const band: SeverityBand = bandFromGrade(grade)
+  return band === 'info' ? 'neutral' : band
 }
 
 function scheduleAfterPresentedFrame(callback: () => void): () => void {
@@ -409,7 +428,7 @@ function ClientDetailRoute({
       }
       if (
         event.target instanceof Node &&
-        menuContainerRef.current?.contains(event.target)
+        (menuContainerRef.current?.contains(event.target) || menuToggleRef.current?.contains(event.target))
       ) {
         return
       }
@@ -660,7 +679,6 @@ function ClientDetailRoute({
 
   const hasMultipleAssessments = assessments.length >= 2
   const latestAssessment = assessments.at(-1)
-  const latestBand = bandFromGrade(latestAssessment?.overall_grade)
 
   const trackingSpanDays = assessments.length >= 2
     ? Math.max(0, Math.round(
@@ -690,70 +708,60 @@ function ClientDetailRoute({
     ? 'No scans'
     : `${assessments.length}${nextAssessmentCursor ? '+' : ''} ${assessments.length === 1 ? 'scan' : 'scans'}`
 
+  const fullName = `${client.first_name} ${client.last_name}`
+  const consentNeedsAttention = operationMode === 'governed'
+    && consentStatus !== 'checking'
+    && consentStatus !== 'valid'
+
   return (
     <div className="app-screen">
-      <div className={styles.topBar}>
-        <Link href="/clients" className={styles.back}>
-          <Icon name="alt-arrow-left-linear" size={18} />
-          Clients
-        </Link>
-        <div style={{ position: 'relative' }} ref={menuContainerRef}>
+      <TopBar
+        title={fullName}
+        back={{ href: '/clients', label: 'Back to Clients' }}
+        actions={(
+          <IconButton
+            icon="menu-dots-linear"
+            label="Client record actions"
+            variant="plain"
+            aria-expanded={menuOpen}
+            onClick={(event) => {
+              menuToggleRef.current = event.currentTarget
+              setMenuOpen((open) => !open)
+            }}
+          />
+        )}
+      />
+      {/* Fixed, not anchored to a specific button DOM node: TopBar mounts its
+          `actions` slot twice (large + collapsed copies, one `inert` at a
+          time — see components/ui/TopBar), so there is no single element to
+          position against. Containment for the outside-click close uses
+          `menuToggleRef`, captured from whichever copy was actually clicked. */}
+      {menuOpen ? (
+        <div ref={menuContainerRef} className={styles.menu} onPointerDown={(event) => event.stopPropagation()}>
+          <Link href={`/clients/${client.id}/edit`} className={styles.menuItem}>
+            <Icon name="pen-linear" size={16} />
+            Edit client
+          </Link>
           <button
             type="button"
-            ref={menuToggleRef}
-            className={styles.iconButton}
-            aria-expanded={menuOpen}
-            aria-label="Client record actions"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => setMenuOpen((open) => !open)}
+            className={`${styles.menuItem} ${styles.menuItemDanger}`}
+            onClick={() => { setMenuOpen(false); setShowArchiveConfirm(true) }}
           >
-            <span aria-hidden="true"><Icon name="menu-dots-linear" size={18} /></span>
+            <Icon name="close-circle-linear" size={16} />
+            Archive client
           </button>
-          {menuOpen ? (
-            <div className={styles.menu} onPointerDown={(event) => event.stopPropagation()}>
-              <Link href={`/clients/${client.id}/edit`} className={styles.menuItem}>
-                <Icon name="pen-linear" size={16} />
-                Edit client
-              </Link>
-              <button
-                type="button"
-                className={`${styles.menuItem} ${styles.menuItemDanger}`}
-                onClick={() => { setMenuOpen(false); setShowArchiveConfirm(true) }}
-              >
-                <Icon name="close-circle-linear" size={16} />
-                Archive client
-              </button>
-            </div>
-          ) : null}
         </div>
-      </div>
+      ) : null}
 
       <section className={styles.identity}>
+        <span aria-hidden="true"><Avatar name={fullName} size={72} /></span>
         <div className={styles.identityBody}>
-          <h1 className="t-title-1">{client.first_name} {client.last_name}</h1>
+          <SeverityChip band={consentSummary.band} label={consentSummary.text} size="sm" />
           <p className={styles.identityMeta}>
-            <span className={styles.consentIcon} style={{ color: tone(consentSummary.band) }}>
-              <Icon name={consentSummary.icon} size={14} />
-            </span>
-            {consentSummary.text}
-            {' · '}
             <span className="n">{scanCountLabel}</span>
             {trackingSpanDays === null ? null : <>{' · '}<span className="n">{nextAssessmentCursor ? '≥ ' : ''}{trackingSpanDays} days</span></>}
           </p>
         </div>
-        {latestAssessment ? (
-          <span
-            className={styles.gradeTile}
-            style={{
-              background: tint(latestBand),
-              boxShadow: `inset 0 0 0 1px ${ring(latestBand)}`,
-              color: tone(latestBand),
-            }}
-            aria-label={`Latest grade ${latestAssessment.overall_grade ?? 'not graded'}`}
-          >
-            {latestAssessment.overall_grade ?? '—'}
-          </span>
-        ) : null}
       </section>
 
       <div className="app-screen-x app-stack">
@@ -766,31 +774,34 @@ function ClientDetailRoute({
           </Surface>
         ) : null}
 
+        {consentNeedsAttention ? (
+          <Banner variant={consentStatus === 'missing' || consentStatus === 'reconsent_required' ? 'warn' : 'error'}>
+            {consentSummary.text}
+            {consentStatus === 'missing' ? ' — collect it below before running a scan.'
+              : consentStatus === 'withdrawn' ? ' — a new record is required before another scan.'
+              : consentStatus === 'reconsent_required' ? ' — a new record is required before the next scan.'
+              : ' — refresh to try confirming it again.'}
+          </Banner>
+        ) : null}
+
         {operationMode === 'governed' && consentStatus === 'missing' && (
           <>
+            {/* TODO(a11y): InPersonConsentForm hardcodes LegalDocumentView at
+                headingLevel={4}; when nothing has rendered an h2/h3 above this
+                point yet (e.g. load straight into an empty-history client with
+                missing consent), the page jumps h1 → h4 — an axe heading-order
+                violation flagged on this screen. Another agent is adding a
+                `headingBase` prop to LegalDocumentView on a separate branch;
+                once that lands, thread it through here instead of a fixed
+                level. Not fixed inline to avoid conflicting with that branch. */}
             <InPersonConsentForm
               clientId={client.id}
-              subjectName={`${client.first_name} ${client.last_name}`}
+              subjectName={fullName}
               onRecorded={handleConsentRecorded}
             />
             <RemoteConsentButton clientId={client.id} />
           </>
         )}
-
-        <div className={styles.actionPair}>
-          <Link href={`/assessments/new?client_id=${client.id}`} className="a-primary">
-            <Icon name="scanner-linear" size={18} />
-            New scan
-          </Link>
-          <Link
-            href="#client-workspace"
-            className="a-secondary"
-            onClick={() => setWorkspaceExpanded(true)}
-          >
-            <Icon name="square-transfer-horizontal-linear" size={18} />
-            Compare
-          </Link>
-        </div>
 
         <TrendChart history={trendPoints} tableId="client-score-table" />
 
@@ -1014,42 +1025,43 @@ function ClientDetailRoute({
             {historyLoadedForId !== id ? (
               <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
             ) : historyRows.length === 0 ? (
-              <Surface tier="tile">
-                <p className="t-body">No scans yet.</p>
-                <p className="t-footnote" style={{ marginTop: 4 }}>
-                  Capture one to establish this client&apos;s baseline.
-                </p>
-              </Surface>
+              <EmptyState
+                variant="inline"
+                icon="calendar-linear"
+                title="No scans yet"
+                body="Capture one to establish this client's baseline."
+              />
             ) : (
               <>
-                {historyRows.map((row) => (
-                  <SurfaceLink key={row.id} href={row.href} tier="row" prefetch={false}>
-                    <span className={styles.historyRow}>
-                      <GradeChip grade={row.grade} />
-                      <span className={styles.historyBody}>
-                        <span className={styles.historyDate} style={{ display: 'block' }}>{row.dateLabel}</span>
-                        <span className={styles.historyMeta} style={{ display: 'block' }}>{row.meta}</span>
-                      </span>
-                      <span className={`${styles.historyDelta} n`} style={{ color: tone(row.deltaBand) }}>
-                        {row.deltaIcon ? <Icon name={row.deltaIcon} size={13} /> : null}
-                        {row.delta ?? row.deltaWord}
-                      </span>
-                    </span>
-                  </SurfaceLink>
-                ))}
+                <ListGroup label="Scan history">
+                  {historyRows.map((row) => (
+                    <ListRow
+                      key={row.id}
+                      href={row.href}
+                      title={row.dateLabel}
+                      subtitle={row.meta}
+                      trailing={(
+                        <>
+                          {row.delta || row.deltaWord ? (
+                            <span className="n" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: tone(row.deltaBand) }}>
+                              {row.deltaIcon ? <Icon name={row.deltaIcon} size={13} /> : null}
+                              {row.delta ?? row.deltaWord}
+                            </span>
+                          ) : null}
+                          <SeverityChip band={chipBandFromGrade(row.grade)} size="sm" />
+                        </>
+                      )}
+                      chevron
+                    />
+                  ))}
+                </ListGroup>
                 {historyPageError && (
                   <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">{historyPageError}</p>
                 )}
                 {nextAssessmentCursor && (
-                  <button
-                    type="button"
-                    onClick={loadMoreAssessments}
-                    disabled={loadingMoreAssessments}
-                    className="a-secondary a-secondary--bar"
-                    style={{ minHeight: 44 }}
-                  >
-                    {loadingMoreAssessments ? 'Loading older assessments…' : 'Load older assessments'}
-                  </button>
+                  <Button variant="secondary" block loading={loadingMoreAssessments} onClick={loadMoreAssessments}>
+                    Load older assessments
+                  </Button>
                 )}
               </>
             )}
@@ -1057,20 +1069,38 @@ function ClientDetailRoute({
         </section>
       </div>
 
-      {showArchiveConfirm && (
-        <ConfirmDialog
-          title="Archive Client?"
-          confirmLabel={archiving ? 'Archiving...' : 'Yes, Archive'}
-          onConfirm={handleArchive}
-          onCancel={() => setShowArchiveConfirm(false)}
-          busy={archiving}
-          danger
-          error={archiveError}
+      <ActionBar>
+        <Button href={`/assessments/new?client_id=${client.id}`} icon="scanner-linear" size="lg" block>
+          New scan
+        </Button>
+        <Button
+          href="#client-workspace"
+          variant="secondary"
+          icon="square-transfer-horizontal-linear"
+          onClick={() => setWorkspaceExpanded(true)}
         >
-          Archiving <strong>{client.first_name} {client.last_name}</strong> will
-          remove them from your active client list. Their data will be preserved and can be recovered.
-        </ConfirmDialog>
-      )}
+          Compare
+        </Button>
+      </ActionBar>
+
+      <Dialog
+        open={showArchiveConfirm}
+        onOpenChange={setShowArchiveConfirm}
+        title="Archive Client?"
+        description={(
+          <>
+            Archiving <strong>{fullName}</strong> will remove them from your active client list. Their
+            data will be preserved and can be recovered.
+            {archiveError ? <><br /><span style={{ color: 'var(--review)' }}>{archiveError}</span></> : null}
+          </>
+        )}
+        confirm={{
+          label: archiving ? 'Archiving…' : 'Yes, Archive',
+          onConfirm: handleArchive,
+          tone: 'danger',
+          busy: archiving,
+        }}
+      />
     </div>
   )
 }

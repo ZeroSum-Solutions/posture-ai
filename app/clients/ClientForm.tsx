@@ -1,9 +1,17 @@
 'use client'
-import { useState, useRef } from 'react'
-import Link from 'next/link'
+import { useRef, useState } from 'react'
 import LegalDocumentView from '@/components/LegalDocumentView'
 import useLegalDocument from '@/components/useLegalDocument'
-import { Surface } from '@/components/array/Surface'
+import {
+  ActionBar,
+  Button,
+  Checkbox,
+  Dialog,
+  SegmentedControl,
+  Select,
+  TextField,
+  Textarea,
+} from '@/components/ui'
 import { inchesToCm, cmToInches, poundsToKg, kgToPounds, round1 } from '@/lib/units'
 import styles from './ClientForm.module.css'
 import type { OperationMode } from '@/lib/prototype/runtime'
@@ -68,6 +76,7 @@ export default function ClientForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [consentChecked, setConsentChecked] = useState(false)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('us')
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const requiresConsent = mode === 'create' && operationMode === 'governed'
   const legal = useLegalDocument('subject_consent', requiresConsent)
   // Inputs hold the displayed unit (default US); stored values are metric, so
@@ -84,6 +93,13 @@ export default function ClientForm({
     signer_relationship: 'self',
   })
   const dobRef = useRef<HTMLInputElement>(null)
+  // Snapshot of the form's starting values, captured once via `useState`'s
+  // lazy initializer (state, not a ref, so it's safe to read during render)
+  // and never updated again. Compared against the live `form` below to gate
+  // the discard-confirmation Dialog on an actually-dirty form, not merely
+  // "the Cancel button was pressed".
+  const [initialForm] = useState(() => form)
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
 
   const heightUnit = unitSystem === 'us' ? 'in' : 'cm'
   const weightUnit = unitSystem === 'us' ? 'lb' : 'kg'
@@ -116,6 +132,14 @@ export default function ClientForm({
       weight: conv(prev.weight, kgToPounds, poundsToKg),
     }))
     setUnitSystem(next)
+  }
+
+  function handleCancel() {
+    if (isDirty) setShowDiscardConfirm(true)
+    // A hard navigation rather than next/link: Cancel needs to run the same
+    // dirty check whichever way it exits, so it is a button, not a link — see
+    // the discard Dialog below.
+    else window.location.assign(cancelHref)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -190,139 +214,117 @@ export default function ClientForm({
     }
   }
 
-  const submitLabel = mode === 'create'
-    ? (loading ? 'Creating...' : 'Create Client')
-    : (loading ? 'Saving...' : 'Save Changes')
+  const submitLabel = mode === 'create' ? 'Create Client' : 'Save Changes'
+  const consentUnavailable = requiresConsent && !legal.document
 
   return (
-    <Surface tier="feature">
-      <form onSubmit={handleSubmit} noValidate aria-label={mode === 'create' ? 'New client form' : 'Edit client form'} className="a-form">
+    <>
+      <form onSubmit={handleSubmit} noValidate aria-label={mode === 'create' ? 'New client form' : 'Edit client form'} className="app-stack">
         {error && (
           <p className="a-error" role="alert" aria-live="assertive">{error}</p>
         )}
 
         <div className={styles.grid2}>
-          <div className="a-field">
-            <label className="a-label" htmlFor="first_name">
-              First Name <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
-            </label>
-            <input
-              id="first_name"
-              className="a-input"
-              type="text" name="first_name" value={form.first_name}
-              onChange={handleChange} placeholder="First name"
-              aria-required="true"
-              aria-invalid={Boolean(fieldErrors.first_name)}
-              aria-describedby={fieldErrors.first_name ? 'error-first-name' : undefined}
-            />
-            {fieldErrors.first_name && (
-              <p id="error-first-name" data-testid="error-first-name" className="a-error" role="alert">{fieldErrors.first_name}</p>
-            )}
-          </div>
-          <div className="a-field">
-            <label className="a-label" htmlFor="last_name">
-              Last Name <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
-            </label>
-            <input
-              id="last_name"
-              className="a-input"
-              type="text" name="last_name" value={form.last_name}
-              onChange={handleChange} placeholder="Last name"
-              aria-required="true"
-              aria-invalid={Boolean(fieldErrors.last_name)}
-              aria-describedby={fieldErrors.last_name ? 'error-last-name' : undefined}
-            />
-            {fieldErrors.last_name && (
-              <p id="error-last-name" data-testid="error-last-name" className="a-error" role="alert">{fieldErrors.last_name}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="a-field">
-          <label className="a-label" htmlFor="date_of_birth">Date of Birth</label>
-          <input
-            id="date_of_birth"
-            ref={dobRef}
-            className="a-input"
-            type="date" name="date_of_birth" value={form.date_of_birth}
+          <TextField
+            id="first_name"
+            name="first_name"
+            label="First Name"
+            required
+            aria-required="true"
+            value={form.first_name}
             onChange={handleChange}
-            style={{ colorScheme: 'dark' }}
-            aria-invalid={Boolean(fieldErrors.date_of_birth)}
-            aria-describedby={fieldErrors.date_of_birth ? 'error-date-of-birth' : undefined}
+            placeholder="First name"
+            error={fieldErrors.first_name}
           />
-          {fieldErrors.date_of_birth && (
-            <p id="error-date-of-birth" data-testid="error-date-of-birth" className="a-error" role="alert">{fieldErrors.date_of_birth}</p>
-          )}
+          <TextField
+            id="last_name"
+            name="last_name"
+            label="Last Name"
+            required
+            aria-required="true"
+            value={form.last_name}
+            onChange={handleChange}
+            placeholder="Last name"
+            error={fieldErrors.last_name}
+          />
         </div>
 
-        <div className="a-field">
-          <label className="a-label" htmlFor="sex_at_birth">Sex at Birth</label>
-          <select id="sex_at_birth" className="a-select" name="sex_at_birth" value={form.sex_at_birth} onChange={handleChange}>
-            <option value="">Select...</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-            <option value="prefer_not_to_say">Prefer not to say</option>
-          </select>
-        </div>
+        <TextField
+          id="date_of_birth"
+          name="date_of_birth"
+          ref={dobRef}
+          label="Date of Birth"
+          type="date"
+          value={form.date_of_birth}
+          onChange={handleChange}
+          style={{ colorScheme: 'dark' }}
+          error={fieldErrors.date_of_birth}
+        />
+
+        <Select
+          id="sex_at_birth"
+          name="sex_at_birth"
+          label="Sex at Birth"
+          value={form.sex_at_birth}
+          onChange={handleChange}
+        >
+          <option value="">Select...</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+          <option value="prefer_not_to_say">Prefer not to say</option>
+        </Select>
 
         <div className={styles.unitRow}>
           <span className="a-label" style={{ marginBottom: 0 }}>Measurements</span>
-          <div role="group" aria-label="Measurement units" className={styles.unitToggle}>
-            {([['us', 'US (in / lb)'], ['metric', 'Metric (cm / kg)']] as const).map(([val, lbl]) => {
-              const active = unitSystem === val
-              return (
-                <button
-                  key={val} type="button" onClick={() => handleUnitChange(val)} aria-pressed={active}
-                  className={styles.unitButton}
-                >
-                  {lbl}
-                </button>
-              )
-            })}
-          </div>
+          <SegmentedControl
+            label="Measurement units"
+            size="sm"
+            value={unitSystem}
+            onChange={handleUnitChange}
+            options={[
+              { value: 'us', label: 'US (in / lb)' },
+              { value: 'metric', label: 'Metric (cm / kg)' },
+            ]}
+          />
         </div>
 
         <div className={styles.grid2}>
-          <div className="a-field">
-            <label className="a-label" htmlFor="height">Height ({heightUnit})</label>
-            <input
-              id="height"
-              className="a-input"
-              type="number" name="height" value={form.height}
-              onChange={handleChange} placeholder={heightPlaceholder} step="0.1"
-              aria-invalid={Boolean(fieldErrors.height)}
-              aria-describedby={fieldErrors.height ? 'error-height' : undefined}
-            />
-            {fieldErrors.height && (
-              <p id="error-height" data-testid="error-height" className="a-error" role="alert">{fieldErrors.height}</p>
-            )}
-          </div>
-          <div className="a-field">
-            <label className="a-label" htmlFor="weight">Weight ({weightUnit})</label>
-            <input
-              id="weight"
-              className="a-input"
-              type="number" name="weight" value={form.weight}
-              onChange={handleChange} placeholder={weightPlaceholder} step="0.1"
-              aria-invalid={Boolean(fieldErrors.weight)}
-              aria-describedby={fieldErrors.weight ? 'error-weight' : undefined}
-            />
-            {fieldErrors.weight && (
-              <p id="error-weight" data-testid="error-weight" className="a-error" role="alert">{fieldErrors.weight}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="a-field">
-          <label className="a-label" htmlFor="notes">Notes</label>
-          <textarea
-            id="notes"
-            className="a-textarea"
-            name="notes" value={form.notes} onChange={handleChange}
-            placeholder="Optional notes about this client" rows={3}
+          <TextField
+            id="height"
+            name="height"
+            label={`Height (${heightUnit})`}
+            type="number"
+            inputMode="decimal"
+            value={form.height}
+            onChange={handleChange}
+            placeholder={heightPlaceholder}
+            step="0.1"
+            error={fieldErrors.height}
+          />
+          <TextField
+            id="weight"
+            name="weight"
+            label={`Weight (${weightUnit})`}
+            type="number"
+            inputMode="decimal"
+            value={form.weight}
+            onChange={handleChange}
+            placeholder={weightPlaceholder}
+            step="0.1"
+            error={fieldErrors.weight}
           />
         </div>
+
+        <Textarea
+          id="notes"
+          name="notes"
+          label="Notes"
+          value={form.notes}
+          onChange={handleChange}
+          placeholder="Optional notes about this client"
+          rows={3}
+        />
 
         {/* Subject consent — required at creation (the subject or their guardian
             signs via typed name). Immutable afterward, so hidden when editing.
@@ -336,55 +338,51 @@ export default function ClientForm({
               )}
               {legal.document && (
                 <div className={styles.consentDocument}>
-                  <LegalDocumentView document={legal.document} headingLevel={3} compact />
+                  {/* h2, directly under the page's own h1 (TopBar's large
+                      title) — the old hardcoded 3 skipped a level and was
+                      an axe heading-order violation (UI audit #10). */}
+                  <LegalDocumentView document={legal.document} headingLevel={2} compact />
                 </div>
               )}
 
-              <div className="a-field">
-                <label className="a-label" htmlFor="signer_relationship">Who is giving consent?</label>
-                <select id="signer_relationship" className="a-select" name="signer_relationship" value={form.signer_relationship} onChange={handleChange}>
-                  <option value="self">The client (self)</option>
-                  <option value="parent">Parent of the client</option>
-                  <option value="legal_guardian">Legal guardian of the client</option>
-                  <option value="other">Other authorized representative</option>
-                </select>
-              </div>
+              <Select
+                id="signer_relationship"
+                name="signer_relationship"
+                label="Who is giving consent?"
+                value={form.signer_relationship}
+                onChange={handleChange}
+              >
+                <option value="self">The client (self)</option>
+                <option value="parent">Parent of the client</option>
+                <option value="legal_guardian">Legal guardian of the client</option>
+                <option value="other">Other authorized representative</option>
+              </Select>
 
-              <div className="a-field">
-                <label className="a-label" htmlFor="signer_name">
-                  Type full name to sign <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
-                </label>
-                <input
-                  id="signer_name" className="a-input" type="text" name="signer_name" value={form.signer_name}
-                  onChange={handleChange} placeholder="Signer’s full name"
-                  aria-required="true"
-                  aria-invalid={Boolean(fieldErrors.signer_name)}
-                  aria-describedby={fieldErrors.signer_name ? 'error-signer-name' : undefined}
-                />
-                {fieldErrors.signer_name && (
-                  <p id="error-signer-name" data-testid="error-signer-name" className="a-error" role="alert">{fieldErrors.signer_name}</p>
-                )}
-              </div>
+              <TextField
+                id="signer_name"
+                name="signer_name"
+                label="Type full name to sign"
+                required
+                aria-required="true"
+                value={form.signer_name}
+                onChange={handleChange}
+                placeholder="Signer’s full name"
+                error={fieldErrors.signer_name}
+              />
 
-              <label htmlFor="consent_checkbox" className={styles.consentCheck}>
-                <input
-                  id="consent_checkbox"
-                  type="checkbox"
-                  checked={consentChecked}
-                  disabled={!legal.document}
-                  onChange={e => {
-                    setConsentChecked(e.target.checked)
-                    if (e.target.checked) setFieldErrors(prev => { const next = { ...prev }; delete next.consent; return next })
-                  }}
-                  aria-required="true"
-                  aria-invalid={Boolean(fieldErrors.consent)}
-                  aria-describedby={fieldErrors.consent ? 'error-consent' : undefined}
-                />
-                <span className="t-body">
-                  By typing the name above and checking this box, I confirm I have read and agree to the
-                  posture-screening consent on behalf of the client.
-                </span>
-              </label>
+              <Checkbox
+                id="consent_checkbox"
+                checked={consentChecked}
+                disabled={!legal.document}
+                onChange={e => {
+                  setConsentChecked(e.target.checked)
+                  if (e.target.checked) setFieldErrors(prev => { const next = { ...prev }; delete next.consent; return next })
+                }}
+                aria-required="true"
+                aria-invalid={Boolean(fieldErrors.consent)}
+                aria-describedby={fieldErrors.consent ? 'error-consent' : undefined}
+                label="By typing the name above and checking this box, I confirm I have read and agree to the posture-screening consent on behalf of the client."
+              />
             </div>
             {fieldErrors.consent && (
               <p id="error-consent" data-testid="error-consent" className="a-error" role="alert">{fieldErrors.consent}</p>
@@ -392,19 +390,24 @@ export default function ClientForm({
           </>
         )}
 
-        <div className={styles.actions}>
-          <Link href={cancelHref} className="a-secondary">
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={loading || (requiresConsent && !legal.document)}
-            className="a-primary"
-          >
+        <ActionBar>
+          <Button type="submit" size="lg" block loading={loading} disabledReason={consentUnavailable ? 'Consent terms are unavailable.' : undefined}>
             {submitLabel}
-          </button>
-        </div>
+          </Button>
+          <Button type="button" variant="secondary" onClick={handleCancel}>
+            Cancel
+          </Button>
+        </ActionBar>
       </form>
-    </Surface>
+
+      <Dialog
+        open={showDiscardConfirm}
+        onOpenChange={setShowDiscardConfirm}
+        title="Discard changes?"
+        description="Leaving now will lose what you've entered on this form."
+        confirm={{ label: 'Discard', tone: 'danger', onConfirm: () => window.location.assign(cancelHref) }}
+        cancel={{ label: 'Keep editing' }}
+      />
+    </>
   )
 }

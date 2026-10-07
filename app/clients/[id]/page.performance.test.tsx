@@ -17,6 +17,10 @@ vi.mock('next/navigation', () => {
   return {
     useParams: () => ({ id: navigation.id }),
     useRouter: () => navigation.router,
+    // ActionBar (components/ui/ActionBar) reads the route to decide whether
+    // it stands alone on an immersive/tab-bar-hidden route; any string is
+    // fine here since this page is never one of those.
+    usePathname: () => `/clients/${navigation.id}`,
   }
 })
 // The findings panel is no longer behind next/dynamic: dropping recharts removed
@@ -400,7 +404,11 @@ describe('client detail progressive rendering', () => {
 
     expect(screen.getByRole('link', { name: /New scan/i }).getAttribute('href'))
       .toBe('/assessments/new?client_id=client-1')
-    expect(screen.getByText('Prototype operation')).toBeTruthy()
+    // v3: the identity header now states this via a SeverityChip (its own
+    // exact-text span), stated again verbatim in the collapsed Details fact
+    // grid below — two locations, same pattern already used just below for
+    // "Consent status unavailable".
+    expect(screen.getAllByText('Prototype operation').length).toBeGreaterThan(0)
     expect(screen.queryByRole('form', { name: 'Record in-person consent' })).toBeNull()
     expect(screen.queryByText(/Consent active|Consent not recorded|New consent required/)).toBeNull()
   })

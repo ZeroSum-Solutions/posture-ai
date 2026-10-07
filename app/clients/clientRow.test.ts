@@ -63,14 +63,19 @@ describe('toDirectoryRow trend', () => {
 })
 
 describe('toDirectoryRow meta', () => {
-  it('states when the scan happened and that it awaits review', () => {
+  // v3: meta is one fact only ("Scanned N days ago") — review/overdue status
+  // moved to the row's trailing chip (`awaitingReview`/`overdue`) instead of
+  // being folded into the subtitle line (DESIGN.md › Clients).
+  it('states when the scan happened, and flags review separately', () => {
     const row = toDirectoryRow(client({ awaiting_review: true }), NOW)
-    expect(row.meta).toBe('Scanned 2 days ago · in review')
+    expect(row.meta).toBe('Scanned 2 days ago')
+    expect(row.awaitingReview).toBe(true)
   })
 
-  it('flags an overdue client in the same line', () => {
+  it('flags an overdue client separately from the scan date', () => {
     const row = toDirectoryRow(client({ last_scan_at: ago(60) }), NOW)
-    expect(row.meta).toContain('overdue')
+    expect(row.meta).not.toContain('overdue')
+    expect(row.overdue).toBe(true)
   })
 
   it('links to the client record', () => {
