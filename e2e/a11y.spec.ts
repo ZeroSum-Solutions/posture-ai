@@ -218,7 +218,10 @@ test.describe('accessibility budget', () => {
     // This journey creates and renders two complete assessments, then runs a
     // full Axe scan over the largest results surface. Keep every assertion,
     // but do not force cold mobile WebKit into the generic 30-second ceiling.
-    test.setTimeout(120_000)
+    // Each results page also mounts the 3D posture-map hero, so this journey
+    // now waits on two full GLB loads through software WebGL; GitHub-hosted
+    // runners need more headroom for that than the former Blacksmith runners did.
+    test.setTimeout(180_000)
     const stamp = Date.now().toString().slice(-7)
     const client = await createClient(page, 'A11y', `Prior${stamp}`)
 

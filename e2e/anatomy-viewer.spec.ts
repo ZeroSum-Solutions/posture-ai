@@ -5,7 +5,9 @@ import { createClient } from './helpers'
 test('results hero mounts the 3D posture map with its controls in the box under it at phone and desktop widths', async ({ page }, testInfo) => {
   // CI renders the full GLB through software WebGL, then exercises two viewports.
   // Keep each readiness assertion bounded while allowing the whole journey to finish.
-  test.setTimeout(120_000)
+  // GitHub-hosted runners rasterize software WebGL noticeably slower than the
+  // former Blacksmith runners did; the budget below gives that headroom back.
+  test.setTimeout(180_000)
   const hydrationErrors: string[] = []
   page.on('pageerror', error => {
     if (/hydration|hydrating|server rendered/i.test(error.message)) hydrationErrors.push(error.message)
@@ -22,17 +24,17 @@ test('results hero mounts the 3D posture map with its controls in the box under 
     const frame = page.frameLocator('iframe[title="Interactive 3D anatomy model"]')
     const toolbar = page.getByRole('toolbar', { name: '3D view controls' })
     // Ready once the viewer reports model-ready, i.e. after the ~9 MB GLB is parsed and drawn
-    // through software WebGL: the same bounded 25 s readiness window muscle-3d.spec.ts uses.
-    await expect(frame.locator('[data-model-state="ready"]')).toBeVisible({ timeout: 25_000 })
+    // through software WebGL: the same bounded 45 s readiness window muscle-3d.spec.ts uses.
+    await expect(frame.locator('[data-model-state="ready"]')).toBeVisible({ timeout: 45_000 })
     await expect(toolbar.getByRole('button', { name: 'Front', exact: true })).toBeEnabled()
     await expect(page.getByText('Loading your posture map…', { exact: true })).not.toBeVisible()
     await expect(frame.locator('canvas')).toBeVisible()
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 900 })
       await toolbar.getByRole('button', { name: 'Back', exact: true }).click()
-      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 30_000 })
+      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 45_000 })
       await toolbar.getByRole('button', { name: 'Reset', exact: true }).click()
-      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 30_000 })
+      await expect(frame.locator('[data-model-state="ready"][data-camera-state="settled"]')).toBeVisible({ timeout: 45_000 })
       // Nothing overlays the model: the controls sit entirely below the 3D frame.
       const frameBounds = await page.locator('iframe[title="Interactive 3D anatomy model"]').boundingBox()
       const controlBounds = await toolbar.boundingBox()

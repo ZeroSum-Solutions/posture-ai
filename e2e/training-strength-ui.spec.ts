@@ -42,7 +42,10 @@ test.afterEach(async ({ browser }, testInfo) => {
 })
 
 test('builds, accepts, and records a private sample strength program through the original Workouts UI', async ({ page, browser }, testInfo) => {
-  test.setTimeout(90_000)
+  // GitHub-hosted runners are slower than the former Blacksmith runners; give
+  // this multi-step journey (and the shared practitioner session restore it
+  // depends on) more headroom to finish.
+  test.setTimeout(140_000)
   await page.goto('/workouts')
   await expect(page.getByRole('heading', { name: 'Workouts', exact: true, level: 1 })).toBeVisible()
 
