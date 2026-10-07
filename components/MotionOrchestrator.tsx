@@ -13,7 +13,7 @@ import { consumeNavigationDirection } from './routeDirection'
  * §6.2, §7.12): every page component renders a `<div>`/`<section>` instead.
  *
  * Direction-aware per spec §6.2: a forward navigation (Link click,
- * `router.push`) enters from +24px, a browser Back/Forward enters from -24px.
+ * `router.push`) lifts in from 8px below, a browser Back/Forward settles from 6px above.
  * Entrance only: an exit animation (AnimatePresence) would hold the old App
  * Router tree on screen during navigation. Reduced motion removes the transform
  * (MotionConfig reducedMotion="user").
@@ -36,15 +36,17 @@ export default function MotionOrchestrator({ children }: { children: ReactNode }
     return <main id="main" className="app-shell-main">{children}</main>
   }
 
-  const x = direction === 'back' ? -24 : 24
+  // A small vertical lift (forward) or settle (back). Horizontal slides left
+  // sub-pixel width noise on layout reads mid-spring; vertical motion doesn't.
+  const y = direction === 'back' ? -6 : 8
 
   return (
     <motion.main
       key={pathname}
       id="main"
       className="app-shell-main"
-      initial={{ opacity: 0, x }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, y }}
+      animate={{ opacity: 1, y: 0 }}
       transition={spring.page}
     >
       {children}
