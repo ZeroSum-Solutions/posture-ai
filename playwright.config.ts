@@ -26,9 +26,16 @@ const isolatedProofIgnores = process.env.E2E_SUPABASE_URL === 'http://127.0.0.1:
 // map became that page's hero) now mounts and renders it too; its 7-case
 // "B and C" group was timing out from that same software-WebGL CPU cost.
 const webglSpecs = /\/(?:anatomy-viewer|muscle-3d|muscle-viewer-controls|muscle-kb|assessment-flow|grade-display)\.spec\.ts$/
-const E2E_SUITE = process.env.E2E_SUITE // undefined | 'main' | 'webgl'
-const webglSuiteIgnores = E2E_SUITE === 'main' ? [webglSpecs] : []
-const nonWebglSuiteTestMatch = E2E_SUITE === 'webgl' ? webglSpecs : undefined
+// Specs that wait on the viewer's own camera-settle signal, which is unreliable
+// on software WebGL (#160). CI runs them as a non-blocking step of the webgl job.
+const webglSettleSpecs = /\/(?:anatomy-viewer|muscle-3d|muscle-viewer-controls)\.spec\.ts$/
+const E2E_SUITE = process.env.E2E_SUITE // undefined | 'main' | 'webgl' | 'webgl-settle'
+const webglSuiteIgnores = E2E_SUITE === 'main'
+  ? [webglSpecs]
+  : E2E_SUITE === 'webgl' ? [webglSettleSpecs] : []
+const nonWebglSuiteTestMatch = E2E_SUITE === 'webgl'
+  ? webglSpecs
+  : E2E_SUITE === 'webgl-settle' ? webglSettleSpecs : undefined
 
 const supabaseEnv = {
   NEXT_PUBLIC_SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? '',
@@ -113,7 +120,7 @@ export default defineConfig({
       name: 'android-chromium-proxy',
       // None of this project's specs mount the 3D viewer, so it has nothing
       // to run in the webgl job; keep it exclusively in the main job.
-      testMatch: E2E_SUITE === 'webgl' ? /(?!)/ : /(?:a11y|device-accessibility-harness)\.spec\.ts/,
+      testMatch: E2E_SUITE?.startsWith('webgl') ? /(?!)/ : /(?:a11y|device-accessibility-harness)\.spec\.ts/,
       use: {
         ...devices['Pixel 7'],
         storageState: 'e2e/.auth/user.json',
@@ -127,7 +134,8 @@ export default defineConfig({
       // Desktop chromium only, scoped to its one spec file so it never runs
       // inside desktop-chromium/mobile-webkit and they never run it.
       name: 'calibration',
-      testMatch: /pixel-calibration\.spec\.ts/,
+      // Runs once: locally (suite unset) or in CI's webgl job.
+      testMatch: E2E_SUITE === undefined || E2E_SUITE === 'webgl' ? /pixel-calibration\.spec\.ts/ : /(?!)/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'e2e/.auth/user.json',

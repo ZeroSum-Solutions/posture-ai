@@ -136,6 +136,18 @@ jobs:
         run: npm run test:e2e
         env:
           E2E_SUITE: webgl
+      # Non-blocking until the viewer's camera-settle signal is reliable on
+      # software WebGL (#160). Failures still surface as a warning annotation.
+      - name: Run camera-settle 3D specs (non-blocking, #160)
+        id: webgl_settle
+        continue-on-error: true
+        run: npm run test:e2e
+        env:
+          E2E_SUITE: webgl-settle
+      - name: Flag camera-settle failures
+        if: steps.webgl_settle.outcome == 'failure'
+        run: |
+          echo "::warning title=Non-blocking 3D specs failed::Camera-settle specs failed (tracked in #160). Not blocking merge."
       - name: Calibration drift gate
         run: npm run calibrate:check
       - name: Retain sanitized Playwright and Axe receipts

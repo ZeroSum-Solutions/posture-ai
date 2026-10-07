@@ -125,7 +125,7 @@
       "path": "playwright.config.ts",
       "hash_algorithm": "sha256",
       "hash_scope": "entire_file",
-      "sha256": "49d4ada45f14c1890c8444809a00fbfc902ec32b1caf9eee62464942ff2cb29c"
+      "sha256": "96487a9428aa526e696a48ae6d8fa34eb0f676fb41409cc14b782aaecfcfb425"
     },
     {
       "id": "posture-ai-e2e-runner-2026-07-19-pr04",
@@ -1479,7 +1479,7 @@
     "expected_files": 57,
     "test_ids_sha256": "fe59cd9fc9bb013561fd6679e7f409965c71fd3f14a660c69a6ca635ca3dcd76"
   },
-  "inventory_hash": "61483ce6f2d2f79d3204fb2228d7b08487cfb601c0960f6d50941f8571079fd1",
+  "inventory_hash": "07e559e7674f4e8a60be5b7d67d7a8062c1c44170e50cb3a5ab5f9e7cc58a8a5",
   "ci_contract": {
     "global_commands": [
       "npm run lint",
