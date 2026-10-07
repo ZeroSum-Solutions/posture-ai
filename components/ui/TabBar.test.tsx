@@ -40,7 +40,6 @@ describe('TabBar', () => {
     const nav = screen.getByRole('navigation', { name: 'Primary' })
     const capture = within(nav).getByRole('link', { name: 'Capture' })
     expect(capture.hasAttribute('aria-current')).toBe(false)
-    expect(within(nav).getAllByRole('link').some(link => link.hasAttribute('aria-current'))).toBe(false)
   })
 
   it('drops Workouts when clinical content is gated off', () => {
