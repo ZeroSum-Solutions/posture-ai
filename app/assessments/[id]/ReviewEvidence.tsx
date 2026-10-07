@@ -1,12 +1,10 @@
 'use client'
-import { useMemo, useState } from 'react'
-import Icon from '@/components/array/Icon'
-import { Surface } from '@/components/array/Surface'
-import { tint, tone } from '@/components/array/severity'
+import { Disclosure } from '@/components/ui'
 import CapturePhoto from './CapturePhoto'
 import ReviewFindings from './ReviewFindings'
 import type { ReviewFindingRow } from './reviewModel'
-import styles from './AssessmentReview.module.css'
+import type { ClinicalProgramReport } from '@/lib/program/clinicalProjection'
+import styles from './Results.module.css'
 
 export interface EvidenceCapture {
   id: string
@@ -16,28 +14,28 @@ export interface EvidenceCapture {
   capture_roll_deg: number | null
 }
 
-const VIEW_ORDER = ['front', 'side', 'back']
-const VIEW_NAME: Record<string, string> = { front: 'Front', side: 'Side', back: 'Back' }
-
-function viewName(view: string): string {
-  return VIEW_NAME[view] ?? view.charAt(0).toUpperCase() + view.slice(1)
-}
-
-function viewRank(view: string): number {
-  const index = VIEW_ORDER.indexOf(view)
-  return index === -1 ? VIEW_ORDER.length : index
-}
+/** The four canonical capture slots (spec §5 Capture): front, left/right
+ * profile and back. A slot with no matching capture renders as a missing
+ * tile (CapturePhoto's own "No photo for this view" state) rather than
+ * being silently dropped, so "Photos (n of 4)" always counts against 4. */
+const SLOTS: { key: string; label: string; match: (c: EvidenceCapture) => boolean }[] = [
+  { key: 'front', label: 'Front', match: (c) => c.view === 'front' },
+  { key: 'side-left', label: 'Left Side', match: (c) => c.view === 'side' && c.profile_side === 'left' },
+  { key: 'side-right', label: 'Right Side', match: (c) => c.view === 'side' && c.profile_side === 'right' },
+  { key: 'back', label: 'Back', match: (c) => c.view === 'back' },
+]
 
 /**
- * The capture set is the evidence: every saved photo, in view order. Tapping a photo selects
- * its view — that view's photos take a highlighted border — and the findings measured on it
- * list right below (unusable readings included, flagged for re-capture). Each finding belongs
- * to the one view it was measured on, so stepping through the views covers the whole screening.
+ * The capture set — a Disclosure "Photos (n of 4)" — followed by the findings
+ * list (ReviewFindings), grouped by severity rather than gated behind a
+ * per-view toggle: every finding is listed, with the view it was measured on
+ * as its subhead.
  */
 export default function ReviewEvidence({
   rows,
   viewByKey,
   captures,
+  program,
   levelVerified,
   activeKey = null,
   onSpotlight,
@@ -46,110 +44,48 @@ export default function ReviewEvidence({
   /** The view each finding was measured on, by imbalance key. */
   viewByKey: Readonly<Record<string, string>>
   captures: readonly EvidenceCapture[]
+  program?: ClinicalProgramReport | null
   levelVerified: boolean | null
   activeKey?: string | null
   onSpotlight?: (key: string) => void
 }) {
-  // Every view that has a photo or a finding, front → side → back. A view with findings but no
-  // saved photo still gets a tile, so its findings stay reachable.
-  const tiles = useMemo(() => {
-    const photoViews = new Set(captures.map(capture => capture.view))
-    const orphanViews = [...new Set(rows.map(row => viewByKey[row.key]).filter(Boolean))]
-      .filter(view => !photoViews.has(view))
-    return [
-      ...captures.map(capture => ({ key: capture.id, view: capture.view, capture })),
-      ...orphanViews.map(view => ({ key: `view-${view}`, view, capture: null })),
-    ].sort((left, right) => viewRank(left.view) - viewRank(right.view))
-  }, [captures, rows, viewByKey])
-
-  const rowsFor = (view: string) => rows.filter(row => viewByKey[row.key] === view)
-  const [view, setView] = useState<string | null>(
-    () => tiles.find(tile => rowsFor(tile.view).length > 0)?.view ?? tiles[0]?.view ?? null,
-  )
-  const viewRows = view ? rowsFor(view) : []
+  const tiles = SLOTS.map((slot) => ({ slot, capture: captures.find(slot.match) ?? null }))
+  const savedCount = tiles.filter((tile) => tile.capture?.signed_url).length
 
   return (
     <div className="app-stack">
-      <Surface tier="feature">
-        <div className={styles.captureHead}>
-          <h3 className="t-headline">Capture set</h3>
-          {levelVerified === true ? (
-            <span
-              className={styles.verifiedChip}
-              style={{ background: tint('maintain'), color: tone('maintain') }}
-            >
-              <Icon name="shield-check-linear" size={13} />
-              Level verified
-            </span>
-          ) : levelVerified === false ? (
-            <span
-              className={styles.verifiedChip}
-              style={{ background: tint('monitor'), color: tone('monitor') }}
-            >
-              <Icon name="flag-linear" size={13} />
-              Level not verified
-            </span>
-          ) : null}
-        </div>
-
-        {tiles.length === 0 ? (
-          <p className={styles.emptyState}>No captures are stored for this screening.</p>
-        ) : (
-          <div className={styles.captureGrid} role="group" aria-label="Capture views">
-            {tiles.map(({ key, view: tileView, capture }) => {
-              const label = capture?.profile_side
-                ? `${tileView} ${capture.profile_side}`
-                : tileView
-              // Roll is the recorded device tilt. A capture with none was not
-              // measured for level, which is not the same as being level.
-              const roll = capture?.capture_roll_deg ?? null
-              const rolled = roll !== null && Math.abs(roll) > 3
-              const selected = tileView === view
-              return (
-                <div key={key} className={styles.captureTile}>
-                  <div
-                    className={[styles.captureFrame, selected ? styles.captureFrameSelected : '']
-                      .filter(Boolean).join(' ')}
-                    data-view={tileView}
-                  >
-                    <CapturePhoto
-                      key={capture?.signed_url ?? key}
-                      url={capture?.signed_url ?? null}
-                      label={label}
-                      selected={selected}
-                      onSelect={() => setView(tileView)}
-                    />
-                    {roll !== null ? <span className={styles.captureBadge} aria-hidden="true">
-                      <Icon name={rolled ? 'flag-linear' : 'check-circle-bold'} size={14} />
-                    </span> : null}
-                  </div>
-                  <span className={styles.captureLabel}>
-                    {label}
-                    {rolled ? ` · ${roll?.toFixed(0)}° roll` : ''}
-                  </span>
+      <Disclosure title={`Photos (${savedCount} of ${SLOTS.length})`}>
+        <div className={styles.captureGrid} role="group" aria-label="Capture views">
+          {tiles.map(({ slot, capture }) => {
+            const roll = capture?.capture_roll_deg ?? null
+            const rolled = roll !== null && Math.abs(roll) > 3
+            return (
+              <div key={slot.key} className={styles.captureTile}>
+                <div className={styles.captureFrame}>
+                  <CapturePhoto url={capture?.signed_url ?? null} label={slot.label} />
                 </div>
-              )
-            })}
-          </div>
+                <span className={styles.captureLabel}>
+                  {slot.label}
+                  {rolled ? ` · ${roll?.toFixed(0)}° roll` : ''}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        {levelVerified === false && (
+          <p className="t-footnote" style={{ color: 'var(--monitor)', marginTop: 'var(--s-12)' }}>
+            Camera level not verified for this screening.
+          </p>
         )}
-      </Surface>
+      </Disclosure>
 
-      {view && (
-        <section className="app-stack" aria-labelledby="evidence-view-title" data-evidence-view={view}>
-          <h3 id="evidence-view-title" className={styles.viewTitle}>
-            {viewName(view)} view
-            <span className="n">
-              {viewRows.length === 1 ? '1 finding' : `${viewRows.length} findings`}
-            </span>
-          </h3>
-          <ReviewFindings
-            rows={viewRows}
-            activeKey={activeKey}
-            onSpotlight={onSpotlight}
-            emptyText={`No findings were measured on the ${viewName(view).toLowerCase()} view.`}
-          />
-        </section>
-      )}
+      <ReviewFindings
+        rows={rows}
+        viewByKey={viewByKey}
+        program={program}
+        activeKey={activeKey}
+        onSpotlight={onSpotlight}
+      />
     </div>
   )
 }

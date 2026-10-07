@@ -26,17 +26,20 @@ test.describe('assessment golden path (test mode)', () => {
     await page.waitForURL(/\/assessments\/[0-9a-f-]{36}$/, { timeout: 30_000 })
 
     // Results open with the grade always on screen (outside the tab strip) and
-    // Evidence as the default, keyboard-accessible tab; the findings themselves
-    // live on the posture map, and Program is the other tab. No disclaimer copy
+    // Findings as the default, keyboard-accessible tab (array-v3-spec.md §5
+    // renamed this from "Evidence"; the underlying tab id/panel id are
+    // unchanged — see ReviewTabs/TabStrip). No "Summary" tab here: that only
+    // exists on the restricted-access fallback page (AssessmentOnlyResults),
+    // so its absence proves this is the full results page. No disclaimer copy
     // on the page: the screening notice is accepted at onboarding.
-    await expect(page.getByRole('tab', { name: /^Evidence/ })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('tab', { name: /^Findings/ })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: /^Findings/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Summary/ })).toHaveCount(0)
     await expect(page.getByText(/Grade C/i).first()).toBeVisible()
     await expect(page.locator('[data-testid="disclaimer"]')).toHaveCount(0)
 
-    // Evidence lists each finding under the capture view it was measured on.
-    // The current fixture has eight numeric screening readings; non-numeric
-    // records are not fabricated into plotted findings.
+    // Findings lists every finding, grouped by severity. The current fixture
+    // has eight numeric screening readings; non-numeric records are not
+    // fabricated into plotted findings.
     await expect.poll(() => countEvidenceFindings(page), { timeout: 15_000 }).toBe(8)
 
     // Exercises are no longer their own tab — they are a nested disclosure
@@ -49,6 +52,17 @@ test.describe('assessment golden path (test mode)', () => {
     // Every coach-side program control needs stable form identity for browser
     // autofill/devtools and explicit label association.
     await expect(page.getByTestId('capability-select')).toBeVisible()
+    // The swap control lives behind the exercise row's overflow menu now
+    // (array-v3-spec.md §5 Results — "replacing the four buttons per item"),
+    // and only renders when that exercise has an alternative to swap to —
+    // so open menus in turn until one has a swap control.
+    const moreActionButtons = page.getByRole('button', { name: /^More actions for/ })
+    const moreActionCount = await moreActionButtons.count()
+    for (let i = 0; i < moreActionCount; i++) {
+      await moreActionButtons.nth(i).click()
+      if (await page.locator('[data-testid^="swap-"]').count() > 0) break
+      await page.keyboard.press('Escape')
+    }
     const firstSwap = page.locator('[data-testid^="swap-"]').first()
     await expect(firstSwap).toBeVisible()
     const firstSwapId = await firstSwap.getAttribute('id')
@@ -74,10 +88,10 @@ test.describe('assessment golden path (test mode)', () => {
     }
     expect(hydrationErrors).toEqual([])
     await page.getByRole('link', { name: 'Open anatomy view for the latest assessment' }).click()
-    // The posture map is the results page hero: the deep link lands on it, Evidence stays the
+    // The posture map is the results page hero: the deep link lands on it, Findings stays the
     // selected tab, and the live model mounts on its own once the page is idle.
     await expect(page.locator('#anatomy-viewer-title')).toBeAttached()
-    await expect(page.getByRole('tab', { name: /^Evidence/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Findings/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTitle('Interactive 3D anatomy model')).toHaveCount(1, { timeout: 15_000 })
   })
 
@@ -103,8 +117,10 @@ test.describe('assessment golden path (test mode)', () => {
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    // The sheet's aria-label carries the exercise name the button opened.
-    await expect(dialog).toHaveAttribute('aria-label', /details$/)
+    // The sheet (components/ui Sheet) labels itself via aria-labelledby → its
+    // own title heading, not a literal aria-label attribute; the exercise
+    // name is still the dialog's accessible name.
+    await expect(dialog).toHaveAccessibleName(/details$/)
 
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)

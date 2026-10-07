@@ -9,8 +9,9 @@ import { buildReviewModel } from './reviewModel'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
-import { ring, tint, tone, type SeverityBand } from '@/components/array/severity'
-import styles from './AssessmentReview.module.css'
+import { tint, tone } from '@/components/array/severity'
+import { ActionBar, Button, Disclosure, EmptyState, IconButton, SeverityChip } from '@/components/ui'
+import styles from './Results.module.css'
 import { musclesForFinding, slugForViewerId, type BodySide } from './anatomyFocus'
 import { hasAnyMuscle } from './muscleMap'
 import type { FindingOption } from './MuscleModel3D'
@@ -99,8 +100,8 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
     <div
       data-testid={`exercise-item-${exercise.slug}`}
       style={{
-        background: 'var(--surface-glass)', border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 10, overflow: 'hidden', marginBottom: 8,
+        background: 'var(--surface-flat)', boxShadow: 'inset 0 0 0 1px var(--hairline)',
+        borderRadius: 'var(--r-md)', overflow: 'hidden', marginBottom: 'var(--s-8)',
       }}
     >
       <button
@@ -108,45 +109,45 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
         aria-expanded={open}
         style={{
           width: '100%', textAlign: 'left', background: 'none', border: 'none',
-          padding: '14px 16px', cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: 10,
+          minHeight: 48, padding: 'var(--s-12) var(--s-16)', cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: 'var(--s-8)',
         }}
       >
-        <span style={{
-          padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700,
+        <span className="t-caption" style={{
+          padding: '2px var(--s-8)', borderRadius: 'var(--r-full)', fontWeight: 700,
           background: `color-mix(in srgb, ${catColor} 13%, transparent)`, color: catColor, textTransform: 'uppercase',
-          letterSpacing: '0.05em', flexShrink: 0,
+          flexShrink: 0,
         }}>{catLabel}</span>
-        <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+        <span className="t-headline" style={{ flex: 1, color: 'var(--text-1)' }}>
           {exercise.name}
         </span>
-        <span style={{
-          color: 'var(--text-secondary)', fontSize: '0.8rem', transition: 'transform 0.2s',
+        <span aria-hidden="true" style={{
+          color: 'var(--text-2)', transition: 'transform 0.2s',
           display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
         }}>▾</span>
       </button>
       {open && (
-        <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6, margin: '12px 0 10px' }}>
+        <div style={{ padding: '0 var(--s-16) var(--s-16)', borderTop: '1px solid var(--hairline)' }}>
+          <p className="t-body" style={{ color: 'var(--text-2)', margin: 'var(--s-12) 0 var(--s-8)' }}>
             {exercise.instructions}
           </p>
-          <div style={{ display: 'flex', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 'var(--s-16)' }}>
             {exercise.sets > 0 && (
-              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{exercise.sets}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Sets</div>
+              <div style={{ background: 'var(--surface-flat)', borderRadius: 'var(--r-sm)', padding: 'var(--s-4) var(--s-12)', textAlign: 'center' }}>
+                <div className="t-readout-md" style={{ color: 'var(--text-1)' }}>{exercise.sets}</div>
+                <div className="t-caption" style={{ color: 'var(--text-2)', textTransform: 'uppercase' }}>Sets</div>
               </div>
             )}
             {exercise.dosageType !== 'dynamic' && exercise.holdSeconds > 0 && (
-              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{exercise.holdSeconds}s</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Hold</div>
+              <div style={{ background: 'var(--surface-flat)', borderRadius: 'var(--r-sm)', padding: 'var(--s-4) var(--s-12)', textAlign: 'center' }}>
+                <div className="t-readout-md" style={{ color: 'var(--text-1)' }}>{exercise.holdSeconds}s</div>
+                <div className="t-caption" style={{ color: 'var(--text-2)', textTransform: 'uppercase' }}>Hold</div>
               </div>
             )}
             {exercise.reps != null && (
-              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{exercise.reps.min}–{exercise.reps.max}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Reps</div>
+              <div style={{ background: 'var(--surface-flat)', borderRadius: 'var(--r-sm)', padding: 'var(--s-4) var(--s-12)', textAlign: 'center' }}>
+                <div className="t-readout-md" style={{ color: 'var(--text-1)' }}>{exercise.reps.min}–{exercise.reps.max}</div>
+                <div className="t-caption" style={{ color: 'var(--text-2)', textTransform: 'uppercase' }}>Reps</div>
               </div>
             )}
           </div>
@@ -238,31 +239,6 @@ export default function ClinicalAssessmentResults({
   const [spotlightKey, setSpotlightKey] = useState<string | null>(null)
   const [selectedMuscle, setSelectedMuscle] = useState<{ viewerId: string; side: BodySide | null } | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  // The header grade is a toggle: it opens the grade scale (score beside its range) under it.
-  const [gradeOpen, setGradeOpen] = useState(false)
-  const gradePanelRef = useRef<HTMLDivElement | null>(null)
-  const gradeChipRef = useRef<HTMLButtonElement | null>(null)
-  useEffect(() => {
-    if (!gradeOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setGradeOpen(false) }
-    // A tap anywhere outside the dropdown (and its toggle) closes it.
-    const onPointer = (e: PointerEvent) => {
-      const target = e.target as Node
-      if (gradePanelRef.current?.contains(target) || gradeChipRef.current?.contains(target)) return
-      setGradeOpen(false)
-    }
-    // A tap on the 3D model lands in its iframe and never reaches this document, but it does
-    // move focus there — which blurs this window.
-    const onBlur = () => setGradeOpen(false)
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('blur', onBlur)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('blur', onBlur)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [gradeOpen])
   const heroRef = useRef<HTMLDivElement | null>(null)
   const [approving, setApproving] = useState(false)
   // Prior scans carry their score and findings so the grade rail can draw the
@@ -867,24 +843,6 @@ export default function ClinicalAssessmentResults({
           <Icon name="alt-arrow-left-linear" size={18} />
           {clientName}
         </Link>
-        {/* The grade, compactly: the map is the page. Tapping it opens the grade scale below. */}
-        <h1 className={styles.gradeHeading}>
-          <button
-            ref={gradeChipRef}
-            type="button"
-            className={styles.gradeChip}
-            aria-expanded={gradeOpen}
-            aria-controls="grade-scale"
-            onClick={() => setGradeOpen((open) => !open)}
-          >
-            Grade <strong style={{ color: tone(reviewModel.rail.band) }}>{grade}</strong>
-            <span className={styles.gradeScore}> · {score}/100</span>
-            <span className="sr-only">. {reviewModel.verdict.headline.lead} {reviewModel.verdict.headline.tail ?? ''}</span>
-            <span className={`${styles.gradeCaret} ${gradeOpen ? styles.gradeCaretOpen : ''}`} aria-hidden="true">
-              <Icon name="alt-arrow-right-linear" size={12} />
-            </span>
-          </button>
-        </h1>
         {typeof assessment.level_verified === 'boolean' && (
           <span
             className={styles.verifiedChip}
@@ -900,12 +858,6 @@ export default function ClinicalAssessmentResults({
               : 'Camera level not verified'}
           </span>
         )}
-        {/* A dropdown over the page, under the header. Always mounted (so its screen-reader
-            summary is there); shown while the grade is open. */}
-        <div id="grade-scale" ref={gradePanelRef} className={styles.gradePanel} hidden={!gradeOpen}>
-          <p className="t-overline" style={{ marginBottom: 12 }}>{reviewModel.verdict.kicker}</p>
-          <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
-        </div>
       </div>
 
       {descriptiveFindings.length > 0 && (
@@ -922,6 +874,19 @@ export default function ClinicalAssessmentResults({
           />
         </div>
       )}
+
+      {/* The grade + score readout, moved out of the hero's corner into a
+          plain section right under it (spec §5 Results) — always visible,
+          no dropdown toggle. */}
+      <div className="app-screen-x">
+        <div className={styles.gradeSection}>
+          <p className={`t-overline ${styles.gradeSectionKicker}`}>{reviewModel.verdict.kicker}</p>
+          <h1 className="t-title-1" style={{ margin: '0 0 var(--s-12)' }}>
+            Grade {grade} <span className="t-footnote" style={{ color: 'var(--text-3)' }}>· {score}/100</span>
+          </h1>
+          <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
+        </div>
+      </div>
 
       <div className="app-screen-x app-stack">
         {screeningBoundaryMessage && (
@@ -945,16 +910,14 @@ export default function ClinicalAssessmentResults({
                 rows={reviewModel.rows}
                 viewByKey={viewByKey}
                 captures={captures}
+                program={program}
                 levelVerified={assessment.level_verified}
                 activeKey={spotlightKey}
                 onSpotlight={descriptiveFindings.length > 0 ? spotlightFromList : undefined}
               />
-              <details className={styles.disclosure}>
-                <summary className={styles.disclosureSummary}>Accuracy &amp; methodology</summary>
-                <div className={styles.disclosureBody}>
-                  <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
-                </div>
-              </details>
+              <Disclosure title="Accuracy & methodology">
+                <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
+              </Disclosure>
             </div>
           )}
           programPanel={(
@@ -970,11 +933,12 @@ export default function ClinicalAssessmentResults({
                   onSwap={handleSwap}
                 />
               ) : (
-                <Surface tier="tile">
-                  <p className={styles.emptyState}>
-                    No corrective priorities are available from this screening.
-                  </p>
-                </Surface>
+                <EmptyState
+                  icon="clipboard-check-linear"
+                  variant="inline"
+                  title="No corrective priorities"
+                  body="No corrective priorities are available from this screening."
+                />
               )}
               {overrideSaveState === 'saving' && (
                 <p role="status" aria-live="polite" className={styles.notice}>Saving program changes…</p>
@@ -1045,13 +1009,11 @@ export default function ClinicalAssessmentResults({
         />
 
         {/* Deliberately collapsed. Sign-off does not live here: the pinned
-            action bar below carries "Approve & send report", so this holds only
+            ActionBar below carries "Approve & send report", so this holds only
             the secondary report, share and compare controls plus the dock's own
             redundant approve. Anything driving this dock -- e2e specs, the
             performance journey -- has to open the disclosure first. */}
-        <details className={styles.disclosure}>
-          <summary className={styles.disclosureSummary}>Report, share &amp; compare</summary>
-          <div className={styles.disclosureBody}>
+        <Disclosure title="Report, share & compare">
             <ReviewDock
               clientName={clientName}
               assessedAtLabel={assessedAtLabel}
@@ -1087,8 +1049,7 @@ export default function ClinicalAssessmentResults({
               backHref={`/clients/${assessment.clients.id}`}
               newAssessmentHref="/assessments/new"
             />
-          </div>
-        </details>
+        </Disclosure>
       </div>
 
       {detailsOpen && selectedMuscle && selectedSlug && (
@@ -1105,41 +1066,44 @@ export default function ClinicalAssessmentResults({
 
       {/* Sign-off stays reachable from anywhere on the screen. The dock above
           still owns every other action, including its own approve control, so
-          nothing here is the only route to it. */}
-      <div className={styles.actionBar}>
-        <div className={styles.actionBarInner}>
-          <button
-            type="button"
-            className={styles.iconAction}
-            onClick={() => handleGeneratePdf('practitioner')}
-            disabled={pdfLoading !== null || overrideSaveState === 'saving'}
-            aria-label="Generate practitioner PDF"
+          nothing here is the only route to it. "Launch session" moves to the
+          ActionBar (spec §5 Results) — same name, same handler. */}
+      <ActionBar>
+        <IconButton
+          icon="pen-new-square-linear"
+          label="Generate practitioner PDF"
+          variant="filled"
+          onClick={() => handleGeneratePdf('practitioner')}
+          disabledReason={pdfLoading !== null || overrideSaveState === 'saving' ? 'PDF is already generating' : undefined}
+        />
+        {isApproved ? (
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            icon="check-circle-linear"
+            onClick={handleLaunch}
+            loading={launching}
+            disabledReason={sessionPreview === null ? 'No guided session is available for this screening' : undefined}
+            haptic={false}
           >
-            <Icon name="pen-new-square-linear" size={20} />
-          </button>
-          {isApproved ? (
-            <button
-              type="button"
-              className={`a-primary a-primary--bar approve ${styles.approve}`}
-              onClick={handleLaunch}
-              disabled={launching || sessionPreview === null}
-            >
-              <Icon name="check-circle-linear" size={18} />
-              {launching ? 'Launching…' : 'Launch session'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={`a-primary a-primary--bar approve ${styles.approve}`}
-              onClick={handleApprove}
-              disabled={approving || overrideSaveState === 'saving'}
-            >
-              <Icon name="check-circle-linear" size={18} />
-              {approving ? 'Approving…' : 'Approve & send report'}
-            </button>
-          )}
-        </div>
-      </div>
+            Launch session
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            icon="check-circle-linear"
+            onClick={handleApprove}
+            loading={approving}
+            disabledReason={overrideSaveState === 'saving' ? 'Program changes are still saving' : undefined}
+            haptic={false}
+          >
+            Approve & send report
+          </Button>
+        )}
+      </ActionBar>
     </div>
   )
 }
@@ -1188,7 +1152,7 @@ function ReviewWorkspace({
       <TabStrip
         idBase={REVIEW_TAB_BASE}
         options={[
-          { value: 'evidence', label: 'Evidence' },
+          { value: 'evidence', label: 'Findings' },
           { value: 'program', label: `Program${programCount > 0 ? ` ${programCount}` : ''}` },
         ]}
         value={active}
@@ -1200,7 +1164,7 @@ function ReviewWorkspace({
         <div {...tabPanelProps(REVIEW_TAB_BASE, 'evidence', active === 'evidence')} className={panelClass('evidence')}>
           {mounted.has('evidence')
             ? evidencePanel
-            : <div className={styles.loadingPanel} role="status">Preparing evidence…</div>}
+            : <div className={styles.loadingPanel} role="status">Preparing findings…</div>}
         </div>
         <div {...tabPanelProps(REVIEW_TAB_BASE, 'program', active === 'program')} className={panelClass('program')}>
           {mounted.has('program')
@@ -1213,36 +1177,34 @@ function ReviewWorkspace({
 }
 
 // Per-finding stability, angle uncertainty and capture/level status, together.
+// Rendered inside the "Accuracy & methodology" Disclosure, which already
+// supplies the title, so this starts straight at the content.
 function AccuracyCard({ assessment, findings }: { assessment: Assessment; findings: Finding[] }) {
   const withStability = findings.filter(
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
   )
-  const pill = (band: SeverityBand, label: string) => (
-    <span style={{
-      padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700,
-      background: tint(band),
-      color: tone(band),
-      border: `1px solid ${ring(band)}`,
-    }}>{label}</span>
-  )
   return (
-    <div data-testid="accuracy-card" style={{ paddingTop: 24, marginTop: 24, borderTop: '1px solid var(--hairline)' }}>
-      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy &amp; Methodology</h3>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: withStability.length ? 16 : 0 }}>
-        {pill(assessment.level_verified === true ? 'maintain' : 'monitor', assessment.level_verified === true ? 'Camera level verified' : 'Level not verified')}
-        {assessment.tilt_corrected ? pill('maintain', 'Tilt-corrected') : null}
-        {typeof assessment.capture_stability === 'number' ? pill('neutral', `Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`) : null}
+    <div data-testid="accuracy-card">
+      <div style={{ display: 'flex', gap: 'var(--s-8)', flexWrap: 'wrap', marginBottom: withStability.length ? 'var(--s-16)' : 0 }}>
+        <SeverityChip
+          band={assessment.level_verified === true ? 'maintain' : 'monitor'}
+          size="sm"
+          label={assessment.level_verified === true ? 'Camera level verified' : 'Level not verified'}
+        />
+        {assessment.tilt_corrected ? <SeverityChip band="maintain" size="sm" label="Tilt-corrected" /> : null}
+        {typeof assessment.capture_stability === 'number' ? (
+          <SeverityChip band="neutral" size="sm" label={`Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`} />
+        ) : null}
       </div>
       {withStability.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-8)' }}>
           {withStability.map(f => {
             const s = f.stability_score
-            const stColor = tone('neutral')
             return (
-              <div key={f.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, minWidth: 0, overflowWrap: 'anywhere', padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', flex: 1 }}>{f.label}</span>
-                {f.uncertainty_deg != null && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' }}>Within-burst angle variation ±{f.uncertainty_deg.toFixed(1)}°</span>}
-                {s != null && <span style={{ color: stColor, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>Within-burst landmark consistency {Math.round(s * 100)}%</span>}
+              <div key={f.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 'var(--s-12)', minWidth: 0, overflowWrap: 'anywhere', padding: 'var(--s-8) var(--s-12)', background: 'var(--surface-flat)', boxShadow: 'inset 0 0 0 1px var(--hairline)', borderRadius: 'var(--r-md)' }}>
+                <span className="t-footnote" style={{ color: 'var(--text-2)', flex: 1 }}>{f.label}</span>
+                {f.uncertainty_deg != null && <span className="t-footnote" style={{ color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>Within-burst angle variation ±{f.uncertainty_deg.toFixed(1)}°</span>}
+                {s != null && <span className="t-footnote" style={{ color: 'var(--text-2)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>Within-burst landmark consistency {Math.round(s * 100)}%</span>}
               </div>
             )
           })}

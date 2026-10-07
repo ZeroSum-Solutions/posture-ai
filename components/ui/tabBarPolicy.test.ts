@@ -40,14 +40,14 @@ describe('isTabBarHidden', () => {
     expect(isTabBarHidden(pathname)).toBe(true)
   })
 
-  it.each(['/auth/sign-in', '/onboarding', '/consent/abc123', '/s/tok3n'])(
+  it.each(['/auth/sign-in', '/onboarding', '/consent/abc123', '/s/tok3n', '/assessments/new'])(
     'hides the tab bar outside the practitioner app (%s)',
     (pathname) => {
       expect(isTabBarHidden(pathname)).toBe(true)
     },
   )
 
-  it.each(['/dashboard', '/clients', '/clients/abc', '/exercises', '/settings', '/assessments/new'])(
+  it.each(['/dashboard', '/clients', '/clients/abc', '/exercises', '/settings'])(
     'shows the tab bar on the practitioner route %s',
     (pathname) => {
       expect(isTabBarHidden(pathname)).toBe(false)

@@ -1,148 +1,68 @@
-/* A centered pop-up at every width: fixed header, scrolling body, dimmed and blurred page
-   behind. Sits above the island nav; ExerciseDetailSheet (z-index 120) opens above it. */
-.layer {
-  position: fixed;
-  inset: 0;
-  z-index: 110;
-  display: grid;
-  place-items: center;
-  padding:
-    max(16px, env(safe-area-inset-top))
-    max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
-}
-.scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  backdrop-filter: blur(10px) saturate(120%);
-  animation: scrimIn 200ms ease-out both;
-}
-.dialog {
-  display: flex;
-  flex-direction: column;
-  width: min(560px, 100%);
-  max-height: min(80svh, 740px);
-  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  transform-origin: 50% 60%;
-  animation: dialogIn 280ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
-}
-.closing .scrim { animation: scrimOut 160ms ease-in both; }
-.closing .dialog { animation: dialogOut 160ms ease-in both; }
+/* Content only — the shell (scrim, dialog chrome, close button, focus trap,
+   scroll lock, enter/exit animation) is the shared components/ui Sheet now
+   (DESIGN.md › 3.8). Array v3 tokens only. */
 
-@keyframes scrimIn { from { opacity: 0; } }
-@keyframes scrimOut { to { opacity: 0; } }
-@keyframes dialogIn { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
-@keyframes dialogOut { to { opacity: 0; transform: translateY(8px) scale(0.97); } }
-@media (prefers-reduced-motion: reduce) {
-  .scrim, .dialog, .closing .scrim, .closing .dialog { animation: none; }
-}
-
-.frame { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; outline: none; }
-
-.header {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 20px 16px 16px 20px;
-  border-bottom: 1px solid var(--hairline);
-}
-.titleBlock { display: grid; gap: 4px; min-width: 0; }
 .summary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  justify-self: start;
-  margin-top: 6px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
-  font-size: 12px;
+  gap: var(--s-8);
+  margin: var(--s-8) 0 0;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-2);
+  font: var(--t-caption);
 }
 .summaryDots { display: inline-flex; gap: 3px; }
-.summaryDots span { width: 7px; height: 7px; border-radius: 999px; }
+.summaryDots span { width: 7px; height: 7px; border-radius: var(--r-full); }
 
-.body {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 0 20px 20px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
+.body { padding-top: var(--s-16); }
 
-.close {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-.close:hover { background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
-.close:focus-visible, .exercise:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
-
-.section { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--hairline); }
+.section { display: grid; gap: var(--s-8); padding: var(--s-16) 0; border-top: 1px solid var(--hairline); }
 .section:first-child { border-top: 0; }
-.sectionTitle {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
+.sectionTitle { color: var(--text-3); font: var(--t-overline); }
 
-.sides { display: grid; gap: 6px; }
-.sideRow { display: flex; align-items: center; gap: 10px; color: var(--text-primary); font-size: 13px; font-weight: 300; }
-.sideLabel { width: 14px; color: var(--text-tertiary); font-size: 11px; font-weight: 500; }
-.sideDot { width: 9px; height: 9px; border-radius: 999px; }
+.sides { display: grid; gap: var(--s-4); }
+.sideRow { display: flex; align-items: center; gap: var(--s-8); color: var(--text-1); font: var(--t-footnote); }
+.sideLabel { width: 14px; color: var(--text-3); font: var(--t-caption); }
+.sideDot { width: 9px; height: 9px; border-radius: var(--r-full); }
 
-.linked { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
-.linkedLabel { color: var(--text-primary); font-size: 13px; }
+.linked { display: grid; gap: var(--s-4); padding: var(--s-8) var(--s-12); border-radius: var(--r-md); background: var(--surface-flat); }
+.linkedLabel { color: var(--text-1); font: var(--t-footnote); }
 
-.list { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.list { display: grid; gap: var(--s-4); list-style: none; margin: 0; padding: 0; }
 .exercise {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s-12);
   width: 100%;
   min-height: 48px;
-  padding: 8px 12px;
+  padding: var(--s-8) var(--s-12);
   border: 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
+.exercise:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .exercise > span:first-child { display: grid; gap: 2px; min-width: 0; }
-.exerciseName { color: var(--text-primary); font-size: 13px; }
+.exerciseName { color: var(--text-1); font: var(--t-footnote); }
 
-.muted { color: var(--text-tertiary); font-size: 12px; }
+.muted { color: var(--text-3); font: var(--t-caption); }
 
 .footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding-top: 14px;
+  gap: var(--s-8);
+  padding-top: var(--s-12);
   border-top: 1px solid var(--hairline);
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.5;
+  color: var(--text-3);
+  font: var(--t-caption);
 }
-.footer a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; }
+.footer a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }

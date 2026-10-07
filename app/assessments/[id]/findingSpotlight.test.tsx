@@ -37,29 +37,33 @@ function rows() {
   }).rows
 }
 
+// array-v3-spec.md §5 Results: a finding row's primary action is now opening
+// its detail Sheet (medium detent), not toggling the 3D spotlight directly —
+// spotlighting moved to the Sheet's own "Show on map" button, next to the
+// finding's muscle chips.
 describe('finding spotlight (3D posture map)', () => {
-  it('makes a finding with muscles a toggle button that spotlights it', () => {
+  it('opens the finding sheet and spotlights the finding via "Show on map"', () => {
     const onSpotlight = vi.fn()
     render(<ReviewFindings rows={rows()} onSpotlight={onSpotlight} />)
-    const button = screen.getByRole('button', { name: /Trunk Lean/ })
-    expect(button.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(button)
+    fireEvent.click(screen.getByRole('button', { name: /Trunk Lean/ }))
+    const mapButton = screen.getByRole('button', { name: 'Show on map' })
+    fireEvent.click(mapButton)
     expect(onSpotlight).toHaveBeenCalledWith('trunk_lean')
   })
 
-  it('reports the active finding as pressed (WCAG 4.1.2) and no longer expands a card', () => {
+  it('labels the map button "Showing on body" once this finding is the active spotlight', () => {
     render(<ReviewFindings rows={rows()} onSpotlight={() => {}} activeKey="trunk_lean" />)
-    expect(screen.getByRole('button', { name: /Trunk Lean/ }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.queryByText('Muscle Analysis')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Trunk Lean/ }))
+    expect(screen.getByRole('button', { name: 'Showing on body' })).toBeTruthy()
   })
 
-  it('is not a button when a finding has no muscle links', () => {
+  it('has no "Show on map" button in the sheet when a finding has no muscle links', () => {
     const bare = rows().map(row => ({
       ...row, causes: null, tightMuscles: [], weakMuscles: [], tightLinks: [], weakLinks: [],
     }))
     render(<ReviewFindings rows={bare} onSpotlight={() => {}} />)
-    expect(screen.queryByRole('button', { name: /Trunk Lean/ })).toBeNull()
-    expect(screen.getByText('Trunk Lean')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Trunk Lean/ }))
+    expect(screen.queryByRole('button', { name: /Show on map|Showing on body/ })).toBeNull()
   })
 })
 

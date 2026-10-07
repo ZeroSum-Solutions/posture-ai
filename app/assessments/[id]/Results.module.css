@@ -1,0 +1,472 @@
+/* Assessment results — merged, token-based stylesheet (Array v3). Replaces
+   AssessmentReview.module.css (785 lines) and AssessmentReviewStudio.module.css
+   (1,014 lines), which duplicated the same dock/grade/disclosure vocabulary
+   under two naming conventions with ~46% dead rules in the Studio file. This
+   file backs both the primary results page (ClinicalAssessmentResults.tsx,
+   GradeRail.tsx, ReviewEvidence.tsx, ReviewDock.tsx) and the restricted-access
+   fallback page (AssessmentOnlyResults.tsx, ReviewTabs.tsx). Findings, the
+   capture set and the program's per-item actions now read from
+   components/ui (ListRow, SeverityChip, Sheet, Disclosure, ActionBar) instead
+   of hand-rolled CSS, which is why the old finding/bar/capture-grid/action-bar
+   rules below have no replacement here — they were deleted along with the
+   markup that used them. Tokens only: no raw font-size/weight/radius/colour
+   literals (DESIGN.md › Tokens).  */
+
+/* ── Route states (loading / error) ──────────────────────────────────────── */
+
+.routeState {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: var(--s-24);
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--s-16);
+  border-radius: var(--r-full);
+  border: 4px solid var(--surface-flat);
+  border-top-color: var(--action);
+  animation: resultsSpin 1s linear infinite;
+}
+
+@keyframes resultsSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
+.errorLink {
+  color: var(--text-2);
+  text-decoration: none;
+}
+.errorLink:hover { color: var(--text-1); }
+
+/* ── Page header (both pages) ────────────────────────────────────────────── */
+
+.topBar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-8);
+  padding: var(--s-8) var(--s-16) 0;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--s-8) 0 var(--s-4);
+  border-radius: var(--r-full);
+  font: var(--t-footnote);
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.back:hover { color: var(--text-1); }
+
+.verifiedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-full);
+  font: var(--t-caption);
+}
+
+/* The posture map, then clear air before the grade section + tabs. Container
+   height only (spec amendment #4) — the 3D renderer inside is untouched. */
+.heroWrap {
+  scroll-margin-top: var(--s-12);
+  margin-bottom: var(--s-20);
+  height: clamp(340px, 44dvh, 460px);
+  overflow: hidden;
+}
+
+/* ── Grade rail (GradeRail.tsx) — the grade + score readout, moved out of the
+   hero's corner into a plain section right under it (spec §5 Results): no
+   more dropdown toggle, this renders inline, always visible. ──────────── */
+
+.gradeSection { margin-bottom: var(--s-20); }
+.gradeSectionKicker { margin: 0 0 var(--s-12); color: var(--text-3); }
+
+.railHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-12);
+}
+.railReadout { display: flex; align-items: center; gap: var(--s-12); }
+.railGrade {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-lg);
+  font: var(--t-title-2);
+  font-weight: 300;
+}
+.railScore { font: var(--t-ro-lg); color: var(--text-1); }
+.railScoreUnit { font: var(--t-footnote); color: var(--text-3); }
+.railDelta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-full);
+  font: var(--t-caption);
+  white-space: nowrap;
+}
+
+/* The rail is the 0-100 deviation scale; band widths and dot offsets are both
+   percentages of it, so there is no second mapping to fall out of step. */
+.rail { position: relative; height: 4px; margin: var(--s-20) 0 var(--s-8); border-radius: 2px; overflow: visible; }
+.railBand { position: absolute; top: 0; height: 4px; opacity: 0.42; }
+.railBand:first-of-type { border-radius: 2px 0 0 2px; }
+.railBand:nth-of-type(3) { border-radius: 0 2px 2px 0; }
+
+.railDot {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: var(--r-full);
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+/* The previous scan: hollow and dim so it reads as history. */
+.railPrior {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: var(--r-full);
+  transform: translateY(-50%);
+  background: transparent;
+  box-shadow: 0 0 0 2px var(--bg), inset 0 0 0 2px var(--border-field);
+}
+
+.railLabels {
+  display: flex;
+  justify-content: space-between;
+  font: var(--t-caption);
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.railRange { margin-top: var(--s-8); font: var(--t-footnote); color: var(--text-3); }
+.railNote {
+  margin-top: var(--s-16);
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--hairline);
+  font: var(--t-footnote);
+  color: var(--text-2);
+}
+
+/* ── Notices ──────────────────────────────────────────────────────────────── */
+
+.notice { display: flex; align-items: center; gap: var(--s-8); font: var(--t-footnote); color: var(--text-2); }
+.errorNotice { color: var(--review); }
+
+/* ── Findings summary + groups (ReviewEvidence.tsx) ──────────────────────── */
+
+.findingsSummary { color: var(--text-2); margin: 0 0 var(--s-8); }
+.findingGroup + .findingGroup { margin-top: var(--s-20); }
+.findingGroupLabel { display: block; margin-bottom: var(--s-8); color: var(--text-3); }
+
+/* ── Findings workspace tabs (ReviewWorkspace in ClinicalAssessmentResults) ─ */
+
+.workspaceStage { display: grid; grid-template-columns: minmax(0, 1fr); }
+.workspacePanel { display: none; min-width: 0; }
+.workspacePanelActive { display: block; }
+.workspacePanel:focus-visible {
+  outline: 2px solid var(--text-1);
+  outline-offset: 4px;
+  border-radius: var(--r-md);
+}
+
+.loadingPanel {
+  padding: var(--s-16);
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: var(--t-footnote);
+  color: var(--text-2);
+}
+
+/* ── Simple disclosure (AssessmentOnlyResults.tsx's native <details> only —
+   ClinicalAssessmentResults uses the components/ui Disclosure component). ── */
+
+.disclosure {
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.disclosureSummary {
+  min-height: 44px;
+  padding: var(--s-12) var(--s-16);
+  font: var(--t-subhead);
+  color: var(--text-2);
+  cursor: pointer;
+  list-style: none;
+}
+.disclosureSummary::-webkit-details-marker { display: none; }
+.disclosureSummary::after { content: ' \2193'; color: var(--text-3); }
+.disclosure[open] .disclosureSummary::after { content: ' \2191'; }
+.disclosureBody { padding: 0 var(--s-16) var(--s-16); font: var(--t-footnote); line-height: 1.6; color: var(--text-2); }
+
+/* ── Review dock (ReviewDock.tsx + AssessmentOnlyResults.tsx's own dock) ──── */
+
+.dock { display: flex; flex-direction: column; gap: var(--s-16); }
+.dockSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  padding: var(--s-16);
+  border-radius: var(--r-lg);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-16); align-items: start; }
+.quietLabel { display: block; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.identity h2 { margin: var(--s-4) 0 0; color: var(--text-1); font: var(--t-headline); overflow-wrap: anywhere; }
+.identity p { margin: var(--s-4) 0 0; color: var(--text-2); font: var(--t-footnote); }
+
+.gradeReadout { display: grid; justify-items: end; min-width: 112px; }
+.gradeReadout span, .gradeReadout small { color: var(--text-3); font: var(--t-caption); }
+.gradeReadout strong { color: var(--text-1); font: var(--t-ro-lg); line-height: 1; }
+.gradeReadout em {
+  max-width: 144px;
+  margin-top: var(--s-4);
+  color: var(--text-2);
+  font: var(--t-caption);
+  font-style: normal;
+  text-align: end;
+}
+
+.stateList { display: flex; flex-direction: column; gap: var(--s-4); font: var(--t-footnote); color: var(--text-2); margin: var(--s-16) 0 0; }
+.stateList > div { padding-top: var(--s-8); border-top: 1px solid var(--hairline); }
+.stateList dt { color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; font: var(--t-caption); }
+.stateList dd { margin: 0; color: var(--text-1); font: var(--t-footnote); }
+.stateDetail { color: var(--text-2) !important; font-weight: 400 !important; }
+
+.dockActions { display: flex; flex-direction: column; gap: var(--s-12); }
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  width: 100%;
+  min-height: 50px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--action);
+  color: var(--text-on-action);
+  font: var(--t-body);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.secondaryActions { display: flex; flex-wrap: wrap; gap: var(--s-12); }
+.secondaryAction, .downloadAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  flex: 1 1 auto;
+  min-width: 132px;
+  min-height: 44px;
+  padding: 0 var(--s-16);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-1);
+  font: var(--t-footnote);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.primaryAction:disabled, .secondaryAction:disabled, .downloadAction:disabled {
+  opacity: var(--text-disabled-opacity);
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.comparisonField, .shareField { display: flex; flex-direction: column; gap: var(--s-8); font: var(--t-footnote); color: var(--text-3); }
+.comparisonField select, .shareField input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--s-12);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-1);
+  font: var(--t-footnote);
+}
+
+.routeLinks { display: flex; flex-wrap: wrap; gap: var(--s-12); font: var(--t-footnote); }
+.routeLinks a { color: var(--text-2); text-decoration: none; }
+.routeLinks a:hover { color: var(--text-1); }
+
+.actionHint { font: var(--t-footnote); line-height: 1.5; color: var(--text-3); }
+.actionAlert { font: var(--t-footnote); color: var(--review); }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── AssessmentOnlyResults page shell ─────────────────────────────────────── */
+
+.reviewPage {
+  width: min(960px, 100%);
+  margin-inline: auto;
+  padding-block: var(--s-24) max(var(--s-48), env(safe-area-inset-bottom));
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: var(--s-16);
+  color: var(--accent);
+  font: var(--t-footnote);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.canvas { min-width: 0; }
+
+.pageHeader { min-width: 0; margin-bottom: var(--s-24); }
+.pageHeader h1 { margin: 0; color: var(--text-1); }
+.pageHeader p { max-width: 65ch; margin-top: var(--s-8); color: var(--text-2); font: var(--t-body); }
+
+.pageGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-16); align-items: start; }
+
+/* Summary tab */
+.sectionHeading { color: var(--text-1); font: var(--t-headline); margin: 0 0 var(--s-12); }
+.screeningNotice { margin-top: var(--s-8); }
+.ratingSummary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-16); }
+.ratingSummary strong { display: block; color: var(--text-1); font: var(--t-title-2); margin-top: var(--s-4); }
+.ratingSummary p { color: var(--text-2); font: var(--t-footnote); margin-top: var(--s-4); max-width: 46ch; }
+.summaryHero { display: flex; flex-direction: column; gap: var(--s-16); }
+
+.findingSnapshot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-8); }
+.snapshotCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-12);
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  text-align: center;
+}
+.snapshotCard span { color: var(--text-3); font: var(--t-caption); text-transform: uppercase; }
+.snapshotCard small { color: var(--text-3); font: var(--t-caption); }
+.snapshotAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--s-16);
+  border-radius: var(--r-full);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-1);
+  font: var(--t-footnote);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* Evidence tab (capture set) */
+.captureGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: var(--s-8); }
+.captureTile { display: flex; flex-direction: column; align-items: center; gap: var(--s-4); }
+.captureFrame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-sm);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+  color: var(--text-3);
+}
+.captureLabel { font: var(--t-caption); color: var(--text-3); text-transform: capitalize; }
+
+/* Findings tab (flat list, AssessmentOnlyResults only) */
+.compactFindings { display: flex; flex-direction: column; gap: var(--s-8); }
+.compactFinding {
+  padding: var(--s-12);
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.compactFindingHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--s-8); }
+.compactFindingHeader strong { color: var(--text-1); font: var(--t-subhead); }
+.compactFindingHeader span { font: var(--t-caption); font-weight: 600; text-transform: capitalize; }
+.compactFinding p { margin: var(--s-4) 0 0; color: var(--text-2); font: var(--t-footnote); }
+
+/* Tabs (ReviewTabs.tsx — AssessmentOnlyResults only; ClinicalAssessmentResults
+   uses TabStrip from components/array/Tabs, which has its own module.) */
+.tabShell { display: flex; flex-direction: column; gap: var(--s-12); }
+.tabList { display: flex; gap: var(--s-4); border-bottom: 1px solid var(--hairline); }
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 44px;
+  padding: 0 var(--s-16);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font: var(--t-subhead);
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab[aria-selected='true'] { color: var(--text-1); border-bottom-color: var(--action); }
+.tab:focus-visible, .tabPanel:focus-visible { outline: 2px solid var(--text-1); outline-offset: 2px; }
+.tabCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-full);
+  background: var(--surface-flat-pressed);
+  font: var(--t-caption);
+}
+.canvasSection { min-width: 0; }
+.tabPanel { outline: none; }

@@ -47,7 +47,7 @@ describe('assessment-only capture evidence', () => {
     expect(screen.getByRole('button', { name: 'Enlarge front capture' })).toBeTruthy()
     expect(new URL(screen.getByRole('img', { name: 'front capture' }).getAttribute('src')!, window.location.origin).pathname).toBe('/saved-front.jpg')
     expect(screen.getByText('side left')).toBeTruthy()
-    expect(screen.getByText('Photo not saved')).toBeTruthy()
+    expect(screen.getByText('No photo for this view')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /generate.*program/i })).toBeNull()
   })
 

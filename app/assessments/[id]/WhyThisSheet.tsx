@@ -7,9 +7,8 @@
  *   WhyThisBody   — pure presentational; used by tests.
  *   WhyThisSheet  — fetching wrapper; mirrors ExerciseDetailSheet structure.
  */
-import { useCallback, useEffect, useState } from 'react'
-import { useFocusTrap } from './useFocusTrap'
-import { Surface } from '@/components/array/Surface'
+import { useEffect, useState } from 'react'
+import { Sheet } from '@/components/ui'
 import { Chip } from '@/components/array/Chip'
 import type { SeverityBand } from '@/components/array/severity'
 
@@ -147,74 +146,31 @@ export default function WhyThisSheet({
     return () => controller.abort()
   }, [findingKey])
 
-  const dialogRef = useFocusTrap<HTMLDivElement>()
-
-  const escHandler = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose()
-  }, [onClose])
-
-  useEffect(() => {
-    window.addEventListener('keydown', escHandler)
-    return () => window.removeEventListener('keydown', escHandler)
-  }, [escHandler])
-
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 120,
-        background: 'rgba(0,0,0,0.6)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-      }}
+    <Sheet
+      open
+      onOpenChange={(next) => { if (!next) onClose() }}
+      title={`Why ${exerciseName}?`}
+      detents={['medium']}
+      data-testid="why-this-sheet"
     >
-      {/* Stops the backdrop's onClose from firing when the click lands on the sheet itself. */}
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560 }}>
-        <Surface
-          tier="feature"
-          /* Bottom sheets sit flush with the viewport edge; flatten the tier-1
-             shell's bottom corners rather than inventing a fourth radius family. */
-          style={{ borderRadius: '24px 24px 0 0' }}
-          innerStyle={{ maxHeight: '85vh', overflowY: 'auto' }}
-        >
-          <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Why ${exerciseName}?`}>
-            <div
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
-            >
-              <h3 className="t-title-2">Why this?</h3>
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="a-secondary"
-                style={{ width: 44, padding: 0 }}
-              >
-                ✕
-              </button>
-            </div>
+      {error && (
+        <p role="alert" className="a-error">
+          {error}
+        </p>
+      )}
+      {loading && !error && (
+        <p className="t-body">Loading…</p>
+      )}
 
-            {error && (
-              <p role="alert" className="a-error">
-                {error}
-              </p>
-            )}
-            {loading && !error && (
-              <p className="t-body">Loading…</p>
-            )}
-
-            {!loading && !error && (
-              <WhyThisBody
-                findingLabel={findingLabel}
-                muscles={muscles}
-                movementAction={movementAction}
-                exerciseName={exerciseName}
-              />
-            )}
-          </div>
-        </Surface>
-      </div>
-    </div>
+      {!loading && !error && (
+        <WhyThisBody
+          findingLabel={findingLabel}
+          muscles={muscles}
+          movementAction={movementAction}
+          exerciseName={exerciseName}
+        />
+      )}
+    </Sheet>
   )
 }

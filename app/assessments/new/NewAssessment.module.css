@@ -1,112 +1,93 @@
-/* New-assessment wizard (Step 1 client picker). Replaces the deleted v1
-   `.app-search-shell` utility — the shell needs a real `:focus-within` rule,
-   which an inline style cannot express, so it lives here instead of in
-   globals.css (this pattern is scoped to this one screen). Mirrors the
-   search shell in app/clients/ClientsPage.module.css. */
+/* New-assessment wizard (capture-wizard chrome only; capture/upload/quality
+   logic lives in NewAssessmentWizard.tsx and FullScreenCapture.tsx and is
+   untouched here). Array v3 tokens only — see DESIGN.md › Tokens. */
 
-.searchShell {
-  position: relative;
-  border-radius: 9999px;
-  padding: 1px;
-  overflow: hidden;
-}
-.searchGradient {
-  position: absolute;
-  inset: 0;
-  background: var(--shell-gradient-tile);
-  opacity: 0.6;
-  pointer-events: none;
-}
-.searchInner {
-  position: relative;
+.stepperRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 46px;
-  padding: 0 18px;
-  border-radius: 9999px;
-  background: var(--surface-glass);
-  -webkit-backdrop-filter: blur(var(--blur-tile));
-  backdrop-filter: blur(var(--blur-tile));
-  color: rgba(255, 255, 255, 0.5);
+  justify-content: space-between;
+  gap: var(--s-12);
+  margin-bottom: var(--s-32);
 }
-.searchInner input {
-  min-height: 0;
-  height: 44px;
-  padding: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  font-size: 14px;
-  font-weight: 300;
-  color: var(--text-primary);
+
+.clientStep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
 }
-.searchInner input:focus-visible { outline: none; }
-.searchShell:focus-within { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
 
 .clientStepHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: var(--s-16);
 }
 
-.newClientAction {
-  min-height: 44px;
-  padding-inline: 18px;
-  flex: 0 0 auto;
-  text-decoration: none;
+.testModeBanner {
+  margin: 0;
+}
+
+.searchField {
+  width: 100%;
 }
 
 .selectedClientSummary {
-  box-sizing: border-box;
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-}
-
-.clientResults {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 320px;
-  overflow-y: auto;
+  gap: var(--s-4);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-md);
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
-.clientResultsHeading {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.expandClients {
-  min-height: 44px;
-  padding: 0 6px;
-  border: 0;
-  background: none;
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
+.ageGateLink {
+  color: inherit;
+  font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.loadMore {
+  width: 100%;
+}
+
+/* Selection reads through an accent ring + tint, never colour alone — the
+   trailing check (rendered by the caller) carries the icon change. */
+.clientRowSelected {
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: var(--r-md);
+}
+
+.selectedCheck {
+  color: var(--accent);
+}
+
+.testConfirmStep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+}
+
+.processingStep {
+  display: flex;
+  justify-content: center;
+  padding: var(--s-48) var(--s-24);
+}
+
+.processingBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
 }
 
 @media (max-width: 560px) {
   .clientStepHeader {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .newClientAction {
-    width: 100%;
   }
 }

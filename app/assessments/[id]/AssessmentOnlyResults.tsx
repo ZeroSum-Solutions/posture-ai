@@ -11,9 +11,8 @@ import ReviewTabs from './ReviewTabs'
 import CapturePhoto from './CapturePhoto'
 import MuscleModel3D from './MuscleModel3D'
 import type { EvidenceCapture } from './ReviewEvidence'
-import evidenceStyles from './AssessmentReview.module.css'
 import photoStyles from './CapturePhoto.module.css'
-import styles from './AssessmentReviewStudio.module.css'
+import styles from './Results.module.css'
 
 type Zone = 'maintain' | 'warning' | 'danger' | 'unreliable'
 
@@ -153,7 +152,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
   return (
     <div className={styles.reviewPage} data-testid="assessment-only-results">
       <Link className={styles.backLink} href={`/clients/${assessment.clients.id}`}>← Back to client</Link>
-      <header className={styles.studioHeader}>
+      <header className={styles.pageHeader}>
         <p className="t-overline">Screening review</p>
         <h1>Screening results</h1>
         <p>{hasCurrentGrade
@@ -161,7 +160,7 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
           : 'The current numeric summary is unavailable. Review the saved evidence and finding availability.'}</p>
       </header>
 
-      <div className={styles.studioGrid}>
+      <div className={styles.pageGrid}>
         <aside className={styles.dock} aria-label="Assessment controls">
           <div className={styles.dockSummary}>
             <div className={styles.identity}>
@@ -253,14 +252,14 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                       </a>
                     </div>
                     {hasCurrentGrade && usesCurrentScale && (
-                      <details className={styles.detailDisclosure}>
+                      <details className={styles.disclosure}>
                         <summary>Grade reference</summary>
-                        <div className={styles.detailDisclosureContent}>
+                        <div className={styles.disclosureBody}>
                           <BandTable currentGrade={assessment.overall_grade!} />
                         </div>
                       </details>
                     )}
-                    <details data-testid="disclaimer" className={styles.detailDisclosure}>
+                    <details data-testid="disclaimer" className={styles.disclosure}>
                       <summary>Screening notice</summary>
                       <div className={styles.screeningNotice}><LegalNotice kind="screening_notice" compact /></div>
                     </details>
@@ -276,14 +275,14 @@ export default function AssessmentOnlyResults({ params }: { params: Promise<{ id
                   <h2 className={styles.sectionHeading}>Capture set</h2>
                   <p>Original acquisition images, when saved, are shown with their recorded view. Missing historical photos cannot be reconstructed from findings.</p>
                   {captures.length === 0 ? <p>No captures are stored for this screening.</p> :
-                    <div className={`${evidenceStyles.captureGrid} ${photoStyles.gallery}`}>
+                    <div className={`${styles.captureGrid} ${photoStyles.gallery}`}>
                       {captures.map(capture => {
                         const label = capture.profile_side ? `${capture.view} ${capture.profile_side}` : capture.view
-                        return <div key={capture.id} className={evidenceStyles.captureTile}>
-                          <div className={evidenceStyles.captureFrame}>
+                        return <div key={capture.id} className={styles.captureTile}>
+                          <div className={styles.captureFrame}>
                             <CapturePhoto key={capture.signed_url ?? capture.id} url={capture.signed_url} label={label} />
                           </div>
-                          <span className={evidenceStyles.captureLabel}>{label}</span>
+                          <span className={styles.captureLabel}>{label}</span>
                         </div>
                       })}
                     </div>}

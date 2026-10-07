@@ -2,11 +2,11 @@
 /**
  * Bottom-sheet exercise detail for the coach-facing program: demo loop (or
  * poster), authored instructions, dose, and muscle roles. Read-only; fetched
- * on open through a practitioner-gated server route.
+ * on open through a practitioner-gated server route. Shell is the shared
+ * components/ui Sheet (DESIGN.md › 3.8) — this file now owns content only.
  */
 import { useEffect, useState } from 'react'
-import { useFocusTrap } from './useFocusTrap'
-import { Surface } from '@/components/array/Surface'
+import { Sheet } from '@/components/ui'
 import { Chip } from '@/components/array/Chip'
 
 type Detail = {
@@ -45,72 +45,49 @@ export default function ExerciseDetailSheet({ slug, name, onClose }: { slug: str
     return () => controller.abort()
   }, [slug])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const dialogRef = useFocusTrap<HTMLDivElement>()
-
   const prettyMuscle = (s: string) => s.replace(/-/g, ' ')
 
   return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+    <Sheet
+      open
+      onOpenChange={(next) => { if (!next) onClose() }}
+      title={`${name} details`}
+      detents={['medium']}
+      data-testid={`exercise-detail-sheet-${slug}`}
     >
-      {/* Stops the backdrop's onClose from firing when the click lands on the sheet itself. */}
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560 }}>
-        <Surface
-          tier="feature"
-          /* Bottom sheets sit flush with the viewport edge; flatten the tier-1
-             shell's bottom corners rather than inventing a fourth radius family. */
-          style={{ borderRadius: '24px 24px 0 0' }}
-          innerStyle={{ maxHeight: '85vh', overflowY: 'auto' }}
-        >
-          <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${name} details`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 className="t-title-2">{name}</h3>
-              <button onClick={onClose} aria-label="Close" className="a-secondary" style={{ width: 44, padding: 0 }}>✕</button>
+      {error && <p role="alert" className="a-error">{error}</p>}
+      {!detail && !error && <p className="t-body">Loading…</p>}
+
+      {detail && (
+        <>
+          {detail.video_url ? (
+            <video src={detail.video_url} poster={detail.poster_url ?? undefined} muted loop playsInline autoPlay controls={false} style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 'var(--r-sm)', background: 'var(--bg)', marginBottom: 'var(--s-16)' }} />
+          ) : detail.poster_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={detail.poster_url} alt="" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 'var(--r-sm)', background: 'var(--bg)', marginBottom: 'var(--s-16)' }} />
+          ) : null}
+
+          {(detail.sets || detail.hold_seconds) && (
+            <p className="t-body" style={{ color: 'var(--accent)', margin: '0 0 var(--s-12)' }}>
+              {detail.sets && `${detail.sets} sets`}{detail.sets && detail.hold_seconds && ' · '}{detail.hold_seconds && `${detail.hold_seconds}s hold`}
+            </p>
+          )}
+          {detail.instructions && (
+            <p className="t-body" style={{ color: 'var(--text-2)', margin: '0 0 var(--s-16)' }}>{detail.instructions}</p>
+          )}
+          {muscles.length > 0 && (
+            <div style={{ display: 'flex', gap: 'var(--s-8)', flexWrap: 'wrap' }}>
+              {muscles.map((m) => (
+                // Muscle-role tint mirrors the pre-migration mapping (stretch → maintain
+                // green, strengthen → info blue), routed through the Chip primitive.
+                <Chip key={m.muscle_slug} band={m.role === 'stretch' ? 'maintain' : 'info'} size="sm">
+                  <span style={{ textTransform: 'capitalize' }}>{prettyMuscle(m.muscle_slug)} · {m.role}</span>
+                </Chip>
+              ))}
             </div>
-
-            {error && <p role="alert" className="a-error">{error}</p>}
-            {!detail && !error && <p className="t-body">Loading…</p>}
-
-            {detail && (
-              <>
-                {detail.video_url ? (
-                  <video src={detail.video_url} poster={detail.poster_url ?? undefined} muted loop playsInline autoPlay controls={false} style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 'var(--radius-sm)', background: 'var(--background)', marginBottom: 14 }} />
-                ) : detail.poster_url ? (
-                  <img src={detail.poster_url} alt="" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 'var(--radius-sm)', background: 'var(--background)', marginBottom: 14 }} />
-                ) : null}
-
-                {(detail.sets || detail.hold_seconds) && (
-                  <p className="t-body" style={{ color: 'var(--info)', margin: '0 0 10px' }}>
-                    {detail.sets && `${detail.sets} sets`}{detail.sets && detail.hold_seconds && ' · '}{detail.hold_seconds && `${detail.hold_seconds}s hold`}
-                  </p>
-                )}
-                {detail.instructions && (
-                  <p className="t-body" style={{ margin: '0 0 14px' }}>{detail.instructions}</p>
-                )}
-                {muscles.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {muscles.map((m) => (
-                      // Muscle-role tint mirrors the pre-migration mapping (stretch → maintain
-                      // green, strengthen → info blue), now routed through the Chip primitive
-                      // instead of ad hoc rgba fills.
-                      <Chip key={m.muscle_slug} band={m.role === 'stretch' ? 'maintain' : 'info'} size="sm">
-                        <span style={{ textTransform: 'capitalize' }}>{prettyMuscle(m.muscle_slug)} · {m.role}</span>
-                      </Chip>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </Surface>
-      </div>
-    </div>
+          )}
+        </>
+      )}
+    </Sheet>
   )
 }
