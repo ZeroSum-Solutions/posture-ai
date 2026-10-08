@@ -14,6 +14,7 @@
 import { createClient } from '@supabase/supabase-js'
 import pg from 'pg'
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import { buildFindingRow } from '../lib/findings/buildFindingRow'
 import { stripFaceLandmarks } from '../lib/pose/face-min'
@@ -28,23 +29,32 @@ import {
 } from '../e2e/helpers/practitioner-auth'
 
 // ─────────────────────────────────────────────────────────────
-// Config — local demo keys (public, same on every dev machine)
+// Config — resolved from THIS project's running local stack. Several projects
+// share the machine with different Supabase ports, so never hardcode them: a
+// fixed 54321/54322 points at whichever stack owns those ports.
 // ─────────────────────────────────────────────────────────────
-const SUPABASE_URL = 'http://127.0.0.1:54321'
-const SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
-  '.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0' +
-  '.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
-const ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
-  '.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5Nn0' +
-  '.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-const DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+function localStack() {
+  const out = execFileSync('npx', ['supabase', 'status', '-o', 'env'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const env = Object.fromEntries([...out.matchAll(/^([A-Z_]+)="(.*)"$/gm)].map(m => [m[1], m[2]]))
+  const required = ['API_URL', 'ANON_KEY', 'SERVICE_ROLE_KEY', 'DB_URL'] as const
+  for (const key of required) {
+    if (!env[key]) throw new Error(`supabase status did not report ${key}; is the local stack running?`)
+  }
+  return { url: env.API_URL!, anonKey: env.ANON_KEY!, serviceRoleKey: env.SERVICE_ROLE_KEY!, dbUrl: env.DB_URL! }
+}
 
-if (!SUPABASE_URL.includes('127.0.0.1') && !SUPABASE_URL.includes('localhost')) {
-  console.error('ABORT: SUPABASE_URL is not localhost. Refusing to seed.')
+const isLoopback = (raw: string) => ['127.0.0.1', 'localhost'].includes(new URL(raw).hostname)
+const stack = localStack()
+const SUPABASE_URL = stack.url
+const SERVICE_ROLE_KEY = stack.serviceRoleKey
+const ANON_KEY = stack.anonKey
+const DB_URL = stack.dbUrl
+
+if (!isLoopback(SUPABASE_URL) || !isLoopback(DB_URL)) {
+  console.error('ABORT: the Supabase API or database is not on loopback. Refusing to seed.')
   process.exit(1)
 }
+console.log(`Seeding local stack ${SUPABASE_URL} (db port ${new URL(DB_URL).port})`)
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
