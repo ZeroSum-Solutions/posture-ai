@@ -295,13 +295,12 @@ severity: S2 · status: APPROVAL REQUIRED · found: PASS-08 · item: RES-02, RES
 root cause: the reserved `direction_applicability` field is unpopulated and render/program
 paths do not gate links by finding direction. Correcting this requires a governed
 schema/content migration, regenerated hashes, and the existing clinician-review boundary.
-Clinical surfaces remain disabled by default; no migration or activation was inferred.
-PASS-09 re-check (2026-10-08): **now visible to every practitioner.** The clinical-content gate was
-removed (#157; `/api/health` reports `clinical_content: active, reason: clinical_content_gate_removed`).
-On a seeded result (`/assessments/d11a3006-…`, prac-typical) the "Knee Alignment (Left)" Why sheet lists
+PR #157 removed the clinical-content gate, so the defect is visible to practitioners;
+`/api/health` reports `clinical_content: active, reason: clinical_content_gate_removed`.
+On an approved prac-typical result from a fresh seed, the "Knee Alignment (Left)" Why sheet lists
 Hip Adductors (tight, knock-knee rationale) and TFL & IT Band (tight, bow-knee rationale) together;
 `GET /api/clinical-content/findings/genu_varum_valgum_left/muscles` returns all four muscles and every
-`muscle_imbalance_links.direction_applicability` value for genu keys is NULL. Status stays open (S2).
+`muscle_imbalance_links.direction_applicability` value for genu keys is NULL. Status remains APPROVAL REQUIRED (S2).
 evidence: docs/qa/evidence/QA-020-PASS09-knee-sheet-both-directions.png
 
 ## QA-021 — Password reset dead-ends for every MFA-enrolled account
@@ -316,19 +315,19 @@ actual: the form stays open with the raw Auth error "AAL2 session is required to
 evidence: docs/qa/evidence/QA-021-recovery-aal2-error.png · network: supabase.auth.updateUser error "AAL2 session is required…" · results: docs/qa/evidence/PASS-09/recovery.json
 
 ## QA-022 — Capture endpoint accepts archived clients
-severity: S3 · status: open · found: PASS-09 · item: WIZ-04
+severity: S2 · status: open · found: PASS-09 · item: WIZ-04
 repro (from fresh seed, prac-typical session):
   1. POST /api/clients with an adult DOB, in-person consent (signer_name, signer_relationship=self, current subject_consent legal document fields).
   2. PATCH /api/clients/<id> {"archived_at": "<now ISO>"} → 200; GET /api/clients/<id> now returns 404 and the client is gone from /clients.
   3. POST /api/assessments {"client_id": "<id>", "submission_id": "<uuid>", "test_mode": true}.
 expected: HTTP 404 and no assessment or capture row (WIZ-04 E1, AC3).
-actual: HTTP 200 {"id": "31191913-…", "status": "complete"}; one `assessments` row is created for the archived client (rows 0→1). Root cause matches the inventory note: the route and prototype transaction filter `deleted_at` but not `archived_at`.
-evidence: docs/qa/evidence/PASS-09/archived.json (client 0bbcd8e5-…, assessment 31191913-…)
+actual: HTTP 200 with `status=complete`; one `assessments` row is created for the archived client (rows 0→1). Root cause matches the inventory note: the route and prototype transaction filter `deleted_at` but not `archived_at`.
+evidence: docs/qa/evidence/PASS-09/archived.json (freshly created client and assessment IDs are in the response)
 
 ## QA-023 — Share-token mint accepts archived clients and the public link resolves
-severity: S3 · status: open · found: PASS-09 · item: SHR-05, WKT-07
+severity: S2 · status: open · found: PASS-09 · item: SHR-05, WKT-07
 repro (from fresh seed, prac-typical session):
-  1. Create a consented adult client (as QA-022 step 1), POST /api/assessments (test_mode) and PATCH /api/assessments/<aid>/approve {"approved": true}.
+  1. Create a consented adult client (as QA-022 step 1), POST /api/assessments (test_mode), and take the assessment ID from that response; PATCH /api/assessments/<aid>/approve {"approved": true}.
   2. PATCH /api/clients/<cid> {"archived_at": "<now ISO>"}.
   3. POST /api/workouts {"assessment_id": "<aid>", "share": true}.
   4. Open the returned /s/<token> anonymously.
@@ -339,7 +338,7 @@ evidence: docs/qa/evidence/QA-023-archived-client-share-page.png · docs/qa/evid
 ## QA-024 — Client DOB validation: malformed dates return HTTP 500, future dates are saved
 severity: S3 · status: open · found: PASS-09 · item: CLI-02, CLI-04
 repro (from fresh seed, prac-typical):
-  1. PATCH /api/clients/90d383e1-… {"date_of_birth": "2999-99-99"} (also "not-a-date", "1990-02-30").
+  1. Create a client from a fresh seed, take its ID from POST /api/clients, then PATCH /api/clients/<id> {"date_of_birth": "2999-99-99"} (also "not-a-date", "1990-02-30").
   2. POST /api/clients {"first_name":"Inv","last_name":"Dob","date_of_birth":"2999-99-99","consent_mode":"remote"}.
   3. In the UI, /clients/new: enter names, Date of Birth 2099-01-01, sign consent, press "Create Client".
 expected: HTTP 400 with a field error and no write; the UI shows a DOB field error and creates no row (CLI-02 E3, CLI-04 E2).
@@ -355,14 +354,14 @@ evidence: docs/qa/evidence/QA-025-dashboard.png · docs/qa/evidence/PASS-09/matr
 
 ## QA-026 — Posture map stays on "Loading your posture map…" when WebGL is unavailable
 severity: S3 · status: open · found: PASS-09 · item: RES-02
-repro (from fresh seed): launch Chromium with --disable-webgl --disable-3d-apis, sign in as prac-typical, open /assessments/d11a3006-73b0-418d-8afb-896309fb11e6 and wait 30 s.
+repro (from fresh seed): launch Chromium with --disable-webgl --disable-3d-apis, sign in as prac-typical, open an owned approved result via /clients/<id> assessment history, and wait 30 s.
 expected: the model area shows an unavailable message; finding text stays usable (RES-02 AC2/E1).
 actual: the region still reads "Loading your posture map…" after 30 s; its controls stay disabled. Console: "THREE.WebGLRenderer: Error creating WebGL context." (uncaught in the viewer iframe). Findings list stays visible.
 evidence: docs/qa/evidence/QA-026-no-webgl-map-loading.png
 
 ## QA-027 — Results header clips and overlaps at 320 px with 200% text
 severity: S3 · status: open · found: PASS-09 · item: XC-04, V4-TOPBAR
-repro (from fresh seed): prac-typical, viewport 320×700, open /assessments/d11a3006-…, set root font-size to 200%.
+repro (from fresh seed): prac-typical, viewport 320×700, open an owned approved result via /clients/<id> assessment history, then set root font-size to 200%.
 expected: title and controls stay inside the viewport without overlap (XC-04 E1, V4-TOPBAR E3).
 actual: "Camera level not verified" badge runs off the right edge, "Why?" overlaps the "DEVIATION SCORE" label, the "Monitor" zone label and "Launch session" are cut off. (Chip rows on /clients and the findings table scroll horizontally by design and were not counted.)
 evidence: docs/qa/evidence/QA-027-results-header-320-200pct.png
@@ -370,13 +369,13 @@ evidence: docs/qa/evidence/QA-027-results-header-320-200pct.png
 ## QA-028 — Enlarged capture photo intermittently never finishes loading
 severity: S3 · status: open · found: PASS-09 · item: RES-03 (carry-over item 2)
 repro (fresh seed, :3101 production build): `E2E_PORT=3101 npm run test:e2e -- capture-images.spec.ts --project=desktop-chromium --workers=1 --retries=0 --repeat-each=4`.
-expected: 4/4 pass; the "front capture photo" dialog image loads at 390 px and 1280 px; erasure completes promptly.
-actual: 2/4 failed. Run 2: dialog <img> never reached complete && naturalWidth > 0 within 5 s although the page's GET /api/captures/<id>/image returned 200 in 503 ms. Run 1: the erasure DELETE for the client with one stored photo exceeded 30 s. Runs 3–4 passed.
+expected: the "front capture photo" dialog image loads at 390 px and 1280 px.
+actual: in run 2, dialog <img> never reached complete && naturalWidth > 0 within 5 s although the page's GET /api/captures/<id>/image returned 200 in 503 ms. Runs 3–4 loaded the image.
 evidence: docs/qa/evidence/QA-028-trace-network.txt · docs/qa/evidence/PASS-09/e2e-batch4.txt
 
 ## QA-029 — Foreign, archived and missing record pages answer HTTP 200 instead of 404
-severity: S4 · status: open · found: PASS-09 · item: CLI-03, RES-01, WKT-10
-repro (from fresh seed): as prac-typical request /clients/bdecd640-… (heavy's client), /clients/84b159c1-… (erased), an archived client's /clients/<id>; as prac-heavy request /assessments/d11a3006-…; as athlete request /workouts/manual/00000000-0000-4000-8000-000000000000.
+severity: S3 · status: open · found: PASS-09 · item: CLI-03, RES-01, WKT-10
+repro (from fresh seed): as prac-typical request a prac-heavy client's ID (get it from the heavy account's /clients list), a newly erased client's ID (save the ID before DELETE), and a newly archived client's ID; as prac-heavy request a prac-typical assessment ID from that account's /clients/<id> history; as athlete request /workouts/manual/00000000-0000-4000-8000-000000000000.
 expected: HTTP 404 with no record fields (CLI-03 E1/E2, RES-01 E1, WKT-10 E1–E3).
 actual: no record data leaks, but the client pages redirect to /clients (final 200), the assessment page returns 200 with "Assessment not found.", and the routine page returns 200 "Routine unavailable · Routine was not found" with a Retry button. Workout sessions already return 404, so behaviour is inconsistent.
 evidence: docs/qa/evidence/QA-029-foreign-assessment-200.png · docs/qa/evidence/PASS-09/matrix-signed.log
@@ -389,7 +388,7 @@ actual: "Review and accept the legal terms · Step 1 of 3" renders again with an
 evidence: docs/qa/evidence/QA-030-onboarding-revisit.png
 
 ## QA-031 — Raw browser/runtime error strings shown to users
-severity: S4 · status: open · found: PASS-09 · item: XC-02
+severity: S3 · status: open · found: PASS-09 · item: XC-02
 repro (from fresh seed): (a) /assessments/new?testMode=1, pick a consented client, abort the POST /api/assessments response (offline) and press "Run Test Analysis"; (b) /clients/<id>/edit, go offline, press Save; (c) open capture while /mediapipe/wasm assets fail to load.
 expected: plain retry/unavailable copy, no raw error text (XC-02 AC1).
 actual: (a) "Screening needs attention · Failed to fetch · Try Again"; (b) alert "Failed to fetch"; (c) pose readiness reads "Pose model could not start on GPU or CPU. GPU: [object Event] CPU: [object Event]". (The consent page already shows "Network error — please try again.") Retry itself works and does not duplicate the assessment.
@@ -397,7 +396,7 @@ evidence: docs/qa/evidence/QA-031-failed-to-fetch.png · docs/qa/evidence/PASS-0
 
 ## QA-032 — Zero-scan client offers an enabled Compare action
 severity: S4 · status: open · found: PASS-09 · item: REP-02
-repro (from fresh seed): prac-typical → /clients/422faaa4-… (Wendy Smith, no scans) → "Compare" in the action group.
+repro (from fresh seed): prac-typical → find an owned zero-scan client in /clients (the fresh seed includes declined or pending-consent clients) → "Compare" in the action group.
 expected: Compare absent, or disabled with a reason (REP-02 E3).
 actual: an enabled link to #client-workspace; activating it only scrolls the page, with no explanation.
 evidence: docs/qa/evidence/QA-032-compare-zero-scans.png
@@ -422,3 +421,24 @@ repro (from fresh seed): prac-typical phone → /settings → Practice info → 
 expected: the Island toast is legible above other layers (V4-TOAST AC1).
 actual: "Settings saved successfully" draws behind the dimmed scrim and over the large "Profile" title, so it is hard to read; the sheet stays open.
 evidence: docs/qa/evidence/QA-035-toast-under-sheet.png
+
+## QA-036 — Public share exposes the client's first name
+severity: S3 · status: open · found: PASS-09 · item: SHR-01
+repro (from fresh seed): as prac-typical, create a consented adult client and approved assessment, mint a share link from that assessment, then open `/s/<token>` without a session and GET `/api/workouts/token/<token>`.
+expected: neither the public page nor token JSON contains the client's legal name (SHR-01 AC2).
+actual: the JSON includes `clientFirstName`; the public page shows "<first name>’s session" and the player greets the client by first name. `lib/workout/tokenProjection.ts` deliberately copies `client_first_name` into the public projection. Devin must decide whether a first name is acceptable under AC2; until then SHR-01 fails its written criterion.
+evidence: docs/qa/evidence/QA-023-archived-client-share-page.png · `lib/workout/tokenProjection.ts` · `app/s/[token]/ShareTokenClient.tsx`
+
+## QA-037 — One-photo client erasure exceeds 30 seconds
+severity: S3 · status: open · found: PASS-09 · item: CLI-06
+repro (fresh seed, :3101 production build): `E2E_PORT=3101 npm run test:e2e -- capture-images.spec.ts --project=desktop-chromium --workers=1 --retries=0 --repeat-each=4`; follow the one-photo client created by the spec and time its DELETE `/api/clients/<id>`.
+expected: erasure returns a complete or pending receipt promptly, with storage cleanup reflected by that receipt (CLI-06 AC3/E3).
+actual: run 1 timed out after more than 30 s on DELETE for a client with one stored photo. The request outcome and later receipt transition were not established by that run. The image-load symptom in run 2 remains QA-028.
+evidence: docs/qa/evidence/PASS-09/e2e-batch4.txt · docs/qa/evidence/QA-028-trace-network.txt
+
+## QA-038 — In-person grant leaves an earlier remote consent link live
+severity: S3 · status: open · found: PASS-09 · item: CON-01, CON-03
+repro (fresh seed, :3101 fixture-legal build): create an active client, POST `/api/consent/link` and retain its `/consent/<token>` URL; POST a valid in-person grant to `/api/consent` for the same client; open the earlier public link and submit a second valid affirmative response.
+expected: the earlier link becomes unavailable after the in-person grant and cannot add another consent event.
+actual (source-confirmed; browser rerun pending): the in-person RPC inserts an enrollment and stamps the client but does not consume or delete `consent_tokens`. The public page checks only token use, expiry and pinned legal text. The remote RPC can consume the still-live token and insert a second enrollment; `getConsentStatus` reads the latest event, so the second grant becomes current. There is no separate decline action on the remote page; a later decline recorded as a withdrawal through `withdraw_client_consent` deletes outstanding tokens and records a revocation, preventing that link from granting consent afterward. This is a stale-link lifecycle defect; the remote submission still requires an affirmative signature and governed legal evidence.
+evidence: `supabase/migrations/20260720000000_legal_document_provenance.sql` (`record_inperson_consent_governed`, `record_remote_consent_governed`) · `supabase/migrations/20260720010000_privacy_lifecycle.sql` (`withdraw_client_consent`) · `app/consent/[token]/page.tsx`
