@@ -74,8 +74,8 @@ export function FindingReadout({
             <span className={styles.zR} />
           </div>
           <span className={styles.marker} style={{ left: pos(value) }} />
-          <span className={styles.cut} style={{ left: pos(scale.warn) }}>{fmt(scale.warn)}</span>
-          <span className={styles.cut} style={{ left: pos(scale.danger) }}>{fmt(scale.danger)}</span>
+          <span className={styles.cut} style={{ left: pos(scale.warn) }}>{fmt(scale.warn)}{unit}</span>
+          <span className={styles.cut} style={{ left: pos(scale.danger) }}>{fmt(scale.danger)}{unit}</span>
         </div>
       ) : null}
       {meta ? <div className={styles.meta}>{meta}</div> : null}
