@@ -296,3 +296,129 @@ root cause: the reserved `direction_applicability` field is unpopulated and rend
 paths do not gate links by finding direction. Correcting this requires a governed
 schema/content migration, regenerated hashes, and the existing clinician-review boundary.
 Clinical surfaces remain disabled by default; no migration or activation was inferred.
+PASS-09 re-check (2026-10-08): **now visible to every practitioner.** The clinical-content gate was
+removed (#157; `/api/health` reports `clinical_content: active, reason: clinical_content_gate_removed`).
+On a seeded result (`/assessments/d11a3006-…`, prac-typical) the "Knee Alignment (Left)" Why sheet lists
+Hip Adductors (tight, knock-knee rationale) and TFL & IT Band (tight, bow-knee rationale) together;
+`GET /api/clinical-content/findings/genu_varum_valgum_left/muscles` returns all four muscles and every
+`muscle_imbalance_links.direction_applicability` value for genu keys is NULL. Status stays open (S2).
+evidence: docs/qa/evidence/QA-020-PASS09-knee-sheet-both-directions.png
+
+## QA-021 — Password reset dead-ends for every MFA-enrolled account
+severity: S2 · status: open · found: PASS-09 · item: AUTH-07, XC-02
+repro (from fresh seed; :3101 = same production build with POSTURE_TEST_MODE_ENABLED=1 for fixture legal text):
+  1. Use any practitioner that has completed MFA (all seeded/invited accounts do), e.g. a freshly invited and activated practitioner.
+  2. In one browser, open /auth/forgot-password, submit the account email.
+  3. Open the "Reset your Posture AI password" email in local Mailpit (127.0.0.1:55324) and follow its /auth/confirm?token_hash=…&type=recovery link (host rewritten to the app origin) in the same browser.
+  4. /auth/update-password shows the form. Enter the same new password twice and press "Update password".
+expected: password changes, then the app sends the user to MFA (`/auth/mfa?mode=recovery`), per AUTH-07 AC1 and the page's own flow.
+actual: the form stays open with the raw Auth error "AAL2 session is required to update email or password when MFA is enabled."; the password is not changed. A recovery session is AAL1, and `supabase.auth.updateUser` runs before any MFA challenge, so no MFA-enrolled user can complete a reset. The raw provider message also breaches XC-02 AC1.
+evidence: docs/qa/evidence/QA-021-recovery-aal2-error.png · network: supabase.auth.updateUser error "AAL2 session is required…" · results: docs/qa/evidence/PASS-09/recovery.json
+
+## QA-022 — Capture endpoint accepts archived clients
+severity: S3 · status: open · found: PASS-09 · item: WIZ-04
+repro (from fresh seed, prac-typical session):
+  1. POST /api/clients with an adult DOB, in-person consent (signer_name, signer_relationship=self, current subject_consent legal document fields).
+  2. PATCH /api/clients/<id> {"archived_at": "<now ISO>"} → 200; GET /api/clients/<id> now returns 404 and the client is gone from /clients.
+  3. POST /api/assessments {"client_id": "<id>", "submission_id": "<uuid>", "test_mode": true}.
+expected: HTTP 404 and no assessment or capture row (WIZ-04 E1, AC3).
+actual: HTTP 200 {"id": "31191913-…", "status": "complete"}; one `assessments` row is created for the archived client (rows 0→1). Root cause matches the inventory note: the route and prototype transaction filter `deleted_at` but not `archived_at`.
+evidence: docs/qa/evidence/PASS-09/archived.json (client 0bbcd8e5-…, assessment 31191913-…)
+
+## QA-023 — Share-token mint accepts archived clients and the public link resolves
+severity: S3 · status: open · found: PASS-09 · item: SHR-05, WKT-07
+repro (from fresh seed, prac-typical session):
+  1. Create a consented adult client (as QA-022 step 1), POST /api/assessments (test_mode) and PATCH /api/assessments/<aid>/approve {"approved": true}.
+  2. PATCH /api/clients/<cid> {"archived_at": "<now ISO>"}.
+  3. POST /api/workouts {"assessment_id": "<aid>", "share": true}.
+  4. Open the returned /s/<token> anonymously.
+expected: denial with no share link and no token-bearing `workout_sessions` row (SHR-05 AC3/E1).
+actual: HTTP 200 with `share_link`; one token-bearing session row; GET /api/workouts/token/<token> returns 200 and /s/<token> renders the archived client's first name and workout. The archived client's session also lists in the practitioner /workouts library.
+evidence: docs/qa/evidence/QA-023-archived-client-share-page.png · docs/qa/evidence/PASS-09/archived.json
+
+## QA-024 — Client DOB validation: malformed dates return HTTP 500, future dates are saved
+severity: S3 · status: open · found: PASS-09 · item: CLI-02, CLI-04
+repro (from fresh seed, prac-typical):
+  1. PATCH /api/clients/90d383e1-… {"date_of_birth": "2999-99-99"} (also "not-a-date", "1990-02-30").
+  2. POST /api/clients {"first_name":"Inv","last_name":"Dob","date_of_birth":"2999-99-99","consent_mode":"remote"}.
+  3. In the UI, /clients/new: enter names, Date of Birth 2099-01-01, sign consent, press "Create Client".
+expected: HTTP 400 with a field error and no write; the UI shows a DOB field error and creates no row (CLI-02 E3, CLI-04 E2).
+actual: steps 1–2 return HTTP 500 {"error":"Failed to update client."} / {"error":"Failed to create client."}; PATCH {"date_of_birth":"2999-01-01"} returns 200 and stores it; step 3 creates the client (redirects to its detail page). A future DOB is later treated as "under 13" by the capture gate, so it fails safe, but the record is wrong.
+evidence: docs/qa/evidence/QA-024-future-dob-created.png · docs/qa/evidence/PASS-09/api.json
+
+## QA-025 — Production CSP blocks a nonce-less script chunk on practitioner pages
+severity: S3 · status: open · found: PASS-09 · item: XC-02, MSC-02, CLI-01
+repro (from fresh seed): sign in as prac-typical (phone or desktop), open /dashboard, /clients, /clients/new, /clients/<id> or /clients/<id>/edit and read the console.
+expected: no CSP violations (QA-016 nonce + strict-dynamic policy).
+actual: every load logs "Loading the script '/_next/static/chunks/1m2lg5781dfuu.js' violates … script-src 'self' 'nonce-…' 'strict-dynamic' …. The action has been blocked." The blocked element is `<script src="/_next/static/chunks/1m2lg5781dfuu.js" async>` hoisted into <head> without a nonce (chunk holds the Surface CSS-module map). Pages still render in this pass, but a blocked chunk is a latent hydration/styling failure and noise on every practitioner page.
+evidence: docs/qa/evidence/QA-025-dashboard.png · docs/qa/evidence/PASS-09/matrix-signed.log (errs column)
+
+## QA-026 — Posture map stays on "Loading your posture map…" when WebGL is unavailable
+severity: S3 · status: open · found: PASS-09 · item: RES-02
+repro (from fresh seed): launch Chromium with --disable-webgl --disable-3d-apis, sign in as prac-typical, open /assessments/d11a3006-73b0-418d-8afb-896309fb11e6 and wait 30 s.
+expected: the model area shows an unavailable message; finding text stays usable (RES-02 AC2/E1).
+actual: the region still reads "Loading your posture map…" after 30 s; its controls stay disabled. Console: "THREE.WebGLRenderer: Error creating WebGL context." (uncaught in the viewer iframe). Findings list stays visible.
+evidence: docs/qa/evidence/QA-026-no-webgl-map-loading.png
+
+## QA-027 — Results header clips and overlaps at 320 px with 200% text
+severity: S3 · status: open · found: PASS-09 · item: XC-04, V4-TOPBAR
+repro (from fresh seed): prac-typical, viewport 320×700, open /assessments/d11a3006-…, set root font-size to 200%.
+expected: title and controls stay inside the viewport without overlap (XC-04 E1, V4-TOPBAR E3).
+actual: "Camera level not verified" badge runs off the right edge, "Why?" overlaps the "DEVIATION SCORE" label, the "Monitor" zone label and "Launch session" are cut off. (Chip rows on /clients and the findings table scroll horizontally by design and were not counted.)
+evidence: docs/qa/evidence/QA-027-results-header-320-200pct.png
+
+## QA-028 — Enlarged capture photo intermittently never finishes loading
+severity: S3 · status: open · found: PASS-09 · item: RES-03 (carry-over item 2)
+repro (fresh seed, :3101 production build): `E2E_PORT=3101 npm run test:e2e -- capture-images.spec.ts --project=desktop-chromium --workers=1 --retries=0 --repeat-each=4`.
+expected: 4/4 pass; the "front capture photo" dialog image loads at 390 px and 1280 px; erasure completes promptly.
+actual: 2/4 failed. Run 2: dialog <img> never reached complete && naturalWidth > 0 within 5 s although the page's GET /api/captures/<id>/image returned 200 in 503 ms. Run 1: the erasure DELETE for the client with one stored photo exceeded 30 s. Runs 3–4 passed.
+evidence: docs/qa/evidence/QA-028-trace-network.txt · docs/qa/evidence/PASS-09/e2e-batch4.txt
+
+## QA-029 — Foreign, archived and missing record pages answer HTTP 200 instead of 404
+severity: S4 · status: open · found: PASS-09 · item: CLI-03, RES-01, WKT-10
+repro (from fresh seed): as prac-typical request /clients/bdecd640-… (heavy's client), /clients/84b159c1-… (erased), an archived client's /clients/<id>; as prac-heavy request /assessments/d11a3006-…; as athlete request /workouts/manual/00000000-0000-4000-8000-000000000000.
+expected: HTTP 404 with no record fields (CLI-03 E1/E2, RES-01 E1, WKT-10 E1–E3).
+actual: no record data leaks, but the client pages redirect to /clients (final 200), the assessment page returns 200 with "Assessment not found.", and the routine page returns 200 "Routine unavailable · Routine was not found" with a Retry button. Workout sessions already return 404, so behaviour is inconsistent.
+evidence: docs/qa/evidence/QA-029-foreign-assessment-200.png · docs/qa/evidence/PASS-09/matrix-signed.log
+
+## QA-030 — /onboarding re-shows the agreement after acceptance
+severity: S4 · status: open · found: PASS-09 · item: AUTH-06
+repro (from fresh seed): invite + activate a new practitioner (issue_practitioner_invitation_with_state, MFA), sign in, accept all three documents (lands on /dashboard), then open /onboarding.
+expected: a completion state or redirect to /dashboard (AUTH-06 AC2).
+actual: "Review and accept the legal terms · Step 1 of 3" renders again with an active "I agree" button.
+evidence: docs/qa/evidence/QA-030-onboarding-revisit.png
+
+## QA-031 — Raw browser/runtime error strings shown to users
+severity: S4 · status: open · found: PASS-09 · item: XC-02
+repro (from fresh seed): (a) /assessments/new?testMode=1, pick a consented client, abort the POST /api/assessments response (offline) and press "Run Test Analysis"; (b) /clients/<id>/edit, go offline, press Save; (c) open capture while /mediapipe/wasm assets fail to load.
+expected: plain retry/unavailable copy, no raw error text (XC-02 AC1).
+actual: (a) "Screening needs attention · Failed to fetch · Try Again"; (b) alert "Failed to fetch"; (c) pose readiness reads "Pose model could not start on GPU or CPU. GPU: [object Event] CPU: [object Event]". (The consent page already shows "Network error — please try again.") Retry itself works and does not duplicate the assessment.
+evidence: docs/qa/evidence/QA-031-failed-to-fetch.png · docs/qa/evidence/PASS-09/e2e-batch1.txt (scan-recovery failure text)
+
+## QA-032 — Zero-scan client offers an enabled Compare action
+severity: S4 · status: open · found: PASS-09 · item: REP-02
+repro (from fresh seed): prac-typical → /clients/422faaa4-… (Wendy Smith, no scans) → "Compare" in the action group.
+expected: Compare absent, or disabled with a reason (REP-02 E3).
+actual: an enabled link to #client-workspace; activating it only scrolls the page, with no explanation.
+evidence: docs/qa/evidence/QA-032-compare-zero-scans.png
+
+## QA-033 — Practitioner call to athlete erasure returns 404 instead of 403
+severity: S4 · status: open · found: PASS-09 · item: TRN-02
+repro (from fresh seed): prac-typical session → POST /api/training/privacy/erase {"requestId":"<uuid>"}.
+expected: HTTP 403, nothing erased (TRN-02 E1).
+actual: HTTP 404 {"error":"training_subject_not_found"}; nothing erased (safe, wrong contract).
+evidence: docs/qa/evidence/PASS-09/api.json
+
+## QA-034 — Focus lands on <main>, not the page heading, after navigation
+severity: S4 · status: open · found: PASS-09 · item: XC-01
+repro (from fresh seed): prac-typical phone → /dashboard → activate the "Clients" dock link; read document.activeElement.
+expected: focus moves to the new page heading (XC-01 AC2).
+actual: activeElement is <main id="main">; the h1 "Clients" is not focused. (Sheets do move focus inside and return it to the trigger.)
+evidence: docs/qa/evidence/PASS-09/misc.json
+
+## QA-035 — Success toast renders under the open sheet scrim, over the page title
+severity: S4 · status: open · found: PASS-09 · item: V4-TOAST
+repro (from fresh seed): prac-typical phone → /settings → Practice info → change Practice name → Save changes.
+expected: the Island toast is legible above other layers (V4-TOAST AC1).
+actual: "Settings saved successfully" draws behind the dimmed scrim and over the large "Profile" title, so it is hard to read; the sheet stays open.
+evidence: docs/qa/evidence/QA-035-toast-under-sheet.png
