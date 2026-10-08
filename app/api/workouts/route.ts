@@ -113,6 +113,15 @@ export async function POST(req: NextRequest) {
     .eq('practitioner_id', user.id)
     .maybeSingle()
   if (!assessment) return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  const { data: client } = await service
+    .from('clients')
+    .select('id')
+    .eq('id', assessment.client_id)
+    .eq('practitioner_id', user.id)
+    .is('deleted_at', null)
+    .is('archived_at', null)
+    .maybeSingle()
+  if (!client) return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   if (assessment.status !== 'complete') {
     logEvent({ route: ROUTE, outcome: 'client_error', status: 409, userHash, detail: 'assessment incomplete' })
     return NextResponse.json({ error: 'Assessment analysis is not complete.' }, { status: 409 })

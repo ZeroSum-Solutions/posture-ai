@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       id, client_id, practitioner_id, status, assessment_type, overall_score, overall_grade,
       assessed_at, practitioner_approved,
       priority_keys, capability, exercise_swaps, scoring_engine_version, level_verified, capture_stability,
-      clients!inner(id, first_name, last_name)
+      clients!inner(id, first_name, last_name, deleted_at, archived_at)
     `)
     .eq('id', assessment_id)
     .eq('practitioner_id', user.id)
@@ -90,6 +90,10 @@ export async function POST(req: NextRequest) {
       logEvent({ route: 'POST /api/reports', outcome: 'server_error', status: 500, userHash: hashUser(user.id), resourceHash: hashResource(assessment_id), detailCode: 'assessment_load_failed' })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
+    return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+  }
+  const linkedClient = Array.isArray(assessment.clients) ? assessment.clients[0] : assessment.clients
+  if (!linkedClient || linkedClient.deleted_at || linkedClient.archived_at) {
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
   }
 

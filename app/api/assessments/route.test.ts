@@ -35,6 +35,7 @@ const mockState = vi.hoisted(() => ({
     },
   } as Record<string, unknown>,
   clientDob: { value: '1990-01-01' as string | null },
+  clientArchived: { value: false },
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -81,6 +82,7 @@ beforeEach(() => {
   }
   mockState.getConsentStatus.mockReset().mockImplementation(async () => mockState.consent)
   mockState.clientDob.value = '1990-01-01'
+  mockState.clientArchived.value = false
 })
 
 function validFrames() {
@@ -122,10 +124,20 @@ function makeAssessmentService() {
       if (table === 'clients') {
         return {
           select() {
+            let filtersArchived = false
             const query = {
               eq() { return query },
-              is() { return query },
-              async maybeSingle() { return { data: { id: CLIENT_ID, date_of_birth: mockState.clientDob.value }, error: null } },
+              is(column: string, value: unknown) {
+                if (column === 'archived_at' && value === null) filtersArchived = true
+                return query
+              },
+              async maybeSingle() {
+                return {
+                  data: mockState.clientArchived.value && filtersArchived
+                    ? null : { id: CLIENT_ID, date_of_birth: mockState.clientDob.value },
+                  error: null,
+                }
+              },
             }
             return query
           },
@@ -217,6 +229,19 @@ describe('POST /api/assessments payload cap', () => {
 })
 
 describe('POST /api/assessments governed consent provenance', () => {
+  test('returns 404 for an archived client without writing an assessment or capture', async () => {
+    const db = makeAssessmentService()
+    mockState.service = db.service
+    mockState.clientArchived.value = true
+
+    const response = await POST(assessmentReq(SUBMISSION_A))
+
+    expect(response.status).toBe(404)
+    expect(db.snapshot().assessments).toHaveLength(0)
+    expect(db.snapshot().captureInsertCount).toBe(0)
+    expect(db.snapshot().rpcCalls).toHaveLength(0)
+  })
+
   test('persists the current required subject-consent snapshot on creation', async () => {
     const db = makeAssessmentService()
     mockState.service = db.service

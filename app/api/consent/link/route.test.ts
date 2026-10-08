@@ -1,14 +1,21 @@
 import { beforeEach, describe, test, expect, vi, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const { tokenInsert } = vi.hoisted(() => ({ tokenInsert: vi.fn() }))
+const { tokenInsert, clientArchived } = vi.hoisted(() => ({ tokenInsert: vi.fn(), clientArchived: { value: false } }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
-    from: () => ({
-      select: () => ({ eq: () => ({ eq: () => ({ is: () => ({ maybeSingle: async () => ({ data: { id: 'c1' }, error: null }) }) }) }) }),
-    }),
+    from: () => {
+      let checksArchive = false
+      const query = {
+        select: () => query,
+        eq: () => query,
+        is: (column: string) => { if (column === 'archived_at') checksArchive = true; return query },
+        maybeSingle: async () => ({ data: clientArchived.value && checksArchive ? null : { id: 'c1' }, error: null }),
+      }
+      return query
+    },
   }),
   createSupabaseServiceClient: () => ({
     from: () => ({ insert: tokenInsert }),
@@ -26,6 +33,17 @@ describe('POST /api/consent/link', () => {
     vi.stubEnv('POSTURE_TEST_MODE_ENABLED', '1')
     vi.stubEnv('VERCEL_ENV', 'preview')
     tokenInsert.mockReset().mockResolvedValue({ error: null })
+    clientArchived.value = false
+  })
+
+  test('does not mint a consent token for an archived client', async () => {
+    clientArchived.value = true
+    const response = await POST(new NextRequest('http://localhost/api/consent/link', {
+      method: 'POST', body: JSON.stringify({ client_id: 'c1' }),
+    }))
+
+    expect(response.status).toBe(404)
+    expect(tokenInsert).not.toHaveBeenCalled()
   })
 
   test('builds the shareable consent URL from NEXT_PUBLIC_APP_URL, never the caller Host header', async () => {
