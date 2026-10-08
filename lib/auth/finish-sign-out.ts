@@ -1,3 +1,5 @@
+import { safeNextPath } from './safe-next'
+
 /**
  * The browser half of a confirmed sign-out. The offline training queue is
  * cleared and awaited before navigation: AuthSessionGuard also clears it on the
@@ -29,5 +31,5 @@ let leaving = false
 export function assignLocationOnce(url: string, location: Pick<Location, 'assign'> = window.location): void {
   if (leaving) return
   leaving = true
-  location.assign(url)
+  location.assign(safeNextPath(url))
 }

@@ -7,6 +7,7 @@ import type { PoseFrame } from '@posture-ai/engine/types'
 import type { OperationMode } from '@/lib/prototype/runtime'
 import { ageBand } from '@/lib/clients/age'
 import { parseAssessmentProcessingResult } from '@/lib/assessments/processingStatus'
+import { safeNextPath } from '@/lib/auth/safe-next'
 import type { CaptureSlotKey, CaptureSlot, SlotStatus, Captures } from './types'
 import { REQUIRED_SLOTS, SLOT_LABEL, slotToDomain, emptySlot, isCaptured } from './types'
 import { analyzeCaptureFrames } from './analyzeFrames'
@@ -490,7 +491,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
           // A hard navigation commits the terminal results URL immediately and
           // cannot remain stranded behind an App Router data prefetch. The
           // results loader owns unavailable/incompatible finding presentation.
-          window.location.assign('/assessments/' + activeAssessmentId)
+          window.location.assign(safeNextPath('/assessments/' + activeAssessmentId))
         } else if (processing.status === 'failed') {
           // The server confirmed a terminal row. A retry is a new scoring
           // attempt, not an ambiguous transport replay, so rotate the key.
