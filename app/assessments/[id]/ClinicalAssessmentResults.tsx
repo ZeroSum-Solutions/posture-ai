@@ -1,16 +1,28 @@
 'use client'
 // This bundle is referenced only after the server verifies an active HG-03 release.
-import { startTransition, useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { startTransition, useState, useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import GradeRail from './GradeRail'
 import { buildReviewModel } from './reviewModel'
 import Icon from '@/components/array/Icon'
-import { Surface } from '@/components/array/Surface'
-import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
-import { tint, tone } from '@/components/array/severity'
-import { ActionBar, Button, EmptyState, IconButton, SeverityChip } from '@/components/ui'
+import { tabPanelProps } from '@/components/array/Tabs'
+import {
+  ActionBar,
+  Button,
+  EmptyState,
+  IconButton,
+  Lens,
+  Morph,
+  scoreBand,
+  SeverityChip,
+  Sheet,
+  Skeleton,
+  Tabs,
+} from '@/components/ui'
+import { CaptureSet, capturedCount } from './CaptureSet'
+import { AuraTint } from '@/components/array/AmbientField'
 import styles from './Results.module.css'
 import { musclesForFinding, slugForViewerId, type BodySide } from './anatomyFocus'
 import { hasAnyMuscle } from './muscleMap'
@@ -33,7 +45,6 @@ import { getGradeDisplayBand, usesCurrentGradeScale } from '@/lib/scoring/grade-
 import { comparisonVersionOptionNote } from '@/lib/comparison/policy'
 import { sortAssessmentsChronologically } from '@/app/clients/[id]/comparison'
 import { utcCalendarLabel } from '@/lib/time/calendar'
-import ReviewDock from './DeferredReviewDock'
 import {
   canonicalizePostgresTimestamp,
   comparePostgresTimestamps,
@@ -42,12 +53,14 @@ import {
 // Load the heavier pieces on demand to keep the route inside its initial-JS
 // budget: the posture map host, the Evidence and Program panels (mounted just
 // after first paint, see ReviewWorkspace), and the muscle pop-up. The report
-// dock loads when its disclosure opens (DeferredReviewDock).
+// dock loads when its sheet opens.
 const PriorityProgram = dynamic(() => import('./PriorityProgram'))
 const ReviewEvidence = dynamic(() => import('./ReviewEvidence'))
 const MuscleModel3D = dynamic(() => import('./MuscleModel3D'))
 // The muscle detail pop-up loads when it first opens.
 const MuscleDetailModal = dynamic(() => import('./MuscleDetailModal'))
+// The report dock loads when its sheet first opens.
+const ReviewDock = dynamic(() => import('./ReviewDock'))
 
 type Finding = AssessmentResultsPayload['findings'][number]
 type NumericFinding = Finding & { deviation: number; severity_pct: number; confidence: number }
@@ -95,67 +108,39 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
   const [open, setOpen] = useState(false)
   const catColor = CATEGORY_COLORS[exercise.category] ?? CATEGORY_COLORS.stretch
   const catLabel = CATEGORY_LABELS[exercise.category] ?? exercise.category
+  const doses = [
+    exercise.sets > 0 ? { value: String(exercise.sets), label: 'Sets' } : null,
+    exercise.dosageType !== 'dynamic' && exercise.holdSeconds > 0 ? { value: `${exercise.holdSeconds}s`, label: 'Hold' } : null,
+    exercise.reps != null ? { value: `${exercise.reps.min}–${exercise.reps.max}`, label: 'Reps' } : null,
+  ].filter((dose): dose is { value: string; label: string } => dose !== null)
 
   return (
-    <div
-      data-testid={`exercise-item-${exercise.slug}`}
-      style={{
-        background: 'var(--surface-flat)', boxShadow: 'inset 0 0 0 1px var(--hairline)',
-        borderRadius: 'var(--r-md)', overflow: 'hidden', marginBottom: 'var(--s-8)',
-      }}
-    >
+    <div data-testid={`exercise-item-${exercise.slug}`} className={styles.exerciseItem}>
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        style={{
-          width: '100%', textAlign: 'left', background: 'none', border: 'none',
-          minHeight: 48, padding: 'var(--s-12) var(--s-16)', cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: 'var(--s-8)',
-        }}
+        className={styles.exerciseHead}
       >
-        <span className="t-caption" style={{
-          padding: '2px var(--s-8)', borderRadius: 'var(--r-full)', fontWeight: 700,
-          background: `color-mix(in srgb, ${catColor} 13%, transparent)`,
-          // Lightened toward white so the label text clears 4.5:1 against its
-          // own tinted pill background (the raw CATEGORY_COLORS hex measured
-          // ~4.3:1 there) — the background keeps the unmixed hue.
-          color: `color-mix(in srgb, ${catColor} 85%, white)`,
-          textTransform: 'uppercase',
-          flexShrink: 0,
-        }}>{catLabel}</span>
-        <span className="t-headline" style={{ flex: 1, color: 'var(--text-1)' }}>
-          {exercise.name}
+        <span className={styles.exerciseCategory} style={{ '--cat': catColor } as CSSProperties}>{catLabel}</span>
+        <span className={styles.exerciseName}>{exercise.name}</span>
+        <span className={styles.exerciseChevron} data-open={open ? 'true' : undefined} aria-hidden="true">
+          <Icon name="alt-arrow-down-linear" size={16} />
         </span>
-        <span aria-hidden="true" style={{
-          color: 'var(--text-2)', transition: 'transform 0.2s',
-          display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-        }}>▾</span>
       </button>
       {open && (
-        <div style={{ padding: '0 var(--s-16) var(--s-16)', borderTop: '1px solid var(--hairline)' }}>
-          <p className="t-body" style={{ color: 'var(--text-2)', margin: 'var(--s-12) 0 var(--s-8)' }}>
-            {exercise.instructions}
-          </p>
-          <div style={{ display: 'flex', gap: 'var(--s-16)' }}>
-            {exercise.sets > 0 && (
-              <div style={{ background: 'var(--surface-flat)', borderRadius: 'var(--r-sm)', padding: 'var(--s-4) var(--s-12)', textAlign: 'center' }}>
-                <div className="t-readout-md" style={{ color: 'var(--text-1)' }}>{exercise.sets}</div>
-                <div className="t-caption" style={{ color: 'var(--text-2)', textTransform: 'uppercase' }}>Sets</div>
-              </div>
-            )}
-            {exercise.dosageType !== 'dynamic' && exercise.holdSeconds > 0 && (
-              <div style={{ background: 'var(--surface-flat)', borderRadius: 'var(--r-sm)', padding: 'var(--s-4) var(--s-12)', textAlign: 'center' }}>
-                <div className="t-readout-md" style={{ color: 'var(--text-1)' }}>{exercise.holdSeconds}s</div>
-                <div className="t-caption" style={{ color: 'var(--text-2)', textTransform: 'uppercase' }}>Hold</div>
-              </div>
-            )}
-            {exercise.reps != null && (
-              <div style={{ background: 'var(--surface-flat)', borderRadius: 'var(--r-sm)', padding: 'var(--s-4) var(--s-12)', textAlign: 'center' }}>
-                <div className="t-readout-md" style={{ color: 'var(--text-1)' }}>{exercise.reps.min}–{exercise.reps.max}</div>
-                <div className="t-caption" style={{ color: 'var(--text-2)', textTransform: 'uppercase' }}>Reps</div>
-              </div>
-            )}
-          </div>
+        <div className={styles.exerciseBody}>
+          <p>{exercise.instructions}</p>
+          {doses.length > 0 && (
+            <dl className={styles.exerciseDoses}>
+              {doses.map((dose) => (
+                <div key={dose.label}>
+                  <dt>{dose.label}</dt>
+                  <dd className="n">{dose.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
       )}
     </div>
@@ -164,19 +149,12 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
 
 function ExercisesSection({ exercises }: { exercises: ClinicalExerciseProjection[] }) {
   if (exercises.length === 0) return null
-
   return (
-    <details
-      data-testid="exercises-section"
-      className={styles.disclosure}
-    >
-      <summary className={styles.disclosureSummary}>Browse all matched exercises <span>{exercises.length}</span></summary>
-      <div className={styles.disclosureBody}>
-        {exercises.map(ex => (
-          <ExerciseAccordionItem key={ex.slug} exercise={ex} />
-        ))}
-      </div>
-    </details>
+    <div data-testid="exercises-section" className={styles.exerciseLibrary}>
+      {exercises.map(ex => (
+        <ExerciseAccordionItem key={ex.slug} exercise={ex} />
+      ))}
+    </div>
   )
 }
 
@@ -244,6 +222,8 @@ export default function ClinicalAssessmentResults({
   const [spotlightKey, setSpotlightKey] = useState<string | null>(null)
   const [selectedMuscle, setSelectedMuscle] = useState<{ viewerId: string; side: BodySide | null } | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [captureOpen, setCaptureOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const heroRef = useRef<HTMLDivElement | null>(null)
   const [approving, setApproving] = useState(false)
   // Prior scans carry their score and findings so the grade rail can draw the
@@ -684,11 +664,17 @@ export default function ClinicalAssessmentResults({
   }
 
   if (loading) {
+    // Mirrors the final layout: eyebrow, hero numeral, scale, then the map.
     return (
-      <div className={styles.routeState} role="status">
-        <div>
-          <div className={styles.spinner} />
-          <p style={{ color: 'var(--text-secondary)' }}>Loading results...</p>
+      <div className="app-screen" role="status" aria-label="Loading results">
+        <div className={`app-screen-x ${styles.loadingHero}`}>
+          <Skeleton shape="line" style={{ width: '42%' }} />
+          <Skeleton shape="line" style={{ width: 120, height: 66, borderRadius: 18 }} />
+          <Skeleton shape="line" style={{ width: '100%', height: 10 }} />
+        </div>
+        <div className={styles.loadingMap}>
+          <Lens size={52} state="loading" />
+          <p className="t-label">Loading results...</p>
         </div>
       </div>
     )
@@ -841,29 +827,72 @@ export default function ClinicalAssessmentResults({
     setSelectedMuscle(viewerId ? { viewerId, side } : null)
     if (!viewerId) setDetailsOpen(false)
   }
+  // The ambient canvas tints toward the worst band this scan recorded.
+  const auraBand = (['review', 'monitor', 'maintain'] as const).find(
+    (band) => reviewModel.rows.some((row) => row.reliable && row.band === band),
+  ) ?? (showCurrentGradeScale ? scoreBand(score) : null)
+  const capturedViews = capturedCount(captures)
+  const captureBadge = assessment.level_verified === true
+    ? `${captures.length} ${captures.length === 1 ? 'view' : 'views'} verified`
+    : reliabilityLabel
+
+  const actionErrors = [launchError, shareError, pdfError, auxError].filter((message): message is string => Boolean(message))
+  const errorList = actionErrors.map((message) => (
+    <p key={message} className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+      <Icon name="close-circle-linear" size={16} />
+      {message}
+    </p>
+  ))
+
   return (
-    <div className="app-screen app-screen--bar">
-      <div className={styles.topBar}>
+    <div className={`app-screen app-screen--bar ${styles.screen}`}>
+      <AuraTint severity={auraBand} />
+
+      <div className={`${styles.topBar} app-screen-x`}>
         <Link className={styles.back} href={`/clients/${assessment.clients.id}`}>
-          <Icon name="alt-arrow-left-linear" size={18} />
-          {clientName}
+          <Icon name="alt-arrow-left-linear" size={20} />
+          <span className={styles.backName}>{clientName}</span>
         </Link>
-        {typeof assessment.level_verified === 'boolean' && (
-          <span
-            className={styles.verifiedChip}
-            data-testid="level-badge"
-            data-verified={assessment.level_verified ? 'true' : 'false'}
-            style={assessment.level_verified
-              ? { background: tint('maintain'), color: tone('maintain') }
-              : { background: tint('monitor'), color: tone('monitor') }}
-          >
-            <Icon name={assessment.level_verified ? 'shield-check-linear' : 'flag-linear'} size={13} />
-            {assessment.level_verified
-              ? `${captures.length} ${captures.length === 1 ? 'view' : 'views'} verified`
-              : 'Camera level not verified'}
-          </span>
-        )}
+        <button
+          type="button"
+          className={styles.captureBadge}
+          data-testid="level-badge"
+          data-verified={assessment.level_verified === true ? 'true' : assessment.level_verified === false ? 'false' : undefined}
+          onClick={() => setCaptureOpen(true)}
+          aria-haspopup="dialog"
+        >
+          <Icon name={assessment.level_verified === true ? 'shield-check-linear' : 'flag-linear'} size={14} />
+          {captureBadge}
+        </button>
       </div>
+
+      {/* The scan header: shares its morph name with the scan's card on the
+          client page, so opening a scan carries its header into place. */}
+      <Morph name={`scan-${assessment.id}`}>
+        <header className={`app-screen-x ${styles.scanHead}`}>
+          <h1 className="sr-only">
+            Grade {grade} · {score}/100
+          </h1>
+          <GradeRail
+            rail={reviewModel.rail}
+            scaleApplies={showCurrentGradeScale}
+            kicker={assessedAtShort}
+          />
+        </header>
+      </Morph>
+
+      {/* Errors from report actions show where the practitioner is: inside the
+          report sheet while it is open, on the page otherwise. */}
+      {!reportOpen && (screeningBoundaryMessage || actionErrors.length > 0) && (
+        <div className={`app-screen-x ${styles.notices}`}>
+          {screeningBoundaryMessage && (
+            <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+              {screeningBoundaryMessage}
+            </p>
+          )}
+          {errorList}
+        </div>
+      )}
 
       {descriptiveFindings.length > 0 && (
         <div ref={heroRef} className={styles.heroWrap}>
@@ -880,59 +909,21 @@ export default function ClinicalAssessmentResults({
         </div>
       )}
 
-      {/* The grade + score readout, moved out of the hero's corner into a
-          plain section right under it (spec §5 Results) — always visible,
-          no dropdown toggle. */}
-      <div className="app-screen-x">
-        <div className={styles.gradeSection}>
-          <p className={`t-overline ${styles.gradeSectionKicker}`}>{reviewModel.verdict.kicker}</p>
-          {/* The rail below shows the grade badge and score; the page heading
-              carries the same facts for assistive tech only, so they are not
-              shown twice (DESIGN.md › Don't). */}
-          <h1 className="sr-only">
-            Grade {grade} · {score}/100
-          </h1>
-          <GradeRail rail={reviewModel.rail} scaleApplies={showCurrentGradeScale} />
-        </div>
-      </div>
-
-      <div className="app-screen-x app-stack">
-        {screeningBoundaryMessage && (
-          <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
-            {screeningBoundaryMessage}
-          </p>
-        )}
-
-        {[launchError, shareError, pdfError, auxError].filter(Boolean).map((message) => (
-          <p key={message} className={`${styles.notice} ${styles.errorNotice}`} role="alert">
-            <Icon name="close-circle-linear" size={16} />
-            {message}
-          </p>
-        ))}
-
+      <div className={`app-screen-x ${styles.workspace}`}>
         <ReviewWorkspace
           programCount={program.priorities.length}
           evidencePanel={(
-            <div className="app-stack">
-              <ReviewEvidence
-                rows={reviewModel.rows}
-                viewByKey={viewByKey}
-                captures={captures}
-                program={program}
-                levelVerified={assessment.level_verified}
-                activeKey={spotlightKey}
-                onSpotlight={descriptiveFindings.length > 0 ? spotlightFromList : undefined}
-              />
-              <details className={styles.disclosure}>
-                <summary className={styles.disclosureSummary}>Accuracy & methodology</summary>
-                <div className={styles.disclosureBody}>
-                  <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
-                </div>
-              </details>
-            </div>
+            <ReviewEvidence
+              rows={reviewModel.rows}
+              viewByKey={viewByKey}
+              program={program}
+              activeKey={spotlightKey}
+              thresholdsApply={showCurrentGradeScale}
+              onSpotlight={descriptiveFindings.length > 0 ? spotlightFromList : undefined}
+            />
           )}
           programPanel={(
-            <div className="app-stack">
+            <div className={styles.programPanel}>
               {findings.length > 0 ? (
                 <PriorityProgram
                   report={program}
@@ -960,6 +951,33 @@ export default function ClinicalAssessmentResults({
                 </p>
               )}
 
+              <section className={styles.sessionBlock} aria-labelledby="guided-session-title">
+                {sessionPreview ? (
+                  <>
+                    <p className="t-micro">Guided session</p>
+                    <h3 id="guided-session-title" className={styles.sessionTitle}>
+                      <span className="n">{sessionPreview.itemCount}</span> movements · about{' '}
+                      <span className="n">{Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))}</span> min
+                    </h3>
+                    <p className={styles.sessionMeta}>
+                      Full-screen coach{!isApproved ? ' · approve the report to launch' : ''}
+                    </p>
+                    <Link href={`/workouts?assessment_id=${assessmentId}`} className={styles.quietLink}>
+                      Customize workout
+                      <Icon name="alt-arrow-right-linear" size={16} />
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="t-micro">Guided session</p>
+                    <h3 id="guided-session-title" className={styles.sessionTitle}>No guided session available</h3>
+                    <p className={styles.sessionMeta}>
+                      Not enough reliably measured findings. Re-capture clear front and side photos to build one.
+                    </p>
+                  </>
+                )}
+              </section>
+
               {exercises.length > 0 && (
                 <details className={styles.disclosure}>
                   <summary className={styles.disclosureSummary}>
@@ -971,99 +989,23 @@ export default function ClinicalAssessmentResults({
                 </details>
               )}
 
-              {sessionPreview ? (
-                <Surface tier="tile">
-                  <h3 className="t-headline">Guided corrective session ready</h3>
-                  <p className="t-body" style={{ marginTop: 4 }}>
-                    {sessionPreview.itemCount} movements · about{' '}
-                    {Math.max(1, Math.round(sessionPreview.estimatedDurationSec / 60))} min · full-screen coach
-                  </p>
-                  {!isApproved && (
-                    <p className="t-footnote" style={{ marginTop: 6 }}>
-                      Practitioner approval is required before launch.
-                    </p>
-                  )}
-                  <Link
-                    href={`/workouts?assessment_id=${assessmentId}`}
-                    className="a-secondary"
-                    style={{ marginTop: 'var(--s-12)' }}
-                  >
-                    Customize workout
-                  </Link>
-                </Surface>
-              ) : (
-                <Surface tier="tile">
-                  <h3 className="t-headline">No guided session available</h3>
-                  <p className="t-body" style={{ marginTop: 4 }}>
-                    There are not enough reliably measured findings. Re-capture clear front and
-                    side photos to build a session.
-                  </p>
-                </Surface>
-              )}
-
               {runList.length > 0 && (
                 <details className={styles.disclosure}>
                   <summary className={styles.disclosureSummary}>Session runs ({runList.length})</summary>
-                  <div className={styles.disclosureBody}>
+                  <ul className={styles.runList}>
                     {runList.map((run) => (
-                      <p key={run.session_id + run.created_at}>
-                        {utcCalendarLabel(run.created_at, 'short')} · {run.status.replace('_', ' ')} ·{' '}
-                        {run.red_flag_acknowledged ? 'Pain check clear' : 'Pain check not recorded'}
-                      </p>
+                      <li key={run.session_id + run.created_at}>
+                        <span className="n">{utcCalendarLabel(run.created_at, 'short')}</span>
+                        <span>{run.status.replace('_', ' ')}</span>
+                        <span>{run.red_flag_acknowledged ? 'Pain check clear' : 'Pain check not recorded'}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </details>
               )}
-
             </div>
           )}
         />
-
-        {/* Deliberately collapsed. Sign-off does not live here: the pinned
-            ActionBar below carries "Approve & send report", so this holds only
-            the secondary report, share and compare controls plus the dock's own
-            redundant approve. Anything driving this dock -- e2e specs, the
-            performance journey -- has to open the disclosure first. */}
-        <details className={styles.disclosure}>
-          <summary className={styles.disclosureSummary}>Report, share & compare</summary>
-          <div className={styles.disclosureBody}>
-            <ReviewDock
-              clientName={clientName}
-              assessedAtLabel={assessedAtLabel}
-              grade={grade}
-              score={score}
-              gradeDescription={gradeDesc}
-              reliabilityLabel={reliabilityLabel}
-              reliabilityDetail={reliabilityDetailParts.join(' · ') || null}
-              unreliableCount={unreliableFindings.length}
-              isApproved={isApproved}
-              saveState={overrideSaveState}
-              hasSession={sessionPreview !== null}
-              isApproving={approving}
-              isLaunching={launching}
-              onApprove={handleApprove}
-              onLaunch={handleLaunch}
-              onRetrySave={retryOverrides}
-              pdfLoading={pdfLoading}
-              pdfUrl={pdfUrl}
-              pdfKind={pdfKind}
-              onGeneratePdf={handleGeneratePdf}
-              comparisonId={compareToId}
-              comparisonOptions={comparisonOptions}
-              onComparisonChange={setCompareToId}
-              hasMoreComparisonOptions={nextPriorCursor !== null}
-              isLoadingMoreComparisonOptions={loadingMorePriors}
-              onLoadMoreComparisonOptions={loadMorePriorAssessments}
-              isSharing={sharing}
-              shareLink={shareLink}
-              copied={copied}
-              onShare={handleShare}
-              onCopyShare={copyShareLink}
-              backHref={`/clients/${assessment.clients.id}`}
-              newAssessmentHref="/assessments/new"
-            />
-          </div>
-        </details>
       </div>
 
       {detailsOpen && selectedMuscle && selectedSlug && (
@@ -1078,17 +1020,73 @@ export default function ClinicalAssessmentResults({
         />
       )}
 
-      {/* Sign-off stays reachable from anywhere on the screen. The dock above
-          still owns every other action, including its own approve control, so
-          nothing here is the only route to it. "Launch session" moves to the
-          ActionBar (spec §5 Results) — same name, same handler. */}
+      {/* "How good was this capture?" — the photos, the level check and the
+          per-finding stability, in one sheet grown from the badge. */}
+      <Sheet open={captureOpen} onOpenChange={setCaptureOpen} title="Capture & accuracy" detents={['medium', 'large']}>
+        <div className={styles.sheetStack}>
+          <CaptureSet captures={captures} />
+          <section className={styles.sheetSection}>
+            <h3 className="t-micro">Accuracy & methodology</h3>
+            <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
+          </section>
+          {capturedViews < 4 ? (
+            <p className="t-label">Missing views cannot be reconstructed from findings.</p>
+          ) : null}
+        </div>
+      </Sheet>
+
+      {/* Report, share and compare: secondary actions, opened from the
+          ActionBar's report button. The dock's code loads on first open. */}
+      <Sheet open={reportOpen} onOpenChange={setReportOpen} title="Report, share & compare" detents={['large']}>
+        {reportOpen && actionErrors.length > 0 ? <div className={styles.notices}>{errorList}</div> : null}
+        {reportOpen ? (
+          <ReviewDock
+            clientName={clientName}
+            assessedAtLabel={assessedAtLabel}
+            grade={grade}
+            score={score}
+            gradeDescription={gradeDesc}
+            reliabilityLabel={reliabilityLabel}
+            reliabilityDetail={reliabilityDetailParts.join(' · ') || null}
+            unreliableCount={unreliableFindings.length}
+            isApproved={isApproved}
+            saveState={overrideSaveState}
+            hasSession={sessionPreview !== null}
+            isApproving={approving}
+            isLaunching={launching}
+            onApprove={handleApprove}
+            onLaunch={handleLaunch}
+            onRetrySave={retryOverrides}
+            pdfLoading={pdfLoading}
+            pdfUrl={pdfUrl}
+            pdfKind={pdfKind}
+            onGeneratePdf={handleGeneratePdf}
+            comparisonId={compareToId}
+            comparisonOptions={comparisonOptions}
+            onComparisonChange={setCompareToId}
+            hasMoreComparisonOptions={nextPriorCursor !== null}
+            isLoadingMoreComparisonOptions={loadingMorePriors}
+            onLoadMoreComparisonOptions={loadMorePriorAssessments}
+            isSharing={sharing}
+            shareLink={shareLink}
+            copied={copied}
+            onShare={handleShare}
+            onCopyShare={copyShareLink}
+            backHref={`/clients/${assessment.clients.id}`}
+            newAssessmentHref="/assessments/new"
+          />
+        ) : null}
+      </Sheet>
+
+      {/* One primary in the thumb zone: approve, then launch. Report, share
+          and compare sit behind the icon beside it. */}
       <ActionBar>
         <IconButton
-          icon="pen-new-square-linear"
-          label="Generate practitioner PDF"
+          icon="arrow-right-up-linear"
+          label="Report, share & compare"
           variant="filled"
-          onClick={() => handleGeneratePdf('practitioner')}
-          disabledReason={pdfLoading !== null || overrideSaveState === 'saving' ? 'PDF is already generating' : undefined}
+          onClick={() => setReportOpen(true)}
+          aria-haspopup="dialog"
         />
         {isApproved ? (
           <Button
@@ -1163,7 +1161,7 @@ function ReviewWorkspace({
 
   return (
     <>
-      <TabStrip
+      <Tabs
         idBase={REVIEW_TAB_BASE}
         options={[
           { value: 'evidence', label: 'Findings' },
@@ -1198,31 +1196,37 @@ function AccuracyCard({ assessment, findings }: { assessment: Assessment; findin
     f => f.zone !== 'unreliable' && (f.stability_score != null || f.uncertainty_deg != null),
   )
   return (
-    <div data-testid="accuracy-card">
-      <div style={{ display: 'flex', gap: 'var(--s-8)', flexWrap: 'wrap', marginBottom: withStability.length ? 'var(--s-16)' : 0 }}>
-        <SeverityChip
-          band={assessment.level_verified === true ? 'maintain' : 'monitor'}
-          size="sm"
-          label={assessment.level_verified === true ? 'Camera level verified' : 'Level not verified'}
-        />
-        {assessment.tilt_corrected ? <SeverityChip band="maintain" size="sm" label="Tilt-corrected" /> : null}
+    <div data-testid="accuracy-card" className={styles.accuracy}>
+      <ul className={styles.accuracyFacts}>
+        <li>
+          <SeverityChip
+            band={assessment.level_verified === true ? 'maintain' : 'monitor'}
+            size="sm"
+            label={assessment.level_verified === true ? 'Camera level verified' : 'Level not verified'}
+          />
+        </li>
+        {assessment.tilt_corrected ? <li><SeverityChip band="maintain" size="sm" label="Tilt-corrected" /></li> : null}
         {typeof assessment.capture_stability === 'number' ? (
-          <SeverityChip band="neutral" size="sm" label={`Within-burst landmark consistency ${Math.round(assessment.capture_stability * 100)}%`} />
+          <li className="n">Within-burst landmark consistency {Math.round(assessment.capture_stability * 100)}%</li>
         ) : null}
-      </div>
+      </ul>
       {withStability.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-8)' }}>
+        <ul className={styles.accuracyRows}>
           {withStability.map(f => {
             const s = f.stability_score
             return (
-              <div key={f.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 'var(--s-12)', minWidth: 0, overflowWrap: 'anywhere', padding: 'var(--s-8) var(--s-12)', background: 'var(--surface-flat)', boxShadow: 'inset 0 0 0 1px var(--hairline)', borderRadius: 'var(--r-md)' }}>
-                <span className="t-footnote" style={{ color: 'var(--text-2)', flex: 1 }}>{f.label}</span>
-                {f.uncertainty_deg != null && <span className="t-footnote" style={{ color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>Within-burst angle variation ±{f.uncertainty_deg.toFixed(1)}°</span>}
-                {s != null && <span className="t-footnote" style={{ color: 'var(--text-2)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>Within-burst landmark consistency {Math.round(s * 100)}%</span>}
-              </div>
+              <li key={f.id}>
+                <span className={styles.accuracyName}>{f.label}</span>
+                <span className={`${styles.accuracyMeta} n`}>
+                  {[
+                    f.uncertainty_deg != null ? `Within-burst angle variation ±${f.uncertainty_deg.toFixed(1)}°` : null,
+                    s != null ? `Within-burst landmark consistency ${Math.round(s * 100)}%` : null,
+                  ].filter(Boolean).join(' · ')}
+                </span>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
     </div>
   )

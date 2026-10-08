@@ -1,158 +1,116 @@
-import Icon from '@/components/array/Icon'
-import { Surface } from '@/components/array/Surface'
-import { ring, tint, tone } from '@/components/array/severity'
+'use client'
+import { useState } from 'react'
+import { Button, ScoreScale, Sheet, SlotNumber } from '@/components/ui'
+import { REPEAT_CAPTURE_LIMITATION_COPY } from '@/lib/comparison/policy'
 import { GRADE_DISPLAY_BANDS } from '@/lib/scoring/grade-display'
 import type { GradeRailModel } from './reviewModel'
 import styles from './Results.module.css'
 
 /**
- * The screen's subject: the grade, the deviation score, and where both sit on the
- * 0–100 scale — with the previous scan drawn on the same rail so the recorded
- * numeric difference remains visible without a health-outcome caption.
+ * The screen's answer (Array v4 › Results hero): the deviation score as a hero
+ * numeral with a slot reveal, read against a full-width 0–100 scale with the
+ * band cutoffs printed (docs/design/array-v4-dataviz.md § C). One line under
+ * it names the grade and its numeric range; the recorded difference from the
+ * previous comparable scan is plain text. How to read it lives behind "Why?".
  *
- * The rail's segments are the engine's grade boundaries as percentages, which is
- * the same scale the dot is positioned on. There is no second mapping to fall out
- * of step, so a dot can never render outside the band its letter names.
+ * The scale's cutoffs are the engine's grade boundaries, so the marker always
+ * sits in the band the grade names. When the scan was scored by another
+ * version the scale is not drawn at all: it describes the current scale only.
  */
 export default function GradeRail({
   rail,
   scaleApplies,
+  kicker,
 }: {
   rail: GradeRailModel
   /**
    * False when the scan was recorded by a different or unknown scoring version.
-   * The rail is the current grade scale, so it must not be drawn for a score the
+   * The scale is the current grade scale, so it must not be drawn for a score the
    * current scale does not describe.
    */
   scaleApplies: boolean
+  /** Eyebrow above the numeral, e.g. `Screening · 7 Sep`. */
+  kicker?: string
 }) {
+  const [whyOpen, setWhyOpen] = useState(false)
   // Looked up rather than asserted: rail.grade is a plain string off the stored
-  // assessment, and getGradeDisplayBand throws on anything it does not know. A
-  // grade letter this build has no band for is exactly the case where a range
-  // must not be invented, so an unknown grade renders no range at all.
+  // assessment. A grade this build has no band for renders no range at all.
   const gradeRange = GRADE_DISPLAY_BANDS.find(band => band.grade === rail.grade)?.range ?? null
+  const label = kicker ? `${kicker} · Deviation score` : 'Deviation score'
+
+  if (!scaleApplies) {
+    return (
+      <div className={styles.scoreHero}>
+        <p className="t-micro">{label}</p>
+        {/* Only stored facts: no band name and no range, since those are the
+            interpretations the current scale would have to supply. */}
+        <p className="sr-only">
+          {`Grade ${rail.grade}, deviation score ${Math.round(rail.score)} out of 100, as recorded.`}
+        </p>
+        <div className={styles.scoreRecorded} aria-hidden="true">
+          <SlotNumber value={Math.round(rail.score)} className={styles.scoreNumeral} />
+          <span className={styles.scoreOf}>/100</span>
+        </div>
+        <p className={styles.scoreLine}>
+          Grade <span className="n">{rail.grade}</span> · Recorded with a different or unknown scoring version, so
+          the current grade scale is not applied to it.
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <Surface tier="feature">
-      <div className={styles.railHead}>
-        <div className={styles.railReadout}>
-          <span
-            className={styles.railGrade}
-            style={{
-              background: tint(rail.band),
-              boxShadow: `inset 0 0 0 1px ${ring(rail.band)}`,
-              color: tone(rail.band),
-            }}
-            aria-hidden="true"
-          >
-            {rail.grade}
-          </span>
-          <div>
-            <p className={`${styles.railScore} n`}>
-              {Math.round(rail.score)}
-              <span className={styles.railScoreUnit}> /100</span>
-            </p>
-            <p className="t-footnote">deviation score</p>
-          </div>
-        </div>
+    <div className={styles.scoreHero}>
+      <p className="sr-only">{rail.description}</p>
+      <div aria-hidden="true">
+        <ScoreScale score={rail.score} label={label} />
+      </div>
+      <div className={styles.scoreLine}>
+        <span>
+          Grade <span className="n">{rail.grade}</span>
+          {gradeRange ? <> · range <span className="n">{gradeRange}</span></> : null}
+        </span>
         {rail.delta ? (
-          <span
-            className={styles.railDelta}
-            style={{
-              background: tint(rail.delta.band),
-              color: tone(rail.delta.band),
-              boxShadow: `inset 0 0 0 1px ${ring(rail.delta.band)}`,
-            }}
-          >
-            <Icon name={rail.delta.icon} size={13} />
-            <span className="n">{rail.delta.text}</span>
+          <span className={`${styles.scoreDelta} n`}>
+            {rail.delta.icon === 'arrow-down-linear' ? '↓ ' : rail.delta.icon === 'arrow-up-linear' ? '↑ ' : ''}
+            {rail.delta.text}
           </span>
         ) : null}
+        <Button variant="tertiary" size="sm" className={styles.whyButton} onClick={() => setWhyOpen(true)}>
+          Why?
+        </Button>
       </div>
 
-      {scaleApplies ? (
-        <>
-          {/* /DESIGN.md: "A measurement is always shown with its reference range
-              — never alone." The redesign kept the coarse Maintain/Monitor/Review
-              band but dropped the grade's own numeric range, leaving 14 /100 with
-              nothing to read it against. It sits inside the scaleApplies branch
-              deliberately: these bounds describe the CURRENT scale only, and
-              printing them beside a score recorded by another scoring version is
-              exactly the misattribution usesCurrentGradeScale() exists to stop. */}
-          {gradeRange ? (
-            <p className={styles.railRange}>
-              grade <span className="n">{rail.grade}</span> range{' '}
-              <span className="n">{gradeRange}</span>
-            </p>
-          ) : null}
-
-          <p className="sr-only">{rail.description}</p>
-
-          <div className={styles.rail} aria-hidden="true">
-            {rail.stops.map((stop, index) => {
-              const start = index === 0 ? 0 : rail.stops[index - 1].end
-              return (
-                <span
-                  key={stop.band}
-                  className={styles.railBand}
-                  style={{
-                    left: `${start}%`,
-                    width: `${stop.end - start}%`,
-                    background: tone(stop.band),
-                  }}
-                />
-              )
-            })}
-
-            {/* Drawn before the current reading so the live dot is never occluded
-                by the history behind it. */}
-            {rail.priorPosition === null ? null : (
-              <span
-                className={styles.railPrior}
-                style={{ left: `${rail.priorPosition}%` }}
-              />
-            )}
-
-            <span
-              className={styles.railDot}
-              style={{ left: `${rail.position}%`, background: tone(rail.band) }}
-            />
-          </div>
-
-          <div className={styles.railLabels} aria-hidden="true">
-            {rail.stops.map(stop => (
-              <span key={stop.band} style={{ color: tone(stop.band) }}>{stop.label}</span>
-            ))}
-          </div>
-
-          <p className={styles.railNote}>
+      <Sheet open={whyOpen} onOpenChange={setWhyOpen} title="Reading the score" detents={['medium', 'large']}>
+        <div className={styles.whyBody}>
+          <p className="t-body">
+            Lower is better. The marker shows this scan on the 0–100 deviation scale; the cutoffs are the grade
+            boundaries.
+          </p>
+          <p className="t-body">
             {rail.priorLabel ? <><span className="n">{rail.priorLabel}</span>{' — '}</> : null}
-            {rail.note}
+            {rail.note.replace(/^The faded dot is the previous scan\. /, 'The previous comparable scan is noted in text. ')}
           </p>
-        </>
-      ) : (
-        <>
-          {/* The badge above stays aria-hidden here too, but unlike the
-              scaleApplies branch nothing else on this path names the grade —
-              there is no rail.description paragraph and no range line, both
-              of which live inside the true branch on purpose. Without this,
-              a screen-reader user got the score and the caveat but never the
-              letter itself: the actual regression this component shipped.
-              The grade letter is stored data, safe under any engine version,
-              so it is stated plainly. What is NOT said is anything the
-              current scale would have to supply to make sense — no band
-              name (Maintain/Monitor/Review) and no numeric range — since
-              those are exactly the interpretations usesCurrentGradeScale()
-              gates. "As recorded" stands in for both. */}
-          <p className="sr-only">
-            {`Grade ${rail.grade}, deviation score ${Math.round(rail.score)} out of 100, as recorded.`}
-          </p>
-          <p className={styles.railNote}>
-            Recorded with a different or unknown scoring version, so the current grade
-            scale is not applied to it.
-          </p>
-        </>
-      )}
-    </Surface>
+          {!rail.note.includes(REPEAT_CAPTURE_LIMITATION_COPY) ? (
+            <p className="t-label">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+          ) : null}
+          <table className={styles.gradeTable}>
+            <caption className="t-micro">Grade reference</caption>
+            <thead>
+              <tr><th scope="col">Grade</th><th scope="col">Score</th><th scope="col">Meaning</th></tr>
+            </thead>
+            <tbody>
+              {GRADE_DISPLAY_BANDS.map(band => (
+                <tr key={band.grade} aria-current={band.grade === rail.grade ? 'true' : undefined}>
+                  <td>{band.grade}</td>
+                  <td className="n">{band.range}</td>
+                  <td>{band.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Sheet>
+    </div>
   )
 }

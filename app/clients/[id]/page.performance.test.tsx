@@ -441,16 +441,17 @@ describe('client detail progressive rendering', () => {
     expect(screen.getByRole('link', { name: /New scan/i }).getAttribute('href'))
       .toBe('/assessments/new?client_id=client-1')
     expect(screen.getByLabelText('Latest deviation score 12 out of 100')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Top reliable findings' })).toBeTruthy()
-    expect(screen.getByLabelText('Recorded severity decreased · −10.0 percentage points').textContent).toBe('−10.0 pp')
-    expect(screen.getByLabelText('Recorded severity increased · +15.0 percentage points').textContent).toBe('+15.0 pp')
-    expect(screen.getByLabelText('Recorded severity unchanged · 0 percentage points').textContent).toBe('0 pp')
+    // Findings over time (dataviz § H): the latest scan's reliable findings,
+    // worst first, as band word + beads per scan. Unreliable readings never
+    // head the list; exact values sit behind each cell.
+    expect(screen.getByRole('heading', { name: 'Findings over time' })).toBeTruthy()
+    const findingRows = screen.getAllByRole('rowheader').map((cell) => cell.textContent)
+    expect(findingRows).toEqual(['Shoulder level', 'Pelvis level', 'Knee position'])
+    expect(screen.getByRole('button', { name: /Shoulder level, .*: Review, 70\.0% recorded severity/ })).toBeTruthy()
     expect(screen.queryByText('Unreliable reading')).toBeNull()
     expect(document.body.textContent).not.toContain('null pts')
     expect(document.body.textContent).not.toMatch(/tight|weak muscle/i)
 
-    const severity = screen.getByText('70%')
-    expect(severity.getAttribute('style')).toContain('rgb(255, 122, 122)')
     const anatomy = screen.getByRole('link', { name: 'Open anatomy view for the latest assessment' })
     expect(anatomy.getAttribute('href')).toBe('/assessments/assessment-2#anatomy-viewer-title')
     expect(document.querySelector('iframe')).toBeNull()

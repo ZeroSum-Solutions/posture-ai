@@ -71,10 +71,11 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-// The report dock loads when its "Report, share & compare" disclosure first opens.
+// The report dock loads when its "Report, share & compare" sheet first opens.
 async function openReportDock() {
-  const summary = screen.getByText('Report, share & compare')
-  if (!summary.closest('details')?.open) fireEvent.click(summary)
+  if (!screen.queryByTestId('review-dock')) {
+    fireEvent.click(screen.getByRole('button', { name: 'Report, share & compare' }))
+  }
   return screen.findByTestId('review-dock')
 }
 
@@ -291,10 +292,10 @@ describe('assessment results progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
-    // Accuracy lives in the Evidence panel's own native <details>/<summary>
-    // disclosure (not components/ui Disclosure — see Results.module.css),
-    // which mounts just after first paint and is collapsed by default.
-    fireEvent.click(await screen.findByText('Accuracy & methodology'))
+    // Accuracy lives in the capture-quality sheet, opened from the badge in
+    // the top row together with the photos.
+    fireEvent.click(screen.getByTestId('level-badge'))
+    expect(await screen.findByText('Accuracy & methodology')).toBeTruthy()
     expect(await screen.findByText('Within-burst landmark consistency 98%')).toBeTruthy()
     // No disclaimer copy on the page: practitioners accept the screening notice at onboarding.
     expect(screen.queryByText(/clinical accuracy are not established/)).toBeNull()

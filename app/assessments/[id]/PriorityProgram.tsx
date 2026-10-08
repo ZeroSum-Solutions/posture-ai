@@ -18,10 +18,8 @@ import type {
 } from '../../../lib/program/clinicalProjection'
 import type { Capability } from '../../../lib/program/selectPriorities'
 import { renderDose } from '../../../lib/program/dosage'
-import { Surface } from '@/components/array/Surface'
-import { Chip } from '@/components/array/Chip'
 import { bandFromZone, ring, tint, tone, type SeverityBand } from '@/components/array/severity'
-import { Button, IconButton, ListRow, Sheet } from '@/components/ui'
+import { Button, IconButton, Sheet, SeverityChip } from '@/components/ui'
 import ExerciseDetailSheet from './ExerciseDetailSheet'
 import WhyThisSheet from './WhyThisSheet'
 import styles from './PriorityProgram.module.css'
@@ -63,27 +61,6 @@ interface OverrideHandlers {
   onDemote: (primaryKey: string) => void
   onPromote: (primaryKey: string) => void
   onSwap: (primaryKey: string, baseSlug: string, toSlug: string | null) => void
-}
-
-/**
- * The step-sequence pill. Visually it matches the Chip's 16%-tint/42%-ring
- * convention, but it takes a raw hex from STEP_COLOR rather than a
- * SeverityBand — see the comment on STEP_COLOR for why a step label must
- * never be able to resolve to a clinical band colour.
- */
-function StepPill({ text, color }: { text: string; color: string }) {
-  return (
-    <span
-      className={styles.stepPill}
-      style={{
-        background: `color-mix(in srgb, ${color} 16%, transparent)`,
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 42%, transparent)`,
-        color,
-      }}
-    >
-      {text}
-    </span>
-  )
 }
 
 function SwapControl({
@@ -189,45 +166,47 @@ function ExerciseList({
           const ramp = s.weeks.map((dose) => renderDose(dose))
           return (
             <li key={s.baseSlug} className={styles.exerciseRow}>
-              <ListRow
-                leading={<StepPill text={s.stepLabel} color={stepColor} />}
-                title={s.name}
-                subtitle={`${s.freq}${s.repRange ? ` · ${s.repRange.min}–${s.repRange.max} reps` : ''}`}
-                trailing={
-                  <span className={styles.rowActions}>
-                    {/* Details is the row's main action, one tap away; the
-                        overflow menu holds the rest (Why this?, Swap). */}
-                    <IconButton
-                      icon="info-circle-linear"
-                      label={`Details for ${s.name}`}
-                      variant="plain"
-                      data-testid={`exercise-detail-${s.slug}`}
-                      onClick={() => onOpenDetail(s.slug, s.name)}
-                    />
-                    <IconButton
-                      icon="menu-dots-linear"
-                      label={`More actions for ${s.name}`}
-                      variant="plain"
-                      onClick={() => setOpenSlug(s.baseSlug)}
-                    />
+              <div className={styles.exerciseMain}>
+                <span className={styles.stepLabel} style={{ '--step': stepColor } as React.CSSProperties}>
+                  {s.stepLabel}
+                </span>
+                <span className={styles.exerciseName}>{s.name}</span>
+                <span className={styles.exerciseFreq}>
+                  {`${s.freq}${s.repRange ? ` · ${s.repRange.min}–${s.repRange.max} reps` : ''}`}
+                </span>
+                <p className={`${styles.stepMeta} n`}>
+                  {/* The exact 3-week ramp, week 1 → 3, as one line. */}
+                  <span className={styles.ramp} aria-hidden="true">
+                    {ramp.map((dose, i) => (
+                      <span key={i} className={styles.rampDose} data-empty={s.weeks[i] ? undefined : 'true'}>
+                        {i > 0 ? <span className={styles.rampArrow}>→</span> : null}
+                        {dose}
+                      </span>
+                    ))}
                   </span>
-                }
-              />
-              <p className={`${styles.stepMeta} n`} style={{ paddingLeft: 56 }}>
-                {/* The exact 3-week ramp, week 1 → 3, as one line. */}
-                <span className={styles.ramp} aria-hidden="true">
-                  {ramp.map((dose, i) => (
-                    <span key={i} className={styles.rampDose} style={{ color: s.weeks[i] ? undefined : 'var(--text-3)' }}>
-                      {i > 0 ? <span className={styles.rampArrow}>→</span> : null}
-                      {dose}
-                    </span>
-                  ))}
-                </span>
-                <span className="sr-only">
-                  {ramp.map((dose, i) => `Week ${i + 1} (${WEEK_THEME[i]}): ${dose}.`).join(' ')}
-                </span>
-                {s.isIntegrative ? <span>new in week 3</span> : null}
-              </p>
+                  <span className="sr-only">
+                    {ramp.map((dose, i) => `Week ${i + 1} (${WEEK_THEME[i]}): ${dose}.`).join(' ')}
+                  </span>
+                  {s.isIntegrative ? <span className={styles.newTag}>new in week 3</span> : null}
+                </p>
+              </div>
+              <span className={styles.rowActions}>
+                {/* Details is the row's main action, one tap away; the
+                    overflow menu holds the rest (Why this?, Swap). */}
+                <IconButton
+                  icon="info-circle-linear"
+                  label={`Details for ${s.name}`}
+                  variant="plain"
+                  data-testid={`exercise-detail-${s.slug}`}
+                  onClick={() => onOpenDetail(s.slug, s.name)}
+                />
+                <IconButton
+                  icon="menu-dots-linear"
+                  label={`More actions for ${s.name}`}
+                  variant="plain"
+                  onClick={() => setOpenSlug(s.baseSlug)}
+                />
+              </span>
             </li>
           )
         })}
@@ -265,59 +244,54 @@ function PriorityCard({
   const bodyId = `priority-body-${priority.primaryKey}`
   const count = priority.steps.length
 
+  // Numbered rows (dataviz § E): `01 02 03`, the first open. No card — the
+  // open row is marked by its numeral and a hairline rail, not a box.
   return (
-    <div data-testid={`priority-card-${priority.primaryKey}`}>
-      <Surface tier="tile" pad="snug">
-        <button
-          type="button"
-          className={styles.cardHead}
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={onToggle}
-        >
-          <span
-            className={styles.rank}
-            style={{ background: tint(band), boxShadow: `inset 0 0 0 1px ${ring(band)}`, color: tone(band) }}
-          >
-            {priority.rank}
+    <li className={styles.focus} data-open={open ? 'true' : undefined} data-testid={`priority-card-${priority.primaryKey}`}>
+      <button
+        type="button"
+        className={styles.cardHead}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={onToggle}
+      >
+        <span className={`${styles.rank} n`} aria-hidden="true">{String(priority.rank).padStart(2, '0')}</span>
+        <span className={styles.cardTitleBlock}>
+          <span className={styles.cardTitle}>{priority.label}</span>
+          <span className={styles.cardSub}>
+            {principle}
+            {` · ${count} ${count === 1 ? 'exercise' : 'exercises'}`}
           </span>
-          <span className={styles.cardTitleBlock}>
-            <span className={`t-headline ${styles.cardTitle}`}>{priority.label}</span>
-            <span className={styles.cardSub}>
-              <span style={{ color: tone('info') }}>{principle}</span>
-              {` · ${count} ${count === 1 ? 'exercise' : 'exercises'}`}
-            </span>
-          </span>
-          <Chip band={band} size="sm">{priority.severityWord}</Chip>
-          <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
-            <Icon name="alt-arrow-right-linear" size={16} />
-          </span>
-        </button>
+        </span>
+        <SeverityChip band={band === 'info' || band === 'neutral' ? 'neutral' : band} size="sm" />
+        <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
+          <Icon name="alt-arrow-down-linear" size={16} />
+        </span>
+      </button>
 
-        {open && (
-          <div id={bodyId} className={styles.cardBody}>
-            <p className={styles.whatItMeans}>{priority.copy.whatItMeans}</p>
-            <ExerciseList
-              priority={priority}
-              onSwap={onSwap}
-              onOpenDetail={onOpenDetail}
-              onWhyThis={onWhyThis}
-            />
-            <div className={styles.cardFoot}>
-              <Button
-                variant="tertiary"
-                size="sm"
-                data-testid={`demote-${priority.primaryKey}`}
-                onClick={() => onDemote(priority.primaryKey)}
-                title="Demote to monitor only — removes the program for this focus"
-              >
-                Monitor only
-              </Button>
-            </div>
+      {open && (
+        <div id={bodyId} className={styles.cardBody}>
+          <p className={styles.whatItMeans}>{priority.copy.whatItMeans}</p>
+          <ExerciseList
+            priority={priority}
+            onSwap={onSwap}
+            onOpenDetail={onOpenDetail}
+            onWhyThis={onWhyThis}
+          />
+          <div className={styles.cardFoot}>
+            <Button
+              variant="tertiary"
+              size="sm"
+              data-testid={`demote-${priority.primaryKey}`}
+              onClick={() => onDemote(priority.primaryKey)}
+              title="Demote to monitor only — removes the program for this focus"
+            >
+              Monitor only
+            </Button>
           </div>
-        )}
-      </Surface>
-    </div>
+        </div>
+      )}
+    </li>
   )
 }
 
@@ -346,23 +320,21 @@ export default function PriorityProgram({
     movementAction: string
   } | null>(null)
   return (
-    <div data-testid="corrective-program" className={`app-stack ${styles.root}`}>
+    <div data-testid="corrective-program" className={styles.root}>
       <div className={styles.header}>
-        <div>
-          <h3 className="t-overline">Corrective Program</h3>
-          <p className={styles.summary}>
-            {report.screeningSummary} Each exercise ramps over 3 weeks: {WEEK_THEME.join(' → ')}.
-          </p>
-        </div>
+        <h3 className="t-headline">Corrective program</h3>
+        <p className={styles.summary}>
+          {report.screeningSummary} Each exercise ramps over 3 weeks: {WEEK_THEME.join(' → ')}.
+        </p>
         <label className={styles.capabilityField}>
-          <span className="t-overline">Client capability</span>
+          <span className={styles.capabilityLabel}>Client capability</span>
           <select
             id="client-capability"
             name="client-capability"
             data-testid="capability-select"
             value={capability}
             onChange={(e) => onCapabilityChange(e.target.value as Capability)}
-            className="a-select"
+            className={styles.capabilitySelect}
           >
             {CAP_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -373,24 +345,8 @@ export default function PriorityProgram({
         </label>
       </div>
 
-      {report.positives.length > 0 && (
-        <Surface tier="tile" pad="rowy" innerClassName={styles.positivesRow}>
-          {/* Was a hardcoded rgba(34,197,94,...) wash — Tailwind green-500, not
-              the Array maintain band (#10B981). The label now carries the
-              colour as a Chip; the finding names sit on the tile's plain
-              glass, per the contract's "never a filled block behind body
-              text" rule. */}
-          <Chip band="maintain" size="sm">Maintaining well</Chip>
-          {report.positives.map((p) => (
-            <span key={p} className="t-body">
-              {p}
-            </span>
-          ))}
-        </Surface>
-      )}
-
       {report.hasPlan ? (
-        <div className="app-stack">
+        <ol className={styles.focusList} aria-label="Priority focuses">
           {report.priorities.map((p) => (
             <PriorityCard
               key={p.primaryKey}
@@ -405,31 +361,36 @@ export default function PriorityProgram({
               }
             />
           ))}
-        </div>
+        </ol>
       ) : (
-        <Surface tier="tile">
-          <p className="t-body">
-            No active corrective priorities. Either every reliable finding is in the maintain zone, or all focuses are set to
-            monitor only — share a maintenance plan and re-screen in ~6 weeks.
-          </p>
-        </Surface>
+        <p className={styles.emptyPlan}>
+          No active corrective priorities. Either every reliable finding is in the maintain zone, or all focuses are set to
+          monitor only — share a maintenance plan and re-screen in ~6 weeks.
+        </p>
+      )}
+
+      {report.positives.length > 0 && (
+        <section className={styles.subSection}>
+          <h4 className={styles.subHead}>
+            <SeverityChip band="maintain" size="sm" label="Maintaining well" />
+          </h4>
+          <p className={styles.subBody}>{report.positives.join(' · ')}</p>
+        </section>
       )}
 
       {report.monitored.length > 0 && (
-        <Surface tier="tile">
-          <p className="t-overline" style={{ marginBottom: 8 }}>
-            Monitor only — no program ({report.monitored.length})
-          </p>
-          <div className={styles.monitoredList}>
+        <section className={styles.subSection}>
+          <h4 className={`t-micro ${styles.subHead}`}>Monitor only — no program ({report.monitored.length})</h4>
+          <ul className={styles.monitoredList}>
             {report.monitored.map((m) => {
               const band = ZONE_BAND[m.zone]
               return (
-                <div key={m.primaryKey} className={styles.monitoredRow}>
-                  <Chip band={band} size="sm">{m.severityWord} · {m.zone}</Chip>
-                  <span className="t-body" style={{ flex: 1 }}>{m.label}</span>
+                <li key={m.primaryKey} className={styles.monitoredRow}>
+                  <span className={styles.monitoredName}>{m.label}</span>
+                  <SeverityChip band={band === 'info' || band === 'neutral' ? 'neutral' : band} size="sm" />
                   {report.priorities.length < 3 && (
                     <Button
-                      variant="secondary"
+                      variant="tertiary"
                       size="sm"
                       data-testid={`promote-${m.primaryKey}`}
                       onClick={() => onPromote(m.primaryKey)}
@@ -437,23 +398,21 @@ export default function PriorityProgram({
                       Add to program
                     </Button>
                   )}
-                </div>
+                </li>
               )
             })}
-          </div>
-        </Surface>
+          </ul>
+        </section>
       )}
 
       {unreliable.length > 0 && (
-        <Surface tier="tile">
-          <p className="t-overline" style={{ marginBottom: 4 }}>
-            Couldn&apos;t be read reliably ({unreliable.length})
-          </p>
-          <p className="t-body">
+        <section className={styles.subSection}>
+          <h4 className={`t-micro ${styles.subHead}`}>Couldn&apos;t be read reliably ({unreliable.length})</h4>
+          <p className={styles.subBody}>
             {unreliable.map((u) => u.label).join(', ')} — not shown to the client. Re-capture front/side photos for a fuller
             picture.
           </p>
-        </Surface>
+        </section>
       )}
 
       {detail && <ExerciseDetailSheet slug={detail.slug} name={detail.name} onClose={() => setDetail(null)} />}

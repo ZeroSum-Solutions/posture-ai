@@ -115,6 +115,9 @@ export interface ReviewFindingRow {
   severity: number
   /** Recorded measurement, e.g. `12.4°`. Null when the unit is unknown. */
   measurement: string | null
+  /** The recorded deviation and its stored unit, for readouts that format their own value. */
+  deviation: number | null
+  unit: string | null
   /** In-range reference, e.g. `ref 0–2°`. Null when no standard was recorded. */
   reference: string | null
   delta: string | null
@@ -233,7 +236,7 @@ function buildRail(
     && overall.delta !== null
   const delta = hasComparableDelta
     ? {
-      text: `${formatDelta(overall.delta)} vs last scan`,
+      text: overall.delta === 0 ? 'No change vs last scan' : `${formatDelta(overall.delta)} vs last scan`,
       band: 'neutral' as SeverityBand,
       icon: deltaIcon(overall.delta),
     }
@@ -316,6 +319,8 @@ function buildRows(
         ? clampPercent(finding.severity_pct)
         : 0,
       measurement: reliable ? formatMeasurement(finding.deviation, finding.unit) : null,
+      deviation: reliable && typeof finding.deviation === 'number' && Number.isFinite(finding.deviation) ? finding.deviation : null,
+      unit: finding.unit ?? null,
       reference: reliable ? formatReference(finding.standard, finding.unit) : null,
       delta: comparable ? formatDelta(decision.delta, 1) : null,
       deltaBand: 'neutral' as SeverityBand,

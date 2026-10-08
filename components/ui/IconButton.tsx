@@ -60,6 +60,7 @@ export const IconButton = forwardRef(function IconButton(
       ref={ref}
       type={type ?? 'button'}
       aria-label={label}
+      data-slot="icon-button"
       title={disabledReason}
       aria-disabled={isBlocked || undefined}
       onClick={handleClick}

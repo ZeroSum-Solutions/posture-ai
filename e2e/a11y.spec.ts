@@ -174,7 +174,7 @@ test.describe('accessibility budget', () => {
     // comparison select), which live behind the collapsed "Report, share &
     // compare" disclosure — not the pinned action bar's separate "Approve &
     // send report" button. Open it first.
-    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
+    await page.getByRole('button', { name: 'Report, share & compare' }).click()
     await page.getByRole('button', { name: 'Approve report' }).click()
     // The pinned action bar's icon-only "Generate practitioner PDF" button also
     // matches the substring "Practitioner PDF" -- scope to ReviewDock's own

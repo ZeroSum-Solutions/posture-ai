@@ -69,6 +69,11 @@
   min-width: 0;
 }
 
+/* An icon button beside a labelled action keeps its own 48px; the label takes the rest. */
+.actions > [data-slot='icon-button'] {
+  flex: 0 0 auto;
+}
+
 @keyframes actionbar-rise {
   from { opacity: 0; transform: translateY(12px); }
 }

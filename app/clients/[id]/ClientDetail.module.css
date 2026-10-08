@@ -51,207 +51,67 @@
 .menuItem:hover { background: var(--overlay-hover); }
 .menuItemDanger { color: var(--review); }
 
-/* ── Identity — Avatar 72 + consent chip, below the TopBar's own large title
-   (DESIGN.md › Client detail). ──────────────────────────────────────────── */
+/* ── Identity — avatar + scan meta under the TopBar's large title; shares a
+   morph name with the client's row on the Clients list. ─────────────────── */
 
 .identity {
   display: flex;
   align-items: center;
-  gap: var(--s-16);
-  padding: 0 max(var(--screen-x), var(--sa-l)) var(--s-20) max(var(--screen-x), var(--sa-r));
+  gap: var(--s-12);
+  padding-bottom: var(--s-24);
 }
-
-.identityBody {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-8);
-}
-
 .identityMeta {
-  font: var(--t-footnote);
+  font: var(--t-label);
   color: var(--text-2);
 }
+.identityLatest { display: block; margin-top: 2px; color: var(--text-3); }
 
-/* ── First-screen assessment summary ───────────────────────────────────── */
+.page { display: flex; flex-direction: column; gap: var(--s-40); }
 
-.summaryGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
-  gap: var(--s-12);
-}
+/* ── Hero: deviation score + trend (TrendChart.tsx) ─────────────────────── */
 
-.summaryCard { min-width: 0; }
-
-.summaryHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-12);
-  margin-bottom: var(--s-16);
-}
-
-.summaryEyebrow {
-  display: block;
-  margin-bottom: 3px;
-  font: var(--t-caption);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.summaryLink {
-  position: relative;
-  flex-shrink: 0;
-  color: var(--text-2);
-  font: var(--t-caption);
+.scoreHero { display: flex; flex-direction: column; gap: var(--s-12); }
+.heroEmpty { font: var(--t-title); letter-spacing: -0.03em; color: var(--ink-1); }
+.recordedScore { display: flex; flex-direction: column; gap: var(--s-8); }
+.recordedValue { display: flex; align-items: baseline; gap: var(--s-8); font: var(--t-hero); letter-spacing: -0.055em; color: var(--ink-1); }
+.recordedOf { font: var(--t-callout); letter-spacing: 0; color: var(--ink-3); }
+.verdictLine { font: var(--t-label); color: var(--ink-2); }
+.plot { margin-top: var(--s-12); }
+.heroLinks { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-8); }
+.heroLink, .quietLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  border-radius: var(--r-full);
+  color: var(--ink-1);
+  font: var(--t-callout);
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
+.heroLink:active, .quietLink:active { opacity: 0.6; }
+.heroLink:focus-visible, .quietLink:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-/* The visible caption-sized link stays compact; an invisible inset expands
-   the actual hit area to the 44px floor (same pattern as Button's .sm
-   ::after in components/ui/Button.module.css). */
-.summaryLink::after {
-  content: '';
-  position: absolute;
-  inset: -14px -8px;
-}
+/* ── Sections ───────────────────────────────────────────────────────────── */
 
-.summaryLink:hover { color: var(--text-1); }
-
-.summaryFindings {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.summaryFinding {
-  display: flex;
-  align-items: center;
-  gap: var(--s-12);
-  min-width: 0;
-  padding: var(--s-12) 0;
-  border-top: 1px solid var(--hairline);
-}
-.summaryFinding:first-child { border-top: 0; }
-
-.severityDot {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  margin-left: var(--s-4);
-  border-radius: var(--r-full);
-}
-
-.summaryFindingBody {
-  display: flex;
-  align-items: center;
-  gap: var(--s-8);
-  flex: 1;
-  min-width: 0;
-}
-
-.summaryFindingLabel {
-  display: block;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-1);
-  font: var(--t-subhead);
-}
-
-.summaryFindingDelta {
-  flex: 0 0 auto;
-  padding: 2px var(--s-4);
-  border-radius: var(--r-full);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  color: var(--text-3);
-  font: var(--t-caption);
-}
-
-.summaryFindingValue {
-  flex: 0 0 auto;
-  font: var(--t-subhead);
-  font-weight: 500;
-}
-
-.summaryBoundary {
-  margin-top: var(--s-8);
-  color: var(--text-3);
-  font: var(--t-footnote);
-}
-
-.anatomyPreview {
-  min-width: 0;
-}
-
-.anatomyPreview > *:last-child {
-  display: flex;
-  align-items: center;
-  gap: var(--s-12);
-  height: 100%;
-}
-
-.anatomyGlyph {
-  display: grid;
-  place-items: center;
-  flex: 0 0 72px;
-  width: 72px;
-  height: 86px;
-  border-radius: var(--r-lg);
-  background: var(--surface-flat);
-  color: var(--text-2);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-}
-
-.anatomyBody {
-  display: block;
-  flex: 1;
-  min-width: 0;
-}
-
-.anatomyTitle,
-.anatomyCopy,
-.anatomyBoundary { display: block; }
-
-.anatomyTitle {
-  color: var(--text-1);
-  font: var(--t-subhead);
-  font-weight: 500;
-}
-
-.anatomyCopy,
-.anatomyBoundary {
-  margin-top: var(--s-4);
-  color: var(--text-2);
-  font: var(--t-footnote);
-}
-
-.anatomyBoundary { color: var(--text-3); }
-
-/* ── Section heads ──────────────────────────────────────────────────────── */
-
+.section { display: flex; flex-direction: column; gap: var(--s-12); }
 .sectionHead {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--s-12);
-  padding: var(--s-8) var(--s-8) 0;
 }
 
-/* ── Lower-priority disclosures ─────────────────────────────────────────── */
+/* Finding-history cell sheet (FindingHistory.tsx) */
+.cellSheet { display: flex; flex-direction: column; gap: var(--s-12); }
+.cellReading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-12); }
+.cellValue { font: var(--t-hero); letter-spacing: -0.055em; color: var(--ink-1); }
+.cellUnit { font: var(--t-callout); letter-spacing: 0; color: var(--ink-3); margin-left: 2px; }
 
-.disclosureSection {
-  overflow: hidden;
-  border-radius: var(--r-lg);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-}
+/* ── Disclosures: quiet hairline rows, not cards ────────────────────────── */
+
+.disclosureGroup { display: flex; flex-direction: column; border-top: 1px solid var(--hairline); }
+.disclosureSection { border-bottom: 1px solid var(--hairline); }
 
 .disclosureButton {
   display: flex;
@@ -259,141 +119,38 @@
   justify-content: space-between;
   gap: var(--s-12);
   width: 100%;
-  min-height: 58px;
-  padding: var(--s-12) var(--s-16);
+  min-height: 64px;
+  padding: var(--s-12) 0;
   border: 0;
   background: transparent;
-  color: var(--text-2);
+  color: var(--text-3);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.disclosureButton:hover { background: var(--overlay-hover); }
+.disclosureButton:active .disclosureTitle { opacity: 0.6; }
+.disclosureButton:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
 
 .disclosureTitle,
 .disclosureMeta { display: block; }
+.disclosureTitle { color: var(--text-1); font: var(--t-headline); letter-spacing: -0.015em; }
+.disclosureMeta { margin-top: 2px; color: var(--text-3); font: var(--t-label); }
 
-.disclosureTitle {
-  color: var(--text-1);
-  font: var(--t-subhead);
-  font-weight: 500;
-}
-
-.disclosureMeta {
-  margin-top: 2px;
-  color: var(--text-3);
-  font: var(--t-footnote);
-}
-
-.disclosureContent {
-  padding: 2px var(--s-12) var(--s-12);
-}
-
+.disclosureContent { padding: 0 0 var(--s-24); display: flex; flex-direction: column; gap: var(--s-16); }
 .disclosureContent[hidden] { display: none; }
 
-/* ── Finding sparkline rows (FindingsTrend.tsx) ─────────────────────────── */
+.historyTrailing { display: inline-flex; align-items: center; gap: var(--s-12); }
+.historyDelta { font: var(--t-label); color: var(--text-2); }
 
-.findingRow {
-  display: flex;
-  align-items: center;
-  gap: var(--s-12);
-}
-
-.findingBody { flex: 1; min-width: 0; }
-
-.findingLabel {
-  font: var(--t-subhead);
-  color: var(--text-1);
-}
-
-.findingMeta {
-  margin-top: 2px;
-  font: var(--t-footnote);
-  color: var(--text-3);
-}
-
-.findingDelta {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  font: var(--t-caption);
-}
-
-.spark {
-  flex-shrink: 0;
-  width: 96px;
-  height: 30px;
-}
-
-/* ── Trend card (TrendChart.tsx) ────────────────────────────────────────── */
-
-.trendHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-12);
-  margin-bottom: var(--s-4);
-}
-
-.trendHeadAside {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--s-8);
-  flex-wrap: wrap;
-}
-
-.latestScore {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 3px;
-  color: var(--text-1);
-}
-
-.latestScore > :first-child {
-  font: var(--t-readout-lg);
-}
-
-.latestScore > :last-child {
-  color: var(--text-3);
-  font: var(--t-footnote);
-}
-
-/* Magnitude only. The policy's phrase goes on .verdictLine — a pill wide enough
-   to hold the sentence is wider than the card's heading. */
-.verdictPill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-4);
-  flex-shrink: 0;
-  height: 26px;
-  padding: 0 var(--s-12);
-  border-radius: var(--r-full);
-  font: var(--t-caption);
-  white-space: nowrap;
-}
-
-.verdictLine {
-  margin-top: var(--s-4);
-  font: var(--t-caption);
-  line-height: 1.4;
-}
-
-.chartBox {
-  height: 60px;
-  margin-top: var(--s-4);
-}
-
-.chart {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
+.panelStack { display: flex; flex-direction: column; gap: var(--s-24); }
+.panelEmpty { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-16) 0; }
+.detailsPanel { display: flex; flex-direction: column; gap: var(--s-16); }
+.privacyPanel { margin-top: var(--s-24); }
+.tableScroll { overflow-x: auto; }
 
 .trendFootnote {
-  padding: 2px var(--s-16) var(--s-12);
+  padding: var(--s-8) 0 var(--s-12);
   font: var(--t-footnote);
   line-height: 1.6;
   color: var(--text-2);
@@ -401,24 +158,23 @@
 
 /* ── Numeric fallbacks (TrendChart's Score details, FindingsTrend's table) ── */
 
-.dataDetails {
-  border-radius: var(--r-md);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-}
+.dataDetails { min-width: 0; }
 
 .dataSummary {
   display: block;
   width: 100%;
-  min-height: var(--s-48);
-  padding: var(--s-12) var(--s-16);
+  min-height: 44px;
+  padding: 0;
   border: 0;
   background: transparent;
-  font: var(--t-caption);
-  color: var(--text-2);
+  font: var(--t-callout);
+  color: var(--text-1);
   cursor: pointer;
   text-align: left;
+  list-style: none;
 }
+.dataSummary::-webkit-details-marker { display: none; }
+.dataSummary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
 
 .dataSummary:disabled { cursor: progress; }
 .dataSummary:disabled::after { content: ''; }
@@ -435,7 +191,7 @@
      itself must never scroll sideways. */
   display: block;
   overflow-x: auto;
-  padding: 0 var(--s-16) var(--s-16);
+  padding: 0 0 var(--s-16);
 }
 
 .dataTable th,
@@ -472,11 +228,8 @@
 }
 
 .loadingPanel {
-  padding: var(--s-16);
-  border-radius: var(--r-md);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font: var(--t-footnote);
+  padding: var(--s-16) 0;
+  font: var(--t-label);
   color: var(--text-2);
 }
 

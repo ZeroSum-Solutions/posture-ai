@@ -114,7 +114,7 @@ async function setStoredGrade(
  * dock content has to open it first.
  */
 async function openReportDisclosure(page: Page): Promise<void> {
-  await page.getByText('Report, share & compare', { exact: true }).click()
+  await page.getByRole('button', { name: 'Report, share & compare' }).click()
 }
 
 /**
@@ -249,7 +249,7 @@ test.describe('grade display contract', () => {
     await expect(page.getByRole('heading', { name: 'No current grade is available.', exact: true })).toBeVisible()
     await expect(page.getByRole('alert').filter({ hasText: /unsupported engine version/i })).toBeVisible()
     await expect(page.getByText(/Deviation score 14 out of 100/)).toHaveCount(0)
-    await expect(page.getByText('Report, share & compare', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Report, share & compare' })).toHaveCount(0)
     await expect(page.getByText('Grade Reference')).toHaveCount(0)
 
     // Withholding the grade from display never rewrites the stored record.
