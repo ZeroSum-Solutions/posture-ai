@@ -1,11 +1,22 @@
-.root { margin: 0; display: flex; flex-direction: column; gap: var(--s-8); }
-.readout { display: flex; align-items: baseline; gap: var(--s-8); min-height: 32px; }
+.root { position: relative; margin: 0; display: flex; flex-direction: column; gap: var(--s-8); }
+/* Floats over the empty top of the plot (the Review field) so showing it never
+   moves the plot under the finger. Hidden at rest: the hero states the latest. */
+.readout {
+  position: absolute; z-index: 1; top: 2px; left: 34px; max-width: calc(100% - 110px);
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--s-8);
+  padding: 4px var(--s-8); border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--background) 82%, transparent);
+  pointer-events: none;
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity var(--duration-state) var(--ease-out-expo), transform var(--duration-state) var(--ease-spring);
+}
+.readout[data-visible] { opacity: 1; transform: none; }
 .readValue { font: var(--t-readout-md); letter-spacing: -0.03em; color: var(--ink-1); font-variant-numeric: tabular-nums; }
-.readBand { font: var(--t-label); font-weight: 600; }
+.readBand { display: inline-flex; align-items: center; gap: 6px; font: var(--t-label); font-weight: 600; }
 .readBand[data-band='maintain'] { color: var(--maintain); }
 .readBand[data-band='monitor'] { color: var(--monitor); }
 .readBand[data-band='review'] { color: var(--review); }
-.readFlag { margin-left: auto; font: var(--t-label); color: var(--monitor); }
+.readFlag { flex-basis: 100%; font: var(--t-label); color: var(--monitor); }
 .svg { width: 100%; height: auto; touch-action: pan-y; cursor: crosshair; overflow: visible; user-select: none; }
 .fieldM { fill: rgba(94, 234, 212, 0.1); }
 .fieldW { fill: rgba(255, 195, 77, 0.1); }
@@ -31,4 +42,4 @@
 .navBtn:active:not(:disabled) { transform: scale(0.9); }
 .navBtn:disabled { opacity: 0.35; cursor: default; }
 .navPos { font: var(--t-micro); letter-spacing: 0.04em; color: var(--ink-3); min-width: 56px; text-align: center; }
-@media (prefers-reduced-motion: reduce) { .line, .dot, .flag { animation: none; stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .line, .dot, .flag { animation: none; stroke-dashoffset: 0; } .readout { transition: none; transform: none; } }

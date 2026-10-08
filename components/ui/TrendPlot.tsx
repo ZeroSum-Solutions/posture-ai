@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { haptic } from '@/lib/haptics'
+import { Beads } from './Beads'
 import { SCORE_CUTOFFS, scoreBand } from './ScoreScale'
 import styles from './TrendPlot.module.css'
 
@@ -17,16 +18,26 @@ export type TrendPoint = {
 }
 
 const W = 340
-const H = 180
+const H = 230
 const PAD = { l: 26, r: 64, t: 12, b: 26 }
 const WORD = { maintain: 'Maintain', monitor: 'Monitor', review: 'Review' } as const
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
 /** Date-only ISO strings are read as local noon so the day never shifts across time zones. */
 function asDate(iso: string) {
   return new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
 }
+/**
+ * `7 Sep` — the app's one date spelling (no locale "Sept"/"Sep 7" variants).
+ * A date-only string prints its own calendar day; a timestamp prints its UTC
+ * day, the basis every client and Results date uses.
+ */
 function fmtDate(iso: string) {
-  return asDate(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (dateOnly) return `${Number(dateOnly[3])} ${MONTHS[Number(dateOnly[2]) - 1]}`
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
 }
 
 /**
@@ -49,6 +60,7 @@ export function TrendPlot({
 }) {
   const sorted = useMemo(() => [...points].sort((a, b) => +asDate(a.date) - +asDate(b.date)), [points])
   const [sel, setSel] = useState(initialIndex ?? sorted.length - 1)
+  const [scrubbing, setScrubbing] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
 
   const t0 = sorted.length ? +asDate(sorted[0].date) : 0
@@ -82,16 +94,19 @@ export function TrendPlot({
   }
 
   const s = sorted[sel]
+  // At rest the hero above already states the latest score and band; the
+  // readout appears only while scrubbing or when an earlier scan is chosen.
+  const showReadout = scrubbing || sel !== sorted.length - 1
   const sBand = s?.score != null ? scoreBand(s.score) : null
   const { maintainMax, monitorMax } = SCORE_CUTOFFS
 
   if (sorted.length === 0) return null
   return (
     <figure className={styles.root}>
-      <figcaption className={styles.readout} aria-live="polite">
+      <figcaption className={styles.readout} aria-live="polite" data-visible={showReadout ? 'true' : undefined}>
         <span className="t-micro">{fmtDate(s.date)}</span>
         <span className={styles.readValue}>{s.score == null ? 'No reliable reading' : Math.round(s.score)}</span>
-        {sBand ? <span className={styles.readBand} data-band={sBand}>{WORD[sBand]}</span> : null}
+        {sBand ? <span className={styles.readBand} data-band={sBand}><Beads band={sBand} size={5} />{WORD[sBand]}</span> : null}
         {s.flag ? <span className={styles.readFlag}>! {s.flag}</span> : null}
       </figcaption>
       <svg
@@ -100,8 +115,10 @@ export function TrendPlot({
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label={`${label}: ${sorted.map((p) => `${fmtDate(p.date)} ${p.score == null ? 'no reading' : Math.round(p.score)}`).join(', ')}`}
-        onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); choose(nearest(e.clientX)) }}
+        onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); setScrubbing(true); choose(nearest(e.clientX)) }}
         onPointerMove={(e) => { if (e.buttons) choose(nearest(e.clientX)) }}
+        onPointerUp={() => setScrubbing(false)}
+        onPointerCancel={() => setScrubbing(false)}
       >
         <rect className={styles.fieldM} x={PAD.l} y={y(maintainMax)} width={W - PAD.l - PAD.r} height={y(0) - y(maintainMax)} rx="6" />
         <rect className={styles.fieldW} x={PAD.l} y={y(monitorMax)} width={W - PAD.l - PAD.r} height={y(maintainMax) - y(monitorMax)} rx="6" />

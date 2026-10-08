@@ -77,6 +77,12 @@ describe('toDirectoryRow meta', () => {
     expect(row.meta).toBe('Latest scan · 20 Nov 2025')
   })
 
+  it('uses the UTC calendar day, the same day the client header and Results show', () => {
+    // 03:21 UTC on 7 Sep is still 6 Sep in the Americas; every screen must read 7 Sep.
+    const row = toDirectoryRow(client({ last_scan_at: '2026-09-07T03:21:43.482Z' }), Date.parse('2026-10-07T12:00:00.000Z'))
+    expect(row.meta).toBe('Latest scan · 7 Sep')
+  })
+
   it('flags an overdue client separately from the scan date', () => {
     const row = toDirectoryRow(client({ last_scan_at: ago(60) }), NOW)
     expect(row.meta).not.toContain('overdue')

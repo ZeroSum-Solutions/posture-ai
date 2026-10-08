@@ -26,6 +26,20 @@ function viewLabel(view: string | undefined): string | undefined {
   return view.charAt(0).toUpperCase() + view.slice(1)
 }
 
+/**
+ * The view line for a finding, from the same record as its label. A metric
+ * named for one view can be read from another photo: the engine measures
+ * "Shoulder Imbalance (Back)" on the front photo when no back photo was taken,
+ * and records `view_used: 'front'`. Say that plainly instead of printing a
+ * bare "Front" beside a "(Back)" name.
+ */
+function viewMeta(label: string, view: string | undefined): string | undefined {
+  if (!view || view === 'unknown') return undefined
+  const named = /\((front|back|side)\)\s*$/i.exec(label)?.[1]?.toLowerCase()
+  if (named && named !== view) return `Read from ${view} photo`
+  return viewLabel(view)
+}
+
 /** The engine stores angles as `deg`; the screen prints the degree sign. */
 function displayUnit(unit: string): string {
   return unit === 'deg' ? '°' : unit
@@ -118,7 +132,7 @@ export default function ReviewFindings({
       <ul className={styles.findingList} aria-label={filter ? `${filter} findings` : 'All findings'} key={filter ?? 'all'}>
         {visible.map((row, index) => {
           const { value, unit, rawUnit } = readingOf(row)
-          const view = viewLabel(viewByKey?.[row.key])
+          const view = viewMeta(row.label, viewByKey?.[row.key])
           const delta = deltaMeta(row)
           const meta = [view, delta].filter(Boolean).join(' · ')
           return (
@@ -177,6 +191,7 @@ function FindingSheet({
   onClose: () => void
 }) {
   const { value, unit, rawUnit } = readingOf(row)
+  const viewLine = viewMeta(row.label, view)
   const muscles = [
     ...row.tightLinks.map((muscle) => ({ ...muscle, role: 'tight' as const })),
     ...row.weakLinks.map((muscle) => ({ ...muscle, role: 'weak' as const })),
@@ -200,7 +215,7 @@ function FindingSheet({
     >
       <div className={styles.sheetStack}>
         <FindingReadout
-          name={view ? `${viewLabel(view)} view` : 'Recorded value'}
+          name={!viewLine ? 'Recorded value' : viewLine === viewLabel(view) ? `${viewLine} view` : viewLine}
           value={value}
           unit={unit}
           band={toChipBand(row.band)}

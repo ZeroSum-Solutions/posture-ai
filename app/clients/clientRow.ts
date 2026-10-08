@@ -1,5 +1,5 @@
 import { bandFromGrade, deltaIcon, type DeltaArrow, type SeverityBand } from '@/components/array/severity'
-import { axisDate, shortDate } from '@/lib/time/relative'
+import { formatClientDate } from './[id]/clientDate'
 
 export const OVERDUE_DAYS = 42
 
@@ -81,12 +81,18 @@ export function toDirectoryRow(client: DirectoryClient, now: number): DirectoryR
   }
 }
 
-/** `7 Oct` within the current year, `7 Oct 2025` otherwise — a bare day and month must not be read as this year's. */
+/**
+ * `7 Oct` within the current year, `7 Oct 2025` otherwise — a bare day and month
+ * must not be read as this year's. UTC calendar day, the same basis and month
+ * spelling as the client header and Results (`formatClientDate`,
+ * `utcCalendarLabel`), so one scan never reads as two different days.
+ */
 function scanDate(iso: string | null, now: number): string | null {
   if (!iso) return null
   const parsed = Date.parse(iso)
   if (!Number.isFinite(parsed)) return null
-  return new Date(parsed).getFullYear() === new Date(now).getFullYear() ? axisDate(iso) : shortDate(iso)
+  const sameYear = new Date(parsed).getUTCFullYear() === new Date(now).getUTCFullYear()
+  return formatClientDate(iso, sameYear ? 'day-month-short-no-year' : 'day-month-short')
 }
 
 export function isOverdue(lastScanAt: string | null, now: number): boolean {

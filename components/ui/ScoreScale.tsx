@@ -1,3 +1,4 @@
+import { Beads } from './Beads'
 import { SlotNumber } from './SlotNumber'
 import styles from './ScoreScale.module.css'
 
@@ -45,7 +46,11 @@ export function ScoreScale({
       <div className={styles.valueRow}>
         <SlotNumber value={Math.round(score)} className={styles.value} />
         <span className={styles.of}>/100</span>
-        <span className={styles.bandWord}>{WORD[band]}</span>
+        {/* Word + beads + colour together (DESIGN.md severity contract). */}
+        <span className={styles.bandWord}>
+          <Beads band={band} size={7} animate />
+          {WORD[band]}
+        </span>
       </div>
       {previous ? (
         <p className={styles.previous}>

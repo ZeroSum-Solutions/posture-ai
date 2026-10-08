@@ -4,7 +4,7 @@
 .value { font: var(--t-hero); letter-spacing: -0.055em; color: var(--ink-1); }
 .compact .value { font: var(--t-readout-lg); letter-spacing: -0.04em; }
 .of { font: var(--t-callout); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.bandWord { margin-left: auto; font: var(--t-headline); }
+.bandWord { margin-left: auto; display: inline-flex; align-items: center; gap: var(--s-8); font: var(--t-headline); }
 .root[data-band='maintain'] .bandWord { color: var(--maintain); }
 .root[data-band='monitor'] .bandWord { color: var(--monitor); }
 .root[data-band='review'] .bandWord { color: var(--review); }

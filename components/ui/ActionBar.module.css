@@ -22,23 +22,26 @@
   animation: actionbar-rise var(--duration-layout) var(--ease-out-expo) both;
 }
 
-/* The fade runs from above the row down through the dock area, so content
-   dissolves before it reaches either. Full-bleed even on wide screens. */
+/* The fade: a solid canvas base under the whole row (reason line + buttons)
+   and down through the dock area, then a 64px ramp above it — so content has
+   fully dissolved before it reaches the first line of the bar, instead of
+   ghosting through the labels. Full-bleed even on wide screens. */
 .fade {
+  --fade-ramp: 64px;
   position: absolute;
   z-index: -1;
   left: 50%;
   width: 100vw;
   translate: -50% 0;
-  top: calc(-1 * var(--s-32));
-  bottom: calc(-1 * (var(--tabbar-h) + var(--sa-b)));
+  top: calc(-1 * var(--fade-ramp));
+  bottom: calc(-1 * (var(--tabbar-h) + var(--capture-raise) + var(--sa-b)));
   background: linear-gradient(
-    to top,
-    var(--background) 0%,
-    var(--background) calc(var(--tabbar-h) + var(--sa-b)),
-    color-mix(in srgb, var(--background) 94%, transparent) 62%,
-    color-mix(in srgb, var(--background) 70%, transparent) 84%,
-    transparent 100%
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, var(--background) 55%, transparent) calc(var(--fade-ramp) * 0.4),
+    color-mix(in srgb, var(--background) 92%, transparent) calc(var(--fade-ramp) * 0.8),
+    var(--background) var(--fade-ramp),
+    var(--background) 100%
   );
   pointer-events: none;
 }

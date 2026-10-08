@@ -773,7 +773,15 @@ export default function ClinicalAssessmentResults({
       scoring_engine_version: assessment.scoring_engine_version,
       assessed_at: assessment.assessed_at,
     },
-    findings: descriptiveFindings,
+    // Every descriptive reading is an angle in degrees: the engine emits
+    // `unit: 'deg'` for every metric (packages/posture-engine/src/metrics.ts
+    // makeFinding), and the screening boundary only passes a finding through
+    // as `deviationDeg` (lib/training/screening/derivedUse.ts,
+    // DerivedScreeningFinding.unit: 'deg'). The results payload drops the
+    // column, so restate it here — without it the values print bare and every
+    // per-finding comparison against the prior scan (whose rows carry 'deg')
+    // fails the unit guard as "not comparable".
+    findings: descriptiveFindings.map((finding) => ({ ...finding, unit: 'deg' })),
     // The most recent prior scan. priorAssessments is chronological, so the last
     // entry is the nearest one behind this scan; the shared comparison policy
     // decides on its own whether the pair is comparable at all.
