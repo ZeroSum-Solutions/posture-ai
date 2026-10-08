@@ -1,26 +1,56 @@
+/* Array v4 pull to refresh: the content translates (never resizes); the Lens
+   indicator sits behind it at the top and is revealed by the gap. */
+
 .wrap {
   position: relative;
   display: flex;
   flex-direction: column;
 }
 
-/* Always-available accessible path: keyboard, VoiceOver, reduced motion, and
-   iOS (where the drag gesture is off by default). Visible, not sr-only. */
+/* The always-available tap equivalent: small and quiet, at the end of the
+   row so it never competes with the screen's title. */
 .fallbackRow {
   display: flex;
-  justify-content: center;
-  padding: var(--s-8) 0;
+  justify-content: flex-end;
+  padding-bottom: var(--s-4);
+}
+.fallbackRow > * { color: var(--ink-2); }
+
+.stage {
+  position: relative;
 }
 
 .indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: -16px;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* Arming: one jelly pop on the inner layer (the outer is driven by the pull). */
+.turn { display: grid; place-items: center; }
+.indicator[data-armed='true'] .turn { animation: ptr-arm 520ms var(--ease-jelly); }
+
+@keyframes ptr-arm {
+  0% { scale: 0.82; }
+  100% { scale: 1; }
 }
 
 .scroll {
+  position: relative;
+  z-index: 1;
   /* Stops the browser's own native pull-to-refresh from also firing
      alongside this component's gesture (Chrome Android in particular). */
   overscroll-behavior-y: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicator[data-armed='true'] .turn { animation: none; }
 }

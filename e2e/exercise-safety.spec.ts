@@ -31,12 +31,12 @@ test('a concurrent back-knee finding withholds the seated hamstring stretch', as
   // Fixture screens the back knee at maintain — measured within normal range, so there is
   // no hyperextension to protect against and the stretch is warranted.
   // There is no standalone "Exercises" tab: matched exercises live in the
-  // Program tab, behind a "Matched exercises (N)" disclosure that wraps the
-  // exercises-section itself.
+  // Program tab, behind a "Matched exercises (N)" disclosure; the
+  // exercises-section inside it lists the items directly (v4 dropped its
+  // own inner disclosure).
   await page.getByRole('tab', { name: /^Program/ }).click()
   await page.locator('summary').filter({ hasText: /^Matched exercises/ }).click()
   await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
-  await page.locator('[data-testid="exercises-section"] > summary').click()
   await expect(page.locator(STRETCH)).toBeVisible()
 
   const admin = createSupabaseClient(supabaseUrl, serviceKey, {
@@ -55,6 +55,5 @@ test('a concurrent back-knee finding withholds the seated hamstring stretch', as
   await page.getByRole('tab', { name: /^Program/ }).click()
   await page.locator('summary').filter({ hasText: /^Matched exercises/ }).click()
   await expect(page.locator('[data-testid="exercises-section"]')).toBeVisible()
-  await page.locator('[data-testid="exercises-section"] > summary').click()
   await expect(page.locator(STRETCH)).toHaveCount(0)
 })

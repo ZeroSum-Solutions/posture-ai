@@ -1,15 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Surface } from '@/components/array/Surface'
-import { Banner, Button, Disclosure } from '@/components/ui'
+import { Button, Lens, Sheet } from '@/components/ui'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from '@/lib/training/contracts/profile'
 import { ACTIVE_PROGRAM_COMPILER_OPTIONS } from '@/lib/training/engine/options'
 import { createInitialStrengthProfile } from './StrengthBuilder.model'
 import { acceptTrainingBuild, publishTrainingDraft, requestTrainingBuild } from './StrengthBuilder.gateway'
 import StrengthProgramBuilder, { type SaveProfileOutcome } from './StrengthProgramBuilder'
 import { requestProgramOptions } from './ProgramOptions.gateway'
-import CoachAthleteInvitation from './CoachAthleteInvitation'
+import CoachAthleteInvitation, { useCoachAthleteInvitation, type CoachAthleteInvitationStatus } from './CoachAthleteInvitation'
 import TrainingProgramResumeList from './TrainingProgramResumeList'
 import TrainingCoachingRelationshipsPanel from './TrainingCoachingRelationshipsPanel'
 import type { TrainingCoachingRelationshipRevocationV1 } from '@/lib/training/contracts/coaching-relationship'
@@ -167,26 +166,21 @@ function StrengthBuilderEntryState({ source }: { source: StrengthBuilderSource }
   }
 
   if (loadState.status === 'loading') {
-    return <Surface tier="tile" innerClassName={styles.entryState}><p role="status" className="t-body">Loading training profile…</p></Surface>
+    return <div className={styles.entryState}><p role="status" className={`t-callout ${styles.loadingLine}`}><Lens state="loading" size={20} tone="ghost" />Loading training profile…</p></div>
   }
   if (loadState.status === 'error') {
-    return <Surface tier="tile" innerClassName={styles.entryState}>
+    return <div className={styles.entryState}>
       <p role="alert" className="t-body">{loadState.message}</p>
-      <Button variant="secondary" size="sm" onClick={() => void retryLoad()}>Retry profile</Button>
-    </Surface>
+      <Button variant="secondary" size="sm" icon="refresh-linear" onClick={() => void retryLoad()}>Retry profile</Button>
+    </div>
   }
   if (loadState.status === 'setup_required') {
-    return <div className={styles.entryState}>
-      <p className="t-overline">Athlete setup required</p>
-      <Banner variant="info">
-        Connect {identity.name} to a training account. Create an athlete invitation and active coaching relationship before reading or saving a training profile. No account or relationship was created automatically.
-      </Banner>
-      {source.kind === 'client' ? (
-        <Disclosure title={`Connect ${identity.name} to a training account`} defaultOpen>
-          <CoachAthleteInvitation client={source.client} />
-        </Disclosure>
-      ) : null}
-    </div>
+    return source.kind === 'client'
+      ? <AthleteSetupState client={source.client} />
+      : <div className={styles.setupLine}>
+        <p className="t-overline">Athlete setup required</p>
+        <p className={`t-callout ${styles.setupStatus}`}>{identity.name} is not connected to a training account.</p>
+      </div>
   }
 
   return <>
@@ -225,6 +219,39 @@ function StrengthBuilderEntryState({ source }: { source: StrengthBuilderSource }
       />
     </> : null}
   </>
+}
+
+const SETUP_STATUS: Record<CoachAthleteInvitationStatus, { line: (name: string) => string; action: string }> = {
+  idle: { line: name => `${name} is not connected to a training account.`, action: 'Invite athlete' },
+  error: { line: name => `${name} is not connected to a training account.`, action: 'Invite athlete' },
+  submitting: { line: () => 'Preparing the invitation…', action: 'View invitation' },
+  uncertain: { line: () => 'The invitation needs a retry.', action: 'Review invitation' },
+  prepared: { line: () => 'Invitation ready to share.', action: 'View invitation' },
+}
+
+/**
+ * A client without a training account: one status line and one quiet entry
+ * action on the page; the invitation form (email + permission choices) lives
+ * in a Sheet. The invitation state is owned here so closing the Sheet keeps
+ * an in-flight, uncertain or prepared request.
+ */
+function AthleteSetupState({ client }: { client: Client }) {
+  const [open, setOpen] = useState(false)
+  const invitation = useCoachAthleteInvitation(client)
+  const status = SETUP_STATUS[invitation.state.kind]
+  return <div className={styles.setupLine}>
+    <div className={styles.setupText}>
+      <p className="t-overline">Athlete setup required</p>
+      <p className={`t-callout ${styles.setupStatus}`}>{status.line(client.name)}</p>
+    </div>
+    <Button variant="secondary" size="sm" icon="user-plus-linear" aria-haspopup="dialog" onClick={() => setOpen(true)}>{status.action}</Button>
+    <Sheet open={open} onOpenChange={setOpen} title={`Invite ${client.name}`} detents={['large']}>
+      <div className={styles.setupSheet}>
+        <p className="t-label">Connect {client.name} to a training account. Create an athlete invitation and active coaching relationship before reading or saving a training profile. No account or relationship was created automatically.</p>
+        <CoachAthleteInvitation client={client} controller={invitation} />
+      </div>
+    </Sheet>
+  </div>
 }
 
 export default function StrengthBuilderEntry({ source }: { source: StrengthBuilderSource }) {

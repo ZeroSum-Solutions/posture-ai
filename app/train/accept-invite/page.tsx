@@ -46,7 +46,7 @@ export default function AthleteAcceptInvitePage() {
   return (
     <AuthFrame
       title="Accept athlete invitation"
-      description="Protect your invited account before opening your training workspace."
+      description="Choose a password, then connect an authenticator before training access is activated."
     >
       {checking ? (
         <p className="t-footnote" role="status">Verifying your secure invitation…</p>
@@ -59,9 +59,6 @@ export default function AthleteAcceptInvitePage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} noValidate className="a-form">
-          <p className="t-footnote">
-            Choose a password, then connect an authenticator before training access is activated.
-          </p>
           {error && <Banner variant="error">{error}</Banner>}
           <TextField
             label="Password"

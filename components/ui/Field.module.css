@@ -1,81 +1,80 @@
-/* Shared chrome for TextField, Textarea, SearchField and Select — one field
-   vocabulary per DESIGN.md › spec §3.2: label above, 52px solid control
-   (no backdrop-filter on fields), hint or error below. */
+/* Array v4 fields — TextField, Textarea, Select, SearchField. One vocabulary:
+   a 52px surface-2 control (radius 14, 16px type so iOS never zooms) with a
+   floating label that rests inside the field and rises + shrinks on focus or
+   once filled (spring). Focus is a 2px volt edge with a soft volt glow; an
+   error is a coral edge, a small nudge and a message that slides down. */
 
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--s-8);
-}
-
-.labelRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s-8);
-}
-
-.label {
-  font: var(--t-subhead);
-  font-weight: 500;
-  color: var(--text-2);
-}
-
-.required {
-  font: var(--t-footnote);
-  color: var(--text-3);
+  min-width: 0;
 }
 
 .controlWrap {
   position: relative;
   display: flex;
   align-items: center;
+  min-width: 0;
 }
+
+/* ── The control ── */
 
 .control {
   width: 100%;
+  min-width: 0;
+  height: 52px;
   min-height: 52px;
+  margin: 0;
   padding: 0 var(--s-16);
   border: 0;
-  border-radius: var(--r-md);
-  background: var(--surface-field);
-  color: var(--text-1);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--ink-1);
   box-shadow: inset 0 0 0 1px var(--border-field);
   font: var(--t-body);
   font-size: 16px;
-  caret-color: var(--accent);
-  transition: box-shadow var(--duration-state) var(--ease-standard);
+  caret-color: var(--volt);
+  outline: none;
+  transition:
+    box-shadow var(--duration-state) var(--ease-standard),
+    background-color var(--duration-state) var(--ease-standard);
 }
 
 .control::placeholder {
-  color: var(--text-3);
+  color: var(--ink-3);
+  transition: color 160ms var(--ease-standard);
 }
 
-/* Autofill paints its own background in most browsers; force it back to the
-   field's own fill instead of a flash of white/yellow. */
+/* Autofill paints its own background; keep the field's fill. */
 .control:-webkit-autofill,
 .control:-webkit-autofill:hover,
 .control:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--text-1);
-  box-shadow: inset 0 0 0 100px var(--surface-solid), inset 0 0 0 1px var(--border-field);
-  caret-color: var(--accent);
+  -webkit-text-fill-color: var(--ink-1);
+  box-shadow: inset 0 0 0 100px var(--surface-2), inset 0 0 0 1px var(--border-field);
+  caret-color: var(--volt);
 }
 
+/* Beats the legacy element rules in globals.css. */
 .control:hover:not(:disabled):not(:focus):not([aria-invalid='true']) {
   box-shadow: inset 0 0 0 1px var(--border-field-hover);
 }
 
+.control:focus,
 .control:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px var(--text-1), var(--focus-ring);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 2px var(--volt), var(--ctl-focus-halo);
 }
 
 .control[aria-invalid='true'] {
   box-shadow: inset 0 0 0 1px var(--review);
+  animation: field-nudge 380ms var(--ease-standard);
 }
 
+.control[aria-invalid='true']:focus,
 .control[aria-invalid='true']:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--review), var(--focus-ring);
+  box-shadow: inset 0 0 0 2px var(--review), var(--ctl-error-halo);
 }
 
 .control:disabled {
@@ -83,8 +82,88 @@
   cursor: not-allowed;
 }
 
-/* Leading/trailing adornments (search icon, clear button, chevron) float
-   inside the control's padding box without affecting its own layout. */
+@keyframes field-nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+
+/* ── Floating label ── */
+
+.labelled {
+  padding-top: 22px;
+  padding-bottom: 6px;
+}
+
+/* The placeholder only shows once the label has risen out of its way. */
+.labelled:not(:focus)::placeholder {
+  color: transparent;
+}
+
+.floatLabel {
+  position: absolute;
+  top: 14px;
+  left: var(--s-16);
+  right: var(--s-16);
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  font: var(--t-body);
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform-origin: left top;
+  pointer-events: none;
+  transition:
+    transform 380ms var(--ease-spring),
+    color var(--duration-state) var(--ease-standard);
+}
+
+.withLeading ~ .floatLabel {
+  left: var(--s-48);
+}
+
+.withTrailing ~ .floatLabel {
+  right: var(--s-56);
+}
+
+/* Risen: focused, filled, autofilled, or always (selects). Separate rules:
+   one unsupported selector must not void the others. */
+.labelled:focus ~ .floatLabel,
+.labelled:not(:placeholder-shown) ~ .floatLabel,
+.floatLabel[data-risen='true'] {
+  transform: translateY(-8px) scale(0.75);
+  font-weight: 500;
+}
+
+.labelled:-webkit-autofill ~ .floatLabel {
+  transform: translateY(-8px) scale(0.75);
+}
+
+/* Inputs with no placeholder state (date, time) always show a value. */
+.labelled[type='date'] ~ .floatLabel,
+.labelled[type='time'] ~ .floatLabel,
+.labelled[type='datetime-local'] ~ .floatLabel,
+.labelled[type='month'] ~ .floatLabel {
+  transform: translateY(-8px) scale(0.75);
+  font-weight: 500;
+}
+
+.labelled:focus ~ .floatLabel {
+  color: var(--volt);
+}
+
+.labelled[aria-invalid='true'] ~ .floatLabel {
+  color: var(--review);
+}
+
+.labelled:disabled ~ .floatLabel {
+  opacity: var(--text-disabled-opacity);
+}
+
+/* ── Adornments ── */
+
 .withLeading {
   padding-left: var(--s-48);
 }
@@ -97,53 +176,109 @@
   position: absolute;
   top: 50%;
   left: var(--s-16);
+  z-index: 1;
   display: flex;
   transform: translateY(-50%);
-  color: var(--text-3);
+  color: var(--ink-3);
   pointer-events: none;
+  transition: color var(--duration-state) var(--ease-standard), transform 380ms var(--ease-spring);
+}
+
+.controlWrap:focus-within .leading {
+  color: var(--ink-1);
 }
 
 .trailing {
   position: absolute;
   top: 50%;
-  right: var(--s-8);
+  right: var(--s-4);
+  z-index: 1;
   display: flex;
   transform: translateY(-50%);
 }
 
+/* ── Textarea ── */
+
 .textarea {
-  min-height: 112px;
+  height: auto;
+  min-height: 120px;
   padding: var(--s-12) var(--s-16);
   resize: vertical;
   line-height: 1.5rem;
 }
 
+.textarea.labelled {
+  padding-top: 30px;
+}
+
+.textareaWrap {
+  align-items: stretch;
+}
+
+.textareaWrap .floatLabel {
+  top: 14px;
+}
+
+/* ── Select ── */
+
 .selectControl {
   appearance: none;
   -webkit-appearance: none;
   padding-right: var(--s-48);
+  background-image: none;
+  cursor: pointer;
 }
 
 .chevron {
   position: absolute;
   right: var(--s-16);
   display: flex;
-  color: var(--text-2);
+  color: var(--ink-2);
   pointer-events: none;
+  transition: transform 380ms var(--ease-spring), color var(--duration-state) var(--ease-standard);
+}
+
+.controlWrap:focus-within .chevron {
+  color: var(--ink-1);
+  transform: translateY(2px);
+}
+
+/* ── Foot: hint / error on the left, "Required" on the right ── */
+
+.foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding-inline: var(--s-4);
+}
+
+.foot:empty {
+  display: none;
 }
 
 .hint {
-  font: var(--t-footnote);
-  color: var(--text-3);
+  font: var(--t-label);
+  color: var(--ink-3);
+}
+
+.required {
+  margin-left: auto;
+  font: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
 }
 
 .error {
   display: flex;
   align-items: flex-start;
   gap: var(--s-8);
-  font: var(--t-footnote);
+  font: var(--t-label);
   font-weight: 500;
   color: var(--review);
+  animation: field-msg-in 320ms var(--ease-out-expo) both;
 }
 
 .errorIcon {
@@ -151,8 +286,125 @@
   margin-top: 1px;
 }
 
+@keyframes field-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 /* A disabled field states why, above the control, at full legibility. */
 .disabledReason {
-  font: var(--t-footnote);
-  color: var(--text-2);
+  font: var(--t-label);
+  color: var(--ink-2);
+}
+
+/* ── SearchField: a pill; focus opens a Cancel button from the right. ── */
+
+.search {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.search .controlWrap {
+  flex: 1 1 auto;
+}
+
+.searchControl {
+  border-radius: var(--r-full);
+  padding-left: var(--s-48);
+}
+
+.searchControl::-webkit-search-cancel-button,
+.searchControl::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search .leading {
+  left: var(--s-20);
+}
+
+.search:focus-within .leading {
+  transform: translateY(-50%) scale(1.08);
+}
+
+/* The clear button pops in when the first character lands. */
+.clearIn {
+  animation: clear-in 320ms var(--ease-spring) both;
+}
+
+@keyframes clear-in {
+  from { opacity: 0; transform: translateY(-50%) scale(0.5); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.cancelSlot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  width: 0;
+  overflow: hidden;
+  transition: width 300ms var(--ease-out-expo);
+}
+
+.search[data-active='true'] .cancelSlot {
+  width: calc(var(--s-72) + var(--s-12));
+  transition: width var(--duration-layout) var(--ease-spring);
+}
+
+.cancel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--s-4) 0 var(--s-12);
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--ink-1);
+  font: var(--t-callout);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(16px);
+  transition: opacity 120ms var(--ease-standard), transform 300ms var(--ease-out-expo);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.search[data-active='true'] .cancel {
+  opacity: 1;
+  transform: none;
+  transition: opacity 200ms 80ms var(--ease-standard), transform var(--duration-layout) var(--ease-spring);
+}
+
+.cancel:active {
+  color: var(--ink-2);
+}
+
+.cancel:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control[aria-invalid='true'] { animation: none; }
+  .error { animation: none; }
+  .floatLabel,
+  .leading,
+  .chevron,
+  .cancel,
+  .cancelSlot {
+    transition: opacity var(--duration-reduced) ease-out, color var(--duration-reduced) ease-out !important;
+  }
+  .cancel { transform: none !important; }
+  .clearIn { animation: none; }
 }

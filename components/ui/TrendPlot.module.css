@@ -1,0 +1,45 @@
+.root { position: relative; margin: 0; display: flex; flex-direction: column; gap: var(--s-8); }
+/* Floats over the empty top of the plot (the Review field) so showing it never
+   moves the plot under the finger. Hidden at rest: the hero states the latest. */
+.readout {
+  position: absolute; z-index: 1; top: 2px; left: 34px; max-width: calc(100% - 110px);
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--s-8);
+  padding: 4px var(--s-8); border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--background) 82%, transparent);
+  pointer-events: none;
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity var(--duration-state) var(--ease-out-expo), transform var(--duration-state) var(--ease-spring);
+}
+.readout[data-visible] { opacity: 1; transform: none; }
+.readValue { font: var(--t-readout-md); letter-spacing: -0.03em; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+.readBand { display: inline-flex; align-items: center; gap: 6px; font: var(--t-label); font-weight: 600; }
+.readBand[data-band='maintain'] { color: var(--maintain); }
+.readBand[data-band='monitor'] { color: var(--monitor); }
+.readBand[data-band='review'] { color: var(--review); }
+.readFlag { flex-basis: 100%; font: var(--t-label); color: var(--monitor); }
+.svg { width: 100%; height: auto; touch-action: pan-y; cursor: crosshair; overflow: visible; user-select: none; }
+.fieldM { fill: rgba(94, 234, 212, 0.1); }
+.fieldW { fill: rgba(255, 195, 77, 0.1); }
+.fieldR { fill: rgba(255, 107, 94, 0.1); }
+.tick { font: var(--t-micro); font-size: 9.5px; letter-spacing: 0.02em; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+.bandLabel { font: var(--t-micro); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink-3); }
+.cursor { stroke: var(--volt); stroke-opacity: 0.45; stroke-width: 1; stroke-dasharray: 2 3; transition: x1 var(--duration-state) var(--ease-spring), x2 var(--duration-state) var(--ease-spring); }
+.line {
+  fill: none; stroke: var(--ink-1); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 900ms 150ms var(--ease-out-expo) forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.dot { fill: var(--background); stroke: var(--ink-1); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: pop 520ms var(--ease-jelly) both; transition: r var(--duration-state) var(--ease-spring), fill var(--duration-state); }
+.dot[data-on] { fill: var(--volt); stroke: var(--volt); filter: drop-shadow(0 0 6px var(--volt-glow)); }
+.flag rect { fill: var(--background); stroke: var(--monitor); stroke-width: 2; }
+.flag text { font: 700 9px var(--font-sans); fill: var(--monitor); }
+.flag { transform-box: fill-box; transform-origin: center; animation: pop 520ms var(--ease-jelly) both; }
+.flag[data-on] rect { fill: var(--monitor); }
+.flag[data-on] text { fill: var(--background); }
+@keyframes pop { from { transform: scale(0); } }
+.nav { display: flex; align-items: center; justify-content: center; gap: var(--s-16); }
+.navBtn { width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--ink-1); font: var(--t-headline); cursor: pointer; transition: transform var(--duration-press); }
+.navBtn:active:not(:disabled) { transform: scale(0.9); }
+.navBtn:disabled { opacity: 0.35; cursor: default; }
+.navPos { font: var(--t-micro); letter-spacing: 0.04em; color: var(--ink-3); min-width: 56px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .line, .dot, .flag { animation: none; stroke-dashoffset: 0; } .readout { transition: none; transform: none; } }

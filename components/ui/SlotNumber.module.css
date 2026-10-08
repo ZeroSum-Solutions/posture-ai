@@ -1,0 +1,9 @@
+.slot { display: inline-flex; font-variant-numeric: tabular-nums; }
+.glyphs { display: inline-flex; }
+.cell { display: inline-block; overflow: hidden; padding-block: 0.06em; margin-block: -0.06em; }
+.glyph { display: inline-block; animation: slot-in 640ms var(--ease-spring) both; }
+@keyframes slot-in {
+  from { transform: translateY(105%); filter: blur(4px); opacity: 0; }
+  60% { filter: blur(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .glyph { animation: none; } }

@@ -142,7 +142,8 @@ test.describe('error states (regression: silent-swallow fixes)', () => {
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'PDF generation failed' }) })
     )
 
-    await page.getByRole('button', { name: /PDF/i }).first().click()
+    await page.getByRole('button', { name: 'Report, share & compare' }).click()
+    await page.getByRole('button', { name: 'Practitioner PDF', exact: true }).click()
     // pdfError has role="alert"
     const errEl = page.locator('[role="alert"]').filter({ hasText: /PDF|failed|generation/i })
     await expect(errEl).toBeVisible({ timeout: 8_000 })

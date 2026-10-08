@@ -162,6 +162,14 @@ export function createIndexedDbTrainingOfflineStorage(options: {
     return true
   }
 
+  async function readDrainLeaseExpiry(userId: string, ownerId: string): Promise<number | null> {
+    const transaction = (await database()).transaction(META_STORE, 'readonly')
+    const done = transactionDone(transaction)
+    const existing = await requestResult(transaction.objectStore(META_STORE).get(`drain:${userId}`)) as DrainLeaseMeta | undefined
+    await done
+    return existing && existing.ownerId !== ownerId ? existing.expiresAt : null
+  }
+
   async function releaseDrainLease(userId: string, ownerId: string): Promise<void> {
     const transaction = (await database()).transaction(META_STORE, 'readwrite')
     const done = transactionDone(transaction)
@@ -182,5 +190,6 @@ export function createIndexedDbTrainingOfflineStorage(options: {
     clear,
     acquireDrainLease,
     releaseDrainLease,
+    readDrainLeaseExpiry,
   })
 }

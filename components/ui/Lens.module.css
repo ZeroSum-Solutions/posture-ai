@@ -1,0 +1,83 @@
+/* The Lens. Radius is a percentage so the shape scales with --lens-size; the
+   morphs tween border-radius between squircle (36%) and circle (50%). */
+
+.lens {
+  --r-squircle: 34%;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--lens-size);
+  height: var(--lens-size);
+  border-radius: var(--r-squircle);
+  color: var(--volt-ink);
+  background:
+    radial-gradient(120% 90% at 28% 18%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 46%),
+    radial-gradient(90% 90% at 70% 90%, rgba(120, 160, 0, 0.35), rgba(120, 160, 0, 0) 60%),
+    var(--volt);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -2px 6px rgba(70, 95, 0, 0.35),
+    0 10px 28px -8px var(--volt-glow),
+    0 0 0 1px rgba(212, 255, 58, 0.35);
+}
+
+@supports (corner-shape: squircle) {
+  .lens { corner-shape: squircle; --r-squircle: 46%; }
+}
+
+.lens[data-tone='ghost'] {
+  color: var(--volt);
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--volt);
+}
+
+.reticle {
+  width: 52%;
+  height: 52%;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pupil { fill: currentColor; stroke: none; transform-origin: 12px 12px; }
+
+/* Idle breathing (the dock). */
+.lens[data-breathing='true'] { animation: lens-breathe 4.2s var(--ease-standard) infinite; }
+.lens[data-breathing='true'] .pupil { animation: lens-pupil 4.2s var(--ease-standard) infinite; }
+
+@keyframes lens-breathe {
+  0%, 100% { transform: scale(1); border-radius: var(--r-squircle); }
+  50% { transform: scale(1.035); border-radius: 40%; }
+}
+@keyframes lens-pupil {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+/* Loading: squircle ⇄ circle with a jelly overshoot while the reticle turns. */
+.lens[data-state='loading'] { animation: lens-morph 1.3s var(--ease-jelly) infinite alternate; }
+.lens[data-state='loading'] .reticle { animation: lens-turn 2.6s linear infinite; }
+.lens[data-state='loading'] .pupil { animation: lens-pupil 1.3s var(--ease-jelly) infinite alternate; }
+
+@keyframes lens-morph {
+  0% { border-radius: var(--r-squircle); transform: scale(1) rotate(0deg); }
+  100% { border-radius: 50%; transform: scale(0.9) rotate(90deg); }
+}
+@keyframes lens-turn { to { transform: rotate(-360deg); } }
+
+/* Done: one bloom, then the check draws itself. */
+.lens[data-state='done'] { animation: lens-bloom 700ms var(--ease-jelly) both; }
+.check { stroke-dasharray: 20; stroke-dashoffset: 20; animation: lens-check 360ms 180ms var(--ease-out-expo) forwards; }
+
+@keyframes lens-bloom {
+  0% { transform: scale(0.7); border-radius: 50%; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); border-radius: var(--r-squircle); }
+}
+@keyframes lens-check { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lens, .lens .reticle, .lens .pupil, .check { animation: none !important; }
+  .check { stroke-dashoffset: 0; }
+}

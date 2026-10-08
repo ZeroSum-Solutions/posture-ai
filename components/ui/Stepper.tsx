@@ -1,6 +1,4 @@
 'use client'
-import { motion, useReducedMotion } from 'framer-motion'
-import { spring, reduced } from '@/lib/motion'
 import styles from './Stepper.module.css'
 
 export type StepperStep = { id: string; label: string }
@@ -15,14 +13,16 @@ export type StepperProps = {
 }
 
 /**
- * The capture-wizard progress track: a 4px bar split per step, the current
- * segment springing to fill, plus "Step 2 of 3 · Capture" so the step name
- * is always in words, never colour alone (DESIGN.md › 3.14).
+ * v4 wizard progress (DESIGN.md › Navigation, the dock's stretch): one pill
+ * per step. The current step's pill is wider — it grows on the spring curve
+ * (flex-grow, no layout reads) as the wizard advances — and carries the volt
+ * "now" fill, which sweeps in from the left; done steps settle to ink-2;
+ * upcoming steps are empty wells. "Step 2 of 3 · Capture" is always in words,
+ * never colour alone.
  */
 export function Stepper({ steps, current, onBack, className, 'data-testid': testId }: StepperProps) {
   const currentIndex = Math.max(0, steps.findIndex((s) => s.id === current))
   const currentStep = steps[currentIndex]
-  const reduceMotion = useReducedMotion()
 
   return (
     <div className={[styles.stepper, className].filter(Boolean).join(' ')} data-testid={testId}>
@@ -44,20 +44,18 @@ export function Stepper({ steps, current, onBack, className, 'data-testid': test
               key={step.id}
               type={canTap ? 'button' : undefined}
               className={styles.segment}
+              data-state={state}
               aria-label={canTap ? `Back to ${step.label}` : undefined}
               onClick={canTap ? () => onBack?.(step.id) : undefined}
             >
-              <motion.span
-                className={styles.fill}
-                initial={false}
-                animate={{ width: state === 'upcoming' ? '0%' : '100%' }}
-                transition={reduceMotion ? reduced : spring.layout}
-              />
+              <span className={styles.well} aria-hidden="true">
+                <span className={styles.fill} />
+              </span>
             </Segment>
           )
         })}
       </div>
-      <p className="t-subhead" style={{ marginTop: 'var(--s-8)' }}>
+      <p className={styles.caption}>
         Step {currentIndex + 1} of {steps.length} · {currentStep?.label}
       </p>
     </div>

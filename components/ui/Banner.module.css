@@ -1,15 +1,40 @@
+/* Array v4 Banner — an inline note on the canvas: 2px leading accent bar,
+   small glyph, one line of ink-2. No fill, no ring. */
+
 .banner {
+  --tone: var(--ink-3);
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: var(--s-12);
-  border-radius: var(--r-md);
-  padding: var(--s-12) var(--s-16);
+  gap: var(--s-8);
+  min-height: 44px;
+  padding: var(--s-12) 0 var(--s-12) var(--s-16);
+  animation: banner-in var(--duration-layout) var(--ease-out-expo) both;
 }
+
+.banner[data-variant='warn'] { --tone: var(--monitor); }
+.banner[data-variant='error'] { --tone: var(--review); }
+.banner[data-variant='success'] { --tone: var(--maintain); }
+
+/* The accent bar. */
+.banner::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--s-12);
+  bottom: var(--s-12);
+  width: 2px;
+  border-radius: var(--r-full);
+  background: var(--tone);
+}
+
 .icon {
-  flex: 0 0 auto;
+  flex: none;
   display: flex;
-  margin-top: 1px;
+  margin-top: 2px;
+  color: var(--tone);
 }
+
 .body {
   flex: 1 1 auto;
   min-width: 0;
@@ -17,25 +42,69 @@
   flex-direction: column;
   gap: var(--s-4);
 }
-.action {
-  align-self: flex-start;
-  padding: 0;
-  min-height: 32px;
+
+.text {
+  font: var(--t-callout-v4);
+  font-weight: 400;
+  color: var(--ink-2);
+  text-wrap: pretty;
 }
+
+.banner[data-variant='error'] .text { color: var(--ink-1); }
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-16);
+  margin-bottom: calc(-1 * var(--s-12));
+}
+
+/* Quiet text actions: ink-1 label, a 44px tall hit area. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-1);
+  font: var(--t-label);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--duration-press) var(--ease-standard);
+}
+.link:active { opacity: 0.6; }
+.link > svg { transition: transform var(--duration-state) var(--ease-spring); }
+.link:active > svg { transform: translateX(2px); }
+
+.why {
+  color: var(--ink-3);
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 3px;
+}
+
 .dismiss {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  margin: -12px -12px -12px 0;
+  width: 44px;
+  height: 44px;
+  margin: calc(-1 * var(--s-12)) calc(-1 * var(--s-12)) calc(-1 * var(--s-12)) 0;
   border: 0;
-  background: none;
-  color: var(--text-2);
-  cursor: pointer;
-}
-.dismiss:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
   border-radius: var(--r-full);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-spring), color var(--duration-state) var(--ease-standard);
+}
+.dismiss:active { transform: scale(0.88); color: var(--ink-1); }
+
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner { animation: none; }
 }

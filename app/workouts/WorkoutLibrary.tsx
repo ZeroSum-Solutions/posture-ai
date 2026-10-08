@@ -2,20 +2,19 @@
 
 import type { OperationMode } from '@/lib/prototype/runtime'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import {
   ActionBar,
-  Badge,
+  Banner,
   Button,
   ChipRow,
   EmptyState,
   FilterChip,
   IconButton,
-  ListGroup,
-  ListRow,
   Select,
   Sheet,
   TextField,
@@ -45,6 +44,7 @@ type Draft = {
 }
 
 const PAGE_SIZE = 15
+const ATTENTION_PREVIEW = 3
 const BUILD_SECTION_ID = 'workouts-build'
 
 function scrollToBuildSection() {
@@ -81,6 +81,8 @@ export default function WorkoutLibrary({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [menuWorkout, setMenuWorkout] = useState<WorkoutLibraryItem | null>(null)
   const [now] = useState(() => Date.now())
+  const [whyOpen, setWhyOpen] = useState(false)
+  const [showAllAttention, setShowAllAttention] = useState(false)
 
   async function build(mode: 'scan' | 'ai', sourceSeed = activeSeed, sourcePreferences = preferences) {
     if (!sourceSeed || busy) return
@@ -230,11 +232,13 @@ export default function WorkoutLibrary({
   const readyLibrary = library.filter((workout) => workout.playable)
   const visibleReady = readyLibrary.slice(0, visibleCount)
   const hasMore = readyLibrary.length > visibleReady.length
+  const visibleAttention = showAllAttention ? attentionLibrary : attentionLibrary.slice(0, ATTENTION_PREVIEW)
 
   return (
-    <div className={`app-screen ${styles.screen}`}>
+    <div className={`app-screen ${styles.screen} ${activeSeed && draft ? 'app-screen--bar' : ''}`}>
       <TopBar
         title="Workouts"
+        subtitle={library.length > 0 ? `${library.length} saved · ${readyLibrary.length} ready to play` : undefined}
         actions={
           <IconButton
             icon="magnifer-linear"
@@ -243,34 +247,164 @@ export default function WorkoutLibrary({
           />
         }
       />
-      <div className={`app-screen-x app-stack ${styles.main}`}>
-        {loadError && <p role="alert" className={styles.error}>{loadError}</p>}
+      <div className={`app-screen-x ${styles.main}`}>
+        {loadError && <Banner variant="error">{loadError}</Banner>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {message && <p role="status" className={styles.notice}>{message}</p>}
 
-        <section id={BUILD_SECTION_ID} className={styles.stack} aria-label="Build a workout">
+        <section className={styles.saved} aria-labelledby="saved-heading">
+          <header className={styles.sectionHeadRow}>
+            <div className={styles.sectionHead}>
+              <p className="t-micro">Saved plans</p>
+              <h2 id="saved-heading" className="t-headline">Workout library</h2>
+            </div>
+          </header>
+
+          {library.length === 0 ? (
+            <EmptyState
+              variant="inline"
+              icon="dumbbell-small-linear"
+              title="No saved workouts yet"
+              body="Build a workout from an approved assessment to save it here."
+              primary={{ label: 'New workout', onPress: scrollToBuildSection }}
+            />
+          ) : null}
+
+          {readyLibrary.length > 0 ? (
+            <>
+              <ul className={styles.rows} aria-label="Saved workouts">
+                {visibleReady.map((workout, index) => {
+                  const total = workout.snapshot.items.length
+                  const completed = workout.run?.status === 'completed'
+                  const statusLabel = completed
+                    ? 'Completed'
+                    : workout.run
+                      ? `In progress · ${workout.run.completedItems} done`
+                      : 'Ready'
+                  const dateLabel = relativeDay(workout.createdAt, now)
+                  const fraction = completed ? 1 : workout.run && total > 0 ? workout.run.completedItems / total : 0
+                  return (
+                    <li key={workout.id} className={styles.row} style={{ '--i': Math.min(index, 8) } as CSSProperties}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>{workout.name}</span>
+                        <span className={styles.rowMeta}>
+                          {workout.clientName}{dateLabel ? ` · Saved ${dateLabel.toLowerCase()}` : ''}
+                        </span>
+                        <span className={styles.rowStatus} data-state={completed ? 'done' : workout.run ? 'active' : 'ready'}>
+                          {statusLabel}{total > 0 ? ` · ${total} movements` : ''}
+                        </span>
+                      </div>
+                      <div className={styles.rowActions}>
+                        {!completed ? (
+                          <Link href={`/workouts/${workout.id}`} className={styles.runButton} aria-label={workout.run ? 'Resume' : 'Start workout'}>
+                            <RunGlyph fraction={fraction} completed={false} started={workout.run != null} />
+                          </Link>
+                        ) : (
+                          <button type="button" className={styles.runButton} aria-label="Play again" aria-busy={busy || undefined} disabled={busy} onClick={() => void playAgain(workout)}>
+                            <RunGlyph fraction={1} completed started />
+                          </button>
+                        )}
+                        <IconButton
+                          icon="menu-dots-linear"
+                          label={`More actions for ${workout.name}`}
+                          onClick={() => setMenuWorkout(workout)}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+              {hasMore ? (
+                <Button variant="tertiary" chevron onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Show more</Button>
+              ) : null}
+            </>
+          ) : null}
+
+          {attentionLibrary.length > 0 ? (
+            <div className={styles.attention}>
+              <div className={styles.attentionHead}>
+                <p className={styles.attentionLine}>
+                  <span className={styles.attentionCount}>{attentionLibrary.length}</span>
+                  <span>{attentionLibrary.length === 1 ? 'This saved plan uses an older catalog.' : 'These saved plans use an older catalog.'}</span>
+                </p>
+                <Button variant="tertiary" size="sm" onClick={() => setWhyOpen(true)}>Why?</Button>
+              </div>
+              {readyLibrary.length === 0 ? (
+                <div className={styles.attentionStep}>
+                  <Button variant="secondary" size="sm" icon="refresh-linear" onClick={() => prepareCopy(attentionLibrary[0])}>
+                    {attentionLibrary.length === 1 ? 'Update this plan' : 'Update newest plan'}
+                  </Button>
+                </div>
+              ) : null}
+              <ul className={styles.rows} aria-label="Plans that need a fresh copy">
+                {visibleAttention.map((workout, index) => {
+                  const dateLabel = relativeDay(workout.createdAt, now)
+                  const runLabel = workout.run?.status === 'completed'
+                    ? 'Completed'
+                    : workout.run ? 'In progress' : 'Not started'
+                  return (
+                    <li key={workout.id} className={styles.row} data-stale="true" style={{ '--i': Math.min(index, 8) } as CSSProperties}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>{workout.name}</span>
+                        <span className={styles.rowMeta}>
+                          {workout.clientName}{dateLabel ? ` · Saved ${dateLabel.toLowerCase()}` : ''}
+                        </span>
+                        <span className={styles.rowStatus}>
+                          {runLabel} · {workout.preferences.minutes} min · {WORKOUT_GOALS[workout.preferences.goal] ?? 'Workout'}
+                        </span>
+                      </div>
+                      <div className={styles.rowActions}>
+                        <button type="button" className={`${styles.runButton} ${styles.staleGlyph}`} aria-label="Update plan" title="Update plan" onClick={() => prepareCopy(workout)}>
+                          <Icon name="refresh-linear" size={18} />
+                        </button>
+                        <IconButton
+                          icon="menu-dots-linear"
+                          label={`More actions for ${workout.name}`}
+                          onClick={() => setMenuWorkout(workout)}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+              {attentionLibrary.length > ATTENTION_PREVIEW ? (
+                <Button variant="tertiary" chevron aria-expanded={showAllAttention} onClick={() => setShowAllAttention((open) => !open)}>
+                  {showAllAttention ? 'Show fewer' : `Show all ${attentionLibrary.length}`}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        <section id={BUILD_SECTION_ID} className={styles.build} aria-label="Build a workout">
+          <header className={styles.sectionHead}>
+            <p className="t-micro">Build</p>
+            <h2 className="t-headline">Strength program</h2>
+          </header>
           <StrengthBuilderLauncher operationMode={operationMode} clients={strengthClients} initialClientId={activeSeed?.clientId} />
 
           {activeSeed && (
             <section className={styles.builder} aria-labelledby="builder-heading">
               <Surface tier="feature">
                 <div className={styles.stack}>
-                  <div>
-                    <p className="t-overline">Build for {activeSeed.clientName}</p>
-                    <h2 id="builder-heading" className="t-title-2">Personalize a workout</h2>
+                  <div className={styles.cardHead}>
+                    <p className="t-micro">Build for {activeSeed.clientName}</p>
+                    <h2 id="builder-heading" className="t-title">Personalize a workout</h2>
                   </div>
                   <Select label="Focus" value={preferences.goal} disabled={busy} onChange={(event) => setPreferences({ ...preferences, goal: event.target.value as WorkoutPreferences['goal'] })}>
                     {Object.entries(WORKOUT_GOALS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                   </Select>
-                  <Select label="Time available" value={preferences.minutes} disabled={busy} onChange={(event) => setPreferences({ ...preferences, minutes: Number(event.target.value) as WorkoutPreferences['minutes'] })}>
-                    {[10, 15, 20].map((minutes) => <option key={minutes} value={minutes}>Up to {minutes} minutes</option>)}
-                  </Select>
-                  <Select label="Movement level" value={preferences.capability} disabled={busy} onChange={(event) => setPreferences({ ...preferences, capability: event.target.value as WorkoutPreferences['capability'] })}>
-                    <option value="regression">Gentle start</option><option value="standard">Everyday movement</option><option value="progression">More challenge</option>
-                  </Select>
+                  <div className={styles.fieldPair}>
+                    <Select label="Time available" value={preferences.minutes} disabled={busy} onChange={(event) => setPreferences({ ...preferences, minutes: Number(event.target.value) as WorkoutPreferences['minutes'] })}>
+                      {[10, 15, 20].map((minutes) => <option key={minutes} value={minutes}>Up to {minutes} minutes</option>)}
+                    </Select>
+                    <Select label="Movement level" value={preferences.capability} disabled={busy} onChange={(event) => setPreferences({ ...preferences, capability: event.target.value as WorkoutPreferences['capability'] })}>
+                      <option value="regression">Gentle start</option><option value="standard">Everyday movement</option><option value="progression">More challenge</option>
+                    </Select>
+                  </div>
                   <fieldset className={styles.fieldset}>
                     <legend>Available equipment</legend>
-                    <p className="t-footnote">Floor space, a wall, and a chair are included.</p>
+                    <p className="t-label">Floor space, a wall, and a chair are included.</p>
                     <ChipRow label="Available equipment">
                       {(['band', 'roller'] as const).map((equipment) => (
                         <FilterChip
@@ -284,6 +418,7 @@ export default function WorkoutLibrary({
                   </fieldset>
                   <div className={styles.actions}>
                     <Button
+                      variant={draft ? 'secondary' : 'primary'}
                       loading={busy}
                       disabledReason={!activeSeed.approved ? 'Approve the assessment before building a workout.' : undefined}
                       onClick={() => void build('ai')}
@@ -295,121 +430,68 @@ export default function WorkoutLibrary({
                       onClick={() => void build('scan')}
                     >Build from assessment</Button>
                   </div>
-                  <p className="t-footnote">AI may only select from movements admitted by the saved assessment and current authored catalog.</p>
+                  <p className="t-label">AI may only select from movements admitted by the saved assessment and current authored catalog.</p>
                 </div>
               </Surface>
 
-              <Surface tier="tile">
+              <div className={styles.draft}>
                 {draft ? <div className={styles.stack}>
-                  <div>
-                    <p className="t-overline">{draft.source === 'ai' ? 'AI personalized' : 'Assessment based'}</p>
-                    <h2 className="t-title-2">Review before saving</h2>
-                    <p className="t-footnote">{draft.notice}</p>
+                  <div className={styles.cardHead}>
+                    <p className="t-micro">{draft.source === 'ai' ? 'AI personalized' : 'Assessment based'}</p>
+                    <h2 className="t-headline">Review before saving</h2>
+                    <p className="t-label">{draft.notice}</p>
                   </div>
                   <TextField label="Workout name" maxLength={80} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-                  <ListGroup label="Movements in this draft">
-                    {draft.snapshot.items.map((item) => (
-                      <ListRow
-                        key={item.slug}
-                        title={item.name}
-                        subtitle={`${item.stepLabel} · ${item.priorityLabel}`}
-                        trailing={
-                          <IconButton
-                            icon="minus-circle-linear"
-                            label={`Remove ${item.name}`}
-                            disabledReason={draft.snapshot.items.length <= 1 ? 'At least one movement is required.' : undefined}
-                            onClick={() => setDraft({ ...draft, snapshot: removeWorkoutItem(draft.snapshot, item.slug) })}
-                          />
-                        }
-                      />
+                  <p className={styles.draftDose}>
+                    <span className={styles.draftDoseValue}>{draft.snapshot.items.length}</span> movements
+                    <span className={styles.draftDoseValue}>{Math.max(1, Math.ceil(draft.snapshot.estimatedDurationSec / 60))}</span> min
+                  </p>
+                  <ol className={styles.draftList} aria-label="Movements in this draft">
+                    {draft.snapshot.items.map((item, index) => (
+                      <li key={item.slug} className={styles.draftRow} style={{ '--i': Math.min(index, 8) } as CSSProperties}>
+                        <span className={styles.draftIndex} aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                        <span className={styles.draftText}>
+                          <span className={styles.draftName}>{item.name}</span>
+                          <span className="t-label">{item.stepLabel} · {item.priorityLabel}</span>
+                        </span>
+                        <IconButton
+                          icon="minus-circle-linear"
+                          label={`Remove ${item.name}`}
+                          disabledReason={draft.snapshot.items.length <= 1 ? 'At least one movement is required.' : undefined}
+                          onClick={() => setDraft({ ...draft, snapshot: removeWorkoutItem(draft.snapshot, item.slug) })}
+                        />
+                      </li>
                     ))}
-                  </ListGroup>
-                  <p className="t-footnote">{draft.snapshot.items.length} movements · about {Math.max(1, Math.ceil(draft.snapshot.estimatedDurationSec / 60))} min</p>
+                  </ol>
                   <div className={styles.actions}>
                     <Button variant="tertiary" loading={busy} onClick={() => setDraft(null)}>Discard</Button>
                   </div>
-                </div> : <div className={styles.empty}><p className="t-overline">Assessment → plan → movement</p><h2 className="t-title-2">Your draft appears here.</h2><p className="t-body">Choose the focus, time, level, and equipment. Review every movement before saving.</p></div>}
-              </Surface>
+                </div> : <div className={styles.empty}>
+                  <p className="t-micro">Assessment → plan → movement</p>
+                  <h2 className="t-headline">Your draft appears here.</h2>
+                  <p className="t-callout">Choose the focus, time, level, and equipment. Review every movement before saving.</p>
+                </div>}
+              </div>
             </section>
           )}
         </section>
 
-        <section className={styles.stack} aria-labelledby="saved-heading">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="t-overline">Saved plans</p>
-              <h2 id="saved-heading" className="t-title-2">Workout library</h2>
-            </div>
-            <span className="t-footnote">{library.length} active</span>
-          </div>
-
-          {attentionLibrary.map((workout) => (
-            <Surface key={workout.id} tier="tile" innerClassName={styles.attentionCard}>
-              <div>
-                <p className="t-overline">{workout.clientName}</p>
-                <h3 className="t-headline">{workout.name}</h3>
-                <p className={styles.warning}>This saved plan uses an older catalog. Regenerate a copy to review current movements before playing.</p>
-              </div>
-              <div className={styles.actions}>
-                <Button onClick={() => prepareCopy(workout)}>Regenerate copy</Button>
-                <Button variant="secondary" loading={archiving.has(workout.id)} onClick={() => void archive(workout)}>
-                  {archiving.has(workout.id) ? 'Archiving…' : 'Archive'}
-                </Button>
-              </div>
-            </Surface>
-          ))}
-
-          {library.length === 0 ? (
-            <EmptyState
-              icon="dumbbell-small-linear"
-              title="No saved workouts yet"
-              body="Build a workout from an approved assessment to save it here."
-              primary={{ label: 'New workout', onPress: scrollToBuildSection }}
-            />
-          ) : readyLibrary.length === 0 ? null : (
-            <>
-              <ListGroup label="Saved workouts">
-                {visibleReady.map((workout) => {
-                  const statusLabel = workout.run?.status === 'completed'
-                    ? 'Completed'
-                    : workout.run
-                      ? `In progress · ${workout.run.completedItems} done`
-                      : 'Ready'
-                  const dateLabel = relativeDay(workout.createdAt, now)
-                  return (
-                    <ListRow
-                      key={workout.id}
-                      leading={<span className={styles.rowIcon}><Icon name="dumbbell-small-linear" size={20} /></span>}
-                      title={workout.name}
-                      subtitle={workout.clientName}
-                      meta={dateLabel ?? undefined}
-                      trailing={
-                        <span className={styles.rowActions}>
-                          <Badge>{statusLabel}</Badge>
-                          {workout.run?.status !== 'completed' ? (
-                            <Button variant="secondary" href={`/workouts/${workout.id}`}>
-                              {workout.run ? 'Resume' : 'Start workout'}
-                            </Button>
-                          ) : (
-                            <Button variant="secondary" loading={busy} onClick={() => void playAgain(workout)}>Play again</Button>
-                          )}
-                          <IconButton
-                            icon="menu-dots-linear"
-                            label={`More actions for ${workout.name}`}
-                            onClick={() => setMenuWorkout(workout)}
-                          />
-                        </span>
-                      }
-                    />
-                  )
-                })}
-              </ListGroup>
-              {hasMore ? (
-                <Button variant="secondary" block onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Show more</Button>
-              ) : null}
-            </>
-          )}
-        </section>
+        <nav className={styles.libraries} aria-label="Libraries">
+          <Link href="/exercises" className={styles.libraryLink}>
+            <span className={styles.libraryText}>
+              <span className="t-micro">Library</span>
+              <span className={styles.libraryTitle}>Exercises</span>
+            </span>
+            <Icon name="alt-arrow-right-linear" size={20} />
+          </Link>
+          <Link href="/muscles" className={styles.libraryLink}>
+            <span className={styles.libraryText}>
+              <span className="t-micro">Guide</span>
+              <span className={styles.libraryTitle}>Muscles</span>
+            </span>
+            <Icon name="alt-arrow-right-linear" size={20} />
+          </Link>
+        </nav>
       </div>
 
       {activeSeed && draft ? (
@@ -435,6 +517,43 @@ export default function WorkoutLibrary({
       >
         <p className="t-body">{menuWorkout?.clientName}</p>
       </Sheet>
+
+      <Sheet open={whyOpen} onOpenChange={setWhyOpen} title="Why a fresh copy?" detents={['compact']}>
+        <p className="t-body">
+          A saved plan keeps the movement catalog it was built from. When that catalog changes, regenerate a copy to review the current movements before playing. The original stays in your library until you archive it.
+        </p>
+      </Sheet>
     </div>
+  )
+}
+
+/** Run state at a glance: an empty ring (ready), a partial arc (in progress), a filled check (done). */
+function RunGlyph({ fraction, completed, started }: { fraction: number; completed: boolean; started: boolean }) {
+  const r = 17
+  const c = 2 * Math.PI * r
+  return (
+    <span className={styles.runGlyph} data-state={completed ? 'done' : started ? 'active' : 'ready'} aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="44" height="44">
+        <circle cx="20" cy="20" r={r} fill="none" className={styles.runTrack} strokeWidth="2.5" />
+        {fraction > 0 ? (
+          <circle
+            cx="20" cy="20" r={r} fill="none" className={styles.runArc} strokeWidth="2.5" strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={c * (1 - Math.max(0.04, fraction))}
+            transform="rotate(-90 20 20)"
+          />
+        ) : null}
+      </svg>
+      <span className={styles.runIcon}>
+        {completed ? <Icon name="refresh-linear" size={16} /> : <PlayMark />}
+      </span>
+    </span>
+  )
+}
+
+function PlayMark() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 4.8v14.4a1 1 0 0 0 1.52.85l11.5-7.2a1 1 0 0 0 0-1.7L8.52 3.95A1 1 0 0 0 7 4.8Z" fill="currentColor" />
+    </svg>
   )
 }

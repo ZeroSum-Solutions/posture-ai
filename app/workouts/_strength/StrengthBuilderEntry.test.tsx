@@ -150,9 +150,30 @@ describe('StrengthBuilderEntry', () => {
     render(<StrengthBuilderEntry source={{ kind: 'client', client }} />)
 
     await screen.findByText('Athlete setup required')
+    // v4: the invitation form lives in a Sheet opened from the setup line.
+    fireEvent.click(screen.getByRole('button', { name: 'Invite athlete' }))
     expect(screen.getByText(/No account or relationship was created automatically/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Prepare invitation' })).toBeTruthy()
     expect(screen.getByLabelText('Athlete email')).toBeTruthy()
+  })
+
+  it('keeps the invitation draft when the setup sheet closes and reopens', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+      code: 'athlete_setup_required',
+      clientId: client.id,
+    }, { status: 409 })))
+
+    render(<StrengthBuilderEntry source={{ kind: 'client', client }} />)
+    await screen.findByText('Athlete setup required')
+    expect(screen.queryByLabelText('Athlete email')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invite athlete' }))
+    fireEvent.change(screen.getByLabelText('Athlete email'), { target: { value: 'athlete@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByLabelText('Athlete email')).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invite athlete' }))
+    expect((screen.getByLabelText('Athlete email') as HTMLInputElement).value).toBe('athlete@example.com')
   })
 
   it('parses the full current projection returned by a revision conflict', async () => {

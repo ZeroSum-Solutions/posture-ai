@@ -1,40 +1,74 @@
-/* Auth shell. One column on a phone: the marketing panel the desktop layout
-   carried is not worth a second scroll region on the screen a practitioner uses
-   to get back into their account. */
+/* Auth shell (Array v4). One column on a phone, content on the canvas: the
+   Lens + wordmark, a micro eyebrow, the display title, then the form. No card
+   — the fields and the one volt action carry the screen. */
 
 .layout {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: var(--s-24);
   width: min(430px, 100%);
   margin: 0 auto;
-  padding: var(--s-32) var(--s-24) calc(var(--s-32) + env(safe-area-inset-bottom));
+  padding:
+    calc(var(--s-24) + env(safe-area-inset-top, 0px))
+    var(--screen-x, 20px)
+    calc(var(--s-40) + env(safe-area-inset-bottom, 0px));
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  animation: authIn 560ms var(--ease-spring) both;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-8);
+  gap: var(--s-12);
   align-self: flex-start;
-  font: var(--t-subhead);
-  color: var(--text-1);
+  min-height: 44px;
+  font: var(--t-callout);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
   text-decoration: none;
 }
-
-.head { display: block; }
-
-.title {
-  margin-top: var(--s-8);
+.brand:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 4px;
+  border-radius: var(--r-sm);
 }
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin-top: clamp(var(--s-40), 12vh, 112px);
+}
+.head p,
+.head h1 { margin: 0; }
+
+.title { text-wrap: balance; }
 
 .description {
-  margin-top: var(--s-8);
-  color: var(--text-2);
+  max-width: 34ch;
+  color: var(--ink-2);
+  text-wrap: pretty;
 }
 
-.body { display: block; }
+.body {
+  margin-top: var(--s-32);
+}
+
+@keyframes authIn {
+  /* Transform only: an opacity fade holds the form near-invisible on a cold
+     WebKit worker and reads as black-on-black to axe (e2e a11y budget). */
+  from { transform: translateY(12px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .column { animation: none; }
+}
+
+.story { display: none; }
 
 @media (min-width: 900px) {
   /* Wider viewports get the story column back, but the form column keeps the
@@ -47,39 +81,26 @@
     width: min(1080px, 100%);
     padding: var(--s-48);
   }
-
   .story {
+    display: block;
     flex: 1;
     max-width: 420px;
   }
-
   .column {
     width: 380px;
     flex-shrink: 0;
   }
 }
 
-.story { display: none; }
-
-@media (min-width: 900px) {
-  .story { display: block; }
-}
-
 .storyHeading {
-  margin-top: var(--s-16);
+  margin: 0;
   font: var(--t-display);
-  letter-spacing: -0.02em;
-  color: var(--text-1);
+  letter-spacing: -0.04em;
+  color: var(--ink-1);
 }
 
 .storyCopy {
   margin-top: var(--s-12);
-  font: var(--t-footnote);
-  color: var(--text-2);
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-20);
+  font: var(--t-callout);
+  color: var(--ink-2);
 }

@@ -1,0 +1,193 @@
+/* Clients list (Array v4) — search and filters, then hairline rows on the
+   canvas. No card per row; one volt action (New client) in the ActionBar. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-24);
+  padding-top: var(--s-8);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  min-height: 44px;
+  margin-top: calc(var(--s-8) * -1);
+}
+.listHead h2 {
+  margin: 0;
+}
+
+.why {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  margin-right: calc(var(--s-4) * -1);
+  background: none;
+  border: 0;
+  font: var(--t-label);
+  color: var(--ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.why:active {
+  opacity: 0.7;
+}
+
+.searching {
+  margin: 0 0 var(--s-4);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  transition: opacity var(--duration-state) var(--ease-standard);
+}
+.list[data-searching='true'] {
+  opacity: 0.56;
+}
+
+.item {
+  position: relative;
+  animation: rowIn 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+/* Hairline inset to the text start, past the 40px avatar + 12px gap. */
+.item + .item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 72px;
+  padding: var(--s-12) 0;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-press) var(--ease-spring), opacity var(--duration-press) linear;
+}
+.row:active {
+  transform: scale(0.985);
+  opacity: 0.8;
+}
+.row:focus-visible,
+.why:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+.identity {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+}
+.avatar {
+  flex: 0 0 auto;
+  display: grid;
+}
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.name {
+  font: var(--t-body);
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.trail {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.statusStrong {
+  color: var(--ink-1);
+}
+
+.chevron {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--s-16);
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+}
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 72px;
+}
+.skeletonText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item {
+    animation: rowFade var(--duration-reduced) linear both;
+    animation-delay: 0ms;
+  }
+  .row:active {
+    transform: none;
+  }
+}
+@keyframes rowFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

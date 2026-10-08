@@ -84,7 +84,14 @@ function errorMessage(status: number, value: unknown): string {
   return 'The invitation could not be prepared.'
 }
 
-export default function CoachAthleteInvitation({ client }: { client: Client }) {
+export type CoachAthleteInvitationStatus = SubmitState['kind']
+
+/**
+ * The invitation's state, owned by whoever calls this hook. A parent that
+ * shows the form inside a Sheet calls it so an in-flight, uncertain or
+ * prepared invitation survives the Sheet closing (its body unmounts).
+ */
+export function useCoachAthleteInvitation(client: Client) {
   const [email, setEmail] = useState('')
   const [permissions, setPermissions] = useState<CoachPermission[]>([])
   const [frozenRequest, setFrozenRequest] = useState<InvitationRequest | null>(null)
@@ -185,6 +192,25 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
     }
   }
 
+  return {
+    email, setEmail, permissions, togglePermission, frozenRequest, state, copyMessage,
+    fieldsFrozen, prepare, submit, copyInvitationLink,
+  }
+}
+
+export type CoachAthleteInvitationController = ReturnType<typeof useCoachAthleteInvitation>
+
+export default function CoachAthleteInvitation({ client, controller }: {
+  client: Client
+  /** Pass a parent-owned controller to keep state across unmounts. */
+  controller?: CoachAthleteInvitationController
+}) {
+  const own = useCoachAthleteInvitation(client)
+  const {
+    email, setEmail, permissions, togglePermission, frozenRequest, state, copyMessage,
+    fieldsFrozen, prepare, submit, copyInvitationLink,
+  } = controller ?? own
+
   if (state.kind === 'prepared') {
     return <section className={styles.pendingPanel} aria-labelledby="invitation-ready-heading">
       <p className="t-overline">Prepared privately</p>
@@ -211,7 +237,7 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
     />
     <fieldset className={styles.fieldset} disabled={fieldsFrozen}>
       <legend>Choose what this coach may do after the athlete accepts</legend>
-      <div className={styles.fieldGrid2}>
+      <div className={styles.permissionList}>
         {PERMISSION_OPTIONS.map(option => (
           <Checkbox
             key={option.value}

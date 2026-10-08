@@ -1,0 +1,111 @@
+/* Shared workout (public, Array v4): the session name, a hero count, then
+   numbered hairline rows on the canvas and one volt action (Start workout). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-32);
+  padding-top: calc(var(--s-40) + var(--sa-t, 0px));
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  animation: rise 520ms var(--ease-spring) both;
+}
+.header p,
+.header h1 { margin: 0; }
+
+.stats {
+  display: flex;
+  gap: var(--s-32);
+  margin-top: var(--s-16) !important;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.statValue {
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  position: relative;
+  animation: rise 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.item + .item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 44px;
+  right: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-16);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--s-12) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-press) var(--ease-spring), opacity var(--duration-press) linear;
+}
+.row:active { transform: scale(0.985); opacity: 0.8; }
+.row:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+.index {
+  flex: none;
+  width: 28px;
+  font: var(--t-micro);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rowTitle {
+  font: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.chevron {
+  flex: none;
+  color: var(--ink-3);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header, .item { animation: none; }
+  .row { transition: none; }
+  .row:active { transform: none; }
+}

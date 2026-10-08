@@ -5,11 +5,9 @@ import Link from 'next/link'
 import InPersonConsentForm from '@/components/InPersonConsentForm'
 import RemoteConsentButton from '@/components/RemoteConsentButton'
 import PrivacyLifecycleControls from '@/components/PrivacyLifecycleControls'
-import { AnatomyGlyph } from '@/components/SignalGlyphs'
 import Icon from '@/components/array/Icon'
-import { Surface, SurfaceLink } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps, type TabOption } from '@/components/array/Tabs'
-import { bandFromGrade, tint, tone, type SeverityBand } from '@/components/array/severity'
+import { bandFromGrade, tone, type SeverityBand } from '@/components/array/severity'
 import {
   ActionBar,
   Avatar,
@@ -21,6 +19,7 @@ import {
   ListGroup,
   ListRow,
   SeverityChip,
+  Morph,
   TopBar,
   type SeverityChipBand,
 } from '@/components/ui'
@@ -35,7 +34,7 @@ import {
 import ComparisonWorkspace, { type ComparisonDeltaRow } from './ComparisonWorkspace'
 import { formatClientDate } from './clientDate'
 import FindingsTrend from './FindingsTrend'
-import { buildFindingsTrend, type FindingSeries } from './findingsModel'
+import FindingHistory from './FindingHistory'
 import TrendChart from './TrendChart'
 import { buildHistoryRows } from './historyRows'
 import { buildClientComparison } from '@/lib/reports/clientComparison'
@@ -103,18 +102,14 @@ const TAB_ID_BASE = 'client'
 const INITIAL_HISTORY_PAGE_SIZE = 20
 const DEFERRED_WORKSPACE_MOUNT_MS = 300
 
-function findingDeltaLabel(series: FindingSeries): { compact: string; full: string } | null {
-  const verdict = series.verdict
-  if (!verdict || verdict.decision.status === 'not_comparable' || verdict.decision.delta === null) {
-    return null
-  }
-  if (verdict.decision.delta === 0) {
-    return { compact: '0 pp', full: `${verdict.text} · 0 percentage points` }
-  }
-  return verdict.magnitude ? {
-    compact: verdict.magnitude.replace(/ pts$/, ' pp'),
-    full: `${verdict.text} · ${verdict.magnitude.replace(/ pts$/, ' percentage points')}`,
-  } : null
+/** A quiet text link with a trailing chevron (DESIGN.md › Actions › Quiet). */
+function QuietLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
+  return (
+    <Link href={href} aria-label={label} className={styles.quietLink} prefetch={false}>
+      {children}
+      <Icon name="alt-arrow-right-linear" size={16} />
+    </Link>
+  )
 }
 
 /** `bandFromGrade`/`tone` etc. are typed for the wider engine `SeverityBand`
@@ -474,11 +469,6 @@ function ClientDetailRoute({
     }
   }, [assessments])
 
-  const latestAssessmentId = assessments.at(-1)?.id ?? null
-  const summaryFindings = useMemo(() => buildFindingsTrend(findingsAssessments)
-    .filter((series) => series.latest !== null && series.points.at(-1)?.assessmentId === latestAssessmentId)
-    .slice(0, 3), [findingsAssessments, latestAssessmentId])
-
   const historyRows = useMemo(() => buildHistoryRows(assessments.map((assessment) => ({
     id: assessment.id,
     assessedAt: assessment.assessed_at,
@@ -753,25 +743,29 @@ function ClientDetailRoute({
         </div>
       ) : null}
 
-      <section className={styles.identity}>
-        <span aria-hidden="true"><Avatar name={fullName} size={72} /></span>
-        <div className={styles.identityBody}>
-          <SeverityChip band={consentSummary.band} label={consentSummary.text} size="sm" />
+      {/* Shares its morph name with this client's row on the Clients list, so
+          the avatar and meta carry into place when the record opens. */}
+      <Morph name={`client-${client.id}`}>
+        <section className={`app-screen-x ${styles.identity}`} aria-label="Client summary">
+          <span aria-hidden="true"><Avatar name={fullName} size={48} /></span>
           <p className={styles.identityMeta}>
             <span className="n">{scanCountLabel}</span>
             {trackingSpanDays === null ? null : <>{' · '}<span className="n">{nextAssessmentCursor ? '≥ ' : ''}{trackingSpanDays} days</span></>}
+            {latestAssessment ? (
+              <span className={styles.identityLatest}>
+                Latest scan · <span className="n">{formatClientDate(latestAssessment.assessed_at, 'day-month-short-no-year')}</span>
+              </span>
+            ) : null}
           </p>
-        </div>
-      </section>
+        </section>
+      </Morph>
 
-      <div className="app-screen-x app-stack">
+      <div className={`app-screen-x ${styles.page}`}>
         {loadError ? (
-          <Surface tier="tile">
-            <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
-              <Icon name="close-circle-linear" size={16} />
-              {loadError}
-            </p>
-          </Surface>
+          <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+            <Icon name="close-circle-linear" size={16} />
+            {loadError}
+          </p>
         ) : null}
 
         {consentNeedsAttention ? (
@@ -785,104 +779,103 @@ function ClientDetailRoute({
         ) : null}
 
         {operationMode === 'governed' && consentStatus === 'missing' && (
-          <>
+          <div className="app-stack">
             {/* TODO(a11y): InPersonConsentForm hardcodes LegalDocumentView at
-                headingLevel={4}; when nothing has rendered an h2/h3 above this
-                point yet (e.g. load straight into an empty-history client with
-                missing consent), the page jumps h1 → h4 — an axe heading-order
-                violation flagged on this screen. Another agent is adding a
-                `headingBase` prop to LegalDocumentView on a separate branch;
-                once that lands, thread it through here instead of a fixed
-                level. Not fixed inline to avoid conflicting with that branch. */}
+                headingLevel={4}; see the LegalDocumentView headingBase work on
+                a separate branch — thread it through here once it lands. */}
             <InPersonConsentForm
               clientId={client.id}
               subjectName={fullName}
               onRecorded={handleConsentRecorded}
             />
             <RemoteConsentButton clientId={client.id} />
-          </>
+          </div>
         )}
 
         <TrendChart history={trendPoints} tableId="client-score-table" />
 
-        <div className={styles.summaryGrid}>
-          <Surface tier="tile" className={styles.summaryCard}>
-            <div className={styles.summaryHead}>
-              <div>
-                <p className={styles.summaryEyebrow}>Latest assessment</p>
-                <h2 className="t-headline">Top reliable findings</h2>
-              </div>
-              {latestAssessment ? (
-                <Link href={`/assessments/${latestAssessment.id}`} className={styles.summaryLink} prefetch={false}>
-                  Open scan
-                </Link>
-              ) : null}
-            </div>
-            {summaryFindings.length > 0 ? (
-              <ol className={styles.summaryFindings}>
-                {summaryFindings.map((series) => {
-                  const deltaLabel = findingDeltaLabel(series)
-                  return (
-                    <li key={series.key} className={styles.summaryFinding}>
-                      <span
-                        className={styles.severityDot}
-                        style={{ background: tone(series.latest!.band), boxShadow: `0 0 0 4px ${tint(series.latest!.band)}` }}
-                        aria-hidden="true"
-                      />
-                      <span className={styles.summaryFindingBody}>
-                        <span className={styles.summaryFindingLabel}>{series.label}</span>
-                        {deltaLabel ? (
-                          <span
-                            className={`${styles.summaryFindingDelta} n`}
-                            aria-label={deltaLabel.full}
-                            title={deltaLabel.full}
-                          >
-                            {deltaLabel.compact}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className={`${styles.summaryFindingValue} n`} style={{ color: tone(series.latest!.band) }}>
-                        {round1(series.latest!.severity)}%
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
-            ) : (
-              <p className={styles.emptyState}>No reliable findings are available for the latest assessment.</p>
-            )}
-            <p className={styles.summaryBoundary}>Ranked by recorded severity. Unreliable readings are excluded.</p>
-          </Surface>
-
-          {latestAssessment ? (
-            <SurfaceLink
-              href={`/assessments/${latestAssessment.id}#anatomy-viewer-title`}
-              tier="tile"
-              className={styles.anatomyPreview}
-              prefetch={false}
-              aria-label="Open anatomy view for the latest assessment"
-            >
-              <span className={styles.anatomyGlyph}><AnatomyGlyph size={54} /></span>
-              <span className={styles.anatomyBody}>
-                <span className={styles.summaryEyebrow}>Latest assessment</span>
-                <span className={styles.anatomyTitle}>Assessment-linked anatomy</span>
-                <span className={styles.anatomyCopy}>Explore the regions referenced by the recorded findings.</span>
-                <span className={styles.anatomyBoundary}>Shows referenced regions, not measured muscle condition.</span>
-              </span>
-              <Icon name="alt-arrow-right-linear" size={18} />
-            </SurfaceLink>
+        <section className={styles.section} aria-labelledby="client-findings-title">
+          <div className={styles.sectionHead}>
+            <h2 id="client-findings-title" className="t-headline">Findings over time</h2>
+            {latestAssessment ? (
+              <QuietLink
+                href={`/assessments/${latestAssessment.id}#anatomy-viewer-title`}
+                label="Open anatomy view for the latest assessment"
+              >
+                Body map
+              </QuietLink>
+            ) : null}
+          </div>
+          {findingsAssessments.length > 0 ? (
+            <FindingHistory assessments={findingsAssessments} maxFindings={5} maxScans={4} />
           ) : (
-            <Surface tier="tile" className={styles.anatomyPreview}>
-              <span className={styles.anatomyGlyph}><AnatomyGlyph size={54} /></span>
-              <span className={styles.anatomyBody}>
-                <span className={styles.summaryEyebrow}>Anatomy</span>
-                <span className={styles.anatomyTitle}>No assessment yet</span>
-                <span className={styles.anatomyCopy}>Complete a scan to open its assessment-linked anatomy view.</span>
-              </span>
-            </Surface>
+            <p className={styles.emptyState}>Complete a scan to see findings here.</p>
           )}
-        </div>
+        </section>
 
+        <div className={styles.disclosureGroup}>
+        <section className={styles.disclosureSection}>
+          <button
+            type="button"
+            className={styles.disclosureButton}
+            aria-expanded={historyExpanded}
+            aria-controls="client-scan-history"
+            onClick={() => setHistoryExpanded((expanded) => !expanded)}
+          >
+            <span>
+              <span className={styles.disclosureTitle}>Scan history</span>
+              <span className={styles.disclosureMeta}>
+                {nextAssessmentCursor ? `Latest ${assessments.length} loaded` : scanCountLabel}
+              </span>
+            </span>
+            <Icon name={historyExpanded ? 'arrow-up-linear' : 'arrow-down-linear'} size={18} />
+          </button>
+          <div id="client-scan-history" hidden={!historyExpanded} className={`${styles.disclosureContent} app-stack`}>
+            {historyLoadedForId !== id ? (
+              <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
+            ) : historyRows.length === 0 ? (
+              <EmptyState
+                variant="inline"
+                icon="calendar-linear"
+                title="No scans yet"
+                body="Capture one to establish this client's baseline."
+              />
+            ) : (
+              <>
+                <p className="t-label">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+                <ListGroup label="Scan history">
+                  {historyRows.map((row) => (
+                    <ListRow
+                      key={row.id}
+                      href={row.href}
+                      title={row.dateLabel}
+                      subtitle={row.meta}
+                      trailing={(
+                        <span className={styles.historyTrailing}>
+                          {row.delta || row.deltaWord ? (
+                            <span className={`${styles.historyDelta} n`}>
+                              {row.delta ?? row.deltaWord}
+                            </span>
+                          ) : null}
+                          <SeverityChip band={chipBandFromGrade(row.grade)} size="sm" />
+                        </span>
+                      )}
+                      chevron
+                    />
+                  ))}
+                </ListGroup>
+                {historyPageError && (
+                  <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">{historyPageError}</p>
+                )}
+                {nextAssessmentCursor && (
+                  <Button variant="secondary" block loading={loadingMoreAssessments} onClick={loadMoreAssessments}>
+                    Load older assessments
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </section>
         <section id="client-workspace" className={styles.disclosureSection}>
           <button
             type="button"
@@ -893,7 +886,7 @@ function ClientDetailRoute({
           >
             <span>
               <span className={styles.disclosureTitle}>Findings, comparison and details</span>
-              <span className={styles.disclosureMeta}>Open the full assessment workspace</span>
+              <span className={styles.disclosureMeta}>Every finding, compare two scans, client record</span>
             </span>
             <Icon name={workspaceExpanded ? 'arrow-up-linear' : 'arrow-down-linear'} size={18} />
           </button>
@@ -923,8 +916,8 @@ function ClientDetailRoute({
             </>
           )}
           detailsPanel={(
-            <Surface tier="tile">
-              <h2 className="t-headline" style={{ marginBottom: 14 }}>Client Information</h2>
+            <div className={styles.detailsPanel}>
+              <h2 className="t-headline">Client Information</h2>
               <div className={styles.factGrid}>
                 {dob && (
                   <div>
@@ -979,14 +972,12 @@ function ClientDetailRoute({
                   <p className={styles.notesBody}>{client.notes}</p>
                 </div>
               )}
-            </Surface>
+            </div>
           )}
           privacyPanel={operationMode === 'prototype' ? (
-            <Surface tier="tile">
-              <p className="t-body">Workout sharing and consent controls are off for prototype records.</p>
-            </Surface>
+            <p className="t-body">Workout sharing and consent controls are off for prototype records.</p>
           ) : (
-            <div style={{ marginTop: 12 }}>
+            <div className={styles.privacyPanel}>
               <PrivacyLifecycleControls
                 clientId={client.id}
                 hasConsent={consentStatus === 'valid'}
@@ -1004,69 +995,7 @@ function ClientDetailRoute({
           </div>
         </section>
 
-        <section className={styles.disclosureSection}>
-          <button
-            type="button"
-            className={styles.disclosureButton}
-            aria-expanded={historyExpanded}
-            aria-controls="client-scan-history"
-            onClick={() => setHistoryExpanded((expanded) => !expanded)}
-          >
-            <span>
-              <span className={styles.disclosureTitle}>Scan history</span>
-              <span className={styles.disclosureMeta}>
-                {nextAssessmentCursor ? `Latest ${assessments.length} loaded` : scanCountLabel}
-              </span>
-            </span>
-            <Icon name={historyExpanded ? 'arrow-up-linear' : 'arrow-down-linear'} size={18} />
-          </button>
-          <div id="client-scan-history" hidden={!historyExpanded} className={`${styles.disclosureContent} app-stack`}>
-            <p className="t-footnote">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
-            {historyLoadedForId !== id ? (
-              <div className={styles.loadingPanel} role="status">Loading assessment history…</div>
-            ) : historyRows.length === 0 ? (
-              <EmptyState
-                variant="inline"
-                icon="calendar-linear"
-                title="No scans yet"
-                body="Capture one to establish this client's baseline."
-              />
-            ) : (
-              <>
-                <ListGroup label="Scan history">
-                  {historyRows.map((row) => (
-                    <ListRow
-                      key={row.id}
-                      href={row.href}
-                      title={row.dateLabel}
-                      subtitle={row.meta}
-                      trailing={(
-                        <>
-                          {row.delta || row.deltaWord ? (
-                            <span className="n" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: tone(row.deltaBand) }}>
-                              {row.deltaIcon ? <Icon name={row.deltaIcon} size={13} /> : null}
-                              {row.delta ?? row.deltaWord}
-                            </span>
-                          ) : null}
-                          <SeverityChip band={chipBandFromGrade(row.grade)} size="sm" />
-                        </>
-                      )}
-                      chevron
-                    />
-                  ))}
-                </ListGroup>
-                {historyPageError && (
-                  <p className={`${styles.notice} ${styles.errorNotice}`} role="alert">{historyPageError}</p>
-                )}
-                {nextAssessmentCursor && (
-                  <Button variant="secondary" block loading={loadingMoreAssessments} onClick={loadMoreAssessments}>
-                    Load older assessments
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </section>
+        </div>
       </div>
 
       <ActionBar>

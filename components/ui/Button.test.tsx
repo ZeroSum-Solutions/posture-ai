@@ -47,4 +47,20 @@ describe('Button', () => {
     fireEvent.click(screen.getByRole('button'))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
+
+  it('does not read layout on mount (pages full of buttons stay read-free)', () => {
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    render(<Button>Start scan</Button>)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('keeps the accessible name while pending and while showing success', () => {
+    const { rerender } = render(<Button loading>Save program</Button>)
+    expect(screen.getByRole('button', { name: 'Save program' }).getAttribute('data-phase')).toBe('loading')
+    rerender(<Button loading={false} success>Save program</Button>)
+    const button = screen.getByRole('button', { name: 'Save program' })
+    expect(button.getAttribute('data-phase')).toBe('success')
+    expect(button.getAttribute('aria-busy')).toBe('true')
+  })
 })

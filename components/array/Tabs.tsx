@@ -1,9 +1,11 @@
 'use client'
-import type { CSSProperties, KeyboardEvent } from 'react'
+import type { KeyboardEvent } from 'react'
+import { useThumbTravel } from '../ui/useThumbTravel'
 import styles from './Tabs.module.css'
 
 /**
- * The system's tab strip — a glass pill holding at most four segments.
+ * The system's tab strip — a glass pill holding at most four segments; the
+ * selection plate slides and stretches like SegmentedControl's (v4).
  *
  * It owns the full ARIA tab contract rather than leaving it to each caller:
  * one tab in the tab order at a time, arrow/Home/End moving selection, and
@@ -75,12 +77,15 @@ export function TabStrip<T extends string>({
   const activeIndex = Math.max(0, options.findIndex(option => option.value === value))
   // The thumb is one element positioned from the active index with CSS, so the
   // strip never reads layout (no getBoundingClientRect) on mount or change; the
-  // spring feel comes from the --ease-spring linear() curve.
-  const stripStyle = { '--tab-count': options.length, '--tab-index': activeIndex } as CSSProperties
+  // spring feel comes from the --ease-spring linear() curve, the stretch toward
+  // the direction of travel from useThumbTravel's restartable keyframe.
+  const { style: stripStyle, thumbProps } = useThumbTravel(activeIndex, options.length)
 
   return (
     <div className={styles.strip} role="tablist" aria-label={label} style={stripStyle}>
-      <span className={styles.thumb} aria-hidden="true" />
+      <span className={styles.thumb} aria-hidden="true" {...thumbProps}>
+        <span className={styles.thumbBody} />
+      </span>
       {options.map(option => {
         const active = option.value === value
         return (

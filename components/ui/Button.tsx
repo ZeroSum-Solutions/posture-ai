@@ -2,9 +2,11 @@
 
 import {
   forwardRef,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
+  useState,
   type ComponentPropsWithoutRef,
   type ForwardedRef,
   type ReactNode,
@@ -13,7 +15,7 @@ import Link from 'next/link'
 import Icon from '../array/Icon'
 import type { IconName } from '../array/icons'
 import { haptic as fireHaptic, type HapticKind } from '@/lib/haptics'
-import { DotsBounce } from './DotsBounce'
+import Lens from './Lens'
 import styles from './Button.module.css'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger'
@@ -30,8 +32,19 @@ export interface ButtonProps extends NativeButtonProps {
   icon?: IconName
   /** Trailing icon, 20px. */
   trailingIcon?: IconName
-  /** Label cross-fades to DotsBounce; width stays locked so the pill never shrinks. */
+  /** Quiet (`tertiary`) buttons: a trailing chevron that nudges right on press. */
+  chevron?: boolean
+  /**
+   * The pill morphs into a circle holding the Lens loader. Clicks are
+   * swallowed and `aria-busy` is set; the label stays in the tree so the
+   * accessible name never changes.
+   */
   loading?: boolean
+  /**
+   * Set together with (or just before) `loading` → false: the circle shows a
+   * self-drawing check for ~0.9s, then springs back to the full pill.
+   */
+  success?: boolean
   /**
    * Renders the given reason above the button and switches it to
    * `aria-disabled` (not `disabled`) so the reason stays reachable to
@@ -47,12 +60,74 @@ export interface ButtonProps extends NativeButtonProps {
   children?: ReactNode
 }
 
+type Phase = 'idle' | 'loading' | 'success'
+
+const SUCCESS_HOLD_MS = 900
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+}
+
 /**
- * The system's one button. Variant and size are the only things that change
- * its shape — see DESIGN.md › Actions and spec §3.1. Press feedback is a CSS
- * `:active` scale plus an instant overlay (not framer): cheap, and this
- * component never needs to coordinate with a sibling, so a spring hook would
- * only cost bundle weight for the same result.
+ * Width morph (FLIP on `width` only). Runs when the phase or the label text
+ * changes — never on mount, so a page full of buttons costs no layout reads:
+ * the settled width comes from a ResizeObserver (async), the new width is
+ * read once per morph, and the CSS curve (spring out, expo in) carries it.
+ * Inline width is cleared when the morph lands so the button stays fluid.
+ */
+function useWidthMorph(
+  ref: React.RefObject<HTMLElement | null>,
+  morphKey: string,
+) {
+  const lastWidth = useRef<number | null>(null)
+  const lastKey = useRef(morphKey)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(entries => {
+      const box = entries[0]?.borderBoxSize?.[0]
+      if (box) lastWidth.current = box.inlineSize
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [ref])
+
+  useLayoutEffect(() => {
+    if (lastKey.current === morphKey) return
+    lastKey.current = morphKey
+    const el = ref.current
+    const from = lastWidth.current
+    if (!el || from == null || prefersReducedMotion()) return
+
+    el.style.transition = 'none'
+    el.style.width = ''
+    const to = el.getBoundingClientRect().width
+    el.style.transition = ''
+    if (Math.abs(from - to) < 1) return
+
+    el.style.transition = 'none'
+    el.style.width = `${from}px`
+    void el.offsetWidth // commit the start frame
+    el.style.transition = ''
+    el.style.width = `${to}px`
+
+    function settle(event: TransitionEvent) {
+      if (event.target !== el || event.propertyName !== 'width') return
+      el!.style.width = ''
+      el!.removeEventListener('transitionend', settle)
+    }
+    el.addEventListener('transitionend', settle)
+    return () => el.removeEventListener('transitionend', settle)
+  }, [ref, morphKey])
+}
+
+/**
+ * The system's one button (DESIGN.md › Actions). Primary is the volt pill;
+ * pending, it morphs into a 52px circle holding the Lens loader, then (with
+ * `success`) a check, then springs back to the pill. Label changes crossfade
+ * while the width springs to fit. Press: CSS `:active` scale .96, released on
+ * the spring curve so it lands with a small overshoot.
  */
 export const Button = forwardRef(function Button(
   {
@@ -61,11 +136,14 @@ export const Button = forwardRef(function Button(
     block = false,
     icon,
     trailingIcon,
+    chevron = false,
     loading = false,
+    success = false,
     disabledReason,
     href,
     haptic = 'tap',
     onClick,
+    onPointerDown,
     className,
     children,
     type,
@@ -75,14 +153,31 @@ export const Button = forwardRef(function Button(
 ) {
   const reasonId = useId()
   const isBlocked = Boolean(disabledReason)
-  const measuredWidth = useRef<number | null>(null)
   const elementRef = useRef<HTMLButtonElement | HTMLAnchorElement | null>(null)
 
-  useLayoutEffect(() => {
-    if (!loading && elementRef.current) {
-      measuredWidth.current = elementRef.current.offsetWidth
-    }
-  }, [loading, children])
+  // Phase follows `loading`; a finished load with `success` holds a check.
+  const [phase, setPhase] = useState<Phase>(loading ? 'loading' : 'idle')
+  const [prevLoading, setPrevLoading] = useState(loading)
+  if (loading !== prevLoading) {
+    setPrevLoading(loading)
+    setPhase(loading ? 'loading' : success ? 'success' : 'idle')
+  }
+  useEffect(() => {
+    if (phase !== 'success') return
+    fireHaptic('success')
+    const timer = window.setTimeout(() => setPhase('idle'), SUCCESS_HOLD_MS)
+    return () => window.clearTimeout(timer)
+  }, [phase])
+
+  // Label crossfade: only for text labels (a key we can compare).
+  const labelKey = typeof children === 'string' || typeof children === 'number' ? String(children) : null
+  const [label, setLabel] = useState<{ key: string | null; prev: string | null; n: number }>({ key: labelKey, prev: null, n: 0 })
+  if (labelKey !== label.key) {
+    setLabel({ key: labelKey, prev: labelKey !== null ? label.key : null, n: label.n + 1 })
+  }
+
+  const round = phase !== 'idle'
+  useWidthMorph(elementRef, round ? 'round' : `idle:${labelKey ?? ''}`)
 
   function setRefs(node: HTMLButtonElement | HTMLAnchorElement | null) {
     elementRef.current = node
@@ -90,8 +185,17 @@ export const Button = forwardRef(function Button(
     else if (ref) (ref as { current: HTMLButtonElement | HTMLAnchorElement | null }).current = node
   }
 
+  // The press bloom grows from where the finger landed (keyboard: centre).
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement & HTMLAnchorElement>) {
+    const el = event.currentTarget
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty('--px', `${event.clientX - rect.left}px`)
+    el.style.setProperty('--py', `${event.clientY - rect.top}px`)
+    onPointerDown?.(event)
+  }
+
   function handleClick(event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) {
-    if (isBlocked || loading) {
+    if (isBlocked || loading || phase !== 'idle') {
       event.preventDefault()
       return
     }
@@ -99,16 +203,34 @@ export const Button = forwardRef(function Button(
     onClick?.(event)
   }
 
+  const showChevron = chevron && !trailingIcon
   const content = (
     <>
-      {icon ? <Icon name={icon} size={20} className={styles.icon} /> : null}
-      <span className={styles.labelStack} style={loading && measuredWidth.current ? { minWidth: measuredWidth.current } : undefined}>
-        <span className={styles.label}>{children}</span>
-        <span className={styles.dots} aria-hidden={!loading}>
-          <DotsBounce size={6} />
+      <span className={styles.content}>
+        {icon ? <Icon name={icon} size={20} className={styles.icon} /> : null}
+        <span className={styles.labelStack}>
+          <span key={`in-${label.n}`} className={styles.label} data-enter={label.n > 0 ? 'true' : undefined}>
+            {children}
+          </span>
+          {label.prev != null ? (
+            <span
+              key={`out-${label.n}`}
+              className={styles.labelOut}
+              aria-hidden="true"
+              onAnimationEnd={() => setLabel(current => ({ ...current, prev: null }))}
+            >
+              {label.prev}
+            </span>
+          ) : null}
         </span>
+        {trailingIcon ? <Icon name={trailingIcon} size={20} className={styles.icon} /> : null}
+        {showChevron ? <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} /> : null}
       </span>
-      {trailingIcon ? <Icon name={trailingIcon} size={20} className={styles.icon} /> : null}
+      <span className={styles.orb} aria-hidden="true">
+        {round ? (
+          <Lens size={size === 'lg' ? 30 : 26} state={phase === 'success' ? 'done' : 'loading'} tone="ghost" className={styles.lens} />
+        ) : null}
+      </span>
     </>
   )
 
@@ -118,10 +240,12 @@ export const Button = forwardRef(function Button(
 
   const sharedProps = {
     className: classes,
+    'data-phase': phase,
     'aria-disabled': isBlocked || undefined,
     'aria-describedby': isBlocked ? reasonId : undefined,
-    'aria-busy': loading || undefined,
+    'aria-busy': loading || phase === 'success' || undefined,
     onClick: handleClick,
+    onPointerDown: handlePointerDown,
   }
 
   const button = href ? (

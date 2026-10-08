@@ -1,110 +1,77 @@
-/* Exercise library — Array v3 token rewrite (DESIGN.md › Tokens v3). Source and
-   review status remain data attached to each movement while every movement
-   uses one searchable card collection — see ExercisesLibrary.tsx's report for
-   why the card-per-exercise layout (not a Sheet-based list) stays: the test
-   suite and e2e/exercise-library.spec.ts assert instructions/source/image are
-   visible per-card, not progressively disclosed. */
+/* Exercise library — Array v4. A live-count hero numeral, then one "Find a
+   movement" section: search, equipment, a bleed chip row, and hairline rows
+   on the canvas (name, category · equipment, a compact add). Tapping a row
+   opens that movement in place — image, instructions, its add action and the
+   license/attribution. No card per exercise. */
 
 @media (min-width: 900px) {
   .screen { width: min(1180px, 100%); }
 }
 
-.header {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--s-16) 0 0;
+.collection { display: grid; gap: var(--s-40); padding-bottom: var(--s-16); min-width: 0; }
+
+.section { display: grid; gap: var(--s-16); min-width: 0; }
+.section > h2 { margin: 0; }
+
+/* ── hero ──────────────────────────────────────────────────────────── */
+.hero { display: flex; align-items: baseline; gap: var(--s-12); padding-top: var(--s-8); }
+.heroValue {
+  font: var(--t-hero);
+  letter-spacing: -0.055em;
+  line-height: 0.92;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
 }
+.heroUnit { font: var(--t-headline); color: var(--ink-3); }
 
-.headerMetric {
-  display: flex;
-  min-width: 112px;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  text-align: right;
-}
-
-.headerMetric em {
-  color: var(--text-3);
-  font: var(--t-caption);
-  font-style: normal;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.collection {
-  padding-bottom: var(--s-16);
-}
-
-.grid {
-  --exercise-card-padding: var(--s-20);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
-  gap: var(--s-20);
-}
-
-/*
- * `content-visibility: auto` previously sat here to skip layout for
- * off-screen cards, but the collection is already paginated (24/48 at a
- * time, never the full 280-353) so the perf win is marginal — and WebKit
- * (mobile-webkit e2e project) miscalculates scroll position mid-scroll past
- * several `content-visibility: auto` placeholders, so Playwright's
- * auto-scroll-then-click on "Show more exercises" lands below the real
- * button and the click is lost (reported as the count staying at 24).
- * Removed rather than tuned: not worth the cross-engine risk for a list
- * this short.
- */
-
-.sectionHeader {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--s-20);
-}
-
-.sectionHeader p,
-.sectionHeader h2 {
-  margin: 0;
-}
-
-.sectionHeader div {
-  display: grid;
-  max-width: 680px;
-  gap: var(--s-4);
-}
-
+/* ── controls ──────────────────────────────────────────────────────── */
 .controls {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr);
-  gap: var(--s-16);
-  align-items: start;
+  gap: var(--s-12);
+  align-items: end;
 }
 
-.field {
-  display: grid;
-  gap: var(--s-8);
-  color: var(--text-2);
-  font: var(--t-caption);
-}
-
-.field input,
-.field select {
-  min-height: 48px;
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface-field);
-  color: var(--text-1);
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 52px;
   padding: 0 var(--s-16);
+  border-radius: var(--r-full);
+  background: var(--surface-2, #16191d);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ink-3);
+  transition: box-shadow 160ms var(--ease-standard);
+}
+.search:focus-within { box-shadow: inset 0 0 0 1px var(--edge), 0 0 0 2px var(--volt); }
+.search input,
+.search input[type='search'] {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-1);
   font: var(--t-body);
+  font-size: 16px;
+  outline: none;
 }
+.search input::placeholder { color: var(--ink-3); }
+.search input:focus, .search input:focus-visible, .search input:hover:not(:disabled):not(:focus) { outline: none; box-shadow: none; }
 
-.field input:focus-visible,
-.field select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+.field { display: grid; gap: var(--s-8); min-width: 0; }
 
+.reviewScope { margin: 0 0 var(--s-8); font: var(--t-label); color: var(--ink-3); }
+.status { margin: 0; font: var(--t-label); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ── selection tray (ActionBar) ────────────────────────────────────── */
 .selectionTray {
   display: flex;
   align-items: center;
@@ -112,186 +79,216 @@
   gap: var(--s-16);
   width: 100%;
 }
+.trayCount { display: flex; align-items: center; gap: var(--s-12); min-width: 0; }
+.trayValue {
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+}
+.trayText { display: grid; gap: 2px; min-width: 0; }
+.trayText strong { font: var(--t-callout); font-weight: 600; color: var(--ink-1); }
+.selectionTray a { min-height: 44px; white-space: nowrap; }
 
-.selectionTray p {
-  margin: var(--s-4) 0 0;
+/* ── rows ──────────────────────────────────────────────────────────── */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--hairline);
+  min-width: 0;
 }
 
-.selectionTray a {
-  min-height: 44px;
+.row {
+  border-bottom: 1px solid var(--hairline);
+  min-width: 0;
+  animation: row-in 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+@keyframes row-in { from { opacity: 0; transform: translateY(8px); } }
+
+.rowHead { display: flex; align-items: center; gap: var(--s-8); min-width: 0; }
+
+.rowTrigger {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s-12);
+  min-width: 0;
+  min-height: 64px;
+  padding: var(--s-12) 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--ink-3);
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms var(--ease-standard);
+}
+.rowTrigger:active { background: var(--surface-2, #16191d); }
+.rowTrigger:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+
+.rowText { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.rowTitle { font: var(--t-callout); font-weight: 600; color: var(--ink-1); overflow-wrap: anywhere; }
+.rowMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-width: 0;
+  overflow: hidden;
+  font: var(--t-label);
+  color: var(--ink-3);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.cardInner {
-  display: flex;
-  min-width: 0;
-  min-height: 100%;
-  flex-direction: column;
-  gap: var(--s-12);
-  padding: var(--s-20);
+/* The few reviewed movements are the exception, so only they carry a mark. */
+.reviewedMark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-1);
 }
+.reviewedMark::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.reviewedMark::after { content: '·'; margin-left: 2px; color: var(--ink-3); }
 
+.chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--ink-3);
+  opacity: 0.7;
+  transition: transform 260ms var(--ease-spring);
+}
+.row[data-open='true'] .chevron { transform: rotate(180deg); }
+
+/* Compact add: the add-circle glyph in a 44px hit area (no extra ring, so 24
+   rows don't stack 24 outlines); once added it fills ink with a check.
+   Volt stays reserved for the tray's "Continue to workout". */
+.addButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-spring), background 220ms var(--ease-standard), color 220ms var(--ease-standard);
+}
+@media (hover: hover) {
+  .addButton:hover:not(:disabled):not([data-selected='true']) { color: var(--ink-1); }
+}
+.addButton:not(:disabled):active { transform: scale(0.9); }
+.addButton[data-selected='true'] { background: var(--ink-1); color: var(--background); }
+.addSlot { flex: none; width: 44px; }
+.addButton:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.addButton:disabled { cursor: not-allowed; opacity: var(--text-disabled-opacity, 0.4); }
+
+/* ── detail (in-place) ─────────────────────────────────────────────── */
+.detail { overflow: hidden; }
+.detailInner { display: grid; gap: var(--s-16); padding: var(--s-4) 0 var(--s-20); min-width: 0; }
+
+.figure { display: grid; gap: var(--s-8); margin: 0; min-width: 0; }
 .mediaFrame {
-  position: relative;
   overflow: hidden;
-  border-radius: var(--r-md);
-  background: var(--surface-flat);
+  border-radius: var(--r-sm);
+  background: var(--surface-2, #16191d);
 }
-
-.mediaFrame::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background: linear-gradient(180deg, transparent 58%, rgba(0, 0, 0, 0.42));
-  pointer-events: none;
-}
-
 .mediaFrame img {
   display: block;
   width: 100%;
+  height: auto;
   aspect-ratio: 16 / 10;
   object-fit: cover;
-  opacity: 0.9;
 }
 
-.cardHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-12);
-}
+.facts { display: grid; gap: var(--s-8); margin: 0; }
+.facts div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: var(--s-12); }
+.facts dt { font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
+.facts dd { margin: 0; font: var(--t-label); color: var(--ink-1); overflow-wrap: anywhere; }
 
-.cardHeader h3 {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
+.dosage { margin: 0; font: var(--t-label); color: var(--ink-1); font-variant-numeric: tabular-nums; }
 
-.referenceStatus {
-  margin: calc(-1 * var(--s-4)) 0 0;
-  color: var(--text-3);
-  font: var(--t-caption);
-  letter-spacing: 0.04em;
+.instructionBlock { display: grid; gap: var(--s-8); }
+.instructionBlock strong {
+  color: var(--ink-3);
+  font: var(--t-micro);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.instructions { margin: 0; font: var(--t-callout); color: var(--ink-2); overflow-wrap: anywhere; text-wrap: pretty; }
 
-.metadata {
-  display: grid;
-  gap: var(--s-4);
-}
-
-.metadata p {
-  margin: 0;
-}
-
-.instructionBlock {
-  display: grid;
+.detailAdd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
   gap: var(--s-8);
-  padding-top: var(--s-12);
-  border-top: 1px solid var(--hairline);
-}
-
-.instructionBlock strong {
-  color: var(--text-2);
-  font: var(--t-caption);
-  letter-spacing: 0.02em;
-}
-
-.instructionBlock p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.dosage {
-  margin: 0;
-  font: var(--t-caption);
-}
-
-.cardFooter {
-  display: grid;
-  gap: var(--s-8);
-  margin-top: auto;
-  padding-top: var(--s-12);
-  border-top: 1px solid var(--hairline);
-}
-
-.cardFooter button {
-  width: 100%;
   min-height: 44px;
+  padding: 0 var(--s-20);
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--surface-2, #16191d);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink-1);
+  font: var(--t-callout);
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-spring), background 220ms var(--ease-standard), color 220ms var(--ease-standard);
 }
+.detailAdd:not(:disabled):active { transform: scale(0.96); }
+.detailAdd[data-selected='true'] { background: var(--ink-1); color: var(--background); box-shadow: none; }
+.detailAdd:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.detailAdd:disabled { cursor: not-allowed; opacity: var(--text-disabled-opacity, 0.4); }
 
-.cardFooter button:disabled {
-  cursor: not-allowed;
-  opacity: var(--text-disabled-opacity);
-}
+.provenance { display: grid; gap: 2px; padding-top: var(--s-12); border-top: 1px solid var(--hairline); }
+.provenance p { margin: 0; }
+.referenceStatus { font: var(--t-label); color: var(--ink-3); }
 
-.source {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
+.source { margin: 0; color: var(--ink-3); overflow-wrap: anywhere; }
 
 /*
- * These attribution/license links sit inline in a running line of footnote
- * text, so they can't become 44px blocks without breaking the line — instead
- * each gets a real ≥44px *hit* area via vertical padding offset by an equal
- * negative margin (a standard inline-link tap-target technique): the line's
- * visual height is unchanged, but the link's own measured box reaches 44px.
+ * Attribution/license links sit inline in a running line of text, so each
+ * gets a ≥44px hit area via vertical padding offset by an equal negative
+ * margin: the line's visual height is unchanged.
  */
 .source a {
   display: inline-block;
   padding: 14px 2px;
   margin: -14px -2px;
-  color: var(--text-2);
+  color: var(--ink-2);
   text-decoration: underline;
   text-underline-offset: 2px;
   vertical-align: middle;
 }
 
-.showMore {
-  justify-self: start;
+/* ── list foot ─────────────────────────────────────────────────────── */
+.listFoot { display: grid; justify-items: start; gap: var(--s-12); padding-top: var(--s-8); }
+.showMore { justify-self: start; }
+
+/* Wide screens: two columns of rows (row-major, so the alphabet reads across). */
+@media (min-width: 1024px) {
+  .rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--s-40);
+    align-items: start;
+    border-top: 0;
+  }
+  .rows > .row:nth-child(-n + 2) { border-top: 1px solid var(--hairline); }
 }
 
 @media (max-width: 640px) {
-  .header {
-    justify-content: flex-start;
-  }
-
-  .headerMetric {
-    min-width: 88px;
-  }
-
-  .sectionHeader {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .controls {
-    grid-template-columns: 1fr;
-  }
-
-  .grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--s-16);
-  }
-
-  .cardInner {
-    gap: var(--s-12);
-  }
-
-  .selectionTray {
-    align-items: stretch;
-    flex-direction: column;
-  }
+  .controls { grid-template-columns: 1fr; }
+  .selectionTray { gap: var(--s-12); }
+  .trayHint { display: none; }
 }
 
-@media (max-width: 380px) {
-  .headerMetric {
-    width: 100%;
-    align-items: flex-start;
-    text-align: left;
-  }
-
-  .cardHeader {
-    flex-direction: column;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .row { animation: none; }
+  .addButton, .detailAdd, .search, .chevron, .rowTrigger { transition: none; }
 }

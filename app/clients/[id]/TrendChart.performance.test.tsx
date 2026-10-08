@@ -22,14 +22,18 @@ afterEach(() => {
 })
 
 describe('TrendChart recorded-score disclosure', () => {
-  it('renders a true compact sparkline while keeping the current score in readable text', () => {
-    const { container } = render(<TrendChart history={history(2)} tableId="client-score-table" />)
+  it('keeps the current score in readable text and draws the dated trend plot once hydrated', () => {
+    render(<TrendChart history={history(2)} tableId="client-score-table" />)
 
     expect(screen.getByLabelText('Latest deviation score 59 out of 100')).toBeTruthy()
-    const drawing = container.querySelector('svg[viewBox="0 0 330 60"]')
-    expect(drawing?.getAttribute('viewBox')).toBe('0 0 330 60')
-    expect(drawing?.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet')
-    expect(drawing?.querySelectorAll('text')).toHaveLength(0)
+    expect(screen.getByRole('img', { name: /^Deviation score over time:/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Previous scan' })).toBeTruthy()
+  })
+
+  it('renders no locale-dated plot on the server', () => {
+    const markup = renderToString(<TrendChart history={history(2)} tableId="client-score-table" />)
+    expect(markup).not.toContain('Deviation score over time')
+    expect(markup).toContain('Latest deviation score 59 out of 100')
   })
 
   it('keeps its server-rendered control inert until the pointer guard is installed', () => {

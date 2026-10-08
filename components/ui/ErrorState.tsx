@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import Icon from '@/components/array/Icon'
-import { ring, tint, tone } from '@/components/array/severity'
 import { Disclosure } from './Disclosure'
 import styles from './ErrorState.module.css'
 
@@ -25,10 +24,11 @@ export type ErrorStateProps = {
 }
 
 /**
- * Same layout as EmptyState: `alert-circle` in `--review` tint, one sentence
- * of what happened (never a raw code), Retry primary + an optional tertiary,
- * and a collapsed Details disclosure (DESIGN.md › 3.11). `blocking` is the
- * legal-gate-failure shape: it owns the whole viewport and announces itself.
+ * Same rhythm as EmptyState, on the canvas: a coral line glyph inside a
+ * hairline ring, a headline, one sentence of what happened (never a raw
+ * code), Retry as the one primary action plus an optional quiet one, and a
+ * collapsed Details disclosure. `blocking` is the legal-gate-failure shape:
+ * it owns the whole viewport and announces itself (role="alert").
  */
 export function ErrorState({ title, body, onRetry, retrying = false, retryLabel = 'Retry', secondary, details, variant = 'page', headingLevel = 'h2', className, 'data-testid': testId }: ErrorStateProps) {
   const Heading = headingLevel
@@ -40,23 +40,24 @@ export function ErrorState({ title, body, onRetry, retrying = false, retryLabel 
         .join(' ')}
       data-testid={testId}
     >
-      <span className={styles.icon} style={{ background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, color: tone('review') }}>
-        <Icon name="danger-circle-linear" size={variant === 'inline' ? 22 : 26} />
+      <span className={styles.icon} aria-hidden="true">
+        <Icon name="danger-circle-linear" size={variant === 'inline' ? 24 : 28} />
       </span>
-      <Heading className={variant === 'inline' ? 't-title-2' : 't-title-1'}>{title}</Heading>
-      <p className="t-body" style={{ color: 'var(--text-2)' }}>{body}</p>
+      <Heading className={styles.title}>{title}</Heading>
+      <p className={styles.body}>{body}</p>
       {onRetry || secondary ? (
         <div className={styles.actions}>
           {onRetry ? (
-            <button type="button" onClick={onRetry} aria-busy={retrying} className="a-primary">
+            <button type="button" onClick={onRetry} aria-busy={retrying} className={`a-primary ${styles.retry}`} data-retrying={retrying || undefined}>
+              <Icon name="refresh-linear" size={18} className={styles.retryIcon} />
               {retrying ? 'Retrying…' : retryLabel}
             </button>
           ) : null}
           {secondary ? (
             secondary.href ? (
-              <Link href={secondary.href} className="a-quiet" style={{ justifyContent: 'center' }}>{secondary.label}</Link>
+              <Link href={secondary.href} className={`a-quiet ${styles.quiet}`}>{secondary.label}</Link>
             ) : (
-              <button type="button" onClick={secondary.onPress} className="a-quiet" style={{ justifyContent: 'center' }}>{secondary.label}</button>
+              <button type="button" onClick={secondary.onPress} className={`a-quiet ${styles.quiet}`}>{secondary.label}</button>
             )
           ) : null}
         </div>

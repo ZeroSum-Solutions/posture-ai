@@ -1,0 +1,96 @@
+/* Muscle guide (Array v4): rows on the canvas, region heads 40px apart. */
+.screen { padding-bottom: calc(var(--chrome-bottom) + var(--s-16)); }
+.body { display: flex; flex-direction: column; gap: var(--s-40); padding-top: var(--s-16); min-width: 0; }
+
+.controls { display: grid; gap: var(--s-12); min-width: 0; }
+
+.region { display: grid; gap: var(--s-8); min-width: 0; }
+.regionHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-12); }
+.regionHead h2 { margin: 0; }
+.regionCount { font: var(--t-micro); letter-spacing: 0.08em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }
+.rows li {
+  border-bottom: 1px solid var(--hairline);
+  animation: row-in 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+@keyframes row-in { from { opacity: 0; transform: translateY(8px); } }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 64px;
+  padding: var(--s-12) 0;
+  color: var(--ink-3);
+  text-decoration: none;
+  border-radius: var(--r-xs);
+  transition: background 160ms var(--ease-standard);
+}
+.row:active { background: var(--surface-2, #16191d); }
+.row:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.rowText { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.rowTitle { font: var(--t-callout); font-weight: 600; color: var(--ink-1); overflow-wrap: anywhere; }
+.rowMeta {
+  font: var(--t-label);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pending { display: inline-flex; align-items: center; gap: 6px; font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.pending::before { content: ''; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+.pending[data-state='reviewed'] { color: var(--ink-1); }
+.pending[data-state='reviewed']::before { background: currentColor; box-shadow: none; }
+
+/* The guide-wide review status, said once under the filters. */
+.statusNote { display: inline-flex; align-items: center; gap: 6px; margin: 0; font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.statusNote::before { content: ''; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+
+/* ── detail ───────────────────────────────────────────────────────── */
+.lede {
+  margin: 0;
+  font: var(--t-headline);
+  font-size: 1.3125rem;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--ink-1);
+  text-wrap: pretty;
+}
+.section { display: grid; gap: var(--s-12); min-width: 0; }
+.section > h2 { margin: 0; }
+.section > p { margin: 0; }
+.eyebrow { margin: 0; font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+
+.links { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }
+.link { display: grid; gap: var(--s-4); padding: var(--s-16) 0; border-bottom: 1px solid var(--hairline); }
+.link p { margin: 0; }
+.linkHead { display: flex; align-items: center; gap: var(--s-8); font: var(--t-callout); font-weight: 600; color: var(--ink-1); }
+.roleMark { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.roleMark[data-role='tight'] { background: var(--ink-1); }
+.roleMark[data-role='weak'] { box-shadow: inset 0 0 0 1.5px var(--ink-1); }
+
+.exRow { display: grid; gap: var(--s-8); padding: var(--s-16) 0; border-bottom: 1px solid var(--hairline); }
+.exHead { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-8); flex-wrap: wrap; }
+.exName { font: var(--t-callout); font-weight: 600; color: var(--ink-1); }
+.exMeta { display: inline-flex; align-items: center; gap: var(--s-12); }
+.exDose { font: var(--t-label); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.exRow p { margin: 0; }
+
+/* Progression level as three steps, filled up to the level, beside the word. */
+.level { display: inline-flex; align-items: center; gap: var(--s-8); font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.steps { display: inline-flex; align-items: flex-end; gap: 2px; }
+.steps span { width: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); }
+.steps span:nth-child(1) { height: 6px; }
+.steps span:nth-child(2) { height: 9px; }
+.steps span:nth-child(3) { height: 12px; }
+.steps span[data-on='true'] { background: var(--ink-1); }
+
+.footer { padding-top: var(--s-8); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rows li { animation: none; }
+  .row { transition: none; }
+}

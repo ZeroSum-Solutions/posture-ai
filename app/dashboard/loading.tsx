@@ -1,26 +1,23 @@
-import { CardSkeleton, ListRowSkeleton, Skeleton } from '@/components/ui'
+import { ListRowSkeleton, Skeleton } from '@/components/ui'
 
 /**
- * Today's loading state mirrors the final layout (DESIGN.md › Loaders): a
- * large-title skeleton, the hero card, two row groups and the stats strip —
- * not a lone spinner. Route-level `loading.tsx` renders before the server
- * component's data resolves, so this carries no real data of its own.
+ * Today's loading state mirrors the final layout (DESIGN.md › Loaders): the
+ * large title, the hero (count, three queue rows, the action), then a row
+ * section and the week strip — not a lone spinner. Route-level `loading.tsx`
+ * renders before the server component's data resolves.
  */
 export default function Loading() {
   return (
     <div className="app-screen" role="status" aria-busy="true" aria-label="Loading today">
       <div className="app-screen-x" style={{ paddingTop: 'var(--s-20)' }}>
-        <Skeleton shape="line" style={{ width: '40%', height: 34, marginBottom: 'var(--s-8)' }} />
-        <Skeleton shape="line" style={{ width: '55%', height: 16, marginBottom: 'var(--s-32)' }} />
+        <Skeleton shape="line" style={{ width: '40%', height: 40, marginBottom: 'var(--s-8)' }} />
+        <Skeleton shape="line" style={{ width: '30%', height: 16, marginBottom: 'var(--s-24)' }} />
       </div>
-      <div className="app-screen-x app-stack">
-        <CardSkeleton />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div className="app-screen-x" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-40)' }}>
+        <Skeleton shape="row" style={{ height: 380, borderRadius: 'var(--r-lg)' }} />
+        <div>
+          <Skeleton shape="line" style={{ width: '35%', height: 20, marginBottom: 'var(--s-12)' }} />
           <ListRowSkeleton />
-          <ListRowSkeleton />
-          <ListRowSkeleton />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           <ListRowSkeleton />
           <ListRowSkeleton />
         </div>

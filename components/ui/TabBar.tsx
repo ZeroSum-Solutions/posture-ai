@@ -1,31 +1,28 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Icon from '@/components/array/Icon'
 import type { IconName } from '@/components/array/icons'
 import { haptic } from '@/lib/haptics'
+import Lens from './Lens'
+import { Morph } from './Morph'
 import { activeSlotHref, isTabBarHidden, tabBarSlots, type TabBarAudience } from './tabBarPolicy'
 import styles from './TabBar.module.css'
 
-const TAB_ICON_SIZE = 24
-/** visualViewport shrink beyond this is "the keyboard is open" (spec §3.7, §7.22). */
+/** visualViewport shrink beyond this is "the keyboard is open". */
 const KEYBOARD_SHRINK_PX = 120
-/** A small overshoot on the icon pop: not one of lib/motion.ts's named
- * presets, requested specifically for this micro-interaction. */
-const iconPopTransition = { type: 'spring', stiffness: 420, damping: 26 } as const
+/** Scroll distance before the dock tightens, and how far back up relaxes it. */
+const TIGHTEN_AFTER_PX = 120
 
 function useKeyboardOpen(): boolean {
   const [open, setOpen] = useState(false)
   const maxHeightRef = useRef(0)
-
   useEffect(() => {
     const viewport = window.visualViewport
     if (!viewport) return
     maxHeightRef.current = viewport.height
-
     const onResize = () => {
       maxHeightRef.current = Math.max(maxHeightRef.current, viewport.height)
       setOpen(maxHeightRef.current - viewport.height > KEYBOARD_SHRINK_PX)
@@ -33,17 +30,40 @@ function useKeyboardOpen(): boolean {
     viewport.addEventListener('resize', onResize)
     return () => viewport.removeEventListener('resize', onResize)
   }, [])
-
   return open
 }
 
+/** True while the reader is scrolling down a long page (dock tightens). */
+function useScrollTight(): boolean {
+  const [tight, setTight] = useState(false)
+  useEffect(() => {
+    let last = window.scrollY
+    let frame = 0
+    const onScroll = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const y = window.scrollY
+        const delta = y - last
+        if (Math.abs(delta) > 6) {
+          setTight(delta > 0 && y > TIGHTEN_AFTER_PX)
+          last = y
+        }
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
+  }, [])
+  return tight
+}
+
 /**
- * The tab bar: the app's only navigation. Five slots, the middle one an
- * action. Hidden on immersive routes via the shell's
- * `:has([data-immersive-surface])` rule (this component carries the
- * `app-island` class so that rule keeps applying), on the hidden routes
- * tabBarPolicy knows about, and while the virtual keyboard is open. It never
- * hides on scroll.
+ * The dock: a floating liquid-glass capsule and the app's only navigation.
+ * The active destination grows into a labelled pill (flex-grow spring, no
+ * layout reads); the others are icon-only with accessible names. The Lens —
+ * the capture action — sits in the centre and morphs into the capture
+ * viewfinder through a shared view transition. Hidden on immersive routes
+ * (`app-island` keeps the shell's `:has([data-immersive-surface])` rule
+ * applying), on tabBarPolicy's hidden routes and while the keyboard is open.
  */
 export default function TabBar({
   clinicalContentEnabled,
@@ -54,6 +74,7 @@ export default function TabBar({
 }) {
   const pathname = usePathname() ?? ''
   const keyboardOpen = useKeyboardOpen()
+  const tight = useScrollTight()
 
   if (isTabBarHidden(pathname)) return null
   const slots = tabBarSlots(clinicalContentEnabled, audience)
@@ -64,27 +85,25 @@ export default function TabBar({
     <div
       className={`${styles.bar} app-island`}
       data-keyboard-open={keyboardOpen ? 'true' : undefined}
+      data-tight={tight ? 'true' : undefined}
     >
-      <nav className={styles.nav} aria-label="Primary">
+      <nav className={styles.dock} aria-label="Primary">
         {slots.map((slot) => {
           if (slot.kind === 'action') {
             return (
-              <div key={slot.href} className={styles.actionWrap}>
-                <Link
-                    href={slot.href}
-                    aria-label={slot.label}
-                    className={styles.action}
-                    onClick={() => haptic('tap')}
-                  >
-                    <span className={styles.actionCircle}>
-                      <Icon name={slot.icon as IconName} size={TAB_ICON_SIZE} />
-                    </span>
-                    <span className={styles.actionLabel}>{slot.label}</span>
-                </Link>
-              </div>
+              <Link
+                key={slot.href}
+                href={slot.href}
+                aria-label={slot.label}
+                className={styles.lensLink}
+                onClick={() => haptic('tap')}
+              >
+                <Morph name="lens" kind="lens-morph">
+                  <Lens size={52} breathing />
+                </Morph>
+              </Link>
             )
           }
-
           const isActive = slot.href === active
           return (
             <Link
@@ -93,27 +112,12 @@ export default function TabBar({
               aria-current={isActive ? 'page' : undefined}
               aria-label={slot.label}
               className={styles.slot}
+              data-active={isActive ? 'true' : undefined}
+              onClick={() => { if (!isActive) haptic('tap') }}
             >
-              <span className={styles.slotInner}>
-                {/* CSS-only "jelly" entrance (no layout reads on navigation). */}
-                {isActive && <span className={styles.indicator} aria-hidden="true" />}
-                <motion.span
-                  key={isActive ? `${slot.href}-active` : `${slot.href}-inactive`}
-                  className={styles.iconWrap}
-                  initial={isActive ? { scale: 0.8 } : false}
-                  animate={{ scale: 1 }}
-                  transition={iconPopTransition}
-                >
-                  <Icon
-                    name={slot.icon as IconName}
-                    size={TAB_ICON_SIZE}
-                    className={isActive ? styles.iconActive : styles.iconInactive}
-                  />
-                </motion.span>
-                <span className={[styles.label, isActive ? styles.labelActive : ''].filter(Boolean).join(' ')}>
-                  {slot.label}
-                </span>
-              </span>
+              <span className={styles.plate} aria-hidden="true" />
+              <Icon name={slot.icon as IconName} size={22} className={styles.icon} />
+              <span className={styles.label} aria-hidden="true">{slot.label}</span>
             </Link>
           )
         })}

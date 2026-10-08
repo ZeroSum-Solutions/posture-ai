@@ -36,10 +36,11 @@ import type { IconName } from './icons'
 export type SeverityBand = 'maintain' | 'monitor' | 'review' | 'info' | 'neutral'
 
 export const BAND_TONE: Record<SeverityBand, string> = {
-  maintain: '#34D399',
-  monitor: '#FBBF24',
-  review: '#FF7A7A',
-  info: '#4DB2FF',
+  // v4 (DESIGN.md › Colour): teal / amber / coral, tuned for black.
+  maintain: '#5EEAD4',
+  monitor: '#FFC34D',
+  review: '#FF6B5E',
+  info: '#9FB4FF',
   neutral: 'rgba(255,255,255,0.55)',
 }
 

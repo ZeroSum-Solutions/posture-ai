@@ -1,3 +1,8 @@
+/* Array v4 spinner — for inline busy marks only (DESIGN.md › Loaders: never a
+   lone spinner on an empty page; long jobs use the Lens loader). The arc
+   turns linearly while its length breathes on the jelly curve, so it
+   stretches and snaps instead of easing like a stock spinner. */
+
 .spinner {
   display: inline-block;
   flex: none;
@@ -12,20 +17,18 @@
 .arc {
   fill: none;
   stroke-linecap: round;
-  animation: spinner-breathe 1.8s var(--ease-spring) infinite;
+  animation: spinner-breathe 1.6s var(--ease-jelly) infinite alternate;
 }
 
-/* 25 → 70 → 25 (% of the normalized 100-unit pathLength), per DESIGN.md ›
-   Loaders: the spring overshoot makes the arc stretch and snap rather than
-   ease like a generic spinner. */
+/* 22 → 68 (% of the normalized 100-unit pathLength). */
 @keyframes spinner-breathe {
-  0%, 100% { stroke-dasharray: 25 75; }
-  50% { stroke-dasharray: 70 30; }
+  from { stroke-dasharray: 22 78; }
+  to { stroke-dasharray: 68 32; }
 }
 
-.accent { stroke: var(--accent); }
-.onAction { stroke: var(--text-on-action); }
-.muted { stroke: var(--text-3); }
+.accent { stroke: var(--volt); }
+.onAction { stroke: var(--volt-ink); }
+.muted { stroke: var(--ink-3); }
 
 @media (prefers-reduced-motion: reduce) {
   .spinner {
@@ -34,7 +37,7 @@
   }
   .arc {
     animation: spinner-pulse 1.6s ease-in-out infinite !important;
-    stroke-dasharray: 70 30 !important;
+    stroke-dasharray: 68 32 !important;
   }
 }
 

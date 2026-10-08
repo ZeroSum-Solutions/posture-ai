@@ -30,9 +30,13 @@ function useKeyboardInset(): number {
 }
 
 /**
- * Pinned primary-action container above the tab bar (spec §3.15). Holds up to
- * two Buttons plus an optional reason line for a blocked action, associated
- * with the actions via `aria-describedby` so assistive tech announces why.
+ * The primary action's home in the thumb zone (DESIGN.md › Actions). No box:
+ * a floating row above the dock on a soft canvas fade, so the content scrolls
+ * away beneath it instead of being cut by a ruled bar. Each child takes an
+ * equal share of the row (one primary = full width). It rises in on mount
+ * (transform + opacity). An optional reason line for a blocked action is tied
+ * to the actions via `aria-describedby` so assistive tech announces why.
+ * When the keyboard opens, the row re-docks just above it.
  *
  * Carries the `app-actionbar` marker class so the shell's chrome-bottom
  * contract (`app/globals.css`) can add `--actionbar-h` to `--chrome-bottom`
@@ -61,8 +65,9 @@ export default function ActionBar({
       data-standalone={standalone ? 'true' : undefined}
       style={style}
     >
+      <span className={styles.fade} aria-hidden="true" />
       {reason && (
-        <p id={reasonId} className={`${styles.reason} t-footnote`}>
+        <p id={reasonId} className={styles.reason}>
           {reason}
         </p>
       )}

@@ -33,14 +33,14 @@ test('capture photos remain private, preserve their view and support retry and e
   expect(report.ok(), await report.text()).toBeTruthy()
   expect((await report.json()).captures.find((capture: { view: string }) => capture.view === 'front').signed_url).toBe(imageUrl)
   await page.goto(`/assessments/${assessmentId}`)
-  await page.getByRole('tab', { name: 'Findings', exact: true }).click()
-  // The capture set lives in a "Photos (n of 4)" disclosure; every saved
-  // photo carries the enlarge control once it's open (array-v3-spec.md §5:
-  // findings no longer gate behind a per-view photo toggle).
-  await page.getByText(/^Photos \(\d+ of 4\)$/).click()
+  // The capture set lives in the "Capture & accuracy" sheet, opened from the
+  // capture-quality badge in the Results header; every saved photo carries
+  // the enlarge control there.
+  const enlarge = page.getByRole('button', { name: 'Enlarge front capture' })
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.getByRole('button', { name: 'Enlarge front capture' }).click()
+    if (!(await enlarge.isVisible())) await page.getByTestId('level-badge').click()
+    await enlarge.click()
     const dialog = page.getByRole('dialog', { name: 'front capture photo' })
     await expect(dialog).toBeVisible()
     expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(width)

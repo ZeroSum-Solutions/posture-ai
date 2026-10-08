@@ -1,8 +1,10 @@
 'use client'
 
-import type { CSSProperties, KeyboardEvent } from 'react'
+import type { KeyboardEvent } from 'react'
 import Icon from '../array/Icon'
 import type { IconName } from '../array/icons'
+import { haptic } from '@/lib/haptics'
+import { useThumbTravel } from './useThumbTravel'
 import styles from './SegmentedControl.module.css'
 
 export interface SegmentedOption<T extends string> {
@@ -25,9 +27,9 @@ export interface SegmentedControlProps<T extends string> {
 /**
  * Inline filter / mode toggle (2–4 options) — Front/Back, kg/lb, Exercises/
  * Muscles. A single `radiogroup` (not tabs: nothing here is a separate
- * content pane). The selected thumb is always the same idiom — white fill,
- * `--text-on-action` label — never an accent-tint variant. See DESIGN.md ›
- * spec §3.3.
+ * content pane). v4: a glass track with a surface-3 plate that slides to the
+ * selection and stretches toward the direction of travel (jelly), positioned
+ * purely by CSS from --seg-index/--seg-count.
  */
 export function SegmentedControl<T extends string>({
   options,
@@ -41,7 +43,12 @@ export function SegmentedControl<T extends string>({
   const groupId = idBase ?? label.replace(/\s+/g, '-').toLowerCase()
   const activeIndex = Math.max(0, options.findIndex(option => option.value === value))
   // One CSS-positioned thumb: no layout reads on mount or change.
-  const trackStyle = { '--seg-count': options.length, '--seg-index': activeIndex } as CSSProperties
+  const { style: trackStyle, thumbProps } = useThumbTravel(activeIndex, options.length)
+
+  function select(next: T) {
+    if (next !== value) haptic('tap')
+    onChange(next)
+  }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number | null = null
@@ -53,7 +60,7 @@ export function SegmentedControl<T extends string>({
 
     event.preventDefault()
     const target = options[next]
-    onChange(target.value)
+    select(target.value)
     document.getElementById(`${groupId}-${target.value}`)?.focus()
   }
 
@@ -64,7 +71,9 @@ export function SegmentedControl<T extends string>({
       aria-label={label}
       style={trackStyle}
     >
-      <span className={styles.thumb} aria-hidden="true" />
+      <span className={styles.thumb} aria-hidden="true" {...thumbProps}>
+        <span className={styles.thumbBody} />
+      </span>
       {options.map((option, index) => {
         const active = option.value === value
         return (
@@ -75,9 +84,9 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={active}
             tabIndex={active ? 0 : -1}
-            onClick={() => onChange(option.value)}
+            onClick={() => select(option.value)}
             onKeyDown={event => handleKeyDown(event, index)}
-            className={styles.segment}
+            className={[styles.segment, active ? styles.segmentActive : ''].filter(Boolean).join(' ')}
           >
             <span className={[styles.label, active ? styles.labelActive : ''].filter(Boolean).join(' ')}>
               {option.icon ? <Icon name={option.icon} size={16} /> : null}

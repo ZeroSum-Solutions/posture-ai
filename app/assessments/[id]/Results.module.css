@@ -1,16 +1,8 @@
-/* Assessment results — merged, token-based stylesheet (Array v3). Replaces
-   AssessmentReview.module.css (785 lines) and AssessmentReviewStudio.module.css
-   (1,014 lines), which duplicated the same dock/grade/disclosure vocabulary
-   under two naming conventions with ~46% dead rules in the Studio file. This
-   file backs both the primary results page (ClinicalAssessmentResults.tsx,
-   GradeRail.tsx, ReviewEvidence.tsx, ReviewDock.tsx) and the restricted-access
-   fallback page (AssessmentOnlyResults.tsx, ReviewTabs.tsx). Findings, the
-   capture set and the program's per-item actions now read from
-   components/ui (ListRow, SeverityChip, Sheet, Disclosure, ActionBar) instead
-   of hand-rolled CSS, which is why the old finding/bar/capture-grid/action-bar
-   rules below have no replacement here — they were deleted along with the
-   markup that used them. Tokens only: no raw font-size/weight/radius/colour
-   literals (DESIGN.md › Tokens).  */
+/* Assessment results — Array v4 "Kinetic Instrument". The scan header (a
+   hero numeral on a 0–100 scale), the posture map, then Findings | Program
+   as content on the canvas: hairline rows, no grey cards. Also backs the
+   report dock (ReviewDock, inside its sheet) and the restricted-access
+   fallback page (AssessmentOnlyResults, ReviewTabs). Tokens only. */
 
 /* ── Route states (loading / error) ──────────────────────────────────────── */
 
@@ -21,41 +13,41 @@
   padding: var(--s-24);
   text-align: center;
 }
-
-.spinner {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto var(--s-16);
-  border-radius: var(--r-full);
-  border: 4px solid var(--surface-flat);
-  border-top-color: var(--action);
-  animation: resultsSpin 1s linear infinite;
-}
-
-@keyframes resultsSpin {
-  to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner { animation: none; }
-}
-
 .errorLink {
-  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink-1);
   text-decoration: none;
+  font: var(--t-callout);
 }
-.errorLink:hover { color: var(--text-1); }
+.errorLink:hover { color: var(--ink-2); }
 
-/* ── Page header (both pages) ────────────────────────────────────────────── */
+.loadingHero { display: flex; flex-direction: column; gap: var(--s-16); padding-top: calc(var(--s-56) + var(--s-24)); }
+.loadingMap {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--s-12);
+  height: clamp(340px, 44dvh, 460px);
+  margin-top: var(--s-32);
+}
+
+/* ── Screen + aura ───────────────────────────────────────────────────────── */
+
+.screen { position: relative; isolation: isolate; }
+/* The report icon keeps its 44px circle; the primary takes the rest of the row. */
+
+/* ── Top row: back + capture quality ─────────────────────────────────────── */
 
 .topBar {
   position: relative;
-  z-index: 30;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-8);
-  padding: var(--s-8) var(--s-16) 0;
+  padding-top: var(--s-8);
 }
 
 .back {
@@ -64,189 +56,267 @@
   gap: var(--s-4);
   min-width: 0;
   min-height: 44px;
-  padding: 0 var(--s-8) 0 var(--s-4);
+  margin-left: calc(-1 * var(--s-8));
+  padding: 0 var(--s-12) 0 var(--s-4);
   border-radius: var(--r-full);
-  font: var(--t-footnote);
-  color: var(--text-2);
+  font: var(--t-callout);
+  color: var(--ink-1);
   text-decoration: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.back:hover { color: var(--text-1); }
+.backName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.back:active { opacity: 0.6; }
+.back:focus-visible, .captureBadge:focus-visible, .quietLink:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-.verifiedChip {
+/* Capture quality: a quiet glass pill that opens the capture sheet. The flag
+   colour is the only signal; the words carry it. */
+.captureBadge {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-4);
+  gap: 6px;
   flex-shrink: 0;
-  height: 26px;
-  padding: 0 var(--s-12);
+  min-height: 44px;
+  padding: 0 var(--s-16);
+  border: 0;
   border-radius: var(--r-full);
-  font: var(--t-caption);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ink-2);
+  font: var(--t-label);
+  cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-standard);
 }
+.captureBadge:active { transform: scale(0.96); }
+.captureBadge[data-verified='false'] { color: var(--monitor); }
+.captureBadge[data-verified='true'] { color: var(--maintain); }
 
-/* The posture map, then clear air before the grade section + tabs. Container
-   height only (spec amendment #4) — the 3D renderer inside is untouched. */
-.heroWrap {
-  scroll-margin-top: var(--s-12);
-  margin-bottom: var(--s-20);
-  height: clamp(340px, 44dvh, 460px);
-  overflow: hidden;
-}
+/* ── Scan header (GradeRail) ─────────────────────────────────────────────── */
 
-/* ── Grade rail (GradeRail.tsx) — the grade + score readout, moved out of the
-   hero's corner into a plain section right under it (spec §5 Results): no
-   more dropdown toggle, this renders inline, always visible. ──────────── */
+.scanHead { padding-top: var(--s-24); padding-bottom: var(--s-32); }
+.scoreHero { position: relative; display: flex; flex-direction: column; gap: var(--s-4); }
+.scoreRecorded { display: flex; align-items: baseline; gap: var(--s-8); margin-top: var(--s-8); }
+.scoreNumeral { font: var(--t-hero); letter-spacing: -0.055em; color: var(--ink-1); }
+.scoreOf { font: var(--t-callout); color: var(--ink-3); }
 
-.gradeSection { margin-bottom: var(--s-20); }
-.gradeSectionKicker { margin: 0 0 var(--s-12); color: var(--text-3); }
-
-.railHead {
+.scoreLine {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-12);
-}
-.railReadout { display: flex; align-items: center; gap: var(--s-12); }
-.railGrade {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--r-lg);
-  font: var(--t-title-2);
-  font-weight: 300;
-}
-.railScore { font: var(--t-ro-lg); color: var(--text-1); }
-.railScoreUnit { font: var(--t-footnote); color: var(--text-3); }
-.railDelta {
-  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-4);
-  flex-shrink: 0;
-  height: 26px;
-  padding: 0 var(--s-12);
-  border-radius: var(--r-full);
-  font: var(--t-caption);
-  white-space: nowrap;
+  gap: var(--s-4) var(--s-12);
+  font: var(--t-label);
+  color: var(--ink-2);
 }
+.scoreDelta { color: var(--ink-1); }
+.whyButton { position: absolute; top: -14px; right: calc(-1 * var(--s-12)); }
 
-/* The rail is the 0-100 deviation scale; band widths and dot offsets are both
-   percentages of it, so there is no second mapping to fall out of step. */
-.rail { position: relative; height: 4px; margin: var(--s-20) 0 var(--s-8); border-radius: 2px; overflow: visible; }
-.railBand { position: absolute; top: 0; height: 4px; opacity: 0.42; }
-.railBand:first-of-type { border-radius: 2px 0 0 2px; }
-.railBand:nth-of-type(3) { border-radius: 0 2px 2px 0; }
-
-.railDot {
-  position: absolute;
-  top: 50%;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;
-  border-radius: var(--r-full);
-  transform: translateY(-50%);
-  box-shadow: 0 0 0 3px var(--bg);
-}
-
-/* The previous scan: hollow and dim so it reads as history. */
-.railPrior {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  border-radius: var(--r-full);
-  transform: translateY(-50%);
-  background: transparent;
-  box-shadow: 0 0 0 2px var(--bg), inset 0 0 0 2px var(--border-field);
-}
-
-.railLabels {
-  display: flex;
-  justify-content: space-between;
-  font: var(--t-caption);
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-.railRange { margin-top: var(--s-8); font: var(--t-footnote); color: var(--text-3); }
-.railNote {
-  margin-top: var(--s-16);
-  padding-top: var(--s-12);
-  border-top: 1px solid var(--hairline);
-  font: var(--t-footnote);
-  color: var(--text-2);
-}
+.whyBody { display: flex; flex-direction: column; gap: var(--s-16); }
+.gradeTable { width: 100%; border-collapse: collapse; font: var(--t-label); color: var(--ink-2); }
+.gradeTable caption { text-align: left; padding-bottom: var(--s-8); }
+.gradeTable th { text-align: left; font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding: var(--s-8) 0; }
+.gradeTable td { padding: var(--s-12) var(--s-8) var(--s-12) 0; border-top: 1px solid var(--hairline); }
+.gradeTable tr[aria-current='true'] td { color: var(--ink-1); font-weight: 600; }
+.gradeTable tr[aria-current='true'] td:first-child { box-shadow: inset 3px 0 0 var(--volt); padding-left: var(--s-12); }
 
 /* ── Notices ──────────────────────────────────────────────────────────────── */
 
-.notice { display: flex; align-items: center; gap: var(--s-8); font: var(--t-footnote); color: var(--text-2); }
+.notices { display: flex; flex-direction: column; gap: var(--s-8); margin-bottom: var(--s-24); }
+.notice { display: flex; align-items: center; gap: var(--s-8); font: var(--t-label); color: var(--ink-2); }
 .errorNotice { color: var(--review); }
 
-/* ── Findings summary + groups (ReviewEvidence.tsx) ──────────────────────── */
+/* ── Posture map ─────────────────────────────────────────────────────────── */
 
-.findingsSummary { color: var(--text-2); margin: 0 0 var(--s-8); }
-.findingGroup + .findingGroup { margin-top: var(--s-20); }
-.findingGroupLabel { display: block; margin-bottom: var(--s-8); color: var(--text-3); }
+.heroWrap { scroll-margin-top: var(--s-12); }
 
-/* ── Findings workspace tabs (ReviewWorkspace in ClinicalAssessmentResults) ─ */
+/* ── Findings | Program ──────────────────────────────────────────────────── */
 
+.workspace { display: flex; flex-direction: column; gap: var(--s-24); margin-top: var(--s-40); }
 .workspaceStage { display: grid; grid-template-columns: minmax(0, 1fr); }
 .workspacePanel { display: none; min-width: 0; }
-.workspacePanelActive { display: block; }
-.workspacePanel:focus-visible {
-  outline: 2px solid var(--text-1);
-  outline-offset: 4px;
-  border-radius: var(--r-md);
-}
+.workspacePanelActive { display: block; animation: panelIn 260ms var(--ease-out-expo) both; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(6px); } }
+.workspacePanel:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-md); }
 
 .loadingPanel {
-  padding: var(--s-16);
-  border-radius: var(--r-md);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font: var(--t-footnote);
-  color: var(--text-2);
+  padding: var(--s-16) 0;
+  font: var(--t-label);
+  color: var(--ink-3);
 }
 
-/* ── Simple disclosure — native <details>/<summary>, not the components/ui
-   Disclosure component. Playwright drives these sections via `summary`
-   locators (a11y.spec.ts, report-approval.spec.ts, assessment-flow.spec.ts),
-   which need a real <summary> element. ── */
-
-.disclosure {
-  border-radius: var(--r-md);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+/* Findings: tiles, then hairline readout rows that stagger in. */
+.findings { display: flex; flex-direction: column; gap: var(--s-24); }
+.findingList { list-style: none; margin: 0; padding: 0; }
+.findingList > li {
+  border-bottom: 1px solid var(--hairline);
+  animation: rowIn 420ms var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
 }
-.disclosureSummary {
+@keyframes rowIn { from { opacity: 0; transform: translateY(8px); } }
+.findingButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-press) var(--ease-standard), opacity var(--duration-press) var(--ease-standard);
+}
+.findingButton:active { transform: scale(0.985); opacity: 0.8; }
+.findingButton:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.findingButton[data-active] { box-shadow: inset 3px 0 0 var(--ink-1); padding-left: var(--s-12); }
+
+/* Program pane */
+.programPanel { display: flex; flex-direction: column; gap: var(--s-40); }
+.sessionBlock { display: flex; flex-direction: column; gap: var(--s-4); }
+.sessionTitle { margin: var(--s-4) 0 0; font: var(--t-title); letter-spacing: -0.03em; color: var(--ink-1); }
+.sessionMeta { font: var(--t-label); color: var(--ink-3); }
+.quietLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--s-4);
   min-height: 44px;
-  padding: var(--s-12) var(--s-16);
-  font: var(--t-subhead);
-  color: var(--text-2);
+  margin-top: var(--s-4);
+  border-radius: var(--r-full);
+  color: var(--ink-1);
+  font: var(--t-callout);
+  text-decoration: none;
+}
+.quietLink:active { opacity: 0.6; }
+
+.runList { list-style: none; margin: 0; padding: 0 0 var(--s-8); }
+.runList li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4) var(--s-12);
+  padding: var(--s-12) 0;
+  border-top: 1px solid var(--hairline);
+  font: var(--t-label);
+  color: var(--ink-2);
+}
+.runList li span:first-child { color: var(--ink-1); }
+
+/* Matched-exercise library inside its disclosure */
+.exerciseLibrary { display: flex; flex-direction: column; }
+.exerciseItem { border-top: 1px solid var(--hairline); }
+.exerciseHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--s-8) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.exerciseHead:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.exerciseCategory {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  width: 88px;
+  font: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.exerciseCategory::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-full); background: var(--cat); }
+.exerciseName { flex: 1; min-width: 0; font: var(--t-callout); color: var(--ink-1); }
+.exerciseChevron { display: grid; color: var(--ink-3); transition: transform var(--duration-state) var(--ease-spring); }
+.exerciseChevron[data-open] { transform: rotate(180deg); }
+.exerciseBody { padding: 0 0 var(--s-16) 100px; font: var(--t-label); color: var(--ink-2); }
+.exerciseBody p { margin: 0; }
+.exerciseDoses { display: flex; gap: var(--s-24); margin: var(--s-12) 0 0; }
+.exerciseDoses dt { font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.exerciseDoses dd { margin: 2px 0 0; font: var(--t-readout-sm); color: var(--ink-1); }
+
+/* ── Disclosure — native <details>/<summary>. Playwright drives these
+   sections via `summary` locators (assessment-flow.spec.ts, workout-player
+   .spec.ts), which need a real <summary> element. A quiet hairline row. ── */
+
+.disclosure { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.disclosure + .disclosure { border-top: 0; margin-top: calc(-1 * var(--s-40)); }
+.disclosureSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  font: var(--t-callout);
+  color: var(--ink-1);
   cursor: pointer;
   list-style: none;
 }
 .disclosureSummary::-webkit-details-marker { display: none; }
-.disclosureSummary::after { content: ' \2193'; color: var(--text-3); }
-.disclosure[open] .disclosureSummary::after { content: ' \2191'; }
-.disclosureBody { padding: 0 var(--s-16) var(--s-16); font: var(--t-footnote); line-height: 1.6; color: var(--text-2); }
-
-/* ── Review dock (ReviewDock.tsx + AssessmentOnlyResults.tsx's own dock) ──── */
-
-.dock { display: flex; flex-direction: column; gap: var(--s-16); }
-.dockSummary {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-12);
-  padding: var(--s-16);
-  border-radius: var(--r-lg);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+.disclosureSummary::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--duration-state) var(--ease-spring);
 }
+.disclosure[open] .disclosureSummary::after { transform: rotate(-135deg) translateY(-2px); }
+.disclosureSummary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.disclosureBody { padding: 0 0 var(--s-16); font: var(--t-label); color: var(--ink-2); }
+
+/* ── Sheets (finding detail, capture, why) ───────────────────────────────── */
+
+.sheetStack { display: flex; flex-direction: column; gap: var(--s-24); }
+.sheetSection { display: flex; flex-direction: column; gap: var(--s-8); }
+.sheetSection h3 { margin: 0; }
+.sheetAlert { font: var(--t-label); color: var(--review); }
+
+.muscleList { list-style: none; margin: 0; padding: 0; }
+.muscleList li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: var(--s-12) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.muscleName { font: var(--t-callout); color: var(--ink-1); text-transform: capitalize; }
+.muscleRole { font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.mapButton { align-self: flex-start; margin-top: var(--s-8); }
+
+.linkedList { list-style: none; margin: 0; padding: 0; }
+.linkedList li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-8);
+  padding: var(--s-12) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.linkedIndex { font: var(--t-micro); color: var(--ink-3); }
+.linkedName { font: var(--t-callout); color: var(--ink-1); }
+.linkedFreq { font: var(--t-label); color: var(--ink-3); }
+
+.accuracy { display: flex; flex-direction: column; gap: var(--s-12); }
+.accuracyFacts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s-8) var(--s-16); font: var(--t-label); color: var(--ink-2); }
+.accuracyRows { list-style: none; margin: 0; padding: 0; }
+.accuracyRows li { display: flex; flex-direction: column; gap: 2px; padding: var(--s-12) 0; border-top: 1px solid var(--hairline); }
+.accuracyName { font: var(--t-callout); color: var(--ink-1); }
+.accuracyMeta { font: var(--t-label); color: var(--ink-3); }
+
+/* ── Review dock (ReviewDock.tsx, inside its sheet; AssessmentOnlyResults) ─ */
+
+.dock { display: flex; flex-direction: column; gap: var(--s-24); }
+.dockSummary { display: flex; flex-direction: column; gap: var(--s-12); }
+
+@media (prefers-reduced-motion: reduce) {
+  .findingList > li, .workspacePanelActive { animation: none; }
+  .exerciseChevron, .disclosureSummary::after { transition: none; }
+}
+
 .identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-16); align-items: start; }
 .quietLabel { display: block; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; }
 .identity h2 { margin: var(--s-4) 0 0; color: var(--text-1); font: var(--t-headline); overflow-wrap: anywhere; }
@@ -299,15 +369,17 @@
   min-height: 44px;
   padding: 0 var(--s-16);
   border: 0;
-  border-radius: var(--r-sm);
-  background: var(--surface-field);
-  box-shadow: inset 0 0 0 1px var(--border);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
   color: var(--text-1);
-  font: var(--t-footnote);
+  font: var(--t-label);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-standard);
 }
+.secondaryAction:active:not(:disabled), .downloadAction:active, .primaryAction:active:not(:disabled) { transform: scale(0.96); }
 .primaryAction:disabled, .secondaryAction:disabled, .downloadAction:disabled {
   opacity: var(--text-disabled-opacity);
   cursor: not-allowed;
@@ -411,7 +483,7 @@
 }
 
 /* Evidence tab (capture set) */
-.captureGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: var(--s-8); }
+.captureGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-8); }
 .captureTile { display: flex; flex-direction: column; align-items: center; gap: var(--s-4); }
 .captureFrame {
   position: relative;
@@ -419,13 +491,13 @@
   place-items: center;
   width: 100%;
   aspect-ratio: 3 / 4;
-  border-radius: var(--r-sm);
-  background: var(--surface-flat);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--hairline);
   overflow: hidden;
   color: var(--text-3);
 }
-.captureLabel { font: var(--t-caption); color: var(--text-3); text-transform: capitalize; }
+.captureLabel { font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 
 /* Findings tab (flat list, AssessmentOnlyResults only) */
 .compactFindings { display: flex; flex-direction: column; gap: var(--s-8); }

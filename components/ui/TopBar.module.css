@@ -1,7 +1,9 @@
-/* TopBar: large-title collapse (spec §3.6). Glass only when collapsed —
-   expanded it is transparent, so there is no permanent blur layer. */
+/* Array v4 top bar — DESIGN.md › Navigation: transparent at rest with the
+   large title in the content; once the title scrolls away a compact glass bar
+   fades in with the small title. Glass is a separate layer whose opacity and
+   transform transition (backdrop-filter itself never animates). */
 
-.collapsed {
+.bar {
   position: sticky;
   top: 0;
   /* Full-bleed even when the page puts the TopBar inside padded content. */
@@ -10,28 +12,39 @@
   z-index: var(--z-sticky);
   display: flex;
   justify-content: center;
-  height: calc(52px + var(--sa-t));
+  height: calc(var(--topbar-h) + var(--sa-t));
   padding-top: var(--sa-t);
-  background: transparent;
-  border-bottom: 1px solid transparent;
-  transition: background-color var(--duration-state) var(--ease-standard), border-color var(--duration-state) var(--ease-standard);
 }
 
-.collapsedVisible {
-  /* Stronger than other chrome: titles sit directly over scrolling text. */
+.glass {
+  position: absolute;
+  inset: 0;
   background: var(--glass-chrome-strong);
-  -webkit-backdrop-filter: var(--glass-chrome-filter);
-  backdrop-filter: var(--glass-chrome-filter);
-  border-bottom-color: var(--hairline);
-}
-@media (prefers-reduced-transparency: reduce) {
-  .collapsedVisible { background: var(--glass-chrome-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
-}
-@supports not (backdrop-filter: blur(1px)) {
-  .collapsedVisible { background: var(--glass-chrome-solid); }
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity var(--duration-state) var(--ease-standard), transform var(--duration-layout) var(--ease-out-expo);
+  pointer-events: none;
 }
 
-.collapsedInner {
+/* A soft specular line just under the bar edge. */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--edge) 30%, var(--edge) 70%, transparent);
+  opacity: 0.6;
+}
+
+.bar[data-collapsed='true'] .glass {
+  opacity: 1;
+  transform: none;
+}
+
+.row {
   position: relative;
   display: flex;
   align-items: center;
@@ -39,63 +52,142 @@
   padding-inline: max(var(--s-8), var(--sa-l)) max(var(--s-8), var(--sa-r));
 }
 
-.collapsedTitle {
-  flex: 1;
-  min-width: 0;
+.compactTitle {
+  position: absolute;
+  left: 64px;
+  right: 64px;
   text-align: center;
-  font: var(--t-headline);
-  color: var(--text-1);
+  font: var(--t-callout-v4);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition: opacity var(--duration-state) var(--ease-standard), transform var(--duration-layout) var(--ease-spring);
+}
+
+.bar[data-collapsed='true'] .compactTitle {
+  opacity: 1;
+  transform: none;
+  transition-delay: 40ms;
+}
+
+/* Two or more actions: keep the centred title clear of them. */
+.row:has(.actions > :nth-child(2)) .compactTitle { left: 104px; right: 104px; }
+
+/* large={false}: the compact title is the h1 and always visible. */
+h1.compactTitle {
+  opacity: 1;
+  transform: none;
 }
 
 .backButton {
   flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  display: grid;
+  place-items: center;
   width: 48px;
   height: 48px;
-  margin-left: calc(-1 * var(--s-12));
-  color: var(--text-1);
+  margin-left: calc(-1 * var(--s-4));
+  color: var(--ink-1);
   text-decoration: none;
   border-radius: var(--r-full);
 }
-.backButton:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.95); outline-offset: 2px; }
+
+.backVisual {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-full);
+  transition: transform var(--duration-press) var(--ease-spring), background-color var(--duration-state) var(--ease-standard);
+}
+.backButton:active .backVisual {
+  transform: scale(0.9);
+  background: var(--overlay-pressed);
+}
+.backButton:active .backVisual > svg { transform: translateX(-2px); }
+
+/* Over media: a glass circle so the arrow reads on any frame. */
+.bar[data-variant='media'] .backVisual {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), inset 0 0 0 1px var(--hairline);
+}
+.bar[data-variant='media'][data-collapsed='true'] .backVisual {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
 
 .actions {
   flex: none;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--s-8);
+  gap: var(--s-4);
   margin-left: auto;
-  margin-right: calc(-1 * var(--s-8));
+  margin-right: calc(-1 * var(--s-4));
 }
 
 .largeWrap {
   width: min(var(--content-max), 100%);
   margin: 0 auto;
   padding-inline: max(var(--screen-x), var(--sa-l)) max(var(--screen-x), var(--sa-r));
-  padding-top: var(--s-4);
+  padding-top: var(--s-8);
 }
 
 .largeTitle {
-  margin-top: 0;
-}
-
-/* No back and no actions: the bar row overlays the content (transparent until
-   collapsed) instead of reserving 52px above the large title. */
-.overlay {
-  margin-bottom: calc(-1 * (52px + var(--sa-t)));
-  pointer-events: none;
+  font: var(--t-display-v4);
+  letter-spacing: -0.04em;
+  color: var(--ink-1);
+  text-wrap: balance;
+  transform-origin: 0 100%;
 }
 
 .subtitle {
-  margin-top: var(--s-4);
-  color: var(--text-2);
+  margin-top: var(--s-8);
+  font: var(--t-body-v4);
+  color: var(--ink-2);
+  text-wrap: pretty;
 }
 
 .sentinel {
   height: 1px;
+}
+
+/* No back and no actions: the bar row overlays the content (transparent until
+   collapsed) instead of reserving its height above the large title. */
+.overlay {
+  margin-bottom: calc(-1 * (var(--topbar-h) + var(--sa-t)));
+  pointer-events: none;
+}
+
+/* The large title eases back and fades as it slides under the bar —
+   scroll-driven, compositor-only, where supported. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .largeTitle {
+      animation: topbar-title-leave linear both;
+      animation-timeline: view();
+      animation-range: exit-crossing 0% exit-crossing 100%;
+    }
+  }
+}
+@keyframes topbar-title-leave {
+  to { opacity: 0; transform: scale(0.94) translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass, .compactTitle, .backVisual { transition-duration: 0.01ms; transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass { background: var(--glass-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }

@@ -6,7 +6,7 @@
 
 .card {
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: var(--r-lg);
   background: #000;
   box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.1)), 0 25px 50px -12px rgba(0, 0, 0, 0.4);
 }
@@ -24,14 +24,15 @@
 
 /* The page hero: ~20% taller than the in-tab frame, sized for a phone with the island nav tucked away
    (it hides on the results page until the user scrolls up). */
-.viewerFrameTall { height: clamp(384px, calc(120svh - 360px), 816px); }
+.viewerFrameTall { height: clamp(360px, 60svh, 560px); }
 
 /* Edge to edge on a phone: no side inset, no rounded corners, top and bottom hairlines only. */
 .cardBleed {
   border-radius: 0;
-  box-shadow: inset 0 1px 0 var(--hairline, rgba(255, 255, 255, 0.1)), inset 0 -1px 0 var(--hairline, rgba(255, 255, 255, 0.1));
+  box-shadow: none;
+  background: transparent;
 }
-.cardBleed .dock { padding-inline: 16px; }
+.cardBleed .dock { padding-inline: max(var(--screen-x, 20px), var(--sa-l, 0px)); background: transparent; }
 @media (min-width: 431px) {
   .cardBleed { border-radius: 24px; box-shadow: inset 0 0 0 1px var(--hairline, rgba(255, 255, 255, 0.1)), 0 25px 50px -12px rgba(0, 0, 0, 0.4); }
 }
@@ -102,10 +103,9 @@
 /* ---- The box under the model ---- */
 .dock {
   display: grid;
-  gap: 8px;
-  padding: 8px 10px 6px;
-  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
-  background: rgba(255, 255, 255, 0.025);
+  gap: 10px;
+  padding: 12px 10px 10px;
+  background: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0) 100%);
 }
 
 .controls { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -114,15 +114,16 @@
   display: inline-flex;
   flex: 0 0 auto;
   padding: 3px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  border-radius: var(--r-full);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .segment button {
   min-height: 44px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--r-full);
+  transition: transform var(--duration-press) var(--ease-standard), background var(--duration-state) var(--ease-standard);
   background: transparent;
   color: rgba(255, 255, 255, 0.78); /* AA on the dock's near-black */
   font: var(--t-footnote);
@@ -130,6 +131,7 @@
   cursor: pointer;
 }
 .segment button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+.segment button:active:not(:disabled) { transform: scale(0.94); background: var(--surface-3); }
 .segment button:disabled { color: rgba(255, 255, 255, 0.55); cursor: default; } /* dimmed, still AA */
 /* Narrow phones: give the X-ray slider room to be a real target. */
 @media (max-width: 360px) {
@@ -146,7 +148,7 @@
   white-space: nowrap;
   min-width: 0;
   color: rgba(255, 255, 255, 0.66);
-  font: var(--t-caption);
+  font: var(--t-micro);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -162,10 +164,10 @@
 .xray input::-webkit-slider-runnable-track {
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(190, 225, 255, 0.95) var(--fill, 0%), rgba(255, 255, 255, 0.14) var(--fill, 0%));
+  background: linear-gradient(90deg, var(--ink-1) var(--fill, 0%), rgba(255, 255, 255, 0.14) var(--fill, 0%));
 }
 .xray input::-moz-range-track { height: 2px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
-.xray input::-moz-range-progress { height: 2px; border-radius: 999px; background: rgba(190, 225, 255, 0.95); }
+.xray input::-moz-range-progress { height: 2px; border-radius: 999px; background: var(--ink-1); }
 .xray input::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 18px;
@@ -173,7 +175,7 @@
   margin-top: -8px;
   border-radius: 999px;
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(160, 210, 255, 0.18), 0 0 14px rgba(140, 200, 255, 0.5);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12), 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 .xray input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 999px; background: #fff; }
 .xray input:disabled { opacity: 0.4; cursor: default; }
@@ -185,8 +187,8 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: #111317;
-  animation: readoutIn 200ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  background: var(--surface-1);
+  animation: readoutIn 320ms var(--ease-spring) both;
 }
 @keyframes readoutIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) { .readout > .overlay { animation: none; } }
@@ -226,9 +228,9 @@
   gap: 10px;
   min-height: 52px;
   padding: 8px 8px 8px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 .infoText { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
 .infoName { overflow: hidden; color: var(--text-primary); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
@@ -240,9 +242,10 @@
   padding: 0 16px;
   border: 0;
   border-radius: var(--r-full);
-  background: var(--action);
-  color: var(--text-on-action);
-  font: var(--t-subhead);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink-1);
+  font: var(--t-label);
   font-weight: 500;
   cursor: pointer;
 }
@@ -264,7 +267,7 @@
 .retryButton:focus-visible,
 .segment button:focus-visible,
 .detailsButton:focus-visible,
-.clear:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px; }
+.clear:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* Required CC BY-SA credit: the last line of the box, centered and as small as stays legible. */
 .attribution {

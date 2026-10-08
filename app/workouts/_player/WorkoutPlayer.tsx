@@ -1,5 +1,5 @@
 'use client'
-import { memo, useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useReducer, useRef, useState, type CSSProperties } from 'react'
 import { flushSync } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { SessionItem, SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
@@ -20,7 +20,11 @@ import { CountdownRing } from './CountdownRing'
 import { RateForm, WorkoutLegalNotice } from './RateForm'
 import { AudioGlyph } from '@/components/SignalGlyphs'
 import { Surface } from '@/components/array/Surface'
-import { Button, IconButton } from '@/components/ui'
+import { Button, IconButton, SlotNumber } from '@/components/ui'
+import Icon from '@/components/array/Icon'
+import { haptic } from '@/lib/haptics'
+import { spring } from '@/lib/motion'
+import styles from './WorkoutPlayer.module.css'
 import { colorMix, workoutTheme as theme } from './theme'
 
 // ---- public contract ----------------------------------------------------
@@ -73,11 +77,8 @@ const STEP_COLOR: Record<string, string> = {
 const ACCENT_FALLBACK = theme.primary
 const itemColor = (it?: SessionItem): string => (it ? STEP_COLOR[it.stepLabel] ?? ACCENT_FALLBACK : ACCENT_FALLBACK)
 
-// Every phase card is the screen's one tier-1 feature surface — the same
-// gradient-shell glass Surface the rest of the app uses, rather than a
-// bespoke panel with its own border/blur recipe (that recipe is where the
-// dead --glass-highlight token used to live).
-const uiFont = 'var(--font-sans)'
+// Array v4: the HUD sits on the media scrim with no card; only the safety
+// gates (pain check / stop) use the one feature glass Surface.
 
 function segmentTotalMs(s: PlayerState): number {
   const it = s.items[s.index]
@@ -344,40 +345,30 @@ export function WorkoutPlayer({
 
   // Off the play phases the chrome is always shown; during play it auto-hides.
   const chromeVisible = !canHide || chromeShown
-  const chromeStyle = {
-    opacity: chromeVisible ? 1 : 0,
-    visibility: chromeVisible ? ('visible' as const) : ('hidden' as const),
-    transition: 'opacity 180ms cubic-bezier(0.16, 1, 0.3, 1)',
-    pointerEvents: chromeVisible ? undefined : ('none' as const),
-  }
   const done = state.results.filter((r) => r.completed).length
   const skipped = state.results.filter((r) => r.skipped).length
+  const stepStyle = { '--step': accent } as CSSProperties
 
   return (
     <div
       data-immersive-surface
       onPointerMove={canHide ? pokeChrome : undefined}
       onClick={canHide ? pokeChrome : undefined}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        background: theme.background,
-        color: theme.textPrimary,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: uiFont,
-        WebkitTapHighlightColor: 'transparent',
-      }}
+      className={styles.root}
+      style={stepStyle}
     >
       {/* full-bleed demo canvas: clip loop → poster → gradient fallback */}
-      <DemoCanvas item={item} active={state.phase === 'playing'} reduceMotion={!!reduceMotion} />
+      <DemoCanvas item={item} active={state.phase === 'playing'} showName={active} reduceMotion={!!reduceMotion} />
 
-      {/* top: segmented progress + exit */}
+      {/* top: run strip (position · step · segments) */}
       {active && (
-        <div data-testid="workout-chrome-progress" aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 3, padding: `14px ${onExit ? 72 : 16}px 0 16px`, ...chromeStyle }}>
-          <SegmentedProgress total={total} index={state.index} results={state.results} accent={accent} />
+        <div
+          data-testid="workout-chrome-progress"
+          aria-hidden={!chromeVisible}
+          data-visible={chromeVisible ? 'true' : 'false'}
+          className={[styles.top, styles.chrome, onExit ? '' : styles.topNoExit].filter(Boolean).join(' ')}
+        >
+          <RunStrip total={total} index={state.index} results={state.results} item={item} set={state.set} phase={state.phase} />
         </div>
       )}
       {onExit && (
@@ -388,34 +379,37 @@ export function WorkoutPlayer({
           onClick={onExit}
           tabIndex={0}
           data-workout-chrome-controls
-          style={{
-            position: 'absolute',
-            top: 'max(12px, env(safe-area-inset-top, 0px))',
-            right: 'max(12px, env(safe-area-inset-right, 0px))',
-            zIndex: 6,
-          }}
+          className={styles.exit}
         />
       )}
 
       {/* voice + caption toggles */}
       {active && (
-        <div data-testid="workout-chrome-toggles" data-workout-chrome-controls aria-hidden={!chromeVisible} style={{ position: 'absolute', top: onExit ? 'calc(max(12px, env(safe-area-inset-top, 0px)) + 56px)' : 'max(12px, env(safe-area-inset-top, 0px))', right: 'max(12px, env(safe-area-inset-right, 0px))', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8, ...chromeStyle }}>
+        <div
+          data-testid="workout-chrome-toggles"
+          data-workout-chrome-controls
+          aria-hidden={!chromeVisible}
+          data-visible={chromeVisible ? 'true' : 'false'}
+          className={[styles.toggles, styles.chrome, onExit ? styles.togglesUnderExit : ''].filter(Boolean).join(' ')}
+        >
           <button
+            type="button"
             onClick={() => setVoiceMuted((m) => !m)}
             aria-label={voiceMuted ? 'Unmute coach voice' : 'Mute coach voice'}
             aria-pressed={voiceMuted}
+            data-on={!voiceMuted ? 'true' : 'false'}
             tabIndex={chromeVisible ? 0 : -1}
-            style={roundToggle(!voiceMuted)}
+            className={styles.toggle}
           >
             <AudioGlyph muted={voiceMuted} />
           </button>
           <button
+            type="button"
             onClick={() => setCaptionsOn((c) => !c)}
             aria-label={captionsOn ? 'Hide captions' : 'Show captions'}
             aria-pressed={captionsOn}
             tabIndex={chromeVisible ? 0 : -1}
-            className="t-caption"
-            style={roundToggle(captionsOn)}
+            className={styles.toggle}
           >
             CC
           </button>
@@ -423,12 +417,11 @@ export function WorkoutPlayer({
       )}
 
       {/* phase content */}
-      <div style={{ position: 'relative', zIndex: 3, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0 20px', textAlign: 'center' }}>
+      <div className={styles.stage}>
         <AnimatePresence mode="wait">
           {redFlag === 'unasked' && state.phase !== 'summary' && (
             <Fade key="redflag" reduce={!!reduceMotion}>
               <RedFlagCard
-                accent={accent}
                 onClear={onRedFlagClear}
                 onStop={() => setRedFlag('stopped')}
               />
@@ -443,24 +436,29 @@ export function WorkoutPlayer({
 
           {redFlag === 'clear' && (state.phase === 'idle' || state.phase === 'intro') && (
             <Fade key="intro" reduce={!!reduceMotion}>
-              <StartCard snapshot={snapshot} clientFirstName={clientFirstName} onBegin={begin} accent={accent} />
+              <StartCard snapshot={snapshot} clientFirstName={clientFirstName} onBegin={begin} />
             </Fade>
           )}
 
           {redFlag === 'clear' && state.phase === 'upNext' && item && (
             <Fade key={`upnext-${state.index}`} reduce={!!reduceMotion}>
-              <UpNext item={item} index={state.index} total={total} accent={accent} onStart={() => dispatch({ type: 'ADVANCE' })} />
+              <UpNext
+                item={item}
+                index={state.index}
+                total={total}
+                remaining={state.remainingMs / UP_NEXT_MS}
+                onStart={() => dispatch({ type: 'ADVANCE' })}
+              />
             </Fade>
           )}
 
           {redFlag === 'clear' && state.phase === 'preroll' && item && (
             <Fade key={`preroll-${state.index}`} reduce={!!reduceMotion}>
-              <div>
-                <p className="t-overline" style={{ color: accent, marginBottom: 8 }}>Get ready</p>
-                {/* Largest element on screen, tabular-nums via t-readout-xl so the
-                    3-2-1 countdown never reflows as it drops a digit. */}
-                <div className="t-readout-xl">{secs(state.remainingMs)}</div>
-                <div className="t-headline" style={{ marginTop: 10 }}>{item.name}</div>
+              <div className={styles.preroll}>
+                <p className={`${styles.eyebrow} ${styles.eyebrowStep}`}>Get ready</p>
+                {/* Largest element on screen; each digit slides in as it drops. */}
+                <RollingDigits value={String(secs(state.remainingMs))} className={styles.prerollNumeral} />
+                <p className={styles.prerollName}>{item.name}</p>
               </div>
             </Fade>
           )}
@@ -494,7 +492,13 @@ export function WorkoutPlayer({
 
       {/* transport */}
       {(state.phase === 'playing' || state.phase === 'resting') && (
-        <div data-testid="workout-chrome-transport" data-workout-chrome-controls aria-hidden={!chromeVisible} style={{ position: 'relative', zIndex: 4, padding: '0 20px calc(env(safe-area-inset-bottom, 0px) + 22px)', ...chromeStyle }}>
+        <div
+          data-testid="workout-chrome-transport"
+          data-workout-chrome-controls
+          aria-hidden={!chromeVisible}
+          data-visible={chromeVisible ? 'true' : 'false'}
+          className={`${styles.transportWrap} ${styles.chrome}`}
+        >
           <Transport
             paused={state.paused}
             onBack={() => dispatch({ type: 'BACK' })}
@@ -509,18 +513,38 @@ export function WorkoutPlayer({
   )
 }
 
-// ---- entrance/exit fade wrapper -----------------------------------------
+// ---- entrance/exit wrapper ------------------------------------------------
+// Enters on the `glide` spring from below; exits faster and never bounces
+// (DESIGN.md › Motion rule 3). Reduced motion: opacity only.
 function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean }) {
   return (
     <motion.div
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
-      animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
-      transition={{ duration: reduce ? 0.12 : 0.24, ease: [0.16, 1, 0.3, 1] }}
-      style={{ width: '100%', maxWidth: 460 }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.985 }}
+      animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, transition: spring.glide }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, transition: { duration: 0.14, ease: 'easeOut' } }}
+      transition={reduce ? { duration: 0.12 } : spring.glide}
+      className={styles.phase}
     >
       {children}
     </motion.div>
+  )
+}
+
+/**
+ * A ticking readout as an odometer: each character is its own SlotNumber keyed
+ * by position + glyph, so only the digit that changed slides in (a full re-key
+ * would re-roll every digit each second). One accessible text for the whole.
+ */
+function RollingDigits({ value, className }: { value: string; className?: string }) {
+  return (
+    <span className={className}>
+      <span className="sr-only">{value}</span>
+      <span aria-hidden="true" style={{ display: 'inline-flex' }}>
+        {Array.from(value).map((ch, i) => (
+          <SlotNumber key={`${value.length}-${i}-${ch}`} value={ch} />
+        ))}
+      </span>
+    </span>
   )
 }
 
@@ -529,7 +553,7 @@ function Fade({ children, reduce }: { children: React.ReactNode; reduce: boolean
 // change on item/phase transitions — skip the reconciliation on ticks. (results
 // keeps a stable array identity across ticks; the reducer only replaces it on a
 // real transition.)
-const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { item?: SessionItem; active: boolean; reduceMotion: boolean }) {
+const DemoCanvas = memo(function DemoCanvas({ item, active, showName = true, reduceMotion }: { item?: SessionItem; active: boolean; showName?: boolean; reduceMotion: boolean }) {
   // True three-tier fallback: clip loop → its poster (video 404s/decode-fails)
   // → today's gradient (poster also fails, or there is no media). Each tier
   // steps down independently and both flags re-arm on the next item.
@@ -550,26 +574,16 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
 
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'hidden' }}>
-      {/* gradient underlay always renders — the video sits above it, so a slow clip fades in over brand, not black */}
+      {/* underlay always renders — the video sits above it, so a slow clip
+          fades in over a soft aura in the current step's colour, not black */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: `linear-gradient(90deg, transparent calc(50% - 0.75px), ${colorMix(theme.primary, 34)} calc(50% - 0.75px), ${colorMix(theme.primary, 34)} calc(50% + 0.75px), transparent calc(50% + 0.75px)), linear-gradient(180deg, ${theme.background} 0%, ${theme.backgroundSunken} 100%)`,
+          background: `radial-gradient(120% 60% at 50% 38%, color-mix(in oklab, var(--step) ${active && !reduceMotion ? 16 : 10}%, transparent) 0%, transparent 62%), linear-gradient(180deg, ${theme.background} 0%, ${theme.backgroundSunken} 100%)`,
+          transition: 'background 480ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       />
-      {showGradient && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '18%',
-            bottom: '14%',
-            left: '50%',
-            width: 1.5,
-            background: colorMix(theme.primary, active && !reduceMotion ? 44 : 28),
-          }}
-        />
-      )}
       {showVideo && (
         <video
           key={item!.slug}
@@ -621,19 +635,24 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
           }}
         />
       )}
-      {showGradient && item && (
+      {showGradient && item && showName && (
+        // No clip: the movement's name, set huge and faint at the foot of the
+        // frame, stands in for the picture without competing with the HUD.
         <div
-          className="t-readout-xl"
           style={{
             position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            color: colorMix(theme.primary, 8),
+            left: 0,
+            right: 0,
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 116px)',
+            padding: '0 20px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            color: colorMix(theme.textPrimary, 5),
             textAlign: 'center',
-            padding: '20% 24px 0',
-            lineHeight: 1.05,
+            font: 'var(--t-hero)',
+            fontSize: 'clamp(3rem, 15vw, 5rem)',
+            letterSpacing: '-0.055em',
+            lineHeight: 0.9,
             userSelect: 'none',
           }}
         >
@@ -644,30 +663,86 @@ const DemoCanvas = memo(function DemoCanvas({ item, active, reduceMotion }: { it
   )
 })
 
-// ---- segmented progress -------------------------------------------------
-const SegmentedProgress = memo(function SegmentedProgress({ total, index, results, accent }: { total: number; index: number; results: { completed: boolean; skipped: boolean }[]; accent: string }) {
+// ---- run strip: position, step, one segment per movement -------------------
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+const RunStrip = memo(function RunStrip({ total, index, results, item, set, phase }: { total: number; index: number; results: { completed: boolean; skipped: boolean }[]; item?: SessionItem; set: number; phase: PlayerState['phase'] }) {
+  const sets = item?.timing.sets ?? 1
+  // The current segment fills by sets finished, so the strip moves inside a movement too.
+  const currentFill = Math.max(0.06, Math.min(1, (set - 1 + (phase === 'resting' ? 1 : 0)) / sets))
   return (
-    <div style={{ display: 'flex', gap: 4 }}>
-      {Array.from({ length: total }).map((_, i) => {
-        const r = results[i]
-        const isPast = i < index
-        const fill = r?.completed ? accent : r?.skipped ? theme.borderStrong : isPast ? accent : i === index ? colorMix(accent, 52) : theme.border
-        return <div key={i} style={{ flex: 1, height: 4, borderRadius: 'var(--r-full)', background: fill }} />
-      })}
-    </div>
+    <>
+      <p className={styles.count}>
+        <span><span className={styles.countNow}>{pad2(Math.min(index + 1, total))}</span> / {pad2(total)}</span>
+        {item ? (
+          <span className={styles.stepTag}>
+            <span className={styles.stepDot} aria-hidden="true" />
+            {item.stepLabel}
+          </span>
+        ) : null}
+      </p>
+      <div className={styles.segments}>
+        {Array.from({ length: total }).map((_, i) => {
+          const r = results[i]
+          const state = r?.skipped ? 'skipped' : r?.completed || i < index ? 'done' : i === index ? 'current' : 'todo'
+          const fill = state === 'todo' ? 0 : state === 'current' ? currentFill : 1
+          return (
+            <div key={i} className={styles.seg} data-state={state}>
+              <div className={styles.segFill} style={{ '--fill': fill } as CSSProperties} />
+            </div>
+          )
+        })}
+      </div>
+    </>
   )
 })
 
-// ---- start card ---------------------------------------------------------
-function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: SessionSnapshot; clientFirstName?: string | null; onBegin: () => void; accent: string }) {
+// ---- start ------------------------------------------------------------------
+function StartCard({ snapshot, clientFirstName, onBegin }: { snapshot: SessionSnapshot; clientFirstName?: string | null; onBegin: () => void }) {
   const mins = Math.max(1, Math.round(snapshot.estimatedDurationSec / 60))
+  const count = snapshot.items.length
+  const steps = Array.from(new Set(snapshot.items.map((it) => it.stepLabel)))
   return (
-    <Surface tier="feature">
-      {clientFirstName && <p className="t-footnote" style={{ color: accent, margin: '0 0 8px' }}>Hi {clientFirstName}</p>}
-      <h1 className="t-title-1" style={{ margin: '0 0 10px' }}>Your guided session</h1>
-      <p className="t-body" style={{ margin: '0 0 4px' }}>
-        {snapshot.items.length} movements · about {mins} min
-      </p>
+    <div className={styles.start}>
+      <div className={styles.startHead}>
+        {clientFirstName && <p className={styles.greeting}>Hi {clientFirstName}</p>}
+        <h1 className={styles.startTitle}>Your guided session</h1>
+      </div>
+
+      <p className="sr-only">{count} movements · about {mins} min</p>
+      <div className={styles.stats} aria-hidden="true">
+        <div className={styles.stat}>
+          <SlotNumber value={count} className={styles.statValue} />
+          <span className={styles.eyebrow}>movements</span>
+        </div>
+        <div className={styles.stat}>
+          <SlotNumber value={mins} className={styles.statValue} delay={120} />
+          <span className={styles.eyebrow}>about · min</span>
+        </div>
+      </div>
+
+      {count > 0 ? (
+        <div style={{ display: 'grid', gap: 12, justifyItems: 'center', width: '100%' }} aria-hidden="true">
+          <div className={styles.arc}>
+            {snapshot.items.map((it, i) => (
+              <span
+                key={`${it.slug}-${i}`}
+                className={styles.arcTick}
+                style={{ '--step': itemColor(it), animationDelay: `${Math.min(i, 8) * 30}ms` } as CSSProperties}
+              />
+            ))}
+          </div>
+          <ul className={styles.arcLegend}>
+            {steps.map((label) => (
+              <li key={label} style={{ '--step': STEP_COLOR[label] ?? ACCENT_FALLBACK } as CSSProperties}>
+                <span className={styles.stepDot} />
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <WorkoutLegalNotice
         {...(snapshot.version === 4
           ? { prototypeDisclaimer: snapshot.disclaimer }
@@ -675,48 +750,53 @@ function StartCard({ snapshot, clientFirstName, onBegin, accent }: { snapshot: S
             ? { legacyDisclaimer: snapshot.disclaimer }
             : { legalNotice: snapshot.legalNotice })}
       />
-      <Button onClick={onBegin} variant="primary" size="lg" block>
-        Begin session
-      </Button>
-    </Surface>
+      <div className={`${styles.primaryWrap} ${styles.dock}`}>
+        <Button onClick={onBegin} variant="primary" size="lg" block>
+          Begin session
+        </Button>
+      </div>
+    </div>
   )
 }
 
 // ---- up next ------------------------------------------------------------
-function UpNext({ item, index, total, accent, onStart }: { item: SessionItem; index: number; total: number; accent: string; onStart: () => void }) {
+function UpNext({ item, index, total, remaining, onStart }: { item: SessionItem; index: number; total: number; remaining: number; onStart: () => void }) {
+  const dose = timingLabel(item).split(' · ')
   return (
-    <Surface tier="feature">
-      <p className="t-overline" style={{ marginBottom: 10 }}>
-        Up next · {index + 1} of {total}
-      </p>
-      <div className="t-overline" style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--r-full)', background: colorMix(accent, 14), color: accent, marginBottom: 12 }}>
-        {item.stepLabel}
+    <div className={styles.upNext}>
+      <div className={styles.upNextHead}>
+        <p className={styles.eyebrow}>
+          Up next · {index + 1} of {total}
+        </p>
+        <p className={styles.eyebrow}>
+          <span className={styles.stepTag}>
+            <span className={styles.stepDot} aria-hidden="true" />
+            {item.stepLabel}
+          </span>
+        </p>
+        <h2 className={styles.upNextTitle}>{item.name}</h2>
+        <p className={styles.dose}>
+          {dose.map((part) => <span key={part}>{part}</span>)}
+        </p>
+        <p className={styles.focus}>{item.priorityLabel}</p>
       </div>
-      <h2 className="t-title-1" style={{ margin: '0 0 8px' }}>{item.name}</h2>
-      <p className="t-body" style={{ margin: '0 0 6px' }}>{timingLabel(item)}</p>
-      <p className="t-body" style={{ maxWidth: 380, margin: '10px auto 12px' }}>{item.priorityLabel}</p>
       {item.steps && item.steps.length > 0 && (
-        <ol
-          className="t-body"
-          style={{
-            textAlign: 'left',
-            maxWidth: 380,
-            margin: '0 auto 22px',
-            padding: '0 0 0 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-          }}
-        >
+        <ol className={styles.steps}>
           {item.steps.slice(0, 5).map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ol>
       )}
-      <Button onClick={onStart} variant="secondary" size="md">
-        Start now →
-      </Button>
-    </Surface>
+      <div className={styles.primaryWrap} style={{ margin: '0 auto' }}>
+        <Button onClick={onStart} variant="primary" size="lg" block>
+          Start now →
+        </Button>
+        {/* Up next starts by itself: the hairline drains toward the auto-start. */}
+        <div className={styles.autoBar} aria-hidden="true">
+          <div className={styles.autoBarFill} style={{ '--fill': Math.max(0, Math.min(1, remaining)) } as CSSProperties} />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -725,123 +805,134 @@ function PlayingHud({ state, item, accent, captionText, onNext }: { state: Playe
   const isRest = state.phase === 'resting'
   const isHold = item.timing.kind === 'hold'
   const repsPerSet = item.timing.kind === 'reps' ? item.timing.repsPerSet : 0
+  const sets = item.timing.sets
   const totalMs = segmentTotalMs(state)
   const progress = isRest || isHold ? state.remainingMs / totalMs : 1
-  const ringColor = isRest ? theme.textSecondary : accent
 
   return (
-    <Surface tier="feature" innerStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-      {isRest ? (
-        <p className="t-overline" style={{ minHeight: 22, margin: 0 }}>Rest</p>
-      ) : (
-        // Exercise title at Title-2 role (spec §5 "Workout session"); the
-        // reps×sets readout rides alongside it in a lighter secondary tier.
-        <h2 className="t-title-2" style={{ minHeight: 22, margin: 0 }}>
-          {item.name}
-          <span className="t-callout"> · set {state.set} of {item.timing.sets}</span>
-        </h2>
-      )}
+    <div className={styles.hud} data-rest={isRest ? 'true' : 'false'}>
+      <div className={styles.hudHead}>
+        <p className={`${styles.eyebrow} ${isRest ? '' : styles.eyebrowStep}`}>
+          {isRest ? `Rest · then set ${Math.min(state.set + 1, sets)} of ${sets}` : `Set ${state.set} of ${sets}`}
+        </p>
+        {isRest ? (
+          <p className={styles.hudName}>{item.name}</p>
+        ) : (
+          <h2 className={styles.hudName}>{item.name}</h2>
+        )}
+      </div>
 
       {isRest || isHold ? (
-        // The seconds readout is the largest thing on screen — legible from arm's
-        // length — and tabular-nums (baked into t-readout-xl) keeps its box fixed
-        // width so a counting-down timer never reflows digit to digit.
-        <CountdownRing progress={progress} color={ringColor} dimmed={isRest}>
-          <div className="t-readout-xl">{secs(state.remainingMs)}</div>
-          <p className="t-overline">{isRest ? 'seconds' : 'hold'}</p>
+        // The seconds readout is the largest thing on screen — legible from
+        // arm's length — and tabular so a counting-down timer never reflows.
+        <CountdownRing
+          key={`${state.phase}-${state.index}-${state.set}`}
+          progress={progress}
+          color={isRest ? 'var(--ink-3)' : accent}
+          dimmed={isRest}
+        >
+          <RollingDigits
+            value={String(secs(state.remainingMs))}
+            className={`${styles.numeral} ${isRest ? styles.numeralRest : ''}`}
+          />
+          <p className={styles.unit}>{isRest ? 'seconds · rest' : 'seconds · hold'}</p>
         </CountdownRing>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <p className="t-overline">Target</p>
-          <div className="t-readout-xl" style={{ color: accent }}>×{repsPerSet}</div>
-          <div className="t-body">controlled reps</div>
+        <div className={styles.target}>
+          <p className={styles.eyebrow}>Target</p>
+          <span className={styles.numeral}>
+            <span className={styles.numeralPrefix} aria-hidden="true">×</span>
+            <SlotNumber value={repsPerSet} />
+          </span>
+          <p className={styles.unit}>controlled reps</p>
         </div>
       )}
 
-      {/* caption (mirrors the voice cue added in the voice pass) */}
-      <p aria-live="polite" className="t-body" style={{ minHeight: 20, maxWidth: 360, margin: 0 }}>
+      {sets > 1 ? (
+        <div className={styles.setBeads} aria-hidden="true">
+          {Array.from({ length: sets }).map((_, i) => (
+            <span
+              key={i}
+              className={styles.setBead}
+              data-state={i < state.set - 1 || (isRest && i === state.set - 1) ? 'done' : i === state.set - 1 ? 'now' : undefined}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {/* caption (mirrors the voice cue) */}
+      <p aria-live="polite" className={styles.caption}>
         {captionText}
       </p>
 
       {!isRest && !isHold && (
         // The screen's one primary action for this phase — marking the set
-        // done. haptic="success" overrides Button's default tap pulse per
-        // the task's explicit "haptic on set done" requirement.
-        <Button onClick={onNext} variant="primary" size="lg" haptic="success">
-          Done, next →
-        </Button>
+        // done. haptic="success" for "haptic on set done".
+        <div className={styles.primaryWrap}>
+          <Button onClick={onNext} variant="primary" size="lg" block haptic="success">
+            Done, next →
+          </Button>
+        </div>
       )}
-    </Surface>
-  )
-}
-
-function Transport({ paused, onBack, onPauseToggle, onSkip, atStart, isVisible }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean; isVisible: boolean }) {
-  // Pause/Resume is the screen's one primary action here; Skip is tertiary
-  // (spec §5 vocabulary). Back stays a native button: BACK at index 0 is not
-  // a no-op (playerMachine resets the current item's result), so it needs a
-  // true native `disabled` — Button only exposes `disabledReason` (aria-disabled,
-  // clicks swallowed but still focusable), which doesn't convey the same
-  // "can't go further back" affordance in this dense three-up row.
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      <button
-        onClick={onBack}
-        aria-label="Back"
-        disabled={atStart}
-        tabIndex={isVisible ? 0 : -1}
-        className="a-secondary"
-        style={{ minWidth: 64, minHeight: 48 }}
-      >
-        Back
-      </button>
-      <Button
-        onClick={onPauseToggle}
-        variant="primary"
-        size="md"
-        icon={paused ? undefined : 'pause-linear'}
-        tabIndex={isVisible ? 0 : -1}
-        style={{ minWidth: 108 }}
-      >
-        {paused ? 'Resume' : 'Pause'}
-      </Button>
-      <Button onClick={onSkip} variant="tertiary" size="md" tabIndex={isVisible ? 0 : -1}>
-        Skip
-      </Button>
     </div>
   )
 }
 
-function roundToggle(on: boolean): React.CSSProperties {
-  return {
-    width: 44,
-    height: 44,
-    minHeight: 44,
-    borderRadius: theme.radiusControl,
-    border: `1px solid ${on ? theme.primary : theme.border}`,
-    background: on ? colorMix(theme.primary, 14) : theme.surfaceWell,
-    color: on ? theme.primary : theme.textSecondary,
-    fontSize: 16,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
+function PlayGlyph() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function Transport({ paused, onBack, onPauseToggle, onSkip, atStart, isVisible }: { paused: boolean; onBack: () => void; onPauseToggle: () => void; onSkip: () => void; atStart: boolean; isVisible: boolean }) {
+  // A media transport in a glass capsule. Back keeps a native `disabled`: BACK
+  // at index 0 is not a no-op (playerMachine resets the current item's
+  // result), so it must truly be unavailable there. Pause morphs disc →
+  // squircle while paused, so the state reads from the shape as well.
+  const tab = isVisible ? 0 : -1
+  return (
+    <div className={styles.transport}>
+      <button type="button" onClick={() => { haptic('tap'); onBack() }} aria-label="Back" disabled={atStart} tabIndex={tab} className={styles.tBtn}>
+        <Icon name="skip-previous-linear" size={22} />
+        <span className={styles.tLabel} aria-hidden="true">Back</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => { haptic('tap'); onPauseToggle() }}
+        tabIndex={tab}
+        className={styles.tMain}
+        data-paused={paused ? 'true' : 'false'}
+      >
+        {paused ? <PlayGlyph /> : <Icon name="pause-linear" size={26} />}
+        <span className="sr-only">{paused ? 'Resume' : 'Pause'}</span>
+      </button>
+      <button type="button" onClick={() => { haptic('tap'); onSkip() }} tabIndex={tab} className={styles.tBtn}>
+        <Icon name="skip-next-linear" size={22} />
+        <span className={styles.tLabel}>Skip</span>
+      </button>
+    </div>
+  )
 }
 
 // ---- red-flag pre-session safety screen ---------------------------------
-function RedFlagCard({ accent, onClear, onStop }: { accent: string; onClear: () => void; onStop: () => void }) {
+function RedFlagCard({ onClear, onStop }: { onClear: () => void; onStop: () => void }) {
   return (
     <Surface tier="feature">
-      <h2 className="t-title-1" style={{ margin: '0 0 20px' }}>
-        Before you start — are you feeling any sharp or worsening pain right now?
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', maxWidth: 320 }}>
-        <Button onClick={onClear} data-testid="red-flag-no" variant="primary" size="lg" block>
-          No, I feel okay
-        </Button>
-        <Button onClick={onStop} data-testid="red-flag-yes" variant="secondary" size="md" block style={{ color: accent }}>
-          Yes
-        </Button>
+      <div className={styles.gate}>
+        <p className={styles.eyebrow}>Pain check</p>
+        <h2 className={styles.gateTitle}>
+          Before you start — are you feeling any sharp or worsening pain right now?
+        </h2>
+        <div className={styles.gateActions}>
+          <Button onClick={onClear} data-testid="red-flag-no" variant="primary" size="lg" block>
+            No, I feel okay
+          </Button>
+          <Button onClick={onStop} data-testid="red-flag-yes" variant="secondary" size="lg" block>
+            Yes
+          </Button>
+        </div>
       </div>
     </Surface>
   )
@@ -854,15 +945,17 @@ function StopCard({ onDismiss }: { onDismiss?: () => void }) {
     // props, so the e2e hook has to sit outside it.
     <div data-testid="stop-card">
       <Surface tier="feature">
-        <h2 className="t-title-1" style={{ margin: '0 0 16px' }}>
-          Let&apos;s pause here.
-        </h2>
-        <p className="t-body" style={{ margin: '0 auto 28px', maxWidth: 360 }}>
-          Sharp pain is worth checking with a movement professional before continuing.
-        </p>
-        <Button onClick={onDismiss} data-testid="stop-card-dismiss" variant="secondary" size="md">
-          End session
-        </Button>
+        <div className={styles.gate}>
+          <h2 className={styles.gateTitle}>Let&apos;s pause here.</h2>
+          <p className={styles.gateBody}>
+            Sharp pain is worth checking with a movement professional before continuing.
+          </p>
+          <div className={styles.gateActions}>
+            <Button onClick={onDismiss} data-testid="stop-card-dismiss" variant="secondary" size="lg" block>
+              End session
+            </Button>
+          </div>
+        </div>
       </Surface>
     </div>
   )

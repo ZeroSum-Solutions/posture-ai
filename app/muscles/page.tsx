@@ -1,6 +1,7 @@
 import { Disclaimer } from '@/components/Disclaimer'
 import { TopBar } from '@/components/ui'
 import { MuscleLibrary } from './MuscleLibrary'
+import styles from './Muscles.module.css'
 import { notFound } from 'next/navigation'
 import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import { approvedClinicalMuscles } from '@/lib/clinical-content/catalog'
@@ -25,11 +26,13 @@ export default async function MusclesPage() {
     <div className="app-screen">
       <TopBar
         title="Muscle guide"
-        subtitle="Anatomy, function, and corrective exercise guidance for every muscle implicated in the ten postural screening measures."
+        subtitle={muscles.length > 0 ? `${muscles.length} muscles linked to the ten screening measures` : undefined}
       />
-      <div className="app-screen-x app-stack">
-        <Disclaimer compact />
+      <div className={`app-screen-x ${styles.body}`}>
         <MuscleLibrary muscles={muscles} />
+        <footer className={styles.footer}>
+          <Disclaimer compact />
+        </footer>
       </div>
     </div>
   )

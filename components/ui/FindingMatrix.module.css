@@ -1,0 +1,52 @@
+/* Three scan columns fit the content width (100cqi = screen minus gutters, so
+   360px screens fit too); older scans scroll in under the sticky names. */
+.root { position: relative; --name-w: 108px; --cell-w: max(72px, calc((100cqi - var(--name-w)) / 3)); container-type: inline-size; }
+.wrap {
+  overflow-x: auto; margin-inline: calc(-1 * var(--screen-x)); padding-inline: var(--screen-x);
+  scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.wrap[data-more] {
+  -webkit-mask: linear-gradient(90deg, #000 calc(100% - var(--screen-x) - 12px), transparent calc(100% - var(--screen-x) + 2px));
+  mask: linear-gradient(90deg, #000 calc(100% - var(--screen-x) - 12px), transparent calc(100% - var(--screen-x) + 2px));
+}
+.wrap::-webkit-scrollbar { display: none; }
+/* Continuation cue under the grid while older scans are offscreen; tapping it steps one scan. */
+.pager { display: flex; justify-content: flex-end; margin-top: var(--s-4); }
+.pagerBtn {
+  min-height: 44px; padding: 0 0 0 var(--s-12); border: 0; background: transparent; cursor: pointer;
+  font: var(--t-micro); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2);
+  animation: more-in var(--duration-state) var(--ease-out-expo) both;
+}
+.pagerBtn:active { color: var(--ink-1); }
+.pagerBtn:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; border-radius: var(--r-sm); }
+@keyframes more-in { from { opacity: 0; transform: translateX(-4px); } }
+.table { border-collapse: separate; border-spacing: 0; min-width: 100%; table-layout: fixed; }
+.corner, .name { position: sticky; left: 0; z-index: 1; background: transparent; text-align: left; transition: background var(--duration-state); }
+/* The sticky names only need a canvas behind them once older scans slide under. */
+.wrap[data-scrolled] .corner, .wrap[data-scrolled] .name { background: var(--background); }
+.wrap[data-scrolled] .name { box-shadow: 10px 0 12px -10px rgba(0, 0, 0, 0.9); }
+.corner { width: var(--name-w); padding: 0 var(--s-8) var(--s-8) 0; }
+.name {
+  width: var(--name-w); min-width: var(--name-w); max-width: var(--name-w); padding: var(--s-12) var(--s-8) var(--s-12) 0;
+  font: var(--t-label); font-weight: 600; color: var(--ink-1); border-top: 1px solid var(--hairline);
+}
+.scanHead { width: var(--cell-w); padding: 0 var(--s-8) var(--s-8); text-align: left; white-space: nowrap; }
+.scanHead[data-latest] :global(.t-micro) { color: var(--volt); }
+.cell { width: var(--cell-w); min-width: var(--cell-w); max-width: var(--cell-w); padding: 4px 0; border-top: 1px solid var(--hairline); }
+/* Beads + word on the canvas. No per-cell fill; the latest column is marked by its volt date. */
+.cellBtn, .cellStatic {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;
+  width: 100%; min-height: 52px; padding: 0 var(--s-8); border: 0; border-radius: var(--r-sm);
+  background: transparent; color: inherit; text-align: left;
+  animation: cell-in 420ms var(--ease-out-expo) both; animation-delay: calc(var(--r) * 40ms);
+}
+.cellBtn { cursor: pointer; transition: transform var(--duration-press), background var(--duration-state); -webkit-tap-highlight-color: transparent; }
+.cellBtn:active { transform: scale(0.95); background: var(--surface-2); }
+.cellBtn:focus-visible { background: var(--surface-1); outline: 2px solid var(--volt); outline-offset: -2px; }
+.cellWord { font: var(--t-caption); font-weight: 600; color: var(--ink-3); }
+.cellWord[data-band='maintain'] { color: var(--maintain); }
+.cellWord[data-band='monitor'] { color: var(--monitor); }
+.cellWord[data-band='review'] { color: var(--review); }
+.none { font: var(--t-label); color: var(--ink-3); padding-left: var(--s-8); }
+@keyframes cell-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .cellBtn, .cellStatic, .pagerBtn { animation: none; } }

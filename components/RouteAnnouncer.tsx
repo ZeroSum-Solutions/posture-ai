@@ -12,13 +12,14 @@ import { useEffect, useRef } from 'react'
  */
 export default function RouteAnnouncer() {
   const pathname = usePathname() ?? ''
-  const isFirstRender = useRef(true)
+  // The last path focus was handled for. Comparing paths (not a first-render
+  // flag) keeps Strict Mode's double effect run from counting as a navigation
+  // and tagging the h1 before streamed regions hydrate.
+  const lastPath = useRef(pathname)
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
+    if (lastPath.current === pathname) return
+    lastPath.current = pathname
     // Let the new route's DOM commit (and the entrance transition start)
     // before reading its heading and moving focus.
     const frame = requestAnimationFrame(() => {

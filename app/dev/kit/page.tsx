@@ -20,50 +20,25 @@ import type { ReactNode } from 'react'
 import {
   Avatar,
   Badge,
-  Banner,
   Card,
-  ChipRow,
-  Dialog,
   Disclosure,
-  EmptyState,
-  ErrorState,
-  FilterChip,
   GradeBadge,
   ListGroup,
   ListRow,
   Readout,
   SectionHeader,
   SeverityChip,
-  Sheet,
   Stat,
-  Stepper,
   Surface,
   ToastProvider,
   TopBar,
-  ActionBar,
-  useToast,
   Button,
-  IconButton,
-  TextField,
-  Textarea,
-  SearchField,
-  Select,
-  SegmentedControl,
   Tabs,
   tabPanelProps,
-  Switch,
-  Checkbox,
-  Radio,
-  Spinner,
-  BlobLoader,
-  DotsBounce,
-  Skeleton,
-  ListRowSkeleton,
-  CardSkeleton,
-  ProgressBar,
-  ProgressRing,
 } from '@/components/ui'
 import type { SeverityChipBand } from '@/components/ui'
+import { ActionBarKit, BannerKit, LoadersKit, OverlaysKit, StatesKit } from './OverlaysKit'
+import { ButtonKit, FieldsKit, FilterChipKit, IconButtonKit, SegmentedKit, StepperKit, TogglesKit } from './ControlsKit'
 
 function Section({ title, action, children }: { title: string; action?: { label: string; onPress: () => void }; children: ReactNode }) {
   return (
@@ -89,77 +64,10 @@ function Row({ children }: { children: ReactNode }) {
 
 const BANDS: SeverityChipBand[] = ['maintain', 'monitor', 'review', 'neutral']
 
-function ToastButtons() {
-  const toast = useToast()
-  return (
-    <Row>
-      <Button size="sm" variant="secondary" onClick={() => toast.success('Scan saved')}>success</Button>
-      <Button size="sm" variant="secondary" onClick={() => toast.info('New assessment ready')}>info</Button>
-      <Button size="sm" variant="secondary" onClick={() => toast.warn('Consent expiring soon')}>warn</Button>
-      <Button size="sm" variant="secondary" onClick={() => toast.error('Could not save', { sticky: true })}>error (sticky)</Button>
-      <Button size="sm" variant="secondary" onClick={() => toast.info('Program updated', { action: { label: 'Undo', onPress: () => {} } })}>with action</Button>
-    </Row>
-  )
-}
-
-function SheetDemo() {
-  const [open, setOpen] = useState<null | 'compact' | 'medium' | 'large'>(null)
-  return (
-    <>
-      <Row>
-        <Button size="sm" variant="secondary" onClick={() => setOpen('compact')}>compact</Button>
-        <Button size="sm" variant="secondary" onClick={() => setOpen('medium')}>medium</Button>
-        <Button size="sm" variant="secondary" onClick={() => setOpen('large')}>large</Button>
-      </Row>
-      <Sheet
-        open={open != null}
-        onOpenChange={(o) => setOpen(o ? open : null)}
-        title="Lateral raise"
-        detents={open ? [open] : ['medium']}
-        footer={<Button block>Add to program</Button>}
-      >
-        <p className="t-body">3 sets · 12 reps. Raises the arm to shoulder height, working the lateral deltoid.</p>
-        <p className="t-body" style={{ marginTop: 8 }}>Drag the grabber, or this header, to feel the detent snap and the velocity-based dismiss past 150px.</p>
-      </Sheet>
-    </>
-  )
-}
-
-function DialogDemo() {
-  const [open, setOpen] = useState<null | 'primary' | 'danger'>(null)
-  return (
-    <>
-      <Row>
-        <Button size="sm" variant="secondary" onClick={() => setOpen('primary')}>confirm</Button>
-        <Button size="sm" variant="secondary" onClick={() => setOpen('danger')}>danger</Button>
-      </Row>
-      <Dialog
-        open={open === 'primary'}
-        onOpenChange={(o) => setOpen(o ? 'primary' : null)}
-        title="Save changes?"
-        description="Your edits to this program will be saved."
-        confirm={{ label: 'Save', onConfirm: () => setOpen(null) }}
-      />
-      <Dialog
-        open={open === 'danger'}
-        onOpenChange={(o) => setOpen(o ? 'danger' : null)}
-        title="Delete this client?"
-        description="This removes their scans, notes and programs. This can't be undone."
-        confirm={{ label: 'Delete', tone: 'danger', onConfirm: () => setOpen(null) }}
-      />
-    </>
-  )
-}
-
 export default function ComponentKitPage() {
   if (process.env.NODE_ENV === 'production') notFound()
 
-  const [filterA, setFilterA] = useState(true)
-  const [filterB, setFilterB] = useState(false)
-  const [segment, setSegment] = useState<'front' | 'back'>('front')
   const [tab, setTab] = useState<'findings' | 'program'>('findings')
-  const [switchOn, setSwitchOn] = useState(true)
-  const [checked, setChecked] = useState(true)
   const [disclosureOpen, setDisclosureOpen] = useState(false)
 
   return (
@@ -228,22 +136,11 @@ export default function ComponentKitPage() {
         </Section>
 
         <Section title="Banner">
-          <Banner variant="info">New: compare two scans side by side.</Banner>
-          <Banner variant="warn" action={{ label: 'Send consent', onPress: () => {} }}>Consent expires in 3 days.</Banner>
-          <Banner variant="error">Could not reach the server. Changes are saved locally.</Banner>
-          <Banner variant="success">Program assigned to Jordan Pierce.</Banner>
-          <Banner variant="info" hint onDismiss={() => {}}>Stand 2m back, full body in frame.</Banner>
+          <BannerKit />
         </Section>
 
         <Section title="Chips & badges">
-          <Demo label="FilterChip (selected = accent tint, not white — white stays for the one primary action)">
-            <ChipRow label="Client filters">
-              <FilterChip label="All" selected={filterA} onToggle={() => setFilterA((v) => !v)} count={28} />
-              <FilterChip label="Needs review" selected={filterB} onToggle={() => setFilterB((v) => !v)} count={5} />
-              <FilterChip label="Overdue" selected={false} onToggle={() => {}} />
-              <FilterChip label="Score ↓" selected={false} onToggle={() => {}} />
-            </ChipRow>
-          </Demo>
+          <FilterChipKit />
           <Demo label="Badge">
             <Row><Badge>Beta</Badge><Badge>4 new</Badge></Row>
           </Demo>
@@ -260,63 +157,20 @@ export default function ComponentKitPage() {
           </Demo>
         </Section>
 
-        <Section title="Button & IconButton">
-          <Demo label="variants (md)">
-            <Row>
-              <Button variant="primary">Primary</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button variant="tertiary">Tertiary</Button>
-              <Button variant="danger" icon="danger-circle-linear">Danger</Button>
-            </Row>
-          </Demo>
-          <Demo label="sizes">
-            <Row>
-              <Button size="sm">Small</Button>
-              <Button size="md">Medium</Button>
-              <Button size="lg">Large</Button>
-            </Row>
-          </Demo>
-          <Demo label="loading / disabledReason (blocked actions dim and state why, never a plain disabled)">
-            <Row>
-              <Button loading>Saving</Button>
-            </Row>
-            <Button disabledReason="Choose a client to continue">Continue</Button>
-          </Demo>
-          <Demo label="forced-pressed (for screenshot — real press is :active/whileTap)">
-            <Button style={{ transform: 'scale(0.97)', filter: 'brightness(0.94)' }}>Pressed</Button>
-          </Demo>
-          <Demo label="IconButton — plain, badge, filled, blocked (disabledReason)">
-            <Row>
-              <IconButton icon="bell-linear" label="Notifications" />
-              <IconButton icon="bell-linear" label="Notifications" badge={3} />
-              <IconButton icon="menu-dots-linear" label="More" variant="filled" />
-              <IconButton icon="user-linear" label="Profile" disabledReason="Sign in to view your profile" />
-            </Row>
-          </Demo>
+        <Section title="Button">
+          <ButtonKit />
+        </Section>
+
+        <Section title="IconButton">
+          <IconButtonKit />
         </Section>
 
         <Section title="Fields">
-          <TextField label="Client name" placeholder="Jane Doe" />
-          <TextField label="Email" error="Enter a valid email address" defaultValue="not-an-email" />
-          <TextField label="Notes" disabled disabledReason="Locked while this session syncs." defaultValue="Warm-up done" />
-          <Textarea label="Session notes" placeholder="What did you observe?" />
-          <SearchField label="Search clients" onQueryChange={() => {}} />
-          <Select label="Sort by" defaultValue="score">
-            <option value="score">Score</option>
-            <option value="name">Name</option>
-            <option value="date">Date</option>
-          </Select>
+          <FieldsKit />
         </Section>
 
         <Section title="SegmentedControl & Tabs">
-          <Demo label="SegmentedControl — inline view toggle">
-            <SegmentedControl
-              label="Body view"
-              value={segment}
-              onChange={setSegment}
-              options={[{ value: 'front', label: 'Front' }, { value: 'back', label: 'Back' }]}
-            />
-          </Demo>
+          <SegmentedKit />
           <Demo label="Tabs — content panes">
             <Tabs idBase="kit-demo" label="Results sections" value={tab} onChange={setTab} options={[{ value: 'findings', label: 'Findings' }, { value: 'program', label: 'Program' }]} />
             <div {...tabPanelProps('kit-demo', 'findings', tab === 'findings')} hidden={tab !== 'findings'} className="t-callout" style={{ paddingTop: 8 }}>Findings panel</div>
@@ -325,64 +179,15 @@ export default function ComponentKitPage() {
         </Section>
 
         <Section title="Switch, Checkbox, Radio">
-          <Switch label="Haptics" checked={switchOn} onChange={(e) => setSwitchOn(e.target.checked)} />
-          <Checkbox label="I agree to the consent terms" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-          <Row>
-            <Radio name="kit-radio" label="kg" defaultChecked />
-            <Radio name="kit-radio" label="lb" />
-          </Row>
+          <TogglesKit />
         </Section>
 
         <Section title="Loaders">
-          <Demo label="Spinner (16 / 24 / 40)">
-            <Row><Spinner size={16} /><Spinner size={24} /><Spinner size={40} /></Row>
-          </Demo>
-          <Demo label="BlobLoader">
-            <BlobLoader label="Analyzing posture…" steps={['Reading front view…', 'Reading back view…']} />
-          </Demo>
-          <Demo label="DotsBounce">
-            <DotsBounce label="Saving" />
-          </Demo>
-          <Demo label="Skeleton — line, row, card">
-            <Skeleton shape="line" lines={2} />
-            <ListRowSkeleton />
-            <CardSkeleton />
-          </Demo>
-          <Demo label="ProgressBar / ProgressRing">
-            <ProgressBar value={0.6} label="Processing 3 of 4 views" />
-            <div style={{ marginTop: 8 }}><ProgressRing value={0.75} label="Setup checklist" /></div>
-          </Demo>
+          <LoadersKit />
         </Section>
 
         <Section title="EmptyState & ErrorState">
-          <Demo label="EmptyState — page">
-            <Surface tier="tile" pad="flush">
-              <EmptyState
-                variant="inline"
-                icon="users-group-rounded-linear"
-                title="No clients yet"
-                body="Add one to run your first scan."
-                primary={{ label: 'Add client', onPress: () => {} }}
-              />
-            </Surface>
-          </Demo>
-          <Demo label="EmptyState — inline, 'No photo for this view'">
-            <Surface tier="tile" pad="flush">
-              <EmptyState variant="inline" icon="image-off-linear" title="No photo for this view" body="This view was not captured." secondary={{ label: 'Retake', onPress: () => {} }} />
-            </Surface>
-          </Demo>
-          <Demo label="ErrorState — inline, with Retry and Details">
-            <Surface tier="tile" pad="flush">
-              <ErrorState
-                variant="inline"
-                title="Could not load this exercise"
-                body="Check your connection and try again."
-                onRetry={() => {}}
-                secondary={{ label: 'Contact support', onPress: () => {} }}
-                details="GET /api/clinical-content/exercises/lateral-raise → 503"
-              />
-            </Surface>
-          </Demo>
+          <StatesKit />
         </Section>
 
         <Section title="Stat & Readout">
@@ -396,27 +201,17 @@ export default function ComponentKitPage() {
         </Section>
 
         <Section title="Stepper">
-          <Stepper
-            steps={[{ id: 'client', label: 'Client' }, { id: 'capture', label: 'Capture' }, { id: 'review', label: 'Review' }]}
-            current="capture"
-          />
+          <StepperKit />
         </Section>
 
         <Section title="Overlays — Sheet, Dialog, Toast">
-          <Demo label="Sheet — compact / medium / large">
-            <SheetDemo />
-          </Demo>
-          <Demo label="Dialog — primary / danger (role=alertdialog)">
-            <DialogDemo />
-          </Demo>
-          <Demo label="Toast">
-            <ToastButtons />
-          </Demo>
+          <OverlaysKit />
+        </Section>
+
+        <Section title="ActionBar">
+          <ActionBarKit />
         </Section>
       </div>
-      <ActionBar reason="ActionBar — the one primary action per screen lives here.">
-        <Button variant="primary" size="lg" block>Primary action</Button>
-      </ActionBar>
     </ToastProvider>
   )
 }

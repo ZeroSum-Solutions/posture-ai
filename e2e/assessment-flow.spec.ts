@@ -75,7 +75,7 @@ test.describe('assessment golden path (test mode)', () => {
     // Fixture frames carry no sensor roll → honest level-unverified badge.
     await expect(page.locator('[data-testid="level-badge"]')).toContainText(/level not verified/i)
 
-    await expect(page.getByRole('button', { name: /PDF/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Report, share & compare' })).toBeVisible()
 
     // Client page (progress surface) renders for this client.
     await page.goto(`/clients/${client.id}`)

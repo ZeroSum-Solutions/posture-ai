@@ -61,7 +61,7 @@ test.describe('report approval gate', () => {
     // ReviewDock's controls (approve, PDF, share, compare) sit behind the
     // "Report, share & compare" disclosure, collapsed by default; the pinned
     // action bar carries its own always-visible sign-off/PDF pair separately.
-    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
+    await page.getByRole('button', { name: 'Report, share & compare' }).click()
     await expect(page.getByTestId('review-dock')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Approve report' })).toBeVisible()
     // The pinned action bar's icon button ("Generate practitioner PDF") also
@@ -92,7 +92,7 @@ test.describe('report approval gate', () => {
     expect(approve.ok(), `approve failed: ${approve.status()}`).toBeTruthy()
 
     await page.reload()
-    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
+    await page.getByRole('button', { name: 'Report, share & compare' }).click()
     await expect(page.getByRole('button', { name: 'Practitioner PDF', exact: true })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Client report' })).toBeEnabled()
 

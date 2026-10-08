@@ -88,8 +88,8 @@ export default function SignInPage() {
         />
         <Link
           href="/auth/forgot-password"
-          className="t-footnote"
-          style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+          className="t-label"
+          style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-end', minHeight: 44, marginTop: 'calc(var(--s-8) * -1)', color: 'var(--ink-1)', textDecoration: 'none' }}
         >
           Forgot password?
         </Link>

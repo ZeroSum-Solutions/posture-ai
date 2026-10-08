@@ -21,6 +21,11 @@ test.describe('accessibility budget', () => {
     // entrance can still be near opacity 0 after networkidle, which makes Axe
     // composite otherwise-accessible colors into a false black-on-black result.
     await expect(page.locator('.app-shell-main')).toHaveCSS('opacity', '1', { timeout: 15_000 })
+    // v4 staggers rows and sections in with short fades; wait for every finite
+    // animation to settle (ambient drift and spinners loop forever and are skipped).
+    await page.evaluate(() => Promise.all(document.getAnimations()
+      .filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
+      .map(animation => animation.finished.catch(() => undefined))))
     const results = await analyzeAndAttachAxe(page, testInfo, name)
     const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
     const detail = serious.map(v =>
@@ -174,7 +179,7 @@ test.describe('accessibility budget', () => {
     // comparison select), which live behind the collapsed "Report, share &
     // compare" disclosure — not the pinned action bar's separate "Approve &
     // send report" button. Open it first.
-    await page.locator('summary', { hasText: 'Report, share & compare' }).click()
+    await page.getByRole('button', { name: 'Report, share & compare' }).click()
     await page.getByRole('button', { name: 'Approve report' }).click()
     // The pinned action bar's icon-only "Generate practitioner PDF" button also
     // matches the substring "Practitioner PDF" -- scope to ReviewDock's own

@@ -56,11 +56,19 @@ export function shortDate(iso: string | null | undefined): string | null {
   return new Date(then).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-/** Short date without the year, for axis labels: `12 Jul`. */
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
+
+/**
+ * Short date without the year: `12 Jul`. UTC calendar day and fixed month
+ * spelling, the same basis as the client header, Clients list and Results, so
+ * one scan never reads as two different days (a 03:00 UTC scan is still the
+ * previous evening in the Americas).
+ */
 export function axisDate(iso: string | null | undefined): string | null {
   const then = toMillis(iso)
   if (then == null) return null
-  return new Date(then).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const date = new Date(then)
+  return `${date.getUTCDate()} ${MONTHS_SHORT[date.getUTCMonth()]}`
 }
 
 function toMillis(iso: string | null | undefined): number | null {

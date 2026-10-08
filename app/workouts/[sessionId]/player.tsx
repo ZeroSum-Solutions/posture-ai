@@ -221,22 +221,33 @@ export default function AuthedPlayer({
         <div
           role={saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'alert' : 'status'}
           aria-live={saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'assertive' : 'polite'}
-          className="t-footnote"
+          className="t-label"
+          data-tone={saveStatus === 'saving' ? 'quiet' : 'alert'}
           style={{
+            // The save state rides an Island-style glass capsule, centred under
+            // the safe area and clear of the exit / voice controls on the right.
             position: 'fixed',
-            top: 'max(12px, env(safe-area-inset-top, 0px))',
-            left: 'max(12px, env(safe-area-inset-left, 0px))',
+            // Below the run strip so the position readout stays legible.
+            top: 'calc(max(12px, env(safe-area-inset-top, 0px)) + 60px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
             zIndex: 'calc(var(--z-immersive) + 1)',
-            maxWidth: 300,
-            padding: 'var(--s-12)',
-            borderRadius: 'var(--r-sm)',
-            border: `1px solid ${saveStatus === 'unsaved' || saveStatus === 'conflict' ? 'var(--review)' : 'var(--hairline)'}`,
-            background: 'var(--glass-card)',
-            color: 'var(--text-1)',
+            width: saveStatus === 'saving' ? 'auto' : 'min(300px, calc(100vw - 120px))',
+            padding: saveStatus === 'saving' ? '8px 14px' : 'var(--s-12) var(--s-16)',
+            borderRadius: saveStatus === 'saving' ? 'var(--r-full)' : 'var(--r-md)',
+            background: 'var(--glass)',
+            WebkitBackdropFilter: 'var(--glass-filter)',
+            backdropFilter: 'var(--glass-filter)',
+            boxShadow: `var(--glass-inner), var(--glass-shadow), inset 0 0 0 1px ${saveStatus === 'saving' ? 'var(--hairline)' : 'var(--review)'}`,
+            color: 'var(--ink-1)',
+            whiteSpace: saveStatus === 'saving' ? 'nowrap' : undefined,
           }}
         >
           {saveStatus === 'saving' ? (
-            'Saving workout progress…'
+            <>
+              <span aria-hidden="true">Saving…</span>
+              <span className="sr-only">Saving workout progress…</span>
+            </>
           ) : saveStatus === 'conflict' ? (
             <>
               <div>{saveError}</div>
@@ -245,7 +256,7 @@ export default function AuthedPlayer({
                 onClick={() => window.location.reload()}
                 variant="secondary"
                 size="sm"
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 10 }}
               >
                 Reload latest progress
               </Button>
@@ -253,7 +264,7 @@ export default function AuthedPlayer({
           ) : (
             <>
               <div>Progress is not saved. {saveError}</div>
-              <Button type="button" onClick={retry} variant="secondary" size="sm" style={{ marginTop: 8 }}>
+              <Button type="button" onClick={retry} variant="secondary" size="sm" style={{ marginTop: 10 }}>
                 Retry saving
               </Button>
             </>

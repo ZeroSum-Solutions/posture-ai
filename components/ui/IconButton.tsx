@@ -23,9 +23,11 @@ export interface IconButtonProps extends NativeButtonProps {
 }
 
 /**
- * A 48×48 hit area around a 44px visible circle — never smaller, per
- * DESIGN.md › "every control is touchable". `label` is mandatory because an
- * icon alone never carries meaning for assistive tech.
+ * A 48×48 hit area around a 44px visible circle (DESIGN.md › Actions › Icon).
+ * `plain` sits on the canvas: no fill until pressed, when a plate blooms out
+ * from the centre. `glass` sits on media (camera, 3D, photos). `filled` is a
+ * solid surface-2 disc. `label` is mandatory: an icon alone never carries
+ * meaning for assistive tech.
  */
 export const IconButton = forwardRef(function IconButton(
   {
@@ -58,6 +60,7 @@ export const IconButton = forwardRef(function IconButton(
       ref={ref}
       type={type ?? 'button'}
       aria-label={label}
+      data-slot="icon-button"
       title={disabledReason}
       aria-disabled={isBlocked || undefined}
       onClick={handleClick}
@@ -65,9 +68,11 @@ export const IconButton = forwardRef(function IconButton(
       {...rest}
     >
       <span className={styles.visual}>
-        <Icon name={icon} size={24} />
+        <span className={styles.plate} aria-hidden="true" />
+        <Icon name={icon} size={22} className={styles.glyph} />
         {typeof badge === 'number' ? (
-          <span className={styles.badge}>{badge > 99 ? '99+' : badge}</span>
+          // Keyed by count: a new count pops in again on the jelly curve.
+          <span key={badge} className={styles.badge}>{badge > 99 ? '99+' : badge}</span>
         ) : badge ? (
           <span className={styles.badgeDot} />
         ) : null}

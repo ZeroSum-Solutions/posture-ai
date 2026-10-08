@@ -1,0 +1,435 @@
+/*
+ * Guided workout player — Array v4 "instrument" (DESIGN.md › Kinetic
+ * Instrument). Full-bleed media stays underneath (DemoCanvas, unchanged); the
+ * HUD sits straight on the scrim with no card: a bezel dial with a volt "now"
+ * head, slot-rolled numerals, a thin segmented run strip, and a glass transport
+ * capsule in the thumb zone. Step colours arrive as `--step` (the same literals
+ * as PriorityProgram); volt is reserved for the one action and the now marker.
+ */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-immersive, 100);
+  background: var(--background);
+  color: var(--ink-1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── auto-hiding chrome ─────────────────────────────────────────────── */
+.chrome {
+  transition: opacity 180ms var(--ease-out-expo), visibility 0s linear 0s;
+}
+.chrome[data-visible='false'] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms var(--ease-standard), visibility 0s linear 140ms;
+}
+
+/* ── top: run strip ─────────────────────────────────────────────────── */
+.top {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  gap: 10px;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 72px 0 20px;
+}
+.topNoExit { padding-right: 20px; }
+
+.count {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 20px;
+  font: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.countNow { color: var(--ink-1); }
+
+.stepTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+}
+.stepDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--step);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--step) 60%, transparent);
+}
+
+.segments { display: flex; gap: 3px; }
+.seg {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.segFill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--step);
+  transform-origin: left center;
+  transform: scaleX(var(--fill, 0));
+  transition: transform 480ms var(--ease-spring);
+}
+.seg[data-state='skipped'] .segFill { background: rgba(255, 255, 255, 0.32); }
+.seg[data-state='current'] .segFill { background: var(--volt); }
+
+/* ── corner controls ────────────────────────────────────────────────── */
+.exit {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  z-index: 6;
+}
+.toggles {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.togglesUnderExit { top: calc(max(12px, env(safe-area-inset-top, 0px)) + 56px); }
+
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), inset 0 0 0 1px var(--hairline);
+  font: var(--t-micro);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-spring), color 160ms var(--ease-standard);
+}
+.toggle[aria-pressed='true'],
+.toggle[data-on='true'] { color: var(--ink-1); box-shadow: var(--glass-inner), inset 0 0 0 1px var(--edge); }
+.toggle:active { transform: scale(0.92); }
+.toggle:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+
+/* ── stage ──────────────────────────────────────────────────────────── */
+.stage {
+  position: relative;
+  z-index: 3;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  align-items: center;
+  padding: 16px 20px;
+  text-align: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.phase { width: 100%; max-width: 460px; }
+
+.eyebrow {
+  margin: 0;
+  font: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.eyebrowStep { color: var(--step); }
+
+/* ── HUD (playing / resting) ────────────────────────────────────────── */
+.hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.hudHead { display: grid; gap: 8px; justify-items: center; }
+.hudName {
+  margin: 0;
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-1);
+  text-wrap: balance;
+}
+.hud[data-rest='true'] .hudName { color: var(--ink-2); }
+
+.numeral {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: clamp(5.5rem, 28vw, 8rem);
+  line-height: 0.92;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+.numeralRest { color: var(--ink-2); }
+.numeralPrefix { font-size: 0.5em; letter-spacing: -0.02em; color: var(--step); margin-right: 0.04em; }
+.unit {
+  margin: 6px 0 0;
+  font: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Reps target: the numeral stands alone over set beads. */
+.target { display: grid; justify-items: center; gap: 4px; padding: 28px 0 8px; }
+
+.setBeads { display: flex; gap: 6px; justify-content: center; margin-top: 14px; }
+.setBead {
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 240ms var(--ease-standard), width 320ms var(--ease-spring);
+}
+.setBead[data-state='done'] { background: var(--step); }
+.setBead[data-state='now'] { width: 34px; background: var(--ink-1); }
+
+.caption {
+  margin: 0;
+  min-height: 48px;
+  max-width: 340px;
+  font: var(--t-body);
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* ── start ──────────────────────────────────────────────────────────── */
+.start { display: grid; gap: 28px; justify-items: center; }
+.startHead { display: grid; gap: 10px; justify-items: center; }
+.startTitle {
+  margin: 0;
+  font: var(--t-display);
+  letter-spacing: -0.04em;
+  color: var(--ink-1);
+  text-wrap: balance;
+}
+.greeting { margin: 0; font: var(--t-callout); color: var(--ink-2); }
+
+.stats { display: flex; gap: 40px; justify-content: center; }
+.stat { display: grid; gap: 6px; justify-items: center; }
+.statValue {
+  font: var(--t-hero);
+  font-size: 4rem;
+  letter-spacing: -0.055em;
+  line-height: 0.92;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+
+/* The session's corrective arc: one tick per movement in its step colour. */
+.arc { display: flex; gap: 3px; width: 100%; max-width: 320px; }
+.arcTick {
+  flex: 1;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--step);
+  opacity: 0.85;
+  transform-origin: bottom;
+  animation: arc-rise 520ms var(--ease-spring) both;
+}
+@keyframes arc-rise { from { transform: scaleY(0.2); opacity: 0; } }
+.arcLegend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--t-label);
+  color: var(--ink-3);
+}
+.arcLegend li { display: inline-flex; align-items: center; gap: 6px; }
+
+.primaryWrap { width: 100%; max-width: 340px; display: grid; gap: 12px; }
+
+/* ── up next ────────────────────────────────────────────────────────── */
+.upNext { display: grid; gap: 20px; }
+.upNextHead { display: grid; gap: 10px; justify-items: center; }
+.upNextTitle {
+  margin: 0;
+  font: var(--t-display);
+  letter-spacing: -0.04em;
+  color: var(--ink-1);
+  text-wrap: balance;
+}
+.dose {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 12px;
+  font: var(--t-callout);
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+}
+.dose > span + span::before { content: '·'; margin-right: 12px; color: var(--ink-3); }
+.focus { margin: 0; font: var(--t-label); color: var(--ink-3); }
+
+.autoBar {
+  width: 120px;
+  height: 2px;
+  margin: 2px auto 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.autoBarFill {
+  height: 100%;
+  background: var(--ink-2);
+  transform-origin: left center;
+  transform: scaleX(var(--fill, 1));
+  transition: transform 200ms linear;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  counter-reset: step;
+  border-top: 1px solid var(--hairline);
+}
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+  font: var(--t-callout);
+  color: var(--ink-2);
+}
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  font: var(--t-micro);
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  padding-top: 3px;
+}
+
+/* ── pre-roll ───────────────────────────────────────────────────────── */
+.preroll { display: grid; gap: 12px; justify-items: center; }
+.prerollNumeral {
+  font-size: clamp(8rem, 44vw, 12rem);
+  line-height: 0.9;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+.prerollName { margin: 0; font: var(--t-headline); color: var(--ink-2); }
+
+/* ── gates (pain check / stop) ──────────────────────────────────────── */
+.gate { display: grid; gap: 24px; justify-items: center; text-align: center; }
+.gateTitle {
+  margin: 0;
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-1);
+  text-wrap: balance;
+}
+.gateBody { margin: 0; font: var(--t-body); color: var(--ink-2); max-width: 340px; }
+.gateActions { width: 100%; max-width: 320px; display: grid; gap: 10px; }
+
+/* ── transport ──────────────────────────────────────────────────────── */
+.transportWrap {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+.transport {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px 72px 64px;
+  align-items: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--glass-shadow), inset 0 0 0 1px var(--hairline);
+}
+.tBtn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  min-height: 56px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-1);
+  font: var(--t-label);
+  cursor: pointer;
+  transition: transform 140ms var(--ease-spring), opacity 140ms var(--ease-standard);
+}
+.tBtn:disabled { opacity: 0.32; cursor: not-allowed; }
+.tBtn:not(:disabled):active { transform: scale(0.9); }
+.tBtn:focus-visible, .tMain:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.tLabel { font: var(--t-micro); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+
+.tMain {
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-1);
+  color: var(--background);
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.8);
+  transition: transform 160ms var(--ease-spring), border-radius 320ms var(--ease-spring);
+}
+/* Paused: the disc morphs to a squircle — the state reads from the shape too. */
+.tMain[data-paused='true'] { border-radius: 22px; }
+.tMain:active { transform: scale(0.92); }
+
+@media (prefers-reduced-motion: reduce) {
+  .segFill, .setBead, .tMain, .tBtn, .toggle, .autoBarFill { transition: none; }
+  .arcTick { animation: none; }
+}
+
+.seg[data-state='done'] .segFill { background: var(--ink-2); }
+
+/* Start: the primary stays in the thumb zone while the notice scrolls under it. */
+.dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 28px 0 calc(env(safe-area-inset-bottom, 0px) + 8px);
+  background: linear-gradient(180deg, transparent, var(--background) 42%);
+}

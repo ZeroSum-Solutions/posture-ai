@@ -61,6 +61,17 @@ describe('AuthSessionGuard rendered identity boundary', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('waits for the offline queue clear before navigating away on sign-out', async () => {
+    let finishClear: () => void = () => {}
+    auth.synchronize.mockImplementationOnce(() => new Promise<void>(resolve => { finishClear = resolve }))
+    render(<Guard pathname="/settings" renderedUserId="athlete-a"><p>Private settings</p></Guard>)
+    await act(async () => auth.listener?.('SIGNED_OUT', null))
+    expect(screen.getByText('Session ended')).toBeTruthy()
+    expect(vi.getTimerCount()).toBe(0)
+    await act(async () => finishClear())
+    expect(vi.getTimerCount()).toBe(1)
+  })
+
   it('owns one navigation timer and cancels it when unmounted', async () => {
     const view = render(<Guard pathname="/train" renderedUserId="athlete-a"><p>Private results</p></Guard>)
     await act(async () => {

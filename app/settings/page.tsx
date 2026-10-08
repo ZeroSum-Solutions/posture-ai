@@ -1,15 +1,19 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
-import { Avatar } from '@/components/ui/Avatar'
+import { assignLocationOnce, finishBrowserSignOut } from '@/lib/auth/finish-sign-out'
+import { synchronizeTrainingOfflineAuth } from '@/lib/training/offline'
+import Icon from '@/components/array/Icon'
+import type { IconName } from '@/components/array/icons'
+import { SurfaceButton } from '@/components/ui/Surface'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { Checkbox } from '@/components/ui/Checkbox'
 import { Dialog } from '@/components/ui/Dialog'
-import { ListGroup, ListRow } from '@/components/ui/ListRow'
 import { Select } from '@/components/ui/Select'
 import { Sheet } from '@/components/ui/Sheet'
 import { Switch } from '@/components/ui/Switch'
@@ -24,6 +28,12 @@ type Practitioner = {
 }
 
 type SheetKey = 'practice' | 'privacy' | 'legal' | 'help' | null
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  return (parts[0]!.charAt(0) + (parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : '')).toUpperCase()
+}
 
 function readHapticsEnabled(): boolean {
   if (typeof window === 'undefined') return true
@@ -56,11 +66,13 @@ export default function SettingsPage() {
   const [openSheet, setOpenSheet] = useState<SheetKey>(null)
   const [hapticsEnabled, setHapticsEnabled] = useState(readHapticsEnabled)
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
+  const [accountEmail, setAccountEmail] = useState('')
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { router.push('/auth/sign-in'); return }
+      setAccountEmail(user.email ?? '')
       supabase
         .from('practitioners')
         .select('display_name, practice_name, logo_storage_path')
@@ -170,8 +182,11 @@ export default function SettingsPage() {
     }
 
     const supabase = createSupabaseBrowserClient()
-    await supabase.auth.signOut()
-    window.location.assign('/auth/sign-in')
+    await finishBrowserSignOut({
+      signOut: () => supabase.auth.signOut(),
+      clearOfflineQueue: () => synchronizeTrainingOfflineAuth({ kind: 'signed_out' }),
+      navigate: () => assignLocationOnce('/auth/sign-in'),
+    })
   }
 
   function showToast(type: 'success' | 'error', message: string) {
@@ -314,17 +329,41 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="app-screen app-screen-x">
-        <p className="t-body" style={{ color: 'var(--text-2)' }}>Loading settings…</p>
+      <div className="app-screen">
+        <TopBar title="Profile" subtitle=" " />
+        <div className={`app-screen-x ${styles.page}`} role="status" aria-busy="true">
+          <span className="sr-only">Loading settings…</span>
+          <div className={styles.heroSkeleton} aria-hidden="true">
+            <Skeleton shape="avatar" style={{ width: 60, height: 60, borderRadius: 'var(--r-full)' }} />
+            <div className={styles.skeletonText}>
+              <Skeleton shape="line" style={{ width: '62%', height: 22 }} />
+              <Skeleton shape="line" style={{ width: '40%', height: 14 }} />
+            </div>
+          </div>
+          <div aria-hidden="true">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className={styles.skeletonRow}>
+                <Skeleton shape="line" style={{ width: `${36 + ((index * 13) % 24)}%`, height: 16 }} />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   const profileName = displayName || practitioner?.display_name || 'Your profile'
+  const rows: Array<{ key: Exclude<SheetKey, null>; title: string; detail: string; icon: IconName; testId: string }> = [
+    { key: 'privacy', title: 'Privacy & data', detail: 'Organization, BAA and password', icon: 'shield-check-linear', testId: 'settings-privacy' },
+    { key: 'legal', title: 'Legal', detail: 'Privacy Policy and Terms of Use', icon: 'clipboard-check-linear', testId: 'settings-legal' },
+    { key: 'help', title: 'Help', detail: 'Account and practice support', icon: 'info-circle-linear', testId: 'settings-help' },
+  ]
 
   return (
-    <div className="app-screen app-screen-x">
-      <TopBar title="Profile" />
+    <div className="app-screen">
+      {/* The subtitle (the signed-in account) also keeps the large title's
+          scroll sentinel clear of the bar, so it does not start collapsed. */}
+      <TopBar title="Profile" subtitle={accountEmail || ' '} />
 
       {toast && (
         <div className={styles.toastWrap}>
@@ -332,44 +371,82 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="app-stack">
-        <Card>
-          <div className={styles.profileRow}>
-            <Avatar name={profileName} size={72} />
-            <div>
-              <p className="t-headline">{profileName}</p>
-              {practiceName && <p className="t-callout" style={{ color: 'var(--text-2)' }}>{practiceName}</p>}
-            </div>
-          </div>
-        </Card>
+      <div className={`app-screen-x ${styles.page}`}>
+        {/* Hero: the practice identity as ONE tappable object (identity +
+            chevron) that opens Practice info — no inner link row, so the card
+            reads as the single action it is. */}
+        <SurfaceButton
+          tier="feature"
+          className={styles.hero}
+          innerClassName={styles.heroBody}
+          sheen
+          onClick={() => setOpenSheet('practice')}
+          aria-label={`Practice info — ${profileName}${practiceName ? `, ${practiceName}` : ''}`}
+          data-testid="settings-practice-info"
+        >
+          <span className={styles.heroInner}>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" className={styles.heroLogo} />
+            ) : (
+              <span className={styles.heroInitials} aria-hidden="true">{initialsOf(profileName)}</span>
+            )}
+            <span className={styles.heroText}>
+              <span className={`t-title ${styles.heroName}`}>{profileName}</span>
+              <span className={`t-label ${styles.heroMeta}`}>
+                {practiceName ? `${practiceName} · Practice info` : 'Practice info'}
+              </span>
+            </span>
+            <Icon name="alt-arrow-right-linear" size={20} className={styles.heroChevron} />
+          </span>
+        </SurfaceButton>
 
-        <ListGroup label="Settings">
-          <ListRow title="Practice info" chevron onPress={() => setOpenSheet('practice')} data-testid="settings-practice-info" />
-          <ListRow title="Privacy & data" chevron onPress={() => setOpenSheet('privacy')} data-testid="settings-privacy" />
-          <ListRow title="Legal" chevron onPress={() => setOpenSheet('legal')} data-testid="settings-legal" />
-          <ListRow title="Help" chevron onPress={() => setOpenSheet('help')} data-testid="settings-help" />
+        <section className={styles.section} aria-labelledby="settings-account">
+          <h2 id="settings-account" className="t-micro">Account</h2>
+          <ul className={styles.list}>
+            {rows.map((row, index) => (
+              <li key={row.key} className={styles.item} style={{ '--i': index } as CSSProperties}>
+                <button
+                  type="button"
+                  className={styles.row}
+                  onClick={() => setOpenSheet(row.key)}
+                  data-testid={row.testId}
+                >
+                  <span className={styles.rowIcon} aria-hidden="true"><Icon name={row.icon} size={22} /></span>
+                  <span className={styles.rowText}>
+                    <span className={styles.rowTitle}>{row.title}</span>
+                    <span className="t-label">{row.detail}</span>
+                  </span>
+                  <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className={styles.section} aria-labelledby="settings-device">
+          <h2 id="settings-device" className="t-micro">This device</h2>
           <Switch
             label="Haptics"
-            className={styles.hapticsRow}
+            description="A light tap when you press, snap or capture"
             checked={hapticsEnabled}
             onChange={(e) => handleHapticsChange(e.target.checked)}
           />
-        </ListGroup>
+        </section>
 
-        {/* A real <form>, not a styled ListRow: the action/method attributes are
+        {/* A real <form>, not a styled row: the action/method attributes are
             the no-JS fallback (a direct native POST), and the submit button's
             onClick always prevents that default to open the confirm Dialog
             instead — see performSignOut's comment above. */}
-        <form ref={signOutFormRef} action="/api/auth/sign-out" method="POST">
+        <form ref={signOutFormRef} action="/api/auth/sign-out" method="POST" className={styles.signOutForm}>
           <button
             type="submit"
-            className={styles.signOutRow}
+            className={styles.signOut}
             onClick={(e) => { e.preventDefault(); setShowSignOutConfirm(true) }}
           >
-            <span className="t-headline" style={{ color: 'var(--review)' }}>Sign Out</span>
+            Sign Out
           </button>
         </form>
-
       </div>
 
       <Dialog
@@ -508,7 +585,7 @@ export default function SettingsPage() {
             </p>
           </form>
 
-          <form onSubmit={handlePasswordChange} className="app-stack" id="password-change-form">
+          <form onSubmit={handlePasswordChange} className={`app-stack ${styles.sheetSection}`} id="password-change-form">
             <p className="t-headline">Change password</p>
             <TextField
               id="current_password"
@@ -528,7 +605,7 @@ export default function SettingsPage() {
               placeholder={`New password (min ${MIN_PASSWORD_LENGTH} characters)`}
               autoComplete="new-password"
             />
-            <Button type="submit" variant="primary" loading={passwordSaving}>
+            <Button type="submit" variant="secondary" loading={passwordSaving}>
               Update Password
             </Button>
           </form>
@@ -540,10 +617,20 @@ export default function SettingsPage() {
         onOpenChange={(open) => !open && setOpenSheet(null)}
         title="Legal"
       >
-        <ListGroup label="Legal documents">
-          <ListRow title="Privacy Policy" href="/privacy" chevron />
-          <ListRow title="Terms of Use" href="/terms" chevron />
-        </ListGroup>
+        <ul className={styles.list} aria-label="Legal documents">
+          <li className={styles.item}>
+            <Link href="/privacy" className={styles.row}>
+              <span className={styles.rowText}><span className={styles.rowTitle}>Privacy Policy</span></span>
+              <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+            </Link>
+          </li>
+          <li className={styles.item}>
+            <Link href="/terms" className={styles.row}>
+              <span className={styles.rowText}><span className={styles.rowTitle}>Terms of Use</span></span>
+              <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+            </Link>
+          </li>
+        </ul>
       </Sheet>
 
       <Sheet

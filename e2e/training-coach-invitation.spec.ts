@@ -49,6 +49,7 @@ test('coach prepares a private invitation and the athlete accepts it with MFA', 
   await page.goto('/workouts')
   await page.getByLabel('Build strength program for').selectOption(client.id)
   await expect(page.getByText('Athlete setup required', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Invite athlete', exact: true }).click()
   await page.getByLabel('Athlete email').fill(athleteEmail)
   for (const label of PERMISSION_LABELS) await page.getByRole('checkbox', { name: label }).check()
 

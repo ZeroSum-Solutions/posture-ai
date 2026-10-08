@@ -35,26 +35,23 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthFrame title="Reset password" description="Request a secure link to regain access to your workspace.">
+    <AuthFrame title="Reset password" description="Enter your email and we'll send you a link to reset your password.">
       {sent ? (
         <div className="app-stack">
-          <p className="t-body" style={{ color: 'var(--text-2)' }}>
+          <p className="t-body" style={{ margin: 0 }}>
             If an account exists for <strong style={{ color: 'var(--text-1)' }}>{email}</strong>, we&apos;ve sent a
             link to reset your password. Check your inbox.
           </p>
           <Link
             href="/auth/sign-in"
-            className="t-footnote"
-            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+            className="t-callout"
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, color: 'var(--ink-1)', textDecoration: 'none' }}
           >
             ← Back to sign in
           </Link>
         </div>
       ) : (
         <>
-          <p className="t-body" style={{ color: 'var(--text-2)', marginBottom: 'var(--s-24)' }}>
-            Enter your email and we&apos;ll send you a link to reset your password.
-          </p>
           {error && (
             <Banner variant="error" className="app-stack" data-testid="forgot-password-error">{error}</Banner>
           )}
@@ -73,10 +70,10 @@ export default function ForgotPasswordPage() {
             <Button type="submit" variant="primary" size="lg" block loading={loading}>
               Send reset link
             </Button>
-            <p className="t-footnote" style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+            <p className="t-callout" style={{ textAlign: 'center', margin: 0 }}>
               <Link
                 href="/auth/sign-in"
-                style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, color: 'var(--text-2)', textDecoration: 'underline' }}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, color: 'var(--ink-1)', textDecoration: 'none' }}
               >
                 Back to sign in
               </Link>
