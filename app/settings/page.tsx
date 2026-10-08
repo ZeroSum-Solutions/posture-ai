@@ -4,7 +4,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
-import { finishBrowserSignOut } from '@/lib/auth/finish-sign-out'
+import { assignLocationOnce, finishBrowserSignOut } from '@/lib/auth/finish-sign-out'
 import { synchronizeTrainingOfflineAuth } from '@/lib/training/offline'
 import Icon from '@/components/array/Icon'
 import type { IconName } from '@/components/array/icons'
@@ -185,7 +185,7 @@ export default function SettingsPage() {
     await finishBrowserSignOut({
       signOut: () => supabase.auth.signOut(),
       clearOfflineQueue: () => synchronizeTrainingOfflineAuth({ kind: 'signed_out' }),
-      navigate: () => window.location.assign('/auth/sign-in'),
+      navigate: () => assignLocationOnce('/auth/sign-in'),
     })
   }
 

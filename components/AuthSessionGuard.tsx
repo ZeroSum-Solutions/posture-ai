@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { isPublicPath } from '@/lib/auth/public-paths'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { assignLocationOnce } from '@/lib/auth/finish-sign-out'
 import {
   synchronizeTrainingOfflineAuth,
   trainingOfflineAuthState,
@@ -72,7 +73,7 @@ export default function AuthSessionGuard({
       void synchronized.then(() => {
         if (disposed.current) return
         navigationTimer.current = window.setTimeout(() => {
-          window.location.assign(changed ? window.location.href : '/auth/sign-in?reason=signed_out')
+          assignLocationOnce(changed ? window.location.href : '/auth/sign-in?reason=signed_out')
         }, 0)
       })
     })

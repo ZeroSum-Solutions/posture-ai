@@ -18,3 +18,16 @@ export async function finishBrowserSignOut(steps: {
   }
   steps.navigate()
 }
+
+let leaving = false
+
+/**
+ * One page-leaving navigation per document. Settings and AuthSessionGuard both
+ * react to the same sign-out; a second location.assign cancels the first in
+ * WebKit, so whichever runs first wins.
+ */
+export function assignLocationOnce(url: string, location: Pick<Location, 'assign'> = window.location): void {
+  if (leaving) return
+  leaving = true
+  location.assign(url)
+}

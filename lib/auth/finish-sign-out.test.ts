@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { finishBrowserSignOut } from './finish-sign-out'
+import { assignLocationOnce, finishBrowserSignOut } from './finish-sign-out'
 
 describe('finishBrowserSignOut', () => {
   it('navigates only after the offline queue clear has finished', async () => {
@@ -23,5 +23,13 @@ describe('finishBrowserSignOut', () => {
     await finishBrowserSignOut({ signOut: async () => {}, clearOfflineQueue: async () => { throw new Error('idb') }, navigate })
     expect(navigate).toHaveBeenCalledOnce()
     error.mockRestore()
+  })
+
+  it('leaves the page once, however many sign-out handlers ask', () => {
+    const assign = vi.fn()
+    assignLocationOnce('/auth/sign-in', { assign })
+    assignLocationOnce('/auth/sign-in?reason=signed_out', { assign })
+    expect(assign).toHaveBeenCalledTimes(1)
+    expect(assign).toHaveBeenCalledWith('/auth/sign-in')
   })
 })
