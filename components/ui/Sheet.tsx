@@ -216,6 +216,9 @@ export function Sheet({
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (!isTopSheet(titleId)) return
+      // A native <dialog> opened from inside the sheet (e.g. an enlarged photo)
+      // owns its own Escape and focus; preventDefault here would cancel its close.
+      if (e.target instanceof Element && e.target.closest('dialog[open]')) return
       if (e.key === 'Escape') {
         if (!dismissible) return
         e.preventDefault()

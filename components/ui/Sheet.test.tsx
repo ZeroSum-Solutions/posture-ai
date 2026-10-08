@@ -52,6 +52,25 @@ describe('Sheet', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 
+  it('leaves Escape to a native dialog opened inside the sheet', async () => {
+    function Nested() {
+      const [open, setOpen] = useState(true)
+      return (
+        <Sheet open={open} onOpenChange={setOpen} title="Capture">
+          <dialog open aria-label="Front capture photo"><button>Close photo</button></dialog>
+        </Sheet>
+      )
+    }
+    render(<Nested />)
+    await screen.findByRole('heading', { name: 'Capture' })
+    const inner = screen.getByRole('button', { name: 'Close photo' })
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    inner.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(screen.getByRole('heading', { name: 'Capture' })).toBeTruthy()
+  })
+
   it('the Close button closes the sheet and restores focus to the trigger', async () => {
     render(<Harness />)
     const trigger = screen.getByRole('button', { name: 'Open sheet' })
