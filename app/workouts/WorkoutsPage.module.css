@@ -1,54 +1,191 @@
 /**
- * Workouts hub (DESIGN.md › spec §5 "Workouts hub"). `.screen` intentionally
- * uses a wider column than the standard 480px `--content-max` mobile column:
- * this is a practitioner tool screen (client picker, multi-field builder) that
- * benefits from breathing room on tablet/desktop, same as before the v3 pass.
+ * Workouts hub (Array v4). `.screen` keeps the wider column (a practitioner
+ * tool screen with a client picker and a multi-field builder) so tablet and
+ * desktop get room; on a phone it is the normal mobile column.
+ *
+ * Layout: title → Build (strength program) → Workout library (hairline rows,
+ * stale plans grouped under one line + "Why?") → library links. Content sits
+ * on the canvas; the one glass hero is the "Personalize a workout" card when
+ * the screen is opened from an assessment.
  */
 .screen { width: min(1120px, 100%); margin: 0 auto; container-type: inline-size; }
-.main { padding-bottom: var(--s-16); display: flex; flex-direction: column; gap: var(--s-24); }
+.main { padding-top: var(--s-24); padding-bottom: var(--s-16); display: flex; flex-direction: column; gap: var(--s-40); min-width: 0; }
 
 .stack { display: grid; gap: var(--s-16); min-width: 0; }
 
 /*
  * Kept for backward compatibility: app/train/privacy/page.tsx (a different
- * agent's screen) and, until its own migration lands, app/train/page.tsx
- * still compose a plain `<header class={styles.header}>` against this same
- * module instead of the new `TopBar`. WorkoutLibrary.tsx itself no longer
- * uses this class (it renders `TopBar`) — this is additive only.
+ * agent's screen) and app/train/page.tsx still compose a plain
+ * `<header class={styles.header}>` against this same module. Additive only.
  */
 .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--s-16); padding: var(--s-24) var(--s-20) var(--s-16); }
 .header a, .header button { min-height: 44px; padding: 0 var(--s-16); }
 
+/* ── section heads ─────────────────────────────────────────────────── */
+.sectionHead { display: grid; gap: var(--s-4); min-width: 0; }
+.sectionHead p, .sectionHead h2 { margin: 0; }
+.sectionHeadRow { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-12); }
 .sectionHeader { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-12); }
+.count {
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardHead { display: grid; gap: var(--s-4); }
+.cardHead p, .cardHead h2 { margin: 0; }
+
+/* ── build ─────────────────────────────────────────────────────────── */
+.build { display: grid; gap: var(--s-20); min-width: 0; }
 
 .builder { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: var(--s-16); align-items: start; }
 .builder > *, .stack > * { min-width: 0; }
 
-.fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--s-8); }
-.fieldset legend { color: var(--text-2); font: var(--t-subhead); margin-bottom: var(--s-4); }
+.fieldPair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-12); }
+@container (max-width: 400px) { .fieldPair { grid-template-columns: 1fr; } }
+
+.fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--s-8); min-width: 0; }
+.fieldset legend { color: var(--ink-1); font: var(--t-callout); margin-bottom: var(--s-4); }
+.fieldset p { margin: 0; }
 
 .actions { display: flex; flex-wrap: wrap; gap: var(--s-8); align-items: center; }
 
-.empty { min-height: 260px; display: grid; align-content: center; gap: var(--s-12); }
+.draft { min-width: 0; padding-top: var(--s-4); }
+.empty {
+  min-height: 200px;
+  display: grid;
+  align-content: center;
+  gap: var(--s-8);
+  padding: var(--s-24) 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+.empty p, .empty h2 { margin: 0; }
 
-.attentionCard { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--s-16); }
-.attentionCard > div:first-child { display: grid; gap: var(--s-4); min-width: 0; }
+.draftDose { margin: 0; display: flex; align-items: baseline; gap: var(--s-8); font: var(--t-label); color: var(--ink-3); }
+.draftDoseValue {
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+}
+.draftDoseValue + .draftDoseValue, .draftDose > .draftDoseValue:not(:first-child) { margin-left: var(--s-12); }
 
-.rowIcon {
+.draftList { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }
+.draftRow {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 64px;
+  border-bottom: 1px solid var(--hairline);
+  animation: row-in 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.draftIndex { font: var(--t-micro); letter-spacing: 0.04em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.draftText { display: grid; gap: 2px; min-width: 0; }
+.draftName { font: var(--t-callout); color: var(--ink-1); }
+
+/* ── saved library ─────────────────────────────────────────────────── */
+.saved { display: grid; gap: var(--s-16); min-width: 0; }
+
+.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); min-width: 0; }
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 76px;
+  padding: var(--s-12) 0;
+  border-bottom: 1px solid var(--hairline);
+  animation: row-in 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+@keyframes row-in { from { opacity: 0; transform: translateY(8px); } }
+
+.rowText { display: grid; gap: 2px; min-width: 0; }
+.rowTitle {
+  font: var(--t-callout);
+  font-weight: 600;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowMeta { font: var(--t-label); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowStatus { font: var(--t-label); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rowStatus[data-state='active'] { color: var(--ink-1); }
+
+.rowActions { display: flex; align-items: center; gap: var(--s-4); }
+
+/* The row's action is its run state: a 44px play disc ringed by progress. */
+.runButton {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: var(--r-sm);
-  background: var(--surface-flat); color: var(--text-2);
+  width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--ink-1); cursor: pointer; text-decoration: none;
+  transition: transform 160ms var(--ease-spring);
+}
+.runButton:active { transform: scale(0.9); }
+.runButton:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.runButton:disabled { opacity: 0.5; cursor: progress; }
+
+.runGlyph { position: relative; display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; color: var(--ink-2); }
+.runGlyph > svg { position: absolute; inset: 0; }
+.runTrack { stroke: rgba(255, 255, 255, 0.16); }
+.runGlyph[data-state='ready'] { color: var(--ink-1); }
+.runArc { stroke: var(--ink-1); transition: stroke-dashoffset 480ms var(--ease-spring); }
+.runGlyph[data-state='done'] { color: var(--ink-1); }
+.runGlyph[data-state='done'] .runArc { stroke: var(--maintain); }
+.runIcon { position: relative; display: inline-flex; }
+
+/* Stale plans: one line explains the group; rows stay quiet. */
+.attention { display: grid; gap: var(--s-12); min-width: 0; }
+.attentionHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-8); }
+.attentionLine { margin: 0; display: flex; align-items: baseline; gap: var(--s-8); font: var(--t-callout); color: var(--ink-2); min-width: 0; }
+.attentionCount { font: var(--t-headline); color: var(--monitor); font-variant-numeric: tabular-nums; }
+.row[data-stale='true'] .rowTitle { color: var(--ink-2); font-weight: 500; }
+.staleGlyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
 }
 
-.rowActions { display: flex; align-items: center; gap: var(--s-8); flex-wrap: wrap; justify-content: flex-end; }
+/* ── library links ─────────────────────────────────────────────────── */
+.libraries { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-12); }
+.libraryLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-8);
+  min-height: 72px;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-md);
+  background: var(--surface-1, #0e1013);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: transform 160ms var(--ease-spring), background 160ms var(--ease-standard);
+}
+.libraryLink:active { transform: scale(0.97); background: var(--surface-2, #16191d); }
+.libraryLink:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.libraryText { display: grid; gap: 2px; }
+.libraryTitle { font: var(--t-headline); color: var(--ink-1); }
 
-.error, .notice, .warning { font: var(--t-footnote); line-height: 1.5; }
-.error { color: var(--review); padding: var(--s-12) var(--s-16); border: 1px solid var(--review); border-radius: var(--r-sm); }
-.notice { color: var(--text-2); padding: var(--s-12) var(--s-16); border: 1px solid var(--hairline); border-radius: var(--r-sm); }
-.warning { margin: 0; color: var(--text-2); }
+/* ── notices ───────────────────────────────────────────────────────── */
+.error, .notice { margin: 0; font: var(--t-label); line-height: 1.5; padding-left: var(--s-12); }
+.error { color: var(--review); box-shadow: inset 2px 0 0 var(--review); }
+.notice { color: var(--ink-2); box-shadow: inset 2px 0 0 var(--hairline); }
 
 @container (max-width: 760px) {
   .builder { grid-template-columns: 1fr; }
 }
 
+
 .stack input, .stack select { min-width: 0; max-width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .row, .draftRow { animation: none; }
+  .runArc, .libraryLink { transition: none; }
+}

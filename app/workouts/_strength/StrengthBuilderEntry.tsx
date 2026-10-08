@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Surface } from '@/components/array/Surface'
-import { Banner, Button, Disclosure } from '@/components/ui'
+import { Banner, Button, Disclosure, Lens } from '@/components/ui'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from '@/lib/training/contracts/profile'
 import { ACTIVE_PROGRAM_COMPILER_OPTIONS } from '@/lib/training/engine/options'
 import { createInitialStrengthProfile } from './StrengthBuilder.model'
@@ -167,13 +166,13 @@ function StrengthBuilderEntryState({ source }: { source: StrengthBuilderSource }
   }
 
   if (loadState.status === 'loading') {
-    return <Surface tier="tile" innerClassName={styles.entryState}><p role="status" className="t-body">Loading training profile…</p></Surface>
+    return <div className={styles.entryState}><p role="status" className={`t-callout ${styles.loadingLine}`}><Lens state="loading" size={20} tone="ghost" />Loading training profile…</p></div>
   }
   if (loadState.status === 'error') {
-    return <Surface tier="tile" innerClassName={styles.entryState}>
+    return <div className={styles.entryState}>
       <p role="alert" className="t-body">{loadState.message}</p>
-      <Button variant="secondary" size="sm" onClick={() => void retryLoad()}>Retry profile</Button>
-    </Surface>
+      <Button variant="secondary" size="sm" icon="refresh-linear" onClick={() => void retryLoad()}>Retry profile</Button>
+    </div>
   }
   if (loadState.status === 'setup_required') {
     return <div className={styles.entryState}>

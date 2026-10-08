@@ -211,7 +211,7 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
     />
     <fieldset className={styles.fieldset} disabled={fieldsFrozen}>
       <legend>Choose what this coach may do after the athlete accepts</legend>
-      <div className={styles.fieldGrid2}>
+      <div className={styles.permissionList}>
         {PERMISSION_OPTIONS.map(option => (
           <Checkbox
             key={option.value}

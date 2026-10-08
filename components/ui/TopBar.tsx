@@ -37,21 +37,24 @@ export default function TopBar({ title, subtitle, back, actions, large = true, v
   const [collapsed, setCollapsed] = useState(!large)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
+  // With no back and no actions the empty row overlays the content instead
+  // of pushing the large title down.
+  const emptyBar = !back && !actions
+
   useEffect(() => {
     if (!large) return
     const node = sentinelRef.current
     if (!node || typeof IntersectionObserver === 'undefined') return
+    // An overlaid bar starts on top of the large title, so a title with no
+    // subtitle would sit inside the bar band at rest and load collapsed.
+    // There, collapse once the title has left the viewport instead.
     const observer = new IntersectionObserver(
       ([entry]) => setCollapsed(!entry.isIntersecting),
-      { threshold: 0, rootMargin: `-${BAR_H}px 0px 0px 0px` },
+      { threshold: 0, rootMargin: emptyBar ? '0px' : `-${BAR_H}px 0px 0px 0px` },
     )
     observer.observe(node)
     return () => observer.disconnect()
-  }, [large])
-
-  // With no back and no actions the empty row overlays the content instead
-  // of pushing the large title down.
-  const emptyBar = !back && !actions
+  }, [large, emptyBar])
 
   return (
     <>

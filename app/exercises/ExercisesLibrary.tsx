@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import Image from 'next/image'
-import { Chip } from '@/components/array/Chip'
+import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
-import { tone, type SeverityBand } from '@/components/array/severity'
-import { ActionBar, Button, ChipRow, EmptyState, FilterChip, Select, TopBar } from '@/components/ui'
+import { ActionBar, Button, ChipRow, EmptyState, FilterChip, Select, SlotNumber, TopBar } from '@/components/ui'
+import { haptic } from '@/lib/haptics'
 import { MAX_MANUAL_ROUTINE_URL_EXERCISES } from '@/app/workouts/manual/ManualRoutine.types'
 import styles from './ExercisesPage.module.css'
 
@@ -61,18 +61,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   informational: 'Informational',
 }
 
-const CATEGORY_BANDS: Record<string, SeverityBand> = {
-  stretch: 'maintain',
-  strengthen: 'info',
-  mobility: 'monitor',
-  activation: 'review',
-  informational: 'neutral',
-}
-
-function bandForCategory(category: string): SeverityBand {
-  return CATEGORY_BANDS[category] ?? 'neutral'
-}
-
 function label(value: string): string {
   return value.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 }
@@ -126,39 +114,33 @@ export default function ExercisesLibrary({
   }
 
   return (
-    <div className={`app-screen ${styles.screen}`}>
-      <TopBar title="Exercises" subtitle="Explore exercise instructions and build your workout." />
+    <div className={`app-screen ${styles.screen} ${selectedReferenceIds.length > 0 ? 'app-screen--bar' : ''}`}>
+      <TopBar title="Exercises" subtitle="Reviewed and licensed reference movements" />
 
-      <div className={`app-screen-x app-stack ${styles.collection}`}>
-        <div className={styles.header}>
-          <Surface tier="tile" pad="snug" innerClassName={styles.headerMetric}>
-            <span className="t-footnote">Matching</span>
-            <strong className="t-readout-md n">{filteredCollection.length}</strong>
-            <em>{filteredCollection.length === 1 ? 'movement' : 'movements'}</em>
-          </Surface>
-        </div>
-        <section className="app-stack" aria-labelledby="exercise-collection-heading">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="t-overline">Exercise collection</p>
-              <h2 id="exercise-collection-heading" className="t-title-2">Find a movement</h2>
-              <p className="t-body">Review status and source details stay attached to each exercise.</p>
+      <div className={`app-screen-x ${styles.collection}`}>
+        <section className={styles.section} aria-labelledby="exercise-collection-heading">
+          {/* Hero: the live count is the answer — it rolls as filters narrow the set. */}
+          <div className={styles.hero}>
+            <div className={styles.heroRow}>
+              <SlotNumber value={filteredCollection.length} className={styles.heroValue} />
+              <span className={styles.heroUnit}>{filteredCollection.length === 1 ? 'movement' : 'movements'}</span>
             </div>
-            <span className="t-footnote" role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</span>
+            <h2 id="exercise-collection-heading" className="t-headline">Find a movement</h2>
           </div>
 
           <div className={styles.controls}>
             {/* A plain, synchronous native search input — the shared `SearchField` debounces
                 `onQueryChange`, which would desync from this screen's unit tests (they assert
-                the filtered list immediately after `fireEvent.change`, with no `waitFor`). Kept
-                native and tokenized instead; see the migration report for this call. */}
-            <label className={styles.field}>
-              <span>Search exercises</span>
+                the filtered list immediately after `fireEvent.change`, with no `waitFor`). */}
+            <label className={styles.search}>
+              <span className="sr-only">Search exercises</span>
+              <Icon name="magnifer-linear" size={20} />
               <input
                 type="search"
+                aria-label="Search exercises"
                 value={query}
                 onChange={event => { setQuery(event.target.value); resetLimit() }}
-                placeholder="Search name, instructions, equipment, or muscle"
+                placeholder="Name, instructions, equipment, muscle"
               />
             </label>
             <Select
@@ -171,7 +153,7 @@ export default function ExercisesLibrary({
             </Select>
           </div>
 
-          <ChipRow label="Filter exercises by category">
+          <ChipRow label="Filter exercises by category" bleed>
             {categories.map(option => (
               <FilterChip
                 key={option}
@@ -183,17 +165,19 @@ export default function ExercisesLibrary({
             ))}
           </ChipRow>
 
+          <p className={styles.status} role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</p>
+
           {selectedReferenceIds.length > 0 && (
-            // A fixed bottom bar belongs in `ActionBar` (sits above the tab bar via
-            // `--chrome-bottom`, never under it) rather than a hand-rolled `position:
-            // sticky` div. The status/name contract stays on one element because the
-            // e2e spec reaches the "Continue to workout" link as its descendant:
-            // `page.getByRole('status', { name: 'Workout selection' }).getByRole('link', ...)`.
+            // The e2e spec reaches the "Continue to workout" link as a descendant
+            // of the status: `getByRole('status', { name: 'Workout selection' })`.
             <ActionBar>
               <div className={styles.selectionTray} role="status" aria-label="Workout selection">
-                <div>
-                  <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
-                  <p className="t-footnote">Selections stay in the order you add them. You can refine the routine next.</p>
+                <div className={styles.trayCount}>
+                  <SlotNumber value={selectedReferenceIds.length} className={styles.trayValue} />
+                  <span className={styles.trayText}>
+                    <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
+                    <span className="t-label">Kept in the order you add them.</span>
+                  </span>
                 </div>
                 <Button href={manualRoutineHref}>Continue to workout</Button>
               </div>
@@ -205,15 +189,22 @@ export default function ExercisesLibrary({
           )}
 
           <div className={styles.grid}>
-            {visibleCollection.map(item => {
+            {visibleCollection.map((item, index) => {
               const exercise = item.exercise
               const reviewedExercise = item.kind === 'reviewed' ? item.exercise : null
               const referenceExercise = item.kind === 'reference' ? item.exercise : null
-              const band = bandForCategory(exercise.category)
               const isSelected = referenceExercise !== null && selectedReferenceIds.includes(referenceExercise.id)
               const selectionFull = selectedReferenceIds.length >= MAX_MANUAL_ROUTINE_URL_EXERCISES
               return (
-                <Surface key={`${item.kind}:${exercise.id}`} tier="tile" pad="flush" innerClassName={styles.cardInner} innerStyle={{ padding: 'var(--exercise-card-padding, 20px)' }}>
+                <Surface
+                  key={`${item.kind}:${exercise.id}`}
+                  tier="tile"
+                  pad="flush"
+                  className={styles.card}
+                  style={{ '--i': Math.min(index % PAGE_SIZE, 8) } as CSSProperties}
+                  innerClassName={styles.cardInner}
+                  innerStyle={{ padding: 'var(--exercise-card-padding, 20px)' }}
+                >
                   {reviewedExercise?.poster_url && (
                     <div className={styles.mediaFrame}>
                       <Image src={reviewedExercise.poster_url} alt="" width={640} height={400} loading="lazy" />
@@ -231,7 +222,7 @@ export default function ExercisesLibrary({
                           decoding="async"
                         />
                       </div>
-                      <p className={`t-footnote ${styles.source}`}>
+                      <p className={`t-label ${styles.source}`}>
                         Image by {referenceExercise.media.source.author} via{' '}
                         <a href={referenceExercise.media.source.assetUrl} target="_blank" rel="noreferrer" aria-label={`wger image source for ${exercise.name}`}>wger</a>
                         {' · '}
@@ -242,8 +233,11 @@ export default function ExercisesLibrary({
                   )}
 
                   <div className={styles.cardHeader}>
-                    <h3 className="t-headline">{exercise.name}</h3>
-                    <Chip band={band} size="sm">{CATEGORY_LABELS[exercise.category] || label(exercise.category)}</Chip>
+                    <p className={styles.kicker}>
+                      <span>{CATEGORY_LABELS[exercise.category] || label(exercise.category)}</span>
+                      <span className={styles.reviewMark} data-kind={item.kind} aria-hidden="true" />
+                    </p>
+                    <h3 className={styles.cardTitle}>{exercise.name}</h3>
                   </div>
 
                   <p className={styles.referenceStatus}>
@@ -252,18 +246,18 @@ export default function ExercisesLibrary({
 
                   {referenceExercise && (
                     <div className={styles.metadata}>
-                      <p className="t-footnote">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
-                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-footnote">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
+                      <p className="t-label">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
+                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-label">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
                     </div>
                   )}
 
                   <div className={styles.instructionBlock}>
                     <strong>Instructions</strong>
-                    <p className="t-body">{exercise.instructions || 'Instructions are unavailable for this exercise.'}</p>
+                    <ClampedText text={exercise.instructions || 'Instructions are unavailable for this exercise.'} name={exercise.name} />
                   </div>
 
                   {reviewedExercise && (reviewedExercise.sets || reviewedExercise.hold_seconds) && (
-                    <p className={`n ${styles.dosage}`} style={{ color: tone(band) }}>
+                    <p className={`n ${styles.dosage}`}>
                       {reviewedExercise.sets && `${reviewedExercise.sets} sets`}{reviewedExercise.sets && reviewedExercise.hold_seconds && ' · '}{reviewedExercise.hold_seconds && `${reviewedExercise.hold_seconds}s hold`}
                     </p>
                   )}
@@ -273,15 +267,17 @@ export default function ExercisesLibrary({
                       <>
                         <button
                           type="button"
-                          className={isSelected ? 'a-secondary' : 'a-primary'}
+                          className={styles.addButton}
+                          data-selected={isSelected ? 'true' : 'false'}
                           disabled={!isSelected && selectionFull}
                           aria-pressed={isSelected}
                           aria-label={`${isSelected ? 'Remove' : 'Add'} ${exercise.name} ${isSelected ? 'from' : 'to'} workout`}
-                          onClick={() => toggleReference(referenceExercise.id)}
+                          onClick={() => { haptic('tap'); toggleReference(referenceExercise.id) }}
                         >
+                          <Icon name={isSelected ? 'check-linear' : 'add-circle-linear'} size={18} />
                           {isSelected ? 'Added to workout' : 'Add to workout'}
                         </button>
-                        <p className={`t-footnote ${styles.source}`}>
+                        <p className={`t-label ${styles.source}`}>
                           Instructions by {referenceExercise.source.author}.{' '}
                           <a href={referenceExercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`wger source for ${exercise.name}`}>Source</a>
                           {' · '}
@@ -290,8 +286,8 @@ export default function ExercisesLibrary({
                       </>
                     ) : (
                       <>
-                        <button type="button" className="a-secondary" disabled>Add to workout</button>
-                        <p className="t-footnote">Not yet available in custom workouts.</p>
+                        <button type="button" className={styles.addButton} disabled>Add to workout</button>
+                        <p className="t-label">Not yet available in custom workouts.</p>
                       </>
                     )}
                   </div>
@@ -306,5 +302,21 @@ export default function ExercisesLibrary({
         </section>
       </div>
     </div>
+  )
+}
+
+/** Long instructions clamp to four lines with a quiet toggle; the full text stays in the DOM. */
+function ClampedText({ text, name }: { text: string; name: string }) {
+  const [open, setOpen] = useState(false)
+  const long = text.length > 220
+  return (
+    <>
+      <p className={styles.instructions} data-clamped={long && !open ? 'true' : undefined}>{text}</p>
+      {long ? (
+        <button type="button" className={styles.moreButton} aria-expanded={open} aria-label={`${open ? 'Show less' : 'Show all'} instructions for ${name}`} onClick={() => setOpen(value => !value)}>
+          {open ? 'Show less' : 'Show all'}
+        </button>
+      ) : null}
+    </>
   )
 }

@@ -38,17 +38,17 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
     inventorySha256: clinicalAccess.inventorySha256,
   })) {
     return (
-      <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
-        <p className="t-overline">Saved workout</p>
-        <h1 className="t-title-1">This plan needs a current copy.</h1>
-        <p className="t-body">
+      <div className="app-screen app-screen-x" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-16)', paddingTop: 'calc(var(--sa-t) + 72px)' }}>
+        <p className="t-micro" style={{ margin: 0 }}>Saved workout</p>
+        <h1 className="t-display" style={{ margin: 0 }}>This plan needs a current copy.</h1>
+        <p className="t-body" style={{ margin: 0 }}>
           Its saved catalog provenance does not match the current operation. The original remains in your library.
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <Link className="a-primary" href={`/workouts?assessment_id=${session.assessment_id}`} style={{ minHeight: 44, padding: '0 16px' }}>
+        <div style={{ display: 'grid', gap: 'var(--s-8)', marginTop: 'var(--s-16)' }}>
+          <Link className="a-primary a-primary--bar" href={`/workouts?assessment_id=${session.assessment_id}`}>
             Regenerate copy
           </Link>
-          <Link className="a-secondary" href="/workouts" style={{ minHeight: 44, padding: '0 16px' }}>
+          <Link className="a-quiet" href="/workouts" style={{ justifySelf: 'center' }}>
             Back to workouts
           </Link>
         </div>

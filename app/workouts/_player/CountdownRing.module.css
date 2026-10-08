@@ -1,13 +1,34 @@
+.dial { position: relative; flex-shrink: 0; max-width: 78vw; max-height: 78vw; }
+.svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.tick { stroke: rgba(255, 255, 255, 0.14); stroke-width: 1.5; stroke-linecap: round; transition: stroke 240ms var(--ease-standard); }
+.tick[data-major='true'] { stroke-width: 2; }
+.tick[data-lit='true'] { stroke: rgba(255, 255, 255, 0.5); }
+.tick[data-lit='true'][data-major='true'] { stroke: var(--ink-1); }
+
+.track { stroke: rgba(255, 255, 255, 0.1); }
+
 /* The arc's own transition, split out of the inline style so it can be
    switched off under prefers-reduced-motion — a countdown ring is a progress
-   animation, and the global reduced-motion rule in globals.css only shortens
-   durations to near-zero rather than removing this one outright. */
-.arc {
-  transition: stroke-dashoffset 0.25s linear;
+   animation, and the global reduced-motion rule only shortens durations. */
+.arc { transition: stroke-dashoffset 0.25s linear, opacity 240ms var(--ease-standard); filter: drop-shadow(0 0 8px color-mix(in oklab, var(--dial-color) 45%, transparent)); }
+.dial[data-dimmed='true'] .arc { opacity: 0.55; filter: none; }
+
+.headGroup { transform-origin: 150px 150px; transform-box: view-box; transition: transform 0.25s linear; }
+.head { fill: var(--volt); filter: drop-shadow(0 0 6px var(--volt)); }
+.dial[data-dimmed='true'] .head { fill: var(--ink-2); filter: none; }
+
+.centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arc {
-    transition: none;
-  }
+  .arc, .headGroup, .tick { transition: none; }
 }

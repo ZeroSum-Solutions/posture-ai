@@ -1,8 +1,5 @@
 import { notFound } from 'next/navigation'
-import { Chip } from '@/components/array/Chip'
 import { Disclaimer } from '@/components/Disclaimer'
-import { Surface } from '@/components/array/Surface'
-import { tone, type SeverityBand } from '@/components/array/severity'
 import { SeverityChip, TopBar } from '@/components/ui'
 import { currentPractitionerClinicalContentAccess } from '@/lib/clinical-content/current-practitioner'
 import {
@@ -12,6 +9,7 @@ import {
   approvedExerciseMuscles,
 } from '@/lib/clinical-content/catalog'
 import { IMBALANCE_COPY } from '@/content/report/imbalance-copy'
+import styles from '../Muscles.module.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,10 +22,6 @@ const REGION_LABELS: Record<string, string> = {
 }
 
 const LEVEL_LABELS: Record<number, string> = { 1: 'Regression', 2: 'Standard', 3: 'Progression' }
-/** Progression reads as the band that carries the most demand; regression the
- * least — the same ramp the severity bands already express elsewhere. */
-const LEVEL_BANDS: Record<number, SeverityBand> = { 1: 'maintain', 2: 'info', 3: 'review' }
-
 interface LinkRow {
   role: 'tight' | 'weak'
   rationale_text: string
@@ -104,71 +98,70 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
         back={{ href: '/muscles', label: 'Back to Muscle guide' }}
         actions={access.mode === 'test_fixture' ? <SeverityChip band="monitor" size="sm" label="Pending review" /> : undefined}
       />
-      <div className="app-screen-x app-stack">
-        <Surface tier="tile">
-          <h2 className="t-headline" style={{ marginBottom: 8 }}>Anatomy</h2>
-          <p className="t-body">{muscle.anatomySummary}</p>
-        </Surface>
+      <div className={`app-screen-x ${styles.body}`}>
+        {/* What it does leads — the one answer a practitioner opens this page for. */}
+        <section className={styles.section} aria-labelledby="muscle-function">
+          <h2 id="muscle-function" className={styles.eyebrow}>What it does</h2>
+          <p className={styles.lede}>{muscle.functionText}</p>
+        </section>
 
-        <Surface tier="tile">
-          <h2 className="t-headline" style={{ marginBottom: 8 }}>What it does</h2>
-          <p className="t-body">{muscle.functionText}</p>
-        </Surface>
+        <section className={styles.section} aria-labelledby="muscle-anatomy">
+          <h2 id="muscle-anatomy" className="t-headline">Anatomy</h2>
+          <p className="t-body">{muscle.anatomySummary}</p>
+        </section>
 
         {muscle.screeningNotes && (
-          <Surface tier="tile">
-            <h2 className="t-headline" style={{ marginBottom: 8 }}>In posture screening</h2>
+          <section className={styles.section} aria-labelledby="muscle-screening">
+            <h2 id="muscle-screening" className="t-headline">In posture screening</h2>
             <p className="t-body">{muscle.screeningNotes}</p>
-          </Surface>
+          </section>
         )}
 
         {(tightLinks.length > 0 || weakLinks.length > 0) && (
-          <div data-testid="related-findings">
-            <Surface tier="tile">
-              <h2 className="t-headline" style={{ marginBottom: 12 }}>Related posture findings</h2>
+          <section data-testid="related-findings" className={styles.section} aria-labelledby="muscle-findings">
+            <h2 id="muscle-findings" className="t-headline">Related posture findings</h2>
+            <ul className={styles.links}>
               {tightLinks.map((l, i) => (
-                <div key={`t${i}`} style={{ marginBottom: 12 }}>
-                  <p className="t-body" style={{ fontWeight: 500, color: tone('review'), marginBottom: 4 }}>
-                    Commonly tight in: {l.imbalance_definitions?.label}
-                  </p>
-                  <p className="t-body">{l.rationale_text}</p>
-                </div>
+                <li key={`t${i}`} className={styles.link}>
+                  <p className={styles.linkHead}><span className={styles.roleMark} data-role="tight" aria-hidden="true" />Commonly tight in: {l.imbalance_definitions?.label}</p>
+                  <p className="t-callout">{l.rationale_text}</p>
+                </li>
               ))}
               {weakLinks.map((l, i) => (
-                <div key={`w${i}`} style={{ marginBottom: 12 }}>
-                  <p className="t-body" style={{ fontWeight: 500, color: tone('info'), marginBottom: 4 }}>
-                    Commonly underactive in: {l.imbalance_definitions?.label}
-                  </p>
-                  <p className="t-body">{l.rationale_text}</p>
-                </div>
+                <li key={`w${i}`} className={styles.link}>
+                  <p className={styles.linkHead}><span className={styles.roleMark} data-role="weak" aria-hidden="true" />Commonly underactive in: {l.imbalance_definitions?.label}</p>
+                  <p className="t-callout">{l.rationale_text}</p>
+                </li>
               ))}
-            </Surface>
-          </div>
+            </ul>
+          </section>
         )}
 
         {stretches.length > 0 && (
-          <div data-testid="stretch-exercises">
-            <Surface tier="tile">
-              <h2 className="t-headline" style={{ marginBottom: 4 }}>Stretching</h2>
+          <section data-testid="stretch-exercises" className={styles.section} aria-labelledby="muscle-stretch">
+            <h2 id="muscle-stretch" className="t-headline">Stretching</h2>
+            <div className={styles.links}>
               {stretches.map((e, i) => (
                 <ExerciseRow key={i} row={e} />
               ))}
-            </Surface>
-          </div>
+            </div>
+          </section>
         )}
 
         {strengthening.length > 0 && (
-          <div data-testid="strengthen-exercises">
-            <Surface tier="tile">
-              <h2 className="t-headline" style={{ marginBottom: 4 }}>Strengthening progressions</h2>
+          <section data-testid="strengthen-exercises" className={styles.section} aria-labelledby="muscle-strengthen">
+            <h2 id="muscle-strengthen" className="t-headline">Strengthening progressions</h2>
+            <div className={styles.links}>
               {strengthening.map((e, i) => (
                 <ExerciseRow key={i} row={e} showLevel />
               ))}
-            </Surface>
-          </div>
+            </div>
+          </section>
         )}
 
-        <Disclaimer />
+        <footer className={styles.footer}>
+          <Disclaimer />
+        </footer>
       </div>
     </div>
   )
@@ -176,25 +169,29 @@ export default async function MusclePage({ params }: { params: Promise<{ slug: s
 
 function ExerciseRow({ row, showLevel = false }: { row: ExerciseMuscleRow; showLevel?: boolean }) {
   const ex = row.exercises!
+  const level = row.progression_level
   return (
-    <div style={{ padding: '10px 0', borderTop: '1px solid var(--hairline-soft)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="t-headline">{ex.name}</span>
-        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {showLevel && (
-            <Chip band={LEVEL_BANDS[row.progression_level] ?? 'neutral'} size="sm">
-              {LEVEL_LABELS[row.progression_level]}
-            </Chip>
+    <div className={styles.exRow}>
+      <div className={styles.exHead}>
+        <span className={styles.exName}>{ex.name}</span>
+        <span className={styles.exMeta}>
+          {showLevel && LEVEL_LABELS[level] && (
+            <span className={styles.level}>
+              <span className={styles.steps} aria-hidden="true">
+                {[1, 2, 3].map((step) => <span key={step} data-on={step <= level ? 'true' : undefined} />)}
+              </span>
+              {LEVEL_LABELS[level]}
+            </span>
           )}
           {(ex.sets || ex.hold_seconds) && (
-            <span className="t-footnote n">
+            <span className={styles.exDose}>
               {ex.sets ? `${ex.sets} sets` : ''}{ex.sets && ex.hold_seconds ? ' · ' : ''}{ex.hold_seconds ? `${ex.hold_seconds}s` : ''}
             </span>
           )}
         </span>
       </div>
       {ex.instructions && (
-        <p className="t-body" style={{ marginTop: 6 }}>
+        <p className="t-callout">
           {ex.instructions}
         </p>
       )}

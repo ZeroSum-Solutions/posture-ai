@@ -3,9 +3,8 @@ import { useId, useState } from 'react'
 import type { RatingPace, RatingDifficulty } from '@/lib/workout/rating'
 import type { RatingPayload } from './WorkoutPlayer'
 import { CheckGlyph } from '@/components/SignalGlyphs'
-import { Surface } from '@/components/array/Surface'
-import { Button, FilterChip } from '@/components/ui'
-import { workoutTheme as theme } from './theme'
+import { Button, FilterChip, SlotNumber } from '@/components/ui'
+import styles from './RateForm.module.css'
 import LegalNotice from '@/components/LegalNotice'
 import type { LegalSnapshot } from '@/lib/legal/types'
 
@@ -78,27 +77,43 @@ export function RateForm({
 
   if (thanks) {
     return (
-      <Surface tier="feature" style={{ textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><CheckGlyph size={48} /></div>
-        <h2 className="t-title-1" style={{ margin: '0 0 6px' }}>Thanks for the feedback</h2>
-        <p className="t-body" style={{ margin: '0 0 22px' }}>It helps tune your next session.</p>
-        {onExit && <Button onClick={onExit} variant="primary" size="md">Done</Button>}
-      </Surface>
+      <div className={styles.thanks}>
+        <span className={styles.thanksMark}><CheckGlyph size={40} /></span>
+        <h2 className={styles.title}>Thanks for the feedback</h2>
+        <p className={styles.body}>It helps tune your next session.</p>
+        {onExit && <div className={styles.actions}><Button onClick={onExit} variant="primary" size="lg" block>Done</Button></div>}
+      </div>
     )
   }
 
+  const mins = Math.max(1, Math.round(durationSec / 60))
   return (
-    <form onSubmit={(e) => { e.preventDefault(); void onSubmit() }} style={{ width: '100%', textAlign: 'center' }}>
-      <h2 className="t-title-1" style={{ margin: '0 0 14px' }}>Nice work</h2>
-      <div className="t-subhead" style={{ display: 'inline-flex', gap: 18, marginBottom: 22 }}>
-        <span><strong style={{ color: theme.maintain }}>{done}</strong> / {total} done</span>
-        {skipped > 0 && <span><strong>{skipped}</strong> skipped</span>}
-        <span><strong>{Math.max(1, Math.round(durationSec / 60))}</strong> min</span>
+    <form onSubmit={(e) => { e.preventDefault(); void onSubmit() }} className={styles.form}>
+      <div className={styles.head}>
+        <p className={styles.eyebrow}>Session complete</p>
+        <h2 className={styles.title}>Nice work</h2>
+      </div>
+      <p className="sr-only">{done} of {total} done{skipped > 0 ? `, ${skipped} skipped` : ''}, {mins} min</p>
+      <div className={styles.stats} aria-hidden="true">
+        <div className={styles.stat}>
+          <span className={styles.statValue}><SlotNumber value={done} /><span className={styles.statOf}>/{total}</span></span>
+          <span className={styles.eyebrow}>done</span>
+        </div>
+        {skipped > 0 && (
+          <div className={styles.stat}>
+            <span className={styles.statValue}><SlotNumber value={skipped} delay={80} /></span>
+            <span className={styles.eyebrow}>skipped</span>
+          </div>
+        )}
+        <div className={styles.stat}>
+          <span className={styles.statValue}><SlotNumber value={mins} delay={160} /></span>
+          <span className={styles.eyebrow}>min</span>
+        </div>
       </div>
 
-      <Surface tier="feature">
+      <div className={styles.groups}>
         <Row label="How clear were the cues?">
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <div className={styles.stars}>
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}
@@ -106,9 +121,10 @@ export function RateForm({
                 aria-label={`${n} star${n > 1 ? 's' : ''}`}
                 aria-pressed={clarity !== undefined && n <= clarity}
                 onClick={() => setClarity(n)}
-                style={{ ...starBtn, color: clarity !== undefined && n <= clarity ? theme.warning : theme.borderStrong }}
+                className={styles.star}
+                style={{ transitionDelay: clarity !== undefined && n <= clarity ? `${(n - 1) * 30}ms` : '0ms' }}
               >
-                ★
+                <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .7-4.5 4.1 1.2 5.9L12 16.5l-5.3 2.9 1.2-5.9L3.4 9.4l6-.7L12 3.2Z" /></svg>
               </button>
             ))}
           </div>
@@ -123,7 +139,7 @@ export function RateForm({
         </Row>
 
         <Row label="Anything stand out? (optional)">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          <div className={styles.chips}>
             {TAGS.map((t) => (
               <FilterChip key={t.value} label={t.label} selected={tags.includes(t.value)} onToggle={() => toggleTag(t.value)} />
             ))}
@@ -139,22 +155,22 @@ export function RateForm({
               rows={3}
               aria-label="Notes for the practitioner (optional)"
               placeholder="What worked, what felt awkward…"
-              className="t-body"
-              style={{ width: '100%', resize: 'vertical', padding: 'var(--s-12)', borderRadius: 'var(--r-md)', background: theme.surfaceWell, border: `1px solid ${theme.border}` }}
+              className={styles.notes}
             />
           </Row>
         )}
-      </Surface>
+      </div>
 
       <WorkoutLegalNotice legalNotice={legalNotice} legacyDisclaimer={legacyDisclaimer} prototypeDisclaimer={prototypeDisclaimer} />
 
-      {error && <p role="alert" className="t-footnote" style={{ color: theme.danger, marginBottom: 12 }}>{error}</p>}
+      {error && <p role="alert" className={styles.error}>{error}</p>}
 
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+      <div className={styles.actions}>
         <Button
           type="submit"
           variant="primary"
-          size="md"
+          size="lg"
+          block
           loading={submitting}
           disabledReason={!canSubmit ? 'Choose a rating to continue' : undefined}
         >
@@ -215,8 +231,8 @@ export function WorkoutLegalNotice({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   const labelId = useId()
   return (
-    <div role="group" aria-labelledby={labelId} style={{ marginBottom: 16 }}>
-      <div id={labelId} className="t-subhead" style={{ marginBottom: 8 }}>{label}</div>
+    <div role="group" aria-labelledby={labelId} className={styles.row}>
+      <div id={labelId} className={styles.rowLabel}>{label}</div>
       {children}
     </div>
   )
@@ -224,7 +240,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function Chips<T extends string>({ options, selected, onSelect }: { options: { value: T; label: string }[]; selected?: T; onSelect: (v: T) => void }) {
   return (
-    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+    <div className={styles.chips}>
       {options.map((o) => (
         <FilterChip key={o.value} label={o.label} selected={selected === o.value} onToggle={() => onSelect(o.value)} />
       ))}
@@ -232,4 +248,3 @@ function Chips<T extends string>({ options, selected, onSelect }: { options: { v
   )
 }
 
-const starBtn: React.CSSProperties = { background: 'none', border: 'none', fontSize: '1.9rem', cursor: 'pointer', lineHeight: 1, padding: 2, minHeight: 44 }

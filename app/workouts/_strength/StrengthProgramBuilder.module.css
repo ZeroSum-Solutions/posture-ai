@@ -39,23 +39,42 @@
   min-width: 0;
 }
 
+/* Practice workspace: a quiet strip at the foot of the builder — a hairline
+   above, no card (Array v4 › content on the canvas). */
 .sampleEntry {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s-16);
+  display: grid;
+  gap: var(--s-12);
   min-width: 0;
+  padding-top: var(--s-20);
+  border-top: 1px solid var(--hairline);
 }
 
-.sampleEntry > div {
+.sampleEntry > div:first-child {
   display: grid;
-  gap: var(--s-8);
+  gap: var(--s-4);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.sampleEntry p,
-.sampleEntry h2 { margin: 0; }
+.sampleEntry p { margin: 0; }
+
+.sampleControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-12);
+  min-width: 0;
+}
+.sampleControls > :first-child { flex: 1 1 14rem; }
+
+.launchHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-8) var(--s-12);
+  min-width: 0;
+}
+.launchHead > :first-child { flex: 1 1 16rem; }
 
 .hero {
   display: grid;
@@ -665,3 +684,9 @@
   align-items: center;
   gap: var(--s-12);
 }
+
+.loadingLine { display: inline-flex; align-items: center; gap: var(--s-12); margin: 0; color: var(--ink-2); }
+
+/* Coach permissions: one column of hairline rows (Array v4 › lists are rows). */
+.permissionList { display: grid; border-top: 1px solid var(--hairline); min-width: 0; }
+.permissionList > * { border-bottom: 1px solid var(--hairline); }
