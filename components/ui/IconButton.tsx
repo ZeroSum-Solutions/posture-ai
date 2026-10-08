@@ -70,7 +70,8 @@ export const IconButton = forwardRef(function IconButton(
         <span className={styles.plate} aria-hidden="true" />
         <Icon name={icon} size={22} className={styles.glyph} />
         {typeof badge === 'number' ? (
-          <span className={styles.badge}>{badge > 99 ? '99+' : badge}</span>
+          // Keyed by count: a new count pops in again on the jelly curve.
+          <span key={badge} className={styles.badge}>{badge > 99 ? '99+' : badge}</span>
         ) : badge ? (
           <span className={styles.badgeDot} />
         ) : null}

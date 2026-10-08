@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
+import { motion, useMotionValue, useReducedMotion, useSpring, type MotionStyle } from 'framer-motion'
+import { spring as springs } from '@/lib/motion'
 import styles from './ProgressBar.module.css'
 
 export interface ProgressBarProps {
@@ -13,9 +14,13 @@ export interface ProgressBarProps {
 }
 
 /**
- * A 6px linear fill that chases `value` with a spring (stiffness 200,
- * damping 24) and never moves backward, even if a caller's `value` briefly
- * dips (e.g. a retried step). See DESIGN.md › Loaders and spec §6.1.5.
+ * A 6px determinate track (DESIGN.md › Loaders). One motion value, `--p`,
+ * drives both the fill (a clip-path inset, so the rounded ends never squash)
+ * and a glowing volt head riding its leading edge (a translate) — no width or
+ * layout animation. The value chases on the `settle` spring and never moves
+ * backward, even if a caller's `value` briefly dips (a retried step). While
+ * running, a faint light sweeps along the filled part; at 100% the head
+ * fades and the sweep stops.
  */
 export function ProgressBar({ value, label, className }: ProgressBarProps) {
   const clamped = Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0))
@@ -24,8 +29,7 @@ export function ProgressBar({ value, label, className }: ProgressBarProps) {
 
   const reducedMotion = useReducedMotion()
   const target = useMotionValue(highest)
-  const spring = useSpring(target, { stiffness: 200, damping: 24 })
-  const width = useTransform(spring, v => `${Math.min(100, Math.max(0, v * 100))}%`)
+  const progress = useSpring(target, { stiffness: springs.settle.stiffness, damping: springs.settle.damping })
 
   useEffect(() => {
     target.set(highest)
@@ -36,19 +40,23 @@ export function ProgressBar({ value, label, className }: ProgressBarProps) {
   if (nearestQuarter > announced) setAnnounced(nearestQuarter)
 
   const percent = Math.round(highest * 100)
+  const style = { '--p': reducedMotion ? highest : progress } as MotionStyle
 
   return (
     <div className={[styles.row, className].filter(Boolean).join(' ')}>
-      <div
+      <motion.div
         className={styles.track}
         role="progressbar"
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={label}
+        data-complete={highest >= 1 ? 'true' : undefined}
+        style={style}
       >
-        <motion.div className={styles.fill} style={{ width: reducedMotion ? `${percent}%` : width }} />
-      </div>
+        <span className={styles.fill} />
+        <span className={styles.head} />
+      </motion.div>
       <span className="sr-only" aria-live="polite">
         {Math.round(announced * 100)}%
       </span>

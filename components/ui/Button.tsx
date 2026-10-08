@@ -70,38 +70,41 @@ function prefersReducedMotion(): boolean {
 
 /**
  * Width morph (FLIP on `width` only). Runs when the phase or the label text
- * changes: reads the new resting width once, starts from the last settled
- * width, and lets the CSS curve (spring out, expo in) carry it. Inline width
- * is cleared when the morph lands so the button stays responsive.
+ * changes — never on mount, so a page full of buttons costs no layout reads:
+ * the settled width comes from a ResizeObserver (async), the new width is
+ * read once per morph, and the CSS curve (spring out, expo in) carries it.
+ * Inline width is cleared when the morph lands so the button stays fluid.
  */
 function useWidthMorph(
   ref: React.RefObject<HTMLElement | null>,
   morphKey: string,
 ) {
   const lastWidth = useRef<number | null>(null)
+  const lastKey = useRef(morphKey)
 
-  // Track the settled width without forcing layout (ResizeObserver is async).
   useEffect(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(entries => {
       const box = entries[0]?.borderBoxSize?.[0]
-      lastWidth.current = box ? box.inlineSize : el.offsetWidth
+      if (box) lastWidth.current = box.inlineSize
     })
     observer.observe(el)
     return () => observer.disconnect()
   }, [ref])
 
   useLayoutEffect(() => {
+    if (lastKey.current === morphKey) return
+    lastKey.current = morphKey
     const el = ref.current
-    if (!el) return
     const from = lastWidth.current
+    if (!el || from == null || prefersReducedMotion()) return
+
     el.style.transition = 'none'
     el.style.width = ''
     const to = el.getBoundingClientRect().width
-    lastWidth.current = to
     el.style.transition = ''
-    if (from == null || Math.abs(from - to) < 1 || prefersReducedMotion()) return
+    if (Math.abs(from - to) < 1) return
 
     el.style.transition = 'none'
     el.style.width = `${from}px`
@@ -140,6 +143,7 @@ export const Button = forwardRef(function Button(
     href,
     haptic = 'tap',
     onClick,
+    onPointerDown,
     className,
     children,
     type,
@@ -179,6 +183,15 @@ export const Button = forwardRef(function Button(
     elementRef.current = node
     if (typeof ref === 'function') ref(node)
     else if (ref) (ref as { current: HTMLButtonElement | HTMLAnchorElement | null }).current = node
+  }
+
+  // The press bloom grows from where the finger landed (keyboard: centre).
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement & HTMLAnchorElement>) {
+    const el = event.currentTarget
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty('--px', `${event.clientX - rect.left}px`)
+    el.style.setProperty('--py', `${event.clientY - rect.top}px`)
+    onPointerDown?.(event)
   }
 
   function handleClick(event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) {
@@ -232,6 +245,7 @@ export const Button = forwardRef(function Button(
     'aria-describedby': isBlocked ? reasonId : undefined,
     'aria-busy': loading || phase === 'success' || undefined,
     onClick: handleClick,
+    onPointerDown: handlePointerDown,
   }
 
   const button = href ? (

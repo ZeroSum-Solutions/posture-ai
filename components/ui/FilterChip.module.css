@@ -168,6 +168,15 @@
   mask-image: linear-gradient(to right, transparent 0, #000 var(--chiprow-fade-l), #000 calc(100% - var(--chiprow-fade-r)), transparent 100%);
 }
 
+.bleed {
+  margin-inline: calc(-1 * var(--screen-x));
+}
+
+.bleed .row {
+  padding-inline: var(--screen-x);
+  scroll-padding-inline: var(--screen-x);
+}
+
 .row::-webkit-scrollbar {
   display: none;
 }

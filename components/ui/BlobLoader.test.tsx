@@ -35,3 +35,16 @@ describe('BlobLoader', () => {
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('40')
   })
 })
+
+describe('BlobLoader steps ticker', () => {
+  it('marks exactly one step as current and advances it', () => {
+    const { container } = render(<BlobLoader label="Analyzing posture" steps={['A', 'B', 'C']} />)
+    const now = () => Array.from(container.querySelectorAll('[data-pos="now"]')).map((n) => n.textContent)
+    expect(now()).toEqual(['A'])
+    act(() => {
+      vi.advanceTimersByTime(1800)
+    })
+    expect(now()).toEqual(['B'])
+    expect(container.querySelector('[data-pos="past"]')?.textContent).toBe('A')
+  })
+})

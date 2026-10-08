@@ -36,7 +36,8 @@
     to top,
     var(--background) 0%,
     var(--background) calc(var(--tabbar-h) + var(--sa-b)),
-    color-mix(in srgb, var(--background) 82%, transparent) 70%,
+    color-mix(in srgb, var(--background) 94%, transparent) 62%,
+    color-mix(in srgb, var(--background) 70%, transparent) 84%,
     transparent 100%
   );
   pointer-events: none;

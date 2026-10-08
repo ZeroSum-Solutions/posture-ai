@@ -44,10 +44,11 @@ function useAmbientPaused(): boolean {
 }
 
 /**
- * The field: #000 plus two fixed radial gradients (accent top-left, violet
- * bottom-right) drifting on one composited layer. Decorative only, hence
- * `aria-hidden`. Keeps the `app-ambient-field` className the shell's
- * immersive-route CSS hook (`app/globals.css`) targets.
+ * The aura (DESIGN.md › Colour): the near-black canvas, two large blurred
+ * lights (ink-blue top-left, faint volt bottom-right) drifting on one
+ * composited layer, and 3% grain. Decorative only, hence `aria-hidden`. Keeps
+ * the `app-ambient-field` className the shell's immersive-route CSS hook
+ * (`app/globals.css`) targets.
  */
 export default function AmbientField() {
   const paused = useAmbientPaused()
@@ -56,6 +57,21 @@ export default function AmbientField() {
       className={`${styles.field} app-ambient-field`}
       data-paused={paused ? 'true' : 'false'}
       aria-hidden="true"
-    />
+    >
+      <span className={styles.tint} />
+    </div>
   )
+}
+
+export type AuraSeverity = 'maintain' | 'monitor' | 'review'
+
+/**
+ * Tints the aura toward a severity while mounted (DESIGN.md › Colour: "The
+ * aura tints toward the current result's highest severity on Results").
+ * Renders an invisible marker; the field picks it up with `:has()`, so it
+ * needs no context and costs no re-render. Pass `null` for no tint.
+ */
+export function AuraTint({ severity }: { severity: AuraSeverity | null | undefined }) {
+  if (!severity) return null
+  return <span data-aura-tint={severity} hidden />
 }

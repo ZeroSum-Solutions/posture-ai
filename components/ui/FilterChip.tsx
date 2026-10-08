@@ -73,10 +73,15 @@ export function FilterChip({ label, count, selected, onToggle, icon, className, 
  * A single-line, horizontally scrolling row of chips. Edge fades follow the
  * scroll position (scroll-driven, where supported): no fade at an edge you
  * are already at. Chip rows never wrap (DESIGN.md › Chip family).
+ *
+ * `bleed`: the row runs to the screen edges and pads by the gutter, so the
+ * first chip lines up with the content above it and chips scroll off the
+ * glass edge rather than a hard inner edge. Use it for top-level filter rows
+ * placed directly in `.app-screen-x` content.
  */
-export function ChipRow({ children, label, style }: { children: ReactNode; label: string; style?: CSSProperties }) {
+export function ChipRow({ children, label, style, bleed = false }: { children: ReactNode; label: string; style?: CSSProperties; bleed?: boolean }) {
   return (
-    <div className={styles.rowMask} style={style}>
+    <div className={[styles.rowMask, bleed ? styles.bleed : ''].filter(Boolean).join(' ')} style={style}>
       <div className={styles.row} role="group" aria-label={label}>
         {children}
       </div>

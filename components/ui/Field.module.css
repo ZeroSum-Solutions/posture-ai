@@ -1,7 +1,7 @@
 /* Array v4 fields — TextField, Textarea, Select, SearchField. One vocabulary:
    a 52px surface-2 control (radius 14, 16px type so iOS never zooms) with a
    floating label that rests inside the field and rises + shrinks on focus or
-   once filled (spring). Focus is a 1px volt edge with a soft volt glow; an
+   once filled (spring). Focus is a 2px volt edge with a soft volt glow; an
    error is a coral edge, a small nudge and a message that slides down. */
 
 .field {
@@ -64,7 +64,7 @@
 .control:focus-visible {
   outline: none;
   background: var(--surface-3);
-  box-shadow: inset 0 0 0 1px var(--volt), var(--ctl-focus-halo);
+  box-shadow: inset 0 0 0 2px var(--volt), var(--ctl-focus-halo);
 }
 
 .control[aria-invalid='true'] {
@@ -74,7 +74,7 @@
 
 .control[aria-invalid='true']:focus,
 .control[aria-invalid='true']:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--review), var(--ctl-error-halo);
+  box-shadow: inset 0 0 0 2px var(--review), var(--ctl-error-halo);
 }
 
 .control:disabled {

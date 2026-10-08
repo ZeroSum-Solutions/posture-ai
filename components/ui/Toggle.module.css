@@ -1,8 +1,14 @@
 /* Array v4 Switch, Checkbox and Radio. The whole row is the target (48px
-   min). Switch: 52×32 track, the knob squashes while it travels (jelly) and
-   widens under the finger. Checkbox: a 24px squircle that fills volt and
-   draws its check. Radio: a 24px circle with a dot that springs in.
-   Checked is never colour alone: glyph, fill and position all change. */
+   min). Selection is ink-1, never volt (volt means "do this"; DESIGN.md ›
+   Principles 4). Checked is never colour alone: glyph, fill, size and
+   position all change.
+
+   Switch: 52×32 track. Off, the knob is a small grey bead; on, it grows into
+   a full dark knob riding an ink-1 track and draws a check (a size morph, as
+   Material 3, on a transform). It squashes while it travels and widens under
+   the finger. Checkbox: a 24px squircle whose ink-1 fill blooms from the
+   centre on the jelly curve, then the check draws itself. Radio: the ring
+   turns ink-1 and a dot springs in. */
 
 .row {
   display: inline-flex;
@@ -19,9 +25,21 @@
   cursor: not-allowed;
 }
 
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .label {
   font: var(--t-body);
   color: var(--ink-1);
+}
+
+.description {
+  font: var(--t-label);
+  color: var(--ink-3);
 }
 
 .hit {
@@ -34,105 +52,23 @@
   justify-content: center;
 }
 
-.input {
+/* Doubled class beats the global input[type=checkbox|radio] and
+   input:disabled rules in globals.css (size, opacity). */
+.input.input {
   position: absolute;
   inset: 0;
   z-index: 1;
   width: 100%;
   height: 100%;
+  min-height: 0;
   margin: 0;
   opacity: 0;
   cursor: pointer;
 }
 
-.input:disabled {
+.input.input:disabled {
+  opacity: 0;
   cursor: not-allowed;
-}
-
-/* ── Switch ── */
-
-.switchTrack {
-  --knob: 26px;
-  --pad: 3px;
-  position: relative;
-  width: 52px;
-  height: 32px;
-  border-radius: var(--r-full);
-  background: var(--surface-3);
-  box-shadow: inset 0 0 0 1px var(--edge), inset 0 1px 2px var(--hairline);
-  transition: background-color 240ms var(--ease-standard), box-shadow 240ms var(--ease-standard);
-}
-
-.switchThumb {
-  position: absolute;
-  top: var(--pad);
-  left: var(--pad);
-  width: var(--knob);
-  height: var(--knob);
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-full);
-  background: var(--ink-1);
-  box-shadow: var(--ctl-knob-shadow);
-  translate: 0 0;
-  transform-origin: left center;
-  transition: translate 420ms var(--ease-spring), scale 240ms var(--ease-spring);
-}
-
-.switchGlyph {
-  width: 14px;
-  height: 14px;
-  stroke: var(--volt-ink);
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-.switchGlyph path {
-  stroke-dasharray: 14;
-  stroke-dashoffset: 14;
-  transition: stroke-dashoffset 120ms var(--ease-standard);
-}
-
-.input:checked ~ .switchTrack {
-  background: var(--volt);
-  box-shadow: inset 0 1px 0 var(--ctl-sheen), inset 0 -2px 5px var(--ctl-shade), 0 6px 18px -8px var(--volt-glow);
-}
-
-.input:checked ~ .switchTrack .switchThumb {
-  translate: calc(52px - var(--knob) - 2 * var(--pad)) 0;
-  transform-origin: right center;
-}
-
-.input:checked ~ .switchTrack .switchGlyph path {
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 300ms 160ms var(--ease-out-expo);
-}
-
-/* Under the finger the knob widens toward where it will go. */
-.row:active .input:not(:disabled) ~ .switchTrack .switchThumb {
-  scale: 1.22 1;
-}
-
-/* Squash while travelling (only after a real change, not on mount). */
-.row[data-moved='true'] .input:checked ~ .switchTrack .switchThumb { animation: knob-squash-on 480ms var(--ease-standard); }
-.row[data-moved='true'] .input:not(:checked) ~ .switchTrack .switchThumb { animation: knob-squash-off 480ms var(--ease-standard); }
-
-@keyframes knob-squash-on {
-  0% { scale: 1 1; }
-  30% { scale: 1.3 0.84; }
-  62% { scale: 0.94 1.05; }
-  82% { scale: 1.02 0.99; }
-  100% { scale: 1 1; }
-}
-
-@keyframes knob-squash-off {
-  0% { scale: 1 1; }
-  30% { scale: 1.3 0.84; }
-  62% { scale: 0.94 1.05; }
-  82% { scale: 1.02 0.99; }
-  100% { scale: 1 1; }
 }
 
 .input:focus-visible ~ .switchTrack,
@@ -142,27 +78,162 @@
   outline-offset: 2px;
 }
 
+/* ── Switch ── */
+
+.switchTrack {
+  --knob: 24px;
+  --pad: 4px;
+  --travel: calc(52px - var(--knob) - 2 * var(--pad));
+  position: relative;
+  width: 52px;
+  height: 32px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1.5px var(--edge), var(--ctl-well);
+  transition: background-color 220ms var(--ease-standard), box-shadow 220ms var(--ease-standard);
+}
+
+/* The thumb travels (translate) and squashes (scale); the knob inside it
+   carries the off/on size, so the two never fight over one property. */
+.switchThumb {
+  position: absolute;
+  top: var(--pad);
+  left: var(--pad);
+  width: var(--knob);
+  height: var(--knob);
+  translate: 0 0;
+  scale: 1 1;
+  transform-origin: left center;
+  transition: translate 440ms var(--ease-spring), scale 240ms var(--ease-spring);
+}
+
+.switchKnob {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-full);
+  background: var(--ctl-off-knob);
+  box-shadow: var(--ctl-knob-shadow);
+  transform: scale(0.67);
+  transition:
+    transform 420ms var(--ease-jelly),
+    background-color 200ms var(--ease-standard);
+}
+
+.switchGlyph {
+  width: 14px;
+  height: 14px;
+  stroke: var(--ink-1);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.switchGlyph path {
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  transition: stroke-dashoffset 100ms var(--ease-standard);
+}
+
+.input:checked ~ .switchTrack {
+  background: var(--ctl-select);
+  box-shadow: var(--ctl-select-shade);
+}
+
+.input:checked ~ .switchTrack .switchThumb {
+  translate: var(--travel) 0;
+  transform-origin: right center;
+}
+
+.input:checked ~ .switchTrack .switchKnob {
+  background: var(--ctl-select-ink);
+  transform: scale(1);
+}
+
+.input:checked ~ .switchTrack .switchGlyph path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 300ms 180ms var(--ease-out-expo);
+}
+
+/* Under the finger the knob reaches full size and widens toward where it
+   will go (the press half of the morph). */
+.row:active .input:not(:disabled) ~ .switchTrack .switchThumb {
+  scale: 1.18 1;
+  transition-duration: 440ms, 120ms;
+}
+
+.row:active .input:not(:disabled) ~ .switchTrack .switchKnob {
+  transform: scale(1);
+  transition-duration: 160ms, 200ms;
+}
+
+/* Squash while travelling (only after a real change, not on mount). Two
+   names so a quick re-toggle restarts the keyframe. */
+.row[data-moved='true'] .input:checked ~ .switchTrack .switchThumb { animation: knob-squash-on 460ms var(--ease-standard); }
+.row[data-moved='true'] .input:not(:checked) ~ .switchTrack .switchThumb { animation: knob-squash-off 460ms var(--ease-standard); }
+
+@keyframes knob-squash-on {
+  0% { scale: 1.18 1; }
+  30% { scale: 1.34 0.84; }
+  62% { scale: 0.94 1.05; }
+  82% { scale: 1.02 0.99; }
+  100% { scale: 1 1; }
+}
+
+@keyframes knob-squash-off {
+  0% { scale: 1.18 1; }
+  30% { scale: 1.34 0.84; }
+  62% { scale: 0.94 1.05; }
+  82% { scale: 1.02 0.99; }
+  100% { scale: 1 1; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row:hover .input:not(:disabled):not(:checked) ~ .switchTrack .switchKnob {
+    background: var(--ink-1);
+  }
+}
+
 /* ── Checkbox ── */
 
 .checkboxBox {
+  position: relative;
+  isolation: isolate;
   width: 24px;
   height: 24px;
   display: grid;
   place-items: center;
-  border-radius: var(--r-xs);
+  border-radius: var(--ctl-check-r);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1.5px var(--ink-3);
-  transition: background-color 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard), transform 420ms var(--ease-jelly);
+  transition: box-shadow 160ms var(--ease-standard), transform 420ms var(--ease-jelly);
 }
 
 @supports (corner-shape: squircle) {
-  .checkboxBox { corner-shape: squircle; }
+  .checkboxBox { corner-shape: squircle; border-radius: var(--r-xs); }
+}
+
+/* The fill blooms from the centre (transform only). */
+.checkboxBox::before,
+.radioCircle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--ctl-select);
+  box-shadow: var(--ctl-select-shade);
+  transform: scale(0.2);
+  opacity: 0;
+  transition: transform 160ms var(--ease-standard), opacity 120ms var(--ease-standard);
 }
 
 .checkboxGlyph {
   width: 16px;
   height: 16px;
-  stroke: var(--volt-ink);
+  stroke: var(--ctl-select-ink);
   stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -176,24 +247,38 @@
 }
 
 .input:checked ~ .checkboxBox {
-  background: var(--volt);
-  box-shadow: inset 0 1px 0 var(--ctl-sheen), inset 0 -1px 3px var(--ctl-shade), 0 4px 12px -6px var(--volt-glow);
+  box-shadow: inset 0 0 0 1.5px var(--ctl-select);
+}
+
+.input:checked ~ .checkboxBox::before {
+  transform: scale(1);
+  opacity: 1;
+  transition: transform 460ms var(--ease-jelly), opacity 80ms linear;
 }
 
 .input:checked ~ .checkboxBox .checkboxGlyph path {
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 320ms 80ms var(--ease-out-expo);
+  transition: stroke-dashoffset 320ms 110ms var(--ease-out-expo);
 }
 
 .row:active .input:not(:disabled) ~ .checkboxBox,
 .row:active .input:not(:disabled) ~ .radioCircle {
   transform: scale(0.86);
-  transition-duration: 180ms, 180ms, 90ms;
+  transition-duration: 160ms, 90ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row:hover .input:not(:disabled):not(:checked) ~ .checkboxBox,
+  .row:hover .input:not(:disabled):not(:checked) ~ .radioCircle {
+    box-shadow: inset 0 0 0 1.5px var(--ink-2);
+  }
 }
 
 /* ── Radio ── */
 
 .radioCircle {
+  position: relative;
+  isolation: isolate;
   width: 24px;
   height: 24px;
   display: grid;
@@ -201,31 +286,37 @@
   border-radius: var(--r-full);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1.5px var(--ink-3);
-  transition: background-color 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard), transform 420ms var(--ease-jelly);
+  transition: box-shadow 160ms var(--ease-standard), transform 420ms var(--ease-jelly);
+}
+
+/* Radio keeps its fill dark; the ring and the dot carry the selection. */
+.radioCircle::before {
+  display: none;
 }
 
 .radioDot {
   width: 10px;
   height: 10px;
   border-radius: var(--r-full);
-  background: var(--volt-ink);
+  background: var(--ctl-select);
   transform: scale(0);
-  transition: transform 160ms var(--ease-standard);
+  transition: transform 140ms var(--ease-standard);
 }
 
 .input:checked ~ .radioCircle {
-  background: var(--volt);
-  box-shadow: inset 0 1px 0 var(--ctl-sheen), inset 0 -1px 3px var(--ctl-shade), 0 4px 12px -6px var(--volt-glow);
+  box-shadow: inset 0 0 0 2px var(--ctl-select);
 }
 
 .input:checked ~ .radioCircle .radioDot {
   transform: scale(1);
-  transition: transform 480ms 40ms var(--ease-jelly);
+  transition: transform 520ms 40ms var(--ease-jelly);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .switchThumb { transition: none; animation: none !important; scale: 1 1 !important; }
+  .switchKnob { transition: background-color var(--duration-reduced) ease-out !important; }
   .checkboxBox, .radioCircle { transform: none !important; }
+  .checkboxBox::before { transition: opacity var(--duration-reduced) ease-out !important; transform: none; }
   .radioDot { transition: none !important; }
   .switchGlyph path, .checkboxGlyph path { transition: none !important; }
 }

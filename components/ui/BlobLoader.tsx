@@ -1,35 +1,47 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
+import Lens from './Lens'
 import { ProgressBar } from './ProgressBar'
 import styles from './BlobLoader.module.css'
 
 export interface BlobLoaderProps {
   /** Accessible name for the whole busy region, e.g. "Analyzing posture…". */
   label: string
-  /** Status lines cross-fading every 1.8s below the blob (Title 2). */
+  /** Status lines that roll upward every 1.8s below the Lens. */
   steps?: string[]
   /** Renders a ProgressBar underneath when real progress exists. */
   progress?: number
+  /** Lens size in px. Default 56. */
+  size?: number
   className?: string
 }
 
+const STEP_MS = 1800
+
 /**
- * The 56px hero loader for scan processing and other long jobs — two
- * counter-rotating layers (10s / 14s) with a spring-pulsed inner layer and a
- * 14px heartbeat core, plus a liquid-glass specular streak. See DESIGN.md ›
- * Loaders and spec §6.1.2.
+ * The Lens loader (DESIGN.md › Loaders) for jobs over a second — scan
+ * processing and other long work. The Lens morphs squircle ⇄ circle on the
+ * jelly spring while its reticle turns, and a volt scan sweep orbits it on a
+ * hairline track (one rotating layer, transform only). Status steps roll up
+ * like a ticker (transform + opacity); a real `progress` adds a ProgressBar.
+ * Under reduced motion the sweep and the roll stop and the Lens holds still;
+ * the steps swap with a fade.
+ *
+ * Kept under its v3 name so call sites need no change.
  */
-export function BlobLoader({ label, steps, progress, className }: BlobLoaderProps) {
+export function BlobLoader({ label, steps, progress, size = 56, className }: BlobLoaderProps) {
   const [stepIndex, setStepIndex] = useState(0)
 
   useEffect(() => {
     if (!steps || steps.length < 2) return
     const timer = setInterval(() => {
       setStepIndex(index => (index + 1) % steps.length)
-    }, 1800)
+    }, STEP_MS)
     return () => clearInterval(timer)
   }, [steps])
+
+  const count = steps?.length ?? 0
 
   return (
     <div
@@ -39,21 +51,29 @@ export function BlobLoader({ label, steps, progress, className }: BlobLoaderProp
       aria-label={steps?.[stepIndex] ? `${label}: ${steps[stepIndex]}` : label}
       aria-busy="true"
     >
-      <div className={styles.blob} aria-hidden="true">
-        <div className={styles.outer} />
-        <div className={styles.inner} />
-        <div className={styles.core} />
+      <div className={styles.stage} style={{ '--lens-stage': `${size}px` } as CSSProperties} aria-hidden="true">
+        <span className={styles.track} />
+        <span className={styles.sweep} />
+        <Lens size={size} state="loading" />
       </div>
-      {steps && steps.length > 0 ? (
+      {count > 0 ? (
         <div className={styles.steps} aria-hidden="true">
-          {steps.map((step, index) => (
-            <span key={step} className={[styles.step, index === stepIndex ? styles.stepActive : ''].filter(Boolean).join(' ')}>
-              {step}
-            </span>
-          ))}
+          {steps!.map((step, index) => {
+            const offset = (index - stepIndex + count) % count
+            const pos = offset === 0 ? 'now' : offset === count - 1 ? 'past' : 'next'
+            return (
+              <span key={step} className={styles.step} data-pos={pos}>
+                {step}
+              </span>
+            )
+          })}
         </div>
       ) : null}
-      {typeof progress === 'number' ? <ProgressBar value={progress} label={label} /> : null}
+      {typeof progress === 'number' ? (
+        <div className={styles.progress}>
+          <ProgressBar value={progress} label={label} />
+        </div>
+      ) : null}
     </div>
   )
 }

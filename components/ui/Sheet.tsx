@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo, type Variants } from 'framer-motion'
+import { AnimatePresence, animate, motion, useDragControls, useMotionValue, useReducedMotion, type PanInfo, type Variants } from 'framer-motion'
 import { haptic } from '@/lib/haptics'
 import { contentIn, contentOut, fade, reduced, spring } from '@/lib/motion'
 import { IconButton } from './IconButton'
@@ -21,7 +21,19 @@ const DETENT_ORDER: SheetDetent[] = ['compact', 'medium', 'large']
 /** Mirrors --content-max and --r-lg; only used to compute the origin morph. */
 const PANEL_MAX_W = 480
 const PANEL_RADIUS = 28
-const FULL_CLIP = `inset(0px 0px 0px 0px round ${PANEL_RADIUS}px ${PANEL_RADIUS}px 0px 0px)`
+
+/**
+ * The resting clip: the panel's box, extended one viewport below it so the
+ * `::after` skirt (Sheet.module.css) shows when the panel lifts — over-drag
+ * upward, or a detent shrinking — instead of a gap under the sheet.
+ */
+const fullClip = (vh: number) => `inset(0px 0px -${Math.round(vh)}px 0px round ${PANEL_RADIUS}px ${PANEL_RADIUS}px 0px 0px)`
+
+/** A detent's height in px (the same sum the CSS height/max-height make). */
+function detentPx(detent: SheetDetent, keyboardInset: number): number {
+  const vh = window.innerHeight
+  return Math.min((DETENT_VH[detent] / 100) * vh, vh - keyboardInset)
+}
 
 export type SheetProps = {
   open: boolean
@@ -44,7 +56,7 @@ export type SheetProps = {
 }
 
 type MorphFrom = { y: number; clip: string }
-type Custom = { reduce: boolean; from: MorphFrom | null; dragged: boolean }
+type Custom = { reduce: boolean; from: MorphFrom | null; dragged: boolean; full: string }
 
 /**
  * Turns the trigger's rect into the panel's starting pose: a clip-path inset
@@ -73,12 +85,12 @@ function morphFrom(rect: OriginRect | null, detent: SheetDetent, keyboardInset: 
 }
 
 const panelVariants: Variants = {
-  hidden: ({ reduce, from }: Custom) =>
-    reduce ? { opacity: 0, y: 0, clipPath: FULL_CLIP } : from ? { opacity: 0, y: from.y, clipPath: from.clip } : { opacity: 1, y: '100%', clipPath: FULL_CLIP },
-  shown: ({ reduce, from }: Custom) => ({
+  hidden: ({ reduce, from, full }: Custom) =>
+    reduce ? { opacity: 0, y: 0, clipPath: full } : from ? { opacity: 0, y: from.y, clipPath: from.clip } : { opacity: 1, y: '100%', clipPath: full },
+  shown: ({ reduce, from, full }: Custom) => ({
     opacity: 1,
     y: 0,
-    clipPath: FULL_CLIP,
+    clipPath: full,
     transition: reduce ? reduced : from ? { ...spring.morph, opacity: { duration: 0.1 } } : spring.glide,
   }),
   gone: ({ reduce, from, dragged }: Custom) =>
@@ -148,6 +160,20 @@ export function Sheet({
   const titleId = useId()
   const dragControls = useDragControls()
   const reduceMotion = useReducedMotion() ?? false
+  // The panel's y. Variants and drag both drive it; a detent change also
+  // offsets it so the top edge glides to the new height instead of jumping.
+  const y = useMotionValue(0)
+  const detentMorphRef = useRef<{ offset: number; velocity: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const morph = detentMorphRef.current
+    if (!morph) return
+    detentMorphRef.current = null
+    // Same frame as the new height: hold the top edge where it was, then let
+    // it settle with the finger's velocity.
+    y.set(morph.offset)
+    animate(y, 0, reduceMotion ? reduced : { ...spring.settle, velocity: morph.velocity })
+  }, [detent, y, reduceMotion])
 
   useEffect(() => {
     trackOverlayOrigins()
@@ -233,18 +259,19 @@ export function Sheet({
       return
     }
     const idx = order.indexOf(detent)
-    if (info.offset.y > 60 && idx > 0) {
-      setDetent(order[idx - 1]!)
-      haptic('tap')
-    } else if (info.offset.y < -60 && idx < order.length - 1) {
-      setDetent(order[idx + 1]!)
-      haptic('tap')
+    const next = info.offset.y > 60 && idx > 0 ? order[idx - 1]! : info.offset.y < -60 && idx < order.length - 1 ? order[idx + 1]! : null
+    if (!next) return
+    detentMorphRef.current = {
+      offset: y.get() + detentPx(next, keyboardInset) - detentPx(detent, keyboardInset),
+      velocity: info.velocity.y,
     }
+    setDetent(next)
+    haptic('tap')
   }
 
   if (!container) return null
 
-  const custom: Custom = { reduce: reduceMotion, from, dragged }
+  const custom: Custom = { reduce: reduceMotion, from, dragged, full: fullClip(window.innerHeight) }
   const startDrag = (e: React.PointerEvent) => dragControls.start(e)
 
   return createPortal(
@@ -270,7 +297,7 @@ export function Sheet({
             className={[styles.panel, className].filter(Boolean).join(' ')}
             data-testid={testId}
             data-detent={detent}
-            style={{ height: `${DETENT_VH[detent]}dvh`, maxHeight: `calc(100dvh - ${keyboardInset}px)` }}
+            style={{ height: `${DETENT_VH[detent]}dvh`, maxHeight: `calc(100dvh - ${keyboardInset}px)`, y }}
             custom={custom}
             variants={panelVariants}
             initial="hidden"

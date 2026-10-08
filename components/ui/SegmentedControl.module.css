@@ -107,24 +107,25 @@
   transform-origin: right center;
 }
 
-/* Stretch toward travel, then settle with a jelly wobble. Two identical
-   keyframes so every move restarts the animation. */
-.thumb[data-travel='a'] .thumbBody { animation: seg-stretch-a 520ms var(--ease-standard); }
-.thumb[data-travel='b'] .thumbBody { animation: seg-stretch-b 520ms var(--ease-standard); }
+/* Stretch toward travel while the plate is moving (the travel curve lands
+   in ~100ms), squash on the overshoot, settle. Two identical keyframes so
+   every move restarts the animation. */
+.thumb[data-travel='a'] .thumbBody { animation: seg-stretch-a 560ms var(--ease-standard); }
+.thumb[data-travel='b'] .thumbBody { animation: seg-stretch-b 560ms var(--ease-standard); }
 
 @keyframes seg-stretch-a {
   0% { transform: scale(1, 1); }
-  28% { transform: scale(calc(1.1 + min(var(--seg-distance), 3) * 0.05), 0.92); }
-  60% { transform: scale(0.97, 1.03); }
-  80% { transform: scale(1.01, 0.995); }
+  14% { transform: scale(calc(1.12 + min(var(--seg-distance), 3) * 0.06), 0.9); }
+  38% { transform: scale(0.96, 1.04); }
+  62% { transform: scale(1.015, 0.99); }
   100% { transform: scale(1, 1); }
 }
 
 @keyframes seg-stretch-b {
   0% { transform: scale(1, 1); }
-  28% { transform: scale(calc(1.1 + min(var(--seg-distance), 3) * 0.05), 0.92); }
-  60% { transform: scale(0.97, 1.03); }
-  80% { transform: scale(1.01, 0.995); }
+  14% { transform: scale(calc(1.12 + min(var(--seg-distance), 3) * 0.06), 0.9); }
+  38% { transform: scale(0.96, 1.04); }
+  62% { transform: scale(1.015, 0.99); }
   100% { transform: scale(1, 1); }
 }
 

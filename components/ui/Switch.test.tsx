@@ -18,6 +18,21 @@ describe('Switch', () => {
   })
 })
 
+describe('description', () => {
+  it('describes the control without joining its accessible name', () => {
+    render(<Switch label="Reminders" description="A nudge 30 days after a scan" />)
+    const input = screen.getByRole('switch', { name: 'Reminders' })
+    const describedBy = input.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy!)?.textContent).toBe('A nudge 30 days after a scan')
+  })
+
+  it('leaves aria-describedby unset when there is no description', () => {
+    render(<Checkbox label="I agree" />)
+    expect(screen.getByRole('checkbox', { name: 'I agree' }).getAttribute('aria-describedby')).toBeNull()
+  })
+})
+
 describe('Checkbox', () => {
   it('toggles when the label is clicked', () => {
     render(<Checkbox label="I agree to the terms" defaultChecked={false} />)

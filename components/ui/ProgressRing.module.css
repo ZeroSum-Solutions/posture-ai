@@ -1,3 +1,7 @@
+/* Array v4 progress ring: hairline track, volt arc with a bright head, a
+   tabular number. Complete = the ghost Lens (volt outline) with a check — the Lens's "done",
+   quiet enough not to compete with the screen's one volt action. */
+
 .ring {
   position: relative;
   display: inline-flex;
@@ -12,13 +16,35 @@
 
 .track {
   fill: none;
-  stroke: var(--surface-flat);
+  stroke: var(--surface-3);
 }
 
 .fill {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--volt);
   stroke-linecap: round;
+  transition: opacity var(--duration-state) var(--ease-standard);
+}
+.ring[data-complete='true'] .fill { opacity: 0; }
+
+/* The head rides the arc: a zero-size pivot at the centre, rotated by the
+   same motion value, with the dot pushed out to the radius. */
+.headOrbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+.head {
+  position: absolute;
+  left: -3px;
+  top: calc(-1 * var(--ring-r) - 3px);
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--volt-head);
+  box-shadow: 0 0 8px 1px var(--volt-glow);
 }
 
 .center {
@@ -30,14 +56,34 @@
 }
 
 .value {
-  font: var(--t-readout-sm);
-  color: var(--text-1);
+  display: inline-flex;
+  align-items: baseline;
+  font: var(--t-label);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--ink-1);
+}
+.ringLg .value { font: var(--t-readout-md); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+
+.unit {
+  margin-left: 1px;
+  font: var(--t-micro);
+  color: var(--ink-3);
 }
 
-.ringLg .value {
-  font: var(--t-readout-md);
+.done {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 34%;
+  color: var(--volt);
+  background: radial-gradient(closest-side, var(--volt-tint), transparent);
+  box-shadow: inset 0 0 0 2px var(--volt);
+}
+@supports (corner-shape: squircle) {
+  .done { corner-shape: squircle; border-radius: 46%; }
 }
 
-.check {
-  color: var(--maintain);
-}
+.check { color: var(--volt); }

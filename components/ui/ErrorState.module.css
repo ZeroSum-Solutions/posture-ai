@@ -1,43 +1,131 @@
+/* Array v4 error state — the same rhythm as EmptyState, on the canvas, no
+   tile: mark → headline → one sentence → one action. The mark is a coral
+   glyph inside a hairline ring with a faint coral halo; on mount the ring
+   sends out one soft "ping" (transform + opacity only) so the eye finds it.
+   Retry is the one volt action; its glyph turns while retrying. */
+
 .error {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: var(--s-8);
 }
-.page {
-  padding: var(--s-48) var(--s-24);
-}
-.inline {
-  padding: var(--s-24) var(--s-16);
-}
+.page { padding: var(--s-56) var(--s-24) var(--s-40); }
+.inline { padding: var(--s-32) var(--s-16); }
 .blocking {
   min-height: 100dvh;
   justify-content: center;
   padding: var(--s-24);
 }
+
+.error > * { animation: error-rise var(--duration-layout) var(--ease-out-expo) both; }
+.error > :nth-child(2) { animation-delay: 30ms; }
+.error > :nth-child(3) { animation-delay: 60ms; }
+.error > :nth-child(4) { animation-delay: 90ms; }
+.error > :nth-child(5) { animation-delay: 120ms; }
+
+/* ── The mark ── */
 .icon {
+  position: relative;
   display: grid;
   place-items: center;
   width: 56px;
   height: 56px;
-  margin-bottom: var(--s-8);
-  border-radius: var(--r-lg);
+  margin-bottom: var(--s-20);
+  border-radius: var(--r-full);
+  color: var(--review);
+  background: radial-gradient(closest-side, var(--review-tint), transparent);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
-.error p {
-  max-width: 32rem;
+.inline .icon { width: 48px; height: 48px; margin-bottom: var(--s-12); }
+
+/* One ping on mount: a coral ring that grows and fades. */
+.icon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--review);
+  opacity: 0;
+  animation: error-ping 900ms var(--ease-out-expo) 240ms both;
+  pointer-events: none;
 }
+
+/* ── Text ── */
+.title {
+  font: var(--t-title);
+  letter-spacing: -0.03em;
+  color: var(--ink-1);
+  text-wrap: balance;
+}
+.inline .title {
+  font: var(--t-headline-v4);
+  letter-spacing: -0.015em;
+}
+
+.body {
+  max-width: 32ch;
+  margin-top: var(--s-8);
+  font: var(--t-body-v4);
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.inline .body { font: var(--t-callout-v4); font-weight: 400; }
+
+/* ── Actions ── */
 .actions {
   display: flex;
   flex-direction: column;
-  gap: var(--s-12);
+  align-items: stretch;
+  gap: var(--s-4);
   width: 100%;
-  max-width: 320px;
-  margin-top: var(--s-8);
+  max-width: 300px;
+  margin-top: var(--s-24);
 }
+.inline .actions { margin-top: var(--s-16); }
+
+.retry { justify-content: center; min-height: 52px; }
+
+.retryIcon {
+  flex: none;
+  transition: transform var(--duration-layout) var(--ease-spring);
+}
+/* A press winds the glyph back a quarter turn (the "pull" before the spin). */
+.retry:active .retryIcon { transform: rotate(-60deg); }
+.retry[data-retrying] { cursor: progress; }
+.retry[data-retrying] .retryIcon { animation: error-spin 900ms linear infinite; }
+
+.quiet {
+  justify-content: center;
+  color: var(--ink-1);
+}
+
 .details {
   width: 100%;
-  max-width: 320px;
-  margin-top: var(--s-12);
+  max-width: 300px;
+  margin-top: var(--s-16);
   text-align: left;
+}
+/* Details is a footnote, not a section: label size, ink-3 (the Disclosure
+   sets its title colour inline, hence the !important). */
+.details :global(.t-headline) {
+  font: var(--t-label);
+  color: var(--ink-3) !important;
+}
+
+@keyframes error-rise {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@keyframes error-ping {
+  0% { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+@keyframes error-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .error > *, .icon::after, .retry[data-retrying] .retryIcon { animation: none; }
+  .retryIcon { transition: none; }
+  .retry:active .retryIcon { transform: none; }
 }

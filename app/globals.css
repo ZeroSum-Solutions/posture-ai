@@ -363,7 +363,8 @@ h1, h2, h3, h4 { font-family: var(--font-sans); font-weight: inherit; }
 .a-primary--bar, .a-secondary--bar { width: 100%; min-height: 56px; font: var(--t-headline); }
 @media (hover: hover) and (pointer: fine) {
   .a-secondary:not(:disabled):hover { background: var(--surface-flat-pressed); }
-  .a-primary:not(:disabled):hover { background: #f2f2f2; }
+  /* controls lane (v4): primary hover stays volt and lifts its glow. */
+  .a-primary:not(:disabled):hover { background: var(--volt); box-shadow: var(--ctl-glow); }
 }
 .a-primary:not(:disabled):active, .a-secondary:not(:disabled):active { transform: scale(0.97); }
 .a-secondary:not(:disabled):active { background: var(--surface-flat-pressed); }
@@ -373,7 +374,7 @@ h1, h2, h3, h4 { font-family: var(--font-sans); font-weight: inherit; }
 
 .a-quiet {
   display: inline-flex; align-items: center; gap: var(--s-8); min-height: 48px; padding: 0 var(--s-12);
-  border: 0; border-radius: var(--r-full); background: transparent; color: var(--accent);
+  border: 0; border-radius: var(--r-full); background: transparent; color: var(--ink-1);
   font: var(--t-callout); font-weight: 500; text-decoration: none; cursor: pointer;
 }
 
@@ -501,6 +502,16 @@ h1[tabindex='-1']:focus, main[tabindex='-1']:focus, [data-route-focus]:focus { o
   --ctl-glow: 0 10px 30px -10px var(--volt-glow), 0 2px 8px -4px var(--volt-glow);
   --ctl-focus-halo: 0 0 0 3px var(--volt-tint), 0 6px 22px -10px var(--volt-glow);
   --ctl-error-halo: 0 0 0 3px var(--review-tint);
+  /* Selection (chips, switch, checkbox, radio) is ink-1, never volt: volt
+     stays the "do this" colour. The glyph on a selected plate is canvas ink. */
+  --ctl-select: var(--ink-1);
+  --ctl-select-ink: var(--background);
+  --ctl-select-shade: inset 0 -2px 5px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --ctl-off-knob: rgba(235, 240, 245, 0.62);
+  --ctl-blocked: var(--surface-2);
+  --ctl-well: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  --ctl-check-r: 7px;
+  --ctl-press-volt: rgba(70, 95, 0, 0.2);      /* press bloom on volt: shade, not mud */
 }
 
 /* ── overlays lane (v4): aura, Island, sheet/dialog depth, ActionBar fade ── */
