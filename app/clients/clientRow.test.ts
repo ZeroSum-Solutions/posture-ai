@@ -63,13 +63,18 @@ describe('toDirectoryRow trend', () => {
 })
 
 describe('toDirectoryRow meta', () => {
-  // v3: meta is one fact only ("Scanned N days ago") — review/overdue status
-  // moved to the row's trailing chip (`awaitingReview`/`overdue`) instead of
-  // being folded into the subtitle line (DESIGN.md › Clients).
+  // v4: meta is one fact only ("Latest scan · 1 Aug", dataviz G) — review/overdue
+  // status is carried separately (`awaitingReview`/`overdue`) instead of being
+  // folded into the meta string.
   it('states when the scan happened, and flags review separately', () => {
     const row = toDirectoryRow(client({ awaiting_review: true }), NOW)
-    expect(row.meta).toBe('Scanned 2 days ago')
+    expect(row.meta).toBe('Latest scan · 1 Aug')
     expect(row.awaitingReview).toBe(true)
+  })
+
+  it('adds the year to a scan from an earlier year', () => {
+    const row = toDirectoryRow(client({ last_scan_at: '2025-11-20T12:00:00.000Z' }), NOW)
+    expect(row.meta).toBe('Latest scan · 20 Nov 2025')
   })
 
   it('flags an overdue client separately from the scan date', () => {

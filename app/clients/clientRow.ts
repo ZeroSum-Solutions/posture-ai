@@ -1,5 +1,5 @@
 import { bandFromGrade, deltaIcon, type DeltaArrow, type SeverityBand } from '@/components/array/severity'
-import { relativeDay } from '@/lib/time/relative'
+import { axisDate, shortDate } from '@/lib/time/relative'
 
 export const OVERDUE_DAYS = 42
 
@@ -22,7 +22,7 @@ export interface DirectoryRow {
   href: string
   name: string
   grade: string | null
-  /** One line: when the client was last scanned, nothing else (DESIGN.md › Clients). */
+  /** One line: when the client was last scanned, as a date — `Latest scan · 7 Oct` (dataviz G). */
   meta: string
   /** False for a freshly-added client — distinct from `overdue` (which is also
    * true for a never-scanned client): a new row should read "new", not "overdue". */
@@ -57,10 +57,10 @@ export const CLIENT_FILTERS: readonly { value: ClientFilter; label: string; band
  */
 export function toDirectoryRow(client: DirectoryClient, now: number): DirectoryRow {
   const name = `${client.first_name} ${client.last_name}`.trim()
-  const scanned = relativeDay(client.last_scan_at, now)
   const overdue = isOverdue(client.last_scan_at, now)
+  const scanned = scanDate(client.last_scan_at, now)
 
-  const meta = client.last_scan_at ? `Scanned ${scanned?.toLowerCase() ?? 'recently'}` : 'No scan yet'
+  const meta = client.last_scan_at ? `Latest scan · ${scanned ?? 'date unknown'}` : 'No scan yet'
 
   const trend = describeTrend(client)
 
@@ -79,6 +79,14 @@ export function toDirectoryRow(client: DirectoryClient, now: number): DirectoryR
     trendBand: trend.band,
     trendLabel: `${name}: ${trend.label}`,
   }
+}
+
+/** `7 Oct` within the current year, `7 Oct 2025` otherwise — a bare day and month must not be read as this year's. */
+function scanDate(iso: string | null, now: number): string | null {
+  if (!iso) return null
+  const parsed = Date.parse(iso)
+  if (!Number.isFinite(parsed)) return null
+  return new Date(parsed).getFullYear() === new Date(now).getFullYear() ? axisDate(iso) : shortDate(iso)
 }
 
 export function isOverdue(lastScanAt: string | null, now: number): boolean {

@@ -1,25 +1,33 @@
 'use client'
 
+import type { CSSProperties } from 'react'
+import Link from 'next/link'
 import Icon from '@/components/array/Icon'
+import { Surface } from '@/components/array/Surface'
 import {
+  Avatar,
   Button,
-  Card,
   EmptyState,
   ErrorState,
-  ListGroup,
-  ListRow,
-  ProgressRing,
-  SectionHeader,
+  Morph,
   SeverityChip,
-  Stat,
+  SlotNumber,
   TopBar,
 } from '@/components/ui'
-import type { SetupChecklist, TodayModel } from './todayModel'
+import type { HeroState, MetricTile, QueueItem, SetupChecklist, TodayModel } from './todayModel'
 import styles from './DashboardExperience.module.css'
 
+const STAGGER_CAP = 8
+
+function stagger(index: number): CSSProperties {
+  return { '--i': Math.min(index, STAGGER_CAP) } as CSSProperties
+}
+
 /**
- * Today — the triage screen. It answers one question before any chrome: whose
- * report is waiting, and which one to open first (DESIGN.md › Today).
+ * Today — the triage screen. It answers one question before anything else:
+ * how many reports are waiting, and which to open first (dataviz F). The hero
+ * holds the count, the three oldest reports and the one primary action;
+ * everything below is quiet supporting rows on the canvas.
  */
 export default function DashboardExperience({
   model,
@@ -35,7 +43,7 @@ export default function DashboardExperience({
     <div className="app-screen">
       <TopBar title="Today" subtitle={todayLabel} />
 
-      <div className="app-screen-x app-stack">
+      <div className={`app-screen-x ${styles.page}`}>
         {loadError ? (
           // A failed query and an empty practice are indistinguishable once the
           // counts fall back to zero, so a Supabase blip would otherwise render
@@ -58,70 +66,84 @@ export default function DashboardExperience({
               body="Add your first client, then run a scan and build a workout for them."
               primary={{ label: 'Add your first client', href: '/clients/new' }}
             />
-            <SetupChecklistCard setup={model.setup} />
+            <SetupSteps setup={model.setup} />
           </>
         ) : (
           <>
-            {model.setup.doneCount < model.setup.total ? (
-              <SetupChecklistRow setup={model.setup} />
-            ) : null}
-
             {model.hero ? (
-              <Card tier="feature" data-testid="today-hero">
-                <p className="t-body" style={{ color: 'var(--text-1)' }}>{model.hero.sentence}</p>
-                <Button href={model.hero.action.href} size="lg" block style={{ marginTop: 'var(--s-16)' }}>
-                  {model.hero.action.label}
-                </Button>
-              </Card>
+              <TodayHero
+                hero={model.hero}
+                queue={model.queue}
+                queueTotal={model.queueTotal}
+              />
             ) : null}
 
-            {model.needsAttention.length > 0 ? (
-              <section>
-                <SectionHeader
-                  title="Needs attention"
-                  action={{ label: 'See all', href: '/clients?filter=needs-review' }}
-                />
-                <ListGroup label="Needs attention">
-                  {model.needsAttention.map(item => (
-                    <ListRow
-                      key={item.id}
-                      href={item.href}
-                      title={item.name}
-                      subtitle={item.subtitle}
-                      chevron
-                    />
-                  ))}
-                </ListGroup>
+            {model.queueTotal > 0 && model.rescan ? (
+              <section className={styles.section} aria-labelledby="today-rescan">
+                <div className={styles.sectionHead}>
+                  <h2 id="today-rescan" className="t-headline">Re-scan due</h2>
+                </div>
+                <ul className={styles.rows}>
+                  <li className={styles.rowItem} style={stagger(0)}>
+                    <Link href={model.rescan.href} className={styles.row}>
+                      {/* Shares the client header's morph name: the identity carries into the record. */}
+                      <Morph name={`client-${model.rescan.id}`}>
+                        <span className={styles.identity}>
+                          <span aria-hidden="true"><Avatar name={model.rescan.name} /></span>
+                          <span className={styles.rowText}>
+                            <span className={styles.rowName}>{model.rescan.name}</span>
+                            <span className="t-label">
+                              {[
+                                model.rescan.lastScan ? `Latest scan · ${model.rescan.lastScan}` : null,
+                                model.rescan.since?.toLowerCase() ?? null,
+                              ].filter(Boolean).join(' · ') || 'Re-scan due'}
+                            </span>
+                          </span>
+                        </span>
+                      </Morph>
+                      <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+                    </Link>
+                  </li>
+                </ul>
               </section>
             ) : null}
 
-            <section>
-              <SectionHeader title="Recent scans" action={{ label: 'See all', href: '/clients' }} />
+            <section className={styles.section} aria-labelledby="today-recent">
+              <div className={styles.sectionHead}>
+                <h2 id="today-recent" className="t-headline">Recent scans</h2>
+                {model.recent.length > 0 ? (
+                  <Link href="/clients" className={styles.quietLink}>
+                    See all<span className="sr-only"> clients</span>
+                    <Icon name="alt-arrow-right-linear" size={16} />
+                  </Link>
+                ) : null}
+              </div>
               {model.recent.length === 0 ? (
-                <ListGroup label="Recent scans">
-                  <ListRow title="No completed scans yet" subtitle="Capture one to start a history." />
-                </ListGroup>
+                <p className={`t-callout ${styles.emptyLine}`}>No completed scans yet. Capture one to start a history.</p>
               ) : (
-                <ListGroup label="Recent scans">
-                  {model.recent.map(scan => (
-                    <ListRow
-                      key={scan.id}
-                      href={scan.href}
-                      title={scan.name}
-                      subtitle={scan.meta}
-                      trailing={<SeverityChip band={scan.band} size="sm" />}
-                      chevron
-                    />
+                <ul className={styles.rows} aria-label="Recent scans">
+                  {model.recent.map((scan, index) => (
+                    <li key={scan.id} className={styles.rowItem} style={stagger(index)}>
+                      <Link href={scan.href} className={styles.row}>
+                        <span aria-hidden="true"><Avatar name={scan.name} /></span>
+                        <span className={styles.rowText}>
+                          <span className={styles.rowName}>{scan.name}</span>
+                          <span className="t-label">{scan.meta}</span>
+                        </span>
+                        <SeverityChip band={scan.band} size="sm" />
+                        <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+                      </Link>
+                    </li>
                   ))}
-                </ListGroup>
+                </ul>
               )}
             </section>
 
-            <div className={styles.statsStrip} aria-label="This week">
-              {model.metrics.map(metric => (
-                <Stat key={metric.key} label={metric.label} value={metric.value} delta={metric.delta ?? undefined} />
-              ))}
-            </div>
+            <WeekStrip metrics={model.metrics} />
+
+            {model.setup.doneCount < model.setup.total ? (
+              <SetupLine setup={model.setup} />
+            ) : null}
           </>
         )}
       </div>
@@ -129,56 +151,157 @@ export default function DashboardExperience({
   )
 }
 
-/** Done = a filled check circle in `--maintain`; not done = a plain numbered outline. */
-function StepIndicator({ done, position }: { done: boolean; position: number }) {
-  if (done) {
+/**
+ * The screen's one hero (liquid glass): the waiting count as a hero numeral
+ * that slots into place, the three oldest reports with their exact wait, and
+ * the primary action that opens the oldest. With an empty queue it states
+ * that plainly and offers the next scan instead.
+ */
+function TodayHero({ hero, queue, queueTotal }: { hero: HeroState; queue: QueueItem[]; queueTotal: number }) {
+  if (queueTotal === 0 || queue.length === 0) {
     return (
-      <span className={styles.stepDone} aria-hidden="true">
-        <Icon name="check-circle-bold" size={22} />
-      </span>
+      <Surface tier="feature" className={styles.hero} data-testid="today-hero">
+        <p className="t-micro">Review queue</p>
+        <h2 className={`t-title ${styles.clearTitle}`}>Queue clear</h2>
+        <p className={`t-body ${styles.heroSentence}`}>{hero.sentence}</p>
+        <Button href={hero.action.href} size="lg" block icon="scanner-linear">
+          {hero.action.label}
+        </Button>
+      </Surface>
     )
   }
-  return <span className={styles.stepPending} aria-hidden="true">{position}</span>
-}
 
-/** Expanded setup card — first-run only, the screen's one card-glass hero. */
-function SetupChecklistCard({ setup }: { setup: SetupChecklist }) {
   return (
-    <Card tier="feature" data-testid="setup-checklist">
-      <div className={styles.setupHead}>
-        <h2 className="t-headline">Get set up · 3 steps</h2>
-        <ProgressRing value={setup.doneCount / setup.total} size={48} label="Setup checklist" />
-      </div>
-      <ListGroup label="Setup steps">
-        {setup.steps.map((step, index) => (
-          <ListRow
-            key={step.id}
-            leading={<StepIndicator done={step.done} position={index + 1} />}
-            title={step.label}
-            href={step.done ? undefined : step.href}
-            chevron={!step.done}
-            aria-label={step.done ? `${step.label}, done` : step.label}
-          />
+    <Surface tier="feature" sheen className={styles.hero} data-testid="today-hero">
+      <p className="t-micro">Review queue</p>
+      <h2 className={styles.count}>
+        <SlotNumber value={queueTotal} className={`t-hero ${styles.countValue}`} />
+        <span className={`t-headline ${styles.countLabel}`}>
+          {queueTotal === 1 ? 'report waiting' : 'reports waiting'}
+        </span>
+      </h2>
+      {/* The sentence carries the same fact for assistive tech in one breath. */}
+      <p className="sr-only">{hero.sentence}</p>
+
+      <ul className={styles.queue} aria-label="Oldest waiting reports">
+        {queue.map((item, index) => (
+          <li key={item.id} className={styles.rowItem} style={stagger(index + 1)}>
+            <Link
+              href={item.href}
+              className={styles.queueRow}
+              aria-label={[
+                item.name,
+                item.waitSpoken ? `waiting ${item.waitSpoken}` : null,
+                item.received ? `received ${item.received}` : null,
+              ].filter(Boolean).join(', ')}
+            >
+              <span className={styles.rowText}>
+                <span className={styles.rowName}>{item.name}</span>
+                <span className="t-label">
+                  {[item.received ? `Received ${item.received}` : null, `${item.findingCount} ${item.findingCount === 1 ? 'finding' : 'findings'}`]
+                    .filter(Boolean).join(' · ')}
+                </span>
+              </span>
+              {item.wait ? <span className={styles.wait}>{item.wait}</span> : null}
+              <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+            </Link>
+          </li>
         ))}
-      </ListGroup>
-    </Card>
+      </ul>
+
+      {queueTotal > queue.length ? (
+        <Link href="/clients?filter=needs-review" className={styles.viewAll}>
+          View all {queueTotal}
+          <Icon name="alt-arrow-right-linear" size={16} />
+        </Link>
+      ) : null}
+
+      <Button href={hero.action.href} size="lg" block className={styles.heroAction}>
+        {hero.action.label}
+      </Button>
+    </Surface>
   )
 }
 
-/** Collapsed one-line row — shown above the hero once the practice is past
- * first-run but the checklist isn't finished yet. Flat (never a second
- * card-glass surface alongside the hero). */
-function SetupChecklistRow({ setup }: { setup: SetupChecklist }) {
+/** This week as three plain readouts on the canvas — no card, neutral deltas. */
+function WeekStrip({ metrics }: { metrics: MetricTile[] }) {
+  return (
+    <section className={styles.section} aria-labelledby="today-week">
+      <div className={styles.sectionHead}>
+        <h2 id="today-week" className="t-headline">This week</h2>
+      </div>
+      <dl className={styles.week}>
+        {metrics.map(metric => (
+          <div key={metric.key} className={styles.weekCell}>
+            <dt className="t-micro">{metric.label}</dt>
+            <dd className={styles.weekValue}>
+              <span className="t-title">{metric.value}</span>
+              {metric.delta ? (
+                <span className={`t-label ${styles.weekDelta}`}>
+                  <span aria-hidden="true">{metric.delta.value > 0 ? '↑' : '↓'}</span>
+                  <span className="sr-only">{metric.delta.value > 0 ? 'up' : 'down'}</span>
+                  {Math.abs(metric.delta.value)}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
+/** Unfinished setup, demoted to one quiet line at the foot of the screen. */
+function SetupLine({ setup }: { setup: SetupChecklist }) {
   const next = setup.steps.find(step => !step.done)
   return (
-    <ListGroup label="Setup checklist">
-      <ListRow
-        leading={<ProgressRing value={setup.doneCount / setup.total} size={48} label="Setup checklist" />}
-        title={`Setup — ${setup.doneCount} of ${setup.total}`}
-        subtitle={next ? `Next: ${next.label}` : undefined}
-        href={next?.href ?? '/clients/new'}
-        chevron
-      />
-    </ListGroup>
+    <Link href={next?.href ?? '/clients/new'} className={styles.setupLine} data-testid="setup-checklist">
+      <span className={styles.setupDots} aria-hidden="true">
+        {setup.steps.map(step => (
+          <span key={step.id} className={styles.setupDot} data-done={step.done ? 'true' : undefined} />
+        ))}
+      </span>
+      <span className={styles.rowText}>
+        <span className="t-callout">Setup · {setup.doneCount} of {setup.total}</span>
+        {next ? <span className="t-label">Next: {next.label}</span> : null}
+      </span>
+      <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+    </Link>
+  )
+}
+
+/** First-run steps as hairline rows under the empty state (no second card). */
+function SetupSteps({ setup }: { setup: SetupChecklist }) {
+  return (
+    <section className={styles.section} aria-labelledby="today-setup" data-testid="setup-checklist">
+      <div className={styles.sectionHead}>
+        <h2 id="today-setup" className="t-headline">Get set up · {setup.total} steps</h2>
+        <span className="t-label">{setup.doneCount} of {setup.total} done</span>
+      </div>
+      <ol className={styles.rows}>
+        {setup.steps.map((step, index) => {
+          const body = (
+            <>
+              <span className={styles.stepMark} data-done={step.done ? 'true' : undefined} aria-hidden="true">
+                {step.done ? <Icon name="check-circle-bold" size={22} /> : index + 1}
+              </span>
+              <span className={styles.rowText}>
+                <span className={styles.rowName}>{step.label}</span>
+              </span>
+              {step.done ? null : <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />}
+            </>
+          )
+          return (
+            <li key={step.id} className={styles.rowItem} style={stagger(index)}>
+              {step.done ? (
+                <div className={styles.row} aria-label={`${step.label}, done`}>{body}</div>
+              ) : (
+                <Link href={step.href} className={styles.row}>{body}</Link>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }

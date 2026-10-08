@@ -1,38 +1,306 @@
-/* Today — layout glue only; visual language (type, color, radius, spacing)
-   comes from components/ui. See DESIGN.md › Today and spec §5. */
+/* Today (Array v4) — one glass hero, then quiet hairline rows on the canvas.
+   Tokens come from app/globals.css; see DESIGN.md and array-v4-dataviz.md › F. */
 
-.setupHead {
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-40);
+  padding-top: var(--s-8);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+
+.hero {
+  border-radius: var(--r-lg);
+}
+.hero :global(.t-micro) {
+  margin-bottom: var(--s-8);
+}
+
+.count {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: var(--s-12);
+  margin: 0;
+  font: inherit;
+}
+.countValue {
+  color: var(--ink-1);
+}
+.countLabel {
+  color: var(--ink-2);
+}
+
+.clearTitle {
+  margin: 0 0 var(--s-8);
+}
+.heroSentence {
+  margin: 0 0 var(--s-24);
+}
+
+.queue {
+  list-style: none;
+  margin: var(--s-20) 0 0;
+  padding: 0;
+}
+.queue > li + li {
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+
+.queueRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 60px;
+  padding: var(--s-8) 0;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-press) var(--ease-spring), opacity var(--duration-press) linear;
+}
+.queueRow:active {
+  transform: scale(0.985);
+  opacity: 0.8;
+}
+
+.wait {
+  flex: 0 0 auto;
+  font: var(--t-headline);
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  margin: var(--s-4) 0 var(--s-8);
+  font: var(--t-callout);
+  color: var(--ink-1);
+  text-decoration: none;
+}
+
+.heroAction {
+  margin-top: var(--s-12);
+}
+
+/* ── Sections and rows ────────────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-12);
-  margin-bottom: var(--s-16);
+  min-height: 44px;
+  margin-bottom: var(--s-4);
+}
+.sectionHead h2 {
+  margin: 0;
 }
 
-.stepDone {
+.quietLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  padding-inline: var(--s-4);
+  margin-right: calc(var(--s-4) * -1);
+  font: var(--t-label);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rows > li + li {
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+
+.rowItem {
+  animation: rowIn 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 64px;
+  padding: var(--s-8) 0;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+a.row {
+  transition: transform var(--duration-press) var(--ease-spring), opacity var(--duration-press) linear;
+}
+a.row:active {
+  transform: scale(0.985);
+  opacity: 0.8;
+}
+
+.queueRow:focus-visible,
+.row:focus-visible,
+.viewAll:focus-visible,
+.quietLink:focus-visible,
+.setupLine:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+.identity {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+}
+
+.rowText {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rowName {
+  font: var(--t-body);
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowTrail {
+  flex: 0 0 auto;
+  font: var(--t-label);
+  color: var(--ink-2);
+}
+.chevron {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--s-12) 0;
+}
+
+/* ── This week ────────────────────────────────────────────────────────── */
+
+.week {
   display: grid;
-  place-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+.weekCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-12);
+}
+.weekCell:first-child {
+  padding-left: 0;
+}
+.weekCell + .weekCell {
+  box-shadow: inset 1px 0 0 var(--hairline);
+}
+.weekValue {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-8);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.weekDelta {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Setup ────────────────────────────────────────────────────────────── */
+
+.setupLine {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 56px;
+  padding: var(--s-8) 0;
+  box-shadow: inset 0 1px 0 var(--hairline);
+  color: inherit;
+  text-decoration: none;
+}
+.setupLine :global(.t-callout) {
+  color: var(--ink-1);
+}
+.setupDots {
+  display: inline-flex;
+  gap: 4px;
+  flex: 0 0 auto;
   width: 40px;
-  height: 40px;
-  color: var(--maintain);
+  justify-content: center;
+}
+.setupDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+}
+.setupDot[data-done='true'] {
+  background: var(--ink-1);
+  box-shadow: none;
 }
 
-.stepPending {
+.stepMark {
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   width: 40px;
   height: 40px;
   border-radius: var(--r-full);
-  box-shadow: inset 0 0 0 1px var(--border);
-  font: var(--t-subhead);
-  font-weight: 500;
-  color: var(--text-3);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font: var(--t-label);
+  color: var(--ink-3);
+}
+.stepMark[data-done='true'] {
+  box-shadow: none;
+  color: var(--maintain);
 }
 
-/* One-line stats strip, no card (DESIGN.md › Today: "Stat/readout-md, no card"). */
-.statsStrip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s-16);
-  padding: var(--s-8) var(--s-4) 0;
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rowItem {
+    animation: rowFade var(--duration-reduced) linear both;
+    animation-delay: 0ms;
+  }
+  .queueRow:active,
+  a.row:active {
+    transform: none;
+  }
+}
+@keyframes rowFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
