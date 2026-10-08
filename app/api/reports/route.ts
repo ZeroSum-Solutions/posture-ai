@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
     `)
     .eq('id', assessment_id)
     .eq('practitioner_id', user.id)
+    .is('clients.deleted_at', null)
+    .is('clients.archived_at', null)
     .single()
 
   if (aErr || !assessment) {

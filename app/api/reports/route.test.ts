@@ -48,6 +48,7 @@ const testSpies = vi.hoisted(() => ({
   screen: vi.fn(),
   clinicalEnabled: { value: true },
   prototype: { value: false },
+  clientArchived: { value: false },
 }))
 
 // Per-table result for the authed server client. supabase-js resolves to
@@ -63,10 +64,12 @@ function makeQuery(
   result: () => { data: unknown; error: unknown },
   onInsert?: (value: unknown) => void,
   onDelete?: () => void,
+  onIs?: (column: string) => void,
 ): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q: any = {
     select: () => q, eq: () => q, neq: () => q, order: () => q, in: () => q,
+    is: (column: string) => { onIs?.(column); return q },
     insert: (value: unknown) => { onInsert?.(value); return q },
     delete: () => { onDelete?.(); return q },
     single: async () => result(),
@@ -89,7 +92,15 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     from: (t: string) => {
       const queued = serverTableQueues[t]?.shift()
-      return makeQuery(() => queued ?? serverTables[t] ?? { data: null, error: null })
+      let checksArchive = false
+      return makeQuery(
+        () => t === 'assessments' && testSpies.clientArchived.value && checksArchive
+          ? { data: null, error: null }
+          : queued ?? serverTables[t] ?? { data: null, error: null },
+        undefined,
+        undefined,
+        (column) => { if (column === 'clients.archived_at') checksArchive = true },
+      )
     },
   }),
   createSupabaseServiceClient: () => ({
@@ -193,6 +204,7 @@ const safeFinding = {
 describe('POST /api/reports', () => {
   beforeEach(() => {
     testSpies.prototype.value = false
+    testSpies.clientArchived.value = false
     uploadSpy.mockClear()
     removeSpy.mockReset().mockResolvedValue({ error: null })
     reportInsertSpy.mockReset().mockImplementation(async () => reportsInsert)
@@ -216,6 +228,17 @@ describe('POST /api/reports', () => {
     outboxWrite.data = null
     outboxWrite.error = null
     testSpies.clinicalEnabled.value = true
+  })
+
+  test('does not render or upload a report for an archived client', async () => {
+    testSpies.clientArchived.value = true
+
+    const response = await POST(req({ assessment_id: 'a1' }))
+
+    expect(response.status).toBe(404)
+    expect(renderToBufferSpy).not.toHaveBeenCalled()
+    expect(uploadSpy).not.toHaveBeenCalled()
+    expect(reportInsertSpy).not.toHaveBeenCalled()
   })
 
   test('exports prototype reports without claiming a signed legal notice', async () => {
