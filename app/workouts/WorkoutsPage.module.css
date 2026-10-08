@@ -143,14 +143,15 @@
 .attention { display: grid; gap: var(--s-12); min-width: 0; }
 .attentionHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-8); }
 .attentionLine { margin: 0; display: flex; align-items: baseline; gap: var(--s-8); font: var(--t-callout); color: var(--ink-2); min-width: 0; }
-.attentionCount { font: var(--t-headline); color: var(--monitor); font-variant-numeric: tabular-nums; }
-.row[data-stale='true'] .rowTitle { color: var(--ink-2); font-weight: 500; }
+.attentionCount { font: var(--t-headline); color: var(--ink-1); font-variant-numeric: tabular-nums; }
+.attentionStep { display: flex; }
 .staleGlyph {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 50%;
-  color: var(--ink-3);
+  width: 44px; height: 44px; border-radius: 50%;
+  color: var(--ink-1);
   box-shadow: inset 0 0 0 1.5px var(--hairline);
 }
+.row[data-stale='true'] .rowTitle { color: var(--ink-2); font-weight: 500; }
 
 /* ── library links ─────────────────────────────────────────────────── */
 .libraries { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-12); }

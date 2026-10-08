@@ -690,3 +690,21 @@
 /* Coach permissions: one column of hairline rows (Array v4 › lists are rows). */
 .permissionList { display: grid; border-top: 1px solid var(--hairline); min-width: 0; }
 .permissionList > * { border-bottom: 1px solid var(--hairline); }
+
+/* Athlete setup: one status line + one quiet entry action; the invitation
+   form lives in a Sheet (Array v4 › explanations off the page body). */
+.setupLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  min-width: 0;
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--hairline);
+}
+.setupText { display: grid; gap: var(--s-4); flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.setupText p, .setupLine > p { margin: 0; }
+.setupStatus { color: var(--ink-1); }
+.setupSheet { display: grid; gap: var(--s-16); min-width: 0; }
+.setupSheet > p { margin: 0; color: var(--ink-2); }

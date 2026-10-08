@@ -84,7 +84,14 @@ function errorMessage(status: number, value: unknown): string {
   return 'The invitation could not be prepared.'
 }
 
-export default function CoachAthleteInvitation({ client }: { client: Client }) {
+export type CoachAthleteInvitationStatus = SubmitState['kind']
+
+/**
+ * The invitation's state, owned by whoever calls this hook. A parent that
+ * shows the form inside a Sheet calls it so an in-flight, uncertain or
+ * prepared invitation survives the Sheet closing (its body unmounts).
+ */
+export function useCoachAthleteInvitation(client: Client) {
   const [email, setEmail] = useState('')
   const [permissions, setPermissions] = useState<CoachPermission[]>([])
   const [frozenRequest, setFrozenRequest] = useState<InvitationRequest | null>(null)
@@ -184,6 +191,25 @@ export default function CoachAthleteInvitation({ client }: { client: Client }) {
       setCopyMessage('Copy is unavailable. Select and copy the invitation link below.')
     }
   }
+
+  return {
+    email, setEmail, permissions, togglePermission, frozenRequest, state, copyMessage,
+    fieldsFrozen, prepare, submit, copyInvitationLink,
+  }
+}
+
+export type CoachAthleteInvitationController = ReturnType<typeof useCoachAthleteInvitation>
+
+export default function CoachAthleteInvitation({ client, controller }: {
+  client: Client
+  /** Pass a parent-owned controller to keep state across unmounts. */
+  controller?: CoachAthleteInvitationController
+}) {
+  const own = useCoachAthleteInvitation(client)
+  const {
+    email, setEmail, permissions, togglePermission, frozenRequest, state, copyMessage,
+    fieldsFrozen, prepare, submit, copyInvitationLink,
+  } = controller ?? own
 
   if (state.kind === 'prepared') {
     return <section className={styles.pendingPanel} aria-labelledby="invitation-ready-heading">

@@ -288,7 +288,7 @@ export default function WorkoutLibrary({
                       <div className={styles.rowText}>
                         <span className={styles.rowTitle}>{workout.name}</span>
                         <span className={styles.rowMeta}>
-                          {workout.clientName}{dateLabel ? ` · ${dateLabel}` : ''}
+                          {workout.clientName}{dateLabel ? ` · Saved ${dateLabel.toLowerCase()}` : ''}
                         </span>
                         <span className={styles.rowStatus} data-state={completed ? 'done' : workout.run ? 'active' : 'ready'}>
                           {statusLabel}{total > 0 ? ` · ${total} movements` : ''}
@@ -325,29 +325,47 @@ export default function WorkoutLibrary({
               <div className={styles.attentionHead}>
                 <p className={styles.attentionLine}>
                   <span className={styles.attentionCount}>{attentionLibrary.length}</span>
-                  {attentionLibrary.length === 1 ? 'This saved plan uses an older catalog.' : 'These saved plans use an older catalog.'}
+                  <span>{attentionLibrary.length === 1 ? 'This saved plan uses an older catalog.' : 'These saved plans use an older catalog.'}</span>
                 </p>
                 <Button variant="tertiary" size="sm" onClick={() => setWhyOpen(true)}>Why?</Button>
               </div>
+              {readyLibrary.length === 0 ? (
+                <div className={styles.attentionStep}>
+                  <Button variant="secondary" size="sm" icon="refresh-linear" onClick={() => prepareCopy(attentionLibrary[0])}>
+                    {attentionLibrary.length === 1 ? 'Update this plan' : 'Update newest plan'}
+                  </Button>
+                </div>
+              ) : null}
               <ul className={styles.rows} aria-label="Plans that need a fresh copy">
-                {visibleAttention.map((workout, index) => (
-                  <li key={workout.id} className={styles.row} data-stale="true" style={{ '--i': Math.min(index, 8) } as CSSProperties}>
-                    <div className={styles.rowText}>
-                      <span className={styles.rowTitle}>{workout.name}</span>
-                      <span className={styles.rowMeta}>{workout.clientName}</span>
-                    </div>
-                    <div className={styles.rowActions}>
-                      <button type="button" className={`${styles.runButton} ${styles.staleGlyph}`} aria-label="Regenerate copy" onClick={() => prepareCopy(workout)}>
-                        <Icon name="refresh-linear" size={18} />
-                      </button>
-                      <IconButton
-                        icon="menu-dots-linear"
-                        label={`More actions for ${workout.name}`}
-                        onClick={() => setMenuWorkout(workout)}
-                      />
-                    </div>
-                  </li>
-                ))}
+                {visibleAttention.map((workout, index) => {
+                  const dateLabel = relativeDay(workout.createdAt, now)
+                  const runLabel = workout.run?.status === 'completed'
+                    ? 'Completed'
+                    : workout.run ? 'In progress' : 'Not started'
+                  return (
+                    <li key={workout.id} className={styles.row} data-stale="true" style={{ '--i': Math.min(index, 8) } as CSSProperties}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>{workout.name}</span>
+                        <span className={styles.rowMeta}>
+                          {workout.clientName}{dateLabel ? ` · Saved ${dateLabel.toLowerCase()}` : ''}
+                        </span>
+                        <span className={styles.rowStatus}>
+                          {runLabel} · {workout.preferences.minutes} min · {WORKOUT_GOALS[workout.preferences.goal] ?? 'Workout'}
+                        </span>
+                      </div>
+                      <div className={styles.rowActions}>
+                        <button type="button" className={`${styles.runButton} ${styles.staleGlyph}`} aria-label="Update plan" title="Update plan" onClick={() => prepareCopy(workout)}>
+                          <Icon name="refresh-linear" size={18} />
+                        </button>
+                        <IconButton
+                          icon="menu-dots-linear"
+                          label={`More actions for ${workout.name}`}
+                          onClick={() => setMenuWorkout(workout)}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
               {attentionLibrary.length > ATTENTION_PREVIEW ? (
                 <Button variant="tertiary" chevron aria-expanded={showAllAttention} onClick={() => setShowAllAttention((open) => !open)}>

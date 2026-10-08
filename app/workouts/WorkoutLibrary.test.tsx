@@ -107,7 +107,7 @@ describe('original workout library', () => {
     render(<WorkoutLibrary initialLibrary={[{ ...item, playable: false }]} />)
 
     expect(screen.getByText(/saved plan uses an older catalog/i)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Regenerate copy' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Update plan' })).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Start workout' })).toBeNull()
   })
 
