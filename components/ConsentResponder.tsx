@@ -93,6 +93,7 @@ export default function ConsentResponder({
       <div className="app-screen app-screen-x" style={{ paddingTop: 40 }}>
         <ErrorState
           variant="page"
+          headingLevel="h1"
           title="This link is unavailable"
           body="This consent link is unavailable or has been superseded. Ask the practitioner to create a new consent request."
         />

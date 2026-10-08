@@ -212,8 +212,10 @@
   color: var(--text-2);
 }
 
-/* ── Simple disclosure (AssessmentOnlyResults.tsx's native <details> only —
-   ClinicalAssessmentResults uses the components/ui Disclosure component). ── */
+/* ── Simple disclosure — native <details>/<summary>, not the components/ui
+   Disclosure component. Playwright drives these sections via `summary`
+   locators (a11y.spec.ts, report-approval.spec.ts, assessment-flow.spec.ts),
+   which need a real <summary> element. ── */
 
 .disclosure {
   border-radius: var(--r-md);

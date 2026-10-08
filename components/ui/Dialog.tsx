@@ -10,6 +10,10 @@ export type DialogProps = {
   onOpenChange: (open: boolean) => void
   title: string
   description?: ReactNode
+  /** Rendered as role="alert" above the action buttons, e.g. an async
+   *  confirm action (archive, delete) that failed while the dialog stays
+   *  open. The dialog keeps its buttons interactive so the caller can retry. */
+  error?: ReactNode
   confirm: { label: string; onConfirm: () => void; tone?: 'primary' | 'danger'; busy?: boolean }
   cancel?: { label?: string; onCancel?: () => void }
   className?: string
@@ -23,7 +27,7 @@ export type DialogProps = {
  * confirm; initial focus lands on Cancel, the safer control. Only for
  * confirmations and blocking decisions — never for browsing content.
  */
-export function Dialog({ open, onOpenChange, title, description, confirm, cancel, className, 'data-testid': testId }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, error, confirm, cancel, className, 'data-testid': testId }: DialogProps) {
   // Created once, lazily, during render — see the matching comment in Sheet.tsx.
   const [container] = useState<HTMLDivElement | null>(() => (typeof document === 'undefined' ? null : document.createElement('div')))
   const cancelRef = useRef<HTMLButtonElement>(null)
@@ -138,6 +142,7 @@ export function Dialog({ open, onOpenChange, title, description, confirm, cancel
             >
               <h2 id={titleId} className="t-title-2">{title}</h2>
               {description ? <p id={descId} className="t-body" style={{ color: 'var(--text-2)', marginTop: 'var(--s-8)' }}>{description}</p> : null}
+              {error ? <p role="alert" className="t-footnote" style={{ color: 'var(--review)', marginTop: 'var(--s-8)' }}>{error}</p> : null}
               <div className={styles.actions}>
                 <button
                   type="button"

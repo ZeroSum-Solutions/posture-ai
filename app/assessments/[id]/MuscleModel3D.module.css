@@ -69,7 +69,7 @@
 @media (prefers-reduced-motion: reduce) { .glyphPulse { animation: none; } }
 
 .launchTitle { font-size: clamp(18px, 3vw, 22px); font-weight: 300; letter-spacing: -0.025em; }
-.launchMeta { color: var(--text-tertiary); font-size: 11px; }
+.launchMeta { color: var(--text-tertiary); font: var(--t-footnote); }
 
 .statusOverlay {
   position: absolute;
@@ -119,13 +119,13 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 .segment button {
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 10px;
   border: 0;
   border-radius: 9px;
   background: transparent;
   color: rgba(255, 255, 255, 0.78); /* AA on the dock's near-black */
-  font-size: 12px;
+  font: var(--t-footnote);
   font-weight: 500;
   cursor: pointer;
 }
@@ -146,15 +146,14 @@
   white-space: nowrap;
   min-width: 0;
   color: rgba(255, 255, 255, 0.66);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
+  font: var(--t-caption);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .xray input {
   flex: 1 1 auto;
   min-width: 60px;
-  height: 28px;
+  height: 44px;
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
@@ -208,11 +207,11 @@
   justify-content: center;
   gap: 4px 14px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font: var(--t-caption);
 }
 .key > span { display: inline-flex; align-items: center; gap: 6px; }
 .key i { width: 7px; height: 7px; border-radius: 999px; }
-.idleNote { color: rgba(255, 255, 255, 0.66); font-size: 11px; }
+.idleNote { color: rgba(255, 255, 255, 0.66); font: var(--t-caption); }
 .hint { color: rgba(255, 255, 255, 0.66); font-size: 12px; line-height: 1.4; }
 
 .zoneDot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; }
@@ -237,13 +236,13 @@
 
 .detailsButton {
   flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 999px;
-  background: #fff;
-  color: #000;
-  font-size: 12px;
+  border-radius: var(--r-full);
+  background: var(--action);
+  color: var(--text-on-action);
+  font: var(--t-subhead);
   font-weight: 500;
   cursor: pointer;
 }
@@ -252,10 +251,10 @@
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
   cursor: pointer;
@@ -272,7 +271,8 @@
   margin: 0;
   /* Small but at full contrast (WCAG AA): no opacity fade. */
   color: rgba(255, 255, 255, 0.62);
-  font-size: 9px;
+  font: var(--t-caption);
+  font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.3;
   text-align: center;

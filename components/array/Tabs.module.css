@@ -8,7 +8,7 @@
   padding: 4px;
   /* Equal-width segments so the CSS thumb lines up with each tab. */
   isolation: isolate;
-  min-height: 44px;
+  min-height: 48px;
   border-radius: var(--r-full);
   background: var(--surface-field);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -19,8 +19,9 @@
   z-index: 1;
   flex: 1 1 0;
   min-width: 48px;
-  /* 44px + the strip's 4px padding clears the 48 touch target. */
-  min-height: 36px;
+  /* Stretches to the strip's 48px minus its 4px top/bottom padding — 40px,
+     clearing the 40px row floor. min-width 48 carries the touch-target area. */
+  min-height: 40px;
   padding: 0 var(--s-8);
   border: 0;
   border-radius: var(--r-full);

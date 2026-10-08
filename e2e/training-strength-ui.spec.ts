@@ -228,7 +228,9 @@ test('builds, accepts, and records a private sample strength program through the
   await page.getByRole('group', { name: 'Set 1' }).first().getByRole('button', { name: 'Save set', exact: true }).click()
   await expect(page.getByText('1 pending change on this device.', { exact: true })).toBeVisible()
   await page.goto('/settings')
-  await page.getByRole('button', { name: /sign out/i }).click()
+  // Array v3: Sign Out opens a confirm Dialog before it acts.
+  await page.getByRole('button', { name: 'Sign Out' }).click()
+  await page.getByRole('button', { name: 'Yes, sign out' }).click()
   await expect(page).toHaveURL(/\/auth\/sign-in/)
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => new Promise<number>((resolve, reject) => {

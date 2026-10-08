@@ -10,7 +10,7 @@ import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
 import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
 import { tint, tone } from '@/components/array/severity'
-import { ActionBar, Button, Disclosure, EmptyState, IconButton, SeverityChip } from '@/components/ui'
+import { ActionBar, Button, EmptyState, IconButton, SeverityChip } from '@/components/ui'
 import styles from './Results.module.css'
 import { musclesForFinding, slugForViewerId, type BodySide } from './anatomyFocus'
 import { hasAnyMuscle } from './muscleMap'
@@ -115,7 +115,12 @@ function ExerciseAccordionItem({ exercise }: { exercise: ClinicalExerciseProject
       >
         <span className="t-caption" style={{
           padding: '2px var(--s-8)', borderRadius: 'var(--r-full)', fontWeight: 700,
-          background: `color-mix(in srgb, ${catColor} 13%, transparent)`, color: catColor, textTransform: 'uppercase',
+          background: `color-mix(in srgb, ${catColor} 13%, transparent)`,
+          // Lightened toward white so the label text clears 4.5:1 against its
+          // own tinted pill background (the raw CATEGORY_COLORS hex measured
+          // ~4.3:1 there) — the background keeps the unmixed hue.
+          color: `color-mix(in srgb, ${catColor} 85%, white)`,
+          textTransform: 'uppercase',
           flexShrink: 0,
         }}>{catLabel}</span>
         <span className="t-headline" style={{ flex: 1, color: 'var(--text-1)' }}>
@@ -918,9 +923,12 @@ export default function ClinicalAssessmentResults({
                 activeKey={spotlightKey}
                 onSpotlight={descriptiveFindings.length > 0 ? spotlightFromList : undefined}
               />
-              <Disclosure title="Accuracy & methodology">
-                <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
-              </Disclosure>
+              <details className={styles.disclosure}>
+                <summary className={styles.disclosureSummary}>Accuracy & methodology</summary>
+                <div className={styles.disclosureBody}>
+                  <AccuracyCard assessment={assessment} findings={descriptiveFindings} />
+                </div>
+              </details>
             </div>
           )}
           programPanel={(
@@ -978,7 +986,7 @@ export default function ClinicalAssessmentResults({
                   <Link
                     href={`/workouts?assessment_id=${assessmentId}`}
                     className="a-secondary"
-                    style={{ display: 'inline-flex', minHeight: 42, padding: '0 16px', marginTop: 12 }}
+                    style={{ marginTop: 'var(--s-12)' }}
                   >
                     Customize workout
                   </Link>
@@ -1016,7 +1024,9 @@ export default function ClinicalAssessmentResults({
             the secondary report, share and compare controls plus the dock's own
             redundant approve. Anything driving this dock -- e2e specs, the
             performance journey -- has to open the disclosure first. */}
-        <Disclosure title="Report, share & compare">
+        <details className={styles.disclosure}>
+          <summary className={styles.disclosureSummary}>Report, share & compare</summary>
+          <div className={styles.disclosureBody}>
             <ReviewDock
               clientName={clientName}
               assessedAtLabel={assessedAtLabel}
@@ -1052,7 +1062,8 @@ export default function ClinicalAssessmentResults({
               backHref={`/clients/${assessment.clients.id}`}
               newAssessmentHref="/assessments/new"
             />
-        </Disclosure>
+          </div>
+        </details>
       </div>
 
       {detailsOpen && selectedMuscle && selectedSlug && (

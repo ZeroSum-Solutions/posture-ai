@@ -1245,6 +1245,7 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
               title="Screening needs attention"
               body={processingError}
               onRetry={handleRetry}
+              retryLabel="Try Again"
               variant="page"
             />
           ) : (

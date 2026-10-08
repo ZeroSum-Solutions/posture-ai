@@ -43,10 +43,17 @@
   gap: var(--s-20);
 }
 
-.grid > * {
-  content-visibility: auto;
-  contain-intrinsic-size: 420px;
-}
+/*
+ * `content-visibility: auto` previously sat here to skip layout for
+ * off-screen cards, but the collection is already paginated (24/48 at a
+ * time, never the full 280-353) so the perf win is marginal — and WebKit
+ * (mobile-webkit e2e project) miscalculates scroll position mid-scroll past
+ * several `content-visibility: auto` placeholders, so Playwright's
+ * auto-scroll-then-click on "Show more exercises" lands below the real
+ * button and the click is lost (reported as the count staying at 24).
+ * Removed rather than tuned: not worth the cross-engine risk for a list
+ * this short.
+ */
 
 .sectionHeader {
   display: flex;
@@ -267,11 +274,8 @@
     gap: var(--s-16);
   }
 
-  .grid { --exercise-card-padding: var(--s-16); }
-
   .cardInner {
     gap: var(--s-12);
-    padding: var(--s-16);
   }
 
   .selectionTray {

@@ -137,6 +137,7 @@ export default function ShareTokenClient({ token }: { token: string }) {
       <div className="app-screen app-screen-x" style={{ paddingTop: 40 }}>
         <ErrorState
           variant="page"
+          headingLevel="h1"
           title="Session link unavailable"
           body={error ?? 'This session link is not available.'}
           onRetry={() => void retry()}

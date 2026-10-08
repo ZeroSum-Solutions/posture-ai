@@ -11,9 +11,15 @@ export type ErrorStateProps = {
   body: string
   onRetry?: () => void
   retrying?: boolean
+  /** Visible label for the retry button when idle. Defaults to "Retry". */
+  retryLabel?: string
   secondary?: Action
   details?: string
   variant?: 'page' | 'inline' | 'blocking'
+  /** Heading element for `title`. Defaults to 'h2' (unchanged) — pass 'h1'
+   *  when this ErrorState is the only content on its page/route, so the page
+   *  has a heading-one (axe `page-has-heading-one`). */
+  headingLevel?: 'h1' | 'h2'
   className?: string
   'data-testid'?: string
 }
@@ -24,7 +30,8 @@ export type ErrorStateProps = {
  * and a collapsed Details disclosure (DESIGN.md › 3.11). `blocking` is the
  * legal-gate-failure shape: it owns the whole viewport and announces itself.
  */
-export function ErrorState({ title, body, onRetry, retrying = false, secondary, details, variant = 'page', className, 'data-testid': testId }: ErrorStateProps) {
+export function ErrorState({ title, body, onRetry, retrying = false, retryLabel = 'Retry', secondary, details, variant = 'page', headingLevel = 'h2', className, 'data-testid': testId }: ErrorStateProps) {
+  const Heading = headingLevel
   return (
     <div
       role={variant === 'blocking' ? 'alert' : undefined}
@@ -36,13 +43,13 @@ export function ErrorState({ title, body, onRetry, retrying = false, secondary, 
       <span className={styles.icon} style={{ background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, color: tone('review') }}>
         <Icon name="danger-circle-linear" size={variant === 'inline' ? 22 : 26} />
       </span>
-      <h2 className={variant === 'inline' ? 't-title-2' : 't-title-1'}>{title}</h2>
+      <Heading className={variant === 'inline' ? 't-title-2' : 't-title-1'}>{title}</Heading>
       <p className="t-body" style={{ color: 'var(--text-2)' }}>{body}</p>
       {onRetry || secondary ? (
         <div className={styles.actions}>
           {onRetry ? (
             <button type="button" onClick={onRetry} aria-busy={retrying} className="a-primary">
-              {retrying ? 'Retrying…' : 'Retry'}
+              {retrying ? 'Retrying…' : retryLabel}
             </button>
           ) : null}
           {secondary ? (

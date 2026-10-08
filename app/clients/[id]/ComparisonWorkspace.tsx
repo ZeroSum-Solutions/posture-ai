@@ -225,13 +225,17 @@ export default function ComparisonWorkspace({
                       {/* The three readings stay individually labelled. Sighted
                           readers get the labels from position; a screen reader
                           gets them from the terms. */}
+                      {/* Every direct child of <dl> must be a dt/dd pair (or a
+                          div wrapping one) — axe's definition-list rule flags
+                          anything else. The before→after arrow is purely
+                          decorative, so it renders as a ::before on the
+                          "after" group's wrapper instead of its own div. */}
                       <dl className={`${styles.evidenceData} n`}>
                         <div>
                           <dt className="sr-only">Before</dt>
                           <dd>{formatMeasurement(row.baseDeviation, row.baseUnit)}</dd>
                         </div>
-                        <div aria-hidden="true" className={styles.evidenceArrow}>→</div>
-                        <div>
+                        <div className={styles.evidenceArrow}>
                           <dt className="sr-only">After</dt>
                           <dd>{formatMeasurement(row.targetDeviation, row.targetUnit)}</dd>
                         </div>

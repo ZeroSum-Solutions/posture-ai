@@ -291,9 +291,10 @@ describe('assessment results progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
-    // Accuracy lives in the Evidence panel's own Disclosure, which mounts
-    // just after first paint and is collapsed by default.
-    fireEvent.click(await screen.findByRole('button', { name: /^Accuracy & methodology/ }))
+    // Accuracy lives in the Evidence panel's own native <details>/<summary>
+    // disclosure (not components/ui Disclosure — see Results.module.css),
+    // which mounts just after first paint and is collapsed by default.
+    fireEvent.click(await screen.findByText('Accuracy & methodology'))
     expect(await screen.findByText('Within-burst landmark consistency 98%')).toBeTruthy()
     // No disclaimer copy on the page: practitioners accept the screening notice at onboarding.
     expect(screen.queryByText(/clinical accuracy are not established/)).toBeNull()

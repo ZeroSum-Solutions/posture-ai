@@ -1091,9 +1091,9 @@ function ClientDetailRoute({
           <>
             Archiving <strong>{fullName}</strong> will remove them from your active client list. Their
             data will be preserved and can be recovered.
-            {archiveError ? <><br /><span style={{ color: 'var(--review)' }}>{archiveError}</span></> : null}
           </>
         )}
+        error={archiveError}
         confirm={{
           label: archiving ? 'Archiving…' : 'Yes, Archive',
           onConfirm: handleArchive,

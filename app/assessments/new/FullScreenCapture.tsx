@@ -1297,19 +1297,33 @@ export default function FullScreenCapture({
             )}
 
             {/* Camera-unavailable panel — non-blocking: the upload fallback and
-                proceed controls below stay usable (they render above this stage). */}
+                proceed controls below stay usable (they render above this stage
+                at zIndex 2). The panel itself sits above that zIndex 2 layer too
+                (so its own Try Again / Try Opening System Settings buttons are
+                never covered by the bottom slot strip when the permission
+                guidance copy grows tall) but keeps pointerEvents 'none' on its
+                own empty area and re-enables it only on its interactive
+                children, so clicks on blank padding still fall through to the
+                bottom controls underneath. */}
             {cameraFailed && (
               <div
                 ref={cameraErrorPanelRef}
                 tabIndex={-1}
                 role="alert"
                 aria-live="assertive"
-                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px', overflowY: 'auto', outline: 'none' }}
+                style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px', overflowY: 'auto', outline: 'none' }}
               >
-                <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
-                <p style={{ color: tone('review'), fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
-                <p data-testid="camera-error-msg" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
-                <CameraPermissionGuidance guidance={guidance} onRetry={retryCamera} />
+                {/* display:contents keeps the flex-centered layout above as if
+                    these were direct children, while restoring pointerEvents
+                    (an inherited CSS property) on the actual visible content —
+                    so the panel's empty padding still passes clicks through to
+                    the bottom controls, per the comment above. */}
+                <div style={{ display: 'contents', pointerEvents: 'auto' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
+                  <p style={{ color: tone('review'), fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
+                  <p data-testid="camera-error-msg" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
+                  <CameraPermissionGuidance guidance={guidance} onRetry={retryCamera} />
+                </div>
               </div>
             )}
           </div>

@@ -63,25 +63,41 @@ let nextId = 0
 
 /**
  * Mounts the toast viewport and exposes `useToast()` to everything beneath
- * it. Not mounted by this PR — the shell agent owns `AppShell` and should
- * wrap it there once; see the handoff note in the final report.
+ * it. Wrapped once around the tree in `components/AppShell.tsx`.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
-  // Created once, lazily, during render — see the matching comment in Sheet.tsx.
-  const [container] = useState<HTMLDivElement | null>(() => (typeof document === 'undefined' ? null : document.createElement('div')))
+  // Unlike Dialog/Sheet's lazy useState container (gated behind their own
+  // `open` prop, so a mismatched container is never actually rendered until
+  // a user opens one), this provider's portal branch is gated only by
+  // `container` itself and mounts unconditionally on every page via
+  // AppShell. A lazy `useState(() => document.createElement(...))`
+  // initializer runs on the client's first (hydrating) render too — where
+  // `document` is always defined — so it would return a truthy container
+  // while the server returned null, mismatching the hydrated output on
+  // every page load. Starting at null and creating the container in an
+  // effect keeps the hydration pass's output identical to the server's.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const keyboardInset = useKeyboardInset()
 
   useEffect(() => {
-    if (!container) return
+    const el = document.createElement('div')
     // Mount inside the shell so the toast reads the shell's live
     // --chrome-bottom (tab bar + ActionBar) and never covers the ActionBar.
     const host = document.querySelector('.app-shell') ?? document.body
-    host.appendChild(container)
+    host.appendChild(el)
+    // This is the one necessary post-hydration setState the rule below
+    // warns about: there is no portal target to mount the viewport into
+    // until the DOM exists, and (per the comment above) it cannot be
+    // created during the initial render without reintroducing the
+    // hydration mismatch. It fires once, immediately after mount, and
+    // settles before anything observable paints.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setContainer(el)
     return () => {
-      container.remove()
+      el.remove()
     }
-  }, [container])
+  }, [])
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))

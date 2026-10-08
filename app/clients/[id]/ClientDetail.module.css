@@ -101,10 +101,20 @@
 }
 
 .summaryLink {
+  position: relative;
   flex-shrink: 0;
   color: var(--text-2);
   font: var(--t-caption);
   text-decoration: none;
+}
+
+/* The visible caption-sized link stays compact; an invisible inset expands
+   the actual hit area to the 44px floor (same pattern as Button's .sm
+   ::after in components/ui/Button.module.css). */
+.summaryLink::after {
+  content: '';
+  position: absolute;
+  inset: -14px -8px;
 }
 
 .summaryLink:hover { color: var(--text-1); }
@@ -612,7 +622,16 @@
   gap: var(--s-8);
 }
 
-.evidenceArrow { color: var(--text-3); }
+/* The before→after arrow is generated content on the "after" dt/dd wrapper
+   (see the comment in ComparisonWorkspace.tsx) rather than its own <div>, so
+   it never breaks the <dl>'s dt/dd content model for axe's definition-list
+   rule. Generated content isn't exposed to the accessibility tree, matching
+   the old aria-hidden div it replaces. */
+.evidenceArrow::before {
+  content: '→';
+  color: var(--text-3);
+  margin-right: var(--s-4);
+}
 
 .assessmentDate {
   margin-top: 2px;

@@ -370,9 +370,6 @@ export default function SettingsPage() {
           </button>
         </form>
 
-        <p className="t-footnote" style={{ color: 'var(--text-3)' }}>
-          Screening support only — not a medical diagnosis.
-        </p>
       </div>
 
       <Dialog
