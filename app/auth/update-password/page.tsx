@@ -59,17 +59,14 @@ export default function UpdatePasswordPage() {
           </p>
           <Link
             href="/auth/forgot-password"
-            className="t-footnote"
-            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+            className="t-callout"
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, textDecoration: 'none', color: 'var(--ink-1)' }}
           >
             ← Request a new link
           </Link>
         </div>
       ) : (
         <>
-          <p className="t-body" style={{ color: 'var(--text-2)', marginBottom: 'var(--s-24)' }}>
-            Enter a new password for your account.
-          </p>
           {error && (
             <Banner variant="error" className="app-stack" data-testid="update-password-error">{error}</Banner>
           )}

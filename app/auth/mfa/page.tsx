@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
+import Lens from '@/components/ui/Lens'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { safeNextPath } from '@/lib/auth/safe-next'
 import { Banner } from '@/components/ui/Banner'
@@ -226,14 +227,21 @@ export default function MfaPage() {
   return (
     <AuthFrame
       title={phase === 'enroll' ? 'Connect an authenticator app' : 'Verify multi-factor authentication'}
-      description="A second factor is required for every protected session."
+      description={phase === 'challenge'
+        ? 'Enter the current code from the authenticator app already connected to your account.'
+        : phase === 'enroll'
+          ? 'Connect an authenticator app, then enter the 6-digit code it shows.'
+          : 'A second factor is required for every protected session.'}
     >
       {recoveryCopy && (
         <Banner variant="info" className="app-stack" data-testid="mfa-recovery-note">{recoveryCopy}</Banner>
       )}
 
       {phase === 'loading' && (
-        <p className="t-body" role="status" style={{ color: 'var(--text-2)' }}>Checking your account security…</p>
+        <p className="t-callout" role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-12)', margin: 0 }}>
+          <Lens size={28} state="loading" tone="ghost" />
+          Checking your account security…
+        </p>
       )}
 
       {phase === 'error' && (
@@ -244,8 +252,8 @@ export default function MfaPage() {
           </Button>
           <Link
             href="/auth/sign-in"
-            className="t-footnote"
-            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+            className="t-callout"
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 48, textDecoration: 'none', color: 'var(--ink-1)' }}
           >
             Return to sign in
           </Link>
@@ -256,23 +264,19 @@ export default function MfaPage() {
         <form onSubmit={handleVerify} noValidate className="app-stack">
           {phase === 'enroll' && (
             <div className="app-stack">
-              <p className="t-body" style={{ color: 'var(--text-2)' }}>
-                Connect an authenticator app, then enter the 6-digit code it shows.
-              </p>
-
               {/* The one-tap path, and the only one that works when this page and
                   the authenticator are on the same phone: the otpauth: scheme is
                   registered by Google Authenticator, 1Password, Authy and Duo, so
                   the app opens already holding this account. */}
               {otpauthUri && (
-                <Button href={otpauthUri} variant="primary" size="lg" block>
+                <Button href={otpauthUri} variant="secondary" size="lg" block>
                   Open in your authenticator app
                 </Button>
               )}
 
               {secret && (
                 <div>
-                  <p className="t-subhead" style={{ marginBottom: 'var(--s-4)', color: 'var(--text-2)' }}>Or enter this setup key</p>
+                  <p className="t-micro" style={{ marginBottom: 'var(--s-8)' }}>Or enter this setup key</p>
                   <p className={`t-body n ${styles.setupKey}`}>
                     {groupSecret(secret)}
                   </p>
@@ -305,12 +309,6 @@ export default function MfaPage() {
                 </details>
               )}
             </div>
-          )}
-
-          {phase === 'challenge' && (
-            <p className="t-body" style={{ color: 'var(--text-2)' }}>
-              Enter the current code from the authenticator app already connected to your account.
-            </p>
           )}
 
           {error && <Banner variant="error" data-testid="mfa-verify-error">{error}</Banner>}

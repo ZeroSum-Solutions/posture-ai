@@ -18,6 +18,7 @@ import type { Captures, CaptureSlotKey } from './types'
 import { SLOT_ORDER, SLOT_LABEL, REQUIRED_SLOTS, slotToDomain, isCaptured } from './types'
 import { CameraGlyph } from '@/components/SignalGlyphs'
 import LiveGuides from './LiveGuides'
+import ViewSilhouette from './ViewSilhouette'
 import CaptureTelemetryPanel from './CaptureTelemetryPanel'
 import CameraPermissionGuidance from './CameraPermissionGuidance'
 import {
@@ -31,11 +32,10 @@ import {
 import type { PermissionGuidance, PermissionState } from '@/lib/capture/permission-guidance'
 import LegalNotice from '@/components/LegalNotice'
 import type { LegalSnapshot } from '@/lib/legal/types'
-import { Surface } from '@/components/array/Surface'
 import Icon from '@/components/array/Icon'
-import { tone, tint, ring } from '@/components/array/severity'
 import type { SeverityBand } from '@/components/array/severity'
-import { IconButton } from '@/components/ui'
+import { IconButton, Lens } from '@/components/ui'
+import styles from './Capture.module.css'
 import { spring } from '@/lib/motion'
 import { haptic } from '@/lib/haptics'
 
@@ -54,14 +54,6 @@ const LIVE_FRAME_INTERVAL_MS = 90
 const LIVE_FRESHNESS_MS = 600
 const CAMERA_FRAME_TIMEOUT_MS = 10_000
 
-// Text sitting ON a near-opaque severity fill. White fails WCAG AA against all
-// three bands — 2.15:1 on monitor, 3.76:1 on review, 2.54:1 on maintain — and
-// these particular overlays are the capture warnings a practitioner reads over
-// live video, so they are the worst place in the app to be hard to read. This
-// near-black clears comfortably: 8.33:1, 4.75:1 and 7.05:1 respectively. It
-// matches the value the marketing finding chips already use on the same bands.
-// Only for solid severity fills; text on the 16% tint() keeps tone() instead.
-const ON_SEVERITY_FILL = '#191524'
 
 interface FullScreenCaptureProps {
   /** Exact server-resolved notice required before the wizard may enter capture. */
@@ -176,44 +168,6 @@ function canvasToObjectURL(canvas: HTMLCanvasElement): Promise<{ url: string; im
   return new Promise(resolve => {
     canvas.toBlob(image => resolve(image ? { url: URL.createObjectURL(image), image } : null), 'image/jpeg', 0.9)
   })
-}
-
-/** Lightweight silhouette / directional cue per slot (side-right is mirrored). */
-function ViewSilhouette({ slot, size = 30 }: { slot: CaptureSlotKey; size?: number }) {
-  const stroke = 'currentColor'
-  const { view } = slotToDomain(slot)
-  if (view === 'side') {
-    // side-left faces one way; mirror the glyph for side-right.
-    const flip = slot === 'side-right' ? { transform: 'scaleX(-1)', transformOrigin: 'center' } : undefined
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={flip}>
-        <circle cx="10" cy="5" r="2.4" fill={stroke} />
-        <path d="M10 8c2 0 3 1.4 3 3.4 0 2-.6 3-1 4.4l1 4.2" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M10 8c-.6 1.6-.8 3.2-1.4 4.6M8.6 12.6 7 21" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M17 6.5a5 5 0 0 1 2.6 4.4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-        <path d="m19.6 8.4 0 2.6-2.5-.4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
-  if (view === 'back') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle cx="12" cy="5" r="2.4" fill={stroke} />
-        <path d="M8.4 10c0-1.4 1.4-2.6 3.6-2.6S15.6 8.6 15.6 10l-.7 4h-5.8L8.4 10Z" fill={stroke} />
-        <path d="M9.4 14 8.6 21M14.6 14l.8 7" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M4.5 4.6a7 7 0 0 1 0 3.4" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
-        <path d="m3.2 6.4 1.3 1.8 1.6-1.4" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
-  // front
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="5" r="2.4" fill={stroke} />
-      <path d="M8.4 10c0-1.4 1.4-2.6 3.6-2.6S15.6 8.6 15.6 10l-.7 4h-5.8L8.4 10Z" fill={stroke} />
-      <path d="M9.4 14 8.6 21M14.6 14l.8 7M8.7 10.4 6.6 13M15.3 10.4 17.4 13" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
 }
 
 export default function FullScreenCapture({
@@ -1068,7 +1022,7 @@ export default function FullScreenCapture({
       : poseReadiness.phase === 'ready'
         ? `Posture model ready${poseReadiness.delegate ? ` (${poseReadiness.delegate.toUpperCase()})` : ''}`
         : poseReadiness.message || 'Posture model failed to start.'
-  const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
+  const allClear = requiredReady && !requiredChecking && !requiredModelFailed && !requiredSubjectFailed
 
   // Shutter "ready" pulse (spec §5 Capture: method + camera): a one-shot
   // delight spring + haptic the instant the shutter gate opens, never a
@@ -1093,11 +1047,11 @@ export default function FullScreenCapture({
   }, [shutterReady, shutterPulse, reducedMotionPreferred])
 
   return (
-    <div ref={containerRef} tabIndex={-1} aria-label="Posture capture" style={{ position: 'fixed', inset: 0, background: 'var(--background)', zIndex: 200, display: 'flex', flexDirection: 'column', color: 'var(--text-primary)', overflow: 'hidden', padding: pad, outline: 'none' }} data-testid="fullscreen-capture" data-immersive-surface>
+    <div ref={containerRef} tabIndex={-1} aria-label="Posture capture" className={styles.root} data-testid="fullscreen-capture" data-immersive-surface>
       <CaptureTelemetryPanel activeSlot={activeSlot} phase={phase} />
       {/* sr-only assertive announcer for the self-timer countdown (must be
           always-mounted so the live region announces changes) */}
-      <div role="timer" aria-live="assertive" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+      <div role="timer" aria-live="assertive" aria-atomic="true" className={styles.srOnly}>
         {phase === 'countdown' && countdown > 0 ? `Capturing in ${countdown}` : ''}
       </div>
       {/* Hidden per-slot file inputs — DOM order is front, side-left, side-right,
@@ -1120,24 +1074,40 @@ export default function FullScreenCapture({
       ))}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* ---------- Disclaimer (first open only) ---------- */}
+      {/* ---------- Setup + screening notice (first open only) ---------- */}
       {phase === 'disclaimer' ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div role="dialog" aria-modal="true" aria-label={screeningNotice ? 'Screening notice' : 'Capture setup'} data-testid="capture-disclaimer">
-            <Surface tier="feature" style={{ maxWidth: 420 }}>
+        <div className={styles.setup}>
+          <div role="dialog" aria-modal="true" aria-label={screeningNotice ? 'Screening notice' : 'Capture setup'} data-testid="capture-disclaimer" className={styles.setupDialog}>
+            <div className={styles.setupHead}>
+              <Lens size={52} breathing />
+              <div>
+                <span className="t-micro">Before you scan</span>
+                <p className="t-headline" style={{ margin: 0 }}>Four views, one person in frame</p>
+              </div>
+            </div>
+            <ol className={styles.setupViews} aria-label="Four views to capture">
+              {SLOT_ORDER.map(slot => (
+                <li key={slot}>
+                  <ViewSilhouette slot={slot} size={26} />
+                  <span className="t-micro">{SLOT_LABEL[slot].replace(' Side', '')}</span>
+                </li>
+              ))}
+            </ol>
+            <div className={styles.setupBody}>
               {screeningNotice ? (
                 <LegalNotice document={screeningNotice} compact />
               ) : (
                 <div>
-                  <h2 className="t-headline" style={{ margin: '0 0 8px' }}>Ready to capture four views</h2>
-                  <p className="t-body" style={{ margin: 0 }}>Use a well-lit space and keep the client’s full body in frame.</p>
+                  <h2 className="t-headline">Ready to capture four views</h2>
+                  <p className="t-body">Use a well-lit space and keep the client’s full body in frame.</p>
                 </div>
               )}
+            </div>
+            <div className={styles.actions}>
               <button
                 data-testid="capture-disclaimer-dismiss"
                 onClick={dismissDisclaimer}
                 className="a-primary a-primary--bar"
-                style={{ marginTop: 16 }}
               >
                 Start live capture
               </button>
@@ -1145,29 +1115,30 @@ export default function FullScreenCapture({
                 type="button"
                 onClick={chooseUploadMode}
                 className="a-secondary a-secondary--bar"
-                style={{ marginTop: 10 }}
               >
                 Upload existing photos
               </button>
               <button
                 onClick={onExit}
-                className="a-secondary a-secondary--bar"
-                style={{ marginTop: 10 }}
+                className={styles.quiet}
               >
                 Cancel
               </button>
-            </Surface>
+            </div>
           </div>
         </div>
       ) : phase === 'upload' ? (
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingBlock: 16 }}>
-          <Surface tier="feature" style={{ width: 'min(100%, 560px)' }}>
-            <h2 className="t-headline" style={{ margin: '0 0 8px' }}>Upload four posture views</h2>
-            <p className="t-body" style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>
-              Choose one recent JPEG or PNG for each view. The same private storage and photo checks used by live capture apply before analysis.
+        <div className={styles.upload}>
+          <div className={styles.uploadInner}>
+            <div>
+              <span className="t-micro">{REQUIRED_SLOTS.filter(slot => isCaptured(captures[slot])).length} of 4 views</span>
+              <h2 className="t-title">Upload four posture views</h2>
+            </div>
+            <p className="t-label">
+              One recent JPEG or PNG for each view. The same private storage and photo checks as live capture apply.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+            <ul className={styles.uploadList} aria-label="Views">
               {SLOT_ORDER.map((slot, index) => {
                 const cap = captures[slot]
                 const captured = isCaptured(cap)
@@ -1186,58 +1157,67 @@ export default function FullScreenCapture({
                             : cap.slotStatus === 'warnings'
                               ? 'Ready with warning'
                               : 'Ready'
+                const band = slotBand(cap)
                 return (
-                  <button
-                    key={slot}
-                    type="button"
-                    data-autofocus={index === 0 ? 'upload' : undefined}
-                    onClick={() => triggerUploadFor(slot)}
-                    disabled={captureLocked}
-                    className="a-secondary"
-                    style={{ minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px', textAlign: 'left' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <ViewSilhouette slot={slot} size={26} />
-                      <span>{SLOT_LABEL[slot]}</span>
-                    </span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{status}</span>
-                  </button>
+                  <li key={slot}>
+                    <button
+                      type="button"
+                      data-autofocus={index === 0 ? 'upload' : undefined}
+                      onClick={() => triggerUploadFor(slot)}
+                      disabled={captureLocked}
+                      className={styles.uploadRow}
+                    >
+                      <span className={styles.well} aria-hidden="true">
+                        {captured && cap.displayPreviewUrl
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={cap.displayPreviewUrl} alt="" />
+                          : <ViewSilhouette slot={slot} size={26} />}
+                      </span>
+                      <span className={styles.uploadLabel}>{SLOT_LABEL[slot]}</span>
+                      <span className={styles.uploadStatus}>
+                        {captured && <span className={styles.dot} data-band={band ?? undefined} aria-hidden="true" />}
+                        {status}
+                      </span>
+                    </button>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
 
             {uploadError && (
-              <div role="alert" style={{ marginTop: 12, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: tone('review') }}>
-                {uploadError}
+              <div role="alert" className={`${styles.note} ${styles.scrim}`}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" />
+                <div className={styles.noteBody}><p>{uploadError}</p></div>
               </div>
             )}
             {noPersonViews.length > 0 && (
-              <div role="alert" style={{ marginTop: 12, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: tone('review') }}>
-                No person detected — replace {noPersonViews.map(slot => SLOT_LABEL[slot]).join(', ')}
+              <div role="alert" className={`${styles.note} ${styles.scrim}`}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" />
+                <div className={styles.noteBody}><p>No person detected — replace {noPersonViews.map(slot => SLOT_LABEL[slot]).join(', ')}</p></div>
               </div>
             )}
             {multiplePeopleViews.length > 0 && (
-              <div role="alert" style={{ marginTop: 12, background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: tone('review') }}>
-                More than one person detected — replace {multiplePeopleViews.map(slot => SLOT_LABEL[slot]).join(', ')}
+              <div role="alert" className={`${styles.note} ${styles.scrim}`}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" />
+                <div className={styles.noteBody}><p>More than one person detected — replace {multiplePeopleViews.map(slot => SLOT_LABEL[slot]).join(', ')}</p></div>
               </div>
             )}
             <div role="status" aria-live="polite" aria-atomic="true">
               {captionSlot && captionWarnings.length > 0 && (
-                <div data-testid="slot-quality-caption" style={{ marginTop: 12, background: tint('monitor'), boxShadow: `inset 0 0 0 1px ${ring('monitor')}`, borderRadius: 8, padding: '8px 12px' }}>
-                  {captionWarnings.map((warning, index) => (
-                    <p key={index} style={{ color: tone('monitor'), fontSize: '0.75rem', margin: index > 0 ? '4px 0 0' : 0 }}>
-                      {index === 0 ? captionPrefix : ''}{warning}
-                    </p>
-                  ))}
+                <div data-testid="slot-quality-caption" className={`${styles.note} ${styles.scrim}`}>
+                  <span className={styles.dot} data-band="monitor" aria-hidden="true" />
+                  <div className={styles.noteBody}>
+                    {captionWarnings.map((warning, index) => (
+                      <p key={index}>
+                        {index === 0 ? captionPrefix : ''}{warning}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {requiredReady && (
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '14px 0 8px', textAlign: 'center' }}>
-                Your selected photos will be saved privately with this screening for later review.
-              </p>
-            )}
+            {requiredReady && <CompleteCard allClear={allClear} />}
             {requiredReady && (
               <button
                 type="button"
@@ -1250,25 +1230,25 @@ export default function FullScreenCapture({
               </button>
             )}
             {requiredModelFailed && onRetryFailedChecks && (
-              <button type="button" onClick={() => void onRetryFailedChecks()} className="a-secondary a-secondary--bar" style={{ marginTop: 10 }}>
+              <button type="button" onClick={() => void onRetryFailedChecks()} className="a-secondary a-secondary--bar">
                 Retry photo checks
               </button>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
-              <button type="button" onClick={() => setPhase('disclaimer')} disabled={captureLocked || submitting} className="a-secondary" style={{ minHeight: 44 }}>
+            <div className={styles.footerActions}>
+              <button type="button" onClick={() => setPhase('disclaimer')} disabled={captureLocked || submitting} className={styles.quiet}>
                 Capture options
               </button>
-              <button type="button" onClick={onExit} disabled={captureLocked || submitting} className="a-secondary" style={{ minHeight: 44 }}>
+              <button type="button" onClick={onExit} disabled={captureLocked || submitting} className={styles.quiet}>
                 Change client
               </button>
             </div>
-          </Surface>
+          </div>
         </div>
       ) : (
         <>
           {/* ---------- Camera stage ---------- */}
-          <div style={{ position: 'absolute', inset: 0, background: 'var(--background)' }}>
+          <div className={styles.stage}>
             {/* Live video (kept mounted so the stream never restarts between views) */}
             <video
               data-testid="capture-video"
@@ -1276,7 +1256,8 @@ export default function FullScreenCapture({
               autoPlay
               playsInline
               muted
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: showLiveCamera ? 'block' : 'none' }}
+              className={styles.media}
+              style={{ display: showLiveCamera ? 'block' : 'none' }}
             />
 
             {showLiveCamera && phase === 'live' && (
@@ -1293,7 +1274,14 @@ export default function FullScreenCapture({
             {/* Frozen still during review */}
             {phase === 'review' && reviewUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={reviewUrl} alt="Captured frame" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={reviewUrl} alt="Captured frame" className={styles.media} />
+            )}
+
+            {/* The viewfinder reticle: corners lock volt when the shutter is ready. */}
+            {showLiveCamera && (
+              <div className={styles.reticle} data-ready={shutterReady ? 'true' : undefined} aria-hidden="true">
+                <span /><span /><span /><span />
+              </div>
             )}
 
             {/* Camera-unavailable panel — non-blocking: the upload fallback and
@@ -1311,17 +1299,17 @@ export default function FullScreenCapture({
                 tabIndex={-1}
                 role="alert"
                 aria-live="assertive"
-                style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px', overflowY: 'auto', outline: 'none' }}
+                className={styles.cameraError}
               >
                 {/* display:contents keeps the flex-centered layout above as if
                     these were direct children, while restoring pointerEvents
                     (an inherited CSS property) on the actual visible content —
                     so the panel's empty padding still passes clicks through to
                     the bottom controls, per the comment above. */}
-                <div style={{ display: 'contents', pointerEvents: 'auto' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
-                  <p style={{ color: tone('review'), fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
-                  <p data-testid="camera-error-msg" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
+                <div className={styles.cameraErrorContent}>
+                  <span className={styles.cameraErrorGlyph}><CameraGlyph size={34} /></span>
+                  <p className={`t-headline ${styles.cameraErrorTitle}`}>Camera Unavailable</p>
+                  <p data-testid="camera-error-msg" className={`t-callout ${styles.cameraErrorMsg}`}>{errorMsg}</p>
                   <CameraPermissionGuidance guidance={guidance} onRetry={retryCamera} />
                 </div>
               </div>
@@ -1329,8 +1317,8 @@ export default function FullScreenCapture({
           </div>
 
           {/* ---------- Top overlays ---------- */}
-          <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', pointerEvents: 'none' }}>
-            <span style={{ pointerEvents: 'auto', flexShrink: 0 }}>
+          <div className={styles.topRow}>
+            <span style={{ flexShrink: 0 }}>
               <IconButton
                 icon="close-linear"
                 label="Cancel and return to client selection"
@@ -1339,71 +1327,63 @@ export default function FullScreenCapture({
               />
             </span>
 
-            {/* Level meter — only rendered when we have a live roll reading. Near-
-                opaque severity fill (not the 16% Chip tint) so it stays legible
-                over arbitrary camera content. */}
-            {showLiveCamera && roll !== null && tiltBand && (
-              <div data-testid="level-indicator" style={{
-                pointerEvents: 'auto', borderRadius: '999px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 700, color: ON_SEVERITY_FILL,
-                background: `color-mix(in srgb, ${tone(tiltBand)} 92%, transparent)`,
-              }}>
-                {tiltBand === 'maintain' ? 'Level' : `Tilted ${roll > 0 ? 'right' : 'left'} ${Math.abs(roll).toFixed(1)}°`}
-              </div>
-            )}
+            <div className={styles.topChips}>
+              {/* Level meter — only rendered when we have a live roll reading. */}
+              {showLiveCamera && roll !== null && tiltBand && (
+                <div data-testid="level-indicator" className={`${styles.pill} ${styles.scrim}`}>
+                  <span className={styles.dot} data-band={tiltBand} aria-hidden="true" />
+                  {tiltBand === 'maintain' ? 'Level' : `Tilted ${roll > 0 ? 'right' : 'left'} ${Math.abs(roll).toFixed(1)}°`}
+                </div>
+              )}
 
-            {started && (
-              <div
-                data-testid="pose-readiness"
-                role={poseModelFailed ? 'alert' : 'status'}
-                aria-live="polite"
-                style={{
-                  pointerEvents: 'auto', borderRadius: '12px', padding: '6px 10px', fontSize: '0.75rem', fontWeight: 600,
-                  background: poseModelFailed
-                    ? `color-mix(in srgb, ${tone('review')} 90%, transparent)`
-                    : poseReadiness.phase === 'ready'
-                      ? `color-mix(in srgb, ${tone('maintain')} 88%, transparent)`
-                      : 'rgba(0,0,0,0.72)',
-                  // Follows the background: dark on a severity fill, white on
-                  // the black pill. Reading state is not one or the other here.
-                  color: poseModelFailed || poseReadiness.phase === 'ready' ? ON_SEVERITY_FILL : '#fff',
-                  maxWidth: '250px', textAlign: 'right',
-                }}
-              >
-                <span>{readinessLabel}</span>
-                {poseModelFailed && (
-                  <button
-                    type="button"
-                    onClick={() => void retryPoseModel()}
-                    disabled={retryingModel}
-                    // Only rendered when poseModelFailed, so this button always
-                    // sits on the review fill — never on the black pill.
-                    style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 6, border: `1px solid ${ON_SEVERITY_FILL}`, background: 'transparent', color: ON_SEVERITY_FILL, fontWeight: 700, cursor: retryingModel ? 'not-allowed' : 'pointer' }}
-                  >{retryingModel ? 'Retrying…' : 'Retry Model'}</button>
-                )}
-              </div>
-            )}
+              {started && (
+                <div
+                  data-testid="pose-readiness"
+                  role={poseModelFailed ? 'alert' : 'status'}
+                  aria-live="polite"
+                  data-state={poseModelFailed ? 'failed' : poseReadiness.phase}
+                  className={`${styles.pill} ${styles.scrim} ${styles.readiness}`}
+                >
+                  <span
+                    className={styles.dot}
+                    data-band={poseModelFailed ? 'review' : poseReadiness.phase === 'ready' ? 'maintain' : 'now'}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.readinessText} title={readinessLabel}>{readinessLabel}</span>
+                  {poseModelFailed && (
+                    <button
+                      type="button"
+                      onClick={() => void retryPoseModel()}
+                      disabled={retryingModel}
+                      className={styles.smallPill}
+                    >{retryingModel ? 'Retrying…' : 'Retry Model'}</button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Directional prompt: the guidance pill (spec §5 Capture: method +
-              camera) — ≥.6 black (`--scrim-media`) behind text, never blur
-              alone, so it stays legible over arbitrary camera content. */}
+          {/* Directional prompt: the guidance pill — a ≥.6 black scrim behind
+              text, never blur alone, so it stays legible over any frame. */}
           {showLiveCamera && (
-            <div style={{ position: 'relative', zIndex: 2, marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-12)', background: 'var(--scrim-media)', borderRadius: 'var(--r-full)', padding: 'var(--s-8) var(--s-16)', maxWidth: '92%' }}>
-                <span style={{ color: 'var(--text-1)', flexShrink: 0 }}><ViewSilhouette slot={activeSlot} /></span>
+            <div className={styles.guidance}>
+              <div key={activeSlot} className={`${styles.prompt} ${styles.scrim}`}>
+                <span className={styles.promptGlyph}><ViewSilhouette slot={activeSlot} size={28} /></span>
                 <div style={{ minWidth: 0 }}>
-                  <p className="t-callout" style={{ margin: 0, fontWeight: 500, color: 'var(--text-1)' }}>{direction.title}</p>
-                  <p className="t-footnote" style={{ margin: 0, color: 'var(--text-2)' }}>{direction.cue}</p>
+                  <p className={`t-callout ${styles.promptTitle}`}>{direction.title}</p>
+                  <p className="t-label" style={{ color: 'var(--ink-2)' }}>{direction.cue}</p>
                 </div>
               </div>
 
               {level.pitchDeg !== null && Math.abs(level.pitchDeg) > 15 && (
-                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 600, color: ON_SEVERITY_FILL }}>
+                <div className={`${styles.pill} ${styles.scrim}`}>
+                  <span className={styles.dot} data-band="monitor" aria-hidden="true" />
                   Aim the camera straight ahead
                 </div>
               )}
               {notPortrait && (
-                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 700, color: ON_SEVERITY_FILL }}>
+                <div className={`${styles.pill} ${styles.scrim}`}>
+                  <span className={styles.dot} data-band="monitor" aria-hidden="true" />
                   Hold the phone upright (portrait) to capture
                 </div>
               )}
@@ -1412,109 +1392,106 @@ export default function FullScreenCapture({
 
           {/* Countdown overlay */}
           {phase === 'countdown' && countdown > 0 && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', zIndex: 3, pointerEvents: 'none' }}>
-              <span style={{ fontSize: '6rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{countdown}</span>
+            <div className={styles.countdown}>
+              <span key={countdown} className={styles.countdownDigit}>{countdown}</span>
             </div>
           )}
 
           {/* ---------- Bottom controls ---------- */}
-          <div style={{ position: 'relative', zIndex: 2, marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* No-person banner (blocks proceed on required views). Near-opaque
-                review fill, not the 16% Chip tint — this sits directly over
-                live camera content and needs a solid backing to stay legible. */}
+          <div className={styles.bottom}>
+            {/* No-person note (blocks proceed on required views). */}
             {noPersonViews.length > 0 && (
-              <div role="alert" style={{ background: `color-mix(in srgb, ${tone('review')} 90%, transparent)`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: ON_SEVERITY_FILL, textAlign: 'center' }}>
-                No person detected — retake {noPersonViews.map(s => SLOT_LABEL[s]).join(', ')}
+              <div role="alert" className={`${styles.note} ${styles.scrim}`}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" />
+                <div className={styles.noteBody}><p>No person detected — retake {noPersonViews.map(s => SLOT_LABEL[s]).join(', ')}</p></div>
               </div>
             )}
             {multiplePeopleViews.length > 0 && (
-              <div role="alert" aria-label="More than one person detected" style={{ background: `color-mix(in srgb, ${tone('review')} 90%, transparent)`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', fontWeight: 700, color: ON_SEVERITY_FILL, textAlign: 'center' }}>
-                More than one person detected — use one full-body photo for {multiplePeopleViews.map(s => SLOT_LABEL[s]).join(', ')}
+              <div role="alert" aria-label="More than one person detected" className={`${styles.note} ${styles.scrim}`}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" />
+                <div className={styles.noteBody}><p>More than one person detected — use one full-body photo for {multiplePeopleViews.map(s => SLOT_LABEL[s]).join(', ')}</p></div>
               </div>
             )}
             {uploadError && (
-              <div role="alert" style={{ background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: '10px', padding: '8px 14px', fontSize: '0.8rem', color: tone('review'), textAlign: 'center' }}>
-                {uploadError}
+              <div role="alert" className={`${styles.note} ${styles.scrim}`}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" />
+                <div className={styles.noteBody}><p>{uploadError}</p></div>
               </div>
             )}
 
-            {/* Shutter-gate coaching banner + override (tilt / centering / framing) */}
+            {/* Shutter-gate coaching + override (tilt / centering / framing) */}
             {showLiveCamera && phase === 'live' && gateBlocked && gate.coach && (
-              <div data-testid="tilt-blocked" id="tilt-blocked-banner" role="status" aria-live="polite" style={{
-                background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 10, padding: '10px 14px',
-                fontSize: '0.82rem', color: tone('review'), display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
-              }}>
-                <span>{gate.coach}{gate.factors.tilt === 'blocked' ? ` — tilted ${Math.abs(roll ?? 0).toFixed(1)}°` : ''}</span>
-                <button onClick={() => setOverrideGate(true)} style={{ background: 'none', boxShadow: `inset 0 0 0 1px ${ring('review')}`, border: 0, borderRadius: 6, color: tone('review'), fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Capture anyway</button>
+              <div data-testid="tilt-blocked" id="tilt-blocked-banner" role="status" aria-live="polite" className={`${styles.note} ${styles.scrim}`} style={{ alignItems: 'center' }}>
+                <span className={styles.dot} data-band="review" aria-hidden="true" style={{ marginTop: 0 }} />
+                <div className={styles.noteBody}><p>{gate.coach}{gate.factors.tilt === 'blocked' ? ` — tilted ${Math.abs(roll ?? 0).toFixed(1)}°` : ''}</p></div>
+                <button onClick={() => setOverrideGate(true)} className={styles.smallPill}>Capture anyway</button>
               </div>
             )}
 
             {/* Review actions */}
             {phase === 'review' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div data-testid="review-quality-status" role="status" aria-live="polite" aria-atomic="true">
+              <div className={styles.reviewBlock}>
+                <div data-testid="review-quality-status" role="status" aria-live="polite" aria-atomic="true" className={styles.reviewStatus}>
                   {!previewQuality && !previewError && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>Checking person and framing…</p>
+                    <p className={`${styles.pill} ${styles.scrim}`} style={{ margin: 0 }}><span className={styles.dot} data-band="now" aria-hidden="true" />Checking person and framing…</p>
                   )}
                   {previewQuality?.status === 'ok' && (
-                    <p style={{ color: 'var(--maintain)', fontSize: '0.8rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>Framing looks good</p>
+                    <p className={`${styles.pill} ${styles.scrim}`} style={{ margin: 0 }}><span className={styles.dot} data-band="maintain" aria-hidden="true" />Framing looks good</p>
                   )}
                   {previewQuality?.status === 'no_person' && (
-                    <p style={{ color: tone('review'), fontSize: '0.82rem', textAlign: 'center', margin: 0, fontWeight: 700 }}>No person detected — retake</p>
+                    <p className={`${styles.pill} ${styles.scrim}`} style={{ margin: 0 }}><span className={styles.dot} data-band="review" aria-hidden="true" />No person detected — retake</p>
                   )}
                   {previewQuality?.status === 'multiple_people' && (
-                    <p style={{ color: tone('review'), fontSize: '0.82rem', textAlign: 'center', margin: 0, fontWeight: 700 }}>More than one person detected — retake</p>
+                    <p className={`${styles.pill} ${styles.scrim}`} style={{ margin: 0 }}><span className={styles.dot} data-band="review" aria-hidden="true" />More than one person detected — retake</p>
                   )}
                   {previewQuality?.status === 'warnings' && previewQuality.warnings.length > 0 && (
-                    <div style={{ background: tint('monitor'), boxShadow: `inset 0 0 0 1px ${ring('monitor')}`, borderRadius: 8, padding: '8px 12px' }}>
-                      {previewQuality.warnings.map((w, i) => (
-                        <p key={i} style={{ color: tone('monitor'), fontSize: '0.75rem', margin: i > 0 ? '4px 0 0' : 0 }}>• {w}</p>
-                      ))}
+                    <div className={`${styles.note} ${styles.scrim}`} style={{ alignSelf: 'stretch' }}>
+                      <span className={styles.dot} data-band="monitor" aria-hidden="true" />
+                      <div className={styles.noteBody}>
+                        {previewQuality.warnings.map((w, i) => (
+                          <p key={i}>{w}</p>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {previewError && (
-                    <div id="review-model-error" role="alert" data-testid="review-model-error" style={{ background: tint('review'), boxShadow: `inset 0 0 0 1px ${ring('review')}`, borderRadius: 8, padding: '8px 12px' }}>
-                      <p style={{ color: tone('review'), fontSize: '0.78rem', textAlign: 'center', margin: 0 }}>{previewError}</p>
+                    <div id="review-model-error" role="alert" data-testid="review-model-error" className={`${styles.note} ${styles.scrim}`} style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+                      <span className={styles.dot} data-band="review" aria-hidden="true" style={{ marginTop: 0 }} />
+                      <div className={styles.noteBody}><p>{previewError}</p></div>
                       <button
                         type="button"
                         onClick={() => { setPreviewQuality(null); setPreviewError(null); setReviewAttempt(attempt => attempt + 1) }}
-                        style={{ display: 'block', margin: '8px auto 0', padding: '8px 14px', borderRadius: 8, border: 0, boxShadow: `inset 0 0 0 1px ${ring('review')}`, background: 'transparent', color: tone('review'), fontWeight: 700, cursor: 'pointer', minHeight: '44px' }}
+                        className={styles.smallPill}
+                        style={{ minHeight: 44 }}
                       >Retry Check</button>
                     </div>
                   )}
                   {rollAtCapture !== null && Math.abs(rollAtCapture) > 2 && (
-                    <p style={{ color: tone('monitor'), fontSize: '0.75rem', textAlign: 'center', margin: 0 }}>Roll {rollAtCapture.toFixed(1)}° — will be corrected</p>
+                    <p className={`${styles.pill} ${styles.scrim}`} style={{ margin: 0 }}><span className={styles.dot} data-band="monitor" aria-hidden="true" />Roll {rollAtCapture.toFixed(1)}° — will be corrected</p>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button data-autofocus="retake" onClick={retakeStill} className="a-secondary" style={{ flex: 1 }}>Retake</button>
+                <div className={styles.reviewActions}>
+                  <button data-autofocus="retake" onClick={retakeStill} className="a-secondary" style={{ flex: 1, minHeight: 52 }}>Retake</button>
                   <button
                     onClick={useThisPhoto}
                     disabled={reviewAcceptDisabled}
                     aria-describedby={previewError ? 'review-model-error' : undefined}
                     className="a-primary"
-                    style={{ flex: 2, minHeight: 50, fontSize: '0.95rem' }}
+                    style={{ flex: 2, minHeight: 52 }}
                   >{!previewQuality && !previewError ? 'Checking Photo…' : 'Use This Photo'}</button>
                 </div>
               </div>
             )}
 
             {/* Status strip — four free-order slots, all selectable at any time */}
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            <div className={styles.strip}>
               {SLOT_ORDER.map(slotKey => {
                 const cap = captures[slotKey]
                 const isActive = slotKey === activeSlot
                 const captured = isCaptured(cap)
                 const subjectCountBlocked = cap.slotStatus === 'no_person' || cap.slotStatus === 'multiple_people'
                 const modelFailed = cap.slotStatus === 'model_error'
-                // "Current" reads through the one white/action accent, never a
-                // brand hue; every other ring state is a severity band.
-                const ringColor = isActive ? 'var(--action)'
-                  : subjectCountBlocked || modelFailed ? tone('review')
-                  : cap.slotStatus === 'warnings' ? tone('monitor')
-                  : captured ? tone('maintain')
-                  : 'var(--border)'
-                const badgeColor = subjectCountBlocked || modelFailed ? tone('review') : cap.slotStatus === 'warnings' ? tone('monitor') : tone('maintain')
+                const band = slotBand(cap)
                 return (
                   <button
                     key={slotKey}
@@ -1523,26 +1500,25 @@ export default function FullScreenCapture({
                     disabled={captureLocked}
                     aria-label={`${SLOT_LABEL[slotKey]} (required)${captured ? ' captured, tap to retake' : isActive ? ', current' : ', pending'}${cap.slotStatus === 'warnings' ? ' — quality warning' : ''}${modelFailed ? ' — model check failed' : ''}`}
                     aria-current={isActive ? 'step' : undefined}
-                    style={{
-                      position: 'relative', width: '58px', textAlign: 'center', background: 'none', border: 'none',
-                      padding: 0, cursor: captureLocked ? 'default' : 'pointer', opacity: captureLocked && !isActive ? 0.6 : 1,
-                    }}
+                    className={styles.slot}
+                    data-active={isActive ? 'true' : undefined}
+                    data-band={!isActive && band ? band : undefined}
+                    data-dim={captureLocked && !isActive ? 'true' : undefined}
                   >
-                    <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: 'var(--r-sm)', overflow: 'hidden', border: `2px solid ${ringColor}`, background: 'var(--surface-flat)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className={styles.thumb}>
                       {captured && cap.displayPreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cap.displayPreviewUrl} alt={`${SLOT_LABEL[slotKey]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={cap.displayPreviewUrl} alt={`${SLOT_LABEL[slotKey]} thumbnail`} />
                       ) : (
-                        <span style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}><ViewSilhouette slot={slotKey} size={24} /></span>
+                        <ViewSilhouette slot={slotKey} size={26} />
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '18px', height: '18px', borderRadius: '50%', background: badgeColor, color: ON_SEVERITY_FILL, fontSize: '0.75rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {subjectCountBlocked || modelFailed ? '!' : cap.slotStatus === 'warnings' ? '⚠' : <Icon name="check-circle-bold" size={12} />}
+                        <span aria-hidden="true" className={styles.badge} data-band={band ?? undefined}>
+                          {subjectCountBlocked || modelFailed ? '!' : cap.slotStatus === 'warnings' ? '!' : <Icon name="check-circle-bold" size={14} />}
                         </span>
                       )}
-                    </div>
-                    <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>
-                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Required</span>
+                    </span>
+                    <span className={styles.slotLabel}>{SLOT_LABEL[slotKey].replace(' Side', '')}</span>
                   </button>
                 )
               })}
@@ -1557,21 +1533,24 @@ export default function FullScreenCapture({
                 the review card's always-mounted status region. */}
             <div role="status" aria-live="polite" aria-atomic="true">
               {captionSlot && captionWarnings.length > 0 && (
-                <div data-testid="slot-quality-caption" style={{ background: tint('monitor'), boxShadow: `inset 0 0 0 1px ${ring('monitor')}`, borderRadius: 8, padding: '8px 12px' }}>
-                  {captionWarnings.map((w, i) => (
-                    <p key={i} style={{ color: tone('monitor'), fontSize: '0.75rem', textAlign: 'center', margin: i > 0 ? '4px 0 0' : 0 }}>
-                      {i === 0 ? captionPrefix : ''}{w}
-                    </p>
-                  ))}
+                <div data-testid="slot-quality-caption" className={`${styles.note} ${styles.scrim}`}>
+                  <span className={styles.dot} data-band="monitor" aria-hidden="true" />
+                  <div className={styles.noteBody}>
+                    {captionWarnings.map((w, i) => (
+                      <p key={i}>
+                        {i === 0 ? captionPrefix : ''}{w}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Shutter row (hidden during review / error / camera-failed) */}
             {showLiveCamera && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '8px' }}>
-                <div style={{ justifySelf: 'start' }}>
-                  <button onClick={triggerUpload} disabled={captureLocked} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'underline', cursor: captureLocked ? 'not-allowed' : 'pointer', padding: '8px', minHeight: '44px' }}>{uploadingSlot ? `Preparing ${SLOT_LABEL[uploadingSlot]} photo…` : 'Upload photo instead'}</button>
+              <div className={styles.shutterRow}>
+                <div>
+                  <button onClick={triggerUpload} disabled={captureLocked} className={`${styles.sideAction} ${styles.scrim}`}>{uploadingSlot ? `Preparing ${SLOT_LABEL[uploadingSlot]} photo…` : 'Upload photo instead'}</button>
                 </div>
                 <motion.button
                   data-autofocus="shutter"
@@ -1581,36 +1560,21 @@ export default function FullScreenCapture({
                   aria-label="Capture photo"
                   animate={shutterPulse}
                   initial={false}
-                  whileTap={shutterReady ? { scale: 0.97 } : undefined}
+                  whileTap={shutterReady ? { scale: 0.92 } : undefined}
                   transition={spring.press}
-                  style={{
-                    justifySelf: 'center', width: '72px', height: '72px', borderRadius: 'var(--r-full)',
-                    background: gateBlocked || !ready || captureLocked ? 'var(--surface-flat-pressed)' : 'var(--action)',
-                    color: 'var(--text-on-action)',
-                    border: '4px solid rgba(255,255,255,0.55)',
-                    boxShadow: shutterReady
-                      ? `0 0 0 2px rgba(0,0,0,0.4), 0 0 0 8px color-mix(in srgb, var(--capture) 45%, transparent)`
-                      : '0 0 0 2px rgba(0,0,0,0.4)',
-                    cursor: gateBlocked || !ready || captureLocked ? 'not-allowed' : 'pointer',
-                  }}
+                  className={styles.shutter}
+                  data-ready={shutterReady ? 'true' : undefined}
                   aria-describedby={gateBlocked ? 'tilt-blocked-banner' : undefined}
                 />
-                <div style={{ justifySelf: 'end' }}>
+                <div>
                   <button
                     onClick={() => { if (!captureBusyRef.current && !uploadBusyRef.current) setTimerOn(t => !t) }}
                     disabled={captureLocked}
                     aria-label="Self-timer"
                     aria-pressed={timerOn}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', borderRadius: '999px', minHeight: '44px',
-                      // A toggle, not a severity state — "on" reads through the
-                      // same white/action weight as everything else, never a hue.
-                      background: timerOn ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
-                      border: `1px solid ${timerOn ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.15)'}`,
-                      color: timerOn ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, cursor: captureLocked ? 'not-allowed' : 'pointer',
-                    }}
+                    className={`${styles.timer} ${styles.scrim}`}
                   >
-                    <Icon name="clock-circle-linear" size={15} />
+                    <Icon name="clock-circle-linear" size={16} />
                     {timerOn ? '3s' : 'Off'}
                   </button>
                 </div>
@@ -1625,9 +1589,7 @@ export default function FullScreenCapture({
             )}
 
             {/* Proceed only after all four required views pass preflight. */}
-            {requiredReady && phase !== 'review' && <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '8px 0', textAlign: 'center' }}>
-              Your selected photos will be saved privately with this screening for later review.
-            </p>}
+            {requiredReady && phase !== 'review' && <CompleteCard allClear={allClear} />}
             {requiredReady && phase !== 'review' && (
               <button
                 onClick={onProceed}
@@ -1645,6 +1607,33 @@ export default function FullScreenCapture({
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/** The scan's worst per-slot state, as a severity band for a dot/ring. */
+function slotBand(cap: Captures[CaptureSlotKey]): SeverityBand | null {
+  if (!isCaptured(cap)) return null
+  if (cap.slotStatus === 'no_person' || cap.slotStatus === 'multiple_people' || cap.slotStatus === 'model_error') return 'review'
+  if (cap.slotStatus === 'warnings') return 'monitor'
+  if (cap.slotStatus === 'checking') return null
+  return 'maintain'
+}
+
+/**
+ * Scan complete (a signature moment): once all four views pass their checks,
+ * the Lens blooms into a check beside the count — right above the one action.
+ */
+function CompleteCard({ allClear }: { allClear: boolean }) {
+  return (
+    <div className={`${styles.complete} ${styles.scrim}`}>
+      <Lens size={44} state={allClear ? 'done' : 'loading'} />
+      <div>
+        <p className="t-callout" style={{ color: 'var(--ink-1)', fontWeight: 600 }}>
+          {allClear ? 'All four views captured' : 'Four views captured'}
+        </p>
+        <p className="t-label">Your selected photos will be saved privately with this screening for later review.</p>
+      </div>
     </div>
   )
 }

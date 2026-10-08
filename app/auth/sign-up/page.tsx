@@ -1,6 +1,5 @@
-import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
-import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
 
 /**
  * Public account creation is intentionally unavailable. Practitioner identities
@@ -14,21 +13,17 @@ export default function SignUpPage() {
       description="This beta is limited to practitioners invited by the Posture AI team."
     >
       <div className="app-stack">
-        <Banner variant="info">
+        <p className="t-body" style={{ margin: 0 }}>
           If you received an invitation, open the secure link in that email to set
           up your account and multi-factor authentication. Invitations are tied to
           one email address and cannot be transferred.
-        </Banner>
-        <p className="t-footnote" style={{ color: 'var(--text-3)' }}>
+        </p>
+        <p className="t-label" style={{ margin: 0 }}>
           Need access or a replacement invitation? Contact your beta administrator.
         </p>
-        <Link
-          href="/auth/sign-in"
-          className="t-footnote"
-          style={{ display: 'inline-flex', minHeight: 48, alignItems: 'center', color: 'var(--text-2)', textDecoration: 'underline' }}
-        >
-          Already accepted an invitation? Sign in
-        </Link>
+        <Button href="/auth/sign-in" variant="primary" size="lg" block style={{ marginTop: 'var(--s-16)' }}>
+          <span className="sr-only">Already accepted an invitation? </span>Sign in
+        </Button>
       </div>
     </AuthFrame>
   )

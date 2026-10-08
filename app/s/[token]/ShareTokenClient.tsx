@@ -1,15 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { WorkoutPlayer, type RatingPayload, type RunPatch } from '../../workouts/_player/WorkoutPlayer'
 import type { SessionItem, SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
 import ActionBar from '@/components/ui/ActionBar'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import { ListGroup, ListRow } from '@/components/ui/ListRow'
+import Icon from '@/components/array/Icon'
 import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
+import styles from './ShareToken.module.css'
 
 interface PublicSession {
   snapshot: SessionSnapshot
@@ -124,7 +125,7 @@ export default function ShareTokenClient({ token }: { token: string }) {
 
   if (loading) {
     return (
-      <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }} aria-busy="true">
+      <div className={`app-screen app-screen-x app-stack ${styles.page}`} aria-busy="true">
         <Skeleton shape="line" lines={2} />
         <Skeleton shape="card" />
         <Skeleton shape="row" lines={3} />
@@ -134,7 +135,7 @@ export default function ShareTokenClient({ token }: { token: string }) {
 
   if (error || !data) {
     return (
-      <div className="app-screen app-screen-x" style={{ paddingTop: 40 }}>
+      <div className={`app-screen app-screen-x ${styles.page}`}>
         <ErrorState
           variant="page"
           headingLevel="h1"
@@ -165,14 +166,23 @@ export default function ShareTokenClient({ token }: { token: string }) {
   const duration = durationLabel(data.estimatedDurationSec)
 
   return (
-    <div className="app-screen app-screen--bar app-screen-x app-stack" style={{ paddingTop: 40 }}>
-      <header>
-        <p className="t-overline">Shared workout</p>
-        <h1 className="t-title-1" style={{ marginTop: 10 }}>
+    <div className={`app-screen app-screen--bar app-screen-x ${styles.page}`}>
+      <header className={styles.header}>
+        <p className="t-micro">Shared workout</p>
+        <h1 className="t-display">
           {data.clientFirstName ? `${data.clientFirstName}’s session` : 'Your session'}
         </h1>
-        <p className="t-body" style={{ marginTop: 8, color: 'var(--text-2)' }}>
-          {items.length} exercise{items.length === 1 ? '' : 's'}{duration ? ` · about ${duration}` : ''}
+        <p className={styles.stats}>
+          <span className={styles.stat}>
+            <span className={styles.statValue}>{items.length}</span>
+            <span className="t-micro">exercise{items.length === 1 ? '' : 's'}</span>
+          </span>
+          {duration && (
+            <span className={styles.stat}>
+              <span className={styles.statValue}>{duration}</span>
+              <span className="t-micro">estimated</span>
+            </span>
+          )}
         </p>
       </header>
 
@@ -183,21 +193,28 @@ export default function ShareTokenClient({ token }: { token: string }) {
           body="This session does not have any exercises in it."
         />
       ) : (
-        <ListGroup label="Exercises in this session">
-          {items.map((item) => (
-            <ListRow
-              key={item.index}
-              title={item.name}
-              subtitle={timingLabel(item)}
-              chevron
-              onPress={() => setActiveStep(item)}
-              data-testid={`share-exercise-${item.slug}`}
-            />
+        <ol className={styles.list} aria-label="Exercises in this session">
+          {items.map((item, position) => (
+            <li key={item.index} className={styles.item} style={{ '--i': Math.min(position, 8) } as CSSProperties}>
+              <button
+                type="button"
+                className={styles.row}
+                onClick={() => setActiveStep(item)}
+                data-testid={`share-exercise-${item.slug}`}
+              >
+                <span className={styles.index} aria-hidden="true">{String(position + 1).padStart(2, '0')}</span>
+                <span className={styles.rowText}>
+                  <span className={styles.rowTitle}>{item.name}</span>
+                  <span className="t-label">{timingLabel(item)}</span>
+                </span>
+                <Icon name="alt-arrow-right-linear" size={18} className={styles.chevron} />
+              </button>
+            </li>
           ))}
-        </ListGroup>
+        </ol>
       )}
 
-      <p className="t-footnote" style={{ color: 'var(--text-3)' }}>
+      <p className="t-label">
         Screening support only — not a medical diagnosis.
       </p>
 
@@ -208,7 +225,7 @@ export default function ShareTokenClient({ token }: { token: string }) {
       >
         {activeStep ? (
           <div className="app-stack">
-            <p className="t-callout" style={{ color: 'var(--text-2)' }}>{timingLabel(activeStep)}</p>
+            <p className="t-callout">{timingLabel(activeStep)}</p>
             {activeStep.steps && activeStep.steps.length > 0 ? (
               <ol className="t-body" style={{ display: 'grid', gap: 'var(--s-12)', paddingLeft: '1.2em' }}>
                 {activeStep.steps.map((step, index) => (

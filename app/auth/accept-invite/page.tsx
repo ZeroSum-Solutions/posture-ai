@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
+import Lens from '@/components/ui/Lens'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { MIN_PASSWORD_LENGTH, validatePasswordReset } from '@/lib/auth/password'
 import { Banner } from '@/components/ui/Banner'
@@ -56,10 +57,11 @@ export default function AcceptInvitePage() {
   return (
     <AuthFrame
       title="Accept practitioner invitation"
-      description="Protect your invited account before entering the practitioner workspace."
+      description="First choose a password. You will then connect an authenticator app before access is activated."
     >
       {checking ? (
-        <p className="t-body" style={{ color: 'var(--text-2)' }}>
+        <p className="t-callout" role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-12)', margin: 0 }}>
+          <Lens size={28} state="loading" tone="ghost" />
           Verifying your secure invitation…
         </p>
       ) : !hasInviteSession ? (
@@ -74,9 +76,6 @@ export default function AcceptInvitePage() {
         </Banner>
       ) : (
         <form onSubmit={handleSubmit} noValidate className="app-stack">
-          <p className="t-body" style={{ color: 'var(--text-2)' }}>
-            First choose a password. You will then connect an authenticator app before access is activated.
-          </p>
           {error && <Banner variant="error" data-testid="accept-invite-password-error">{error}</Banner>}
           <TextField
             id="invite_password"

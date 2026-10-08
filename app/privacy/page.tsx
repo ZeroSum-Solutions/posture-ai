@@ -20,9 +20,9 @@ export function generateMetadata(): Metadata {
 export default function PrivacyPage() {
   const resolution = resolveRuntimeLegalDocument({ kind: 'privacy' })
   return (
-    <div className="app-screen app-screen-x">
+    <div className="app-screen">
       <TopBar title="Privacy Policy" back={{ href: '/', label: 'Back to home' }} />
-      <div className="app-stack">
+      <div className="app-stack app-screen-x" style={{ paddingTop: 'var(--s-16)' }}>
         {resolution.ok ? (
           <LegalNotice
             document={snapshotLegalDocument(resolution.document)}
@@ -37,9 +37,9 @@ export default function PrivacyPage() {
             body="The approved Privacy Policy is temporarily unavailable."
           />
         )}
-        <p className="t-footnote" style={{ color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 'var(--s-4)', minHeight: 48 }}>
+        <p className="t-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-4)', minHeight: 48, margin: 0 }}>
           See also our
-          <Link href="/terms" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, color: 'var(--text-2)', textDecoration: 'underline' }}>
+          <Link href="/terms" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, color: 'var(--ink-1)', textDecoration: 'none' }}>
             Terms of Use
           </Link>.
         </p>

@@ -1,9 +1,10 @@
-/* Settings ("Profile" tab) — profile card, grouped ListRows opening Sheets,
-   and a danger Sign Out row (spec §5 "Settings / You"). */
+/* Profile (Array v4) — one glass hero (the practice identity, which opens
+   Practice info), then hairline rows on the canvas, the Haptics switch, and
+   a quiet destructive Sign Out. No grey cards. */
 
 .toastWrap {
   position: fixed;
-  top: var(--s-24);
+  top: calc(var(--sa-t, 0px) + var(--s-16));
   right: var(--s-16);
   left: var(--s-16);
   z-index: var(--z-toast);
@@ -11,34 +12,186 @@
   max-width: 398px;
 }
 
-.profileRow {
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-40);
+  padding-top: var(--s-8);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+
+.hero {
+  width: 100%;
+  text-align: left;
+  border-radius: var(--r-lg);
+}
+.heroBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+.heroInner {
   display: flex;
   align-items: center;
   gap: var(--s-16);
+  min-width: 0;
 }
-
-/* Switch's own row renders [track][label]; row-reverse flips the visual
-   order to [label][track] so Haptics reads like every other settings row
-   (label left, control right) without touching the shared component. */
-.hapticsRow {
-  width: 100%;
-  min-height: 56px;
-  padding-inline: var(--s-16);
-  justify-content: space-between;
-  flex-direction: row-reverse;
+.heroInitials,
+.heroLogo {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 34%;
 }
-
-.signOutRow {
+.heroInitials {
+  display: grid;
+  place-items: center;
+  background: var(--surface-3);
+  box-shadow: inset 0 1px 0 var(--ctl-plate-hi), inset 0 0 0 1px var(--hairline);
+  color: var(--ink-1);
+  font: var(--t-title);
+  letter-spacing: -0.02em;
+}
+.heroLogo {
+  object-fit: contain;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+@supports (corner-shape: squircle) {
+  .heroInitials, .heroLogo { corner-shape: squircle; border-radius: 46%; }
+}
+.heroText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.heroName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heroEdit {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding-top: var(--s-12);
+  box-shadow: inset 0 1px 0 var(--hairline);
+  font: var(--t-callout);
+  color: var(--ink-1);
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.section > h2 { margin: 0 0 var(--s-4); }
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  position: relative;
+  animation: rowIn 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.item + .item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+.list:not(:has(.rowIcon)) .item + .item::before { left: 0; }
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
   width: 100%;
-  min-height: 56px;
-  padding-inline: var(--s-16);
+  min-height: 64px;
+  padding: var(--s-12) 0;
   border: 0;
-  border-radius: var(--r-lg);
-  background: var(--surface-flat);
-  cursor: pointer;
+  background: none;
+  color: inherit;
+  font: inherit;
   text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-press) var(--ease-spring), opacity var(--duration-press) linear;
+}
+.row:active { transform: scale(0.985); opacity: 0.8; }
+.row:focus-visible,
+.signOut:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+.rowIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 34%;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ink-2);
+}
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rowTitle {
+  font: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.chevron {
+  flex: none;
+  color: var(--ink-3);
+}
+
+/* ── Sign out ───────────────────────────────────────────────────────── */
+
+.signOutForm { margin-top: calc(var(--s-8) * -1); }
+.signOut {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--t-body);
+  font-weight: 500;
+  color: var(--review);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.signOut:active { opacity: 0.6; }
+
+/* ── Sheets ─────────────────────────────────────────────────────────── */
+
+.sheetSection {
+  padding-top: var(--s-24);
+  margin-top: var(--s-8);
+  box-shadow: inset 0 1px 0 var(--hairline);
 }
 
 .logoPreview {
@@ -48,4 +201,31 @@
   border-radius: var(--r-sm);
   box-shadow: inset 0 0 0 1px var(--hairline);
   background: var(--surface-flat);
+}
+
+/* ── Loading ────────────────────────────────────────────────────────── */
+
+.heroSkeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--s-16);
+  min-height: 132px;
+}
+.skeletonText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item { animation: none; }
+  .row { transition: none; }
+  .row:active { transform: none; }
 }

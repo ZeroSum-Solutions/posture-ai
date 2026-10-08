@@ -1,14 +1,120 @@
-/* New-assessment wizard (capture-wizard chrome only; capture/upload/quality
-   logic lives in NewAssessmentWizard.tsx and FullScreenCapture.tsx and is
-   untouched here). Array v3 tokens only — see DESIGN.md › Tokens. */
+/* New-assessment wizard (Array v4 — chrome only; capture/upload/quality logic
+   lives in NewAssessmentWizard.tsx and FullScreenCapture.tsx).
 
-.stepperRow {
+   Step 1 reads top → bottom: large title, the viewfinder hero (the dock Lens
+   morphs into it), the client step head + search, hairline client rows on
+   the canvas, and one volt action in the ActionBar. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-32);
+  padding-top: var(--s-8);
+}
+
+/* ── Viewfinder hero ─────────────────────────────────────────────────────
+   The Lens grown into a viewfinder: liquid glass, a squircle, and four
+   reticle corners that turn volt once a client is chosen (ready to scan). */
+
+.viewfinder {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+  padding: var(--s-20);
+  border-radius: var(--r-lg);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--glass), var(--glass)) padding-box,
+    var(--glass-rim) border-box;
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+}
+@supports (corner-shape: squircle) {
+  .viewfinder { corner-shape: squircle; border-radius: 44px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .viewfinder { background: var(--surface-1); backdrop-filter: none; border-color: var(--edge); }
+}
+
+.corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 0 solid var(--ink-3);
+  transition: border-color 260ms var(--ease-standard), transform 420ms var(--ease-spring);
+  pointer-events: none;
+}
+.corner[data-c='tl'] { top: 10px; left: 10px; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 12px; }
+.corner[data-c='tr'] { top: 10px; right: 10px; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 12px; }
+.corner[data-c='bl'] { bottom: 10px; left: 10px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 12px; }
+.corner[data-c='br'] { bottom: 10px; right: 10px; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 12px; }
+
+/* Ready: the corners lock onto the subject — they turn volt and pull in. */
+.viewfinder[data-ready='true'] .corner { border-color: var(--volt); }
+.viewfinder[data-ready='true'] .corner[data-c='tl'] { transform: translate(3px, 3px); }
+.viewfinder[data-ready='true'] .corner[data-c='tr'] { transform: translate(-3px, 3px); }
+.viewfinder[data-ready='true'] .corner[data-c='bl'] { transform: translate(3px, -3px); }
+.viewfinder[data-ready='true'] .corner[data-c='br'] { transform: translate(-3px, -3px); }
+
+.vfTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-12);
-  margin-bottom: var(--s-32);
+  min-height: 24px;
+  padding-inline: var(--s-12);
 }
+
+.vfSubject {
+  display: flex;
+  align-items: center;
+  gap: var(--s-16);
+  min-height: 56px;
+  padding-inline: var(--s-12);
+  animation: subjectIn 420ms var(--ease-spring) both;
+}
+.vfSubjectText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.vfName {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vfPrompt {
+  margin: 0;
+  color: var(--ink-2);
+}
+@keyframes subjectIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+
+.vfViews {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s-8);
+  margin: 0;
+  padding: var(--s-12) 0 0;
+  list-style: none;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.vfView {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+  color: var(--ink-3);
+}
+.viewfinder[data-ready='true'] .vfView { color: var(--ink-2); }
+
+/* ── Client step ─────────────────────────────────────────────────────── */
 
 .clientStep {
   display: flex;
@@ -16,29 +122,158 @@
   gap: var(--s-16);
 }
 
-.clientStepHeader {
+.stepHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-16);
+  gap: var(--s-12);
+  min-height: 44px;
+}
+.stepHead h2 { margin: 0; }
+
+.quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  margin-right: calc(var(--s-4) * -1);
+  border: 0;
+  background: none;
+  font: var(--t-callout);
+  color: var(--ink-1);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--duration-press) linear;
+}
+.quiet:active { opacity: 0.6; }
+.quiet:disabled { opacity: var(--text-disabled-opacity); cursor: not-allowed; }
+.quiet:focus-visible,
+.clientRow:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
 }
 
-.testModeBanner {
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  min-height: 44px;
+  margin-top: var(--s-8);
+}
+.listHead h3 { margin: 0; }
+
+.list {
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  position: relative;
+  animation: rowIn 420ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+/* Hairline inset to the text start, past the 40px avatar + 12px gap. */
+.item + .item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(8px); }
 }
 
-.searchField {
+.clientRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
   width: 100%;
+  min-height: 68px;
+  padding: var(--s-12) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-press) var(--ease-spring);
 }
+.clientRow:active { transform: scale(0.985); }
+/* Selected: a surface-3 plate grows behind the row (never colour alone —
+   the trailing check carries the state change too). */
+.clientRow::before {
+  content: '';
+  position: absolute;
+  inset: 2px calc(var(--s-12) * -1);
+  z-index: -1;
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  box-shadow: inset 0 1px 0 var(--ctl-plate-hi);
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 180ms var(--ease-standard), transform 420ms var(--ease-spring);
+}
+.clientRow[aria-pressed='true']::before { opacity: 1; transform: scale(1); }
+.item:has(.clientRow[aria-pressed='true']) + .item::before,
+.item:has(.clientRow[aria-pressed='true'])::before { opacity: 0; }
+.list { isolation: isolate; }
 
-.selectedClientSummary {
+.rowText {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
-  padding: var(--s-12) var(--s-16);
-  border-radius: var(--r-md);
-  background: var(--accent-tint);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+  gap: 2px;
+}
+.rowName {
+  font: var(--t-body);
+  font-weight: 500;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowCheck {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--ink-1);
+  animation: checkIn 420ms var(--ease-jelly) both;
+}
+@keyframes checkIn {
+  from { opacity: 0; transform: scale(0.4); }
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+}
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 68px;
+}
+.skeletonText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.loadMore {
+  align-self: center;
 }
 
 .ageGateLink {
@@ -48,46 +283,77 @@
   text-underline-offset: 3px;
 }
 
-.loadMore {
-  width: 100%;
+.noticeLine {
+  min-height: 22px;
+  margin: 0;
+  text-align: center;
 }
 
-/* Selection reads through an accent ring + tint, never colour alone — the
-   trailing check (rendered by the caller) carries the icon change. */
-.clientRowSelected {
-  background: var(--accent-tint);
-  box-shadow: inset 0 0 0 2px var(--accent);
-  border-radius: var(--r-md);
-}
-
-.selectedCheck {
-  color: var(--accent);
-}
+/* ── Test-mode confirm ───────────────────────────────────────────────── */
 
 .testConfirmStep {
   display: flex;
   flex-direction: column;
-  gap: var(--s-16);
+  gap: var(--s-12);
 }
+.testConfirmStep h2,
+.testConfirmStep p { margin: 0; }
 
-.processingStep {
-  display: flex;
-  justify-content: center;
-  padding: var(--s-48) var(--s-24);
-}
+/* ── Processing: the signature moment ────────────────────────────────── */
 
-.processingBody {
+.processing {
+  min-height: calc(100dvh - var(--s-72) * 2);
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  max-width: 420px;
+  justify-content: center;
+  gap: var(--s-24);
+  padding: var(--s-40) 0;
   text-align: center;
 }
+.processingCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-8);
+  max-width: 320px;
+}
+.processingCopy h2,
+.processingCopy p { margin: 0; }
+.processingProgress {
+  width: min(240px, 100%);
+}
+.doneLens {
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 160px;
+}
 
-@media (max-width: 560px) {
-  .clientStepHeader {
-    align-items: stretch;
-    flex-direction: column;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .vfSubject,
+  .rowCheck { animation: none; }
+  .corner,
+  .clientRow,
+  .clientRow::before { transition: opacity 120ms linear, border-color 120ms linear; transform: none !important; }
+}
+
+.initials {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
+  color: var(--ink-1);
+  font: var(--t-callout);
+  font-weight: 500;
+}
+.initials[data-size='48'] {
+  width: 48px;
+  height: 48px;
+  font: var(--t-headline);
 }

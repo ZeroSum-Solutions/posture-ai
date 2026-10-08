@@ -89,9 +89,9 @@ export default function OnboardingPage() {
   return (
     <div className="app-screen app-screen--bar app-screen-x">
       <header className={styles.header}>
-        <p className="t-overline">Practitioner agreement</p>
-        <h1 className="t-title-1">Review and accept the legal terms</h1>
-        <p className="t-body" style={{ marginTop: 'var(--s-8)', color: 'var(--text-2)' }}>
+        <p className="t-micro">Practitioner agreement</p>
+        <h1 className={`t-title ${styles.title}`}>Review and accept the legal terms</h1>
+        <p className={`t-label ${styles.lede}`}>
           Read each document. Acceptance is recorded against the exact versions shown.
         </p>
         <Stepper

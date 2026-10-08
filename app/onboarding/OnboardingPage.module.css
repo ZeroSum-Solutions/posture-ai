@@ -6,10 +6,16 @@
   width: 100%;
   max-width: 38rem;
   margin: 0 auto;
-  padding-top: var(--s-24);
+  padding-top: calc(var(--s-32) + var(--sa-t, 0px));
+  animation: headerIn 520ms var(--ease-spring) both;
 }
 
-.stepper { margin-top: var(--s-20); }
+.header > p,
+.header > h1 { margin: 0; }
+.title { margin-top: var(--s-8); text-wrap: balance; }
+.lede { margin-top: var(--s-8); max-width: 40ch; }
+
+.stepper { margin-top: var(--s-24); }
 
 .documents {
   width: 100%;
@@ -21,4 +27,11 @@
   width: 100%;
   max-width: 38rem;
   margin: var(--s-16) auto 0;
+}
+
+@keyframes headerIn {
+  from { opacity: 0; transform: translateY(10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header { animation: none; }
 }
