@@ -139,7 +139,7 @@ export default function DashboardExperience({
               )}
             </section>
 
-            <WeekStrip metrics={model.metrics} />
+            <WeekStrip metrics={model.metrics} activeClients={model.activeClients} />
 
             {model.setup.doneCount < model.setup.total ? (
               <SetupLine setup={model.setup} />
@@ -173,7 +173,15 @@ function TodayHero({ hero, queue, queueTotal }: { hero: HeroState; queue: QueueI
 
   return (
     <Surface tier="feature" sheen className={styles.hero} data-testid="today-hero">
-      <p className="t-micro">Review queue</p>
+      <div className={styles.heroHead}>
+        <p className="t-micro">Review queue</p>
+        {queueTotal > queue.length ? (
+          <Link href="/clients?filter=needs-review" className={styles.viewAll}>
+            View all {queueTotal}
+            <Icon name="alt-arrow-right-linear" size={16} />
+          </Link>
+        ) : null}
+      </div>
       <h2 className={styles.count}>
         <SlotNumber value={queueTotal} className={`t-hero ${styles.countValue}`} />
         <span className={`t-headline ${styles.countLabel}`}>
@@ -209,13 +217,6 @@ function TodayHero({ hero, queue, queueTotal }: { hero: HeroState; queue: QueueI
         ))}
       </ul>
 
-      {queueTotal > queue.length ? (
-        <Link href="/clients?filter=needs-review" className={styles.viewAll}>
-          View all {queueTotal}
-          <Icon name="alt-arrow-right-linear" size={16} />
-        </Link>
-      ) : null}
-
       <Button href={hero.action.href} size="lg" block className={styles.heroAction}>
         {hero.action.label}
       </Button>
@@ -223,12 +224,16 @@ function TodayHero({ hero, queue, queueTotal }: { hero: HeroState; queue: QueueI
   )
 }
 
-/** This week as three plain readouts on the canvas — no card, neutral deltas. */
-function WeekStrip({ metrics }: { metrics: MetricTile[] }) {
+/** This week as three plain weekly readouts on the canvas — no card, neutral deltas. */
+function WeekStrip({ metrics, activeClients }: { metrics: MetricTile[]; activeClients: number }) {
   return (
     <section className={styles.section} aria-labelledby="today-week">
       <div className={styles.sectionHead}>
         <h2 id="today-week" className="t-headline">This week</h2>
+        {/* All-time, so it sits outside the weekly strip to keep the window honest. */}
+        <span className={`t-label ${styles.rowTrail}`}>
+          {activeClients} active {activeClients === 1 ? 'client' : 'clients'}
+        </span>
       </div>
       <dl className={styles.week}>
         {metrics.map(metric => (

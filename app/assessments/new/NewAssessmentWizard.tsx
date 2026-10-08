@@ -1061,8 +1061,9 @@ export function NewAssessmentWizard({ operationMode = 'governed' }: { operationM
 
       {/* Step 1: Select Client */}
       {step === 1 && (
-        <div className={styles.screen}>
+        <div className={`${styles.screen} ${styles.clientScreen}`}>
           <ScanViewfinder
+            variant="strip"
             stepLabel={stepLabel}
             testMode={testMode}
             subject={selectedClient

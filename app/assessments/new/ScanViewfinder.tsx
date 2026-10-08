@@ -27,7 +27,8 @@ export function Initials({ name, size = 40 }: { name: string; size?: 40 | 48 }) 
 
 /**
  * The capture hero (DESIGN.md › Navigation): the dock Lens morphs into this
- * viewfinder (`<Morph name="lens" kind="lens-morph">`). It answers "who am I
+ * element in either form (slim `strip` on step 1, the full four-view
+ * viewfinder from the setup/capture step on) (`<Morph name="lens" kind="lens-morph">`). It answers "who am I
  * about to scan, and what will I capture?" — the chosen client, and the four
  * required views. Its reticle corners lock on (volt) once a client is chosen.
  */
@@ -35,11 +36,46 @@ export function ScanViewfinder({
   stepLabel,
   subject,
   testMode,
+  variant = 'full',
 }: {
   stepLabel: string
   subject: { name: string; detail?: string } | null
   testMode: boolean
+  /**
+   * `strip` (step 1): a slim progress cue — step label plus the chosen client —
+   * so the client search sits high. The four-view viewfinder (`full`) arrives
+   * with the setup/capture step, where the views are the task.
+   */
+  variant?: 'full' | 'strip'
 }) {
+  if (variant === 'strip') {
+    return (
+      <Morph name="lens" kind="lens-morph">
+        <section className={styles.vfStrip} data-ready={subject ? 'true' : undefined} aria-label="Scan setup">
+          {CORNERS.map(corner => <span key={corner} className={styles.corner} data-c={corner} aria-hidden="true" />)}
+          {subject ? (
+            <Initials name={subject.name} />
+          ) : (
+            <span className={styles.stripMark} aria-hidden="true"><ViewSilhouette slot="front" size={20} /></span>
+          )}
+          <div className={styles.stripText}>
+            <span className="t-micro">{stepLabel}</span>
+            {subject ? (
+              <div key={subject.name} role="status" data-testid="selected-client-summary" className={styles.stripSubject}>
+                <span className="sr-only">Selected client: </span>
+                <strong className={styles.stripName}>{subject.name}</strong>
+                {subject.detail && <span className={`t-label ${styles.stripDetail}`}>{subject.detail}</span>}
+              </div>
+            ) : (
+              <span className={`t-label ${styles.stripPrompt}`}>No client chosen yet</span>
+            )}
+          </div>
+          {testMode && <Badge>TEST MODE</Badge>}
+        </section>
+      </Morph>
+    )
+  }
+
   return (
     <Morph name="lens" kind="lens-morph">
       <section className={styles.viewfinder} data-ready={subject ? 'true' : undefined} aria-label="Scan setup">

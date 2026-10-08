@@ -103,7 +103,7 @@ export interface RescanItem {
 }
 
 export interface MetricTile {
-  key: 'active' | 'scans' | 'score'
+  key: 'added' | 'scans' | 'score'
   value: string
   label: string
   /** Raw numeric delta; Stat derives its own band/icon from severity.ts, so this stays unformatted. */
@@ -131,6 +131,8 @@ export interface TodayModel {
   rescan: RescanItem | null
   recent: RecentScanItem[]
   metrics: MetricTile[]
+  /** All active clients (not a weekly figure) — shown beside "This week", outside the strip. */
+  activeClients: number
 }
 
 /** Practitioner-avatar initials. Today no longer shows an avatar itself (TopBar
@@ -292,12 +294,6 @@ export function buildTodayModel({
 
   const metrics: MetricTile[] = [
     {
-      key: 'active',
-      value: String(counts.activeClients),
-      label: 'Clients',
-      delta: counts.clientsAddedThisWeek !== 0 ? { value: counts.clientsAddedThisWeek, goodDirection: 'up' } : null,
-    },
-    {
       key: 'scans',
       value: String(counts.scansThisWeek),
       label: 'Scans',
@@ -309,6 +305,14 @@ export function buildTodayModel({
       label: 'Avg score',
       // Deviation score: lower is better.
       delta: scoreDelta != null && scoreDelta !== 0 ? { value: scoreDelta, goodDirection: 'down' } : null,
+    },
+    // Every cell here is a this-week figure; the all-time active count lives
+    // beside the section head (`activeClients`), not in the weekly strip.
+    {
+      key: 'added',
+      value: String(counts.clientsAddedThisWeek),
+      label: 'New clients',
+      delta: null,
     },
   ]
 
@@ -336,5 +340,6 @@ export function buildTodayModel({
     rescan: rescanView,
     recent: recentItems,
     metrics,
+    activeClients: counts.activeClients,
   }
 }

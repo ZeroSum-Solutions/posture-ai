@@ -1,7 +1,7 @@
 /* New-assessment wizard (Array v4 — chrome only; capture/upload/quality logic
    lives in NewAssessmentWizard.tsx and FullScreenCapture.tsx).
 
-   Step 1 reads top → bottom: large title, the viewfinder hero (the dock Lens
+   Step 1 reads top → bottom: large title, the slim step strip (the dock Lens
    morphs into it), the client step head + search, hairline client rows on
    the canvas, and one volt action in the ActionBar. */
 
@@ -114,7 +114,94 @@
 }
 .viewfinder[data-ready='true'] .vfView { color: var(--ink-2); }
 
+/* ── Step 1 strip ────────────────────────────────────────────────────────
+   The same Lens morph target, slimmed to a progress cue: step label and the
+   chosen client. Corners shrink to match and still lock on (volt) once a
+   client is chosen. The four-view viewfinder above waits for capture. */
+
+.vfStrip {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: 72px;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-lg);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--glass), var(--glass)) padding-box,
+    var(--glass-rim) border-box;
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+}
+@supports (corner-shape: squircle) {
+  .vfStrip { corner-shape: squircle; border-radius: 32px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .vfStrip { background: var(--surface-1); backdrop-filter: none; border-color: var(--edge); }
+}
+.vfStrip .corner { width: 14px; height: 14px; }
+.vfStrip .corner[data-c='tl'] { top: 6px; left: 6px; border-top-left-radius: 8px; }
+.vfStrip .corner[data-c='tr'] { top: 6px; right: 6px; border-top-right-radius: 8px; }
+.vfStrip .corner[data-c='bl'] { bottom: 6px; left: 6px; border-bottom-left-radius: 8px; }
+.vfStrip .corner[data-c='br'] { bottom: 6px; right: 6px; border-bottom-right-radius: 8px; }
+.vfStrip[data-ready='true'] .corner { border-color: var(--volt); }
+.vfStrip[data-ready='true'] .corner[data-c='tl'] { transform: translate(2px, 2px); }
+.vfStrip[data-ready='true'] .corner[data-c='tr'] { transform: translate(-2px, 2px); }
+.vfStrip[data-ready='true'] .corner[data-c='bl'] { transform: translate(2px, -2px); }
+.vfStrip[data-ready='true'] .corner[data-c='br'] { transform: translate(-2px, -2px); }
+
+.stripMark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
+  color: var(--ink-3);
+}
+.stripText {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stripSubject {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-8);
+  min-width: 0;
+  animation: subjectIn 420ms var(--ease-spring) both;
+}
+.stripName {
+  min-width: 0;
+  font: var(--t-body);
+  font-weight: 600;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stripDetail {
+  flex: none;
+  color: var(--ink-2);
+}
+.stripPrompt {
+  color: var(--ink-3);
+}
+
 /* ── Client step ─────────────────────────────────────────────────────── */
+
+/* The step-1 ActionBar is taller than --actionbar-h (its blocked-reason line
+   sits above the button), so the list gets that extra clearance and its last
+   row always scrolls fully above the bar. */
+.clientScreen {
+  padding-bottom: var(--s-40);
+}
 
 .clientStep {
   display: flex;
@@ -333,6 +420,7 @@
 @media (prefers-reduced-motion: reduce) {
   .item,
   .vfSubject,
+  .stripSubject,
   .rowCheck { animation: none; }
   .corner,
   .clientRow,

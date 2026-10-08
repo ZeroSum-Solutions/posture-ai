@@ -45,3 +45,22 @@ describe('buildTodayModel queue (dataviz F)', () => {
     expect(model.hero?.action.label).toBe('Start scan')
   })
 })
+
+describe('buildTodayModel week strip', () => {
+  it('keeps only this-week figures in the strip and carries the all-time active count separately', () => {
+    const model = buildTodayModel({
+      awaiting: [],
+      awaitingTotal: 0,
+      recent: [],
+      rescan: null,
+      counts: { ...counts, clientsAddedThisWeek: 3 },
+      now: NOW,
+    })
+    expect(model.metrics.map(metric => [metric.key, metric.label, metric.value])).toEqual([
+      ['scans', 'Scans', '2'],
+      ['score', 'Avg score', '22'],
+      ['added', 'New clients', '3'],
+    ])
+    expect(model.activeClients).toBe(28)
+  })
+})

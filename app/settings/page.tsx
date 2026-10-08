@@ -329,7 +329,7 @@ export default function SettingsPage() {
         <div className={`app-screen-x ${styles.page}`} role="status" aria-busy="true">
           <span className="sr-only">Loading settings…</span>
           <div className={styles.heroSkeleton} aria-hidden="true">
-            <Skeleton shape="avatar" style={{ width: 72, height: 72, borderRadius: 'var(--r-full)' }} />
+            <Skeleton shape="avatar" style={{ width: 60, height: 60, borderRadius: 'var(--r-full)' }} />
             <div className={styles.skeletonText}>
               <Skeleton shape="line" style={{ width: '62%', height: 22 }} />
               <Skeleton shape="line" style={{ width: '40%', height: 14 }} />
@@ -367,9 +367,9 @@ export default function SettingsPage() {
       )}
 
       <div className={`app-screen-x ${styles.page}`}>
-        {/* Hero: the practice identity. The whole card opens Practice info —
-            the row and the profile card answered the same question, so they
-            are one object now. */}
+        {/* Hero: the practice identity as ONE tappable object (identity +
+            chevron) that opens Practice info — no inner link row, so the card
+            reads as the single action it is. */}
         <SurfaceButton
           tier="feature"
           className={styles.hero}
@@ -387,14 +387,12 @@ export default function SettingsPage() {
               <span className={styles.heroInitials} aria-hidden="true">{initialsOf(profileName)}</span>
             )}
             <span className={styles.heroText}>
-              <span className="t-micro">Practice</span>
               <span className={`t-title ${styles.heroName}`}>{profileName}</span>
-              {practiceName && <span className="t-callout">{practiceName}</span>}
+              <span className={`t-label ${styles.heroMeta}`}>
+                {practiceName ? `${practiceName} · Practice info` : 'Practice info'}
+              </span>
             </span>
-          </span>
-          <span className={styles.heroEdit}>
-            Practice info
-            <Icon name="alt-arrow-right-linear" size={16} />
+            <Icon name="alt-arrow-right-linear" size={20} className={styles.heroChevron} />
           </span>
         </SurfaceButton>
 
