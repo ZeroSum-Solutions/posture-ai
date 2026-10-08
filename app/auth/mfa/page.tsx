@@ -5,7 +5,7 @@ import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
 import Lens from '@/components/ui/Lens'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { safeNextPath } from '@/lib/auth/safe-next'
+import { hardNavigate, safeNextPath } from '@/lib/auth/safe-next'
 import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
@@ -44,6 +44,13 @@ export default function MfaPage() {
   const initializing = useRef(false)
 
   const completeAdmission = useCallback(async (admissionMode: MfaMode) => {
+    // Password recovery needs the AAL2 session before updateUser. Complete
+    // admission only after the password has changed and this page returns.
+    if (admissionMode === 'recovery' && nextTarget.current === '/auth/update-password') {
+      hardNavigate(nextTarget.current)
+      return true
+    }
+
     let response: Response
     try {
       response = await fetch(
@@ -66,7 +73,7 @@ export default function MfaPage() {
       return false
     }
 
-    window.location.assign(nextTarget.current)
+    hardNavigate(nextTarget.current)
     return true
   }, [])
 
@@ -214,8 +221,8 @@ export default function MfaPage() {
       return
     }
 
-    // challengeAndVerify saves a replacement AAL2 session. Complete admission
-    // on the server, then hard-navigate so proxy and Server Components see it.
+    // challengeAndVerify saves a replacement AAL2 session. Recovery returns
+    // to the password form first; other paths complete admission on the server.
     const completed = await completeAdmission(mode)
     if (!completed) setSubmitting(false)
   }
