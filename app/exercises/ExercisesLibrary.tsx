@@ -192,6 +192,11 @@ export default function ExercisesLibrary({
 
           {/* Results are hairline rows on the canvas: name, category · equipment, and a
               compact add. Tapping the row opens that movement in place (one at a time). */}
+          {/* Review status is stated once, where Add is pressed, rather than tagged on
+              every row: references are unreviewed unless the row says Reviewed. */}
+          {visibleCollection.some(item => item.kind !== 'reviewed') && (
+            <p className={styles.reviewScope}>Licensed reference · not program reviewed, unless marked Reviewed</p>
+          )}
           <ul className={styles.rows}>
             {visibleCollection.map((item, index) => {
               const key = `${item.kind}:${item.exercise.id}`

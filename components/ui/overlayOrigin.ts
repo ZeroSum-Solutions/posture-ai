@@ -1,8 +1,9 @@
 /**
  * "Morph from cause" (DESIGN.md › Motion rule 2): overlays grow out of the
  * control that opened them. One capture-phase pointerdown listener remembers
- * the rect of the last pressed control; an overlay that opens shortly after
- * reads it once (a single layout read at open, never in an animation frame).
+ * the last pressed control (no layout read on press, so navigation taps stay
+ * free of forced layout); an overlay that opens shortly after measures it once
+ * (a single layout read at open, never in an animation frame).
  * Keyboard opens fall back to the focused element.
  */
 
@@ -12,7 +13,7 @@ export type OverlayOrigin = OriginRect | HTMLElement | null | undefined
 const CONTROL = 'button, a[href], [role="button"], [role="link"], [role="tab"], summary, label'
 const MAX_AGE_MS = 900
 
-let last: { rect: OriginRect; at: number } | null = null
+let last: { el: Element; at: number } | null = null
 let installed = false
 
 function toRect(el: Element): OriginRect {
@@ -29,7 +30,7 @@ export function trackOverlayOrigins(): void {
     (event) => {
       const target = (event.target as Element | null)?.closest?.(CONTROL)
       if (!target) return
-      last = { rect: toRect(target), at: Date.now() }
+      last = { el: target, at: Date.now() }
     },
     { capture: true, passive: true },
   )
@@ -44,7 +45,7 @@ export function readOverlayOrigin(explicit?: OverlayOrigin | 'none'): OriginRect
   if (typeof window === 'undefined' || explicit === 'none') return null
   if (explicit && 'getBoundingClientRect' in explicit) return toRect(explicit)
   if (explicit) return explicit as OriginRect
-  if (last && Date.now() - last.at < MAX_AGE_MS) return last.rect
+  if (last && Date.now() - last.at < MAX_AGE_MS && last.el.isConnected) return toRect(last.el)
   const focused = document.activeElement
   if (focused && focused !== document.body && focused.matches?.(CONTROL)) return toRect(focused)
   return null

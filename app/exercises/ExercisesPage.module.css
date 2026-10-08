@@ -68,6 +68,7 @@
 
 .field { display: grid; gap: var(--s-8); min-width: 0; }
 
+.reviewScope { margin: 0 0 var(--s-8); font: var(--t-label); color: var(--ink-3); }
 .status { margin: 0; font: var(--t-label); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 /* ── selection tray (ActionBar) ────────────────────────────────────── */

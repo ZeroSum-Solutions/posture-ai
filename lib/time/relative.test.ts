@@ -73,6 +73,11 @@ describe('absolute formats', () => {
     expect(axisDate('2026-07-12T09:30:00.000Z')).toBe('12 Jul')
   })
 
+  it('uses the UTC calendar day and a fixed month spelling', () => {
+    // 03:21 UTC on 7 Sep is 6 Sep in Los Angeles; every screen must say 7 Sep.
+    expect(axisDate('2026-09-07T03:21:43.000Z')).toBe('7 Sep')
+  })
+
   it('returns null for unusable input', () => {
     expect(shortDate(null)).toBeNull()
     expect(axisDate('nope')).toBeNull()
