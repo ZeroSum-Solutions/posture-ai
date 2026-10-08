@@ -1,26 +1,15 @@
-/* Colour is tint + ring (inline, keyed off severity.ts) + icon + word — never
-   colour alone. */
-
+/* v4: beads + word, no pill. Word in the band colour (all ≥4.5:1 on canvas). */
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-4);
-  height: 28px;
-  padding: 0 var(--s-12);
-  border-radius: var(--r-full);
+  gap: var(--s-8);
+  min-height: 24px;
   white-space: nowrap;
+  color: var(--ink-3);
 }
-.sm {
-  height: 24px;
-  padding: 0 var(--s-8);
-}
-
-/* Font only — no colour, so the chip's inline `color` (the band tone) carries
-   through to the label. */
-.label {
-  font: var(--t-subhead);
-  font-weight: 500;
-}
-.sm .label {
-  font: var(--t-caption);
-}
+.chip[data-band='maintain'] { color: var(--maintain); }
+.chip[data-band='monitor'] { color: var(--monitor); }
+.chip[data-band='review'] { color: var(--review); }
+.label { font: var(--t-label); font-weight: 600; letter-spacing: 0.01em; }
+.sm { gap: 6px; min-height: 20px; }
+.sm .label { font: var(--t-caption); font-weight: 600; }

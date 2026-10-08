@@ -1,63 +1,193 @@
+/* Array v4 FilterChip — DESIGN.md › Shape (controls are pills). Two stacked
+   faces: the resting face (surface-2, ink-2) and an ink-1 fill face clipped
+   by a circle grown from the touch point, so the selection pours in. */
+
+@property --chiprow-fade-l {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 20px;
+}
+
+@property --chiprow-fade-r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 20px;
+}
+
 .chip {
+  --fx: 50%;
+  --fy: 50%;
   position: relative;
+  isolation: isolate;
   display: inline-flex;
-  align-items: center;
-  gap: var(--s-4);
+  flex: none;
   height: 36px;
-  padding: 0 var(--s-12);
+  padding: 0;
   border: 0;
   border-radius: var(--r-full);
-  background: var(--surface-flat);
-  box-shadow: inset 0 0 0 1px var(--border);
-  color: var(--text-2);
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--ctl-plate-edge), inset 0 0 0 1px var(--hairline);
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 340ms var(--ease-spring);
 }
-/* 48px hit area via ::after inset, without growing the 36px visual. */
+
+/* 44px hit area without growing the 36px pill. */
 .chip::after {
   content: '';
   position: absolute;
-  inset: -6px 0;
-}
-.chip:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  inset: -4px 0;
 }
 
-/* Selected: accent tint + accent ring + a leading check — white stays
-   reserved for the one primary action per screen. */
-.selected {
-  background: var(--accent-tint);
-  box-shadow: inset 0 0 0 1px var(--accent-ring);
-  color: var(--text-1);
+.chip:active {
+  transform: scale(0.95);
+  transition-duration: 90ms;
+  transition-timing-function: var(--ease-standard);
 }
-.check {
-  color: var(--accent);
+
+.chip:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip[data-selected='false']:hover {
+    background: var(--surface-3);
+  }
+}
+
+.face {
+  position: relative;
+  display: inline-flex;
+  mix-blend-mode: difference;
+  color: var(--ink-1);
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--s-12) 0 var(--s-12);
+}
+
+/* Leading slot: 0 wide at rest, opens for the check (or an icon). */
+.slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 0;
+  height: 16px;
+  overflow: hidden;
+  transition: width var(--duration-state) var(--ease-spring);
+}
+
+.slot[data-has-icon='true'],
+.chip[data-selected='true'] .slot {
+  width: 20px;
 }
 
 .label {
-  font: var(--t-subhead);
-  font-weight: 500;
-}
-.count {
-  font: var(--t-caption);
-  opacity: 0.65;
-  font-variant-numeric: tabular-nums;
+  font: var(--t-callout);
+  letter-spacing: -0.005em;
+  opacity: 0.78;
+  transition: opacity var(--duration-state) var(--ease-standard);
 }
 
-/* Edge fade mask — no blur, no wrap. */
-.rowMask {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+.chip[data-selected='true'] .label {
+  opacity: 1;
 }
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: var(--s-8);
+  margin-right: calc(var(--s-4) * -1);
+  padding: 0 var(--s-4);
+  border-radius: var(--r-full);
+  background: var(--hairline);
+  font: var(--t-micro);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-1);
+}
+
+/* The liquid: ink-1 fill + inverted copy, clipped to a circle from the touch. */
+.fill {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  border-radius: inherit;
+  background: var(--ink-1);
+  clip-path: circle(0 at var(--fx) var(--fy));
+  transition: clip-path 260ms var(--ease-standard);
+  pointer-events: none;
+}
+
+.chip[data-selected='true'] .fill {
+  clip-path: circle(140% at var(--fx) var(--fy));
+  transition: clip-path 520ms var(--ease-out-expo);
+}
+
+.check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.check path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  transition: stroke-dashoffset 120ms var(--ease-standard);
+}
+
+.chip[data-selected='true'] .check path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 320ms 140ms var(--ease-out-expo);
+}
+
+/* ── ChipRow: one line, scrolls, fades only where there is more. ── */
+
+.rowMask {
+  min-width: 0;
+}
+
 .row {
   display: flex;
   gap: var(--s-8);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   padding: var(--s-4) var(--s-16);
+  scroll-padding-inline: var(--s-16);
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--chiprow-fade-l), #000 calc(100% - var(--chiprow-fade-r)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--chiprow-fade-l), #000 calc(100% - var(--chiprow-fade-r)), transparent 100%);
 }
+
 .row::-webkit-scrollbar {
   display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .row {
+    animation: chiprow-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+}
+
+@keyframes chiprow-fade {
+  0% { --chiprow-fade-l: 0px; --chiprow-fade-r: 28px; }
+  6% { --chiprow-fade-l: 28px; }
+  94% { --chiprow-fade-r: 28px; }
+  100% { --chiprow-fade-l: 28px; --chiprow-fade-r: 0px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip, .chip:active { transform: none; transition: none; }
+  .fill, .chip[data-selected='true'] .fill { transition: clip-path var(--duration-reduced) ease-out; }
+  .slot, .check path { transition: none !important; }
 }

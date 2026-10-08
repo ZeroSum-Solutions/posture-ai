@@ -1,5 +1,7 @@
-/* Array v3 TabBar — replaces the island (DESIGN.md › Navigation, spec §3.7).
-   Docked, full-width, chrome glass, 56px + safe-area-bottom, top hairline. */
+/* Array v4 dock — DESIGN.md › Navigation. A floating liquid-glass capsule
+   12px above the safe area. The active slot grows (flex-grow on a spring
+   curve) into a labelled pill; the plate under it fades/scales in, so the
+   selection reads as one shape moving between slots — without layout reads. */
 
 .bar {
   position: fixed;
@@ -7,158 +9,126 @@
   z-index: var(--z-tabbar);
   display: flex;
   justify-content: center;
-  background: var(--glass-chrome);
-  -webkit-backdrop-filter: var(--glass-chrome-filter);
-  backdrop-filter: var(--glass-chrome-filter);
-  border-top: 1px solid var(--hairline);
-  padding-bottom: var(--sa-b);
-  transition: transform var(--duration-layout) var(--ease-standard), opacity var(--duration-layout) var(--ease-standard);
+  padding: 0 max(var(--s-16), var(--sa-l)) calc(var(--sa-b) + var(--dock-gap)) max(var(--s-16), var(--sa-r));
+  pointer-events: none;
+  transition: transform var(--duration-layout) var(--ease-out-expo), opacity var(--duration-state) var(--ease-standard);
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .bar { background: var(--glass-chrome-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
-}
-@supports not (backdrop-filter: blur(1px)) {
-  .bar { background: var(--glass-chrome-solid); }
-}
-
-/* The keyboard hides the bar entirely rather than squeezing it (spec §7.22). */
 .bar[data-keyboard-open='true'] {
-  transform: translateY(100%);
+  transform: translateY(140%);
   opacity: 0;
+}
+
+.dock {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  width: min(380px, 100%);
+  height: var(--dock-h);
+  padding: 6px;
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+  transition: width var(--duration-layout) var(--ease-spring), height var(--duration-layout) var(--ease-spring);
+}
+
+/* Specular rim: a 1px gradient border, bright on top. */
+.dock::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
   pointer-events: none;
 }
 
-.nav {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  width: min(var(--content-max), 100%);
-  height: var(--tabbar-h);
-  padding-inline: max(var(--s-8), var(--sa-l)) max(var(--s-8), var(--sa-r));
-}
+.bar[data-tight='true'] .dock { width: min(312px, 100%); height: 58px; }
+.bar[data-tight='true'] .label { opacity: 0; }
+.bar[data-tight='true'] .slot[data-active='true'] { flex-grow: 1; }
 
 .slot {
   position: relative;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 44px;
+  height: 100%;
   display: flex;
-  text-decoration: none;
-  min-height: 48px;
-}
-
-.slotInner {
-  position: relative;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  width: 100%;
-  height: 100%;
-}
-
-/* The accent indicator springs in under the active slot with a scaleX
-   overshoot ("jelly"). CSS keyframes, so navigation never reads layout. */
-.indicator {
-  position: absolute;
-  top: 2px;
-  width: 32px;
-  height: 3px;
+  gap: 6px;
   border-radius: var(--r-full);
-  background: var(--accent);
-  animation: indicator-jelly var(--duration-layout) var(--ease-spring) both;
+  color: var(--ink-3);
+  text-decoration: none;
+  overflow: hidden;
+  transition: flex-grow var(--duration-layout) var(--ease-spring), color var(--duration-state) var(--ease-standard), transform var(--duration-press) var(--ease-standard);
 }
 
-@keyframes indicator-jelly {
-  0% { transform: scaleX(0.3); opacity: 0; }
-  60% { transform: scaleX(1.15); opacity: 1; }
-  100% { transform: scaleX(1); opacity: 1; }
-}
+.slot[data-active='true'] { flex-grow: 2.35; color: var(--ink-1); }
+.slot:active { transform: scale(0.92); }
 
-@media (prefers-reduced-motion: reduce) {
-  .indicator { animation: none; }
-}
-
-.iconWrap {
-  display: flex;
-  margin-top: 6px;
-}
-
-.iconActive { color: var(--text-1); }
-.iconInactive { color: var(--text-2); }
-
-.label {
-  font: var(--t-caption);
-  letter-spacing: 0.01em;
-  color: var(--text-2);
-  transition: color var(--duration-state) var(--ease-standard);
-}
-.labelActive { color: var(--text-1); }
-
-/* Capture: a raised circle, never an "active" slot. The label sits on the same
-   baseline as the other slots' labels; only the circle rises above the bar, by
-   --capture-raise (which --chrome-bottom also reserves). */
-.actionWrap {
-  position: relative;
-  flex: 0 0 auto;
-  width: 72px;
-  height: var(--tabbar-h);
-}
-
-.action {
+.plate {
   position: absolute;
   inset: 0;
-  display: block;
-  text-decoration: none;
-  color: var(--text-1);
-  border-radius: var(--r-md);
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transform: scale(0.6, 0.8);
+  transition: opacity var(--duration-state) var(--ease-standard), transform var(--duration-layout) var(--ease-jelly);
 }
 
-.actionCircle {
-  position: absolute;
-  left: 50%;
-  /* Circle bottom clears the label line (label occupies the bottom 20px). */
-  bottom: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.slot[data-active='true'] .plate { opacity: 1; transform: none; }
+
+.icon { position: relative; flex: none; }
+
+.label {
+  position: relative;
+  font: var(--t-label);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  max-width: 0;
+  opacity: 0;
+  transition: max-width var(--duration-layout) var(--ease-spring), opacity var(--duration-state) var(--ease-standard);
+}
+
+.slot[data-active='true'] .label { max-width: 96px; opacity: 1; transition-delay: 0s, 60ms; }
+
+.lensLink {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
   width: 56px;
-  height: 56px;
-  margin-left: -28px;
-  border-radius: var(--r-full);
-  background: var(--capture);
-  color: var(--text-on-action);
-  box-shadow: var(--shadow-float);
-}
-
-.actionLabel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 4px;
-  font: var(--t-caption);
-  letter-spacing: 0.01em;
-  text-align: center;
-  color: var(--text-1);
-}
-
-/* Below 360px the circle shrinks so it keeps 8px clear of its neighbours. */
-@media (max-width: 360px) {
-  .actionWrap { width: 64px; }
-  .actionCircle { width: 48px; height: 48px; margin-left: -24px; }
-}
-
-.slot:focus-visible,
-.action:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
+  height: 52px;
+  margin-inline: 2px;
   border-radius: var(--r-md);
+  text-decoration: none;
+  transition: transform var(--duration-press) var(--ease-standard);
 }
 
-/* Press feedback in CSS: framer tap gestures would add extra tab stops. */
-.slotInner, .actionCircle { transition: transform var(--duration-press) var(--ease-spring); }
-.slot:active .slotInner { transform: scale(0.97); }
-.action:active .actionCircle { transform: scale(0.94); }
+.lensLink:active { transform: scale(0.88); }
+.lensLink:focus-visible { outline-offset: 4px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .slot:not([data-active='true']):hover { color: var(--ink-2); }
+}
+
+@media (max-width: 360px) {
+  .slot[data-active='true'] { flex-grow: 2; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .slot:active .slotInner, .action:active .actionCircle { transform: none; }
+  .bar, .dock, .slot, .plate, .label { transition-duration: 0.01ms; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dock { background: var(--glass-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }

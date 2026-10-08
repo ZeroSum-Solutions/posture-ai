@@ -1,0 +1,13 @@
+.beads { display: inline-flex; align-items: center; gap: calc(var(--bead) * 0.5); }
+.bead {
+  width: var(--bead);
+  height: var(--bead);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+.beads[data-band='maintain'] .bead[data-on] { background: var(--maintain); box-shadow: 0 0 calc(var(--bead) * 1.4) -1px var(--maintain-ring); }
+.beads[data-band='monitor'] .bead[data-on] { background: var(--monitor); box-shadow: 0 0 calc(var(--bead) * 1.4) -1px var(--monitor-ring); }
+.beads[data-band='review'] .bead[data-on] { background: var(--review); box-shadow: 0 0 calc(var(--bead) * 1.4) -1px var(--review-ring); }
+.beads[data-animate] .bead[data-on] { animation: bead-pop 520ms var(--ease-jelly) both; animation-delay: calc(var(--i) * 70ms); }
+@keyframes bead-pop { from { transform: scale(0); } }
+@media (prefers-reduced-motion: reduce) { .beads[data-animate] .bead[data-on] { animation: none; } }

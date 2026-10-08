@@ -1,246 +1,213 @@
 ---
-version: 3
-name: Posture AI — Array v3
+version: 4
+name: Posture AI — Kinetic Instrument
 description: >-
-  Mobile-first glass console for posture screening on the gym floor. Pure black
-  field under a slow gradient glow, flat legible content, glass only on chrome
-  and one hero card per screen, white pill primary actions, a docked labelled tab
-  bar with a raised Capture button, and spring physics on every interaction.
-  Replaces Array v2. Full rationale and component specs: docs/design/array-v3-spec.md.
+  A dark, fluid instrument for reading posture on the gym floor. Near-black
+  canvas under a slow aura, content set directly on the canvas with strong
+  typographic hierarchy, one electric "volt" action colour, liquid glass only on
+  floating chrome and one hero per screen, and spring physics on every state
+  change. Signature object: the Lens — a living squircle that is the capture
+  button, the loader and the scan-complete moment. Replaces Array v3.
 colors:
-  background: "#000000"
-  text-1: "rgba(255,255,255,0.95)"
-  text-2: "rgba(255,255,255,0.72)"
-  text-3: "rgba(255,255,255,0.58)"
-  surface-flat: "rgba(255,255,255,0.07)"
-  surface-flat-pressed: "rgba(255,255,255,0.12)"
-  surface-field: "rgba(255,255,255,0.08)"
-  border: "rgba(255,255,255,0.12)"
-  border-field: "rgba(255,255,255,0.38)"
-  hairline: "rgba(255,255,255,0.10)"
-  glass-card: "rgba(24,24,28,0.72)"
-  glass-chrome: "rgba(18,18,22,0.78)"
-  scrim: "rgba(0,0,0,0.56)"
-  action: "#FFFFFF"
-  text-on-action: "#000000"
-  accent: "#4DB2FF"
-  capture: "#34D399"
-  maintain: "#34D399"
-  monitor: "#FBBF24"
-  review: "#FF7A7A"
+  canvas: "#050608"
+  surface-1: "#0E1013"        # solid raised: sheets, dialogs, hero fallback
+  surface-2: "#16191D"        # fields, pressed rows, chart wells
+  surface-3: "#1E2227"        # selected plates, thumbs
+  hairline: "rgba(255,255,255,0.08)"
+  edge: "rgba(255,255,255,0.14)"
+  ink-1: "#F5F7F8"            # titles, values
+  ink-2: "rgba(235,240,245,0.72)"  # body
+  ink-3: "rgba(235,240,245,0.54)"  # metadata (≥4.5:1 on canvas)
+  volt: "#D4FF3A"             # THE action colour: primary button, Lens, focus, "now" marker
+  volt-ink: "#0B0D02"
+  maintain: "#5EEAD4"
+  monitor: "#FFC34D"
+  review: "#FF6B5E"
+  glass: "rgba(18,20,24,0.62) + blur(28px) saturate(160%)"
+  scrim: "rgba(2,3,4,0.62)"
 typography:
-  font: "system (SF Pro on Apple, Roboto on Android)"
-  display:   { size: "34px", weight: 300, lineHeight: "40px", tracking: "-0.02em" }
-  title-1:   { size: "28px", weight: 300, lineHeight: "34px", tracking: "-0.015em" }
-  title-2:   { size: "22px", weight: 500, lineHeight: "28px", tracking: "-0.01em" }
-  headline:  { size: "17px", weight: 500, lineHeight: "22px" }
-  body:      { size: "16px", weight: 400, lineHeight: "24px" }
-  callout:   { size: "15px", weight: 400, lineHeight: "22px" }
-  subhead:   { size: "14px", weight: 400, lineHeight: "20px", tracking: "0.005em" }
-  footnote:  { size: "13px", weight: 400, lineHeight: "18px", tracking: "0.005em" }
-  caption:   { size: "12px", weight: 500, lineHeight: "16px", tracking: "0.01em" }
-  overline:  { size: "12px", weight: 500, lineHeight: "16px", tracking: "0.08em", transform: "uppercase" }
-  readout-xl: { size: "56px", weight: 300, lineHeight: "56px", tracking: "-0.03em", numeric: "tabular" }
-  readout-lg: { size: "28px", weight: 400, lineHeight: "32px", tracking: "-0.02em", numeric: "tabular" }
-  readout-md: { size: "20px", weight: 500, lineHeight: "24px", tracking: "-0.01em", numeric: "tabular" }
-  readout-sm: { size: "15px", weight: 500, lineHeight: "20px", numeric: "tabular" }
-radius:  { sm: "8px", md: "14px", lg: "20px", xl: "28px", full: "9999px" }
-spacing: { base: "4px", scale: [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64], screen-x: "16px", card: "16px", card-hero: "20px", section: "24px", group: "32px" }
-blur:    { card: "20px", chrome: "24px" }
+  family: "Geist (UI + numerals, tabular) · Geist Mono (micro labels, units, axes)"
+  hero:     { size: "72px", lineHeight: "0.92", weight: 600, tracking: "-0.055em" }
+  display:  { size: "40px", lineHeight: "42px", weight: 600, tracking: "-0.04em" }
+  title:    { size: "28px", lineHeight: "32px", weight: 600, tracking: "-0.03em" }
+  headline: { size: "19px", lineHeight: "24px", weight: 600, tracking: "-0.015em" }
+  body:     { size: "16px", lineHeight: "24px", weight: 400, tracking: "-0.006em" }
+  callout:  { size: "15px", lineHeight: "20px", weight: 500, tracking: "-0.005em" }
+  label:    { size: "13px", lineHeight: "18px", weight: 500, tracking: "0" }
+  micro:    { size: "11px", lineHeight: "14px", weight: 500, tracking: "0.08em", family: "Geist Mono", case: "upper" }
+radius: { xs: 10, sm: 14, md: 20, lg: 28, xl: 36, pill: 999, squircle: "corner-shape: squircle where supported" }
+spacing: [4, 8, 12, 16, 20, 24, 32, 40, 56, 72]
+gutter: { default: 20, narrow-360: 16 }
+motion:
+  tap:    { stiffness: 700, damping: 32, mass: 0.5 }   # press feedback
+  snap:   { stiffness: 520, damping: 38, mass: 0.8 }   # chips, toggles, selection
+  morph:  { stiffness: 340, damping: 30, mass: 1 }     # shape morphs (pill→sheet, row→detail)
+  glide:  { stiffness: 260, damping: 30, mass: 1 }     # pages, shared elements, sheets
+  jelly:  { stiffness: 300, damping: 14, mass: 1 }     # loaders, Lens, celebration
+  settle: { stiffness: 200, damping: 26, mass: 1 }     # drag release with velocity
 ---
 
-# Array v3
+# Kinetic Instrument (Array v4)
 
-Array v3 keeps what made v2 recognisable — the black field, white pill primaries,
-three severity bands, a measurement always shown with its reference range — and
-fixes what made it hard to use: 12px Light body text, a 2.46:1 "quiet" text tier,
-44 font sizes in the wild, a floating island that covered content, no shared
-Button/Input/Sheet, and glass on every row. The long-form spec (every component's
-anatomy, props and states, every screen's layout, the motion physics) lives in
-`docs/design/array-v3-spec.md`. This file is the contract; when the two disagree,
-this file wins.
+v3 was rejected as generic: every surface the same grey card, white pills,
+paragraphs of explanation, tiny charts, no hero and no identity. v4 keeps the
+routes, data and accessibility work and replaces the look, the motion and the
+information architecture.
 
 ## Principles
 
-1. **One screen, one question, one primary action.** The primary action is a single
-   white pill in the bottom third (the ActionBar). Everything else is secondary.
-2. **Legibility is a budget.** Body is 16px/400. Nothing readable is under 12px.
-   Every text tier clears 4.5:1 against the worst glass backdrop (`#1C1C1E`).
-3. **Glass is chrome, not content.** Blur only on the tab bar, collapsed top bar,
-   sheets, toasts and at most one hero card per screen. Never more than two blurred
-   layers visible at once. Rows, fields, chips and text bodies are flat.
-4. **Tokens or nothing.** Components read type, spacing, radius, colour and motion
-   from tokens. No raw font-size, colour or radius literals in component CSS.
-5. **Every control is touchable and never covered.** 48px hit areas, 8px gaps.
-   Fixed chrome reserves its exact height (`--chrome-bottom`); nothing floats over
-   scrolling content.
-6. **Motion is physics, and it is interruptible.** Named springs only, ≤450ms
-   settle, and a 150ms crossfade under `prefers-reduced-motion`.
-7. **Say what it is, in words.** Tabs show labels. Severity is word + icon + colour.
-   Empty and error states say what happened and offer one action. Screening
-   vocabulary only.
+1. **Show only what the practitioner needs now.** One question per screen, one
+   answer at the top, one primary action. Explanations live behind a tap
+   (sheet or "Why?"), not on the page. Merge sections that answer the same
+   question.
+2. **Content sits on the canvas.** Hierarchy comes from type size, weight and
+   space — not from boxes. Cards exist only for objects you can act on as a
+   whole (a waiting report, a saved workout). Lists are rows with hairlines.
+3. **One hero per screen.** The hero may use liquid glass or a large numeral;
+   nothing else competes with it.
+4. **Volt means "do this".** The lime action colour appears on the single
+   primary action, the Lens, focus rings and the "now" marker in charts —
+   nowhere else. Severity colours appear only on severity encodings.
+5. **Everything morphs; nothing pops.** A state change moves the thing that
+   changed, from where the finger was, with a spring. Containers morph,
+   their content crossfades.
+6. **Every encoding is honest.** Values show units and dates. Severity is a
+   word plus an ordinal bead count plus colour — never colour alone. Charts
+   never imply change that a single scan cannot show.
 
 ## Type
 
-The platform system font: SF Pro on Apple devices (HIG), Roboto on Android (M3);
-no web font is shipped. Weights 300/400/500 only. Use the role classes (`.t-display`, `.t-title-1`,
-`.t-title-2`, `.t-headline`, `.t-body`, `.t-callout`, `.t-subhead`, `.t-footnote`,
-`.t-caption`, `.t-overline`, `.t-readout-xl|lg|md|sm`) or the matching `--t-*`
-custom properties; never set font-size or weight by hand. Sizes are rem so OS text
-scaling reflows. Light (300) is allowed only at 28px and above. Headings take their
-role class, never a weight by tag. Readouts use tabular numerals. Inputs are exactly
-16px (no iOS focus zoom). Prose max width 38rem. Layouts survive 200% text.
+Geist for everything, Geist Mono only for `micro` labels, units and chart axes.
+Eight roles, no others: `hero`, `display`, `title`, `headline`, `body`,
+`callout`, `label`, `micro` (classes `.t-*`, custom properties `--t-*`). Sizes
+are rem so text scaling reflows. Numerals are tabular everywhere. A screen
+uses at most four roles. Weight 600 is for headings and values; body is 400;
+`callout`/`label` are 500. Inputs are 16px.
+
+Hierarchy recipe per screen: `micro` eyebrow (date, context) → `display` or
+`hero` answer → `headline` section heads → `body`/`callout` rows → `label`
+metadata.
 
 ## Colour
 
-Three text tiers only: `--text-1` (.95) titles and values, `--text-2` (.72) body
-and secondary, `--text-3` (.58) metadata, hints, placeholders. The v2 `--text-quiet`
-(.30) tier is gone. Disabled content is 38% opacity with a reason line above it.
+Near-black canvas `#050608` under the **aura**: two large blurred radial
+lights (deep ink-blue top-left, faint volt bottom-right) and 3% film grain.
+The aura tints toward the current result's highest severity on Results.
 
-`--accent` (#4DB2FF) is the one interactive accent: links,
-progress fills, selected tints, spinners. `--capture` (#34D399) belongs to the
-Capture button and capture-ready states only.
+Ink tiers `ink-1/2/3` carry all text. Surfaces are solid (`surface-1..3`);
+glass is reserved (see Materials). Severity hues: Maintain teal, Monitor
+amber, Review coral — saturated enough to read as signal on black, never used
+as fills larger than a bead or a chart mark.
 
-Severity is never colour alone: a chip is tint (16%) + ring (42%) + icon + word.
+## Materials
 
-| Band     | Fg        | Icon         | Grades | Means                     |
-|----------|-----------|--------------|--------|---------------------------|
-| Maintain | `#34D399` | check-circle | A, B   | Inside range, keep going  |
-| Monitor  | `#FBBF24` | eye          | C      | Outside range, not urgent |
-| Review   | `#FF7A7A` | flag         | D, E   | Flag and address          |
+- **Canvas** — content, lists, charts.
+- **Solid** (`surface-1`) — sheets, dialogs, fields, chart wells.
+- **Liquid glass** — the floating dock, the Island (toasts), the top bar once
+  scrolled, and at most one hero object per screen. Glass = translucent fill,
+  28px blur, a 1px gradient edge (brighter on top: the specular rim) and a
+  soft inner highlight. Never stack two glass layers. Under
+  `prefers-reduced-transparency` glass becomes `surface-1`.
 
-The v2 hues (`#10B981/#F59E0B/#EF4444`) survive only as chart fills. A severity
-band appears once per row, never twice.
+## Shape
 
-Focus: a 2px white outline offset 2px on `:focus-visible` (fields and buttons may draw the same
-ring as `--focus-ring`, a black gap plus a white ring). Programmatically focused headings show none.
-
-## Materials — three, no more
-
-| Material | Where | Recipe | Fallback |
-|---|---|---|---|
-| **Flat** | rows, tiles, fields, chips, stat blocks, text bodies | `--surface-flat` + 1px `--hairline`, no blur | same |
-| **Card glass** | one hero card per screen, max | `--glass-card` + `blur(20px) saturate(1.3)` + 1px `--border` + inset top highlight | `#17171A` |
-| **Chrome glass** | tab bar, collapsed top bar, sheets, toasts, camera overlays | `--glass-chrome` + `blur(24px) saturate(1.4)` | `#141417` |
-
-The ActionBar is solid (`--surface-solid` + top hairline), never glass, so a
-scrolled screen never stacks three blurred layers. Glass edges are lit by a conic
-edge-light gradient border rather than a flat line.
-
-Scrim behind sheets and dialogs: `--scrim`, no blur. Dialogs are solid
-(`#161618`). Over the live camera or video, text sits on ≥.6 black, never on blur
-alone. Fallbacks apply under `prefers-reduced-transparency: reduce` and
-`@supports not (backdrop-filter: blur(1px))`.
-
-The field is `#000` with the `AmbientField` glow: two fixed radial gradients
-(accent top-left, violet `#6D4AFF` bottom-right, both low alpha) that drift slowly
-on a composited transform. Its brightest point stays at or below `#1C1C1E`. The v2
-photograph is retired. Immersive screens (capture, player) have no field.
+Controls are pills. Objects are squircles (`corner-shape: squircle` where the
+browser supports it; plain radius elsewhere). Radii: 10 chips-in-fields,
+14 fields, 20 rows-as-plates and cards, 28 hero and sheets, 36 the dock.
+**Morph rule:** when a pill becomes a surface its radius tweens from pill to
+28; when a surface collapses back it returns to its origin's radius.
 
 ## Spacing and layout
 
-4px base; the scale is 0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 (`--s-*`). Screen
-margin 16px; content column `min(480px, 100%)`, centred. Card padding 16 (hero 20).
-8px inside a component, 12px between cards, 24px between sections, 32px between
-page groups. List rows 56 / 64 / 72 tall (never under 48). Controls: Button sm 40
-(hit 48) / md 48 / lg 56; TextField 52; Chip 36 (hit 48); Segmented 44.
+4px base: 4, 8, 12, 16, 20, 24, 32, 40, 56, 72. Gutter 20px (16px at ≤360px).
+Section gap 40px; row gap inside a section 0 (hairline rows) or 12px (cards).
+Fixed chrome reserves its height through `--chrome-bottom`; nothing scrolls
+under the dock without padding. Targets ≥44×44px, ≥8px apart.
 
-Radii: `--r-sm` 8 (thumbs, badges), `--r-md` 14 (fields, segmented, banners),
-`--r-lg` 20 (cards, rows-as-cards, toasts), `--r-xl` 28 (sheets, dialog, hero),
-`--r-full` (buttons, chips, avatars). Inner radius = outer − padding.
+## Navigation — the dock and the Lens
 
-Every fixed element pads its touching edge with `env(safe-area-inset-*)`.
-Full-height surfaces use `100dvh`; `100vh` is banned. The shell publishes
-`--chrome-bottom` (tab bar + ActionBar heights); scroll content pads by it + 16px.
+A floating glass capsule (height 64, radius 36, 12px above the safe area):
+Today · Clients · **Lens** · Workouts · You. The active destination expands
+into a pill with icon and label; the others are icon-only with accessible
+names. The selection plate moves between them with `morph` and stretches in
+the direction of travel. The **Lens** sits in the centre: a 52px volt
+squircle with a scan reticle that breathes (`jelly`, 4s, paused under reduced
+motion). Tapping it morphs the Lens into the capture viewfinder. On scroll
+down the dock tightens (icons only, narrower); on scroll up it relaxes.
 
-## Navigation
-
-A docked, full-width tab bar (chrome glass, 56px + safe area) with five labelled
-slots: **Today · Clients · Capture · Workouts · You**. Capture is a raised 56px
-`--capture` circle with a visible "Capture" label in the centre — an action, never
-an active tab; its raise counts toward `--chrome-bottom`, and it shrinks to 48px
-below 360px wide. The active tab
-shows a filled icon, `--text-1` label and a sliding accent indicator. The bar hides
-on immersive routes, while the virtual keyboard is open, and under a large sheet.
-It never hides on scroll. The ActionBar adds the safe-area inset only when it is
-the bottom-most chrome. On every route change focus moves to the page `h1` and a
-live region announces the page; Android back closes an open sheet or dialog. Workouts holds Saved · Builder · Library (exercises and
-muscles); You holds settings, privacy, legal and sign-out.
-
-Each screen starts with a TopBar: a large title (`display`) that collapses into a
-52px chrome-glass bar with a centred `headline` title once scrolled. Back is a 48px
-IconButton with a named label ("Back to Clients").
+The top bar is transparent at rest with a large title in the content; once the
+title scrolls away a compact glass bar with the small title fades in.
 
 ## Actions
 
-- **Primary:** white fill, black text, pill, one per screen, in the ActionBar.
-- **Secondary:** `--surface-field` fill + 1px `--border`, `--text-1` label.
-- **Tertiary:** no fill, `--accent` label ("See all", "Cancel").
-- **Danger:** secondary shape with `--review` text and an icon, only inside a
-  confirm dialog or sheet footer. Never a red primary.
-- Blocked actions dim to 38% and state the reason directly above them.
-- Sizes sm 40 / md 48 / lg 56. Labels are `body`/500 (lg: `headline`/500).
+- **Primary** — volt pill, 52px, `volt-ink` label, one per screen, in the
+  thumb zone. Press: scale .96 (`tap`). Pending: the pill morphs to a 52px
+  circle holding the Lens loader, then to a check, then back. Actions that
+  open a surface morph into that surface.
+- **Secondary** — glass pill with `ink-1` label.
+- **Quiet** — text button, `ink-1`, with a trailing chevron or icon.
+- **Destructive** — coral label; confirmation morphs out of the button.
+- **Icon** — 44px circle, glass on media, transparent on canvas.
 
 ## Motion
 
-Springs live in `lib/motion.ts` and are the only transitions components use:
+Presets in `lib/motion.ts` (`tap`, `snap`, `morph`, `glide`, `jelly`,
+`settle`). Rules:
 
-| Preset | Use | Params |
-|---|---|---|
-| `press` | button/row press | stiffness 520, damping 24, mass 0.7 |
-| `state` | chip, toggle, tab indicator | stiffness 420, damping 32, mass 0.9 |
-| `layout` | expand, collapse, reorder | stiffness 320, damping 30, mass 1 |
-| `sheet` / `sheetOut` | sheet present / dismiss | 380/38 · 440/44, mass 1 |
-| `page` | route enter | stiffness 340, damping 34, mass 0.9 |
-| `loader` | springy loaders | stiffness 260, damping 14, mass 1 |
-| `delight` | scan complete, setup done | stiffness 300, damping 20, mass 1 |
-
-Press = scale .97 (rows .985) plus a pressed overlay within one frame. Route
-transitions are direction-aware (forward from the right, back from the left). Animate only
-transform and opacity (and framer `layout`). No transition settles slower than
-450ms; stagger 40ms, max 6 items. Loaders appear after 300ms and stay ≥500ms. Under
-reduced motion every spring becomes a 150ms fade and loaders become a static pulse.
+1. Containers morph (layout/`layoutId`); their content crossfades — out in
+   80ms, in 140ms after 60ms.
+2. New things come from their cause: a sheet grows out of the row or button
+   that opened it; a toast grows out of the Island.
+3. Exits are faster than entrances (≈0.7×) and never bounce.
+4. Animate transform, opacity, clip-path and radius only. No layout reads in
+   animation frames. One blur layer animates at a time.
+5. Presses respond within one frame (CSS `:active` on links; spring on
+   buttons). Release overshoots slightly.
+6. Values roll digit by digit to the recorded number in ≤500ms. They never
+   animate between unrelated values.
+7. Lists stagger 30ms per item, at most 8.
+8. Gestures hand off velocity; overscroll and over-drag rubber-band
+   (distance × 0.3). Every gesture has a tap equivalent.
+9. `prefers-reduced-motion`: no transforms, no rolls, no breathing; opacity
+   120ms only.
 
 ## Loaders
 
-Springy is the signature: `Spinner` (an arc whose length breathes on the loader
-spring), `BlobLoader` (two counter-rotating rounded squares with a specular glass
-streak — transforms only — for scan processing and long jobs),
-`DotsBounce` (inside buttons), `Skeleton` (layout-matched, one shared shimmer
-clock), `ProgressBar`/`ProgressRing` (spring-chased, never backwards), and
-`RouteProgress`. Lists and cards load with skeletons, never a lone spinner.
+The Lens loader (a squircle morphing circle ⇄ rounded square while its
+reticle rotates) for jobs over a second; shimmer skeletons that mirror the
+final layout for content; button pending morph for actions. Loaders appear
+after 300ms and stay at least 500ms. Never a lone spinner on an empty page.
 
-## Components
+## Severity and data
 
-All shared UI lives in `components/ui/` and is shown in every state at `/dev/kit`.
-Button, IconButton, TextField, SearchField, Select, SegmentedControl, Tabs,
-FilterChip, Badge, SeverityChip, GradeBadge, Surface, Card, ListRow,
-SectionHeader, Disclosure, TopBar, TabBar, ActionBar, Sheet, Dialog, Toast,
-Banner, EmptyState, ErrorState, Stat, Readout, Stepper, Avatar, Switch/Checkbox,
-and the loader family. Screens compose these; they do not restyle them.
+- **Beads** — three small dots; 1 filled = Maintain, 2 = Monitor, 3 = Review,
+  filled in the severity colour, always beside the word.
+- **Range readout** — a finding row: value with unit, name, beads + word, and
+  a band strip (Maintain | Monitor | Review zones) with this scan's marker and
+  hollow markers for earlier scans.
+- **Score gauge**, **trend chart**, **age ladder** — see
+  `docs/design/array-v4-dataviz.md`.
 
 ## Accessibility
 
-Contrast 4.5:1 text / 3:1 large text and non-text, measured on the composited
-background. Hit areas ≥48px, 8px apart. One `<main id="main">` per page with a skip
-link. Sheets and dialogs trap focus, close on Escape and a visible 48px Close, make
-the rest of the page inert, and restore focus. Icon-only controls require a label.
-One `h1` per page and linear heading order. Live regions for toasts, loaders and
-form errors. Zoom is never disabled. Layouts hold at 320px wide and at 200% text.
+WCAG 2.2 AA: text contrast ≥4.5:1 (`ink-3` is the floor), non-text ≥3:1,
+focus ring 2px volt with 2px offset on every control, targets ≥44px, one
+`<main>`, route focus to the `h1`, sheets trap focus and return it, Escape
+and back close overlays, everything works at 360px and 200% text.
 
 ## The 3D posture map
 
-The Three.js posture map (`public/muscle-viewer`, `MuscleModel3D`) and the scan
-animation are out of scope: do not change their rendering or animation. Only the
-chrome around them (controls, buttons, overlays) follows this system.
+`MuscleModel3D`, `public/muscle-viewer` and the anatomy viewer are out of
+scope: rendering, animation and colours do not change. Only the chrome around
+the canvas may change.
 
 ## Do / Don't
 
-**Do** show a measurement with its reference range ("No reference yet" when none).
-Do gate a blocked action and say why. Do keep one primary action per screen. Do
-write disclaimers as one line at the end of the scroll.
-
-**Don't** add a fourth material, a sixth radius, an off-scale space, or a colour
-outside the tokens. Don't put blur on rows, fields or anything inside a scrolling
-list. Don't show the same value twice on one screen. Don't let a chip row wrap —
-scroll it. Don't use a red primary button.
+- Do let the type carry hierarchy. Don't wrap every block in a card.
+- Do put explanations behind "Why?". Don't add banners and paragraphs.
+- Do use volt once per screen. Don't use it for decoration.
+- Do morph from the cause. Don't fade in from nowhere.
+- Do show severity as beads + word. Don't use coloured pill backgrounds.
+- Copy uses screening vocabulary only (never diagnose/treat/patient/
+  prescribe/cure). Legal and consent document text never changes. The line
+  "Screening support only — not a medical diagnosis." stays reachable.

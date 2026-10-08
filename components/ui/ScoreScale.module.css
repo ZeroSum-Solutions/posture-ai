@@ -1,0 +1,39 @@
+.root { display: flex; flex-direction: column; gap: var(--s-8); margin: 0; }
+.head { color: var(--ink-3); }
+.valueRow { display: flex; align-items: baseline; gap: var(--s-8); }
+.value { font: var(--t-hero); letter-spacing: -0.055em; color: var(--ink-1); }
+.compact .value { font: var(--t-readout-lg); letter-spacing: -0.04em; }
+.of { font: var(--t-callout); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.bandWord { margin-left: auto; font: var(--t-headline); }
+.root[data-band='maintain'] .bandWord { color: var(--maintain); }
+.root[data-band='monitor'] .bandWord { color: var(--monitor); }
+.root[data-band='review'] .bandWord { color: var(--review); }
+.previous { font: var(--t-label); color: var(--ink-3); margin-top: calc(-1 * var(--s-4)); }
+
+.scale { position: relative; margin-top: var(--s-12); padding-bottom: 22px; }
+.track { display: flex; gap: 3px; height: 10px; }
+.zone { height: 100%; border-radius: var(--r-full); transform-origin: left; animation: zone-grow 700ms var(--ease-out-expo) both; }
+.zMaintain { background: linear-gradient(90deg, rgba(94, 234, 212, 0.18), rgba(94, 234, 212, 0.42)); }
+.zMonitor { background: linear-gradient(90deg, rgba(255, 195, 77, 0.22), rgba(255, 195, 77, 0.46)); animation-delay: 60ms; }
+.zReview { background: linear-gradient(90deg, rgba(255, 107, 94, 0.26), rgba(255, 107, 94, 0.5)); animation-delay: 120ms; }
+@keyframes zone-grow { from { transform: scaleX(0); } }
+
+.marker {
+  position: absolute;
+  top: -7px;
+  width: 4px;
+  height: 24px;
+  margin-left: -2px;
+  border-radius: var(--r-full);
+  background: var(--volt);
+  box-shadow: 0 0 0 3px var(--canvas, #050608), 0 0 18px 2px var(--volt-glow);
+  animation: marker-drop 820ms 280ms var(--ease-jelly) both;
+}
+@keyframes marker-drop { from { transform: translateY(-14px) scaleY(0.2); opacity: 0; } }
+
+.ticks { position: absolute; inset: auto 0 0; height: 14px; }
+.ticks span { position: absolute; transform: translateX(-50%); font: var(--t-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ticks span:first-child { transform: none; }
+.ticks span:last-child { transform: translateX(-100%); }
+
+@media (prefers-reduced-motion: reduce) { .zone, .marker { animation: none; } }

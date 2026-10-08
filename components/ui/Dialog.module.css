@@ -1,11 +1,10 @@
+/* Array v4 dialog — a centered solid card (surface-1, radius 28) over the
+   scrim. Solid, never glass: confirmations need maximal legibility. */
+
 .scrim {
   position: fixed;
   inset: 0;
   z-index: var(--z-scrim);
-}
-/* Dialog needs maximal legibility: the scrim is the only translucent part —
-   the panel itself is solid, never glass (DESIGN.md › 6.4). */
-.scrim {
   background: var(--scrim);
 }
 
@@ -16,24 +15,72 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--s-16);
+  padding: max(var(--s-20), var(--sa-t)) max(var(--s-20), var(--sa-r)) max(var(--s-20), var(--sa-b)) max(var(--s-20), var(--sa-l));
+  pointer-events: none;
 }
 
 .dialog {
+  pointer-events: auto;
+  position: relative;
   width: 100%;
   max-width: 340px;
-  padding: var(--s-20);
-  border-radius: var(--r-xl);
-  background: var(--surface-dialog);
-  box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.6);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--s-24) var(--s-20) var(--s-20);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--sheen-soft), transparent 70%),
+    var(--surface-1);
+  box-shadow: var(--rim-top), inset 0 0 0 1px var(--hairline), var(--dialog-shadow);
+  will-change: transform;
 }
+
+@supports (corner-shape: squircle) {
+  .dialog { corner-shape: squircle; border-radius: var(--r-xl); }
+}
+
+.glyph {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--s-16);
+  border-radius: var(--r-full);
+  color: var(--review);
+  background: var(--review-tint);
+}
+
+.title {
+  font: var(--t-headline-v4);
+  font-size: 1.3125rem;
+  line-height: 1.625rem;
+  letter-spacing: -0.02em;
+  color: var(--ink-1);
+  text-wrap: balance;
+}
+
+.description {
+  margin-top: var(--s-8);
+  font: var(--t-callout-v4);
+  font-weight: 400;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+  margin-top: var(--s-12);
+  font: var(--t-label);
+  color: var(--review);
+}
+.error > svg { flex: none; margin-top: 1px; }
 
 .actions {
   display: flex;
   flex-direction: column;
-  gap: var(--s-12);
+  gap: var(--s-8);
   margin-top: var(--s-24);
-}
-.actions > button {
-  width: 100%;
 }

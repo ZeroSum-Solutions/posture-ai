@@ -1,3 +1,8 @@
+/* Array v4 Button — DESIGN.md › Actions. Volt pill (primary), glass pill
+   (secondary), text + chevron (quiet/tertiary), coral label (danger).
+   Pending morphs the pill into a circle holding the Lens; the width morph is
+   driven by Button.tsx (FLIP on width) and carried by the curves below. */
+
 .wrap {
   display: inline-flex;
   flex-direction: column;
@@ -10,141 +15,212 @@
 }
 
 .reason {
-  font: var(--t-footnote);
-  color: var(--text-2);
+  font: var(--t-label);
+  color: var(--ink-2);
 }
 
 .btn {
+  --btn-h: 52px;
+  --btn-pad: var(--s-24);
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--s-8);
+  flex-shrink: 0;
+  min-width: var(--btn-h);
+  height: var(--btn-h);
+  min-height: var(--btn-h);
+  padding-inline: var(--btn-pad);
   border: 0;
   border-radius: var(--r-full);
-  font: var(--t-body);
-  font-weight: 500;
+  font: var(--t-callout);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform var(--duration-press) var(--ease-spring), filter var(--duration-state) var(--ease-standard);
+  /* Release: the spring curve lands the scale with a small overshoot. Width
+     springs when the label changes or the pill comes back from a circle. */
+  transition:
+    transform 340ms var(--ease-spring),
+    width var(--duration-layout) var(--ease-spring),
+    padding var(--duration-layout) var(--ease-spring),
+    box-shadow var(--duration-state) var(--ease-standard),
+    opacity var(--duration-state) var(--ease-standard);
 }
 
+/* Press tint, under the content. */
 .btn::before {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-radius: inherit;
   background: var(--overlay-pressed);
   opacity: 0;
-  transition: opacity 60ms linear;
+  transition: opacity 180ms var(--ease-standard);
   pointer-events: none;
 }
 
-.btn:active:not([aria-disabled='true']):not(:disabled)::before {
-  opacity: 1;
+.btn:active:not([aria-disabled='true']):not([data-phase='loading']):not([data-phase='success']) {
+  transform: scale(0.96);
+  transition:
+    transform 90ms var(--ease-standard),
+    width var(--duration-layout) var(--ease-spring),
+    padding var(--duration-layout) var(--ease-spring),
+    box-shadow var(--duration-state) var(--ease-standard),
+    opacity var(--duration-state) var(--ease-standard);
 }
 
-.btn:active:not([aria-disabled='true']):not(:disabled) {
-  transform: scale(0.97);
+.btn:active:not([aria-disabled='true'])::before {
+  opacity: 1;
+  transition-duration: 40ms;
 }
 
 .btn:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
 }
 
 .block {
+  display: flex;
   width: 100%;
 }
 
 /* ── Sizes ── */
 
 .sm {
-  min-height: 40px;
-  padding-inline: var(--s-16);
-}
-
-/* 40 visual + 4px top/bottom pad reaches the 48 hit area without growing the
-   visible pill. */
-.sm::after {
-  content: '';
-  position: absolute;
-  inset: -4px 0;
+  --btn-h: 48px;
+  --btn-pad: var(--s-20);
 }
 
 .md {
-  min-height: 48px;
-  padding-inline: var(--s-20);
+  --btn-h: 52px;
 }
 
 .lg {
-  min-height: 56px;
-  padding-inline: var(--s-20);
+  --btn-h: 56px;
   font: var(--t-headline);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ── Variants ── */
 
 .primary {
-  background: var(--action);
-  color: var(--text-on-action);
-  box-shadow: var(--action-shadow);
+  color: var(--volt-ink);
+  background:
+    radial-gradient(120% 140% at 50% -40%, var(--ctl-sheen), transparent 55%),
+    var(--volt);
+  box-shadow:
+    inset 0 1px 0 var(--ctl-sheen),
+    inset 0 -2px 6px var(--ctl-shade),
+    var(--ctl-glow);
+}
+
+.primary::before {
+  background: var(--ctl-shade);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .primary:not([aria-disabled='true']):not(:disabled):hover {
-    filter: brightness(0.96);
+  .primary:not([aria-disabled='true']):hover {
+    box-shadow:
+      inset 0 1px 0 var(--ctl-sheen),
+      inset 0 -2px 6px var(--ctl-shade),
+      0 14px 36px -10px var(--volt-glow),
+      0 2px 10px -4px var(--volt-glow);
   }
 }
 
+/* Glass pill with the specular rim (masked gradient border, as the dock). */
 .secondary {
-  background: var(--surface-field);
-  color: var(--text-1);
-  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ink-1);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--ctl-drop);
+}
+
+.secondary::after,
+.danger::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .secondary:not([aria-disabled='true']):not(:disabled):hover {
-    background: var(--surface-flat-pressed);
+  .secondary:not([aria-disabled='true']):hover::before,
+  .danger:not([aria-disabled='true']):hover::before,
+  .tertiary:not([aria-disabled='true']):hover::before {
+    opacity: 0.5;
   }
 }
 
+/* Quiet: text button, ink-1, trailing chevron; pressed shows a tint plate. */
 .tertiary {
+  --btn-pad: var(--s-12);
+  color: var(--ink-1);
   background: transparent;
-  color: var(--accent);
-  box-shadow: none;
+}
+
+.tertiary .content {
+  gap: var(--s-4);
+}
+
+.chevron {
+  flex: none;
+  display: flex;
+  color: var(--ink-3);
+  transition: transform 340ms var(--ease-spring), color var(--duration-state) var(--ease-standard);
+}
+
+.btn:active .chevron {
+  transform: translateX(3px);
+  color: var(--ink-1);
+  transition-duration: 90ms;
 }
 
 .danger {
-  background: var(--surface-field);
   color: var(--review);
-  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--surface-2);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .danger:not([aria-disabled='true']):not(:disabled):hover {
-    background: var(--surface-flat-pressed);
-  }
-}
+/* ── Disabled: dim, flat, still announces why (see .reason). ── */
 
-.btn[aria-disabled='true'],
-.btn:disabled {
+.btn[aria-disabled='true'] {
   opacity: var(--text-disabled-opacity);
   cursor: not-allowed;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
-.btn[aria-disabled='true']::before,
-.btn:disabled::before {
+.btn[aria-disabled='true']::before {
   display: none;
 }
 
 /* ── Content ── */
+
+.content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  flex: none;
+  transition: opacity 120ms var(--ease-standard), transform 220ms var(--ease-out-expo);
+}
 
 .icon {
   flex: none;
@@ -158,23 +234,110 @@
   align-items: center;
 }
 
-.labelStack > * {
+.label {
   grid-area: 1 / 1;
 }
 
-.label {
-  transition: opacity 160ms var(--ease-standard);
+.label[data-enter='true'] {
+  animation: label-in 200ms 60ms var(--ease-out-expo) both;
 }
 
-.dots {
+.labelOut {
+  grid-area: 1 / 1;
+  pointer-events: none;
+  animation: label-out 100ms var(--ease-standard) forwards;
+}
+
+@keyframes label-in {
+  from { opacity: 0; transform: translateY(40%); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes label-out {
+  to { opacity: 0; transform: translateY(-40%); }
+}
+
+/* ── Pending morph: pill → circle → (check) → pill ── */
+
+.orb {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.btn[data-phase='loading'],
+.btn[data-phase='success'] {
+  width: var(--btn-h);
+  padding-inline: 0;
+  cursor: progress;
+  /* Collapsing never bounces (exits ≈0.7× and calm). */
+  transition:
+    transform 340ms var(--ease-spring),
+    width 300ms var(--ease-out-expo),
+    padding 300ms var(--ease-out-expo),
+    box-shadow var(--duration-state) var(--ease-standard),
+    opacity var(--duration-state) var(--ease-standard);
+}
+
+.block[data-phase='loading'],
+.block[data-phase='success'] {
+  margin-inline: auto;
+}
+
+.btn[data-phase='loading'] .content,
+.btn[data-phase='success'] .content {
   opacity: 0;
-  transition: opacity 160ms var(--ease-standard);
+  transform: scale(0.85);
 }
 
-.btn[aria-busy='true'] .label {
-  opacity: 0;
+.btn[data-phase='idle'] .content {
+  transition: opacity 160ms 120ms var(--ease-standard), transform 360ms 80ms var(--ease-spring);
 }
 
-.btn[aria-busy='true'] .dots {
-  opacity: 1;
+/* The Lens loader drawn in the button's ink (volt-ink on volt, ink-1 on glass). */
+.btn .lens[data-tone] {
+  color: inherit;
+  box-shadow: inset 0 0 0 2px currentColor;
+  animation-name: none;
+}
+
+.btn[data-phase='loading'] .lens[data-tone] {
+  animation: btn-lens-in 360ms var(--ease-jelly) both, btn-lens-morph 1.3s 360ms var(--ease-jelly) infinite alternate;
+}
+
+.btn[data-phase='success'] .lens[data-tone] {
+  box-shadow: none;
+  animation: btn-lens-done 520ms var(--ease-jelly) both;
+}
+
+@keyframes btn-lens-in {
+  from { transform: scale(0.3); opacity: 0; border-radius: 50%; }
+}
+
+@keyframes btn-lens-morph {
+  0% { border-radius: 34%; transform: rotate(0deg); }
+  100% { border-radius: 50%; transform: scale(0.9) rotate(90deg); }
+}
+
+@keyframes btn-lens-done {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn:active,
+  .content,
+  .chevron {
+    transition: opacity var(--duration-reduced) ease-out !important;
+  }
+  .btn:active:not([aria-disabled='true']) { transform: none; }
+  .btn[data-phase='loading'] .content,
+  .btn[data-phase='success'] .content { transform: none; }
+  .label[data-enter='true'],
+  .labelOut,
+  .btn .lens[data-tone] { animation: none !important; }
 }

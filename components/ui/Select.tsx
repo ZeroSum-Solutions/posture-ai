@@ -2,6 +2,7 @@
 
 import { forwardRef, useId, type ComponentPropsWithoutRef, type ForwardedRef } from 'react'
 import Icon from '../array/Icon'
+import { FieldFoot } from './TextField'
 import styles from './Field.module.css'
 
 type NativeSelectProps = Omit<ComponentPropsWithoutRef<'select'>, 'className'>
@@ -15,9 +16,9 @@ export interface SelectProps extends NativeSelectProps {
 }
 
 /**
- * A native `<select>` for short option lists, styled as a field with a
- * trailing chevron. Long lists (e.g. the client picker) use a Sheet picker
- * instead — see spec §3.2.
+ * A native `<select>` for short option lists, in the v4 field chrome: the
+ * label is always risen (a select always shows a value) and the chevron
+ * dips on focus. Long lists (e.g. the client picker) use a Sheet picker.
  */
 export const Select = forwardRef(function Select(
   { label, hint, error, required, className, id, children, ...rest }: SelectProps,
@@ -31,37 +32,26 @@ export const Select = forwardRef(function Select(
 
   return (
     <div className={[styles.field, className].filter(Boolean).join(' ')}>
-      <div className={styles.labelRow}>
-        <label htmlFor={selectId} className={styles.label}>
-          {label}
-        </label>
-        {required ? <span className={styles.required}>Required</span> : null}
-      </div>
       <div className={styles.controlWrap}>
         <select
           id={selectId}
           ref={ref}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={[styles.control, styles.selectControl].join(' ')}
+          aria-required={required || undefined}
+          className={[styles.control, styles.labelled, styles.selectControl].join(' ')}
           {...rest}
         >
           {children}
         </select>
+        <label htmlFor={selectId} className={styles.floatLabel} data-risen="true">
+          {label}
+        </label>
         <span className={styles.chevron}>
           <Icon name="alt-arrow-down-linear" size={20} />
         </span>
       </div>
-      {error ? (
-        <p id={errorId} className={styles.error}>
-          <Icon name="danger-circle-linear" size={16} className={styles.errorIcon} />
-          <span>{error}</span>
-        </p>
-      ) : hint ? (
-        <p id={hintId} className={styles.hint}>
-          {hint}
-        </p>
-      ) : null}
+      <FieldFoot id={selectId} hint={hint} error={error} required={required} />
     </div>
   )
 })

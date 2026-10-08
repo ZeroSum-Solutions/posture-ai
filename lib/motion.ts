@@ -1,44 +1,56 @@
 import type { Transition } from 'framer-motion'
 
 /**
- * Array v3 motion presets. Every transition in components/ui uses one of these;
- * see DESIGN.md › Motion. Springs are interruptible and settle in ≤450ms, except
- * the looping loader spring. Under prefers-reduced-motion, MotionConfig
- * (reducedMotion="user") drops transform animations and `reduced` replaces them.
+ * Array v4 motion presets — DESIGN.md › Motion. Six springs, each with one job.
+ * Under prefers-reduced-motion, MotionConfig (reducedMotion="user") drops
+ * transform animations and `reduced` replaces them.
  */
+const v4 = {
+  /** Press feedback: scale .96 → 1, lands in ~140ms with a hint of overshoot. */
+  tap: { type: 'spring', stiffness: 700, damping: 32, mass: 0.5 },
+  /** Chips, toggles, selection plates, markers: ~220ms. */
+  snap: { type: 'spring', stiffness: 520, damping: 38, mass: 0.8 },
+  /** Shape morphs: pill → sheet, row → detail, button → circle: ~380ms. */
+  morph: { type: 'spring', stiffness: 340, damping: 30, mass: 1 },
+  /** Pages, shared elements, sheet present: ~420ms, no overshoot. */
+  glide: { type: 'spring', stiffness: 260, damping: 30, mass: 1 },
+  /** Loaders, the Lens, celebration: visible wobble. */
+  jelly: { type: 'spring', stiffness: 300, damping: 14, mass: 1 },
+  /** Drag release: inherits gesture velocity. */
+  settle: { type: 'spring', stiffness: 200, damping: 26, mass: 1 },
+} as const satisfies Record<string, Transition>
+
 export const spring = {
-  /** Press feedback: scale .97 → 1 with a small overshoot, ~160ms. */
-  press: { type: 'spring', stiffness: 520, damping: 24, mass: 0.7 },
-  /** Chip, toggle, tab indicator, check: ~220ms. */
-  state: { type: 'spring', stiffness: 420, damping: 32, mass: 0.9 },
-  /** Expand, collapse, reorder, FLIP: ~340ms. */
-  layout: { type: 'spring', stiffness: 320, damping: 30, mass: 1 },
-  /** Sheet present: ~380ms, no overshoot. */
-  sheet: { type: 'spring', stiffness: 380, damping: 38, mass: 1 },
-  /** Sheet dismiss: inherits drag velocity. */
-  sheetOut: { type: 'spring', stiffness: 440, damping: 44, mass: 1 },
-  /** Route enter: small x/y offset + fade. */
-  page: { type: 'spring', stiffness: 340, damping: 34, mass: 0.9 },
-  /** Springy loaders: visible bounce. */
-  loader: { type: 'spring', stiffness: 260, damping: 14, mass: 1 },
-  /** Scan complete, setup done. */
-  delight: { type: 'spring', stiffness: 300, damping: 20, mass: 1 },
+  ...v4,
+  // v3 names, mapped onto v4 jobs.
+  press: v4.tap,
+  state: v4.snap,
+  layout: v4.morph,
+  sheet: v4.glide,
+  sheetOut: { type: 'spring', stiffness: 420, damping: 42, mass: 1 },
+  page: v4.glide,
+  loader: v4.jelly,
+  delight: v4.jelly,
 } as const satisfies Record<string, Transition>
 
 export type SpringName = keyof typeof spring
+
+/** Content inside a morphing container: out fast, in after the shape moves. */
+export const contentOut = { duration: 0.08, ease: 'easeOut' } as const satisfies Transition
+export const contentIn = { duration: 0.14, delay: 0.06, ease: 'easeOut' } as const satisfies Transition
 
 /** Opacity-only fades (scrims, exits). */
 export const fade = { duration: 0.16, ease: 'easeOut' } as const satisfies Transition
 
 /** Replaces every spring under prefers-reduced-motion. */
-export const reduced = { duration: 0.15, ease: 'easeOut' } as const satisfies Transition
+export const reduced = { duration: 0.12, ease: 'easeOut' } as const satisfies Transition
 
 /** Press scales by surface type. */
-export const pressScale = { button: 0.97, row: 0.985, tab: 0.9 } as const
+export const pressScale = { button: 0.96, row: 0.985, tab: 0.9, lens: 0.88 } as const
 
-/** Stagger for list entrances: 40ms per item, capped at 6 items. */
+/** Stagger for list entrances: 30ms per item, capped at 8 items. */
 export function stagger(index: number): number {
-  return Math.min(index, 6) * 0.04
+  return Math.min(index, 8) * 0.03
 }
 
 /** Loader timing contract: show after 300ms, stay at least 500ms. */

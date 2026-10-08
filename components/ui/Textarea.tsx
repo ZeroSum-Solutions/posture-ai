@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useId, type ComponentPropsWithoutRef, type ForwardedRef } from 'react'
-import Icon from '../array/Icon'
+import { FieldFoot } from './TextField'
 import styles from './Field.module.css'
 
 type NativeTextareaProps = Omit<ComponentPropsWithoutRef<'textarea'>, 'className'>
@@ -14,9 +14,9 @@ export interface TextareaProps extends NativeTextareaProps {
   className?: string
 }
 
-/** Multiline sibling of TextField — same chrome, no leading/trailing slot (a pill can't hold one). */
+/** Multiline sibling of TextField — same chrome and floating label, no leading/trailing slot. */
 export const Textarea = forwardRef(function Textarea(
-  { label, hint, error, required, className, id, ...rest }: TextareaProps,
+  { label, hint, error, required, className, id, placeholder, ...rest }: TextareaProps,
   ref: ForwardedRef<HTMLTextAreaElement>,
 ) {
   const autoId = useId()
@@ -27,30 +27,22 @@ export const Textarea = forwardRef(function Textarea(
 
   return (
     <div className={[styles.field, className].filter(Boolean).join(' ')}>
-      <div className={styles.labelRow}>
-        <label htmlFor={inputId} className={styles.label}>
+      <div className={[styles.controlWrap, styles.textareaWrap].join(' ')}>
+        <textarea
+          id={inputId}
+          ref={ref}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          aria-required={required || undefined}
+          placeholder={placeholder ?? ' '}
+          className={[styles.control, styles.textarea, styles.labelled].join(' ')}
+          {...rest}
+        />
+        <label htmlFor={inputId} className={styles.floatLabel}>
           {label}
         </label>
-        {required ? <span className={styles.required}>Required</span> : null}
       </div>
-      <textarea
-        id={inputId}
-        ref={ref}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        className={[styles.control, styles.textarea].join(' ')}
-        {...rest}
-      />
-      {error ? (
-        <p id={errorId} className={styles.error}>
-          <Icon name="danger-circle-linear" size={16} className={styles.errorIcon} />
-          <span>{error}</span>
-        </p>
-      ) : hint ? (
-        <p id={hintId} className={styles.hint}>
-          {hint}
-        </p>
-      ) : null}
+      <FieldFoot id={inputId} hint={hint} error={error} required={required} />
     </div>
   )
 })

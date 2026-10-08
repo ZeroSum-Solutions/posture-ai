@@ -1,19 +1,47 @@
+/* Array v4 SegmentedControl — a 44px glass track; the selection is a
+   surface-3 plate with an inner top light that slides on the spring curve and
+   stretches toward where it is going (restartable jelly keyframe, see
+   useThumbTravel). Position comes from --seg-index/--seg-count only. */
+
 .track {
+  --seg-inset: 4px;
   position: relative;
+  isolation: isolate;
   display: flex;
-  gap: 2px;
-  padding: 4px;
-  min-height: 48px;
+  height: 44px;
+  padding: 0;
   border-radius: var(--r-full);
-  background: var(--surface-field);
-  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner);
 }
 
-/* Smaller than .track but still clears the 40px segment-height floor: 44px
-   minus 2px top/bottom padding (overriding .track's 4px) = 40px. */
+/* Specular rim, as the dock. */
+.track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 .trackSm {
-  min-height: 44px;
-  padding: 2px;
+  --seg-inset: 3px;
+  height: 40px;
+}
+
+/* 40px visual still reaches a 44px hit. */
+.trackSm .segment::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
 }
 
 .segment {
@@ -21,51 +49,83 @@
   z-index: 1;
   flex: 1 1 0;
   min-width: 48px;
+  height: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--s-4);
+  padding: 0 var(--s-12);
   border: 0;
   background: transparent;
   border-radius: var(--r-full);
-  color: var(--text-2);
-  font: var(--t-subhead);
-  font-weight: 500;
+  color: var(--ink-3);
+  font: var(--t-callout);
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  transition: color var(--duration-state) var(--ease-standard);
+}
+
+.segmentActive {
+  color: var(--ink-1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .segment:not(.segmentActive):hover {
+    color: var(--ink-2);
+  }
 }
 
 .segment:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--volt);
+  outline-offset: -2px;
 }
 
 .thumb {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 4px;
+  top: var(--seg-inset);
+  bottom: var(--seg-inset);
+  left: var(--seg-inset);
   z-index: 0;
-  width: calc((100% - 8px - (var(--seg-count) - 1) * 2px) / var(--seg-count));
-  transform: translateX(calc(var(--seg-index) * (100% + 2px)));
-  border-radius: var(--r-full);
-  background: var(--action);
+  width: calc(100% / var(--seg-count) - 2 * var(--seg-inset));
+  transform: translateX(calc(var(--seg-index) * (100% + 2 * var(--seg-inset))));
   transition: transform var(--duration-layout) var(--ease-spring);
   pointer-events: none;
 }
 
-/* .trackSm's 2px padding (vs .track's 4px) needs a matching thumb inset and
-   width so the thumb still fills each segment exactly. */
-.trackSm .thumb {
-  top: 2px;
-  bottom: 2px;
-  left: 2px;
-  width: calc((100% - 4px - (var(--seg-count) - 1) * 2px) / var(--seg-count));
+.thumbBody {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  box-shadow: inset 0 1px 0 var(--ctl-plate-hi), inset 0 0 0 1px var(--ctl-plate-edge), var(--ctl-drop);
+  transform-origin: left center;
+}
+
+.thumb[data-dir='left'] .thumbBody {
+  transform-origin: right center;
+}
+
+/* Stretch toward travel, then settle with a jelly wobble. Two identical
+   keyframes so every move restarts the animation. */
+.thumb[data-travel='a'] .thumbBody { animation: seg-stretch-a 520ms var(--ease-standard); }
+.thumb[data-travel='b'] .thumbBody { animation: seg-stretch-b 520ms var(--ease-standard); }
+
+@keyframes seg-stretch-a {
+  0% { transform: scale(1, 1); }
+  28% { transform: scale(calc(1.1 + min(var(--seg-distance), 3) * 0.05), 0.92); }
+  60% { transform: scale(0.97, 1.03); }
+  80% { transform: scale(1.01, 0.995); }
+  100% { transform: scale(1, 1); }
+}
+
+@keyframes seg-stretch-b {
+  0% { transform: scale(1, 1); }
+  28% { transform: scale(calc(1.1 + min(var(--seg-distance), 3) * 0.05), 0.92); }
+  60% { transform: scale(0.97, 1.03); }
+  80% { transform: scale(1.01, 0.995); }
+  100% { transform: scale(1, 1); }
 }
 
 .label {
@@ -74,8 +134,16 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .labelActive {
-  color: var(--text-on-action);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb { transition: none; }
+  .thumbBody { animation: none !important; }
 }

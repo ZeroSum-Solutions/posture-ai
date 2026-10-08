@@ -8,7 +8,7 @@ export interface RadioProps extends Omit<ComponentPropsWithoutRef<'input'>, 'cla
   className?: string
 }
 
-/** 28px circle, 48px hit including the label. Pair with others sharing a `name`. */
+/** v4 radio: a 24px circle that fills volt with a dot that springs in; 48px hit including the label. Pair with others sharing a `name`. */
 export const Radio = forwardRef(function Radio(
   { label, className, id, disabled, ...rest }: RadioProps,
   ref: ForwardedRef<HTMLInputElement>,
@@ -20,7 +20,7 @@ export const Radio = forwardRef(function Radio(
     <label htmlFor={inputId} className={[styles.row, className].filter(Boolean).join(' ')} data-disabled={disabled || undefined}>
       <span className={styles.hit}>
         <input ref={ref} id={inputId} type="radio" disabled={disabled} className={styles.input} {...rest} />
-        <span className={styles.radioCircle}>
+        <span className={styles.radioCircle} aria-hidden="true">
           <span className={styles.radioDot} />
         </span>
       </span>

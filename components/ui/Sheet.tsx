@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo } from 'framer-motion'
+import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo, type Variants } from 'framer-motion'
 import { haptic } from '@/lib/haptics'
-import { fade, reduced, spring } from '@/lib/motion'
+import { contentIn, contentOut, fade, reduced, spring } from '@/lib/motion'
 import { IconButton } from './IconButton'
+import { readOverlayOrigin, trackOverlayOrigins, type OriginRect, type OverlayOrigin } from './overlayOrigin'
 import { useKeyboardInset } from './useKeyboardInset'
 import styles from './Sheet.module.css'
 
@@ -17,6 +18,11 @@ export type SheetDetent = 'compact' | 'medium' | 'large'
 const DETENT_VH: Record<SheetDetent, number> = { compact: 50, medium: 62, large: 92 }
 const DETENT_ORDER: SheetDetent[] = ['compact', 'medium', 'large']
 
+/** Mirrors --content-max and --r-lg; only used to compute the origin morph. */
+const PANEL_MAX_W = 480
+const PANEL_RADIUS = 28
+const FULL_CLIP = `inset(0px 0px 0px 0px round ${PANEL_RADIUS}px ${PANEL_RADIUS}px 0px 0px)`
+
 export type SheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -27,19 +33,79 @@ export type SheetProps = {
   children: ReactNode
   /** Drag-past-150px, scrim tap and Escape all no-op when false; the Close button still closes. */
   dismissible?: boolean
+  /**
+   * Where the sheet grows from ("morph from cause"). Defaults to the control
+   * the user just pressed (or the focused one); pass a rect or element to
+   * choose, or `'none'` to always rise from the bottom edge.
+   */
+  origin?: OverlayOrigin | 'none'
   className?: string
   'data-testid'?: string
 }
 
+type MorphFrom = { y: number; clip: string }
+type Custom = { reduce: boolean; from: MorphFrom | null; dragged: boolean }
+
 /**
- * The one bottom sheet, replacing `ExerciseDetailSheet`, `WhyThisSheet` and
- * `MuscleDetailModal` (DESIGN.md › 3.8). Chrome glass panel, a 36×5 grabber,
- * a header with a Title-2 title and an always-present 48px Close, a
- * scrollable body and an optional sticky footer. Detents: `compact` (≤50dvh),
- * `medium` (62dvh), `large` (92dvh) — drag the grabber/header to move between
- * them (haptic `tap` on a successful snap) or past 150px / a fast flick to
- * dismiss. Escape, the scrim and Close all close it; the Android/back
- * gesture does too, via a pushed history entry consumed on any close.
+ * Turns the trigger's rect into the panel's starting pose: a clip-path inset
+ * that exactly covers the trigger (with its own corner radius) plus, when the
+ * trigger sits above the panel's resting top edge, a lift so the clip can
+ * reach it. Clip-path keeps the content unsquashed — the shape morphs, the
+ * content crossfades in after it (DESIGN.md › Motion rule 1).
+ */
+function morphFrom(rect: OriginRect | null, detent: SheetDetent, keyboardInset: number): MorphFrom | null {
+  if (!rect || typeof window === 'undefined') return null
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const pw = Math.min(PANEL_MAX_W, vw)
+  const ph = Math.min((DETENT_VH[detent] / 100) * vh, vh - keyboardInset)
+  const left = (vw - pw) / 2
+  const top = vh - ph
+  const dy = rect.y < top ? rect.y - top : 0
+  const clamp = (n: number) => Math.max(0, Math.round(n))
+  const t = clamp(rect.y - (top + dy))
+  const l = clamp(rect.x - left)
+  const r = clamp(left + pw - (rect.x + rect.width))
+  const b = clamp(vh + dy - (rect.y + rect.height))
+  if (t + b >= ph || l + r >= pw) return null
+  const radius = Math.round(Math.min(rect.height / 2, rect.width / 2, PANEL_RADIUS))
+  return { y: Math.round(dy), clip: `inset(${t}px ${r}px ${b}px ${l}px round ${radius}px ${radius}px ${radius}px ${radius}px)` }
+}
+
+const panelVariants: Variants = {
+  hidden: ({ reduce, from }: Custom) =>
+    reduce ? { opacity: 0, y: 0, clipPath: FULL_CLIP } : from ? { opacity: 0, y: from.y, clipPath: from.clip } : { opacity: 1, y: '100%', clipPath: FULL_CLIP },
+  shown: ({ reduce, from }: Custom) => ({
+    opacity: 1,
+    y: 0,
+    clipPath: FULL_CLIP,
+    transition: reduce ? reduced : from ? { ...spring.morph, opacity: { duration: 0.1 } } : spring.glide,
+  }),
+  gone: ({ reduce, from, dragged }: Custom) =>
+    reduce
+      ? { opacity: 0, transition: reduced }
+      : from && !dragged
+        ? { y: from.y, clipPath: from.clip, opacity: 0, transition: { ...spring.sheetOut, opacity: { duration: 0.12, delay: 0.14 } } }
+        : { y: '100%', transition: spring.sheetOut },
+}
+
+const contentVariants: Variants = {
+  hidden: ({ reduce, from }: Custom) => ({ opacity: from && !reduce ? 0 : 1 }),
+  shown: ({ reduce, from }: Custom) => ({ opacity: 1, transition: from && !reduce ? { ...contentIn, delay: 0.12 } : { duration: 0 } }),
+  gone: ({ reduce, from, dragged }: Custom) => ({ opacity: from && !reduce && !dragged ? 0 : 1, transition: contentOut }),
+}
+
+/**
+ * The one bottom sheet (DESIGN.md › Materials: solid surface-1, radius 28 on
+ * top). It grows out of the control that opened it — a clip-path morph from
+ * that control's rect, the content crossfading in once the shape has moved —
+ * or rises on `glide` when there is no origin. A grab handle and the header
+ * drag it: the finger is followed 1:1 downward, upward over-drag
+ * rubber-bands (×0.3), and release hands its velocity to the settle spring.
+ * Past 150px or a fast flick dismisses; ±60px moves between detents
+ * (`compact` 50dvh, `medium` 62dvh, `large` 92dvh). Escape, the scrim, Close
+ * and the Android/browser back gesture (a pushed history entry) all close it;
+ * only the top sheet of a stack answers. Focus is trapped and returned.
  */
 export function Sheet({
   open,
@@ -50,21 +116,27 @@ export function Sheet({
   footer,
   children,
   dismissible = true,
+  origin,
   className,
   'data-testid': testId,
 }: SheetProps) {
   const order = DETENT_ORDER.filter((d) => detents.includes(d))
   const initialDetent = defaultDetent ?? order[0] ?? 'medium'
   const [detent, setDetent] = useState<SheetDetent>(initialDetent)
-  // Resets the detent on every open — without an effect. Adjusting state
-  // during render (bailing out before paint) is the React-sanctioned way to
-  // reset state in response to a prop change; see "Resetting state ..." in
-  // the React docs. An effect-based reset was flagged by
-  // react-hooks/set-state-in-effect and runs a frame later besides.
+  const keyboardInset = useKeyboardInset()
+  const [from, setFrom] = useState<MorphFrom | null>(null)
+  const [dragged, setDragged] = useState(false)
+  // Resets per-open state without an effect: adjusting state during render
+  // (bailing out before paint) is the React-sanctioned way to respond to a
+  // prop change. The origin rect is read once here, at the open edge.
   const [prevOpen, setPrevOpen] = useState(open)
   if (open !== prevOpen) {
     setPrevOpen(open)
-    if (open) setDetent(initialDetent)
+    if (open) {
+      setDetent(initialDetent)
+      setDragged(false)
+      setFrom(morphFrom(readOverlayOrigin(origin), initialDetent, keyboardInset))
+    }
   }
   // The portal target is created once, lazily, during render — never via an
   // effect-body setState — and only mounted/unmounted by the effect below.
@@ -75,10 +147,10 @@ export function Sheet({
   const poppedByHistoryRef = useRef(false)
   const titleId = useId()
   const dragControls = useDragControls()
-  const reduceMotion = useReducedMotion()
-  const keyboardInset = useKeyboardInset()
+  const reduceMotion = useReducedMotion() ?? false
 
   useEffect(() => {
+    trackOverlayOrigins()
     if (!container) return
     document.body.appendChild(container)
     return () => {
@@ -155,6 +227,8 @@ export function Sheet({
 
   function handleDragEnd(_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) {
     if (dismissible && (info.offset.y > 150 || info.velocity.y > 800)) {
+      // The exit spring starts from the finger's position and velocity.
+      setDragged(true)
       requestClose()
       return
     }
@@ -170,8 +244,11 @@ export function Sheet({
 
   if (!container) return null
 
+  const custom: Custom = { reduce: reduceMotion, from, dragged }
+  const startDrag = (e: React.PointerEvent) => dragControls.start(e)
+
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence custom={custom}>
       {open ? (
         <>
           <motion.div
@@ -192,28 +269,32 @@ export function Sheet({
             aria-labelledby={titleId}
             className={[styles.panel, className].filter(Boolean).join(' ')}
             data-testid={testId}
+            data-detent={detent}
             style={{ height: `${DETENT_VH[detent]}dvh`, maxHeight: `calc(100dvh - ${keyboardInset}px)` }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0, transition: reduceMotion ? reduced : spring.sheet }}
-            exit={{ y: '100%', transition: reduceMotion ? reduced : spring.sheetOut }}
+            custom={custom}
+            variants={panelVariants}
+            initial="hidden"
+            animate="shown"
+            exit="gone"
             drag="y"
             dragControls={dragControls}
             dragListener={false}
             dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.5 }}
+            dragElastic={{ top: 0.3, bottom: 1 }}
+            dragTransition={{ bounceStiffness: spring.settle.stiffness, bounceDamping: spring.settle.damping }}
             onDragEnd={handleDragEnd}
           >
-            <div className={styles.grabberRow} onPointerDown={(e) => dragControls.start(e)}>
-              <span className={styles.grabber} />
-            </div>
-            <div className={styles.header} onPointerDown={(e) => dragControls.start(e)}>
-              <h2 id={titleId} ref={titleRef} tabIndex={-1} className={`t-title-2 ${styles.title}`}>{title}</h2>
-              <IconButton icon="close-linear" label="Close" onClick={requestClose} haptic={false} />
-            </div>
-            <div className={styles.body} style={{ overscrollBehavior: 'contain' }}>
-              {children}
-            </div>
-            {footer ? <div className={styles.footer}>{footer}</div> : null}
+            <motion.div className={styles.content} custom={custom} variants={contentVariants}>
+              <div className={styles.grabberRow} onPointerDown={startDrag} aria-hidden="true">
+                <span className={styles.grabber} />
+              </div>
+              <div className={styles.header} onPointerDown={startDrag}>
+                <h2 id={titleId} ref={titleRef} tabIndex={-1} className={styles.title}>{title}</h2>
+                <IconButton icon="close-linear" label="Close" onClick={requestClose} haptic={false} className={styles.close} />
+              </div>
+              <div className={styles.body}>{children}</div>
+              {footer ? <div className={styles.footer}>{footer}</div> : null}
+            </motion.div>
           </motion.div>
         </>
       ) : null}

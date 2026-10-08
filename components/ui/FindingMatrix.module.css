@@ -1,0 +1,33 @@
+.wrap {
+  overflow-x: auto; margin-inline: calc(-1 * var(--screen-x)); padding-inline: var(--screen-x);
+  scrollbar-width: none; -webkit-mask: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  mask: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+}
+.wrap::-webkit-scrollbar { display: none; }
+.table { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+.corner, .name { position: sticky; left: 0; z-index: 1; background: var(--background); text-align: left; }
+.corner { padding: 0 var(--s-12) var(--s-8) 0; }
+.name {
+  width: 120px; max-width: 120px; padding: var(--s-12) var(--s-12) var(--s-12) 0;
+  font: var(--t-label); font-weight: 600; color: var(--ink-1); border-top: 1px solid var(--hairline);
+  box-shadow: 10px 0 12px -10px rgba(0, 0, 0, 0.9);
+}
+.scanHead { padding: 0 var(--s-4) var(--s-8); text-align: left; white-space: nowrap; }
+.scanHead[data-latest] :global(.t-micro) { color: var(--volt); }
+.cell { padding: 4px; border-top: 1px solid var(--hairline); min-width: 84px; }
+.cellBtn, .cellStatic {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;
+  width: 100%; min-height: 52px; padding: 0 var(--s-8); border: 0; border-radius: var(--r-sm);
+  background: transparent; color: inherit; text-align: left;
+  animation: cell-in 420ms var(--ease-out-expo) both; animation-delay: calc(var(--r) * 40ms);
+}
+.cell[data-latest] .cellBtn, .cell[data-latest] .cellStatic { background: var(--surface-1); }
+.cellBtn { cursor: pointer; transition: transform var(--duration-press), background var(--duration-state); }
+.cellBtn:active { transform: scale(0.95); background: var(--surface-2); }
+.cellWord { font: var(--t-caption); font-weight: 600; color: var(--ink-3); }
+.cellWord[data-band='maintain'] { color: var(--maintain); }
+.cellWord[data-band='monitor'] { color: var(--monitor); }
+.cellWord[data-band='review'] { color: var(--review); }
+.none { font: var(--t-label); color: var(--ink-3); padding-left: var(--s-4); }
+@keyframes cell-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .cellBtn, .cellStatic { animation: none; } }

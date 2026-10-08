@@ -1,48 +1,72 @@
+/* Array v4 IconButton — DESIGN.md › Actions › Icon: a 44px circle inside a
+   48px hit area. On the canvas it has no fill; pressing blooms a plate out of
+   the centre (scale .6 → 1 on the spring curve). On media it is glass. */
+
 .btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 48px;
   height: 48px;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-1);
+  color: var(--ink-1);
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform var(--duration-press) var(--ease-spring);
 }
 
 /* The visible 44px circle, inset from the 48px hit area. */
 .visual {
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 44px;
   height: 44px;
   border-radius: var(--r-full);
+  transition: transform 340ms var(--ease-spring);
 }
 
-.visual::before {
-  content: '';
+.plate {
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-radius: inherit;
-  background: var(--overlay-pressed);
+  background: var(--surface-3);
+  box-shadow: inset 0 1px 0 var(--ctl-plate-hi);
   opacity: 0;
-  transition: opacity 60ms linear;
+  transform: scale(0.6);
+  transition: opacity 220ms var(--ease-standard), transform 380ms var(--ease-spring);
   pointer-events: none;
 }
 
-.btn:active:not([aria-disabled='true']):not(:disabled) {
-  transform: scale(0.97);
+.glyph {
+  transition: transform 340ms var(--ease-spring);
 }
 
-.btn:active:not([aria-disabled='true']):not(:disabled) .visual::before {
+.btn:active:not([aria-disabled='true']) .visual {
+  transform: scale(0.92);
+  transition-duration: 90ms;
+  transition-timing-function: var(--ease-standard);
+}
+
+.btn:active:not([aria-disabled='true']) .plate {
   opacity: 1;
+  transform: scale(1);
+  transition: opacity 60ms linear, transform 260ms var(--ease-spring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not([aria-disabled='true']) .plate {
+    opacity: 0.6;
+    transform: scale(0.92);
+  }
 }
 
 .btn:focus-visible {
@@ -50,7 +74,8 @@
 }
 
 .btn:focus-visible .visual {
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
 }
 
 .plain .visual {
@@ -58,31 +83,39 @@
 }
 
 .filled .visual {
-  background: var(--surface-field);
-  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--ctl-plate-edge), inset 0 0 0 1px var(--hairline);
 }
 
-/* Chrome glass for sitting over the camera/3D hero. Falls back to a solid
-   fill under prefers-reduced-transparency or when backdrop-filter is unsupported. */
+.filled .plate {
+  background: var(--surface-3);
+}
+
+/* Glass on media. The token block makes --glass solid under reduced
+   transparency or without backdrop-filter support. */
 .glass .visual {
-  background: var(--glass-chrome);
-  -webkit-backdrop-filter: var(--glass-chrome-filter);
-  backdrop-filter: var(--glass-chrome-filter);
-  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--ctl-drop);
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .glass .visual {
-    background: var(--glass-chrome-solid);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+.glass .visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
-@supports not (backdrop-filter: blur(1px)) {
-  .glass .visual {
-    background: var(--glass-chrome-solid);
-  }
+.glass .plate {
+  background: var(--overlay-pressed);
+  box-shadow: none;
 }
 
 .btn[aria-disabled='true'],
@@ -93,18 +126,22 @@
 
 .badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  top: 2px;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--s-4);
   border-radius: var(--r-full);
   background: var(--review);
-  /* Black on #FF7A7A is 8.3:1; white was 2.5:1. Caption is the type floor. */
-  color: var(--text-on-action);
-  font: var(--t-caption);
-  line-height: 16px;
+  box-shadow: 0 0 0 2px var(--background);
+  /* Ink on coral clears 7:1. */
+  color: var(--volt-ink);
+  font: var(--t-micro);
+  letter-spacing: 0;
+  line-height: 18px;
   text-align: center;
+  font-variant-numeric: tabular-nums;
+  animation: badge-pop 420ms var(--ease-jelly) both;
 }
 
 .badgeDot {
@@ -115,4 +152,15 @@
   height: 8px;
   border-radius: var(--r-full);
   background: var(--review);
+  box-shadow: 0 0 0 2px var(--background);
+  animation: badge-pop 420ms var(--ease-jelly) both;
+}
+
+@keyframes badge-pop {
+  from { transform: scale(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual, .plate, .glyph { transition: opacity var(--duration-reduced) ease-out !important; transform: none !important; }
+  .badge, .badgeDot { animation: none; }
 }

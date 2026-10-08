@@ -1,0 +1,21 @@
+.row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-8); }
+.tile {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  min-height: 72px; padding: var(--s-12) var(--s-12) var(--s-12) var(--s-16);
+  border: 0; border-radius: var(--r-md); background: var(--surface-1); color: var(--ink-1);
+  box-shadow: inset 0 0 0 1px var(--hairline); cursor: pointer; text-align: left; overflow: hidden;
+  transition: transform var(--duration-press) var(--ease-standard), background var(--duration-state) var(--ease-standard), box-shadow var(--duration-state) var(--ease-standard);
+}
+.tile::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; opacity: 0.9; }
+.tile[data-band='review']::before { background: var(--review); }
+.tile[data-band='monitor']::before { background: var(--monitor); }
+.tile[data-band='maintain']::before { background: var(--maintain); }
+.tile:active:not(:disabled) { transform: scale(0.96); }
+.tile:disabled { cursor: default; }
+.tile:disabled .count { color: var(--ink-3); }
+.tile[data-on] { background: var(--surface-3); box-shadow: inset 0 0 0 1.5px var(--ink-1); }
+.tile[data-on][data-band='review'] { box-shadow: inset 0 0 0 1.5px var(--review), 0 8px 24px -12px var(--review-ring); }
+.tile[data-on][data-band='monitor'] { box-shadow: inset 0 0 0 1.5px var(--monitor), 0 8px 24px -12px var(--monitor-ring); }
+.tile[data-on][data-band='maintain'] { box-shadow: inset 0 0 0 1.5px var(--maintain), 0 8px 24px -12px var(--maintain-ring); }
+.count { font: var(--t-readout-md); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.word { display: inline-flex; align-items: center; gap: 6px; font: var(--t-label); font-weight: 600; color: var(--ink-2); }
