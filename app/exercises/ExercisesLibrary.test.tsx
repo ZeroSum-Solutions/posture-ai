@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import ExercisesLibrary from './ExercisesLibrary'
 
@@ -23,6 +23,11 @@ const walk = {
 
 afterEach(cleanup)
 
+/** Rows open in place: the row trigger's name starts with the movement name. */
+function openRow(name: string) {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${name}`), expanded: false }))
+}
+
 describe('exercise library', () => {
   it('paginates and searches one combined collection beyond the visible page', () => {
     const references = Array.from({ length: 55 }, (_, index) => ({
@@ -41,27 +46,36 @@ describe('exercise library', () => {
     expect(screen.getByText('Split Squat')).toBeTruthy()
   })
 
-  it('renders reviewed and reference records as one collection with visible full instructions', () => {
+  it('renders reviewed and reference records as one list of rows that open to full instructions', () => {
     render(<ExercisesLibrary exercises={[approved]} referenceExercises={[goblet, walk]} />)
 
     expect(screen.getByRole('heading', { name: 'Find a movement' })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: /Reviewed Posture AI exercises/i })).toBeNull()
     expect(screen.queryByRole('heading', { name: /Explore exercise instructions/i })).toBeNull()
+    // Rows stay compact: no instructions or provenance until a row is opened.
+    expect(screen.queryByText(goblet.instructions)).toBeNull()
+    expect(screen.queryByText('Licensed reference · not program reviewed')).toBeNull()
+    expect(screen.getByText('Legs · Dumbbell')).toBeTruthy()
+    expect(screen.getByText('Cardio · Bodyweight')).toBeTruthy()
+
+    openRow('Split Squat')
     expect(screen.getByText(approvedInstructions)).toBeTruthy()
-    expect(screen.getByText(goblet.instructions)).toBeTruthy()
-    expect(screen.getAllByText('Instructions')).toHaveLength(3)
     expect(screen.getByText('Reviewed Posture AI content')).toBeTruthy()
-    expect(screen.getAllByText('Licensed reference · not program reviewed')).toHaveLength(2)
+
+    openRow('Dumbbell Goblet Squat')
+    expect(screen.getByText(goblet.instructions)).toBeTruthy()
+    expect(screen.getByText('Licensed reference · not program reviewed')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'wger source for Dumbbell Goblet Squat' }).getAttribute('href')).toBe(goblet.source.recordUrl)
+    expect(screen.getByRole('link', { name: 'CC-BY-SA 4 license' })).toBeTruthy()
   })
 
   it('keeps approved provenance distinct and does not forge a manual reference binding', () => {
     render(<ExercisesLibrary exercises={[approved]} referenceExercises={[goblet]} />)
 
-    const approvedCard = screen.getByRole('heading', { name: 'Split Squat' }).closest('article, div')?.parentElement
-    expect(approvedCard).not.toBeNull()
-    const addButton = within(approvedCard as HTMLElement).getByRole('button', { name: 'Add to workout' })
-    expect((addButton as HTMLButtonElement).disabled).toBe(true)
-    expect(within(approvedCard as HTMLElement).getByText(/Not yet available in custom workouts/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Split Squat to workout/ })).toBeNull()
+    openRow('Split Squat')
+    expect(screen.getByText(/Not yet available in custom workouts/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add to workout' })).toBeNull()
   })
 
   it('shows the allowlisted RDL image with descriptive alt text and adjacent attribution', () => {
@@ -84,6 +98,7 @@ describe('exercise library', () => {
       },
     }
     render(<ExercisesLibrary exercises={[]} referenceExercises={[rdl]} />)
+    openRow('Dumbbell Romanian Deadlift')
 
     const image = screen.getByRole('img', { name: /two views of a person holding one dumbbell in each hand/i })
     const renderedSource = image.getAttribute('src')
@@ -132,6 +147,13 @@ describe('exercise library', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove Dumbbell Goblet Squat from workout' }))
     expect(screen.getByRole('status', { name: 'Workout selection' }).textContent).toContain('1 exercise selected')
     expect(link.getAttribute('href')).toBe('/workouts/manual/new?exercise=wger%3Awalk')
+
+    // The opened movement carries the same toggle as its row.
+    openRow('Dumbbell Goblet Squat')
+    fireEvent.click(screen.getByRole('button', { name: 'Add to workout' }))
+    expect(screen.getByRole('button', { name: 'Remove Dumbbell Goblet Squat from workout' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Added to workout' })).toBeTruthy()
+    expect(link.getAttribute('href')).toBe('/workouts/manual/new?exercise=wger%3Awalk&exercise=wger%3Agoblet')
   })
 
   it('bounds the URL seed while keeping every reference available in the full library', () => {

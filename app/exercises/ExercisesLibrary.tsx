@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useId, useState, type CSSProperties } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import Image from 'next/image'
 import Icon from '@/components/array/Icon'
-import { Surface } from '@/components/array/Surface'
 import { ActionBar, Button, ChipRow, EmptyState, FilterChip, Select, SlotNumber, TopBar } from '@/components/ui'
 import { haptic } from '@/lib/haptics'
+import { reduced, spring } from '@/lib/motion'
 import { MAX_MANUAL_ROUTINE_URL_EXERCISES } from '@/app/workouts/manual/ManualRoutine.types'
 import styles from './ExercisesPage.module.css'
 
@@ -83,6 +84,7 @@ export default function ExercisesLibrary({
   const [equipment, setEquipment] = useState('all')
   const [limit, setLimit] = useState(PAGE_SIZE)
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([])
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
   const collection: LibraryExercise[] = [
     ...exercises.map(exercise => ({ kind: 'reviewed' as const, exercise })),
@@ -113,20 +115,22 @@ export default function ExercisesLibrary({
       : current.length < MAX_MANUAL_ROUTINE_URL_EXERCISES ? [...current, id] : current)
   }
 
+
+  const selectionFull = selectedReferenceIds.length >= MAX_MANUAL_ROUTINE_URL_EXERCISES
+
   return (
     <div className={`app-screen ${styles.screen} ${selectedReferenceIds.length > 0 ? 'app-screen--bar' : ''}`}>
-      <TopBar title="Exercises" subtitle="Reviewed and licensed reference movements" />
+      <TopBar title="Exercises" subtitle="Licensed movement references" />
 
       <div className={`app-screen-x ${styles.collection}`}>
+        {/* Hero: the live count is the answer — it rolls as filters narrow the set. */}
+        <div className={styles.hero}>
+          <SlotNumber value={filteredCollection.length} className={styles.heroValue} />
+          <span className={styles.heroUnit}>{filteredCollection.length === 1 ? 'movement' : 'movements'}</span>
+        </div>
+
         <section className={styles.section} aria-labelledby="exercise-collection-heading">
-          {/* Hero: the live count is the answer — it rolls as filters narrow the set. */}
-          <div className={styles.hero}>
-            <div className={styles.heroRow}>
-              <SlotNumber value={filteredCollection.length} className={styles.heroValue} />
-              <span className={styles.heroUnit}>{filteredCollection.length === 1 ? 'movement' : 'movements'}</span>
-            </div>
-            <h2 id="exercise-collection-heading" className="t-headline">Find a movement</h2>
-          </div>
+          <h2 id="exercise-collection-heading" className="t-headline">Find a movement</h2>
 
           <div className={styles.controls}>
             {/* A plain, synchronous native search input — the shared `SearchField` debounces
@@ -140,7 +144,7 @@ export default function ExercisesLibrary({
                 aria-label="Search exercises"
                 value={query}
                 onChange={event => { setQuery(event.target.value); resetLimit() }}
-                placeholder="Name, instructions, equipment, muscle"
+                placeholder="Search movements or muscles"
               />
             </label>
             <Select
@@ -165,8 +169,6 @@ export default function ExercisesLibrary({
             ))}
           </ChipRow>
 
-          <p className={styles.status} role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</p>
-
           {selectedReferenceIds.length > 0 && (
             // The e2e spec reaches the "Continue to workout" link as a descendant
             // of the status: `getByRole('status', { name: 'Workout selection' })`.
@@ -176,7 +178,7 @@ export default function ExercisesLibrary({
                   <SlotNumber value={selectedReferenceIds.length} className={styles.trayValue} />
                   <span className={styles.trayText}>
                     <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
-                    <span className="t-label">Kept in the order you add them.</span>
+                    <span className={`t-label ${styles.trayHint}`}>Kept in the order you add them.</span>
                   </span>
                 </div>
                 <Button href={manualRoutineHref}>Continue to workout</Button>
@@ -188,135 +190,217 @@ export default function ExercisesLibrary({
             <EmptyState icon="magnifer-linear" variant="inline" title="No matches" body="No exercises match these filters. Try a different search or category." />
           )}
 
-          <div className={styles.grid}>
+          {/* Results are hairline rows on the canvas: name, category · equipment, and a
+              compact add. Tapping the row opens that movement in place (one at a time). */}
+          <ul className={styles.rows}>
             {visibleCollection.map((item, index) => {
-              const exercise = item.exercise
-              const reviewedExercise = item.kind === 'reviewed' ? item.exercise : null
+              const key = `${item.kind}:${item.exercise.id}`
               const referenceExercise = item.kind === 'reference' ? item.exercise : null
               const isSelected = referenceExercise !== null && selectedReferenceIds.includes(referenceExercise.id)
-              const selectionFull = selectedReferenceIds.length >= MAX_MANUAL_ROUTINE_URL_EXERCISES
               return (
-                <Surface
-                  key={`${item.kind}:${exercise.id}`}
-                  tier="tile"
-                  pad="flush"
-                  className={styles.card}
-                  style={{ '--i': Math.min(index % PAGE_SIZE, 8) } as CSSProperties}
-                  innerClassName={styles.cardInner}
-                  innerStyle={{ padding: 'var(--exercise-card-padding, 20px)' }}
-                >
-                  {reviewedExercise?.poster_url && (
-                    <div className={styles.mediaFrame}>
-                      <Image src={reviewedExercise.poster_url} alt="" width={640} height={400} loading="lazy" />
-                    </div>
-                  )}
-                  {referenceExercise?.media && (
-                    <>
-                      <div className={styles.mediaFrame}>
-                        <Image
-                          src={referenceExercise.media.posterUrl}
-                          alt={referenceExercise.media.alt}
-                          width={referenceExercise.media.width}
-                          height={referenceExercise.media.height}
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </div>
-                      <p className={`t-label ${styles.source}`}>
-                        Image by {referenceExercise.media.source.author} via{' '}
-                        <a href={referenceExercise.media.source.assetUrl} target="_blank" rel="noreferrer" aria-label={`wger image source for ${exercise.name}`}>wger</a>
-                        {' · '}
-                        <a href={referenceExercise.media.source.license.url} target="_blank" rel="noreferrer" aria-label={`${referenceExercise.media.source.license.shortName} image license`}>{referenceExercise.media.source.license.shortName}</a>
-                        {' · unmodified'}
-                      </p>
-                    </>
-                  )}
-
-                  <div className={styles.cardHeader}>
-                    <p className={styles.kicker}>
-                      <span>{CATEGORY_LABELS[exercise.category] || label(exercise.category)}</span>
-                      <span className={styles.reviewMark} data-kind={item.kind} aria-hidden="true" />
-                    </p>
-                    <h3 className={styles.cardTitle}>{exercise.name}</h3>
-                  </div>
-
-                  <p className={styles.referenceStatus}>
-                    {item.kind === 'reviewed' ? 'Reviewed Posture AI content' : 'Licensed reference · not program reviewed'}
-                  </p>
-
-                  {referenceExercise && (
-                    <div className={styles.metadata}>
-                      <p className="t-label">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
-                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-label">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
-                    </div>
-                  )}
-
-                  <div className={styles.instructionBlock}>
-                    <strong>Instructions</strong>
-                    <ClampedText text={exercise.instructions || 'Instructions are unavailable for this exercise.'} name={exercise.name} />
-                  </div>
-
-                  {reviewedExercise && (reviewedExercise.sets || reviewedExercise.hold_seconds) && (
-                    <p className={`n ${styles.dosage}`}>
-                      {reviewedExercise.sets && `${reviewedExercise.sets} sets`}{reviewedExercise.sets && reviewedExercise.hold_seconds && ' · '}{reviewedExercise.hold_seconds && `${reviewedExercise.hold_seconds}s hold`}
-                    </p>
-                  )}
-
-                  <div className={styles.cardFooter}>
-                    {referenceExercise ? (
-                      <>
-                        <button
-                          type="button"
-                          className={styles.addButton}
-                          data-selected={isSelected ? 'true' : 'false'}
-                          disabled={!isSelected && selectionFull}
-                          aria-pressed={isSelected}
-                          aria-label={`${isSelected ? 'Remove' : 'Add'} ${exercise.name} ${isSelected ? 'from' : 'to'} workout`}
-                          onClick={() => { haptic('tap'); toggleReference(referenceExercise.id) }}
-                        >
-                          <Icon name={isSelected ? 'check-linear' : 'add-circle-linear'} size={18} />
-                          {isSelected ? 'Added to workout' : 'Add to workout'}
-                        </button>
-                        <p className={`t-label ${styles.source}`}>
-                          Instructions by {referenceExercise.source.author}.{' '}
-                          <a href={referenceExercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`wger source for ${exercise.name}`}>Source</a>
-                          {' · '}
-                          <a href={referenceExercise.source.license.url} target="_blank" rel="noreferrer" aria-label={`${referenceExercise.source.license.shortName} license`}>{referenceExercise.source.license.shortName}</a>
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" className={styles.addButton} disabled>Add to workout</button>
-                        <p className="t-label">Not yet available in custom workouts.</p>
-                      </>
-                    )}
-                  </div>
-                </Surface>
+                <ExerciseRow
+                  key={key}
+                  item={item}
+                  index={index}
+                  open={openKey === key}
+                  onToggleOpen={() => setOpenKey(current => current === key ? null : key)}
+                  selected={isSelected}
+                  selectionFull={selectionFull}
+                  onToggleSelected={referenceExercise ? () => { haptic('tap'); toggleReference(referenceExercise.id) } : undefined}
+                />
               )
             })}
-          </div>
+          </ul>
 
-          {limit < filteredCollection.length && (
-            <Button variant="secondary" className={styles.showMore} onClick={() => setLimit(current => current + PAGE_SIZE)}>Show more exercises</Button>
-          )}
+          <div className={styles.listFoot}>
+            <p className={styles.status} role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</p>
+            {limit < filteredCollection.length && (
+              <Button variant="secondary" className={styles.showMore} onClick={() => setLimit(current => current + PAGE_SIZE)}>Show more exercises</Button>
+            )}
+          </div>
         </section>
       </div>
     </div>
   )
 }
 
-/** Long instructions clamp to four lines with a quiet toggle; the full text stays in the DOM. */
-function ClampedText({ text, name }: { text: string; name: string }) {
-  const [open, setOpen] = useState(false)
-  const long = text.length > 220
+const BODYWEIGHT = /^none \(bodyweight/i
+
+/** Row meta: the category word, then the first equipment (bodyweight shortened). */
+function rowMeta(item: LibraryExercise): string {
+  const categoryWord = CATEGORY_LABELS[item.exercise.category] || label(item.exercise.category)
+  if (item.kind === 'reviewed') return categoryWord
+  const gear = item.exercise.equipment.map(entry => (BODYWEIGHT.test(entry) ? 'Bodyweight' : entry))
+  return [categoryWord, ...gear].join(' · ')
+}
+
+function ExerciseRow({
+  item,
+  index,
+  open,
+  onToggleOpen,
+  selected,
+  selectionFull,
+  onToggleSelected,
+}: {
+  item: LibraryExercise
+  index: number
+  open: boolean
+  onToggleOpen: () => void
+  selected: boolean
+  selectionFull: boolean
+  onToggleSelected?: () => void
+}) {
+  const exercise = item.exercise
+  const detailId = useId()
+  const reduceMotion = useReducedMotion()
   return (
-    <>
-      <p className={styles.instructions} data-clamped={long && !open ? 'true' : undefined}>{text}</p>
-      {long ? (
-        <button type="button" className={styles.moreButton} aria-expanded={open} aria-label={`${open ? 'Show less' : 'Show all'} instructions for ${name}`} onClick={() => setOpen(value => !value)}>
-          {open ? 'Show less' : 'Show all'}
+    <li className={styles.row} data-open={open ? 'true' : undefined} style={{ '--i': Math.min(index % PAGE_SIZE, 8) } as CSSProperties}>
+      <div className={styles.rowHead}>
+        <button type="button" className={styles.rowTrigger} aria-expanded={open} aria-controls={detailId} onClick={onToggleOpen}>
+          <span className={styles.rowText}>
+            <span className={styles.rowTitle}>{exercise.name}</span>
+            <span className={styles.rowMeta}>
+              {item.kind === 'reviewed' && <span className={styles.reviewedMark}>Reviewed</span>}
+              {rowMeta(item)}
+            </span>
+          </span>
+          <span className={styles.chevron} aria-hidden="true"><Icon name="alt-arrow-down-linear" size={18} /></span>
         </button>
-      ) : null}
-    </>
+        {/* Reviewed movements can't join a custom workout yet; a blank slot keeps chevrons aligned. */}
+        {!onToggleSelected && <span className={styles.addSlot} aria-hidden="true" />}
+        {onToggleSelected && (
+          <button
+            type="button"
+            className={styles.addButton}
+            data-selected={selected ? 'true' : 'false'}
+            disabled={!selected && selectionFull}
+            aria-pressed={selected}
+            aria-label={`${selected ? 'Remove' : 'Add'} ${exercise.name} ${selected ? 'from' : 'to'} workout`}
+            onClick={onToggleSelected}
+          >
+            <Icon name={selected ? 'check-linear' : 'add-circle-linear'} size={20} />
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            id={detailId}
+            key="detail"
+            className={styles.detail}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={reduceMotion ? reduced : spring.morph}
+          >
+            <ExerciseDetail item={item} selected={selected} selectionFull={selectionFull} onToggleSelected={onToggleSelected} />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </li>
+  )
+}
+
+function ExerciseDetail({
+  item,
+  selected,
+  selectionFull,
+  onToggleSelected,
+}: {
+  item: LibraryExercise
+  selected: boolean
+  selectionFull: boolean
+  onToggleSelected?: () => void
+}) {
+  const exercise = item.exercise
+  const reviewedExercise = item.kind === 'reviewed' ? item.exercise : null
+  const referenceExercise = item.kind === 'reference' ? item.exercise : null
+  return (
+    <div className={styles.detailInner}>
+      {reviewedExercise?.poster_url && (
+        <div className={styles.mediaFrame}>
+          <Image src={reviewedExercise.poster_url} alt="" width={640} height={400} loading="lazy" />
+        </div>
+      )}
+      {referenceExercise?.media && (
+        <figure className={styles.figure}>
+          <div className={styles.mediaFrame}>
+            <Image
+              src={referenceExercise.media.posterUrl}
+              alt={referenceExercise.media.alt}
+              width={referenceExercise.media.width}
+              height={referenceExercise.media.height}
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          <figcaption className={`t-label ${styles.source}`}>
+            Image by {referenceExercise.media.source.author} via{' '}
+            <a href={referenceExercise.media.source.assetUrl} target="_blank" rel="noreferrer" aria-label={`wger image source for ${exercise.name}`}>wger</a>
+            {' · '}
+            <a href={referenceExercise.media.source.license.url} target="_blank" rel="noreferrer" aria-label={`${referenceExercise.media.source.license.shortName} image license`}>{referenceExercise.media.source.license.shortName}</a>
+            {' · unmodified'}
+          </figcaption>
+        </figure>
+      )}
+
+      {referenceExercise && (
+        <dl className={styles.facts}>
+          <div>
+            <dt>Equipment</dt>
+            <dd>{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</dd>
+          </div>
+          {referenceExercise.primaryMuscles.length > 0 && (
+            <div>
+              <dt>Primary</dt>
+              <dd>{referenceExercise.primaryMuscles.join(', ')}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      {reviewedExercise && (reviewedExercise.sets || reviewedExercise.hold_seconds) && (
+        <p className={`n ${styles.dosage}`}>
+          {reviewedExercise.sets && `${reviewedExercise.sets} sets`}{reviewedExercise.sets && reviewedExercise.hold_seconds && ' · '}{reviewedExercise.hold_seconds && `${reviewedExercise.hold_seconds}s hold`}
+        </p>
+      )}
+
+      <div className={styles.instructionBlock}>
+        <strong>Instructions</strong>
+        <p className={styles.instructions}>{exercise.instructions || 'Instructions are unavailable for this exercise.'}</p>
+      </div>
+
+      {referenceExercise && onToggleSelected && (
+        <button
+          type="button"
+          className={styles.detailAdd}
+          data-selected={selected ? 'true' : 'false'}
+          disabled={!selected && selectionFull}
+          aria-pressed={selected}
+          onClick={onToggleSelected}
+        >
+          <Icon name={selected ? 'check-linear' : 'add-circle-linear'} size={18} />
+          {selected ? 'Added to workout' : 'Add to workout'}
+        </button>
+      )}
+
+      <div className={styles.provenance}>
+        <p className={styles.referenceStatus}>
+          {item.kind === 'reviewed' ? 'Reviewed Posture AI content' : 'Licensed reference · not program reviewed'}
+        </p>
+        {referenceExercise ? (
+          <p className={`t-label ${styles.source}`}>
+            Instructions by {referenceExercise.source.author}.{' '}
+            <a href={referenceExercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`wger source for ${exercise.name}`}>Source</a>
+            {' · '}
+            <a href={referenceExercise.source.license.url} target="_blank" rel="noreferrer" aria-label={`${referenceExercise.source.license.shortName} license`}>{referenceExercise.source.license.shortName}</a>
+          </p>
+        ) : (
+          <p className="t-label">Not yet available in custom workouts.</p>
+        )}
+      </div>
+    </div>
   )
 }

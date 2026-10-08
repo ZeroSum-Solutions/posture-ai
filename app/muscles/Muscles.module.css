@@ -41,6 +41,12 @@
 }
 .pending { display: inline-flex; align-items: center; gap: 6px; font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 .pending::before { content: ''; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+.pending[data-state='reviewed'] { color: var(--ink-1); }
+.pending[data-state='reviewed']::before { background: currentColor; box-shadow: none; }
+
+/* The guide-wide review status, said once under the filters. */
+.statusNote { display: inline-flex; align-items: center; gap: 6px; margin: 0; font: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.statusNote::before { content: ''; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
 
 /* ── detail ───────────────────────────────────────────────────────── */
 .lede {

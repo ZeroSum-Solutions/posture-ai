@@ -15,6 +15,8 @@ test('exercise library searches one collection, exposes workout actions, and fit
   const search = page.getByRole('searchbox', { name: 'Search exercises' })
   await search.fill('goblet')
   await expect(page.getByText('Dumbbell Goblet Squat', { exact: true })).toBeVisible()
+  // Results are compact rows; tapping one opens its instructions and attribution in place.
+  await page.getByRole('button', { name: /^Dumbbell Goblet Squat/, expanded: false }).click()
   await expect(page.getByText(/Grasp dumbbell with both hands at the sides of the upper plates/i)).toBeVisible()
   await expect(page.getByRole('link', { name: /wger source for dumbbell goblet squat/i })).toBeVisible()
   const addGoblet = page.getByRole('button', { name: 'Add Dumbbell Goblet Squat to workout' })
@@ -28,6 +30,7 @@ test('exercise library searches one collection, exposes workout actions, and fit
   await expect(workoutSelection).toHaveCount(0)
 
   await search.fill('dumbbell romanian deadlift')
+  await page.getByRole('button', { name: /^Dumbbell Romanian Deadlift/, expanded: false }).click()
   const referenceImage = page.getByRole('img', { name: 'Two views of a person holding one dumbbell in each hand: standing upright and hinging forward at the hips.' })
   await expect(referenceImage).toBeVisible()
   await expect.poll(() => referenceImage.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
@@ -37,10 +40,8 @@ test('exercise library searches one collection, exposes workout actions, and fit
   for (const width of [320, 390, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     await expect(search).toBeVisible()
-    await expect(page.getByText('Licensed reference · not program reviewed').first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Add .+ to workout$/ }).first()).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
-    // Surface's flush modifier must not override the exercise card inset.
-    expect(await page.locator('[class*="cardInner"]').first().evaluate(element => parseFloat(getComputedStyle(element).paddingLeft))).toBeGreaterThanOrEqual(18)
 
     if (width === 390 || width === 1280) {
       await testInfo.attach(`exercise-library-${width}px`, {
@@ -50,10 +51,11 @@ test('exercise library searches one collection, exposes workout actions, and fit
     }
 
     if (width >= 1280) {
+      // Wide screens lay the rows out in two columns.
       expect((await page.locator('.app-screen').boundingBox())!.width).toBeGreaterThan(900)
-      const cards = page.getByText('Licensed reference · not program reviewed', { exact: true }).locator('..')
-      const first = (await cards.nth(0).boundingBox())!
-      const second = (await cards.nth(1).boundingBox())!
+      const adds = page.getByRole('button', { name: /^Add .+ to workout$/ })
+      const first = (await adds.nth(0).boundingBox())!
+      const second = (await adds.nth(1).boundingBox())!
       expect(Math.abs(first.y - second.y)).toBeLessThan(2)
       expect(second.x).toBeGreaterThan(first.x)
     }

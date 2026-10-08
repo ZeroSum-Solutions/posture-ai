@@ -40,6 +40,16 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
   const regions = REGION_ORDER.filter(r => filtered.some(m => m.region === r))
   let order = 0
 
+  // Review status is said once, for the whole guide; rows carry a mark only
+  // when they differ from that majority (e.g. the one reviewed entry).
+  const pendingCount = muscles.filter(m => !m.reviewed_at).length
+  const mostlyPending = pendingCount > muscles.length / 2
+  const statusNote = pendingCount === 0
+    ? null
+    : pendingCount === muscles.length
+      ? 'All entries pending review'
+      : mostlyPending ? 'Pending review unless marked reviewed' : null
+
   return (
     <>
       <div className={styles.controls}>
@@ -57,6 +67,7 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
             ))}
           </ChipRow>
         ) : null}
+        {statusNote ? <p className={styles.statusNote}>{statusNote}</p> : null}
       </div>
 
       {filtered.length === 0 && (
@@ -87,7 +98,9 @@ export function MuscleLibrary({ muscles }: { muscles: MuscleRow[] }) {
                       <span className={styles.rowText}>
                         <span className={styles.rowTitle}>{m.name}</span>
                         <span className={styles.rowMeta}>{m.function_text}</span>
-                        {!m.reviewed_at && <span className={styles.pending}>Pending review</span>}
+                        {mostlyPending
+                          ? m.reviewed_at && <span className={styles.pending} data-state="reviewed">Reviewed</span>
+                          : !m.reviewed_at && <span className={styles.pending}>Pending review</span>}
                       </span>
                       <Icon name="alt-arrow-right-linear" size={20} />
                     </Link>
