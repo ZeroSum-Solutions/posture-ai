@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button } from '@/components/ui'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { TrainingSetLogEventV1 } from '@/lib/training/contracts/logs'
 import type { TrainingConditioningSessionPrescriptionV1, TrainingSessionPrescriptionV1 } from '@/lib/training/contracts/session'
@@ -200,8 +201,8 @@ function SetEditor({ sessionId, revision, exercise, setId, setIndex, warmup, cur
   return <fieldset className={styles.setEditor}>
     <legend>{warmup ? 'Warm-up' : 'Set'} {setIndex + 1}</legend>
     {warmup
-      ? <p className="t-quiet">Prescribed: {exactLoadLabel(prescribed, exercise.acceptedInitialLoad.loadBasis)} · {targetReps} reps</p>
-      : targetReps !== undefined ? <p className="t-quiet">Target: {targetReps} reps</p> : null}
+      ? <p className="t-footnote">Prescribed: {exactLoadLabel(prescribed, exercise.acceptedInitialLoad.loadBasis)} · {targetReps} reps</p>
+      : targetReps !== undefined ? <p className="t-footnote">Target: {targetReps} reps</p> : null}
     <label>Load<input className="a-input" inputMode="decimal" value={value} disabled={state === 'saving'} onChange={event => { setValue(event.target.value); edited() }} /></label>
     <label>Unit<select className="a-input" value={unit} disabled={state === 'saving'} onChange={event => { setUnit(event.target.value as LoadUnit); edited() }}><option value="kg">kg</option><option value="lb">lb</option></select></label>
     <label>Reps<input className="a-input" type="number" min="0" max="100" value={reps} disabled={state === 'saving'} onChange={event => { setReps(event.target.value); edited() }} /></label>
@@ -235,8 +236,8 @@ function StrengthSession({ projection, update, conflict, saveSet, copyLocked }: 
       const exerciseLabel = projection.exerciseDisplay[exercise.exerciseInstanceId]?.label ?? 'Exercise name unavailable'
       return <Surface key={exercise.exerciseInstanceId} tier="tile" innerClassName={styles.sessionExercise}>
       <div className={styles.sectionHeading}>
-        <div><p className="t-kicker">Exercise {String(index + 1).padStart(2, '0')}</p><h3 className="t-headline-sm">{exerciseLabel}</h3></div>
-        <span className="t-quiet">Rest {exercise.restSeconds}s</span>
+        <div><p className="t-overline">Exercise {String(index + 1).padStart(2, '0')}</p><h3 className="t-title-2">{exerciseLabel}</h3></div>
+        <span className="t-footnote">Rest {exercise.restSeconds}s</span>
       </div>
       <TrainingExerciseMedia
         binding={{ catalogVersion: prescription.catalogVersion, catalogOrigin: prescription.catalogOrigin, exerciseVersionId: exercise.exerciseVersionId }}
@@ -323,9 +324,9 @@ function ConditioningSession({ projection, update, conflict, saveConditioning }:
   if (!prescription || prescription.schemaVersion !== 'training-conditioning-session-prescription.v1') return null
   const terminal = ['completed', 'completed_with_omissions', 'aborted'].includes(projection.session.state)
   if (terminal && !projection.currentConditioningActual) return <Surface tier="tile" innerClassName={styles.conditioningSession}>
-    <p className="t-kicker">Conditioning</p>
-    <h3 className="t-headline-sm">{projection.conditioningDisplay?.label ?? 'Conditioning name unavailable'}</h3>
-    <p className="t-body">Not recorded</p><p className="t-quiet">Omitted when finished.</p>
+    <p className="t-overline">Conditioning</p>
+    <h3 className="t-title-2">{projection.conditioningDisplay?.label ?? 'Conditioning name unavailable'}</h3>
+    <p className="t-body">Not recorded</p><p className="t-footnote">Omitted when finished.</p>
   </Surface>
   return <ConditioningEditor
     key={projection.currentConditioningActual?.eventRevision ?? 0}
@@ -400,8 +401,8 @@ function ConditioningEditor({ projection, prescription, update, conflict, saveAt
   }
 
   return <Surface tier="tile" innerClassName={styles.conditioningSession}>
-    <p className="t-kicker">Conditioning</p>
-    <h3 className="t-headline-sm">{projection.conditioningDisplay?.label ?? 'Conditioning name unavailable'} · {prescription.acceptedBout.acceptedDurationSeconds / 60} minute starting target</h3>
+    <p className="t-overline">Conditioning</p>
+    <h3 className="t-title-2">{projection.conditioningDisplay?.label ?? 'Conditioning name unavailable'} · {prescription.acceptedBout.acceptedDurationSeconds / 60} minute starting target</h3>
     <p className="t-body">{projection.conditioningDisplay?.effortCue ?? 'Instructions are unavailable for this saved catalog version.'}</p>
     <div className={styles.conditioningFields}>
       <label>Actual duration in minutes<input className="a-input" type="number" min="0" max="1440" step="1" value={minutes} disabled={state === 'saving'} onChange={event => { setMinutes(event.target.value); edited() }} /></label>
@@ -731,7 +732,7 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
   }
 
   if (load.status === 'loading') return <Surface tier="tile" innerClassName={styles.entryState}><p role="status">Loading training session…</p></Surface>
-  if (load.status === 'error') return <Surface tier="tile" innerClassName={styles.entryState}><p role="alert">{load.message}</p><button className="a-secondary" onClick={() => void reload()}>Retry session</button></Surface>
+  if (load.status === 'error') return <Surface tier="tile" innerClassName={styles.entryState}><p role="alert">{load.message}</p><Button variant="secondary" size="md" onClick={() => void reload()}>Retry session</Button></Surface>
 
   const projection = load.projection
   const practice = projection.executionContext.kind === 'synthetic_simulation'
@@ -740,8 +741,8 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
   return <section className={styles.sessionPlayer} aria-labelledby="training-session-heading">
     {practice ? <div className={styles.practiceBanner}><strong>Practice data · Simulation</strong><span>This session belongs to the private sample workspace.</span></div> : null}
     <Surface tier="feature" innerClassName={styles.sessionHeader}>
-      <div><p className="t-kicker">{projection.session.session_kind === 'strength' ? 'Strength session' : 'Conditioning session'}</p><h2 id="training-session-heading" className="t-headline-sm">{projection.session.scheduled_local_date}</h2></div>
-      <div><span className="t-kicker">Session state</span><strong>{projection.session.state.replaceAll('_', ' ')}</strong></div>
+      <div><p className="t-overline">{projection.session.session_kind === 'strength' ? 'Strength session' : 'Conditioning session'}</p><h2 id="training-session-heading" className="t-title-2">{projection.session.scheduled_local_date}</h2></div>
+      <div><span className="t-overline">Session state</span><strong>{projection.session.state.replaceAll('_', ' ')}</strong></div>
     </Surface>
     {message ? <p role="status" className={styles.notice}>{message}</p> : null}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
@@ -753,12 +754,12 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
     {offlineQueue.pendingCount > 0 ? <Surface tier="tile" innerClassName={styles.entryState}>
       <p role="status"><strong>{offlineQueue.pendingCount} pending {offlineQueue.pendingCount === 1 ? 'change' : 'changes'} on this device.</strong> These changes are not saved on the server yet.</p>
       {offlineQueue.conflictRequestId
-        ? <button type="button" className="a-secondary" onClick={() => void discardOfflineConflict()}>Discard conflicting local change and reload</button>
-        : <button type="button" className="a-secondary" onClick={() => void retryOfflineQueue()}>Retry pending saves</button>}
+        ? <Button type="button" variant="secondary" size="md" onClick={() => void discardOfflineConflict()}>Discard conflicting local change and reload</Button>
+        : <Button type="button" variant="secondary" size="md" onClick={() => void retryOfflineQueue()}>Retry pending saves</Button>}
     </Surface> : null}
     {projection.session.stopped_for_symptoms ? <p role="alert" className={styles.error}>Adverse symptoms were reported. Do not continue this session until they have been addressed.</p> : null}
     {projection.session.state === 'scheduled'
-      ? <button type="button" className="a-primary" disabled={pending} onClick={() => void start(projection)}>{pending ? 'Starting session…' : 'Start session'}</button>
+      ? <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void start(projection)}>Start session</Button>
       : null}
     {projection.session.state !== 'scheduled' && projection.session.session_kind === 'strength'
       ? <StrengthSession projection={projection} update={applyAck} conflict={conflict} copyLocked={offlineQueue.pendingCount > 0 || offlineQueue.conflictRequestId !== null} saveSet={attempt => submitOfflineMutation({
@@ -779,20 +780,18 @@ export default function TrainingSessionPlayer({ sessionId }: { sessionId: string
       ? <div className={styles.finishBar}>
         <p className="t-body">Save actuals first. Finishing with missing items records omissions explicitly. Stopping preserves saved actuals without advancing progression.</p>
         {pendingCompletion
-          ? <button type="button" className="a-primary" disabled={pending} onClick={() => void finish(projection)}>
-            {pending
-              ? pendingCompletion.finishMode === 'abort' ? 'Stopping…' : 'Finishing…'
-              : pendingCompletion.finishMode === 'abort'
-                ? 'Retry stop session'
-                : pendingCompletion.finishMode === 'finish_with_omissions'
-                  ? `Retry finish with ${missing} omission${missing === 1 ? '' : 's'}`
-                  : 'Retry finish session'}
-          </button>
+          ? <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void finish(projection)}>
+            {pendingCompletion.finishMode === 'abort'
+              ? 'Retry stop session'
+              : pendingCompletion.finishMode === 'finish_with_omissions'
+                ? `Retry finish with ${missing} omission${missing === 1 ? '' : 's'}`
+                : 'Retry finish session'}
+          </Button>
           : projection.session.stopped_for_symptoms
-            ? <button type="button" className="a-primary" disabled={pending} onClick={() => void finish(projection, 'abort')}>{pending ? 'Stopping…' : 'Stop session'}</button>
+            ? <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void finish(projection, 'abort')}>Stop session</Button>
             : <>
-              <button type="button" className="a-primary" disabled={pending} onClick={() => void finish(projection)}>{pending ? 'Finishing…' : missing > 0 ? `Finish with ${missing} omission${missing === 1 ? '' : 's'}` : 'Finish session'}</button>
-              <button type="button" className="a-secondary" disabled={pending} onClick={() => void finish(projection, 'abort')}>Stop session</button>
+              <Button type="button" variant="primary" size="md" loading={pending} onClick={() => void finish(projection)}>{missing > 0 ? `Finish with ${missing} omission${missing === 1 ? '' : 's'}` : 'Finish session'}</Button>
+              <Button type="button" variant="secondary" size="md" loading={pending} onClick={() => void finish(projection, 'abort')}>Stop session</Button>
             </>}
       </div>
       : terminal

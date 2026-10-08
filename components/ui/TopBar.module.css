@@ -1,0 +1,101 @@
+/* TopBar: large-title collapse (spec §3.6). Glass only when collapsed —
+   expanded it is transparent, so there is no permanent blur layer. */
+
+.collapsed {
+  position: sticky;
+  top: 0;
+  /* Full-bleed even when the page puts the TopBar inside padded content. */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  z-index: var(--z-sticky);
+  display: flex;
+  justify-content: center;
+  height: calc(52px + var(--sa-t));
+  padding-top: var(--sa-t);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color var(--duration-state) var(--ease-standard), border-color var(--duration-state) var(--ease-standard);
+}
+
+.collapsedVisible {
+  /* Stronger than other chrome: titles sit directly over scrolling text. */
+  background: var(--glass-chrome-strong);
+  -webkit-backdrop-filter: var(--glass-chrome-filter);
+  backdrop-filter: var(--glass-chrome-filter);
+  border-bottom-color: var(--hairline);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .collapsedVisible { background: var(--glass-chrome-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .collapsedVisible { background: var(--glass-chrome-solid); }
+}
+
+.collapsedInner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(var(--content-max), 100%);
+  padding-inline: max(var(--s-8), var(--sa-l)) max(var(--s-8), var(--sa-r));
+}
+
+.collapsedTitle {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font: var(--t-headline);
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backButton {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-left: calc(-1 * var(--s-12));
+  color: var(--text-1);
+  text-decoration: none;
+  border-radius: var(--r-full);
+}
+.backButton:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.95); outline-offset: 2px; }
+
+.actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  margin-left: auto;
+  margin-right: calc(-1 * var(--s-8));
+}
+
+.largeWrap {
+  width: min(var(--content-max), 100%);
+  margin: 0 auto;
+  padding-inline: max(var(--screen-x), var(--sa-l)) max(var(--screen-x), var(--sa-r));
+  padding-top: var(--s-4);
+}
+
+.largeTitle {
+  margin-top: 0;
+}
+
+/* No back and no actions: the bar row overlays the content (transparent until
+   collapsed) instead of reserving 52px above the large title. */
+.overlay {
+  margin-bottom: calc(-1 * (52px + var(--sa-t)));
+  pointer-events: none;
+}
+
+.subtitle {
+  margin-top: var(--s-4);
+  color: var(--text-2);
+}
+
+.sentinel {
+  height: 1px;
+}

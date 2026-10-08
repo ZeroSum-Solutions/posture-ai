@@ -1,9 +1,3 @@
-/* Same checkbox-row idiom as ClientForm's subject-consent panel: the box and
-   its label sit in one clickable row, with the box top-aligned against the
-   first line of wrapped copy. */
-.consentCheck {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
+.stepper {
+  margin-top: var(--s-16);
 }

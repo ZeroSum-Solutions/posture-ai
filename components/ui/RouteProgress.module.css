@@ -1,0 +1,21 @@
+.track {
+  position: fixed;
+  top: var(--sa-t);
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: var(--z-toast);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: 0% 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar { transition: none !important; }
+}

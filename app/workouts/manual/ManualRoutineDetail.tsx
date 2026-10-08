@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Surface } from '@/components/array/Surface'
+import { Button, Dialog, ErrorState } from '@/components/ui'
 import { archiveManualRoutine, loadManualRoutine, ManualRoutineConflictError, updateManualRoutine } from './ManualRoutine.gateway'
 import ManualRoutineEditor from './ManualRoutineEditor'
 import ManualRoutinePlayer from './ManualRoutinePlayer'
@@ -18,6 +18,8 @@ export default function ManualRoutineDetail({ routineId, availableExercises }: {
   const router = useRouter()
   const [state, setState] = useState<State>({ status: 'loading' })
   const [editing, setEditing] = useState(false)
+  const [editorDirty, setEditorDirty] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [conflict, setConflict] = useState<ManualRoutine | null>(null)
@@ -36,9 +38,20 @@ export default function ManualRoutineDetail({ routineId, availableExercises }: {
     return () => { active = false }
   }, [routineId])
 
-  if (state.status === 'loading') return <p role="status" className="t-quiet">Loading routine…</p>
-  if (state.status === 'error') return <Surface tier="tile" innerClassName={styles.empty}><p role="alert">{state.message}</p><button type="button" className="a-secondary" onClick={() => void retry()}>Retry routine</button></Surface>
+  if (state.status === 'loading') return <p role="status" className="t-footnote">Loading routine…</p>
+  if (state.status === 'error') return <ErrorState
+    variant="inline"
+    title="Routine unavailable"
+    body={state.message}
+    onRetry={() => void retry()}
+  />
   const routine = state.routine
+
+  function requestStopEditing() {
+    if (editorDirty) { setDiscardOpen(true); return }
+    setEditing(false)
+    setNotice(null)
+  }
 
   async function archive() {
     setArchiving(true)
@@ -57,12 +70,12 @@ export default function ManualRoutineDetail({ routineId, availableExercises }: {
   return <div className={styles.detail}>
     <div className={styles.detailActions}>
       {routine.status === 'active' ? <>
-        <button type="button" className="a-secondary" onClick={() => { setEditing(value => !value); setNotice(null) }}>{editing ? 'Cancel editing' : 'Edit routine'}</button>
-        <button type="button" className="a-secondary" disabled={archiving} onClick={() => void archive()}>{archiving ? 'Archiving…' : 'Archive routine'}</button>
+        <Button variant="secondary" onClick={() => { if (editing) requestStopEditing(); else setEditing(true) }}>{editing ? 'Cancel editing' : 'Edit routine'}</Button>
+        <Button variant="secondary" loading={archiving} onClick={() => void archive()}>Archive routine</Button>
       </> : null}
     </div>
     {notice ? <p role="alert" className={styles.error}>{notice}</p> : null}
-    {conflict ? <button type="button" className="a-secondary" onClick={() => { setState({ status: 'ready', routine: conflict }); setConflict(null); setNotice(null); setEditing(false) }}>Load latest saved version</button> : null}
+    {conflict ? <Button variant="secondary" onClick={() => { setState({ status: 'ready', routine: conflict }); setConflict(null); setNotice(null); setEditing(false) }}>Load latest saved version</Button> : null}
     {routine.status === 'archived' ? <p role="status" className={styles.notice}>This routine is archived and read-only.</p> : null}
     {editing ? <ManualRoutineEditor
       key={`${routine.routineId}:${routine.revision}`}
@@ -71,11 +84,13 @@ export default function ManualRoutineDetail({ routineId, availableExercises }: {
       initialTitle={routine.title}
       initialItems={routine.items}
       saveLabel="Save changes"
+      onDirtyChange={setEditorDirty}
       onSave={async input => {
         try {
           const updated = await updateManualRoutine(routine, input)
           setState({ status: 'ready', routine: updated })
           setEditing(false)
+          setEditorDirty(false)
           return { routineId: updated.routineId }
         } catch (cause) {
           if (cause instanceof ManualRoutineConflictError) setConflict(cause.current)
@@ -83,5 +98,22 @@ export default function ManualRoutineDetail({ routineId, availableExercises }: {
         }
       }}
     /> : <ManualRoutinePlayer routine={routine} />}
+    <Dialog
+      open={discardOpen}
+      onOpenChange={setDiscardOpen}
+      title="Discard changes?"
+      description="Your edits to this routine will be lost."
+      confirm={{
+        label: 'Discard changes',
+        tone: 'danger',
+        onConfirm: () => {
+          setDiscardOpen(false)
+          setEditorDirty(false)
+          setEditing(false)
+          setNotice(null)
+        },
+      }}
+      cancel={{ label: 'Keep editing' }}
+    />
   </div>
 }

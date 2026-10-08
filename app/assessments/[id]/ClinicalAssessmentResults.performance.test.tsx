@@ -6,6 +6,7 @@ const navigation = vi.hoisted(() => ({ router: { push: vi.fn() } }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => navigation.router,
+  usePathname: () => '/assessments/test-assessment-id',
 }))
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
@@ -182,11 +183,11 @@ describe('assessment results progressive rendering', () => {
     />)
 
     // The map is the page's own hero (the browser's native anchor scroll lands on it); the tabs
-    // under it are Evidence (open on arrival) and Program — findings live on the map itself.
+    // under it are Findings (open on arrival, renamed from "Evidence") and Program.
     const hero = await screen.findByRole('heading', { name: 'Posture map' })
     expect(hero.id).toBe('anatomy-viewer-title')
-    expect(screen.getByRole('tab', { name: 'Evidence' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.queryByRole('tab', { name: /Findings/ })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Findings' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.queryByRole('tab', { name: /^Evidence/ })).toBeNull()
     const tabs = screen.getByRole('tablist')
     expect(hero.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -290,7 +291,10 @@ describe('assessment results progressive rendering', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: /^Grade / })).toBeTruthy()
-    // Accuracy lives in the Evidence panel, which mounts just after first paint.
+    // Accuracy lives in the Evidence panel's own native <details>/<summary>
+    // disclosure (not components/ui Disclosure — see Results.module.css),
+    // which mounts just after first paint and is collapsed by default.
+    fireEvent.click(await screen.findByText('Accuracy & methodology'))
     expect(await screen.findByText('Within-burst landmark consistency 98%')).toBeTruthy()
     // No disclaimer copy on the page: practitioners accept the screening notice at onboarding.
     expect(screen.queryByText(/clinical accuracy are not established/)).toBeNull()

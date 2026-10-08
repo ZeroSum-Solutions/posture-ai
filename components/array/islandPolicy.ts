@@ -1,80 +1,15 @@
-import type { IconName } from './icons'
-
-export interface IslandSlot {
-  href: string
-  label: string
-  icon: IconName
-  /** `action` slots never expand into a labelled pill — Capture is the only one. */
-  kind: 'destination' | 'action'
-}
-
-const TODAY: IslandSlot = { href: '/dashboard', label: 'Today', icon: 'home-smile-linear', kind: 'destination' }
-const CLIENTS: IslandSlot = { href: '/clients', label: 'Clients', icon: 'users-group-rounded-linear', kind: 'destination' }
-const CAPTURE: IslandSlot = { href: '/assessments/new', label: 'Capture', icon: 'scanner-linear', kind: 'action' }
-const WORKOUTS: IslandSlot = { href: '/workouts', label: 'Workouts', icon: 'dumbbell-small-linear', kind: 'destination' }
-const PROFILE: IslandSlot = { href: '/settings', label: 'Profile', icon: 'user-circle-linear', kind: 'destination' }
-const TRAIN: IslandSlot = { href: '/train', label: 'Train', icon: 'dumbbell-small-linear', kind: 'destination' }
-const MANUAL_ROUTINES: IslandSlot = { href: '/workouts/manual', label: 'Routines', icon: 'clipboard-check-linear', kind: 'destination' }
-const EXERCISES: IslandSlot = { href: '/exercises', label: 'Exercises', icon: 'magnifer-linear', kind: 'destination' }
-
-export type IslandAudience = 'practitioner' | 'athlete' | 'public'
-
 /**
- * The island's slots. Workouts is dropped when clinical content is gated off:
- * workout generation is behind that flag, and the island must never
- * offer a destination the practitioner is not entitled to open.
+ * Compatibility shim. The policy moved to components/ui/tabBarPolicy.ts when
+ * IslandNav was replaced by the v3 TabBar (components/ui/TabBar.tsx). Every
+ * name below is a straight re-export under its old name, so IslandNav.tsx and
+ * islandPolicy.test.ts keep working unchanged until a later cleanup deletes
+ * them. Behavior is identical — see tabBarPolicy.ts for the implementation
+ * and tabBarPolicy.test.ts for the ported tests.
  */
-export function islandSlots(clinicalContentEnabled: boolean, audience: IslandAudience = 'practitioner'): IslandSlot[] {
-  if (audience === 'public') return []
-  if (audience === 'athlete') return [TRAIN, MANUAL_ROUTINES, EXERCISES]
-  return clinicalContentEnabled
-    ? [TODAY, CLIENTS, CAPTURE, WORKOUTS, PROFILE]
-    : [TODAY, CLIENTS, CAPTURE, PROFILE]
-}
-
-const HIDDEN_EXACT = new Set(['/', '/privacy', '/terms'])
-const HIDDEN_PREFIXES = ['/auth', '/onboarding', '/consent/', '/s/']
-
-/**
- * Marketing, auth, onboarding and the public consent/share documents carry no
- * app navigation — a client following a share link is not a practitioner.
- */
-export function isIslandHidden(pathname: string): boolean {
-  if (HIDDEN_EXACT.has(pathname)) return true
-  return HIDDEN_PREFIXES.some(prefix => pathname.startsWith(prefix))
-}
-
-const RESULTS_PAGE = /^\/assessments\/(?!new(?:\/|$))[^/]+\/?$/
-
-/**
- * The assessment results page gives the phone screen to the 3D model: the island starts
- * tucked away and only comes back while the user scrolls up.
- */
-export function isIslandScrollRevealed(pathname: string): boolean {
-  return RESULTS_PAGE.test(pathname)
-}
-
-/**
- * Which slot owns the current route. Assessment review lives under the client
- * that owns it, so it lights Clients rather than the Capture action; only the
- * capture flow itself belongs to Capture.
- */
-export function activeSlotHref(pathname: string, slots: IslandSlot[]): string | null {
-  if (pathname.startsWith('/workouts/manual')) {
-    if (slots.some(slot => slot.href === '/workouts/manual')) return '/workouts/manual'
-    return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
-  }
-  if (pathname.startsWith('/assessments/new')) return '/assessments/new'
-  if (pathname.startsWith('/assessments')) return '/clients'
-  if (pathname.startsWith('/exercises')) {
-    if (slots.some(slot => slot.href === '/exercises')) return '/exercises'
-    return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
-  }
-  if (pathname.startsWith('/muscles')) {
-    return slots.some(slot => slot.href === '/workouts') ? '/workouts' : null
-  }
-  const match = slots
-    .filter(slot => pathname === slot.href || pathname.startsWith(`${slot.href}/`))
-    .sort((a, b) => b.href.length - a.href.length)[0]
-  return match?.href ?? null
-}
+export type { TabSlot as IslandSlot, TabBarAudience as IslandAudience } from '@/components/ui/tabBarPolicy'
+export {
+  tabBarSlots as islandSlots,
+  isTabBarHidden as isIslandHidden,
+  isTabBarScrollRevealed as isIslandScrollRevealed,
+  activeSlotHref,
+} from '@/components/ui/tabBarPolicy'

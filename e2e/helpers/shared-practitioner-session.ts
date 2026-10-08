@@ -36,9 +36,12 @@ export async function restoreSharedPractitionerSession(browser: Browser, baseURL
     await page.getByLabel('Authenticator code').fill(totpCode(fixture.secret))
     await page.getByRole('button', { name: 'Verify and continue' }).click()
     await page.waitForURL((url) => !url.pathname.startsWith('/auth/'), { timeout: 25_000 })
+    // Array v3: one document per step, each advanced by the same sticky
+    // "I agree" button; the third click submits acceptance.
     if (page.url().includes('/onboarding')) {
-      await page.getByRole('checkbox').check()
-      await page.getByRole('button', { name: 'Accept and Continue' }).click()
+      for (let step = 0; step < 3; step += 1) {
+        await page.getByRole('button', { name: 'I agree' }).click()
+      }
       await page.waitForURL((url) => !url.pathname.startsWith('/onboarding'), { timeout: 25_000 })
     }
     await context.storageState({ path: SHARED_STORAGE_STATE })

@@ -2,30 +2,26 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--s-12);
 }
 
 .linkRow {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.linkInput {
-  flex: 1;
-  min-width: 200px;
+  flex-direction: column;
+  gap: var(--s-8);
 }
 
 .actionRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-12);
   flex-wrap: wrap;
 }
 
 .qr {
-  border-radius: 8px;
-  background: #fff;
-  padding: 4px;
+  border-radius: var(--r-sm);
+  /* A QR code needs a solid white quiet zone to stay scannable, independent
+     of theme — `--action` is the token that happens to be pure white. */
+  background: var(--action);
+  padding: var(--s-4);
 }

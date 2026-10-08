@@ -1,0 +1,164 @@
+/* Array v3 TabBar — replaces the island (DESIGN.md › Navigation, spec §3.7).
+   Docked, full-width, chrome glass, 56px + safe-area-bottom, top hairline. */
+
+.bar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--z-tabbar);
+  display: flex;
+  justify-content: center;
+  background: var(--glass-chrome);
+  -webkit-backdrop-filter: var(--glass-chrome-filter);
+  backdrop-filter: var(--glass-chrome-filter);
+  border-top: 1px solid var(--hairline);
+  padding-bottom: var(--sa-b);
+  transition: transform var(--duration-layout) var(--ease-standard), opacity var(--duration-layout) var(--ease-standard);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bar { background: var(--glass-chrome-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .bar { background: var(--glass-chrome-solid); }
+}
+
+/* The keyboard hides the bar entirely rather than squeezing it (spec §7.22). */
+.bar[data-keyboard-open='true'] {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: min(var(--content-max), 100%);
+  height: var(--tabbar-h);
+  padding-inline: max(var(--s-8), var(--sa-l)) max(var(--s-8), var(--sa-r));
+}
+
+.slot {
+  position: relative;
+  flex: 1;
+  display: flex;
+  text-decoration: none;
+  min-height: 48px;
+}
+
+.slotInner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+
+/* The accent indicator springs in under the active slot with a scaleX
+   overshoot ("jelly"). CSS keyframes, so navigation never reads layout. */
+.indicator {
+  position: absolute;
+  top: 2px;
+  width: 32px;
+  height: 3px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  animation: indicator-jelly var(--duration-layout) var(--ease-spring) both;
+}
+
+@keyframes indicator-jelly {
+  0% { transform: scaleX(0.3); opacity: 0; }
+  60% { transform: scaleX(1.15); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicator { animation: none; }
+}
+
+.iconWrap {
+  display: flex;
+  margin-top: 6px;
+}
+
+.iconActive { color: var(--text-1); }
+.iconInactive { color: var(--text-2); }
+
+.label {
+  font: var(--t-caption);
+  letter-spacing: 0.01em;
+  color: var(--text-2);
+  transition: color var(--duration-state) var(--ease-standard);
+}
+.labelActive { color: var(--text-1); }
+
+/* Capture: a raised circle, never an "active" slot. The label sits on the same
+   baseline as the other slots' labels; only the circle rises above the bar, by
+   --capture-raise (which --chrome-bottom also reserves). */
+.actionWrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: 72px;
+  height: var(--tabbar-h);
+}
+
+.action {
+  position: absolute;
+  inset: 0;
+  display: block;
+  text-decoration: none;
+  color: var(--text-1);
+  border-radius: var(--r-md);
+}
+
+.actionCircle {
+  position: absolute;
+  left: 50%;
+  /* Circle bottom clears the label line (label occupies the bottom 20px). */
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-left: -28px;
+  border-radius: var(--r-full);
+  background: var(--capture);
+  color: var(--text-on-action);
+  box-shadow: var(--shadow-float);
+}
+
+.actionLabel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  font: var(--t-caption);
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: var(--text-1);
+}
+
+/* Below 360px the circle shrinks so it keeps 8px clear of its neighbours. */
+@media (max-width: 360px) {
+  .actionWrap { width: 64px; }
+  .actionCircle { width: 48px; height: 48px; margin-left: -24px; }
+}
+
+.slot:focus-visible,
+.action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  border-radius: var(--r-md);
+}
+
+/* Press feedback in CSS: framer tap gestures would add extra tab stops. */
+.slotInner, .actionCircle { transition: transform var(--duration-press) var(--ease-spring); }
+.slot:active .slotInner { transform: scale(0.97); }
+.action:active .actionCircle { transform: scale(0.94); }
+@media (prefers-reduced-motion: reduce) {
+  .slot:active .slotInner, .action:active .actionCircle { transform: none; }
+}

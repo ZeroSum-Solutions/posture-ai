@@ -50,9 +50,9 @@ export default async function WorkoutsPage({ searchParams }: { searchParams: Pro
   if (trainingProgramId && (trainingSessionId || assessmentId)) notFound()
   if (trainingProgramId) return (
     <div className={`app-screen ${styles.screen}`}>
-      <main className={`app-screen-x app-stack ${styles.main}`}>
+      <div className={`app-screen-x app-stack ${styles.main}`}>
         <TrainingProgramWorkspace assignmentId={trainingProgramId} sessionHrefBase="/workouts" backHref="/workouts" />
-      </main>
+      </div>
     </div>
   )
   const operation = operationForPractitioner(user.id)

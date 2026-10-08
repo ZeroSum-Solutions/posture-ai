@@ -1,6 +1,7 @@
-/* The field: pure #000 with the ambient photograph behind the content and a
-   legibility veil over it. Immersive screens (capture, player) skip the photo —
-   their background is the live camera or video frame. */
+/* Array v3 field (DESIGN.md › Materials, spec §2.5): pure #000 plus two fixed
+   radial gradients drifting slowly on one composited layer. No photograph —
+   v2's `mix-blend-mode: screen` image could push luminance behind glass past
+   the --text-3 contrast budget. Brightest point stays <= #1C1C1E. */
 
 .field {
   position: fixed;
@@ -11,20 +12,27 @@
   background: #000;
 }
 
-.photo {
+.field::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.1);
-  opacity: 0.6;
-  mix-blend-mode: screen;
-  filter: blur(var(--blur-ambient)) saturate(0.85);
+  inset: -10%;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(77, 178, 255, 0.12), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(109, 74, 255, 0.08), transparent 55%);
+  will-change: transform;
+  animation: ambient-drift 30s ease-in-out infinite;
 }
 
-.veil {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.1) 45%, rgba(0, 0, 0, 0.8));
+.field[data-paused='true']::before {
+  animation-play-state: paused;
+}
+
+@keyframes ambient-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-2%, 2%, 0) scale(1.04); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field::before { animation: none; }
 }

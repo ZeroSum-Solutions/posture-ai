@@ -1,15 +1,29 @@
 'use client'
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import DebouncedSearchInput from '@/components/DebouncedSearchInput'
 import Icon from '@/components/array/Icon'
-import { FilterChip, FilterRow, GradeChip } from '@/components/array/Chip'
-import { Surface, SurfaceLink } from '@/components/array/Surface'
-import { tone } from '@/components/array/severity'
-import { CLIENT_FILTERS, toDirectoryRow, type ClientFilter, type DirectoryClient } from './clientRow'
+import { bandFromGrade } from '@/components/array/severity'
+import {
+  Avatar,
+  Banner,
+  Button,
+  ChipRow,
+  EmptyState,
+  FilterChip,
+  IconButton,
+  ListGroup,
+  ListRow,
+  ListRowSkeleton,
+  SearchField,
+  SeverityChip,
+  Sheet,
+  TopBar,
+} from '@/components/ui'
+import { CLIENT_FILTERS, toDirectoryRow, type ClientFilter, type DirectoryClient, type DirectoryRow } from './clientRow'
 import { REPEAT_CAPTURE_LIMITATION_COPY } from '@/lib/comparison/policy'
-import styles from './ClientsPage.module.css'
+
+const PAGE_SIZE = 30
+const DISCLAIMER_DISMISSED_KEY = 'pa:clients-disclaimer-dismissed'
 
 interface DirectorySummary {
   total: number
@@ -25,6 +39,28 @@ interface ClientPageResponse {
   error?: string
 }
 
+function readDisclaimerDismissed(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(DISCLAIMER_DISMISSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** The row's one trailing status indicator (DESIGN.md › Clients: "trailing
+ * SeverityChip or status chip once"). Priority: a fresh client reads "New",
+ * never "Overdue" — then review > overdue > the last grade. */
+function RowStatus({ row }: { row: DirectoryRow }) {
+  if (!row.hasScan) return <SeverityChip band="neutral" size="sm" label="New" />
+  if (row.awaitingReview) return <SeverityChip band="monitor" size="sm" label="In review" />
+  if (row.overdue) return <SeverityChip band="monitor" size="sm" label="Overdue" />
+  // `bandFromGrade` is typed for the wider engine SeverityBand (it also
+  // covers 'info'), but a grade band never actually resolves to 'info'.
+  const band = bandFromGrade(row.grade)
+  return <SeverityChip band={band === 'info' ? 'neutral' : band} size="sm" />
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<DirectoryClient[]>([])
   const [summary, setSummary] = useState<DirectorySummary | null>(null)
@@ -38,6 +74,8 @@ export default function ClientsPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [erasureNotice, setErasureNotice] = useState<'complete' | 'pending' | null>(null)
+  const [sortSheetOpen, setSortSheetOpen] = useState(false)
+  const [disclaimerDismissed, setDisclaimerDismissed] = useState(readDisclaimerDismissed)
   const requestVersion = useRef(0)
   const clientPageController = useRef<AbortController | null>(null)
   const loadMoreController = useRef<AbortController | null>(null)
@@ -53,7 +91,7 @@ export default function ClientsPage() {
     cursor?: string | null
     signal?: AbortSignal
   }): Promise<ClientPageResponse> => {
-    const query = new URLSearchParams({ limit: '50', filter: input.filter })
+    const query = new URLSearchParams({ limit: String(PAGE_SIZE), filter: input.filter })
     if (input.search) query.set('search', input.search)
     if (input.cursor) query.set('cursor', input.cursor)
     const response = await fetch(`/api/clients?${query.toString()}`, {
@@ -153,6 +191,12 @@ export default function ClientsPage() {
     }
   }, [])
 
+  // Today's "Needs attention" hands off here with `?filter=needs-review`.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('filter')
+    if (requested === 'needs-review') setFilter('needs_review')
+  }, [])
+
   async function loadMoreClients() {
     if (!nextCursor || loadingMore) return
     const version = requestVersion.current
@@ -209,63 +253,71 @@ export default function ClientsPage() {
   }
   const activeLabel = CLIENT_FILTERS.find((entry) => entry.value === filter)?.label ?? 'All'
 
+  function dismissDisclaimer() {
+    setDisclaimerDismissed(true)
+    try {
+      window.localStorage.setItem(DISCLAIMER_DISMISSED_KEY, '1')
+    } catch {
+      // Private-browsing / blocked storage: the hint just reappears next visit.
+    }
+  }
+  function reopenDisclaimer() {
+    setDisclaimerDismissed(false)
+    try {
+      window.localStorage.removeItem(DISCLAIMER_DISMISSED_KEY)
+    } catch {
+      // Same as above — non-fatal.
+    }
+  }
+
   return (
     <div className="app-screen">
-      <header className={styles.header}>
-        <div>
-          <p className="t-kicker" style={{ marginBottom: 10 }}>
-            Directory{summary ? ` — ${summary.total} active` : ''}
-          </p>
-          <h1 className="t-headline">Clients</h1>
-        </div>
-        <Link href="/clients/new" className={styles.add} aria-label="Add a new client">
-          <Icon name="user-plus-linear" size={20} />
-        </Link>
-      </header>
+      <TopBar
+        title="Clients"
+        subtitle={summary ? `${summary.total} active` : undefined}
+        actions={(
+          <>
+            <IconButton icon="sort-vertical-linear" label="Sort clients" onClick={() => setSortSheetOpen(true)} />
+            <IconButton icon="user-plus-linear" label="New client" onClick={() => window.location.assign('/clients/new')} />
+          </>
+        )}
+      />
 
       <div className="app-screen-x app-stack">
-        <div className={styles.searchShell}>
-          <div className={styles.searchGradient} />
-          <div className={styles.searchInner}>
-            <Icon name="magnifer-linear" size={17} />
-            <DebouncedSearchInput
-              placeholder="Search by name"
-              ariaLabel="Search clients by name"
-              style={{ minHeight: 44 }}
-              onInputActivity={() => {
-                // Keep the input DOM-owned while cancelling an obsolete settled search.
-                const controller = clientPageController.current
-                if (!controller) return false
-                requestVersion.current += 1
-                controller.abort()
-                clientPageController.current = null
-                return true
-              }}
-              onQueryChange={(query) => {
-                loadMoreController.current?.abort()
-                loadMoreController.current = null
-                setLoadingMore(false)
-                if (query === search) setSearchRevision((current) => current + 1)
-                else setSearch(query)
-                // Results already on screen stay put while the next page lands.
-                if (clients.length > 0) setSearching(true)
-                else setLoading(true)
-                setError(null)
-                setNextCursor(null)
-              }}
-            />
-          </div>
-        </div>
+        <SearchField
+          label="Search clients by name"
+          placeholder="Search by name"
+          onInputActivity={() => {
+            // Keep the input DOM-owned while cancelling an obsolete settled search.
+            const controller = clientPageController.current
+            if (!controller) return false
+            requestVersion.current += 1
+            controller.abort()
+            clientPageController.current = null
+            return true
+          }}
+          onQueryChange={(query) => {
+            loadMoreController.current?.abort()
+            loadMoreController.current = null
+            setLoadingMore(false)
+            if (query === search) setSearchRevision((current) => current + 1)
+            else setSearch(query)
+            // Results already on screen stay put while the next page lands.
+            if (clients.length > 0) setSearching(true)
+            else setLoading(true)
+            setError(null)
+            setNextCursor(null)
+          }}
+        />
 
-        <FilterRow label="Filter the directory">
+        <ChipRow label="Filter the directory">
           {CLIENT_FILTERS.map((entry) => (
             <FilterChip
               key={entry.value}
               label={entry.label}
               count={counts[entry.value]}
-              active={filter === entry.value}
-              band={entry.band}
-              onClick={() => {
+              selected={filter === entry.value}
+              onToggle={() => {
                 if (filter === entry.value) return
                 setNextCursor(null)
                 if (clients.length > 0) setSearching(true)
@@ -274,43 +326,45 @@ export default function ClientsPage() {
               }}
             />
           ))}
-        </FilterRow>
-        <p className="t-quiet">{REPEAT_CAPTURE_LIMITATION_COPY}</p>
+        </ChipRow>
 
-        <div className={styles.sortRow}>
-          <span className="t-quiet">Sorted by date added</span>
-          <span className={styles.sortValue}>
-            <Icon name="sort-vertical-linear" size={14} />
-            Newest first
-          </span>
-        </div>
+        {disclaimerDismissed ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <IconButton icon="info-circle-linear" label="About recorded values" onClick={reopenDisclaimer} />
+          </div>
+        ) : (
+          <Banner variant="info" hint onDismiss={dismissDisclaimer}>
+            {REPEAT_CAPTURE_LIMITATION_COPY}
+          </Banner>
+        )}
 
         {erasureNotice === 'complete' && (
-          <Surface tier="tile" pad="rowy">
-            <p role="status" className="t-body">Client data was erased. No external file cleanup remains.</p>
-          </Surface>
+          <div role="status">
+            <Banner variant="success">Client data was erased. No external file cleanup remains.</Banner>
+          </div>
         )}
         {erasureNotice === 'pending' && (
-          <Surface tier="tile" pad="rowy">
-            <p role="alert" className="t-body" style={{ color: tone('monitor') }}>
+          <div role="alert">
+            <Banner variant="warn">
               Client database data was erased. Stored report cleanup is still pending; this page is
               checking its retry status automatically.
-            </p>
-          </Surface>
+            </Banner>
+          </div>
         )}
-
-        {error && (
-          <Surface tier="tile" pad="rowy">
-            <p role="alert" className="t-body" style={{ color: tone('monitor') }}>{error}</p>
-          </Surface>
-        )}
+        {error && <Banner variant="error">{error}</Banner>}
 
         {searching && !loading && (
-          <p className={styles.status} role="status" aria-live="polite">Searching…</p>
+          <p className="t-footnote" role="status" aria-live="polite">Searching…</p>
         )}
 
         {loading ? (
-          <p className={styles.status} role="status" aria-live="polite">Loading the directory…</p>
+          <div role="status" aria-busy="true" aria-label="Loading clients">
+            <ListRowSkeleton />
+            <ListRowSkeleton />
+            <ListRowSkeleton />
+            <ListRowSkeleton />
+            <ListRowSkeleton />
+          </div>
         ) : error && rows.length === 0 ? (
           // A failed fetch must never fall through to the empty-directory copy
           // below: to a practitioner scanning the list, "no clients yet" and
@@ -318,59 +372,61 @@ export default function ClientsPage() {
           // separate. The error banner above is already the full explanation.
           null
         ) : rows.length === 0 ? (
-          <Surface tier="tile" pad="rowy">
-            <div className={styles.empty}>
-              <p className="t-title">
-                {search.trim()
-                  ? 'No matching clients'
-                  : filter === 'all' ? 'No clients yet' : `Nothing under ${activeLabel.toLowerCase()}`}
-              </p>
-              <p className="t-body">
-                {search.trim()
-                  ? 'Try a different first or last name.'
-                  : filter === 'all'
-                    ? 'Add a client to start their screening history.'
-                    : 'Clear the filter to see the whole directory.'}
-              </p>
-            </div>
-          </Surface>
+          <EmptyState
+            icon="users-group-rounded-linear"
+            title={search.trim() ? 'No matching clients' : filter === 'all' ? 'No clients yet' : `Nothing under ${activeLabel.toLowerCase()}`}
+            body={
+              search.trim()
+                ? 'Try a different first or last name.'
+                : filter === 'all'
+                  ? 'Add a client to start their screening history.'
+                  : 'Clear the filter to see the whole directory.'
+            }
+            primary={!search.trim() && filter === 'all' ? { label: 'Add client', href: '/clients/new' } : undefined}
+          />
         ) : (
           <>
-            {rows.map((row) => (
-              <SurfaceLink key={row.id} href={row.href} tier="row">
-                <span className={styles.row}>
-                  <GradeChip grade={row.grade} />
-                  <span className={styles.body}>
-                    <span className={styles.name}>{row.name}</span>
-                    <span className={styles.meta}>{row.meta}</span>
-                  </span>
-                  <span className={styles.trend}>
-                    {/* The visible form is a bare arrow and number; the sentence
-                        beside it is what a screen reader reads instead. No
-                        aria-label on the row itself — that would replace the
-                        grade and scan meta rather than add to them. */}
-                    <span className={styles.trendValue} style={{ color: tone(row.trendBand) }} aria-hidden="true">
-                      <Icon name={row.trendIcon} size={14} />
-                      {row.trend}
-                    </span>
-                    <span className="sr-only">{row.trendLabel}</span>
-                    <span className={styles.chevron}>
-                      <Icon name="alt-arrow-right-linear" size={16} />
-                    </span>
-                  </span>
-                </span>
-              </SurfaceLink>
-            ))}
+            <ListGroup label="Clients">
+              {rows.map((row) => (
+                <ListRow
+                  key={row.id}
+                  href={row.href}
+                  // `Avatar` carries its own sr-only full name for standalone use;
+                  // hidden here so the row link's accessible name states the name
+                  // once (from `title`), not twice.
+                  leading={<span aria-hidden="true"><Avatar name={row.name} /></span>}
+                  title={row.name}
+                  subtitle={row.meta}
+                  trailing={<RowStatus row={row} />}
+                  chevron
+                />
+              ))}
+            </ListGroup>
             {nextCursor && (
-              <div className={styles.more}>
-                <button type="button" className="a-secondary" disabled={loadingMore} onClick={loadMoreClients}>
-                  {loadingMore ? 'Loading…' : 'Load more clients'}
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--s-4)' }}>
+                <Button variant="secondary" loading={loadingMore} onClick={loadMoreClients}>
+                  Show more
+                </Button>
               </div>
             )}
           </>
         )}
       </div>
+
+      <Sheet open={sortSheetOpen} onOpenChange={setSortSheetOpen} title="Sort clients" detents={['compact']}>
+        {/* The directory has one supported order today (date added, newest
+            first) — the API takes no sort parameter (app/api/clients/route.ts).
+            This picker states that order rather than offering choices the
+            server cannot honor. */}
+        <ListGroup label="Sort options">
+          <ListRow
+            title="Newest first"
+            subtitle="By date added"
+            trailing={<Icon name="check-linear" size={18} />}
+            aria-label="Newest first, selected"
+          />
+        </ListGroup>
+      </Sheet>
     </div>
   )
 }

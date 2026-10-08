@@ -4,7 +4,8 @@ import type { RatingPace, RatingDifficulty } from '@/lib/workout/rating'
 import type { RatingPayload } from './WorkoutPlayer'
 import { CheckGlyph } from '@/components/SignalGlyphs'
 import { Surface } from '@/components/array/Surface'
-import { colorMix, workoutTheme as theme } from './theme'
+import { Button, FilterChip } from '@/components/ui'
+import { workoutTheme as theme } from './theme'
 import LegalNotice from '@/components/LegalNotice'
 import type { LegalSnapshot } from '@/lib/legal/types'
 
@@ -79,19 +80,19 @@ export function RateForm({
     return (
       <Surface tier="feature" style={{ textAlign: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><CheckGlyph size={48} /></div>
-        <h2 className="t-headline" style={{ margin: '0 0 6px' }}>Thanks for the feedback</h2>
+        <h2 className="t-title-1" style={{ margin: '0 0 6px' }}>Thanks for the feedback</h2>
         <p className="t-body" style={{ margin: '0 0 22px' }}>It helps tune your next session.</p>
-        {onExit && <button onClick={onExit} className="a-primary" style={{ padding: '0 32px', minHeight: 52 }}>Done</button>}
+        {onExit && <Button onClick={onExit} variant="primary" size="md">Done</Button>}
       </Surface>
     )
   }
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void onSubmit() }} style={{ width: '100%', textAlign: 'center' }}>
-      <h2 className="t-headline" style={{ margin: '0 0 14px' }}>Nice work</h2>
-      <div style={{ display: 'inline-flex', gap: 18, marginBottom: 22, color: theme.textSecondary, fontSize: '0.9rem' }}>
+      <h2 className="t-title-1" style={{ margin: '0 0 14px' }}>Nice work</h2>
+      <div className="t-subhead" style={{ display: 'inline-flex', gap: 18, marginBottom: 22 }}>
         <span><strong style={{ color: theme.maintain }}>{done}</strong> / {total} done</span>
-        {skipped > 0 && <span><strong style={{ color: theme.textSecondary }}>{skipped}</strong> skipped</span>}
+        {skipped > 0 && <span><strong>{skipped}</strong> skipped</span>}
         <span><strong>{Math.max(1, Math.round(durationSec / 60))}</strong> min</span>
       </div>
 
@@ -124,9 +125,7 @@ export function RateForm({
         <Row label="Anything stand out? (optional)">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
             {TAGS.map((t) => (
-              <button key={t.value} type="button" aria-pressed={tags.includes(t.value)} onClick={() => toggleTag(t.value)} style={{ ...chip, ...(tags.includes(t.value) ? chipOn : {}) }}>
-                {t.label}
-              </button>
+              <FilterChip key={t.value} label={t.label} selected={tags.includes(t.value)} onToggle={() => toggleTag(t.value)} />
             ))}
           </div>
         </Row>
@@ -140,7 +139,8 @@ export function RateForm({
               rows={3}
               aria-label="Notes for the practitioner (optional)"
               placeholder="What worked, what felt awkward…"
-              style={{ width: '100%', resize: 'vertical', padding: 10, borderRadius: 10, background: theme.surfaceWell, border: `1px solid ${theme.border}`, color: theme.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem' }}
+              className="t-body"
+              style={{ width: '100%', resize: 'vertical', padding: 'var(--s-12)', borderRadius: 'var(--r-md)', background: theme.surfaceWell, border: `1px solid ${theme.border}` }}
             />
           </Row>
         )}
@@ -148,16 +148,22 @@ export function RateForm({
 
       <WorkoutLegalNotice legalNotice={legalNotice} legacyDisclaimer={legacyDisclaimer} prototypeDisclaimer={prototypeDisclaimer} />
 
-      {error && <div role="alert" style={{ color: theme.danger, fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>}
+      {error && <p role="alert" className="t-footnote" style={{ color: theme.danger, marginBottom: 12 }}>{error}</p>}
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button type="submit" disabled={!canSubmit || submitting} className="a-primary" style={{ padding: '0 32px', minHeight: 52 }}>
-          {submitting ? 'Saving…' : 'Submit feedback'}
-        </button>
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          loading={submitting}
+          disabledReason={!canSubmit ? 'Choose a rating to continue' : undefined}
+        >
+          Submit feedback
+        </Button>
         {onExit && (
-          <button type="button" onClick={onExit} className="a-secondary" style={{ padding: '0 24px', minHeight: 52 }}>
+          <Button type="button" onClick={onExit} variant="tertiary" size="md">
             Skip
-          </button>
+          </Button>
         )}
       </div>
     </form>
@@ -185,10 +191,11 @@ export function WorkoutLegalNotice({
     return (
       <div
         data-legal-provenance="prototype"
-        style={{ color: theme.textMuted, fontSize: '0.72rem', lineHeight: 1.5, margin: '14px auto 18px', maxWidth: 380 }}
+        className="t-footnote"
+        style={{ margin: '14px auto 18px', maxWidth: 380 }}
       >
         <p style={{ margin: '0 0 6px' }}>{prototypeDisclaimer}</p>
-        <p style={{ margin: 0, fontWeight: 700 }}>Prototype catalog · practitioner review required before use.</p>
+        <p className="t-caption" style={{ margin: 0 }}>Prototype catalog · practitioner review required before use.</p>
       </div>
     )
   }
@@ -196,10 +203,11 @@ export function WorkoutLegalNotice({
   return (
     <div
       data-legal-provenance="legacy"
-      style={{ color: theme.textMuted, fontSize: '0.72rem', lineHeight: 1.5, margin: '14px auto 18px', maxWidth: 380 }}
+      className="t-footnote"
+      style={{ margin: '14px auto 18px', maxWidth: 380 }}
     >
       <p style={{ margin: '0 0 6px' }}>{legacyDisclaimer}</p>
-      <p style={{ margin: 0, fontWeight: 700 }}>Legacy notice — version and effective date unavailable.</p>
+      <p className="t-caption" style={{ margin: 0 }}>Legacy notice — version and effective date unavailable.</p>
     </div>
   )
 }
@@ -208,7 +216,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   const labelId = useId()
   return (
     <div role="group" aria-labelledby={labelId} style={{ marginBottom: 16 }}>
-      <div id={labelId} style={{ fontSize: '0.78rem', color: theme.textSecondary, marginBottom: 8, fontWeight: 600 }}>{label}</div>
+      <div id={labelId} className="t-subhead" style={{ marginBottom: 8 }}>{label}</div>
       {children}
     </div>
   )
@@ -218,14 +226,10 @@ function Chips<T extends string>({ options, selected, onSelect }: { options: { v
   return (
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
       {options.map((o) => (
-        <button key={o.value} type="button" aria-pressed={selected === o.value} onClick={() => onSelect(o.value)} style={{ ...chip, ...(selected === o.value ? chipOn : {}) }}>
-          {o.label}
-        </button>
+        <FilterChip key={o.value} label={o.label} selected={selected === o.value} onToggle={() => onSelect(o.value)} />
       ))}
     </div>
   )
 }
 
 const starBtn: React.CSSProperties = { background: 'none', border: 'none', fontSize: '1.9rem', cursor: 'pointer', lineHeight: 1, padding: 2, minHeight: 44 }
-const chip: React.CSSProperties = { padding: '8px 14px', minHeight: 44, borderRadius: theme.radiusControl, border: `1px solid ${theme.border}`, background: theme.surfaceWell, color: theme.textSecondary, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }
-const chipOn: React.CSSProperties = { background: colorMix(theme.primary, 18), borderColor: colorMix(theme.primary, 54), color: theme.primary }

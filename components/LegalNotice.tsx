@@ -2,18 +2,28 @@
 
 import LegalDocumentView from './LegalDocumentView'
 import useLegalDocument from './useLegalDocument'
+import { Banner } from '@/components/ui/Banner'
 import type { LegalDocumentKind, LegalSnapshot } from '@/lib/legal/types'
 
 export default function LegalNotice({
   document: suppliedDocument,
   kind,
   headingLevel = 2,
+  headingBase,
   compact = false,
+  collapseFingerprint = false,
+  showToc = false,
 }: {
   document?: LegalSnapshot
   kind?: LegalDocumentKind
   headingLevel?: 1 | 2 | 3 | 4 | 5
+  /** Forwarded to `LegalDocumentView` — see its doc comment. Additive. */
+  headingBase?: 1 | 2 | 3 | 4 | 5
   compact?: boolean
+  /** Forwarded to `LegalDocumentView` — see its doc comment. Additive. */
+  collapseFingerprint?: boolean
+  /** Forwarded to `LegalDocumentView` — see its doc comment. Additive. */
+  showToc?: boolean
 }) {
   // An exact supplied snapshot is authoritative. This is deliberate: artifact-aware
   // consumers must not replace pinned copy with whichever version is current now.
@@ -22,14 +32,23 @@ export default function LegalNotice({
   const document = suppliedDocument ?? loaded.document
 
   if (loaded.isLoading) {
-    return <p role="status" aria-live="polite" className="a-help">Loading required legal text…</p>
+    return <p role="status" aria-live="polite" className="t-body">Loading required legal text…</p>
   }
   if (loaded.error || !document) {
     return (
-      <p role="alert" aria-live="assertive" className="a-error">
+      <Banner variant="error">
         {loaded.error ?? 'Required legal text is unavailable.'}
-      </p>
+      </Banner>
     )
   }
-  return <LegalDocumentView document={document} headingLevel={headingLevel} compact={compact} />
+  return (
+    <LegalDocumentView
+      document={document}
+      headingLevel={headingLevel}
+      headingBase={headingBase}
+      compact={compact}
+      collapseFingerprint={collapseFingerprint}
+      showToc={showToc}
+    />
+  )
 }

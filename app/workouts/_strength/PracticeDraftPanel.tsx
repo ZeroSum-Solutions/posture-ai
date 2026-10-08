@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { Button, Select, TextField } from '@/components/ui'
 import type { AcceptedTrainingBuild, CreatedTrainingProgram, StartingTargetsSelection, TrainingBuildProjection } from './StrengthBuilder.gateway'
 import TrainingBuildExplanationPanel from './TrainingBuildExplanationPanel'
 import styles from './StrengthProgramBuilder.module.css'
@@ -125,8 +125,8 @@ export default function PracticeDraftPanel({ projection, sessionHrefBase = '/wor
 
   return <section className={styles.practiceDraft} aria-labelledby="practice-draft-heading">
     <div className={styles.sectionHeading}>
-      <div><p className="t-kicker">{draftLabel}</p><h3 id="practice-draft-heading" className="t-headline-sm">{cycleLengthWeeks}-week draft</h3></div>
-      <span className="t-quiet">{cycleLengthWeeks} weeks · {result.scheduleKind.replace('_', ' ')}</span>
+      <div><p className="t-overline">{draftLabel}</p><h3 id="practice-draft-heading" className="t-title-2">{cycleLengthWeeks}-week draft</h3></div>
+      <span className="t-footnote">{cycleLengthWeeks} weeks · {result.scheduleKind.replace('_', ' ')}</span>
     </div>
     <p className="t-body">Review {loadCount} starting {loadCount === 1 ? 'load' : 'loads'} and the weekly conditioning rhythm before creating the program.</p>
     {projection.buildId && Number.isSafeInteger(profileRevision) && profileRevision > 0
@@ -144,45 +144,41 @@ export default function PracticeDraftPanel({ projection, sessionHrefBase = '/wor
     </div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     <div className={styles.sectionHeading}>
-      <div><p className="t-kicker">Starting loads</p><h3 className="t-headline-sm">Choose one target per exercise</h3></div>
-      <span className="t-quiet">Applied to matching prescribed sessions</span>
+      <div><p className="t-overline">Starting loads</p><h3 className="t-title-2">Choose one target per exercise</h3></div>
+      <span className="t-footnote">Applied to matching prescribed sessions</span>
     </div>
     <div className={styles.calibrationGrid}>
       {projection.calibrations.map(({ exerciseLabel, calibration, exposureType }) => <article key={calibration.exerciseInstanceId} className={styles.calibrationCard}>
-        <div><p className="t-kicker">{calibration.loadBasis.replaceAll('_', ' ')}</p><h4>{exerciseLabel}</h4></div>
-        {exposureType === 'heavy' || exposureType === 'volume' ? <p className="t-quiet">{exposureType === 'heavy' ? 'Heavy session' : 'Volume session'} · separate starting load and progression</p> : null}
-        {calibration.options.length > 0 ? <label>Starting load
-          <select
-            className="a-input"
-            value={selected[calibration.exerciseInstanceId] ?? 0}
-            disabled={state !== 'idle'}
-            onChange={event => setSelected(current => ({ ...current, [calibration.exerciseInstanceId]: Number(event.target.value) }))}
-          >
-            {calibration.options.map((option, index) => <option key={`${option.equipmentId}:${option.quantity.canonicalKg}`} value={index}>{optionLabel(option)}</option>)}
-          </select>
-        </label> : <p className="t-quiet">No exact saved load is available for this practice range.</p>}
+        <div><p className="t-overline">{calibration.loadBasis.replaceAll('_', ' ')}</p><h4>{exerciseLabel}</h4></div>
+        {exposureType === 'heavy' || exposureType === 'volume' ? <p className="t-footnote">{exposureType === 'heavy' ? 'Heavy session' : 'Volume session'} · separate starting load and progression</p> : null}
+        {calibration.options.length > 0 ? <Select
+          label="Starting load"
+          value={selected[calibration.exerciseInstanceId] ?? 0}
+          disabled={state !== 'idle'}
+          onChange={event => setSelected(current => ({ ...current, [calibration.exerciseInstanceId]: Number(event.target.value) }))}
+        >
+          {calibration.options.map((option, index) => <option key={`${option.equipmentId}:${option.quantity.canonicalKg}`} value={index}>{optionLabel(option)}</option>)}
+        </Select> : <p className="t-footnote">No exact saved load is available for this practice range.</p>}
       </article>)}
     </div>
     <div className={styles.sectionHeading}>
-      <div><p className="t-kicker">Conditioning</p><h3 className="t-headline-sm">Choose each weekly starting duration</h3></div>
-      <span className="t-quiet">{conditioningSlots.length} weekly slots</span>
+      <div><p className="t-overline">Conditioning</p><h3 className="t-title-2">Choose each weekly starting duration</h3></div>
+      <span className="t-footnote">{conditioningSlots.length} weekly slots</span>
     </div>
     <div className={styles.conditioningGrid}>
       {conditioningSlots.map(slot => <article key={slot.boutId} className={styles.calibrationCard}>
-        <div><p className="t-kicker">{slot.count} bouts</p><h4>{dateLabel(slot.weekday, slot.scheduledLocalDate)}</h4></div>
+        <div><p className="t-overline">{slot.count} bouts</p><h4>{dateLabel(slot.weekday, slot.scheduledLocalDate)}</h4></div>
         <p className="t-body">{slot.effortCue}</p>
-        <label>Duration in minutes
-          <input
-            className="a-input"
-            type="number"
-            min={slot.allowedDurationSeconds.minimum / 60}
-            max={slot.allowedDurationSeconds.maximum / 60}
-            step="1"
-            value={(conditioningDuration[slot.boutId] ?? slot.durationOfferSeconds) / 60}
-            disabled={state !== 'idle'}
-            onChange={event => setConditioningDuration(current => ({ ...current, [slot.boutId]: Number(event.target.value) * 60 }))}
-          />
-        </label>
+        <TextField
+          label="Duration in minutes"
+          type="number"
+          min={slot.allowedDurationSeconds.minimum / 60}
+          max={slot.allowedDurationSeconds.maximum / 60}
+          step="1"
+          value={(conditioningDuration[slot.boutId] ?? slot.durationOfferSeconds) / 60}
+          disabled={state !== 'idle'}
+          onChange={event => setConditioningDuration(current => ({ ...current, [slot.boutId]: Number(event.target.value) * 60 }))}
+        />
       </article>)}
     </div>
     <div className={styles.targetAcceptance}>
@@ -190,10 +186,16 @@ export default function PracticeDraftPanel({ projection, sessionHrefBase = '/wor
       {state === 'accepted'
         ? <div className={styles.createdProgram}>
             <p role="status" className={styles.accepted}>Starting targets accepted and program created.</p>
-            {created?.firstStrengthSessionId ? <Link className="a-primary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(created.firstStrengthSessionId)}`}>Open first strength session</Link> : null}
-            {created?.firstConditioningSessionId ? <Link className="a-secondary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(created.firstConditioningSessionId)}`}>Open first conditioning session</Link> : null}
+            {created?.firstStrengthSessionId ? <Button href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(created.firstStrengthSessionId)}`}>Open first strength session</Button> : null}
+            {created?.firstConditioningSessionId ? <Button variant="secondary" href={`${sessionHrefBase}?training_session_id=${encodeURIComponent(created.firstConditioningSessionId)}`}>Open first conditioning session</Button> : null}
           </div>
-        : <button type="button" className="a-primary" disabled={!canAccept || !onAcceptTargets || !onPublishDraft || state === 'accepting' || state === 'publishing'} onClick={() => void acceptTargets()}>{state === 'accepting' ? 'Accepting starting targets…' : state === 'publishing' ? 'Publishing program…' : state === 'publish_failed' ? 'Retry publishing accepted draft' : 'Use these starting targets'}</button>}
+        : <Button
+            loading={state === 'accepting' || state === 'publishing'}
+            disabledReason={!canAccept ? 'Choose a starting load and a weekly conditioning duration for every slot before continuing.' : undefined}
+            onClick={() => void acceptTargets()}
+          >
+            {state === 'accepting' ? 'Accepting starting targets…' : state === 'publishing' ? 'Publishing program…' : state === 'publish_failed' ? 'Retry publishing accepted draft' : 'Use these starting targets'}
+          </Button>}
     </div>
   </section>
 }

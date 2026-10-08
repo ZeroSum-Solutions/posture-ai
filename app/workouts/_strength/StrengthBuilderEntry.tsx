@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Banner, Button, Disclosure } from '@/components/ui'
 import { AthleteTrainingProfileV1Schema, type AthleteTrainingProfileV1 } from '@/lib/training/contracts/profile'
 import { ACTIVE_PROGRAM_COMPILER_OPTIONS } from '@/lib/training/engine/options'
 import { createInitialStrengthProfile } from './StrengthBuilder.model'
@@ -171,16 +172,21 @@ function StrengthBuilderEntryState({ source }: { source: StrengthBuilderSource }
   if (loadState.status === 'error') {
     return <Surface tier="tile" innerClassName={styles.entryState}>
       <p role="alert" className="t-body">{loadState.message}</p>
-      <button type="button" className="a-secondary" onClick={() => void retryLoad()}>Retry profile</button>
+      <Button variant="secondary" size="sm" onClick={() => void retryLoad()}>Retry profile</Button>
     </Surface>
   }
   if (loadState.status === 'setup_required') {
-    return <Surface tier="tile" innerClassName={styles.entryState}>
-      <p className="t-kicker">Athlete setup required</p>
-      <h2 className="t-headline-sm">Connect {identity.name} to a training account.</h2>
-      <p className="t-body">Create an athlete invitation and active coaching relationship before reading or saving a training profile. No account or relationship was created automatically.</p>
-      {source.kind === 'client' ? <CoachAthleteInvitation client={source.client} /> : null}
-    </Surface>
+    return <div className={styles.entryState}>
+      <p className="t-overline">Athlete setup required</p>
+      <Banner variant="info">
+        Connect {identity.name} to a training account. Create an athlete invitation and active coaching relationship before reading or saving a training profile. No account or relationship was created automatically.
+      </Banner>
+      {source.kind === 'client' ? (
+        <Disclosure title={`Connect ${identity.name} to a training account`} defaultOpen>
+          <CoachAthleteInvitation client={source.client} />
+        </Disclosure>
+      ) : null}
+    </div>
   }
 
   return <>

@@ -128,10 +128,15 @@ export default function TrendChart({
   const verdict = model.verdict
 
   if (model.points.length === 0) {
+    // tier="tile" (flat, no blur) — not "feature": TopBar (collapsed) and
+    // TabBar are already two always-on blurred layers on this screen, and
+    // this chart renders above the tab strip on every tab including Details,
+    // so a glass card here would push the client-detail screen to 3
+    // simultaneous backdrop-filter layers against the 2-layer budget.
     return (
-      <Surface tier="feature">
-        <h2 className="t-title">Deviation score</h2>
-        <p className="t-quiet" style={{ marginTop: 6 }}>
+      <Surface tier="tile">
+        <h2 className="t-headline">Deviation score</h2>
+        <p className="t-footnote" style={{ marginTop: 6 }}>
           No screening score has been recorded yet. The first completed scan starts this trend.
         </p>
       </Surface>
@@ -142,11 +147,12 @@ export default function TrendChart({
   const latestPoint = model.points[model.points.length - 1]
 
   return (
-    <Surface tier="feature" pad="snug">
+    // tier="tile" — see the comment on the empty-state return above.
+    <Surface tier="tile" pad="snug">
       <div className={styles.trendHead}>
         <div>
-          <h2 className="t-title">Deviation score</h2>
-          <p className="t-quiet" style={{ marginTop: 2 }}>Lower is better</p>
+          <h2 className="t-headline">Deviation score</h2>
+          <p className="t-footnote" style={{ marginTop: 2 }}>Lower is better</p>
         </div>
         <div className={styles.trendHeadAside}>
           <span className={styles.latestScore} aria-label={`Latest deviation score ${Math.round(latestPoint.score)} out of 100`}>

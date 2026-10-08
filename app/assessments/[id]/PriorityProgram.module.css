@@ -79,7 +79,7 @@
 
 .cardTitleBlock { display: grid; flex: 1; gap: 3px; min-width: 0; }
 .cardTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cardSub { color: var(--text-tertiary); font-size: 11px; font-weight: 400; }
+.cardSub { color: var(--text-tertiary); font: var(--t-footnote); }
 
 .chevron { display: grid; flex-shrink: 0; color: var(--text-tertiary); transition: transform 160ms ease; }
 .chevronOpen { transform: rotate(90deg); }
@@ -195,15 +195,14 @@
 select.swapSelect {
   min-width: 0;
   max-width: 190px;
-  min-height: 28px;
-  height: 28px;
-  padding: 3px 6px;
+  min-height: 44px;
+  padding: var(--s-8) var(--s-12);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--background);
   box-shadow: inset 0 0 0 1px var(--hairline);
   color: var(--text-secondary);
-  font: 400 12px/1 var(--font-sans);
+  font: var(--t-footnote);
   cursor: pointer;
 }
 
@@ -234,3 +233,6 @@ select.swapSelect {
 }
 
 .promoteButton:hover { opacity: 0.85; }
+
+/* Row trailing actions: Details + overflow, 8px apart (48px targets). */
+.rowActions { display: inline-flex; align-items: center; gap: var(--s-8); }

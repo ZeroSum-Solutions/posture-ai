@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from 'react'
 import type { ActiveCalibrationOfferV1 } from '@/lib/training/contracts/active-calibration'
+import { Select } from '@/components/ui'
 import styles from './StrengthProgramBuilder.module.css'
 
 export type CalibrationConfirmation = { readonly requestId: string; readonly optionIndex: number }
@@ -59,19 +60,17 @@ function Choices({ offer, disabled = false, onConfirm }: Props) {
   }
 
   return <form className={styles.formSurface} aria-label="Choose a new familiarization setting" onSubmit={event => void confirm(event)}>
-    <h3 className="t-headline-sm">A fresh starting point</h3>
+    <h3 className="t-title-2">A fresh starting point</h3>
     <p>Current setting: {loadLabel(offer.currentLoad)}.</p>
     {offer.kind === 'unavailable' ? <p role="status">No easier setting is available with this equipment. Keep the current target or request a program review.</p> : <>
       <p>Choose an achievable easier setting for future sessions. Confirming starts a new performance track; completed and started workouts stay unchanged.</p>
       {offer.currentLoad.basis === 'machine_assistance'
         ? <p>More assistance reduces the resistance you supply. These numbers describe assistance, not weight lifted.</p>
         : null}
-      <label className={styles.clientPicker}>New setting
-        <select className="a-input" value={selected} disabled={locked} onChange={event => { setSelected(event.target.value); setReceipt(null) }}>
-          <option value="">Choose a setting</option>
-          {offer.options.map(item => <option key={item.optionIndex} value={String(item.optionIndex)}>{loadLabel(item)}</option>)}
-        </select>
-      </label>
+      <Select label="New setting" className={styles.clientPicker} value={selected} disabled={locked} onChange={event => { setSelected(event.target.value); setReceipt(null) }}>
+        <option value="">Choose a setting</option>
+        {offer.options.map(item => <option key={item.optionIndex} value={String(item.optionIndex)}>{loadLabel(item)}</option>)}
+      </Select>
       {option ? <p>Selected: {loadLabel(option)}. This is your explicit familiarization choice.</p> : null}
       <button type="submit" className="a-primary" disabled={disabled || pending || !option || receipt?.status === 'accepted'}>
         {pending ? 'Confirming…' : receipt?.status === 'unconfirmed' ? 'Retry the same selection' : 'Confirm new setting'}

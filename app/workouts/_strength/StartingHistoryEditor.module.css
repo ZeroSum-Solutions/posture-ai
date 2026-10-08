@@ -1,33 +1,54 @@
+/**
+ * Starting-history editor + the recovery check-in fieldset (RecoveryContextFields
+ * reuses `.fields`). Array v3 token rewrite (DESIGN.md › Tokens v3, spec §2):
+ * `--space-*` was never defined (a silent no-op, every gap below computed to 0)
+ * — replaced with the real `--s-*` scale. No raw font-size/weight/color/radius
+ * literals remain.
+ */
+
 .editor {
   container-type: inline-size;
   display: grid;
-  gap: var(--space-3);
+  gap: var(--s-12);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.editor h4,
+.editor h4 {
+  margin: 0;
+  font: var(--t-headline);
+  color: var(--text-1);
+}
+
 .editor p { margin: 0; }
 
 .fields {
   border: 0;
   display: grid;
-  gap: var(--space-3);
+  gap: var(--s-12);
   grid-template-columns: minmax(0, 1fr);
   margin: 0;
   min-width: 0;
   padding: 0;
 }
 
-.fields legend { margin-bottom: var(--space-3); }
-.fields label { display: grid; gap: var(--space-2); min-width: 0; }
-.fields input,
-.fields select { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
+.fields legend {
+  margin-bottom: var(--s-4);
+  color: var(--text-2);
+  font: var(--t-subhead);
+}
+
 .fields button { justify-self: start; }
 
-.entries { display: grid; gap: var(--space-3); margin: 0; padding-left: 1.25rem; }
-.entries li { min-width: 0; }
-.entries button { display: block; margin-top: var(--space-2); }
+.error {
+  margin: 0;
+  color: var(--review);
+  font: var(--t-footnote);
+}
+
+.entries { display: grid; gap: var(--s-12); margin: 0; padding-left: var(--s-20); }
+.entries li { min-width: 0; font: var(--t-body); color: var(--text-2); }
+.entries button { display: block; margin-top: var(--s-8); }
 
 @container (min-width: 560px) {
   .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }

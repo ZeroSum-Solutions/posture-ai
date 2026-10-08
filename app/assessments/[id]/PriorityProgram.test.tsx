@@ -68,17 +68,27 @@ describe('PriorityProgram (phone-first accordion)', () => {
     const second = screen.getByRole('button', { name: /Trunk Lean/ })
     expect(first.getAttribute('aria-expanded')).toBe('true')
     expect(second.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.getByTestId('exercise-detail-cat-cow')).toBeTruthy()
-    expect(screen.queryByTestId('exercise-detail-dead-bug')).toBeNull()
+    expect(screen.getByText('Cat-Cow')).toBeTruthy()
+    expect(screen.queryByText('Dead Bug')).toBeNull()
     expect(second.textContent).toContain('1 exercise')
   })
 
-  it('shows each exercise’s 3-week ramp as one line, with its swap and demote controls', () => {
+  // array-v3-spec.md §5 Results: the per-exercise detail/why-this/swap
+  // controls collapse into one overflow "…" menu (a Sheet), replacing the
+  // four buttons-per-item the audit flagged — same handlers and testids,
+  // reached through "More actions for {exercise}" instead of being always
+  // visible inline. Demote stays a single, always-visible card-level action.
+  it('shows each exercise’s 3-week ramp as one line, and reaches swap/demote through the overflow menu', () => {
     const { onSwap, onDemote } = renderProgram()
     expect(screen.getAllByText('1×8').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Week 1 \(learn & own\): 1×8\. Week 2 \(reinforce\): 2×8\. Week 3 \(consolidate\): 2×10\./).length).toBe(2)
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Cat-Cow' }))
+    expect(screen.getByTestId('exercise-detail-cat-cow')).toBeTruthy()
+    expect(screen.getByTestId('why-this-cat-cow')).toBeTruthy()
     fireEvent.change(screen.getByTestId('swap-forward_head_posture-cat-cow'), { target: { value: 'thread-the-needle' } })
     expect(onSwap).toHaveBeenCalledWith('forward_head_posture', 'cat-cow', 'thread-the-needle')
+
     fireEvent.click(screen.getByTestId('demote-forward_head_posture'))
     expect(onDemote).toHaveBeenCalledWith('forward_head_posture')
   })
@@ -88,7 +98,7 @@ describe('PriorityProgram (phone-first accordion)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Trunk Lean/ }))
     expect(screen.getByRole('button', { name: /Trunk Lean/ }).getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByRole('button', { name: /Forward Head Posture/ }).getAttribute('aria-expanded')).toBe('false')
-    expect(screen.getByTestId('exercise-detail-dead-bug')).toBeTruthy()
-    expect(screen.queryByTestId('exercise-detail-cat-cow')).toBeNull()
+    expect(screen.getByText('Dead Bug')).toBeTruthy()
+    expect(screen.queryByText('Cat-Cow')).toBeNull()
   })
 })

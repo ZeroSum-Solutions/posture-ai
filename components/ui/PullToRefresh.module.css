@@ -1,0 +1,26 @@
+.wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Always-available accessible path: keyboard, VoiceOver, reduced motion, and
+   iOS (where the drag gesture is off by default). Visible, not sr-only. */
+.fallbackRow {
+  display: flex;
+  justify-content: center;
+  padding: var(--s-8) 0;
+}
+
+.indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.scroll {
+  /* Stops the browser's own native pull-to-refresh from also firing
+     alongside this component's gesture (Chrome Android in particular). */
+  overscroll-behavior-y: contain;
+}

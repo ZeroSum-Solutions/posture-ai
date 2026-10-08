@@ -4,7 +4,10 @@ import { useState } from 'react'
 import LegalDocumentView from './LegalDocumentView'
 import useLegalDocument from './useLegalDocument'
 import { Surface } from '@/components/array/Surface'
-import styles from './InPersonConsentForm.module.css'
+import { Banner } from '@/components/ui/Banner'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { Select } from '@/components/ui/Select'
+import { TextField } from '@/components/ui/TextField'
 
 type SignerRelationship = 'self' | 'parent' | 'legal_guardian' | 'other'
 
@@ -67,63 +70,52 @@ export default function InPersonConsentForm({
 
   return (
     <Surface tier="tile">
-      <form aria-label="Record in-person consent" onSubmit={submit} className="a-form">
+      <form aria-label="Record in-person consent" onSubmit={submit} className="app-stack">
         <div>
-          <h3 className="t-title">Record consent for {subjectName}</h3>
-          <p className="a-help" style={{ marginTop: 4 }}>
+          <h3 className="t-headline">Record consent for {subjectName}</h3>
+          <p className="t-callout" style={{ marginTop: 'var(--s-4)', color: 'var(--text-2)' }}>
             The client, parent, or legal guardian can review and sign on this device. The camera remains locked until this is complete.
           </p>
         </div>
 
         <div>
-          {legal.isLoading && <p role="status" aria-live="polite" className="a-help">Loading consent terms…</p>}
+          {legal.isLoading && <p role="status" aria-live="polite" className="t-body">Loading consent terms…</p>}
           {legal.error && (
-            <p role="alert" aria-live="assertive" className="a-error">
-              {legal.error}
-            </p>
+            <Banner variant="error">{legal.error}</Banner>
           )}
-          {legal.document && <LegalDocumentView document={legal.document} headingLevel={4} compact />}
+          {legal.document && <LegalDocumentView document={legal.document} headingLevel={4} compact collapseFingerprint />}
         </div>
 
-        <div className="a-field">
-          <label className="a-label" htmlFor={`signer_relationship_${clientId}`}>Who is giving consent?</label>
-          <select
-            id={`signer_relationship_${clientId}`}
-            className="a-select"
-            value={relationship}
-            onChange={(event) => setRelationship(event.target.value as SignerRelationship)}
-          >
-            <option value="self">The client (self)</option>
-            <option value="parent">Parent of the client</option>
-            <option value="legal_guardian">Legal guardian of the client</option>
-            <option value="other">Other authorized representative</option>
-          </select>
-        </div>
+        <Select
+          id={`signer_relationship_${clientId}`}
+          label="Who is giving consent?"
+          value={relationship}
+          onChange={(event) => setRelationship(event.target.value as SignerRelationship)}
+        >
+          <option value="self">The client (self)</option>
+          <option value="parent">Parent of the client</option>
+          <option value="legal_guardian">Legal guardian of the client</option>
+          <option value="other">Other authorized representative</option>
+        </Select>
 
-        <div className="a-field">
-          <label className="a-label" htmlFor={`signer_name_${clientId}`}>Type full name to sign</label>
-          <input
-            id={`signer_name_${clientId}`}
-            className="a-input"
-            value={signerName}
-            onChange={(event) => setSignerName(event.target.value)}
-            placeholder="Signer’s full legal name"
-            autoComplete="name"
-          />
-        </div>
+        <TextField
+          id={`signer_name_${clientId}`}
+          label="Type full name to sign"
+          value={signerName}
+          onChange={(event) => setSignerName(event.target.value)}
+          placeholder="Signer’s full legal name"
+          autoComplete="name"
+        />
 
-        <label htmlFor={`consent_confirm_${clientId}`} className={styles.consentCheck}>
-          <input
-            id={`consent_confirm_${clientId}`}
-            type="checkbox"
-            checked={confirmed}
-            disabled={!legal.document}
-            onChange={(event) => setConfirmed(event.target.checked)}
-          />
-          <span className="t-body">I confirm I have read and agree to the posture-screening consent on behalf of the client.</span>
-        </label>
+        <Checkbox
+          id={`consent_confirm_${clientId}`}
+          checked={confirmed}
+          disabled={!legal.document}
+          onChange={(event) => setConfirmed(event.target.checked)}
+          label="I confirm I have read and agree to the posture-screening consent on behalf of the client."
+        />
 
-        {error && <p role="alert" className="a-error">{error}</p>}
+        {error && <Banner variant="error">{error}</Banner>}
 
         <button
           type="submit"

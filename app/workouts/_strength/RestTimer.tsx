@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { CountdownRing } from '@/app/workouts/_player/CountdownRing'
+import { Button } from '@/components/ui'
 import styles from './StrengthProgramBuilder.module.css'
 
 type TimerState = 'idle' | 'running' | 'paused' | 'finished' | 'skipped'
@@ -93,19 +94,19 @@ export default function RestTimer({ durationSeconds, exerciseLabel }: {
   const timeLabel = spokenTime(remainingMs)
 
   return <section className={styles.restTimer} aria-label={`${exerciseLabel} rest timer`}>
-    <CountdownRing progress={progress} color="var(--text-secondary)" size={152} strokeWidth={8} dimmed={state !== 'running'}>
+    <CountdownRing progress={progress} color="var(--accent)" size={152} strokeWidth={8} dimmed={state !== 'running'}>
       <output className="t-readout-xl" role="timer" aria-label={`Rest time remaining ${timeLabel}`}>{time}</output>
-      <span className="t-kicker">rest</span>
+      <span className="t-overline">rest</span>
     </CountdownRing>
     <div className={styles.restTimerDetails}>
       <div>
-        <p className="t-kicker">Optional rest timer</p>
+        <p className="t-overline">Optional rest timer</p>
         <p className="t-body">{nextAction(state)}</p>
       </div>
       <div className={styles.restTimerControls}>
         {state === 'running'
-          ? <button type="button" className="a-primary" onClick={pause}>Pause rest timer</button>
-          : <button type="button" className="a-primary" onClick={start}>{state === 'paused' ? 'Resume rest timer' : 'Start rest timer'}</button>}
+          ? <Button variant="primary" onClick={pause}>Pause rest timer</Button>
+          : <Button variant="primary" onClick={start}>{state === 'paused' ? 'Resume rest timer' : 'Start rest timer'}</Button>}
         <button type="button" className="a-secondary" onClick={reset} disabled={state === 'idle'}>Reset rest timer</button>
         <button type="button" className="a-secondary" onClick={skip} disabled={state === 'finished' || state === 'skipped'}>Skip rest timer</button>
       </div>

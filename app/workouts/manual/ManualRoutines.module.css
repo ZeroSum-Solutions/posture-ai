@@ -1,33 +1,32 @@
 .screen { width: min(1120px, 100%); container-type: inline-size; }
-.header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 26px 24px 20px; }
+.header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-16); padding: var(--s-24) var(--s-24) var(--s-20); }
 .main, .editor, .subjectWorkspace, .detail, .player, .routineList { display: grid; gap: 16px; }
 .main { padding-bottom: 96px; }
-.field { display: grid; gap: 7px; min-width: 0; color: var(--text-secondary); font-size: 13px; font-weight: 600; }
-.editorList { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.editorCard { display: grid; gap: 12px; min-width: 0; }
-.itemHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
-.itemHeading h3 { margin: 4px 0 0; overflow-wrap: anywhere; }
-.compactActions, .actions, .detailActions, .exerciseChoices { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.compactActions button { min-width: 44px; min-height: 44px; padding: 0 10px; }
-.dosageGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.image { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; border-radius: var(--radius-md); background: rgba(255, 255, 255, .04); }
+.field { display: grid; gap: var(--s-8); min-width: 0; color: var(--text-2); font: var(--t-subhead); font-weight: 500; }
+.editorList { display: grid; gap: var(--s-12); margin: 0; padding: 0; list-style: none; }
+.editorCard { display: grid; gap: var(--s-12); min-width: 0; }
+.itemHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-12); min-width: 0; }
+.itemHeading h3 { margin: var(--s-4) 0 0; overflow-wrap: anywhere; }
+.compactActions, .actions, .detailActions, .exerciseChoices { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-8); }
+.compactActions button { min-width: 48px; min-height: 48px; padding: 0 var(--s-8); }
+.stepperRow { display: flex; align-items: center; gap: var(--s-8); }
+.stepperInput { width: 64px; flex: 0 0 auto; text-align: center; }
+.dosageGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-12); }
+.image { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; border-radius: var(--r-md); background: var(--surface-flat); }
 .editor a, .main a { color: inherit; }
-.error, .notice { margin: 0; padding: 12px 14px; border-radius: var(--radius-sm); line-height: 1.5; }
+.error, .notice { margin: 0; padding: var(--s-12) var(--s-16); border-radius: var(--r-sm); }
 .error { border: 1px solid var(--review); }
 .notice { border: 1px solid var(--hairline); }
-.empty { display: grid; justify-items: start; gap: 12px; }
-.addExercise, .subjectPicker, .playerCard { display: grid; gap: 12px; min-width: 0; }
+.empty { display: grid; justify-items: start; gap: var(--s-12); }
+.addExercise, .subjectPicker, .playerCard { display: grid; gap: var(--s-12); min-width: 0; }
 .exerciseChoices { max-height: 220px; overflow-y: auto; align-items: stretch; }
 .exerciseChoices button { text-align: left; overflow-wrap: anywhere; }
-.playerHeader, .sectionHeading, .listCard { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; min-width: 0; }
-.playerCard h3, .listCard strong { overflow-wrap: anywhere; }
-.target { margin: 0; font-size: clamp(20px, 4vw, 30px); font-weight: 650; line-height: 1.15; }
-.listCard { align-items: center; }
-.listCard p { margin: 5px 0 0; }
+.playerHeader, .sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-16); min-width: 0; }
+.playerCard h3 { overflow-wrap: anywhere; }
+.target { margin: 0; }
 .subjectPicker { grid-template-columns: minmax(0, 1fr) minmax(220px, 360px); align-items: end; }
 @container (max-width: 620px) {
-  .header, .itemHeading, .playerHeader, .sectionHeading, .listCard { align-items: stretch; flex-direction: column; }
+  .header, .itemHeading, .playerHeader, .sectionHeading { align-items: stretch; flex-direction: column; }
   .subjectPicker { grid-template-columns: 1fr; }
-  .dosageGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (max-width: 360px) { .dosageGrid { grid-template-columns: 1fr; } }

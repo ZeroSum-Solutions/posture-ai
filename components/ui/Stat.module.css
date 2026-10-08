@@ -1,0 +1,13 @@
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

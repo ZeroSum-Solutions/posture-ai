@@ -3,7 +3,7 @@ import { Surface } from '@/components/array/Surface'
 import { ring, tint, tone } from '@/components/array/severity'
 import { GRADE_DISPLAY_BANDS } from '@/lib/scoring/grade-display'
 import type { GradeRailModel } from './reviewModel'
-import styles from './AssessmentReview.module.css'
+import styles from './Results.module.css'
 
 /**
  * The screen's subject: the grade, the deviation score, and where both sit on the
@@ -52,7 +52,7 @@ export default function GradeRail({
               {Math.round(rail.score)}
               <span className={styles.railScoreUnit}> /100</span>
             </p>
-            <p className="t-quiet">deviation score</p>
+            <p className="t-footnote">deviation score</p>
           </div>
         </div>
         {rail.delta ? (

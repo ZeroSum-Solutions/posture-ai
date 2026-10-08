@@ -51,18 +51,18 @@ function Media({ projection }: { projection: TrainingLaunchMediaProjectionV1 | n
   }, [expiry])
 
   if (!projection || projection.status === 'missing') {
-    return <p className="t-quiet" role="status">Exercise media is not available. Follow the written instructions above.</p>
+    return <p className="t-footnote" role="status">Exercise media is not available. Follow the written instructions above.</p>
   }
   if (expiry !== null && now === null) {
-    return <p className="t-quiet" role="status">Checking exercise media availability. Written instructions remain available.</p>
+    return <p className="t-footnote" role="status">Checking exercise media availability. Written instructions remain available.</p>
   }
   if (expired || projection.status !== 'available') {
-    return <p className="t-quiet" role="status">Exercise media has expired. Written instructions remain available.</p>
+    return <p className="t-footnote" role="status">Exercise media has expired. Written instructions remain available.</p>
   }
   const video = !videoFailed ? projection.assets.video : undefined
   const poster = !posterFailed ? projection.assets.poster : undefined
   return <figure style={{ margin: 0, minWidth: 0 }}>
-    {projection.review.kind === 'synthetic_fixture' ? <p className="t-quiet">Practice media · Simulation</p> : null}
+    {projection.review.kind === 'synthetic_fixture' ? <p className="t-footnote">Practice media · Simulation</p> : null}
     {video ? <video
       aria-label="Exercise demonstration"
       src={video.path}
@@ -75,10 +75,10 @@ function Media({ projection }: { projection: TrainingLaunchMediaProjectionV1 | n
       // eslint-disable-next-line @next/next/no-img-element
       <img src={poster.path} alt={poster.alt} width={poster.width} height={poster.height}
         style={{ display: 'block', width: '100%', height: 'auto' }} onError={() => setPosterFailed(true)} />
-      : <p className="t-quiet" role="status">Exercise media could not load. Follow the written instructions above.</p>}
-    <figcaption className="t-quiet">
-      <a href={projection.source.sourcePageUrl} target="_blank" rel="noopener noreferrer">{projection.source.author}</a>
-      {' · '}<a href={projection.source.license.url} target="_blank" rel="noopener noreferrer">{projection.source.license.name}</a>
+      : <p className="t-footnote" role="status">Exercise media could not load. Follow the written instructions above.</p>}
+    <figcaption className="t-footnote">
+      <a href={projection.source.sourcePageUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{projection.source.author}</a>
+      {' · '}<a href={projection.source.license.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{projection.source.license.name}</a>
     </figcaption>
   </figure>
 }

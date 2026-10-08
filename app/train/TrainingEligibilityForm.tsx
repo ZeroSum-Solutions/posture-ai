@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Badge, Banner, Button, Select } from '@/components/ui'
 import {
   EligibilityAnswersV1Schema,
   type EligibilityAnswersV1,
@@ -87,20 +88,6 @@ async function requestProjection(signal?: AbortSignal): Promise<Projection> {
   const projection = parseProjection(body)
   if (!projection) throw new Error('The saved answer response was invalid.')
   return projection
-}
-
-function Choice({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return <label>{label}<select value={value} onChange={event => onChange(event.target.value)}>{children}</select></label>
 }
 
 const YesNoUnknownOptions = () => <>
@@ -204,8 +191,7 @@ export default function TrainingEligibilityForm() {
   }
   if (loadState.status === 'error') {
     return <Surface tier="tile" innerClassName={styles.entryState}>
-      <p role="alert" className={styles.error}>{loadState.message}</p>
-      <button type="button" className="a-secondary" onClick={() => void retryLoad()}>Retry</button>
+      <Banner variant="error" action={{ label: 'Retry', onPress: () => void retryLoad() }}>{loadState.message}</Banner>
     </Surface>
   }
 
@@ -226,62 +212,65 @@ export default function TrainingEligibilityForm() {
     <form className={styles.builder} onSubmit={event => void save(event)}>
       <div className={styles.sectionHeading}>
         <div>
-          <p className="t-kicker">Before you train</p>
-          <h2 className="t-headline-sm">Tell us about your current situation</h2>
+          <p className="t-overline">Before you train</p>
+          <h2 className="t-title-2">Tell us about your current situation</h2>
           <p className="t-body">Your answers are saved for review. Saving them does not approve a program or clear you to train.</p>
         </div>
-        <span className="a-badge">{loadState.projection.revision === 0 ? 'No answers saved yet' : `Saved response ${loadState.projection.revision}`}</span>
+        <Badge>{loadState.projection.revision === 0 ? 'No answers saved yet' : `Saved response ${loadState.projection.revision}`}</Badge>
       </div>
 
       <div className={styles.fieldGrid}>
-        <Choice label="Are you 18 or older?" value={answers.adultScope} onChange={value => update('adultScope', value as EligibilityAnswersInput['adultScope'])}>
+        <Select label="Are you 18 or older?" value={answers.adultScope} onChange={event => update('adultScope', event.target.value as EligibilityAnswersInput['adultScope'])}>
           <option value="unknown">Not sure</option><option value="confirmed_18_plus">Yes</option><option value="minor">No</option>
-        </Choice>
-        <Choice label="How active are you currently?" value={answers.currentActivity} onChange={value => update('currentActivity', value as EligibilityAnswersInput['currentActivity'])}>
+        </Select>
+        <Select label="How active are you currently?" value={answers.currentActivity} onChange={event => update('currentActivity', event.target.value as EligibilityAnswersInput['currentActivity'])}>
           <option value="unknown">Not sure</option><option value="regularly_active">Regularly active</option><option value="not_regularly_active">Not regularly active</option>
-        </Choice>
+        </Select>
       </div>
 
       <fieldset className={styles.fieldset}>
         <legend>Known health conditions</legend>
         <div className={styles.fieldGrid}>
-          <Choice label="Heart or circulation condition" value={answers.knownConditions.cardiovascular} onChange={value => updateCondition('cardiovascular', value as EligibilityAnswersInput['knownConditions']['cardiovascular'])}><YesNoUnknownOptions /></Choice>
-          <Choice label="Metabolic condition" value={answers.knownConditions.metabolic} onChange={value => updateCondition('metabolic', value as EligibilityAnswersInput['knownConditions']['metabolic'])}><YesNoUnknownOptions /></Choice>
-          <Choice label="Kidney condition" value={answers.knownConditions.renal} onChange={value => updateCondition('renal', value as EligibilityAnswersInput['knownConditions']['renal'])}><YesNoUnknownOptions /></Choice>
+          <Select label="Heart or circulation condition" value={answers.knownConditions.cardiovascular} onChange={event => updateCondition('cardiovascular', event.target.value as EligibilityAnswersInput['knownConditions']['cardiovascular'])}><YesNoUnknownOptions /></Select>
+          <Select label="Metabolic condition" value={answers.knownConditions.metabolic} onChange={event => updateCondition('metabolic', event.target.value as EligibilityAnswersInput['knownConditions']['metabolic'])}><YesNoUnknownOptions /></Select>
+          <Select label="Kidney condition" value={answers.knownConditions.renal} onChange={event => updateCondition('renal', event.target.value as EligibilityAnswersInput['knownConditions']['renal'])}><YesNoUnknownOptions /></Select>
         </div>
       </fieldset>
 
       <div className={styles.fieldGrid}>
-        <Choice label="Are you currently experiencing signs or symptoms that may affect exercise?" value={answers.relevantSignsOrSymptoms} onChange={value => update('relevantSignsOrSymptoms', value as EligibilityAnswersInput['relevantSignsOrSymptoms'])}><YesNoUnknownOptions /></Choice>
-        <Choice label="Preferred training intensity" value={answers.desiredIntensity} onChange={value => update('desiredIntensity', value as EligibilityAnswersInput['desiredIntensity'])}>
+        <Select label="Are you currently experiencing signs or symptoms that may affect exercise?" value={answers.relevantSignsOrSymptoms} onChange={event => update('relevantSignsOrSymptoms', event.target.value as EligibilityAnswersInput['relevantSignsOrSymptoms'])}><YesNoUnknownOptions /></Select>
+        <Select label="Preferred training intensity" value={answers.desiredIntensity} onChange={event => update('desiredIntensity', event.target.value as EligibilityAnswersInput['desiredIntensity'])}>
           <option value="unknown">Not sure</option><option value="light">Light</option><option value="moderate">Moderate</option><option value="vigorous">Vigorous</option>
-        </Choice>
-        <Choice label="Are these answers complete?" value={answers.answerCertainty} onChange={value => update('answerCertainty', value as EligibilityAnswersInput['answerCertainty'])}>
+        </Select>
+        <Select label="Are these answers complete?" value={answers.answerCertainty} onChange={event => update('answerCertainty', event.target.value as EligibilityAnswersInput['answerCertainty'])}>
           <option value="uncertain">Some answers are uncertain</option><option value="complete">Yes, they are complete</option>
-        </Choice>
-        <Choice label="Pregnancy or postpartum context" value={answers.pregnancyPostpartumContext} onChange={value => update('pregnancyPostpartumContext', value as EligibilityAnswersInput['pregnancyPostpartumContext'])}>
+        </Select>
+        <Select label="Pregnancy or postpartum context" value={answers.pregnancyPostpartumContext} onChange={event => update('pregnancyPostpartumContext', event.target.value as EligibilityAnswersInput['pregnancyPostpartumContext'])}>
           <option value="unknown">Not sure</option><option value="none_reported">None to report</option><option value="pregnant">Pregnant</option><option value="postpartum">Postpartum</option><option value="prefer_not_to_say">Prefer not to say</option>
-        </Choice>
-        <Choice label="What kind of programming are you looking for?" value={answers.requestedProgrammingScope} onChange={value => update('requestedProgrammingScope', value as EligibilityAnswersInput['requestedProgrammingScope'])}>
+        </Select>
+        <Select label="What kind of programming are you looking for?" value={answers.requestedProgrammingScope} onChange={event => update('requestedProgrammingScope', event.target.value as EligibilityAnswersInput['requestedProgrammingScope'])}>
           <option value="unknown">Not sure</option><option value="strength_or_general_fitness">Strength or general fitness</option><option value="specialized_programming">Specialized programming</option>
-        </Choice>
+        </Select>
       </div>
 
       <div className={styles.saveBar}>
         <div aria-live="polite">
-          {saveState.status === 'saved' ? <p>Answers saved. This did not create a training decision.</p> : null}
-          {saveState.status === 'conflict' ? <p role="alert" className={styles.error}>A newer saved response exists. Your edits are still here. Reload the saved response before trying again.</p> : null}
-          {saveState.status === 'error' ? <p role="alert" className={styles.error}>{saveState.message}</p> : null}
+          {saveState.status === 'saved' ? <p className="t-body">Answers saved. This did not create a training decision.</p> : null}
+          {saveState.status === 'conflict' ? <Banner variant="error">A newer saved response exists. Your edits are still here. Reload the saved response before trying again.</Banner> : null}
+          {saveState.status === 'error' ? <Banner variant="error">{saveState.message}</Banner> : null}
           {saveState.status === 'idle' || saveState.status === 'saving' || saveState.status === 'reloading'
             ? <p className={styles.notice}>Unknown and “not sure” answers are saved as entered.</p>
             : null}
         </div>
         <div className={styles.saveActions}>
           {saveState.status === 'conflict' || saveState.status === 'error' || saveState.status === 'reloading'
-            ? <button type="button" className="a-secondary" disabled={saveState.status === 'reloading'} onClick={() => void reloadSavedAnswers()}>
-                {saveState.status === 'reloading' ? 'Reloading…' : 'Discard edits and reload saved answers'}
-              </button>
+            ? <Button type="button" variant="secondary" size="sm" loading={saveState.status === 'reloading'} onClick={() => void reloadSavedAnswers()}>
+                Discard edits and reload saved answers
+              </Button>
             : null}
+          {/* Button.tsx has no native `disabled` passthrough (only `disabledReason`/`loading`, both
+              aria-* only, never `.disabled`) — this submit control stays a native <button> so its
+              `.disabled` property keeps working exactly as tested. */}
           <button type="submit" className="a-primary" disabled={saveState.status === 'saving' || saveState.status === 'reloading' || saveState.status === 'conflict'}>
             {saveState.status === 'saving' ? 'Saving…' : 'Save answers'}
           </button>

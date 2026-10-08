@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { ConditioningRevisionSelectionV1Schema, type ConditioningRevisionSelectionV1 } from '@/lib/training/contracts/conditioning-revision'
+import { Button, Select, TextField } from '@/components/ui'
 import styles from './StrengthProgramBuilder.module.css'
 
 export type ConditioningEditableBout = {
@@ -29,6 +30,11 @@ export default function ConditioningRevisionForm({ bouts, modalities, athleteTim
   })))
   const [error, setError] = useState('')
   const modality = modalities.find(option => option.id === modalityId)
+  const previewBlockedReason = rows.length === 0
+    ? 'Add at least one upcoming bout before previewing changes.'
+    : !modality
+      ? 'Choose an available activity before previewing changes.'
+      : undefined
 
   function edit(index: number, change: Partial<(typeof rows)[number]>) {
     setRows(current => current.map((row, position) => position === index ? { ...row, ...change } : row))
@@ -65,25 +71,23 @@ export default function ConditioningRevisionForm({ bouts, modalities, athleteTim
     <p>Dates use {athleteTimezone}. Completed and started sessions stay unchanged. Review the proposed schedule before accepting it.</p>
     <fieldset disabled={disabled} className={styles.fieldset}>
       <legend>Future conditioning</legend>
-      <label className={styles.clientPicker}>Activity
-        <select className="a-input" value={modalityId} onChange={event => { setModalityId(event.target.value); setError('') }}>
-          <option value="" disabled>Choose an activity</option>
-          {modalities.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-        </select>
-      </label>
+      <Select label="Activity" className={styles.clientPicker} value={modalityId} onChange={event => { setModalityId(event.target.value); setError('') }}>
+        <option value="" disabled>Choose an activity</option>
+        {modalities.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+      </Select>
       {rows.map((row, index) => <fieldset key={row.sourceBoutId} className={styles.fieldset}>
         <legend>Upcoming bout {index + 1}</legend>
         <div className={styles.fieldGrid}>
-          <label>Date<input className="a-input" type="date" value={row.scheduledLocalDate} onChange={event => edit(index, { scheduledLocalDate: event.target.value })} /></label>
-          <label>Minutes<input className="a-input" type="text" inputMode="numeric" value={row.minutes} onChange={event => edit(index, { minutes: event.target.value })} /></label>
-          <label>Additional seconds<input className="a-input" type="text" inputMode="numeric" value={row.seconds} onChange={event => edit(index, { seconds: event.target.value })} /></label>
-          <label>Arrangement<select className="a-input" value={row.arrangement} onChange={event => edit(index, { arrangement: event.target.value === 'paired_strength_first' ? 'paired_strength_first' : 'separate' })}>
+          <TextField label="Date" type="date" value={row.scheduledLocalDate} onChange={event => edit(index, { scheduledLocalDate: event.target.value })} />
+          <TextField label="Minutes" type="text" inputMode="numeric" value={row.minutes} onChange={event => edit(index, { minutes: event.target.value })} />
+          <TextField label="Additional seconds" type="text" inputMode="numeric" value={row.seconds} onChange={event => edit(index, { seconds: event.target.value })} />
+          <Select label="Arrangement" value={row.arrangement} onChange={event => edit(index, { arrangement: event.target.value === 'paired_strength_first' ? 'paired_strength_first' : 'separate' })}>
             <option value="separate">Separate day from strength</option>
             <option value="paired_strength_first" disabled={!modality?.pairingAvailable}>Same day, strength first</option>
-          </select></label>
+          </Select>
         </div>
       </fieldset>)}
-      <button type="submit" className="a-primary" disabled={rows.length === 0 || !modality}>Preview conditioning changes</button>
+      <Button type="submit" disabledReason={previewBlockedReason}>Preview conditioning changes</Button>
     </fieldset>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
   </form>

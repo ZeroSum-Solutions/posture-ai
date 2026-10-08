@@ -3,10 +3,15 @@ import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { IconButton } from '@/components/ui/IconButton'
+import { TextField } from '@/components/ui/TextField'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -46,58 +51,60 @@ export default function SignInPage() {
 
   return (
     <AuthFrame title="Welcome back" description="Sign in with the email address tied to your practitioner invitation.">
-        {error && (
-          <p className="a-error" role="alert" aria-live="assertive" style={{ marginBottom: 16 }}>
-            {error}
-          </p>
-        )}
+      {error && (
+        <Banner variant="error" className="app-stack" data-testid="sign-in-error">{error}</Banner>
+      )}
 
-        <form onSubmit={handleSubmit} noValidate className="a-form">
-          <div className="a-field">
-            <label className="a-label" htmlFor="email">Email</label>
-            <input
-              id="email"
-              className="a-input"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-              autoComplete="email"
-              inputMode="email"
+      <form onSubmit={handleSubmit} noValidate className="app-stack" style={{ marginTop: error ? 'var(--s-16)' : 0 }}>
+        <TextField
+          id="email"
+          label="Email"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          placeholder="you@example.com"
+          autoComplete="email"
+          inputMode="email"
+        />
+
+        <TextField
+          id="password"
+          label="Password"
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          placeholder="Your password"
+          autoComplete="current-password"
+          trailing={
+            <IconButton
+              icon={showPassword ? 'eye-closed-linear' : 'eye-linear'}
+              label={showPassword ? 'Hide password' : 'Show password'}
+              variant="plain"
+              onClick={() => setShowPassword((value) => !value)}
             />
-          </div>
+          }
+        />
+        <Link
+          href="/auth/forgot-password"
+          className="t-footnote"
+          style={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, textDecoration: 'underline', color: 'var(--text-2)' }}
+        >
+          Forgot password?
+        </Link>
 
-          <div className="a-field">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <label className="a-label" htmlFor="password">Password</label>
-              <Link href="/auth/forgot-password" className="a-label" style={{ textDecoration: 'underline' }}>
-                Forgot password?
-              </Link>
-            </div>
-            <input
-              id="password"
-              className="a-input"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              placeholder="Your password"
-              autoComplete="current-password"
-            />
-          </div>
+        <Button type="submit" variant="primary" size="lg" block loading={loading}>
+          Sign in
+        </Button>
 
-          <button type="submit" disabled={loading} className="a-primary a-primary--bar" style={{ marginTop: 6 }}>
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-
-          <p className="a-help" style={{ textAlign: 'center' }}>
-            Practitioner access is invitation-only.{' '}
-            <Link href="/auth/sign-up" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-              Learn how invitations work
-            </Link>
-          </p>
-        </form>
+        <p className="t-footnote" style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+          Practitioner access is invitation-only.{' '}
+          <Link href="/auth/sign-up" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>
+            Learn how invitations work
+          </Link>
+        </p>
+      </form>
     </AuthFrame>
   )
 }

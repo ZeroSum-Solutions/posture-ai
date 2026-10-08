@@ -39,11 +39,11 @@ export default function AuthFrame({
       <div className={styles.column}>
         <Surface tier="feature">
           <div className={styles.head}>
-            <p className="t-kicker">Secure workspace</p>
-            <h1 className={styles.title}>{title}</h1>
-            <p className={styles.description}>{description}</p>
+            <p className="t-overline">Secure workspace</p>
+            <h1 className={`t-display ${styles.title}`}>{title}</h1>
+            <p className={`t-body ${styles.description}`}>{description}</p>
           </div>
-          <div className={styles.body} style={{ marginTop: 20 }}>
+          <div className={styles.body} style={{ marginTop: 'var(--s-20)' }}>
             {children}
           </div>
         </Surface>

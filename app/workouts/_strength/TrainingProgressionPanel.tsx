@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button } from '@/components/ui'
 import {
   ProgressionReasonV1Schema,
   TrainingProgressionAcceptanceV1Schema,
@@ -330,16 +331,16 @@ function TrainingProgressionPanelState({
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
     <div className={styles.sessionHeader}>
       <div>
-        <p className="t-kicker">Next target</p>
-        <h3 className="t-headline-sm">Progression suggestion</h3>
+        <p className="t-overline">Next target</p>
+        <h3 className="t-title-2">Progression suggestion</h3>
         <p className="t-body">Review a suggestion based on saved results from this exercise. Nothing changes until you accept it.</p>
       </div>
       {panelState.status === 'idle' || panelState.status === 'error'
-        ? <button type="button" className="a-secondary" onClick={() => void reviewNextTarget()}>
+        ? <Button variant="secondary" size="sm" onClick={() => void reviewNextTarget()}>
             {pendingRecoverySubmission
               ? 'Retry same recovery report'
               : panelState.status === 'error' ? 'Try again' : 'Review next target'}
-          </button>
+          </Button>
         : null}
     </div>
 
@@ -354,9 +355,9 @@ function TrainingProgressionPanelState({
                 />
                 {pendingRecoverySubmission
                   ? <p className={styles.notice}>This exact report is waiting for confirmation. Its answers and time stay locked while you retry.</p>
-                  : <button type="button" className="a-secondary" onClick={() => setRecoveryContext(null)}>Remove recovery check-in</button>}
+                  : <Button variant="secondary" size="sm" onClick={() => setRecoveryContext(null)}>Remove recovery check-in</Button>}
               </>
-            : <button type="button" className="a-secondary" onClick={() => setRecoveryContext(freshRecoveryContext())}>Add recovery check-in</button>}
+            : <Button variant="secondary" size="sm" onClick={() => setRecoveryContext(freshRecoveryContext())}>Add recovery check-in</Button>}
         </div>
       : null}
 
@@ -365,25 +366,25 @@ function TrainingProgressionPanelState({
 
     {panelState.status === 'ready' && panelState.projection.result.kind === 'no_pending_target'
       ? <div className={styles.pendingPanel}>
-          <h4>No later target is waiting</h4>
+          <h4 className="t-headline">No later target is waiting</h4>
           <p className="t-body">There is no pending matching strength session to update.</p>
         </div>
       : null}
 
     {panelState.status === 'ready' && panelState.projection.result.kind === 'recovery_review'
       ? <div className={styles.pendingPanel}>
-          <p className="t-kicker">Recovery check-in</p>
-          <h4>{recoveryReviewCopy(panelState.projection.result).heading}</h4>
+          <p className="t-overline">Recovery check-in</p>
+          <h4 className="t-headline">{recoveryReviewCopy(panelState.projection.result).heading}</h4>
           <p>{recoveryReviewCopy(panelState.projection.result).body}</p>
           <p className={styles.notice}>No numeric load, rep, or session change is available from this review.</p>
           {panelState.projection.result.review.kind === 'new_familiarization'
             ? <ActiveCalibrationPanel sessionId={sessionId} exerciseInstanceId={exerciseInstanceId} expected={panelState.projection.result.record} />
             : null}
-          <button
-            type="button"
-            className="a-secondary"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => startNewPerformanceReview(panelState.projection.result as RecoveryReviewResult)}
-          >Review recorded performance with a new report</button>
+          >Review recorded performance with a new report</Button>
         </div>
       : null}
 
@@ -396,17 +397,17 @@ function TrainingProgressionPanelState({
               </div>
             : null}
           <div className={styles.pendingPanel}>
-            <p className="t-kicker">Next matching target</p>
+            <p className="t-overline">Next matching target</p>
             <p><time dateTime={panelState.projection.result.target.scheduledLocalDate}>{panelState.projection.result.target.scheduledLocalDate}</time></p>
             {panelState.projection.result.kind === 'proposal'
               ? <>
-                  <h4>{panelState.projection.result.decision.kind === 'load_proposal' ? 'Suggested load and reps' : 'Suggested reps'}</h4>
+                  <h4 className="t-headline">{panelState.projection.result.decision.kind === 'load_proposal' ? 'Suggested load and reps' : 'Suggested reps'}</h4>
                   <p><strong>{proposedLoadLabel(panelState.projection.result.decision)}</strong></p>
                   <p>{proposalReps(panelState.projection.result.decision).join(' / ')} reps</p>
                   <p className={styles.notice}>{decisionReason(panelState.projection.result.decision)}</p>
                 </>
               : <>
-                  <h4>{noChangeHeading(panelState.projection.result.decision.kind)}</h4>
+                  <h4 className="t-headline">{noChangeHeading(panelState.projection.result.decision.kind)}</h4>
                   <p>{decisionReason(panelState.projection.result.decision)}</p>
                   <p className={styles.notice}>Nothing was changed or accepted.</p>
                   <ManualRecalibrationHandoff result={panelState.projection.result}
@@ -427,9 +428,9 @@ function TrainingProgressionPanelState({
                   {acceptanceState.status === 'accepting' ? <p role="status">Accepting suggestion…</p> : null}
                 </div>
                 {acceptanceState.status === 'stale'
-                  ? <button type="button" className="a-secondary" disabled={isRefreshing} onClick={() => void reviewNextTarget()}>{isRefreshing ? 'Refreshing…' : 'Refresh suggestion'}</button>
+                  ? <Button variant="secondary" size="sm" loading={isRefreshing} onClick={() => void reviewNextTarget()}>{isRefreshing ? 'Refreshing…' : 'Refresh suggestion'}</Button>
                   : acceptanceState.status === 'idle' || acceptanceState.status === 'error'
-                    ? <button type="button" className="a-primary" onClick={() => void acceptSuggestion(panelState.projection.result as ProposalResult)}>{acceptanceState.status === 'error' ? 'Retry acceptance' : 'Accept suggestion'}</button>
+                    ? <Button onClick={() => void acceptSuggestion(panelState.projection.result as ProposalResult)}>{acceptanceState.status === 'error' ? 'Retry acceptance' : 'Accept suggestion'}</Button>
                     : null}
               </div>
             : null}

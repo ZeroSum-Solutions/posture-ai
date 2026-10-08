@@ -1,0 +1,12 @@
+.avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  color: var(--text-1);
+  font-weight: 500;
+  letter-spacing: 0;
+  overflow: hidden;
+}

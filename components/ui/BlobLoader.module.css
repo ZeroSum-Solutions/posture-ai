@@ -1,0 +1,129 @@
+/*
+ * The hero loader for scan processing and long jobs. Built from two
+ * counter-rotating layers plus a heartbeat core — all transform-only (no
+ * `border-radius` keyframe morph, which repaints every frame) per the
+ * coordinator's physics review, and all pure CSS: a looping, non-interactive
+ * animation earns nothing from framer here, and individual `rotate`/`scale`
+ * CSS properties compose on one element without fighting over `transform`.
+ */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-16);
+}
+
+.blob {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+
+.outer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 44%;
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 1px var(--border);
+  rotate: 0deg;
+  animation: blob-spin-cw 10s linear infinite;
+}
+
+/* Liquid-glass specular streak. A pseudo-element rotates with its host for
+   free — no separate animation needed. */
+.outer::after {
+  content: '';
+  position: absolute;
+  inset: 4px 6px auto;
+  height: 40%;
+  border-radius: 50%;
+  background: linear-gradient(color-mix(in srgb, var(--action) 50%, transparent), transparent);
+  filter: blur(2px);
+}
+
+.inner {
+  position: absolute;
+  inset: 3px;
+  border-radius: 38%;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  rotate: 0deg;
+  scale: 1;
+  animation: blob-spin-ccw 14s linear infinite, blob-pulse 1.8s var(--ease-spring) infinite;
+}
+
+.core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+  border-radius: 50%;
+  background: var(--action);
+  animation: blob-heartbeat 1.6s var(--ease-spring) infinite;
+  animation-delay: 0.5s;
+}
+
+@keyframes blob-spin-cw {
+  to { rotate: 360deg; }
+}
+
+@keyframes blob-spin-ccw {
+  to { rotate: -360deg; }
+}
+
+@keyframes blob-pulse {
+  0%, 100% { scale: 1; }
+  35% { scale: 0.88; }
+  70% { scale: 1.06; }
+}
+
+@keyframes blob-heartbeat {
+  0%, 100% { scale: 1; opacity: 0.9; }
+  50% { scale: 1.15; opacity: 1; }
+}
+
+.steps {
+  position: relative;
+  height: 1.75rem;
+  overflow: hidden;
+}
+
+.step {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font: var(--t-title-2);
+  color: var(--text-1);
+  opacity: 0;
+  transition: opacity 400ms var(--ease-standard);
+}
+
+.stepActive {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outer,
+  .inner,
+  .core {
+    animation: none !important;
+    rotate: 0deg !important;
+    scale: 1 !important;
+  }
+
+  .blob {
+    animation: blob-reduced-pulse 1.6s ease-in-out infinite !important;
+  }
+}
+
+@keyframes blob-reduced-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}

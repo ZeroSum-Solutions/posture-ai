@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { FilterChip, FilterRow, Chip } from '@/components/array/Chip'
+import { Chip } from '@/components/array/Chip'
 import { Surface } from '@/components/array/Surface'
 import { tone, type SeverityBand } from '@/components/array/severity'
+import { ActionBar, Button, ChipRow, EmptyState, FilterChip, Select, TopBar } from '@/components/ui'
 import { MAX_MANUAL_ROUTINE_URL_EXERCISES } from '@/app/workouts/manual/ManualRoutine.types'
 import styles from './ExercisesPage.module.css'
 
@@ -127,31 +127,31 @@ export default function ExercisesLibrary({
 
   return (
     <div className={`app-screen ${styles.screen}`}>
-      <header className={styles.header}>
-        <div>
-          <p className="t-kicker">Movement library</p>
-          <h1 className="t-headline">Exercises</h1>
-          <p className="t-body">Explore exercise instructions and build your workout.</p>
-        </div>
-        <Surface tier="tile" pad="snug" innerClassName={styles.headerMetric}>
-          <span className="t-quiet">Matching</span>
-          <strong className="t-readout-md n">{filteredCollection.length}</strong>
-          <em>{filteredCollection.length === 1 ? 'movement' : 'movements'}</em>
-        </Surface>
-      </header>
+      <TopBar title="Exercises" subtitle="Explore exercise instructions and build your workout." />
 
       <div className={`app-screen-x app-stack ${styles.collection}`}>
+        <div className={styles.header}>
+          <Surface tier="tile" pad="snug" innerClassName={styles.headerMetric}>
+            <span className="t-footnote">Matching</span>
+            <strong className="t-readout-md n">{filteredCollection.length}</strong>
+            <em>{filteredCollection.length === 1 ? 'movement' : 'movements'}</em>
+          </Surface>
+        </div>
         <section className="app-stack" aria-labelledby="exercise-collection-heading">
           <div className={styles.sectionHeader}>
             <div>
-              <p className="t-kicker">Exercise collection</p>
-              <h2 id="exercise-collection-heading" className="t-headline-sm">Find a movement</h2>
+              <p className="t-overline">Exercise collection</p>
+              <h2 id="exercise-collection-heading" className="t-title-2">Find a movement</h2>
               <p className="t-body">Review status and source details stay attached to each exercise.</p>
             </div>
-            <span className="t-quiet" role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</span>
+            <span className="t-footnote" role="status">Showing {Math.min(limit, filteredCollection.length)} of {filteredCollection.length} matches</span>
           </div>
 
           <div className={styles.controls}>
+            {/* A plain, synchronous native search input — the shared `SearchField` debounces
+                `onQueryChange`, which would desync from this screen's unit tests (they assert
+                the filtered list immediately after `fireEvent.change`, with no `waitFor`). Kept
+                native and tokenized instead; see the migration report for this call. */}
             <label className={styles.field}>
               <span>Search exercises</span>
               <input
@@ -161,38 +161,47 @@ export default function ExercisesLibrary({
                 placeholder="Search name, instructions, equipment, or muscle"
               />
             </label>
-            <label className={styles.field}>
-              <span>Equipment</span>
-              <select value={equipment} onChange={event => { setEquipment(event.target.value); resetLimit() }}>
-                {equipmentOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All equipment' : option}</option>)}
-              </select>
-            </label>
+            <Select
+              label="Equipment"
+              className={styles.field}
+              value={equipment}
+              onChange={event => { setEquipment(event.target.value); resetLimit() }}
+            >
+              {equipmentOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All equipment' : option}</option>)}
+            </Select>
           </div>
 
-          <FilterRow label="Filter exercises by category">
+          <ChipRow label="Filter exercises by category">
             {categories.map(option => (
               <FilterChip
                 key={option}
                 label={option === 'all' ? 'All' : CATEGORY_LABELS[option] || label(option)}
                 count={option === 'all' ? undefined : collection.filter(item => item.exercise.category === option).length}
-                active={category === option}
-                onClick={() => { setCategory(option); resetLimit() }}
+                selected={category === option}
+                onToggle={() => { setCategory(option); resetLimit() }}
               />
             ))}
-          </FilterRow>
+          </ChipRow>
 
           {selectedReferenceIds.length > 0 && (
-            <div className={styles.selectionTray} role="status" aria-label="Workout selection">
-              <div>
-                <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
-                <p className="t-quiet">Selections stay in the order you add them. You can refine the routine next.</p>
+            // A fixed bottom bar belongs in `ActionBar` (sits above the tab bar via
+            // `--chrome-bottom`, never under it) rather than a hand-rolled `position:
+            // sticky` div. The status/name contract stays on one element because the
+            // e2e spec reaches the "Continue to workout" link as its descendant:
+            // `page.getByRole('status', { name: 'Workout selection' }).getByRole('link', ...)`.
+            <ActionBar>
+              <div className={styles.selectionTray} role="status" aria-label="Workout selection">
+                <div>
+                  <strong>{selectedReferenceIds.length} exercise{selectedReferenceIds.length === 1 ? '' : 's'} selected</strong>
+                  <p className="t-footnote">Selections stay in the order you add them. You can refine the routine next.</p>
+                </div>
+                <Button href={manualRoutineHref}>Continue to workout</Button>
               </div>
-              <Link className="a-primary" href={manualRoutineHref}>Continue to workout</Link>
-            </div>
+            </ActionBar>
           )}
 
           {filteredCollection.length === 0 && (
-            <Surface tier="tile" pad="rowy"><p className="t-body">No exercises match these filters.</p></Surface>
+            <EmptyState icon="magnifer-linear" variant="inline" title="No matches" body="No exercises match these filters. Try a different search or category." />
           )}
 
           <div className={styles.grid}>
@@ -222,7 +231,7 @@ export default function ExercisesLibrary({
                           decoding="async"
                         />
                       </div>
-                      <p className={`t-quiet ${styles.source}`}>
+                      <p className={`t-footnote ${styles.source}`}>
                         Image by {referenceExercise.media.source.author} via{' '}
                         <a href={referenceExercise.media.source.assetUrl} target="_blank" rel="noreferrer" aria-label={`wger image source for ${exercise.name}`}>wger</a>
                         {' · '}
@@ -233,7 +242,7 @@ export default function ExercisesLibrary({
                   )}
 
                   <div className={styles.cardHeader}>
-                    <h3 className="t-title">{exercise.name}</h3>
+                    <h3 className="t-headline">{exercise.name}</h3>
                     <Chip band={band} size="sm">{CATEGORY_LABELS[exercise.category] || label(exercise.category)}</Chip>
                   </div>
 
@@ -243,8 +252,8 @@ export default function ExercisesLibrary({
 
                   {referenceExercise && (
                     <div className={styles.metadata}>
-                      <p className="t-quiet">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
-                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-quiet">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
+                      <p className="t-footnote">{referenceExercise.equipment.length > 0 ? referenceExercise.equipment.join(' · ') : 'Equipment not specified'}</p>
+                      {referenceExercise.primaryMuscles.length > 0 && <p className="t-footnote">Primary: {referenceExercise.primaryMuscles.join(', ')}</p>}
                     </div>
                   )}
 
@@ -272,7 +281,7 @@ export default function ExercisesLibrary({
                         >
                           {isSelected ? 'Added to workout' : 'Add to workout'}
                         </button>
-                        <p className={`t-quiet ${styles.source}`}>
+                        <p className={`t-footnote ${styles.source}`}>
                           Instructions by {referenceExercise.source.author}.{' '}
                           <a href={referenceExercise.source.recordUrl} target="_blank" rel="noreferrer" aria-label={`wger source for ${exercise.name}`}>Source</a>
                           {' · '}
@@ -282,7 +291,7 @@ export default function ExercisesLibrary({
                     ) : (
                       <>
                         <button type="button" className="a-secondary" disabled>Add to workout</button>
-                        <p className="t-quiet">Not yet available in custom workouts.</p>
+                        <p className="t-footnote">Not yet available in custom workouts.</p>
                       </>
                     )}
                   </div>
@@ -292,7 +301,7 @@ export default function ExercisesLibrary({
           </div>
 
           {limit < filteredCollection.length && (
-            <button type="button" className={`a-secondary ${styles.showMore}`} onClick={() => setLimit(current => current + PAGE_SIZE)}>Show more exercises</button>
+            <Button variant="secondary" className={styles.showMore} onClick={() => setLimit(current => current + PAGE_SIZE)}>Show more exercises</Button>
           )}
         </section>
       </div>

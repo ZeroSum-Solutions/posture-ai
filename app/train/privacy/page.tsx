@@ -20,11 +20,11 @@ export default async function TrainPrivacyPage() {
 
   return <div className={`app-screen ${styles.screen}`}>
     <header className={styles.header}>
-      <div><p className="t-kicker">Athlete workspace</p><h1 className="t-headline">Training data</h1></div>
+      <div><p className="t-overline">Athlete workspace</p><h1 className="t-title-1">Training data</h1></div>
       <Link href="/train" className="a-secondary">Back to my training</Link>
     </header>
-    <main className={`app-screen-x app-stack ${styles.main}`}>
+    <div className={`app-screen-x app-stack ${styles.main}`}>
       <TrainingSubjectErasure userId={actor.userId} subjectId={actor.subjectId} />
-    </main>
+    </div>
   </div>
 }

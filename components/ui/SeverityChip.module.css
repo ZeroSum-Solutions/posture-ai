@@ -1,0 +1,26 @@
+/* Colour is tint + ring (inline, keyed off severity.ts) + icon + word — never
+   colour alone. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  height: 28px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+.sm {
+  height: 24px;
+  padding: 0 var(--s-8);
+}
+
+/* Font only — no colour, so the chip's inline `color` (the band tone) carries
+   through to the label. */
+.label {
+  font: var(--t-subhead);
+  font-weight: 500;
+}
+.sm .label {
+  font: var(--t-caption);
+}

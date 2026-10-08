@@ -45,42 +45,36 @@ const capture = (id: string, view: string, profile_side: 'left' | 'right' | null
 })
 const captures = [capture('c1', 'front'), capture('c2', 'side', 'left'), capture('c3', 'side', 'right'), capture('c4', 'back')]
 
-// The findings listed under the selected view (each row's visible label, exact match).
-const LABELS = ['Shoulder Imbalance (Front)', 'Forward Head Posture', 'Trunk Lean']
-const findingNames = () => {
-  const region = screen.getByRole('region', { name: /view/ })
-  return LABELS.filter((label) => within(region).queryAllByText(label, { exact: true }).length > 0)
-}
-
-describe('ReviewEvidence (capture set as evidence)', () => {
-  it('shows the whole capture set with no drawn body guide or disclaimer copy', () => {
+// array-v3-spec.md §5 Results: the capture set is a "Photos (n of 4)"
+// Disclosure (no body-guide/reconstruction copy), and findings are no longer
+// gated behind a per-view photo toggle — every finding is listed, grouped by
+// severity, with the view it was measured on as its subhead.
+describe('ReviewEvidence (capture set + findings)', () => {
+  it('shows "Photos (n of 4)" and reveals all four slots once opened', () => {
     render(<ReviewEvidence rows={rows} viewByKey={viewByKey} captures={captures} levelVerified={null} />)
+    expect(screen.getByText('Photos (4 of 4)')).toBeTruthy()
+    fireEvent.click(screen.getByText('Photos (4 of 4)'))
     const group = screen.getByRole('group', { name: 'Capture views' })
-    expect(within(group).getAllByRole('button', { name: / view$/ })).toHaveLength(4)
-    expect(screen.queryByText(/Region guide/)).toBeNull()
-    expect(screen.queryByText(/not a reconstruction/)).toBeNull()
+    expect(within(group).getAllByText(/Front|Left Side|Right Side|Back/).length).toBeGreaterThanOrEqual(4)
   })
 
-  it('opens on the first view with findings and lists only what was measured on it', () => {
+  it('shows a missing-photo slot inline instead of silently dropping it', () => {
+    render(<ReviewEvidence rows={rows} viewByKey={viewByKey} captures={[capture('c1', 'front')]} levelVerified={null} />)
+    expect(screen.getByText('Photos (1 of 4)')).toBeTruthy()
+    fireEvent.click(screen.getByText('Photos (1 of 4)'))
+    expect(screen.getAllByText('No photo for this view').length).toBe(3)
+  })
+
+  it('lists every finding (not gated behind a view toggle), with its view as a subhead', () => {
     render(<ReviewEvidence rows={rows} viewByKey={viewByKey} captures={captures} levelVerified={null} />)
-    expect(screen.getByRole('button', { name: 'front view' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('heading', { name: /Front view/ }).textContent).toContain('1 finding')
-    expect(findingNames()).toEqual(['Shoulder Imbalance (Front)'])
+    expect(screen.getByText('Shoulder Imbalance (Front)')).toBeTruthy()
+    expect(screen.getByText('Forward Head Posture')).toBeTruthy()
+    expect(screen.getByText('Trunk Lean')).toBeTruthy()
+    expect(screen.getAllByText('Side').length).toBe(2)
+    expect(screen.getByText('Front')).toBeTruthy()
   })
 
-  it('tapping a side photo highlights both side photos and lists the side findings below', () => {
-    render(<ReviewEvidence rows={rows} viewByKey={viewByKey} captures={captures} levelVerified={null} />)
-    fireEvent.click(screen.getByRole('button', { name: 'side left view' }))
-    expect(screen.getByRole('button', { name: 'side left view' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: 'side right view' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: 'front view' }).getAttribute('aria-pressed')).toBe('false')
-    expect(findingNames()).toEqual(['Forward Head Posture', 'Trunk Lean'])
-
-    fireEvent.click(screen.getByRole('button', { name: 'back view' }))
-    expect(screen.getByText('No findings were measured on the back view.')).toBeTruthy()
-  })
-
-  it('keeps a finding reachable when its view has no saved photo, and rows still spotlight', () => {
+  it('keeps a finding reachable and spotlightable when its view has no saved photo', () => {
     const onSpotlight = vi.fn()
     render(
       <ReviewEvidence
@@ -91,9 +85,8 @@ describe('ReviewEvidence (capture set as evidence)', () => {
         onSpotlight={onSpotlight}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'side view' }))
-    expect(findingNames()).toEqual(['Forward Head Posture', 'Trunk Lean'])
-    fireEvent.click(screen.getByTestId('finding-spotlight-trunk_lean'))
+    fireEvent.click(screen.getByRole('button', { name: /Trunk Lean/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show on map' }))
     expect(onSpotlight).toHaveBeenCalledWith('trunk_lean')
   })
 })

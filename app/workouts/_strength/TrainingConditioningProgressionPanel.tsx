@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Button } from '@/components/ui'
 import {
   ConditioningProgressionAcceptanceV1Schema,
   ConditioningProgressionProjectionV1Schema,
@@ -86,10 +87,10 @@ function ConditioningPanel({ sessionId }: { sessionId: string }) {
     ? projection.result.decision
     : undefined
   return <Surface tier="tile" innerClassName={styles.sessionPlayer}>
-    <h3 className="t-headline-sm">Next conditioning targets</h3>
+    <h3 className="t-title-2">Next conditioning targets</h3>
     <p>Review your saved duration and effort. Future targets change only after you accept a suggestion.</p>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-    {status === 'idle' || status === 'stale' ? <button type="button" className="a-secondary" onClick={() => void review()}>{status === 'stale' ? 'Refresh conditioning suggestion' : 'Review conditioning targets'}</button> : null}
+    {status === 'idle' || status === 'stale' ? <Button variant="secondary" size="sm" onClick={() => void review()}>{status === 'stale' ? 'Refresh conditioning suggestion' : 'Review conditioning targets'}</Button> : null}
     {status === 'loading' ? <p role="status">Reviewing saved conditioning results…</p> : null}
     {projection?.result.kind === 'insufficient_history' ? <p>Complete two comparable conditioning sessions before reviewing an increase. Your current targets remain in place.</p> : null}
     {projection?.result.kind === 'no_pending_targets' ? <p>No later conditioning targets are waiting. Nothing was changed.</p> : null}
@@ -99,7 +100,7 @@ function ConditioningPanel({ sessionId }: { sessionId: string }) {
       <p>Two comparable completed sessions support adding {decision.increaseSecondsPerBout / 60} minute{decision.increaseSecondsPerBout === 120 ? 's' : ''} to each of the next two targets.</p>
       <ul>{decision.targetBouts.map((bout, index) => <li key={bout.boutId}>Upcoming bout {index + 1}: {(bout.acceptedDurationSeconds - decision.increaseSecondsPerBout) / 60} → {bout.acceptedDurationSeconds / 60} minutes</li>)}</ul>
       <p>Keep perceived effort at or below {decision.targetEffortMaximum} out of 10. Saved sessions remain unchanged.</p>
-      {status === 'ready' || status === 'retry' ? <button type="button" className="a-primary" onClick={() => void accept()}>{status === 'retry' ? 'Retry conditioning acceptance' : 'Accept conditioning targets'}</button> : null}
+      {status === 'ready' || status === 'retry' ? <Button onClick={() => void accept()}>{status === 'retry' ? 'Retry conditioning acceptance' : 'Accept conditioning targets'}</Button> : null}
     </> : null}
     {status === 'accepting' ? <p role="status">Confirming conditioning targets…</p> : null}
     {status === 'accepted' ? <p role="status">Conditioning targets accepted for the two upcoming bouts.</p> : null}

@@ -1,206 +1,76 @@
 /* Client detail — the screen that answers "is this person getting better?".
-   Replaces ClientEvidenceCanvas.module.css, whose v1 tokens no longer exist. */
+   TopBar/identity/actions chrome moved to components/ui (TopBar, ActionBar,
+   Avatar, SeverityChip, Dialog) — see ClientDetailClient.tsx. What remains
+   here is the overflow menu, the two disclosures, the first-screen summary,
+   the tab workspace shell, and the chrome for TrendChart / FindingsTrend /
+   ComparisonWorkspace, whose own logic is unchanged (DESIGN.md › Client
+   detail: "keep the chart components' logic; restyle their chrome"). */
 
-/* ── Header row ─────────────────────────────────────────────────────────── */
+/* ── Overflow menu — a disclosure holding the record's two destructive-adjacent
+   destinations, kept out of the trend card's reading path. Positioned fixed
+   (not anchored to a specific TopBar-action DOM node) because the TopBar
+   mounts its actions slot twice (large + collapsed copies) and only one is
+   ever interactive at a time — see ClientDetailClient.tsx. ──────────────── */
 
-.topBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 16px 0;
-}
-
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 40px;
-  padding: 0 12px 0 4px;
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-
-.back:hover { color: var(--text-primary); }
-
-.iconButton {
-  display: grid;
-  place-items: center;
-  /* 36px is the drawn size; the touch target is padded out below. */
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.iconButton > span {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
-}
-
-.iconButton:hover { color: var(--text-primary); }
-
-/* Overflow menu — a disclosure holding the record's two destructive-adjacent
-   destinations, kept out of the trend card's reading path. */
 .menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 30;
-  min-width: 176px;
-  padding: 6px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-glass-strong);
-  -webkit-backdrop-filter: blur(var(--blur-card));
-  backdrop-filter: blur(var(--blur-card));
-  box-shadow: inset 0 0 0 1px var(--hairline), var(--shadow-card);
+  position: fixed;
+  top: calc(var(--sa-t) + 52px + var(--s-8));
+  right: max(var(--s-16), var(--sa-r));
+  z-index: var(--z-sticky);
+  min-width: 11rem;
+  padding: var(--s-4);
+  display: flex;
+  flex-direction: column;
+  /* ≥8px between the two stacked targets (Edit / Archive) — DESIGN.md ›
+     Accessibility "adjacent targets ≥8px apart". */
+  gap: var(--s-8);
+  border-radius: var(--r-lg);
+  background: var(--glass-chrome);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: inset 0 0 0 1px var(--border), var(--glass-card-shadow);
 }
 
 .menuItem {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s-8);
   width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
+  min-height: var(--s-48);
+  padding: 0 var(--s-12);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 400;
+  color: var(--text-1);
+  font: var(--t-subhead);
   text-align: left;
   text-decoration: none;
   cursor: pointer;
 }
 
-.menuItem:hover { background: rgba(255, 255, 255, 0.08); }
+.menuItem:hover { background: var(--overlay-hover); }
 .menuItemDanger { color: var(--review); }
 
-/* ── Identity ───────────────────────────────────────────────────────────── */
+/* ── Identity — Avatar 72 + consent chip, below the TopBar's own large title
+   (DESIGN.md › Client detail). ──────────────────────────────────────────── */
 
 .identity {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 24px 20px;
+  gap: var(--s-16);
+  padding: 0 max(var(--screen-x), var(--sa-l)) var(--s-20) max(var(--screen-x), var(--sa-r));
 }
 
-.identityBody { min-width: 0; }
+.identityBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
 
 .identityMeta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-secondary);
-}
-
-.consentIcon { display: inline-flex; flex-shrink: 0; }
-
-.gradeTile {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-lg);
-  font-size: 24px;
-  font-weight: 300;
-}
-
-/* ── Trend card ─────────────────────────────────────────────────────────── */
-
-.trendHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
-.trendHeadAside {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.latestScore {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 3px;
-  color: var(--text-primary);
-}
-
-.latestScore > :first-child {
-  font-size: 28px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.latestScore > :last-child {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 300;
-}
-
-/* Magnitude only. The policy's phrase goes on .verdictLine — a pill wide enough
-   to hold the sentence is wider than the card's heading. */
-.verdictPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.verdictLine {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.chartBox {
-  height: 60px;
-  margin-top: 4px;
-}
-
-.chart {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.trendFootnote {
-  padding: 2px 16px 12px;
-  font-size: 12px;
-  font-weight: 300;
-  line-height: 1.6;
-  color: var(--text-secondary);
+  font: var(--t-footnote);
+  color: var(--text-2);
 }
 
 /* ── First-screen assessment summary ───────────────────────────────────── */
@@ -208,7 +78,7 @@
 .summaryGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
-  gap: 12px;
+  gap: var(--s-12);
 }
 
 .summaryCard { min-width: 0; }
@@ -217,30 +87,37 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: var(--s-12);
+  margin-bottom: var(--s-16);
 }
 
 .summaryEyebrow {
   display: block;
   margin-bottom: 3px;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  line-height: 1.3;
+  font: var(--t-caption);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--text-3);
 }
 
 .summaryLink {
+  position: relative;
   flex-shrink: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--text-2);
+  font: var(--t-caption);
   text-decoration: none;
 }
 
-.summaryLink:hover { color: var(--text-primary); }
+/* The visible caption-sized link stays compact; an invisible inset expands
+   the actual hit area to the 44px floor (same pattern as Button's .sm
+   ::after in components/ui/Button.module.css). */
+.summaryLink::after {
+  content: '';
+  position: absolute;
+  inset: -14px -8px;
+}
+
+.summaryLink:hover { color: var(--text-1); }
 
 .summaryFindings {
   display: grid;
@@ -253,24 +130,25 @@
 .summaryFinding {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-12);
   min-width: 0;
-  padding: 10px 0;
-  border-top: 1px solid var(--hairline-soft);
+  padding: var(--s-12) 0;
+  border-top: 1px solid var(--hairline);
 }
+.summaryFinding:first-child { border-top: 0; }
 
 .severityDot {
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
-  margin-left: 4px;
-  border-radius: var(--radius-full);
+  margin-left: var(--s-4);
+  border-radius: var(--r-full);
 }
 
 .summaryFindingBody {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--s-8);
   flex: 1;
   min-width: 0;
 }
@@ -282,38 +160,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.summaryFindingLabel {
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 400;
+  color: var(--text-1);
+  font: var(--t-subhead);
 }
 
 .summaryFindingDelta {
   flex: 0 0 auto;
-  padding: 2px 5px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px var(--hairline-soft);
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1.25;
+  padding: 2px var(--s-4);
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-3);
+  font: var(--t-caption);
 }
 
 .summaryFindingValue {
   flex: 0 0 auto;
-  font-size: 14px;
+  font: var(--t-subhead);
   font-weight: 500;
 }
 
 .summaryBoundary {
-  margin-top: 10px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 300;
-  line-height: 1.45;
+  margin-top: var(--s-8);
+  color: var(--text-3);
+  font: var(--t-footnote);
 }
 
 .anatomyPreview {
@@ -323,7 +193,7 @@
 .anatomyPreview > *:last-child {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--s-12);
   height: 100%;
 }
 
@@ -333,10 +203,10 @@
   flex: 0 0 72px;
   width: 72px;
   height: 86px;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.045);
-  color: var(--text-secondary);
-  box-shadow: inset 0 0 0 1px var(--hairline-soft);
+  border-radius: var(--r-lg);
+  background: var(--surface-flat);
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .anatomyBody {
@@ -350,30 +220,19 @@
 .anatomyBoundary { display: block; }
 
 .anatomyTitle {
-  color: var(--text-primary);
-  font-size: 14px;
+  color: var(--text-1);
+  font: var(--t-subhead);
   font-weight: 500;
 }
 
 .anatomyCopy,
 .anatomyBoundary {
-  margin-top: 4px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 300;
-  line-height: 1.45;
+  margin-top: var(--s-4);
+  color: var(--text-2);
+  font: var(--t-footnote);
 }
 
-.anatomyBoundary { color: var(--text-tertiary); }
-
-/* ── Paired actions ─────────────────────────────────────────────────────── */
-
-.actionPair {
-  display: flex;
-  gap: 10px;
-}
-
-.actionPair > * { flex: 1; }
+.anatomyBoundary { color: var(--text-3); }
 
 /* ── Section heads ──────────────────────────────────────────────────────── */
 
@@ -381,112 +240,77 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 8px 0;
+  gap: var(--s-12);
+  padding: var(--s-8) var(--s-8) 0;
 }
 
 /* ── Lower-priority disclosures ─────────────────────────────────────────── */
 
 .disclosureSection {
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.025);
-  box-shadow: inset 0 0 0 1px var(--hairline-soft);
+  border-radius: var(--r-lg);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .disclosureButton {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s-12);
   width: 100%;
   min-height: 58px;
-  padding: 10px 14px;
+  padding: var(--s-12) var(--s-16);
   border: 0;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.disclosureButton:hover { background: rgba(255, 255, 255, 0.035); }
+.disclosureButton:hover { background: var(--overlay-hover); }
 
 .disclosureTitle,
 .disclosureMeta { display: block; }
 
 .disclosureTitle {
-  color: var(--text-primary);
-  font-size: 13px;
+  color: var(--text-1);
+  font: var(--t-subhead);
   font-weight: 500;
 }
 
 .disclosureMeta {
   margin-top: 2px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 300;
+  color: var(--text-3);
+  font: var(--t-footnote);
 }
 
 .disclosureContent {
-  padding: 2px 12px 12px;
+  padding: 2px var(--s-12) var(--s-12);
 }
 
 .disclosureContent[hidden] { display: none; }
 
-/* ── Scan history rows ──────────────────────────────────────────────────── */
-
-.historyRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.historyBody { flex: 1; min-width: 0; }
-
-.historyDate {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-primary);
-}
-
-.historyMeta {
-  margin-top: 1px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
-}
-
-.historyDelta {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* ── Finding sparkline rows ─────────────────────────────────────────────── */
+/* ── Finding sparkline rows (FindingsTrend.tsx) ─────────────────────────── */
 
 .findingRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-12);
 }
 
 .findingBody { flex: 1; min-width: 0; }
 
 .findingLabel {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-primary);
+  font: var(--t-subhead);
+  color: var(--text-1);
 }
 
 .findingMeta {
-  margin-top: 1px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
+  margin-top: 2px;
+  font: var(--t-footnote);
+  color: var(--text-3);
 }
 
 .findingDelta {
@@ -494,8 +318,7 @@
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 500;
+  font: var(--t-caption);
 }
 
 .spark {
@@ -504,25 +327,95 @@
   height: 30px;
 }
 
-/* ── Numeric fallbacks ──────────────────────────────────────────────────── */
+/* ── Trend card (TrendChart.tsx) ────────────────────────────────────────── */
+
+.trendHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-12);
+  margin-bottom: var(--s-4);
+}
+
+.trendHeadAside {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-8);
+  flex-wrap: wrap;
+}
+
+.latestScore {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--text-1);
+}
+
+.latestScore > :first-child {
+  font: var(--t-readout-lg);
+}
+
+.latestScore > :last-child {
+  color: var(--text-3);
+  font: var(--t-footnote);
+}
+
+/* Magnitude only. The policy's phrase goes on .verdictLine — a pill wide enough
+   to hold the sentence is wider than the card's heading. */
+.verdictPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-full);
+  font: var(--t-caption);
+  white-space: nowrap;
+}
+
+.verdictLine {
+  margin-top: var(--s-4);
+  font: var(--t-caption);
+  line-height: 1.4;
+}
+
+.chartBox {
+  height: 60px;
+  margin-top: var(--s-4);
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.trendFootnote {
+  padding: 2px var(--s-16) var(--s-12);
+  font: var(--t-footnote);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+/* ── Numeric fallbacks (TrendChart's Score details, FindingsTrend's table) ── */
 
 .dataDetails {
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 0 0 1px var(--hairline-soft);
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .dataSummary {
   display: block;
   width: 100%;
-  min-height: 44px;
-  padding: 13px 16px;
+  min-height: var(--s-48);
+  padding: var(--s-12) var(--s-16);
   border: 0;
   background: transparent;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
+  font: var(--t-caption);
+  color: var(--text-2);
   cursor: pointer;
   text-align: left;
 }
@@ -530,76 +423,74 @@
 .dataSummary:disabled { cursor: progress; }
 .dataSummary:disabled::after { content: ''; }
 
-.dataSummary::after { content: ' ↓'; color: var(--text-quiet); }
+.dataSummary::after { content: ' ↓'; color: var(--text-3); }
 .dataDetails[data-open='true'] .dataSummary::after { content: ' ↑'; }
 
 .dataTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
-  font-weight: 300;
+  font: var(--t-caption);
+  font-weight: 400;
   /* A table that outgrows the viewport scrolls inside its own box; the page
      itself must never scroll sideways. */
   display: block;
   overflow-x: auto;
-  padding: 0 16px 14px;
+  padding: 0 var(--s-16) var(--s-16);
 }
 
 .dataTable th,
 .dataTable td {
-  padding: 7px 10px 7px 0;
+  padding: var(--s-8) var(--s-8) var(--s-8) 0;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid var(--hairline-soft);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .dataTable th {
   font-weight: 500;
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
-.dataTable td { color: var(--text-secondary); }
+.dataTable td { color: var(--text-2); }
 
 /* ── States ─────────────────────────────────────────────────────────────── */
 
 .notice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-secondary);
+  gap: var(--s-8);
+  font: var(--t-footnote);
+  color: var(--text-2);
 }
 
 .errorNotice { color: var(--review); }
 
 .emptyState {
-  font-size: 12px;
-  font-weight: 300;
+  font: var(--t-footnote);
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .loadingPanel {
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 0 0 1px var(--hairline-soft);
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-secondary);
+  padding: var(--s-16);
+  border-radius: var(--r-md);
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: var(--t-footnote);
+  color: var(--text-2);
 }
 
-/* ── Workspace ──────────────────────────────────────────────────────────── */
+/* ── Workspace — class names below are asserted by
+   app/clients/[id]/page.performance.test.tsx; keep them exactly. ──────── */
 
 .workspaceStage { display: grid; }
 
 .workspacePanel { display: none; }
 .workspacePanelActive { display: block; }
 .workspacePanel:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.85);
-  outline-offset: 4px;
-  border-radius: var(--radius-md);
+  outline: 2px solid var(--text-1);
+  outline-offset: var(--s-4);
+  border-radius: var(--r-md);
 }
 
 /* ── Details panel (client information) ─────────────────────────────────── */
@@ -607,49 +498,45 @@
 .factGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 14px;
+  gap: var(--s-16);
 }
 
 .factLabel {
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
+  font: var(--t-footnote);
+  color: var(--text-3);
 }
 
 .factValue {
   margin-top: 2px;
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-primary);
+  font: var(--t-subhead);
+  color: var(--text-1);
 }
 
 .factValue .unitAlt {
-  font-weight: 300;
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .notes {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--hairline-soft);
+  margin-top: var(--s-16);
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--hairline);
 }
 
 .notesBody {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 300;
+  margin-top: var(--s-4);
+  font: var(--t-footnote);
   line-height: 1.62;
-  color: var(--text-secondary);
+  color: var(--text-2);
   white-space: pre-wrap;
 }
 
-/* ── Comparison workspace ───────────────────────────────────────────────── */
+/* ── Comparison workspace (ComparisonWorkspace.tsx) ─────────────────────── */
 
 .selectorGrid {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: end;
-  gap: 8px;
+  gap: var(--s-8);
 }
 
 .selectorField { min-width: 0; }
@@ -657,35 +544,31 @@
 .selectorLabel {
   display: block;
   margin-bottom: 5px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
+  font: var(--t-footnote);
+  color: var(--text-3);
 }
 
 .select {
   width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
+  min-height: var(--s-48);
+  padding: 0 var(--s-12);
   border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--surface-glass-strong);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 400;
+  border-radius: var(--r-sm);
+  background: var(--surface-field);
+  box-shadow: inset 0 0 0 1px var(--border-field);
+  color: var(--text-1);
+  font: var(--t-footnote);
 }
 
 .selectorBridge {
-  padding-bottom: 12px;
-  color: var(--text-quiet);
+  padding-bottom: var(--s-12);
+  color: var(--text-3);
 }
 
 .selectorStatus {
-  margin-top: 10px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
+  margin-top: var(--s-8);
+  font: var(--t-footnote);
+  color: var(--text-3);
 }
 
 /* Before and After sit side by side; the summary spans beneath them. Placement
@@ -696,7 +579,7 @@
   grid-template-areas:
     'before after'
     'change change';
-  gap: 10px;
+  gap: var(--s-8);
 }
 
 .sequenceBefore { grid-area: before; }
@@ -719,8 +602,6 @@
 }
 
 @media (max-width: 359px) {
-  .actionPair { flex-direction: column; }
-
   .anatomyGlyph {
     flex-basis: 58px;
     width: 58px;
@@ -728,67 +609,70 @@
 }
 
 .cardHeading {
-  margin-bottom: 10px;
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.1em;
+  margin-bottom: var(--s-8);
+  font: var(--t-caption);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .gradeReadout {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-8);
 }
 
-.evidenceArrow { color: var(--text-quiet); }
+/* The before→after arrow is generated content on the "after" dt/dd wrapper
+   (see the comment in ComparisonWorkspace.tsx) rather than its own <div>, so
+   it never breaks the <dl>'s dt/dd content model for axe's definition-list
+   rule. Generated content isn't exposed to the accessibility tree, matching
+   the old aria-hidden div it replaces. */
+.evidenceArrow::before {
+  content: '→';
+  color: var(--text-3);
+  margin-right: var(--s-4);
+}
 
 .assessmentDate {
   margin-top: 2px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
+  font: var(--t-footnote);
+  color: var(--text-3);
 }
 
 .transitionNote {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--hairline-soft);
-  font-size: 12px;
-  font-weight: 300;
+  margin-top: var(--s-12);
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--hairline);
+  font: var(--t-footnote);
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .evidenceRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-8);
 }
 
 .evidenceBody { flex: 1; min-width: 0; }
 
 .evidenceLabel {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-primary);
+  font: var(--t-subhead);
+  color: var(--text-1);
 }
 
 .evidenceData {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--s-4);
   margin-top: 2px;
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-tertiary);
+  font: var(--t-footnote);
+  color: var(--text-3);
 }
 
 .rowStatus {
   flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 500;
+  font: var(--t-caption);
   text-align: right;
   max-width: 45%;
 }

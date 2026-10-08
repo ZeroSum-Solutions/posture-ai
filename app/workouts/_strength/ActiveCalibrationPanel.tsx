@@ -7,6 +7,7 @@ import {
   type ActiveCalibrationProposalProjectionV1,
 } from '@/lib/training/contracts/active-calibration-persistence'
 import type { RecoveryContextRecordV1 } from '@/lib/training/contracts/recovery-context'
+import { Button } from '@/components/ui'
 import ActiveCalibrationChoices, { type CalibrationConfirmation, type CalibrationConfirmationOutcome } from './ActiveCalibrationChoices'
 
 type Props = {
@@ -80,9 +81,9 @@ function Panel({ sessionId, exerciseInstanceId, expected }: Props) {
   return <section aria-label="New familiarization">
     {expected.executionContext.kind !== 'live' ? <p>Practice data · Simulation</p> : null}
     {projection ? <ActiveCalibrationChoices offer={projection.offer} onConfirm={confirm} /> : <>
-      <button type="button" className="a-secondary" disabled={loading} onClick={() => void loadOffer()}>
+      <Button variant="secondary" size="sm" loading={loading} onClick={() => void loadOffer()}>
         {loading ? 'Loading settings…' : 'Review easier settings'}
-      </button>
+      </Button>
       {error ? <p role="alert">{error}</p> : null}
     </>}
   </section>

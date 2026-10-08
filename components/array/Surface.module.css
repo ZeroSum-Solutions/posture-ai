@@ -1,94 +1,142 @@
-/* Two surface tiers only. There is no tier 3 — if something needs to sit above
-   a tier 1 card it belongs in the pinned action bar or the island. */
+/* Three materials, one shell (DESIGN.md › Materials). `feature` is card glass
+   (M1, max one per screen); `tile`/`row` are flat (M0, no blur, ever). The
+   border lives on this element directly — no decorative sibling div. */
 
 .shell {
   position: relative;
-  overflow: hidden;
-  padding: 1px;
-}
-
-.gradient {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* SurfaceLink and SurfaceButton use spans for these wrappers, because a <div>
-   is not valid inside an <a> or <button>. Both must still lay out as blocks —
-   an inline box builds a line box around its padding and the row grows. */
-.inner {
-  position: relative;
   display: block;
-  background: var(--surface-glass);
-}
-
-/* Tier 1 — feature card. One per screen, maximum two. */
-.feature {
-  border-radius: 24px;
-  box-shadow: var(--shadow-card);
-}
-.feature > .gradient {
-  background: var(--shell-gradient);
-  opacity: 0.7;
-}
-.feature > .inner {
-  border-radius: 23px;
-  padding: 20px;
-  -webkit-backdrop-filter: blur(var(--blur-card));
-  backdrop-filter: blur(var(--blur-card));
-}
-
-/* Tier 2 — tile / row. Everything else. No drop shadow. */
-.tile {
-  border-radius: 16px;
-}
-.tile > .gradient {
-  background: var(--shell-gradient-tile);
-  opacity: 0.6;
-}
-.tile > .inner {
-  border-radius: 15px;
-  padding: 14px;
-  -webkit-backdrop-filter: blur(var(--blur-tile));
-  backdrop-filter: blur(var(--blur-tile));
-}
-
-/* Tier 2, row variant — a quieter shell for list rows. */
-.row {
-  border-radius: 16px;
-}
-.row > .gradient {
-  background: var(--shell-gradient-row);
-  opacity: 0.5;
-}
-.row > .inner {
-  border-radius: 15px;
-  padding: 12px;
-  -webkit-backdrop-filter: blur(var(--blur-tile));
-  backdrop-filter: blur(var(--blur-tile));
-}
-
-/* An interactive surface is the whole row: one target, 44px minimum. */
-.interactive {
-  display: block;
-  width: 100%;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
+}
+
+/* SurfaceLink and SurfaceButton use a <span> for the inner wrapper, because a
+   <div> is not valid inside an <a> or <button>. Both must still lay out as
+   blocks — an inline box builds a line box around its padding and the row
+   grows. Kept (rather than folded into .shell) only so `innerClassName` /
+   `innerStyle` keep reaching a stable node for every existing caller. */
+.inner {
+  position: relative;
+  display: block;
+}
+
+/* Tier: tile / row — flat, no blur, ever. The hairline is an inset box-shadow
+   (not `border`) so it never fights the native button/link border reset. */
+.tile,
+.row {
+  background: var(--surface-flat);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.tile {
+  border-radius: var(--r-lg);
+}
+.tile > .inner {
+  padding: var(--s-16);
+}
+.row {
+  border-radius: var(--r-lg);
+}
+.row > .inner {
+  padding: var(--s-12) var(--s-16);
+}
+
+/* Tier: feature — card glass. One per screen, two at most. The edge-light
+   ring is a conic gradient drawn as a border via the padding-box/border-box
+   double-background trick, so it reads as a lit edge rather than a flat
+   ring; `--field-angle` lets AmbientField drive it later (static by default). */
+.feature {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  border: 1px solid transparent;
+  background: var(--glass-card) padding-box;
+  -webkit-backdrop-filter: var(--glass-card-filter);
+  backdrop-filter: var(--glass-card-filter);
+  box-shadow: var(--glass-card-highlight), var(--glass-card-shadow);
+}
+.feature > .inner {
+  padding: var(--s-20);
+}
+
+/* Reduced-transparency and no-backdrop-filter fallback: solid fill, flat
+   border, no blur — the recipe is always in CSS, never behind a JS check. */
+@media (prefers-reduced-transparency: reduce) {
+  .feature {
+    background: var(--glass-card-solid);
+    border: 1px solid var(--border);
+    backdrop-filter: none;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .feature {
+    background: var(--glass-card-solid);
+    border: 1px solid var(--border);
+  }
+}
+
+/* An interactive surface is the whole row/card: one target, press .985
+   (DESIGN.md › Motion — "rows .985"). CSS-only (not a framer spring): Surface
+   is read by both server and client components, and many call sites render
+   it with no client boundary at all. */
+.interactive {
+  display: block;
+  width: 100%;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-spring, ease-out);
 }
 .interactive:active {
-  transform: scale(0.995);
+  transform: scale(0.985);
 }
 .interactive:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.85);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive {
+    transition-duration: var(--duration-reduced);
+  }
+  .interactive:active {
+    transform: none;
+  }
 }
 
 /* Nested padding overrides, so callers never restate the tier recipe. */
-.padSnug > .inner { padding: 12px; }
-.padRow > .inner { padding: 14px 16px; }
-.padFlush > .inner { padding: 0; }
+.padSnug > .inner {
+  padding: var(--s-12);
+}
+.padRow > .inner {
+  padding: var(--s-12) var(--s-16);
+}
+.padFlush > .inner {
+  padding: 0;
+}
+
+/* Edge light: the conic gradient is masked to the 1px border ring only, so the
+   translucent panel never shows it through its middle. */
+.feature::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--field-angle, 210deg),
+    rgba(255, 255, 255, 0.32),
+    rgba(255, 255, 255, 0.04) 30%,
+    rgba(255, 255, 255, 0.04) 70%,
+    rgba(255, 255, 255, 0.26)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .feature::before { display: none; }
+}

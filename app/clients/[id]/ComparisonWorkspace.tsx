@@ -100,8 +100,8 @@ export default function ComparisonWorkspace({
   return (
     <section className="app-stack" aria-labelledby="comparison-heading">
       <Surface tier="tile">
-        <h2 className="t-title" id="comparison-heading">Compare two assessments</h2>
-        <p className="t-quiet" style={{ marginTop: 4, marginBottom: 14, lineHeight: 1.6 }}>
+        <h2 className="t-headline" id="comparison-heading">Compare two assessments</h2>
+        <p className="t-footnote" style={{ marginTop: 4, marginBottom: 14, lineHeight: 1.6 }}>
           Select an earlier baseline and a strictly later comparison. Screening measurements
           remain tied to their assessment dates.
         </p>
@@ -172,7 +172,7 @@ export default function ComparisonWorkspace({
 
           <Surface tier="tile" className={styles.sequenceChange}>
             <div className={styles.trendHead}>
-              <h3 className="t-title">Change summary</h3>
+              <h3 className="t-headline">Change summary</h3>
               <Chip band={bandFor(overallStatus)} size="sm">{overallLabel}</Chip>
             </div>
             <p className={styles.transitionNote}>
@@ -206,7 +206,7 @@ export default function ComparisonWorkspace({
       {deltaRows.length > 0 && (
         <section aria-labelledby="comparison-evidence-heading" className="app-stack">
           <div className={styles.sectionHead}>
-            <h3 className="t-headline-sm" id="comparison-evidence-heading">Finding comparison</h3>
+            <h3 className="t-title-2" id="comparison-evidence-heading">Finding comparison</h3>
           </div>
           <p className="t-body" style={{ padding: '0 8px' }}>
             Measurements are shown as recorded. Status comes from severity percentage points,
@@ -225,13 +225,17 @@ export default function ComparisonWorkspace({
                       {/* The three readings stay individually labelled. Sighted
                           readers get the labels from position; a screen reader
                           gets them from the terms. */}
+                      {/* Every direct child of <dl> must be a dt/dd pair (or a
+                          div wrapping one) — axe's definition-list rule flags
+                          anything else. The before→after arrow is purely
+                          decorative, so it renders as a ::before on the
+                          "after" group's wrapper instead of its own div. */}
                       <dl className={`${styles.evidenceData} n`}>
                         <div>
                           <dt className="sr-only">Before</dt>
                           <dd>{formatMeasurement(row.baseDeviation, row.baseUnit)}</dd>
                         </div>
-                        <div aria-hidden="true" className={styles.evidenceArrow}>→</div>
-                        <div>
+                        <div className={styles.evidenceArrow}>
                           <dt className="sr-only">After</dt>
                           <dd>{formatMeasurement(row.targetDeviation, row.targetUnit)}</dd>
                         </div>

@@ -8,6 +8,7 @@
 // and keeps it on the same tokens as the rest of the app instead of
 // duplicating literal Array values inline.
 import './globals.css'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
@@ -21,18 +22,14 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         justifyContent: 'center',
         background: 'var(--background)',
         padding: '32px',
-        textAlign: 'center',
       }}>
-        <h1 className="t-headline-sm" style={{ marginBottom: '12px' }}>
-          Something went wrong
-        </h1>
-        <p className="t-body" style={{ marginBottom: '28px', maxWidth: '420px' }}>
-          An unexpected error occurred. Reload the page to continue.
-          {error.digest ? ` (Reference: ${error.digest})` : ''}
-        </p>
-        <button onClick={reset} className="a-primary">
-          Reload
-        </button>
+        <ErrorState
+          variant="page"
+          title="Something went wrong"
+          body="An unexpected error occurred. Reload the page to continue."
+          onRetry={reset}
+          details={error.digest ? `Reference: ${error.digest}` : undefined}
+        />
       </body>
     </html>
   )

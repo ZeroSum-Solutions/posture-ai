@@ -2,6 +2,8 @@
 
 import { useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
+import { Banner } from '@/components/ui/Banner'
+import { Checkbox } from '@/components/ui/Checkbox'
 import { getTrainingOfflineBrowserOutbox } from '@/lib/training/offline'
 import { eraseTrainingSubject } from './TrainingSubjectErasure.gateway'
 import styles from './TrainingSubjectErasure.module.css'
@@ -56,7 +58,7 @@ export default function TrainingSubjectErasure({
 
   if (stage === 'done') {
     return <Surface tier="feature"><div className={styles.stack}>
-      <h2 className="t-title">Training data erased</h2>
+      <h2 className="t-headline">Training data erased</h2>
       <p role="status" className={styles.success}>Your training data was permanently erased, and pending changes were cleared from this device.</p>
       <p className="t-body">Your practitioner’s separate legacy client record was not changed.</p>
     </div></Surface>
@@ -64,7 +66,7 @@ export default function TrainingSubjectErasure({
 
   return <div className={styles.stack}>
     <Surface tier="feature"><div className={styles.summary}>
-      <h2 className="t-title">Permanently erase training data</h2>
+      <h2 className="t-headline">Permanently erase training data</h2>
       <p className="t-body">This removes your athlete training workspace and cannot be undone.</p>
       <ul>
         <li>Programs, session prescriptions, saved actuals, eligibility answers, profiles, and pending changes on this device are removed.</li>
@@ -72,16 +74,17 @@ export default function TrainingSubjectErasure({
       </ul>
     </div></Surface>
     <section className={styles.danger} aria-labelledby="training-erasure-confirmation">
-      <h3 id="training-erasure-confirmation" className="t-title">Confirm permanent erasure</h3>
-      <label className={styles.confirm}>
-        <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
-        <span>I understand this will remove my saved programs, training history, eligibility answers, and pending changes.</span>
-      </label>
+      <h3 id="training-erasure-confirmation" className="t-headline">Confirm permanent erasure</h3>
+      <Checkbox
+        checked={confirmed}
+        onChange={event => setConfirmed(event.target.checked)}
+        label="I understand this will remove my saved programs, training history, eligibility answers, and pending changes."
+      />
       <label className={styles.field}>
-        <span>Type <strong>{CONFIRMATION}</strong> to confirm</span>
+        <span className="t-body">Type <strong>{CONFIRMATION}</strong> to confirm</span>
         <input className="a-input" value={phrase} onChange={event => setPhrase(event.target.value)} aria-label="Type ERASE MY TRAINING to confirm" autoComplete="off" />
       </label>
-      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+      {error ? <Banner variant="error">{error}</Banner> : null}
       <div className={styles.actions}>
         {stage === 'retry_cleanup'
           ? <button type="button" className="a-secondary" onClick={() => void clearDeviceQueue()}>Retry device cleanup</button>

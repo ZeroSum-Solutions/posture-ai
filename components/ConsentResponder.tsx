@@ -1,9 +1,21 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import LegalDocumentView from './LegalDocumentView'
-import { Surface } from '@/components/array/Surface'
+import ActionBar from '@/components/ui/ActionBar'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { Select } from '@/components/ui/Select'
+import { Stepper, type StepperStep } from '@/components/ui/Stepper'
+import { TextField } from '@/components/ui/TextField'
 import type { LegalSnapshot } from '@/lib/legal/types'
 import styles from './ConsentResponder.module.css'
+
+const STEPS: StepperStep[] = [
+  { id: 'read', label: 'Read' },
+  { id: 'sign', label: 'Sign' },
+]
 
 export default function ConsentResponder({
   token,
@@ -12,6 +24,7 @@ export default function ConsentResponder({
   token: string
   document: LegalSnapshot | null
 }) {
+  const [stepId, setStepId] = useState<'read' | 'sign'>('read')
   const [name, setName] = useState('')
   const [rel, setRel] = useState('self')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
@@ -25,8 +38,7 @@ export default function ConsentResponder({
     if (status === 'done') doneRef.current?.focus()
   }, [status])
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submit() {
     if (!name.trim()) { setError('Please type the signer’s full name to sign.'); return }
     if (!confirmed) { setError('Confirm that you have read and agree to the consent terms.'); return }
     if (!document) {
@@ -57,75 +69,106 @@ export default function ConsentResponder({
     }
   }
 
+  function handleAgree() {
+    if (stepId === 'read') {
+      setStepId('sign')
+      return
+    }
+    void submit()
+  }
+
   if (status === 'done') {
     return (
-      <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }} role="status" aria-live="polite">
-        <h1 ref={doneRef} tabIndex={-1} className="t-headline">Consent recorded</h1>
+      <div className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }} role="status" aria-live="polite">
+        <h1 ref={doneRef} tabIndex={-1} className="t-title-1">Consent recorded</h1>
         <p className="t-body">
           Thank you. Your consent has been recorded. You can close this page.
         </p>
-      </main>
+      </div>
+    )
+  }
+
+  if (!document) {
+    return (
+      <div className="app-screen app-screen-x" style={{ paddingTop: 40 }}>
+        <ErrorState
+          variant="page"
+          headingLevel="h1"
+          title="This link is unavailable"
+          body="This consent link is unavailable or has been superseded. Ask the practitioner to create a new consent request."
+        />
+      </div>
     )
   }
 
   return (
-    <main className="app-screen app-screen-x app-stack" style={{ paddingTop: 40 }}>
+    <div className="app-screen app-screen--bar app-screen-x app-stack" style={{ paddingTop: 40 }}>
       <div>
-        <p className="t-kicker">Consent request</p>
-        <h1 className="t-headline" style={{ marginTop: 10 }}>Posture Screening Consent</h1>
+        <p className="t-overline">Consent request</p>
+        <h1 className="t-title-1" style={{ marginTop: 10 }}>Posture Screening Consent</h1>
+        <Stepper
+          steps={STEPS}
+          current={stepId}
+          onBack={(id) => setStepId(id as 'read' | 'sign')}
+          className={styles.stepper}
+        />
       </div>
 
-      {!document && (
-        <p role="alert" aria-live="assertive" className="a-error">
-          This consent link is unavailable or has been superseded. Ask the practitioner to create a new consent request.
-        </p>
-      )}
-      {document && <LegalDocumentView document={document} headingLevel={2} />}
+      <LegalDocumentView document={document} headingLevel={2} collapseFingerprint />
 
-      <Surface tier="feature">
-        <form onSubmit={submit} aria-label="Remote consent form" className="a-form">
-          {error && document && (
-            <p role="alert" className="a-error">{error}</p>
+      {stepId === 'sign' && (
+        <form
+          onSubmit={(event) => { event.preventDefault(); void submit() }}
+          aria-label="Remote consent form"
+          className="app-stack"
+        >
+          {error && (
+            <Banner variant="error">{error}</Banner>
           )}
 
-          <div className="a-field">
-            <label className="a-label" htmlFor="signer_relationship">I am signing as</label>
-            <select id="signer_relationship" className="a-select" value={rel} onChange={e => setRel(e.target.value)}>
-              <option value="self">The person being screened (myself)</option>
-              <option value="parent">Parent of the person being screened</option>
-              <option value="legal_guardian">Legal guardian of the person being screened</option>
-              <option value="other">Other authorized representative</option>
-            </select>
-          </div>
+          <Select
+            id="signer_relationship"
+            label="I am signing as"
+            value={rel}
+            onChange={e => setRel(e.target.value)}
+          >
+            <option value="self">The person being screened (myself)</option>
+            <option value="parent">Parent of the person being screened</option>
+            <option value="legal_guardian">Legal guardian of the person being screened</option>
+            <option value="other">Other authorized representative</option>
+          </Select>
 
-          <div className="a-field">
-            <label className="a-label" htmlFor="signer_name">
-              Type full name to sign <span style={{ color: 'var(--review)' }} aria-hidden="true">*</span>
-            </label>
-            <input
-              id="signer_name" className="a-input" type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder="Full legal name"
-              required aria-required="true"
-            />
-          </div>
+          <TextField
+            id="signer_name"
+            label="Type full name to sign"
+            required
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Full legal name"
+          />
 
-          <label htmlFor="consent_confirm" className={styles.consentCheck}>
-            <input
-              id="consent_confirm"
-              type="checkbox"
-              checked={confirmed}
-              disabled={!document}
-              onChange={(event) => setConfirmed(event.target.checked)}
-              aria-required="true"
-            />
-            <span className="t-body">I confirm I have read and agree to the exact consent shown above.</span>
-          </label>
-
-          <button type="submit" disabled={status === 'submitting' || !document} className="a-primary a-primary--bar">
-            {status === 'submitting' ? 'Submitting…' : 'I Agree & Sign'}
-          </button>
+          <Checkbox
+            id="consent_confirm"
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+            label="I confirm I have read and agree to the exact consent shown above."
+          />
         </form>
-      </Surface>
-    </main>
+      )}
+
+      <ActionBar>
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          loading={status === 'submitting'}
+          onClick={handleAgree}
+          data-testid="consent-agree"
+        >
+          I agree
+        </Button>
+      </ActionBar>
+    </div>
   )
 }

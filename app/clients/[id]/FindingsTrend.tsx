@@ -24,7 +24,7 @@ export default function FindingsTrend({
     return (
       <Surface tier="tile">
         <p className="t-body">No findings have been recorded for this client yet.</p>
-        <p className="t-quiet" style={{ marginTop: 4 }}>
+        <p className="t-footnote" style={{ marginTop: 4 }}>
           Findings appear here once a completed scan has been scored.
         </p>
       </Surface>

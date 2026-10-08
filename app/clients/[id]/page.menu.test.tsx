@@ -11,6 +11,10 @@ vi.mock('next/navigation', () => {
   return {
     useParams: () => ({ id: navigation.id }),
     useRouter: () => navigation.router,
+    // ActionBar (components/ui/ActionBar) reads the route to decide whether
+    // it stands alone on an immersive/tab-bar-hidden route; any string is
+    // fine here since this page is never one of those.
+    usePathname: () => `/clients/${navigation.id}`,
   }
 })
 vi.mock('./FindingsTrend', () => ({

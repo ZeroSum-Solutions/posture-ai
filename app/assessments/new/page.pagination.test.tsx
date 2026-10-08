@@ -21,6 +21,7 @@ const legalDocumentState = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({
   useRouter: () => router,
   useSearchParams: () => new URLSearchParams('client_id=20000000-0000-4000-8000-000000000002'),
+  usePathname: () => '/assessments/new',
 }))
 vi.mock('./FullScreenCapture', () => ({
   default: ({
@@ -147,7 +148,7 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('search=Another+person'))).toBe(true))
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
-    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: 'Choose capture method' }).getAttribute('aria-disabled')).not.toBe('true')
   })
 
   it('loads a bounded client list by default and exposes the capture-returning new-client action', async () => {
@@ -188,12 +189,12 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     expect(screen.getByText('Loading required screening notice…')).toBeTruthy()
-    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Choose capture method' }).getAttribute('aria-disabled')).toBe('true')
 
     legalDocumentState.value = { document: {}, isLoading: false, error: null }
     view.rerender(<NewAssessmentWizard />)
 
-    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: 'Choose capture method' }).getAttribute('aria-disabled')).not.toBe('true')
   })
 
   it('keeps capture disabled and exposes an alert when the screening notice fails', async () => {
@@ -202,7 +203,7 @@ describe('new assessment paginated client picker', () => {
 
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     expect(screen.getByRole('alert').textContent).toContain('Required notice unavailable.')
-    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Choose capture method' }).getAttribute('aria-disabled')).toBe('true')
   })
 
   it('refetches the same settled query after input invalidates its in-flight request', async () => {
@@ -301,7 +302,7 @@ describe('new assessment paginated client picker', () => {
     )
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     const next = screen.getByRole('button', { name: 'Choose capture method' })
-    expect((next as HTMLButtonElement).disabled).toBe(false)
+    expect(next.getAttribute('aria-disabled')).not.toBe('true')
 
     fireEvent.click(next)
     fireEvent.click(next)
@@ -444,7 +445,7 @@ describe('new assessment paginated client picker', () => {
     render(<NewAssessmentWizard />)
     await waitFor(() => expect(screen.getByTestId('selected-client-summary').textContent).toContain('Deep Linked'))
     const next = screen.getByRole('button', { name: 'Choose capture method' })
-    expect((next as HTMLButtonElement).disabled).toBe(false)
+    expect(next.getAttribute('aria-disabled')).not.toBe('true')
 
     fireEvent.click(next)
     expect(screen.getByRole('button', { name: 'Checking consent…' })).toBeTruthy()
@@ -455,7 +456,7 @@ describe('new assessment paginated client picker', () => {
     await screen.findByText('Page One')
     fireEvent.click(screen.getByRole('button', { name: /Page One/ }))
     expect(screen.getByTestId('selected-client-summary').textContent).toContain('Page One')
-    expect((screen.getByRole('button', { name: 'Choose capture method' }) as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: 'Choose capture method' }).getAttribute('aria-disabled')).not.toBe('true')
 
     await act(async () => {
       resolveConsent(new Response(JSON.stringify({ captureAllowed: true }), { status: 200 }))

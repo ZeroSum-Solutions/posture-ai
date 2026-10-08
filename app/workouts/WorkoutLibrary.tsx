@@ -2,11 +2,27 @@
 
 import type { OperationMode } from '@/lib/prototype/runtime'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Icon from '@/components/array/Icon'
 import { Surface } from '@/components/array/Surface'
+import {
+  ActionBar,
+  Badge,
+  Button,
+  ChipRow,
+  EmptyState,
+  FilterChip,
+  IconButton,
+  ListGroup,
+  ListRow,
+  Select,
+  Sheet,
+  TextField,
+  TopBar,
+} from '@/components/ui'
 import type { SessionSnapshot } from '@/lib/workout/generateWorkoutSession'
+import { relativeDay } from '@/lib/time/relative'
 import {
   DEFAULT_WORKOUT_PREFERENCES,
   removeWorkoutItem,
@@ -26,6 +42,13 @@ type Draft = {
   preferences: WorkoutPreferences
   snapshot: SessionSnapshot
   notice: string
+}
+
+const PAGE_SIZE = 15
+const BUILD_SECTION_ID = 'workouts-build'
+
+function scrollToBuildSection() {
+  document.getElementById(BUILD_SECTION_ID)?.scrollIntoView({ behavior: 'smooth' })
 }
 
 export default function WorkoutLibrary({
@@ -55,6 +78,9 @@ export default function WorkoutLibrary({
   const [archiving, setArchiving] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [menuWorkout, setMenuWorkout] = useState<WorkoutLibraryItem | null>(null)
+  const [now] = useState(() => Date.now())
 
   async function build(mode: 'scan' | 'ai', sourceSeed = activeSeed, sourcePreferences = preferences) {
     if (!sourceSeed || busy) return
@@ -133,7 +159,8 @@ export default function WorkoutLibrary({
     setDraft(null)
     setMessage('Preferences copied. Build a fresh plan from the current assessment catalog.')
     setError('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setMenuWorkout(null)
+    scrollToBuildSection()
   }
 
   async function playAgain(workout: WorkoutLibraryItem) {
@@ -178,6 +205,7 @@ export default function WorkoutLibrary({
         throw new Error(body.error ?? 'Could not archive this workout.')
       }
       setLibrary((current) => current.filter((entry) => entry.id !== workout.id))
+      setMenuWorkout((current) => (current?.id === workout.id ? null : current))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not archive this workout.')
     } finally {
@@ -191,119 +219,222 @@ export default function WorkoutLibrary({
 
   if (trainingSessionId) return (
     <div className={`app-screen ${styles.screen}`}>
-      <header className={styles.header}>
-        <div><p className="t-kicker">Training program</p><h1 className="t-headline">Session</h1></div>
-        <Link href="/workouts" className="a-secondary">Back to workouts</Link>
-      </header>
-      <main className={`app-screen-x app-stack ${styles.main}`}>
+      <TopBar title="Session" subtitle="Training program" back={{ href: '/workouts', label: 'Back to workouts' }} />
+      <div className={`app-screen-x app-stack ${styles.main}`}>
         <TrainingSessionPlayer key={trainingSessionId} sessionId={trainingSessionId} />
-      </main>
+      </div>
     </div>
   )
 
+  const attentionLibrary = library.filter((workout) => !workout.playable)
+  const readyLibrary = library.filter((workout) => workout.playable)
+  const visibleReady = readyLibrary.slice(0, visibleCount)
+  const hasMore = readyLibrary.length > visibleReady.length
+
   return (
     <div className={`app-screen ${styles.screen}`}>
-      <header className={styles.header}>
-        <div>
-          <p className="t-kicker">Movement plans</p>
-          <h1 className="t-headline">Workouts</h1>
-        </div>
-        <nav aria-label="Workout tools" className={styles.actions}>
-          <Link href="/workouts/manual" className="a-secondary">My routines</Link>
-          <Link href="/exercises" className="a-secondary">Exercise library</Link>
-        </nav>
-      </header>
-
-      <main className={`app-screen-x app-stack ${styles.main}`}>
+      <TopBar
+        title="Workouts"
+        actions={
+          <IconButton
+            icon="magnifer-linear"
+            label="Exercise and muscle library"
+            onClick={() => router.push('/exercises')}
+          />
+        }
+      />
+      <div className={`app-screen-x app-stack ${styles.main}`}>
         {loadError && <p role="alert" className={styles.error}>{loadError}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {message && <p role="status" className={styles.notice}>{message}</p>}
 
-        <StrengthBuilderLauncher operationMode={operationMode} clients={strengthClients} initialClientId={activeSeed?.clientId} />
+        <section id={BUILD_SECTION_ID} className={styles.stack} aria-label="Build a workout">
+          <StrengthBuilderLauncher operationMode={operationMode} clients={strengthClients} initialClientId={activeSeed?.clientId} />
 
-        {activeSeed && (
-          <section className={styles.builder} aria-labelledby="builder-heading">
-            <Surface tier="feature">
-              <div className={styles.stack}>
-                <div>
-                  <p className="t-kicker">Build for {activeSeed.clientName}</p>
-                  <h2 id="builder-heading" className="t-headline-sm">Personalize a workout</h2>
-                </div>
-                <label>Focus
-                  <select className="a-input" value={preferences.goal} disabled={busy} onChange={(event) => setPreferences({ ...preferences, goal: event.target.value as WorkoutPreferences['goal'] })}>
+          {activeSeed && (
+            <section className={styles.builder} aria-labelledby="builder-heading">
+              <Surface tier="feature">
+                <div className={styles.stack}>
+                  <div>
+                    <p className="t-overline">Build for {activeSeed.clientName}</p>
+                    <h2 id="builder-heading" className="t-title-2">Personalize a workout</h2>
+                  </div>
+                  <Select label="Focus" value={preferences.goal} disabled={busy} onChange={(event) => setPreferences({ ...preferences, goal: event.target.value as WorkoutPreferences['goal'] })}>
                     {Object.entries(WORKOUT_GOALS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
-                </label>
-                <label>Time available
-                  <select className="a-input" value={preferences.minutes} disabled={busy} onChange={(event) => setPreferences({ ...preferences, minutes: Number(event.target.value) as WorkoutPreferences['minutes'] })}>
+                  </Select>
+                  <Select label="Time available" value={preferences.minutes} disabled={busy} onChange={(event) => setPreferences({ ...preferences, minutes: Number(event.target.value) as WorkoutPreferences['minutes'] })}>
                     {[10, 15, 20].map((minutes) => <option key={minutes} value={minutes}>Up to {minutes} minutes</option>)}
-                  </select>
-                </label>
-                <label>Movement level
-                  <select className="a-input" value={preferences.capability} disabled={busy} onChange={(event) => setPreferences({ ...preferences, capability: event.target.value as WorkoutPreferences['capability'] })}>
+                  </Select>
+                  <Select label="Movement level" value={preferences.capability} disabled={busy} onChange={(event) => setPreferences({ ...preferences, capability: event.target.value as WorkoutPreferences['capability'] })}>
                     <option value="regression">Gentle start</option><option value="standard">Everyday movement</option><option value="progression">More challenge</option>
-                  </select>
-                </label>
-                <fieldset className={styles.fieldset}>
-                  <legend>Available equipment</legend>
-                  <p className="t-quiet">Floor space, a wall, and a chair are included.</p>
-                  <div className={styles.actions}>{(['band', 'roller'] as const).map((equipment) => (
-                    <button key={equipment} type="button" className={styles.chip} aria-pressed={preferences.equipment.includes(equipment)} onClick={() => setPreferences({ ...preferences, equipment: preferences.equipment.includes(equipment) ? preferences.equipment.filter((entry) => entry !== equipment) : [...preferences.equipment, equipment] })}>
-                      {equipment === 'band' ? 'Resistance band' : 'Foam roller'}
-                    </button>
-                  ))}</div>
-                </fieldset>
-                <div className={styles.actions}>
-                  <button className="a-primary" disabled={busy || !activeSeed.approved} onClick={() => void build('ai')}>{busy ? 'Building…' : 'Create with AI'}</button>
-                  <button className="a-secondary" disabled={busy || !activeSeed.approved} onClick={() => void build('scan')}>Build from assessment</button>
+                  </Select>
+                  <fieldset className={styles.fieldset}>
+                    <legend>Available equipment</legend>
+                    <p className="t-footnote">Floor space, a wall, and a chair are included.</p>
+                    <ChipRow label="Available equipment">
+                      {(['band', 'roller'] as const).map((equipment) => (
+                        <FilterChip
+                          key={equipment}
+                          label={equipment === 'band' ? 'Resistance band' : 'Foam roller'}
+                          selected={preferences.equipment.includes(equipment)}
+                          onToggle={() => setPreferences({ ...preferences, equipment: preferences.equipment.includes(equipment) ? preferences.equipment.filter((entry) => entry !== equipment) : [...preferences.equipment, equipment] })}
+                        />
+                      ))}
+                    </ChipRow>
+                  </fieldset>
+                  <div className={styles.actions}>
+                    <Button
+                      loading={busy}
+                      disabledReason={!activeSeed.approved ? 'Approve the assessment before building a workout.' : undefined}
+                      onClick={() => void build('ai')}
+                    >Create with AI</Button>
+                    <Button
+                      variant="secondary"
+                      loading={busy}
+                      disabledReason={!activeSeed.approved ? 'Approve the assessment before building a workout.' : undefined}
+                      onClick={() => void build('scan')}
+                    >Build from assessment</Button>
+                  </div>
+                  <p className="t-footnote">AI may only select from movements admitted by the saved assessment and current authored catalog.</p>
                 </div>
-                {!activeSeed.approved && <p className="t-quiet">Approve the assessment before building a workout.</p>}
-                <p className="t-quiet">AI may only select from movements admitted by the saved assessment and current authored catalog.</p>
-              </div>
-            </Surface>
+              </Surface>
 
-            <Surface tier="tile">
-              {draft ? <div className={styles.stack}>
-                <div>
-                  <p className="t-kicker">{draft.source === 'ai' ? 'AI personalized' : 'Assessment based'}</p>
-                  <h2 className="t-headline-sm">Review before saving</h2>
-                  <p className="t-quiet">{draft.notice}</p>
-                </div>
-                <label>Workout name<input className="a-input" maxLength={80} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-                <ol className={styles.items}>{draft.snapshot.items.map((item, index) => <li key={item.slug} className={styles.item}>
-                  <span className={styles.number}>{String(index + 1).padStart(2, '0')}</span>
-                  <div><strong>{item.name}</strong><p className="t-quiet">{item.stepLabel} · {item.priorityLabel}</p></div>
-                  <button type="button" className={styles.remove} aria-label={`Remove ${item.name}`} disabled={draft.snapshot.items.length <= 1} onClick={() => setDraft({ ...draft, snapshot: removeWorkoutItem(draft.snapshot, item.slug) })}>×</button>
-                </li>)}</ol>
-                <p className="t-quiet">{draft.snapshot.items.length} movements · about {Math.max(1, Math.ceil(draft.snapshot.estimatedDurationSec / 60))} min</p>
-                <div className={styles.actions}>
-                  <button className="a-primary" disabled={busy} onClick={() => void mint(draft, true)}>Save &amp; start</button>
-                  <button className="a-secondary" disabled={busy} onClick={() => void mint(draft, false)}>Save workout</button>
-                  <button className="a-secondary" disabled={busy} onClick={() => setDraft(null)}>Discard</button>
-                </div>
-              </div> : <div className={styles.empty}><p className="t-kicker">Assessment → plan → movement</p><h2 className="t-headline-sm">Your draft appears here.</h2><p className="t-body">Choose the focus, time, level, and equipment. Review every movement before saving.</p></div>}
-            </Surface>
-          </section>
-        )}
+              <Surface tier="tile">
+                {draft ? <div className={styles.stack}>
+                  <div>
+                    <p className="t-overline">{draft.source === 'ai' ? 'AI personalized' : 'Assessment based'}</p>
+                    <h2 className="t-title-2">Review before saving</h2>
+                    <p className="t-footnote">{draft.notice}</p>
+                  </div>
+                  <TextField label="Workout name" maxLength={80} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+                  <ListGroup label="Movements in this draft">
+                    {draft.snapshot.items.map((item) => (
+                      <ListRow
+                        key={item.slug}
+                        title={item.name}
+                        subtitle={`${item.stepLabel} · ${item.priorityLabel}`}
+                        trailing={
+                          <IconButton
+                            icon="minus-circle-linear"
+                            label={`Remove ${item.name}`}
+                            disabledReason={draft.snapshot.items.length <= 1 ? 'At least one movement is required.' : undefined}
+                            onClick={() => setDraft({ ...draft, snapshot: removeWorkoutItem(draft.snapshot, item.slug) })}
+                          />
+                        }
+                      />
+                    ))}
+                  </ListGroup>
+                  <p className="t-footnote">{draft.snapshot.items.length} movements · about {Math.max(1, Math.ceil(draft.snapshot.estimatedDurationSec / 60))} min</p>
+                  <div className={styles.actions}>
+                    <Button variant="tertiary" loading={busy} onClick={() => setDraft(null)}>Discard</Button>
+                  </div>
+                </div> : <div className={styles.empty}><p className="t-overline">Assessment → plan → movement</p><h2 className="t-title-2">Your draft appears here.</h2><p className="t-body">Choose the focus, time, level, and equipment. Review every movement before saving.</p></div>}
+              </Surface>
+            </section>
+          )}
+        </section>
 
         <section className={styles.stack} aria-labelledby="saved-heading">
-          <div className={styles.sectionHeader}><div><p className="t-kicker">Saved plans</p><h2 id="saved-heading" className="t-headline-sm">Workout library</h2></div><span className="t-quiet">{library.length} active</span></div>
-          {library.length === 0 && <Surface tier="tile"><p className="t-body">Build a workout from an approved assessment to save it here.</p></Surface>}
-          <div className={styles.library}>{library.map((workout) => (
-            <Surface key={workout.id} tier="tile"><article className={styles.stack}>
-              <div><p className="t-kicker">{workout.clientName} · {workout.source === 'ai' ? 'AI personalized' : 'Assessment based'}</p><h3 className="t-headline-sm">{workout.name}</h3></div>
-              <p className="t-quiet">{workout.snapshot.items.length} movements · about {Math.max(1, Math.ceil(workout.snapshot.estimatedDurationSec / 60))} min · {workout.run?.status.replaceAll('_', ' ') ?? 'ready'}</p>
-              {!workout.playable && <p className={styles.warning}>This saved plan uses an older catalog. Regenerate a copy to review current movements before playing.</p>}
-              <div className={styles.actions}>
-                {workout.playable && workout.run?.status !== 'completed' && <Link className="a-primary" href={`/workouts/${workout.id}`}>{workout.run ? 'Resume' : 'Start workout'}</Link>}
-                {workout.playable && workout.run?.status === 'completed' && <button className="a-primary" disabled={busy} onClick={() => void playAgain(workout)}>Play again</button>}
-                <button className="a-secondary" onClick={() => prepareCopy(workout)}>{workout.playable ? 'Edit a copy' : 'Regenerate copy'}</button>
-                <button className="a-secondary" disabled={archiving.has(workout.id)} onClick={() => void archive(workout)}>{archiving.has(workout.id) ? 'Archiving…' : 'Archive'}</button>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className="t-overline">Saved plans</p>
+              <h2 id="saved-heading" className="t-title-2">Workout library</h2>
+            </div>
+            <span className="t-footnote">{library.length} active</span>
+          </div>
+
+          {attentionLibrary.map((workout) => (
+            <Surface key={workout.id} tier="tile" innerClassName={styles.attentionCard}>
+              <div>
+                <p className="t-overline">{workout.clientName}</p>
+                <h3 className="t-headline">{workout.name}</h3>
+                <p className={styles.warning}>This saved plan uses an older catalog. Regenerate a copy to review current movements before playing.</p>
               </div>
-            </article></Surface>
-          ))}</div>
+              <div className={styles.actions}>
+                <Button onClick={() => prepareCopy(workout)}>Regenerate copy</Button>
+                <Button variant="secondary" loading={archiving.has(workout.id)} onClick={() => void archive(workout)}>
+                  {archiving.has(workout.id) ? 'Archiving…' : 'Archive'}
+                </Button>
+              </div>
+            </Surface>
+          ))}
+
+          {library.length === 0 ? (
+            <EmptyState
+              icon="dumbbell-small-linear"
+              title="No saved workouts yet"
+              body="Build a workout from an approved assessment to save it here."
+              primary={{ label: 'New workout', onPress: scrollToBuildSection }}
+            />
+          ) : readyLibrary.length === 0 ? null : (
+            <>
+              <ListGroup label="Saved workouts">
+                {visibleReady.map((workout) => {
+                  const statusLabel = workout.run?.status === 'completed'
+                    ? 'Completed'
+                    : workout.run
+                      ? `In progress · ${workout.run.completedItems} done`
+                      : 'Ready'
+                  const dateLabel = relativeDay(workout.createdAt, now)
+                  return (
+                    <ListRow
+                      key={workout.id}
+                      leading={<span className={styles.rowIcon}><Icon name="dumbbell-small-linear" size={20} /></span>}
+                      title={workout.name}
+                      subtitle={workout.clientName}
+                      meta={dateLabel ?? undefined}
+                      trailing={
+                        <span className={styles.rowActions}>
+                          <Badge>{statusLabel}</Badge>
+                          {workout.run?.status !== 'completed' ? (
+                            <Button variant="secondary" href={`/workouts/${workout.id}`}>
+                              {workout.run ? 'Resume' : 'Start workout'}
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" loading={busy} onClick={() => void playAgain(workout)}>Play again</Button>
+                          )}
+                          <IconButton
+                            icon="menu-dots-linear"
+                            label={`More actions for ${workout.name}`}
+                            onClick={() => setMenuWorkout(workout)}
+                          />
+                        </span>
+                      }
+                    />
+                  )
+                })}
+              </ListGroup>
+              {hasMore ? (
+                <Button variant="secondary" block onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Show more</Button>
+              ) : null}
+            </>
+          )}
         </section>
-      </main>
+      </div>
+
+      {activeSeed && draft ? (
+        <ActionBar>
+          <Button block loading={busy} onClick={() => void mint(draft, true)}>Save &amp; start</Button>
+          <Button variant="secondary" loading={busy} onClick={() => void mint(draft, false)}>Save workout</Button>
+        </ActionBar>
+      ) : null}
+
+      <Sheet
+        open={menuWorkout != null}
+        onOpenChange={(open) => { if (!open) setMenuWorkout(null) }}
+        title={menuWorkout?.name ?? 'Workout'}
+        detents={['compact']}
+        footer={menuWorkout ? (
+          <div className={styles.actions}>
+            <Button block onClick={() => prepareCopy(menuWorkout)}>Edit a copy</Button>
+            <Button variant="secondary" block loading={archiving.has(menuWorkout.id)} onClick={() => void archive(menuWorkout)}>
+              {archiving.has(menuWorkout.id) ? 'Archiving…' : 'Archive'}
+            </Button>
+          </div>
+        ) : null}
+      >
+        <p className="t-body">{menuWorkout?.clientName}</p>
+      </Sheet>
     </div>
   )
 }

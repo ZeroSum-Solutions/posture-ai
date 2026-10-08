@@ -33,9 +33,11 @@ test('capture photos remain private, preserve their view and support retry and e
   expect(report.ok(), await report.text()).toBeTruthy()
   expect((await report.json()).captures.find((capture: { view: string }) => capture.view === 'front').signed_url).toBe(imageUrl)
   await page.goto(`/assessments/${assessmentId}`)
-  await page.getByRole('tab', { name: 'Evidence', exact: true }).click()
-  // Selecting a photo picks its view; the selected view's photos carry the enlarge control.
-  await page.getByRole('button', { name: 'front view' }).click()
+  await page.getByRole('tab', { name: 'Findings', exact: true }).click()
+  // The capture set lives in a "Photos (n of 4)" disclosure; every saved
+  // photo carries the enlarge control once it's open (array-v3-spec.md §5:
+  // findings no longer gate behind a per-view photo toggle).
+  await page.getByText(/^Photos \(\d+ of 4\)$/).click()
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await page.getByRole('button', { name: 'Enlarge front capture' }).click()

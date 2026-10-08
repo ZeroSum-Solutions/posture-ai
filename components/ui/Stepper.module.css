@@ -1,0 +1,33 @@
+.stepper {
+  width: 100%;
+}
+.track {
+  display: flex;
+  gap: var(--s-8);
+}
+.segment {
+  position: relative;
+  flex: 1 1 0;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--surface-flat);
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+}
+button.segment {
+  cursor: pointer;
+}
+button.segment:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--accent);
+}

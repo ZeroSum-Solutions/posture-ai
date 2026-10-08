@@ -5,10 +5,15 @@ import Link from 'next/link'
 import AuthFrame from '@/components/AuthFrame'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { MIN_PASSWORD_LENGTH, validatePasswordReset } from '@/lib/auth/password'
+import { Banner } from '@/components/ui/Banner'
+import { Button } from '@/components/ui/Button'
+import { IconButton } from '@/components/ui/IconButton'
+import { TextField } from '@/components/ui/TextField'
 
 export default function AcceptInvitePage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [checking, setChecking] = useState(true)
   const [hasInviteSession, setHasInviteSession] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -54,54 +59,53 @@ export default function AcceptInvitePage() {
       description="Protect your invited account before entering the practitioner workspace."
     >
       {checking ? (
-        <p className="a-help">
+        <p className="t-body" style={{ color: 'var(--text-2)' }}>
           Verifying your secure invitation…
         </p>
       ) : !hasInviteSession ? (
-        <div role="alert">
-          <p className="a-help" style={{ marginBottom: '16px' }}>
-            This invitation link is invalid, expired, or has already been used.
-          </p>
-          <Link href="/auth/sign-in" className="a-label" style={{ textDecoration: 'underline' }}>
+        <Banner variant="error" data-testid="accept-invite-error">
+          This invitation link is invalid, expired, or has already been used.
+          <Link
+            href="/auth/sign-in"
+            style={{ display: 'flex', alignItems: 'center', minHeight: 48, marginTop: 'var(--s-4)', color: 'var(--text-1)', textDecoration: 'underline' }}
+          >
             Return to sign in
           </Link>
-        </div>
+        </Banner>
       ) : (
-        <form onSubmit={handleSubmit} noValidate className="a-form">
-          <p className="a-help">
+        <form onSubmit={handleSubmit} noValidate className="app-stack">
+          <p className="t-body" style={{ color: 'var(--text-2)' }}>
             First choose a password. You will then connect an authenticator app before access is activated.
           </p>
-          {error && (
-            <p className="a-error" role="alert" aria-live="assertive">
-              {error}
-            </p>
-          )}
-          <div className="a-field">
-            <label className="a-label" htmlFor="invite_password">Password</label>
-            <input
-              id="invite_password"
-              className="a-input"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="new-password"
-              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-            />
-          </div>
-          <div className="a-field">
-            <label className="a-label" htmlFor="invite_password_confirm">Confirm password</label>
-            <input
-              id="invite_password_confirm"
-              className="a-input"
-              type="password"
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-              autoComplete="new-password"
-            />
-          </div>
-          <button type="submit" disabled={loading} className="a-primary a-primary--bar" style={{ marginTop: 6 }}>
-            {loading ? 'Saving password…' : 'Continue to multi-factor setup'}
-          </button>
+          {error && <Banner variant="error" data-testid="accept-invite-password-error">{error}</Banner>}
+          <TextField
+            id="invite_password"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="new-password"
+            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+            trailing={
+              <IconButton
+                icon={showPassword ? 'eye-closed-linear' : 'eye-linear'}
+                label={showPassword ? 'Hide password' : 'Show password'}
+                variant="plain"
+                onClick={() => setShowPassword((value) => !value)}
+              />
+            }
+          />
+          <TextField
+            id="invite_password_confirm"
+            label="Confirm password"
+            type={showPassword ? 'text' : 'password'}
+            value={confirm}
+            onChange={(event) => setConfirm(event.target.value)}
+            autoComplete="new-password"
+          />
+          <Button type="submit" variant="primary" size="lg" block loading={loading}>
+            Continue to multi-factor setup
+          </Button>
         </form>
       )}
     </AuthFrame>

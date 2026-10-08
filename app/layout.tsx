@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Roboto } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
 import { siteOrigin } from '@/lib/site-origin'
@@ -10,18 +9,6 @@ import { requireTrainingServerActor } from '@/lib/training/access/server-actor'
 // Clinical release activation is runtime authority. Never bake a fixture-enabled
 // navigation shell or gated child page into a build artifact.
 export const dynamic = 'force-dynamic'
-
-/**
- * Roboto only. 100 carries the large readouts, 300 the headlines and body, 400
- * card titles, 500 labels and actions. IBM Plex Mono is gone — numerals are
- * Roboto Light with tabular figures.
- */
-const uiFont = Roboto({
-  subsets: ['latin'],
-  weight: ['100', '300', '400', '500'],
-  variable: '--font-ui',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
@@ -40,8 +27,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#000000',
-  // The field runs to the edges and the island sits on the safe area.
+  // The field runs to the edges and the tab bar sits on the safe area.
   viewportFit: 'cover',
+  // The keyboard resizes the layout viewport rather than overlaying it, so
+  // the ActionBar's visualViewport re-dock (spec §7.22) has a stable height
+  // to measure against.
+  interactiveWidget: 'resizes-content',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -54,7 +45,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     || clinicalAccess.surfaces.knowledgeLinks
   const navigationAudience = actor.ok ? actor.actorKind : 'public'
   return (
-    <html lang="en" className={uiFont.variable}>
+    <html lang="en">
       <body>
         <AppShell clinicalContentEnabled={clinicalContentEnabled} navigationAudience={navigationAudience} renderedUserId={actor.ok ? actor.userId : null}>{children}</AppShell>
       </body>

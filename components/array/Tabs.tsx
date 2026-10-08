@@ -1,5 +1,5 @@
 'use client'
-import type { KeyboardEvent } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import styles from './Tabs.module.css'
 
 /**
@@ -72,8 +72,15 @@ export function TabStrip<T extends string>({
     document.getElementById(tabId(idBase, target.value))?.focus()
   }
 
+  const activeIndex = Math.max(0, options.findIndex(option => option.value === value))
+  // The thumb is one element positioned from the active index with CSS, so the
+  // strip never reads layout (no getBoundingClientRect) on mount or change; the
+  // spring feel comes from the --ease-spring linear() curve.
+  const stripStyle = { '--tab-count': options.length, '--tab-index': activeIndex } as CSSProperties
+
   return (
-    <div className={styles.strip} role="tablist" aria-label={label}>
+    <div className={styles.strip} role="tablist" aria-label={label} style={stripStyle}>
+      <span className={styles.thumb} aria-hidden="true" />
       {options.map(option => {
         const active = option.value === value
         return (
@@ -90,7 +97,7 @@ export function TabStrip<T extends string>({
             onKeyDown={event => handleKeyDown(event, option.value)}
             className={[styles.tab, active ? styles.tabActive : ''].filter(Boolean).join(' ')}
           >
-            {option.displayLabel ?? option.label}
+            <span className={styles.tabLabel}>{option.displayLabel ?? option.label}</span>
           </button>
         )
       })}

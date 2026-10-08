@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import Icon from '@/components/array/Icon'
+import { ListRowSkeleton, TopBar } from '@/components/ui'
 import ClientForm, { type ClientPayload, type ClientFormInitial } from '../../ClientForm'
 
 export default function EditClientPage() {
@@ -47,19 +46,18 @@ export default function EditClientPage() {
 
   return (
     <div className="app-screen">
-      <div className="app-screen-x app-stack" style={{ paddingTop: 24 }}>
-        <div>
-          <Link href={`/clients/${id}`} className="a-quiet" style={{ marginLeft: -12 }}>
-            <Icon name="alt-arrow-left-linear" size={18} />
-            Client
-          </Link>
-          <p className="t-kicker" style={{ marginTop: 12 }}>Client record</p>
-          <h1 className="t-headline">
-            Edit client{name ? <span style={{ color: 'var(--text-secondary)' }}> — {name}</span> : null}
-          </h1>
-        </div>
+      <TopBar
+        title={name ? `Edit client — ${name}` : 'Edit client'}
+        subtitle="Client record"
+        back={{ href: `/clients/${id}`, label: 'Back to Clients' }}
+      />
+      <div className="app-screen-x app-stack">
         {loading || !initial ? (
-          <p className="t-body" role="status" aria-live="polite">Loading...</p>
+          <div role="status" aria-busy="true" aria-label="Loading client record">
+            <ListRowSkeleton />
+            <ListRowSkeleton />
+            <ListRowSkeleton />
+          </div>
         ) : (
           <ClientForm mode="edit" initial={initial} cancelHref={`/clients/${id}`} onSubmit={handleSave} />
         )}

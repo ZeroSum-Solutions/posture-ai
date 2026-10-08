@@ -1,5 +1,6 @@
 /**
- * The ambient photograph runs behind every app screen. Two exceptions:
+ * The ambient field (v3: two drifting radial gradients on #000, no
+ * photograph) runs behind every app screen. Two exceptions:
  *
  * - the marketing home page, which composes its own imagery;
  * - immersive screens (capture, player), whose background is the live camera or

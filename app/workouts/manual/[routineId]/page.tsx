@@ -19,13 +19,13 @@ export default async function ManualRoutinePage({ params }: { params: Promise<{ 
 
   return <div className={`app-screen ${styles.screen}`}>
     <header className={styles.header}>
-      <div><p className="t-kicker">Saved manual routine</p><h1 className="t-headline">Routine</h1></div>
+      <div><p className="t-overline">Saved manual routine</p><h1 className="t-title-1">Routine</h1></div>
       <Link className="a-secondary" href="/workouts/manual">All routines</Link>
     </header>
-    <main className={`app-screen-x app-stack ${styles.main}`}>
+    <div className={`app-screen-x app-stack ${styles.main}`}>
       {identity.kind === 'unavailable'
         ? <p role="alert" className={styles.error}>Training access is unavailable. Sign in again or verify the athlete relationship.</p>
         : <ManualRoutineDetail routineId={routineId} availableExercises={manualReferenceChoices()} />}
-    </main>
+    </div>
   </div>
 }

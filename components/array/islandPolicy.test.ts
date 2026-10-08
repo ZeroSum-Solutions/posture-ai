@@ -40,14 +40,14 @@ describe('isIslandHidden', () => {
     expect(isIslandHidden(pathname)).toBe(true)
   })
 
-  it.each(['/auth/sign-in', '/onboarding', '/consent/abc123', '/s/tok3n'])(
+  it.each(['/auth/sign-in', '/onboarding', '/consent/abc123', '/s/tok3n', '/assessments/new'])(
     'hides the island outside the practitioner app (%s)',
     (pathname) => {
       expect(isIslandHidden(pathname)).toBe(true)
     },
   )
 
-  it.each(['/dashboard', '/clients', '/clients/abc', '/exercises', '/settings', '/assessments/new'])(
+  it.each(['/dashboard', '/clients', '/clients/abc', '/exercises', '/settings'])(
     'shows the island on the practitioner route %s',
     (pathname) => {
       expect(isIslandHidden(pathname)).toBe(false)

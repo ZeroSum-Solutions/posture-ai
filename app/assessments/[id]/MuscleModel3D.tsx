@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnatomyGlyph } from '../../../components/SignalGlyphs'
-import { BAND_TONE, tone, type SeverityBand } from '@/components/array/severity'
+import { BAND_CHART, tone, type SeverityBand } from '@/components/array/severity'
 import { findingsToMuscleStates, type AssessmentFinding } from './findingsToMuscleStates'
 import {
   STATE_COLORS,
@@ -127,7 +127,7 @@ export default function MuscleModel3D({
         id: o.key,
         label: o.label,
         meta: o.zoneLabel,
-        tone: BAND_TONE[o.band],
+        tone: BAND_CHART[o.band],
         muscles: spotlightIds(musclesForFinding(o.finding)),
       })),
     [findingOptions],

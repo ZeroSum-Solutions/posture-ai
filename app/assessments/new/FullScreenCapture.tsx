@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion, useAnimationControls, useReducedMotion } from 'framer-motion'
 import type { Landmark } from '@posture-ai/engine/types'
 import type { FrameQuality } from '@/lib/pose/quality'
 import { useCameraLevel } from '@/lib/capture/use-camera-level'
@@ -34,6 +35,9 @@ import { Surface } from '@/components/array/Surface'
 import Icon from '@/components/array/Icon'
 import { tone, tint, ring } from '@/components/array/severity'
 import type { SeverityBand } from '@/components/array/severity'
+import { IconButton } from '@/components/ui'
+import { spring } from '@/lib/motion'
+import { haptic } from '@/lib/haptics'
 
 // Frames grabbed in the shutter burst (engine 1.3.0 within-capture stability).
 // A ~5-frame burst of a held pose is enough to estimate landmark jitter without
@@ -1066,6 +1070,28 @@ export default function FullScreenCapture({
         : poseReadiness.message || 'Posture model failed to start.'
   const pad = 'max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))'
 
+  // Shutter "ready" pulse (spec §5 Capture: method + camera): a one-shot
+  // delight spring + haptic the instant the shutter gate opens, never a
+  // looping animation and never a replacement for the gate's own disabled
+  // state (which the shutter button below still owns via `disabled`/
+  // `aria-disabled`, unchanged).
+  const shutterReady = showLiveCamera && phase === 'live' && !gateBlocked && ready && !captureLocked
+  const shutterPulse = useAnimationControls()
+  const reducedMotionPreferred = useReducedMotion()
+  const wasShutterReadyRef = useRef(false)
+  useEffect(() => {
+    if (shutterReady && !wasShutterReadyRef.current) {
+      haptic('tap')
+      // A spring transition only supports two keyframes, so [1, 1.06, 1] is
+      // expressed as one spring value (1.06) that reverses once — physically
+      // identical to the three-keyframe pulse, without the keyframe limit.
+      if (!reducedMotionPreferred) {
+        void shutterPulse.start({ scale: 1.06 }, { ...spring.delight, repeat: 1, repeatType: 'reverse' })
+      }
+    }
+    wasShutterReadyRef.current = shutterReady
+  }, [shutterReady, shutterPulse, reducedMotionPreferred])
+
   return (
     <div ref={containerRef} tabIndex={-1} aria-label="Posture capture" style={{ position: 'fixed', inset: 0, background: 'var(--background)', zIndex: 200, display: 'flex', flexDirection: 'column', color: 'var(--text-primary)', overflow: 'hidden', padding: pad, outline: 'none' }} data-testid="fullscreen-capture" data-immersive-surface>
       <CaptureTelemetryPanel activeSlot={activeSlot} phase={phase} />
@@ -1103,7 +1129,7 @@ export default function FullScreenCapture({
                 <LegalNotice document={screeningNotice} compact />
               ) : (
                 <div>
-                  <h2 className="t-title" style={{ margin: '0 0 8px' }}>Ready to capture four views</h2>
+                  <h2 className="t-headline" style={{ margin: '0 0 8px' }}>Ready to capture four views</h2>
                   <p className="t-body" style={{ margin: 0 }}>Use a well-lit space and keep the client’s full body in frame.</p>
                 </div>
               )}
@@ -1136,7 +1162,7 @@ export default function FullScreenCapture({
       ) : phase === 'upload' ? (
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingBlock: 16 }}>
           <Surface tier="feature" style={{ width: 'min(100%, 560px)' }}>
-            <h2 className="t-title" style={{ margin: '0 0 8px' }}>Upload four posture views</h2>
+            <h2 className="t-headline" style={{ margin: '0 0 8px' }}>Upload four posture views</h2>
             <p className="t-body" style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>
               Choose one recent JPEG or PNG for each view. The same private storage and photo checks used by live capture apply before analysis.
             </p>
@@ -1271,30 +1297,47 @@ export default function FullScreenCapture({
             )}
 
             {/* Camera-unavailable panel — non-blocking: the upload fallback and
-                proceed controls below stay usable (they render above this stage). */}
+                proceed controls below stay usable (they render above this stage
+                at zIndex 2). The panel itself sits above that zIndex 2 layer too
+                (so its own Try Again / Try Opening System Settings buttons are
+                never covered by the bottom slot strip when the permission
+                guidance copy grows tall) but keeps pointerEvents 'none' on its
+                own empty area and re-enables it only on its interactive
+                children, so clicks on blank padding still fall through to the
+                bottom controls underneath. */}
             {cameraFailed && (
               <div
                 ref={cameraErrorPanelRef}
                 tabIndex={-1}
                 role="alert"
                 aria-live="assertive"
-                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px', overflowY: 'auto', outline: 'none' }}
+                style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '12px', overflowY: 'auto', outline: 'none' }}
               >
-                <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
-                <p style={{ color: tone('review'), fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
-                <p data-testid="camera-error-msg" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
-                <CameraPermissionGuidance guidance={guidance} onRetry={retryCamera} />
+                {/* display:contents keeps the flex-centered layout above as if
+                    these were direct children, while restoring pointerEvents
+                    (an inherited CSS property) on the actual visible content —
+                    so the panel's empty padding still passes clicks through to
+                    the bottom controls, per the comment above. */}
+                <div style={{ display: 'contents', pointerEvents: 'auto' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}><CameraGlyph size={38} /></span>
+                  <p style={{ color: tone('review'), fontWeight: 700, margin: 0 }}>Camera Unavailable</p>
+                  <p data-testid="camera-error-msg" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0, maxWidth: '320px' }}>{errorMsg}</p>
+                  <CameraPermissionGuidance guidance={guidance} onRetry={retryCamera} />
+                </div>
               </div>
             )}
           </div>
 
           {/* ---------- Top overlays ---------- */}
           <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', pointerEvents: 'none' }}>
-            <button
-              onClick={onExit}
-              aria-label="Cancel and return to client selection"
-              style={{ pointerEvents: 'auto', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', fontSize: '1.4rem', cursor: 'pointer', flexShrink: 0 }}
-            ><span aria-hidden="true">×</span></button>
+            <span style={{ pointerEvents: 'auto', flexShrink: 0 }}>
+              <IconButton
+                icon="close-linear"
+                label="Cancel and return to client selection"
+                variant="glass"
+                onClick={onExit}
+              />
+            </span>
 
             {/* Level meter — only rendered when we have a live roll reading. Near-
                 opaque severity fill (not the 16% Chip tint) so it stays legible
@@ -1314,7 +1357,7 @@ export default function FullScreenCapture({
                 role={poseModelFailed ? 'alert' : 'status'}
                 aria-live="polite"
                 style={{
-                  pointerEvents: 'auto', borderRadius: '12px', padding: '6px 10px', fontSize: '0.72rem', fontWeight: 600,
+                  pointerEvents: 'auto', borderRadius: '12px', padding: '6px 10px', fontSize: '0.75rem', fontWeight: 600,
                   background: poseModelFailed
                     ? `color-mix(in srgb, ${tone('review')} 90%, transparent)`
                     : poseReadiness.phase === 'ready'
@@ -1341,24 +1384,26 @@ export default function FullScreenCapture({
             )}
           </div>
 
-          {/* Directional prompt + soft warnings (only on the live view) */}
+          {/* Directional prompt: the guidance pill (spec §5 Capture: method +
+              camera) — ≥.6 black (`--scrim-media`) behind text, never blur
+              alone, so it stays legible over arbitrary camera content. */}
           {showLiveCamera && (
             <div style={{ position: 'relative', zIndex: 2, marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '999px', padding: '8px 16px', maxWidth: '92%' }}>
-                <span style={{ color: '#fff', flexShrink: 0 }}><ViewSilhouette slot={activeSlot} /></span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-12)', background: 'var(--scrim-media)', borderRadius: 'var(--r-full)', padding: 'var(--s-8) var(--s-16)', maxWidth: '92%' }}>
+                <span style={{ color: 'var(--text-1)', flexShrink: 0 }}><ViewSilhouette slot={activeSlot} /></span>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>{direction.title}</p>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{direction.cue}</p>
+                  <p className="t-callout" style={{ margin: 0, fontWeight: 500, color: 'var(--text-1)' }}>{direction.title}</p>
+                  <p className="t-footnote" style={{ margin: 0, color: 'var(--text-2)' }}>{direction.cue}</p>
                 </div>
               </div>
 
               {level.pitchDeg !== null && Math.abs(level.pitchDeg) > 15 && (
-                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 600, color: ON_SEVERITY_FILL }}>
+                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 600, color: ON_SEVERITY_FILL }}>
                   Aim the camera straight ahead
                 </div>
               )}
               {notPortrait && (
-                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, color: ON_SEVERITY_FILL }}>
+                <div style={{ background: `color-mix(in srgb, ${tone('monitor')} 90%, transparent)`, borderRadius: '999px', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 700, color: ON_SEVERITY_FILL }}>
                   Hold the phone upright (portrait) to capture
                 </div>
               )}
@@ -1438,7 +1483,7 @@ export default function FullScreenCapture({
                     </div>
                   )}
                   {rollAtCapture !== null && Math.abs(rollAtCapture) > 2 && (
-                    <p style={{ color: tone('monitor'), fontSize: '0.72rem', textAlign: 'center', margin: 0 }}>Roll {rollAtCapture.toFixed(1)}° — will be corrected</p>
+                    <p style={{ color: tone('monitor'), fontSize: '0.75rem', textAlign: 'center', margin: 0 }}>Roll {rollAtCapture.toFixed(1)}° — will be corrected</p>
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -1468,7 +1513,7 @@ export default function FullScreenCapture({
                   : subjectCountBlocked || modelFailed ? tone('review')
                   : cap.slotStatus === 'warnings' ? tone('monitor')
                   : captured ? tone('maintain')
-                  : 'rgba(255,255,255,0.2)'
+                  : 'var(--border)'
                 const badgeColor = subjectCountBlocked || modelFailed ? tone('review') : cap.slotStatus === 'warnings' ? tone('monitor') : tone('maintain')
                 return (
                   <button
@@ -1483,7 +1528,7 @@ export default function FullScreenCapture({
                       padding: 0, cursor: captureLocked ? 'default' : 'pointer', opacity: captureLocked && !isActive ? 0.6 : 1,
                     }}
                   >
-                    <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${ringColor}`, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ position: 'relative', width: '50px', height: '50px', margin: '0 auto', borderRadius: 'var(--r-sm)', overflow: 'hidden', border: `2px solid ${ringColor}`, background: 'var(--surface-flat)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {captured && cap.displayPreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={cap.displayPreviewUrl} alt={`${SLOT_LABEL[slotKey]} thumbnail`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1491,13 +1536,13 @@ export default function FullScreenCapture({
                         <span style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}><ViewSilhouette slot={slotKey} size={24} /></span>
                       )}
                       {captured && (
-                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '16px', height: '16px', borderRadius: '50%', background: badgeColor, color: ON_SEVERITY_FILL, fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span aria-hidden="true" style={{ position: 'absolute', bottom: 2, right: 2, width: '18px', height: '18px', borderRadius: '50%', background: badgeColor, color: ON_SEVERITY_FILL, fontSize: '0.75rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {subjectCountBlocked || modelFailed ? '!' : cap.slotStatus === 'warnings' ? '⚠' : <Icon name="check-circle-bold" size={12} />}
                         </span>
                       )}
                     </div>
-                    <span style={{ display: 'block', fontSize: '0.64rem', fontWeight: 600, color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>
-                    <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>Required</span>
+                    <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)', marginTop: '4px' }}>{SLOT_LABEL[slotKey]}</span>
+                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Required</span>
                   </button>
                 )
               })}
@@ -1528,17 +1573,24 @@ export default function FullScreenCapture({
                 <div style={{ justifySelf: 'start' }}>
                   <button onClick={triggerUpload} disabled={captureLocked} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'underline', cursor: captureLocked ? 'not-allowed' : 'pointer', padding: '8px', minHeight: '44px' }}>{uploadingSlot ? `Preparing ${SLOT_LABEL[uploadingSlot]} photo…` : 'Upload photo instead'}</button>
                 </div>
-                <button
+                <motion.button
                   data-autofocus="shutter"
                   onClick={onShutter}
                   disabled={gateBlocked || !ready || captureLocked}
                   aria-disabled={gateBlocked || !ready || captureLocked}
                   aria-label="Capture photo"
+                  animate={shutterPulse}
+                  initial={false}
+                  whileTap={shutterReady ? { scale: 0.97 } : undefined}
+                  transition={spring.press}
                   style={{
-                    justifySelf: 'center', width: '72px', height: '72px', borderRadius: '50%',
-                    background: gateBlocked || !ready || captureLocked ? 'rgba(255,255,255,0.25)' : 'var(--action)',
-                    color: 'var(--action-text)',
-                    border: '4px solid rgba(255,255,255,0.55)', boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
+                    justifySelf: 'center', width: '72px', height: '72px', borderRadius: 'var(--r-full)',
+                    background: gateBlocked || !ready || captureLocked ? 'var(--surface-flat-pressed)' : 'var(--action)',
+                    color: 'var(--text-on-action)',
+                    border: '4px solid rgba(255,255,255,0.55)',
+                    boxShadow: shutterReady
+                      ? `0 0 0 2px rgba(0,0,0,0.4), 0 0 0 8px color-mix(in srgb, var(--capture) 45%, transparent)`
+                      : '0 0 0 2px rgba(0,0,0,0.4)',
                     cursor: gateBlocked || !ready || captureLocked ? 'not-allowed' : 'pointer',
                   }}
                   aria-describedby={gateBlocked ? 'tilt-blocked-banner' : undefined}

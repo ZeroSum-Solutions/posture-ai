@@ -4,6 +4,7 @@ import { useState } from 'react'
 import ClientForm, { type ClientPayload } from '@/app/clients/ClientForm'
 import type { OperationMode } from '@/lib/prototype/runtime'
 import { Surface } from '@/components/array/Surface'
+import { Button, Select } from '@/components/ui'
 import StrengthBuilderEntry from './StrengthBuilderEntry'
 import styles from './StrengthProgramBuilder.module.css'
 
@@ -65,32 +66,38 @@ export default function StrengthBuilderLauncher({ clients, initialClientId, oper
   }
 
   return <section className={styles.launcher} aria-label="Strength program builder">
-    {selected ? <label className={styles.clientPicker}>Build strength program for
-      <select className="a-input" value={selected.id} onChange={event => { setSelectedId(event.target.value); setSample({ status: 'idle' }) }}>
-        {allClients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-      </select>
-    </label> : <p className="t-body">Add a client to build a real athlete program.</p>}
-    <button type="button" className="a-secondary" aria-expanded={creatingClient} onClick={() => setCreatingClient(value => !value)}>{creatingClient ? 'Close new client form' : 'New client'}</button>
+    {selected ? <Select
+      label="Build strength program for"
+      className={styles.clientPicker}
+      value={selected.id}
+      onChange={event => { setSelectedId(event.target.value); setSample({ status: 'idle' }) }}
+    >
+      {allClients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
+    </Select> : <p className="t-body">Add a client to build a real athlete program.</p>}
+    <Button variant="secondary" aria-expanded={creatingClient} onClick={() => setCreatingClient(value => !value)}>{creatingClient ? 'Close new client form' : 'New client'}</Button>
     {creatingClient && <ClientForm mode="create" operationMode={operationMode} cancelHref="/workouts" onSubmit={addClient} />}
     {sample.status !== 'ready' && selected ? <StrengthBuilderEntry key={selected.id} source={{ kind: 'client', client: selected }} /> : null}
     <Surface tier="tile" innerClassName={styles.sampleEntry}>
       <div>
-        <p className="t-kicker">Private practice workspace</p>
-        <h2 className="t-headline-sm">Try a sample program</h2>
+        <p className="t-overline">Private practice workspace</p>
+        <h2 className="t-title-2">Try a sample program</h2>
         <p className="t-body">Use a separate private practice athlete to explore the strength program builder without changing a real client.</p>
       </div>
-      <label className={styles.clientPicker}>Sample program
-        <select className="a-input" value={sampleCatalog} disabled={sample.status === 'pending' || sample.status === 'ready'}
-          onChange={event => { setSampleCatalog(event.target.value === 'exercise-swap' || event.target.value === 'conditioning' || event.target.value === 'bodyweight-assistance' ? event.target.value : 'starter'); setSample({ status: 'idle' }) }}>
-          <option value="starter">Strength and conditioning</option>
-          <option value="exercise-swap">Exercise alternatives</option>
-          <option value="conditioning">Conditioning activities</option>
-          <option value="bodyweight-assistance">Bodyweight and assisted strength</option>
-        </select>
-      </label>
+      <Select
+        label="Sample program"
+        className={styles.clientPicker}
+        value={sampleCatalog}
+        disabled={sample.status === 'pending' || sample.status === 'ready'}
+        onChange={event => { setSampleCatalog(event.target.value === 'exercise-swap' || event.target.value === 'conditioning' || event.target.value === 'bodyweight-assistance' ? event.target.value : 'starter'); setSample({ status: 'idle' }) }}
+      >
+        <option value="starter">Strength and conditioning</option>
+        <option value="exercise-swap">Exercise alternatives</option>
+        <option value="conditioning">Conditioning activities</option>
+        <option value="bodyweight-assistance">Bodyweight and assisted strength</option>
+      </Select>
       {sample.status === 'ready'
-        ? <button type="button" className="a-secondary" onClick={() => setSample({ status: 'idle' })}>{selected ? 'Return to selected client' : 'Close sample'}</button>
-        : <button type="button" className="a-secondary" disabled={sample.status === 'pending'} onClick={() => void openSample()}>{sample.status === 'pending' ? 'Preparing sample…' : 'Try a sample program'}</button>}
+        ? <Button variant="secondary" onClick={() => setSample({ status: 'idle' })}>{selected ? 'Return to selected client' : 'Close sample'}</Button>
+        : <Button variant="secondary" loading={sample.status === 'pending'} onClick={() => void openSample()}>{sample.status === 'pending' ? 'Preparing sample…' : 'Try a sample program'}</Button>}
       {sample.status === 'error' ? <p role="alert" className={styles.error}>{sample.message}</p> : null}
     </Surface>
     {sample.status === 'ready'

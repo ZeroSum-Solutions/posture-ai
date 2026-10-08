@@ -1,9 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { Surface } from '@/components/array/Surface'
-import { TabStrip, tabPanelProps } from '@/components/array/Tabs'
+import { Banner, Button, Disclosure, Tabs, tabPanelProps } from '@/components/ui'
 import type {
   TrainingProgramWorkspaceProjection,
   TrainingProgramWorkspaceSession,
@@ -70,12 +69,12 @@ function SessionCard({
   return <Surface tier="tile" innerClassName={styles.sessionCard}>
     <header className={styles.sessionHeading}>
       <div>
-        <p className="t-kicker">Week {session.weekNumber} · {session.scheduledLocalDate} · {session.kind}</p>
-        <h3 className="t-headline-sm">{stateLabel(session.state)}</h3>
+        <p className="t-overline">Week {session.weekNumber} · {session.scheduledLocalDate} · {session.kind}</p>
+        <h3 className="t-title-2">{stateLabel(session.state)}</h3>
       </div>
-      <Link className="a-secondary" href={sessionHref(hrefBase, session.sessionId)}>
+      <Button variant="secondary" size="sm" href={sessionHref(hrefBase, session.sessionId)}>
         {session.state === 'in_progress' ? 'Resume session' : 'Open session'}
-      </Link>
+      </Button>
     </header>
     {session.stoppedForSymptoms ? <p className={styles.symptomNote}>Stopped after adverse symptoms were reported.</p> : null}
     <div className={styles.comparison}>
@@ -110,7 +109,7 @@ function SessionCard({
       <section aria-label="Recorded actual">
         <h4>Recorded actual</h4>
         {session.actual.kind === 'strength' ? <>
-          <p className="t-quiet">{session.actual.recordedSetCount} of {session.actual.prescribedSetCount} prescribed working sets recorded{session.actual.omittedSetCount > 0 ? ` · ${session.actual.omittedSetCount} not recorded` : ''}.</p>
+          <p className="t-footnote">{session.actual.recordedSetCount} of {session.actual.prescribedSetCount} prescribed working sets recorded{session.actual.omittedSetCount > 0 ? ` · ${session.actual.omittedSetCount} not recorded` : ''}.</p>
           {session.planned.kind === 'strength' ? <div className={styles.exerciseList}>{session.planned.exercises.map(exercise => {
             const sets = actualByExercise.get(exercise.exerciseInstanceId) ?? []
             return <div key={exercise.exerciseInstanceId} className={styles.exerciseRow}>
@@ -130,7 +129,7 @@ function SessionCard({
           <strong>{durationLabel(session.actual.recorded.durationSeconds)}</strong>
           <span>Effort {session.actual.recorded.perceivedEffort === 'unknown' ? 'not recorded' : `${session.actual.recorded.perceivedEffort}/10`}</span>
           <span>{session.actual.recorded.symptomState === 'adverse_reported' ? 'Adverse symptoms reported' : 'No adverse symptoms reported'}</span>
-        </div> : <p className="t-quiet">Nothing recorded.</p>}
+        </div> : <p className="t-footnote">Nothing recorded.</p>}
       </section>
     </div>
   </Surface>
@@ -239,27 +238,31 @@ function TrainingProgramWorkspaceInstance({
   return <section className={styles.workspace} aria-labelledby="training-program-heading">
     <header className={styles.workspaceHeader}>
       <div>
-        <p className="t-kicker">{assignment?.executionContext.kind === 'synthetic_simulation' ? assignment.executionContext.label : 'Training program'}</p>
-        <h2 id="training-program-heading" className="t-display-sm">{assignment ? `${assignment.cycleLengthWeeks}-week program` : 'Program workspace'}</h2>
+        <p className="t-overline">{assignment?.executionContext.kind === 'synthetic_simulation' ? assignment.executionContext.label : 'Training program'}</p>
+        <h2 id="training-program-heading" className="t-title-2">{assignment ? `${assignment.cycleLengthWeeks}-week program` : 'Program workspace'}</h2>
         {assignment ? <p className="t-body">Cycle started {assignment.cycleStartLocalDate} · {assignment.programMode === 'coach_assigned' ? 'Coach assigned' : 'Self directed'}</p> : null}
       </div>
-      <Link className="a-secondary" href={backHref}>Back to training</Link>
+      <Button variant="secondary" size="sm" href={backHref}>Back to training</Button>
     </header>
-    {assignment?.executionContext.kind === 'synthetic_simulation' ? <p className={styles.practiceBanner}><strong>{assignment.executionContext.label}</strong><span>This saved history belongs to the private practice workspace.</span></p> : null}
-    <TabStrip idBase="training-program-workspace" options={views} value={activeView} onChange={changeView} label="Training program views" />
+    {assignment?.executionContext.kind === 'synthetic_simulation' ? <Banner variant="info">
+      <strong>{assignment.executionContext.label}</strong> This saved history belongs to the private practice workspace.
+    </Banner> : null}
+    <Tabs idBase="training-program-workspace" options={views} value={activeView} onChange={changeView} label="Training program views" />
     {conditioningConfirmation ? <p role="status" aria-live="polite" className="t-body">
       Conditioning changes saved as program revision {conditioningConfirmation.programRevisionNumber}.
     </p> : null}
     <div {...tabPanelProps('training-program-workspace', activeView, true)} className={styles.panel}>
-      {state.status === 'loading' ? <p role="status" className="t-quiet">Loading {activeView}…</p> : null}
+      {state.status === 'loading' ? <p role="status" className="t-footnote">Loading {activeView}…</p> : null}
       {state.status === 'error' ? <Surface tier="tile" innerClassName={styles.errorState}>
-        <p role="alert">{state.message}</p><button type="button" className="a-secondary" onClick={() => void load(activeView)}>Retry {activeView}</button>
+        <p role="alert">{state.message}</p>
+        <Button variant="secondary" size="sm" onClick={() => void load(activeView)}>Retry {activeView}</Button>
       </Surface> : null}
       {state.status === 'ready' ? <>
-        {activeView === 'program' && state.value.assignment.status === 'active' ? <details>
-          <summary className="a-secondary">Change conditioning activity or schedule</summary>
-          <TrainingConditioningRevisionPanel assignmentId={assignmentId} onAccepted={refreshAfterConditioning} />
-        </details> : null}
+        {activeView === 'program' && state.value.assignment.status === 'active' ? (
+          <Disclosure title="Change conditioning activity or schedule">
+            <TrainingConditioningRevisionPanel assignmentId={assignmentId} onAccepted={refreshAfterConditioning} />
+          </Disclosure>
+        ) : null}
         {activeView === 'program' ? <p className="t-body">The accepted cycle schedule. Open any session to review or continue it.</p> : null}
         {activeView === 'history' ? <p className="t-body">Saved planned and recorded values from finished sessions.</p> : null}
         {activeView === 'today' ? <p className="t-body">{state.value.focus === 'in_progress' ? 'Continue the session already in progress.' : state.value.focus === 'today' ? 'Sessions scheduled for today.' : state.value.focus === 'next' ? 'Your next scheduled session.' : state.value.focus === 'most_recent' ? 'Your most recent finished session.' : 'No current session.'}</p> : null}
@@ -271,8 +274,8 @@ function TrainingProgramWorkspaceInstance({
             onSwapAccepted={refreshAfterSwap}
           />
         ))}</div>
-        {state.value.sessions.length === 0 ? <p className="t-quiet">{emptyCopy(activeView, state.value.focus)}</p> : null}
-        {state.value.nextCursor ? <button type="button" className="a-secondary" disabled={state.loadingMore} onClick={() => void loadMore()}>{state.loadingMore ? 'Loading more sessions…' : 'Load more sessions'}</button> : null}
+        {state.value.sessions.length === 0 ? <p className="t-footnote">{emptyCopy(activeView, state.value.focus)}</p> : null}
+        {state.value.nextCursor ? <Button variant="secondary" size="sm" loading={state.loadingMore} onClick={() => void loadMore()}>{state.loadingMore ? 'Loading more sessions…' : 'Load more sessions'}</Button> : null}
         {state.moreError ? <p role="alert">{state.moreError}</p> : null}
       </> : null}
     </div>

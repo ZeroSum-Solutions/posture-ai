@@ -3,46 +3,35 @@
    to get back into their account. */
 
 .layout {
-  min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 28px;
+  gap: var(--s-24);
   width: min(430px, 100%);
   margin: 0 auto;
-  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+  padding: var(--s-32) var(--s-24) calc(var(--s-32) + env(safe-area-inset-bottom));
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-8);
   align-self: flex-start;
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
+  font: var(--t-subhead);
+  color: var(--text-1);
   text-decoration: none;
 }
 
 .head { display: block; }
 
 .title {
-  margin-top: 10px;
-  font-size: 30px;
-  font-weight: 300;
-  line-height: 1.12;
-  letter-spacing: -0.025em;
-  color: var(--text-primary);
+  margin-top: var(--s-8);
 }
 
 .description {
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 300;
-  line-height: 1.62;
-  color: var(--text-secondary);
+  margin-top: var(--s-8);
+  color: var(--text-2);
 }
 
 .body { display: block; }
@@ -54,9 +43,9 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 72px;
+    gap: var(--s-64);
     width: min(1080px, 100%);
-    padding: 48px;
+    padding: var(--s-48);
   }
 
   .story {
@@ -77,24 +66,20 @@
 }
 
 .storyHeading {
-  margin-top: 16px;
-  font-size: 34px;
-  font-weight: 300;
-  line-height: 1.14;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
+  margin-top: var(--s-16);
+  font: var(--t-display);
+  letter-spacing: -0.02em;
+  color: var(--text-1);
 }
 
 .storyCopy {
-  margin-top: 12px;
-  font-size: 13px;
-  font-weight: 300;
-  line-height: 1.65;
-  color: var(--text-secondary);
+  margin-top: var(--s-12);
+  font: var(--t-footnote);
+  color: var(--text-2);
 }
 
 .column {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--s-20);
 }

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import styles from './AssessmentReviewStudio.module.css'
+import styles from './Results.module.css'
 
 const ANATOMY_VIEWER_HASH = 'anatomy-viewer-title'
 const ASSESSMENT_EVIDENCE_TAB_ID = 'assessment-evidence'

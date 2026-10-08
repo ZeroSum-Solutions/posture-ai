@@ -22,7 +22,15 @@ export interface DirectoryRow {
   href: string
   name: string
   grade: string | null
+  /** One line: when the client was last scanned, nothing else (DESIGN.md › Clients). */
   meta: string
+  /** False for a freshly-added client — distinct from `overdue` (which is also
+   * true for a never-scanned client): a new row should read "new", not "overdue". */
+  hasScan: boolean
+  /** A completed scan is waiting on the practitioner's sign-off. */
+  awaitingReview: boolean
+  /** No scan in `OVERDUE_DAYS`, or never scanned. */
+  overdue: boolean
   /** Recorded score difference against the previous scan: `−6`, `+4`, `flat`, `new`. */
   trend: string
   trendIcon: DeltaArrow | 'user-plus-linear'
@@ -36,27 +44,23 @@ export type ClientFilter = 'all' | 'needs_review' | 'improving' | 'overdue'
 export const CLIENT_FILTERS: readonly { value: ClientFilter; label: string; band: SeverityBand }[] = [
   { value: 'all', label: 'All', band: 'neutral' },
   { value: 'needs_review', label: 'Needs review', band: 'monitor' },
-  { value: 'improving', label: 'Score decreased', band: 'neutral' },
   { value: 'overdue', label: 'Overdue', band: 'neutral' },
+  { value: 'improving', label: 'Score decreased', band: 'neutral' },
 ]
 
 /**
  * One directory row. The trend is the honest thing this screen adds: a client
  * with one scan has no trend to show and says so ("first scan"), rather than
- * being drawn as flat.
+ * being drawn as flat. `awaitingReview`/`overdue` are surfaced separately from
+ * `meta` so the list row can show them as its one trailing status chip
+ * (DESIGN.md › Clients) instead of folding them into the subtitle text.
  */
 export function toDirectoryRow(client: DirectoryClient, now: number): DirectoryRow {
   const name = `${client.first_name} ${client.last_name}`.trim()
   const scanned = relativeDay(client.last_scan_at, now)
   const overdue = isOverdue(client.last_scan_at, now)
 
-  const meta = client.last_scan_at
-    ? [
-      `Scanned ${scanned?.toLowerCase() ?? 'recently'}`,
-      client.awaiting_review ? 'in review' : null,
-      overdue ? 'overdue' : null,
-    ].filter(Boolean).join(' · ')
-    : 'No scan yet'
+  const meta = client.last_scan_at ? `Scanned ${scanned?.toLowerCase() ?? 'recently'}` : 'No scan yet'
 
   const trend = describeTrend(client)
 
@@ -67,6 +71,9 @@ export function toDirectoryRow(client: DirectoryClient, now: number): DirectoryR
     name,
     grade: client.last_grade,
     meta,
+    hasScan: Boolean(client.last_scan_at),
+    awaitingReview: Boolean(client.awaiting_review),
+    overdue,
     trend: trend.text,
     trendIcon: trend.icon,
     trendBand: trend.band,
