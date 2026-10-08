@@ -29,6 +29,7 @@ const testState = vi.hoisted(() => ({
   clinicalEnabled: { value: true },
   prototype: { value: false },
   assessmentStatus: { value: 'complete' },
+  clientArchived: { value: false },
 }))
 
 const assessmentId = '11111111-1111-4111-8111-111111111111'
@@ -71,10 +72,15 @@ const playableSnapshot = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function serviceQuery(table: string): any {
   let insertValue: unknown
+  let filtersArchived = false
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q: any = {
     select: () => q,
     eq: () => q,
+    is: (column: string, value: unknown) => {
+      if (column === 'archived_at' && value === null) filtersArchived = true
+      return q
+    },
     order: () => q,
     limit: () => q,
     delete: () => q,
@@ -86,7 +92,9 @@ function serviceQuery(table: string): any {
     },
     maybeSingle: async () => table === 'assessments'
       ? { data: { ...assessment, status: testState.assessmentStatus.value }, error: null }
-      : { data: null, error: null },
+      : table === 'clients'
+        ? { data: testState.clientArchived.value && filtersArchived ? null : { id: assessment.client_id }, error: null }
+        : { data: null, error: null },
     single: async () => table === 'workout_sessions'
       ? { data: { id: 'session-1' }, error: null }
       : { data: insertValue, error: null },
@@ -170,6 +178,17 @@ describe('POST /api/workouts', () => {
     testState.clinicalEnabled.value = true
     testState.prototype.value = false
     testState.assessmentStatus.value = 'complete'
+    testState.clientArchived.value = false
+  })
+
+  test('denies share mint for an archived client without writing a session or token', async () => {
+    testState.clientArchived.value = true
+
+    const response = await POST(request({ share: true }))
+
+    expect(response.status).toBe(404)
+    expect(testState.rpc).not.toHaveBeenCalled()
+    expect(testState.workoutInsert).not.toHaveBeenCalled()
   })
 
   test('denies direct workout minting before reading assessment content when HG-03 is absent', async () => {

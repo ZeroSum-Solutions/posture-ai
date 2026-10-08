@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 })
     }
 
-    // Verify client belongs to this practitioner and is not tombstoned (erased).
+    // Verify the client is active and belongs to this practitioner.
     // The assessments_reject_deleted_client trigger is the hard race-safe guard;
     // this gives a clean 404 instead of a DB-error 500 in the common case.
     const { data: client } = await service
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       .eq('id', client_id)
       .eq('practitioner_id', user.id)
       .is('deleted_at', null)
+      .is('archived_at', null)
       .maybeSingle()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 

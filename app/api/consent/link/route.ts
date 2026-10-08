@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     .eq('id', clientId)
     .eq('practitioner_id', user.id)
     .is('deleted_at', null)
+    .is('archived_at', null)
     .maybeSingle()
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
   // The consent_tokens_reject_deleted_client trigger is the race-safe hard guard;

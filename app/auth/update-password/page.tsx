@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { validatePasswordReset, MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
+import { hardNavigate } from '@/lib/auth/safe-next'
 import AuthFrame from '@/components/AuthFrame'
 import { Banner } from '@/components/ui/Banner'
 import { Button } from '@/components/ui/Button'
@@ -17,14 +18,45 @@ export default function UpdatePasswordPage() {
   const [loading, setLoading] = useState(false)
   // null = still checking for a recovery session, true/false = result
   const [hasSession, setHasSession] = useState<boolean | null>(null)
+  const [securityCheckError, setSecurityCheckError] = useState(false)
+  const [mfaRetry, setMfaRetry] = useState(false)
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
     // getUser validates the recovery JWT with Auth. getSession only reads local
     // storage and must not decide whether this security-sensitive form is usable.
-    supabase.auth.getUser().then(({ data, error: userError }) => {
-      setHasSession(!userError && !!data.user)
-    })
+    async function checkRecoverySession() {
+      const { data, error: userError } = await supabase.auth.getUser()
+      if (userError || !data.user) {
+        setHasSession(false)
+        return
+      }
+
+      const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors()
+      if (factorsError || !factors) {
+        setSecurityCheckError(true)
+        return
+      }
+
+      const hasVerifiedTotp = factors.all.some(
+        (factor) => factor.factor_type === 'totp' && factor.status === 'verified',
+      )
+      if (hasVerifiedTotp) {
+        const { data: assurance, error: assuranceError } =
+          await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (assuranceError || !assurance) {
+          setSecurityCheckError(true)
+          return
+        }
+        if (assurance.currentLevel !== 'aal2') {
+          hardNavigate('/auth/mfa?mode=recovery&next=/auth/update-password')
+          return
+        }
+      }
+
+      setHasSession(true)
+    }
+    void checkRecoverySession()
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -35,22 +67,32 @@ export default function UpdatePasswordPage() {
       return
     }
     setError(null)
+    setMfaRetry(false)
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
     const { error } = await supabase.auth.updateUser({ password })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      if (/AAL2 session is required/i.test(error.message)) {
+        setError('Verify your authenticator again before updating your password.')
+        setMfaRetry(true)
+      } else {
+        setError('Could not update your password. Please try again.')
+      }
       return
     }
     // A password reset never grants protected access. Existing users must
     // challenge their factor; approved lost-factor recovery must re-enroll one.
-    window.location.assign('/auth/mfa?mode=recovery&next=/dashboard')
+    hardNavigate('/auth/mfa?mode=recovery&next=/dashboard')
   }
 
   return (
     <AuthFrame title="Choose a new password" description="Create a fresh password for your practitioner account.">
-      {hasSession === null ? (
+      {securityCheckError ? (
+        <p className="t-body" role="alert" style={{ color: 'var(--text-2)' }}>
+          Could not verify your account security. Reload this page and try again.
+        </p>
+      ) : hasSession === null ? (
         <p className="t-body" style={{ color: 'var(--text-2)' }}>Verifying reset link…</p>
       ) : hasSession === false ? (
         <div className="app-stack">
@@ -69,6 +111,11 @@ export default function UpdatePasswordPage() {
         <>
           {error && (
             <Banner variant="error" className="app-stack" data-testid="update-password-error">{error}</Banner>
+          )}
+          {mfaRetry && (
+            <Link href="/auth/mfa?mode=recovery&next=/auth/update-password" className="t-callout">
+              Verify authenticator again
+            </Link>
           )}
           <form onSubmit={handleSubmit} noValidate className="app-stack" style={{ marginTop: error ? 'var(--s-16)' : 0 }}>
             <TextField

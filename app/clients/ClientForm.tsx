@@ -13,6 +13,7 @@ import {
   Textarea,
 } from '@/components/ui'
 import { inchesToCm, cmToInches, poundsToKg, kgToPounds, round1 } from '@/lib/units'
+import { safeNextPath } from '@/lib/auth/safe-next'
 import styles from './ClientForm.module.css'
 import type { OperationMode } from '@/lib/prototype/runtime'
 
@@ -139,7 +140,7 @@ export default function ClientForm({
     // A hard navigation rather than next/link: Cancel needs to run the same
     // dirty check whichever way it exits, so it is a button, not a link — see
     // the discard Dialog below.
-    else window.location.assign(cancelHref)
+    else window.location.assign(safeNextPath(cancelHref))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -405,7 +406,7 @@ export default function ClientForm({
         onOpenChange={setShowDiscardConfirm}
         title="Discard changes?"
         description="Leaving now will lose what you've entered on this form."
-        confirm={{ label: 'Discard', tone: 'danger', onConfirm: () => window.location.assign(cancelHref) }}
+        confirm={{ label: 'Discard', tone: 'danger', onConfirm: () => window.location.assign(safeNextPath(cancelHref)) }}
         cancel={{ label: 'Keep editing' }}
       />
     </>

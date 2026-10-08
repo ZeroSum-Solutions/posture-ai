@@ -127,6 +127,13 @@ describe('/api/workouts/shares', () => {
     }))
   })
 
+  test('returns the erased-client 404 for archived share rotation', async () => {
+    state.rpc.mockResolvedValueOnce({ data: { status: 'not_found' }, error: null })
+    const response = await POST(mutationRequest('POST', { session_id: sessionId }))
+    expect(response.status).toBe(404)
+    expect(state.rpc).toHaveBeenCalledWith('rotate_workout_share', expect.objectContaining({ p_session_id: sessionId }))
+  })
+
   test('revokes immediately through the transactional RPC', async () => {
     state.rpc.mockResolvedValueOnce({ data: { status: 'revoked' }, error: null })
 
