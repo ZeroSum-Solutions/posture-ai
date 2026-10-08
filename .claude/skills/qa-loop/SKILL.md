@@ -38,9 +38,10 @@ survives context resets and can be resumed by any session.
    (no diagnos*/treat*/cure*/patient*/prescri* — the vocabulary-lint test
    enforces this; run it after any content change).
 5. Fixes land via the normal flow: feature branch → tests green → `~/bin/zs-land`.
-   Never commit to `main` directly. Do not deploy mid-loop; deployment happens
-   automatically when a fix branch lands (Vercel git integration) — that is
-   acceptable, but say so in the pass report.
+   Never commit to `main` directly. Do not deploy mid-loop. A landed fix reaches
+   production only through the exact-revision release in `docs/RUNBOOK.md`
+   (pushes to `main` are not authoritative); release after the verdict and record
+   the deployment ID and SHA in the pass report.
 
 ## State files (all under `docs/qa/`)
 
