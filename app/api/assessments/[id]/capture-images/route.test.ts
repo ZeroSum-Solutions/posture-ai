@@ -158,6 +158,14 @@ describe('POST /api/assessments/[id]/capture-images', () => {
     expect(state.upload).not.toHaveBeenCalled()
   })
 
+  test('returns the erased-client 404 when an archived client cannot prepare a new image slot', async () => {
+    state.prepare = { status: 'not_found' }
+    const response = await POST(await request(), context)
+    expect(response.status).toBe(404)
+    expect(state.calls).toEqual(['resolve_capture_image_slot', 'prepare_capture_image_upload'])
+    expect(state.upload).not.toHaveBeenCalled()
+  })
+
   test('rejects spoofed raster bytes before creating a cleanup intent or object', async () => {
     const image = new File(['not-a-jpeg'], 'capture.jpg', { type: 'image/jpeg' })
     const response = await POST(await request({ image }), context)

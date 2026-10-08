@@ -6,17 +6,20 @@ const mocks = vi.hoisted(() => ({
   getConsentStatus: vi.fn(),
   captureEligibility: vi.fn(),
   clientResult: { data: { id: 'c1', date_of_birth: '1990-01-01' }, error: null } as { data: unknown; error: unknown },
+  archived: { value: false },
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     from: () => {
+      let archiveFilter = false
       const chain = {
         select: () => chain,
         eq: () => chain,
-        is: () => chain,
-        maybeSingle: async () => mocks.clientResult,
+        is: (column: string) => { if (column === 'archived_at') archiveFilter = true; return chain },
+        maybeSingle: async () => mocks.archived.value && archiveFilter
+          ? { data: null, error: null } : mocks.clientResult,
       }
       return chain
     },
@@ -58,6 +61,7 @@ describe('POST /api/consent governed in-person consent', () => {
     process.env.VERCEL_ENV = 'preview'
     mocks.rpc.mockReset().mockResolvedValue({ data: 'ok', error: null })
     mocks.clientResult = { data: { id: 'c1', date_of_birth: '1990-01-01' }, error: null }
+    mocks.archived.value = false
     mocks.getConsentStatus.mockReset().mockResolvedValue({
       hasConsent: true,
       signerRelationship: 'self',
@@ -87,6 +91,13 @@ describe('POST /api/consent governed in-person consent', () => {
       p_consent_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
       p_signed_at: expect.any(String),
     })
+  })
+
+  test('keeps consent status readable for an archived client', async () => {
+    mocks.archived.value = true
+    const response = await GET(new NextRequest('http://localhost/api/consent?client_id=c1'))
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ hasConsent: true })
   })
 
   test('rejects stale or forged submitted evidence before writing', async () => {

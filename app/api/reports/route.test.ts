@@ -49,6 +49,7 @@ const testSpies = vi.hoisted(() => ({
   clinicalEnabled: { value: true },
   prototype: { value: false },
   clientArchived: { value: false },
+  assessmentSelect: { value: '' },
 }))
 
 // Per-table result for the authed server client. supabase-js resolves to
@@ -65,10 +66,11 @@ function makeQuery(
   onInsert?: (value: unknown) => void,
   onDelete?: () => void,
   onIs?: (column: string) => void,
+  onSelect?: (columns: string) => void,
 ): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q: any = {
-    select: () => q, eq: () => q, neq: () => q, order: () => q, in: () => q,
+    select: (columns: string) => { onSelect?.(columns); return q }, eq: () => q, neq: () => q, order: () => q, in: () => q,
     is: (column: string) => { onIs?.(column); return q },
     insert: (value: unknown) => { onInsert?.(value); return q },
     delete: () => { onDelete?.(); return q },
@@ -92,14 +94,17 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     from: (t: string) => {
       const queued = serverTableQueues[t]?.shift()
-      let checksArchive = false
       return makeQuery(
-        () => t === 'assessments' && testSpies.clientArchived.value && checksArchive
-          ? { data: null, error: null }
-          : queued ?? serverTables[t] ?? { data: null, error: null },
+        () => {
+          const result = queued ?? serverTables[t] ?? { data: null, error: null }
+          if (t !== 'assessments' || !testSpies.clientArchived.value || !result.data) return result
+          const assessment = result.data as typeof approvedAssessment
+          return { ...result, data: { ...assessment, clients: { ...assessment.clients, archived_at: '2026-10-08T00:00:00Z' } } }
+        },
         undefined,
         undefined,
-        (column) => { if (column === 'clients.archived_at') checksArchive = true },
+        undefined,
+        (columns) => { if (t === 'assessments') testSpies.assessmentSelect.value = columns },
       )
     },
   }),
@@ -190,7 +195,7 @@ const approvedAssessment = {
   overall_score: 14, overall_grade: 'B', assessed_at: '2026-01-01T00:00:00Z',
   practitioner_approved: true, priority_keys: null, capability: null,
   exercise_swaps: null, scoring_engine_version: 'v1',
-  clients: { id: 'c1', first_name: 'Jane', last_name: 'Doe' },
+  clients: { id: 'c1', first_name: 'Jane', last_name: 'Doe', deleted_at: null, archived_at: null as string | null },
 }
 
 const safeFinding = {
@@ -205,6 +210,7 @@ describe('POST /api/reports', () => {
   beforeEach(() => {
     testSpies.prototype.value = false
     testSpies.clientArchived.value = false
+    testSpies.assessmentSelect.value = ''
     uploadSpy.mockClear()
     removeSpy.mockReset().mockResolvedValue({ error: null })
     reportInsertSpy.mockReset().mockImplementation(async () => reportsInsert)
@@ -241,6 +247,27 @@ describe('POST /api/reports', () => {
     expect(reportInsertSpy).not.toHaveBeenCalled()
   })
 
+  test('returns the same 404 for an erased client with residual assessment history', async () => {
+    serverTables.assessments = {
+      data: { ...approvedAssessment, clients: { ...approvedAssessment.clients, deleted_at: '2026-10-08T00:00:00Z' } },
+      error: null,
+    }
+    const response = await POST(req({ assessment_id: 'a1' }))
+    expect(response.status).toBe(404)
+    expect(renderToBufferSpy).not.toHaveBeenCalled()
+    expect(uploadSpy).not.toHaveBeenCalled()
+  })
+
+  test('exports an active client when the embed is returned as an array', async () => {
+    serverTables.assessments = {
+      data: { ...approvedAssessment, clients: [approvedAssessment.clients] },
+      error: null,
+    }
+    const response = await POST(req({ assessment_id: 'a1', variant: 'practitioner' }))
+    expect(response.status).toBe(200)
+    expect(uploadSpy).toHaveBeenCalled()
+  })
+
   test('exports prototype reports without claiming a signed legal notice', async () => {
     testSpies.prototype.value = true
     legalTest.resolution.value = { ok: false, code: 'no_eligible_document', message: 'Unavailable' }
@@ -248,6 +275,8 @@ describe('POST /api/reports', () => {
     const response = await POST(req({ assessment_id: 'a1', variant: 'practitioner' }))
 
     expect(response.status).toBe(200)
+    expect(testSpies.assessmentSelect.value).toContain('clients!inner(')
+    expect(testSpies.assessmentSelect.value).toContain('deleted_at, archived_at')
     expect(legalTest.snapshotSpy).not.toHaveBeenCalled()
     const document = renderToBufferSpy.mock.calls[0]?.[0] as { props: Record<string, unknown> }
     expect(document.props.legalNotice).toMatchObject({ kind: 'prototype_notice' })

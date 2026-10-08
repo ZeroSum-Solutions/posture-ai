@@ -41,7 +41,6 @@ export async function GET(req: NextRequest) {
     .eq('id', clientId)
     .eq('practitioner_id', user.id)
     .is('deleted_at', null)
-    .is('archived_at', null)
     .maybeSingle()
   if (error) {
     return NextResponse.json({ error: 'Could not verify client consent.' }, { status: 500, headers: NO_STORE })
