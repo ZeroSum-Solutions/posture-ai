@@ -227,14 +227,6 @@
   padding-right: var(--s-48);
   background-image: none;
   cursor: pointer;
-  /* Linux WebKit gives a menulist a black text-fill-color, which wins over
-     `color` (and axe reads it first). Pin it to the field ink. */
-  -webkit-text-fill-color: var(--ink-1);
-}
-
-.selectControl option {
-  background: var(--surface-2);
-  color: var(--ink-1);
 }
 
 .chevron {
