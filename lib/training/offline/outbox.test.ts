@@ -109,6 +109,11 @@ class MemoryTrainingOfflineStorage implements TrainingOfflineStorage {
   async releaseDrainLease(userId: string, ownerId: string) {
     if (this.leases.get(userId)?.ownerId === ownerId) this.leases.delete(userId)
   }
+
+  async readDrainLeaseExpiry(userId: string, ownerId: string) {
+    const lease = this.leases.get(userId)
+    return lease && lease.ownerId !== ownerId ? lease.expiresAt : null
+  }
 }
 
 describe('training offline outbox', () => {
@@ -273,6 +278,34 @@ describe('training offline outbox', () => {
     })
     release?.()
     await expect(blocked).resolves.toEqual({ kind: 'drained', acknowledgedCount: 1 })
+  })
+
+  it('retries after the time left on a lease held by a closed or reloaded document', async () => {
+    const storage = new MemoryTrainingOfflineStorage()
+    let clock = 100_000
+    const reloaded = createTrainingOfflineOutbox({ storage, ownerId: 'doc-2', now: () => clock, leaseMs: 30_000 })
+    await reloaded.activateUser(USER_A)
+    await reloaded.enqueue(setEnvelope())
+    // The previous document took the lease 25 s ago and was then terminated.
+    await storage.acquireDrainLease(USER_A, 'doc-1', clock - 25_000, clock + 5_000)
+
+    expect(await reloaded.drain(async () => ({ kind: 'acknowledged' }))).toEqual({
+      kind: 'already_draining', acknowledgedCount: 0, retryAfterMs: 5_000,
+    })
+    clock += 5_000
+    expect(await reloaded.drain(async () => ({ kind: 'acknowledged' })))
+      .toEqual({ kind: 'drained', acknowledgedCount: 1 })
+  })
+
+  it('never retries sooner than 250 ms or later than one lease, whatever the stored expiry', async () => {
+    const storage = new MemoryTrainingOfflineStorage()
+    const outbox = createTrainingOfflineOutbox({ storage, ownerId: 'doc-2', now: () => 1_000, leaseMs: 30_000 })
+    await outbox.activateUser(USER_A)
+    await outbox.enqueue(setEnvelope())
+    await storage.acquireDrainLease(USER_A, 'doc-1', 0, 1_010)
+    expect(await outbox.drain(async () => ({ kind: 'acknowledged' }))).toMatchObject({ retryAfterMs: 250 })
+    await storage.acquireDrainLease(USER_A, 'doc-1', 1_010, 10_000_000)
+    expect(await outbox.drain(async () => ({ kind: 'acknowledged' }))).toMatchObject({ retryAfterMs: 30_000 })
   })
 
   it('does not release the active lease when the same tab asks to drain twice', async () => {

@@ -80,4 +80,6 @@ export interface TrainingOfflineStorage {
   clear(scope: TrainingOfflineClearScope): Promise<number>
   acquireDrainLease(userId: string, ownerId: string, now: number, expiresAt: number): Promise<boolean>
   releaseDrainLease(userId: string, ownerId: string): Promise<void>
+  /** When another owner holds the drain lease, its expiry (epoch ms); otherwise null. */
+  readDrainLeaseExpiry?(userId: string, ownerId: string): Promise<number | null>
 }

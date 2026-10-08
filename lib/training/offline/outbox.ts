@@ -83,6 +83,9 @@ function immutableEntry(value: unknown): TrainingOfflineStoredEntry {
   return entry
 }
 
+const MIN_LEASE_RETRY_MS = 250
+const SAME_DOCUMENT_RETRY_MS = 2_000
+
 export function createTrainingOfflineOutbox(options: {
   readonly storage: TrainingOfflineStorage
   readonly ownerId: string
@@ -94,6 +97,16 @@ export function createTrainingOfflineOutbox(options: {
   if (!options.ownerId || options.ownerId.length > 128) throw new Error('A stable outbox owner ID is required.')
   if (!Number.isFinite(leaseMs) || leaseMs < 1_000 || leaseMs > 300_000) throw new Error('Invalid outbox lease duration.')
   let activeDrain: AbortController | null = null
+
+  // A lease held by another document (often one just reloaded or closed) ends at
+  // its recorded expiry; waiting a full fresh lease from now would leave the
+  // queue unsynced for up to twice the lease. Clamp so a skewed clock can neither
+  // spin nor wait past one lease.
+  async function retryAfterHeldLease(userId: string): Promise<number> {
+    const heldUntil = await options.storage.readDrainLeaseExpiry?.(userId, options.ownerId)
+    if (heldUntil == null) return leaseMs
+    return Math.min(leaseMs, Math.max(MIN_LEASE_RETRY_MS, heldUntil - now()))
+  }
 
   async function activateUser(userId: string | null) {
     const parsedUserId = userId === null ? null : TrainingOfflineEnvelopeInputV1Schema.shape.userId.parse(userId)
@@ -165,10 +178,11 @@ export function createTrainingOfflineOutbox(options: {
   async function drain(replay: TrainingOfflineReplay): Promise<TrainingOfflineDrainResult> {
     const userId = await options.storage.readActiveUser()
     if (!userId) return { kind: 'drained', acknowledgedCount: 0 }
-    if (activeDrain) return { kind: 'already_draining', acknowledgedCount: 0, retryAfterMs: leaseMs }
+    // This document is already draining; re-check soon rather than a whole lease later.
+    if (activeDrain) return { kind: 'already_draining', acknowledgedCount: 0, retryAfterMs: Math.min(leaseMs, SAME_DOCUMENT_RETRY_MS) }
     const startedAt = now()
     if (!await options.storage.acquireDrainLease(userId, options.ownerId, startedAt, startedAt + leaseMs)) {
-      return { kind: 'already_draining', acknowledgedCount: 0, retryAfterMs: leaseMs }
+      return { kind: 'already_draining', acknowledgedCount: 0, retryAfterMs: await retryAfterHeldLease(userId) }
     }
     const controller = new AbortController()
     activeDrain = controller
@@ -195,7 +209,7 @@ export function createTrainingOfflineOutbox(options: {
           acknowledgedCount += 1
           const refreshedAt = now()
           if (!await options.storage.acquireDrainLease(userId, options.ownerId, refreshedAt, refreshedAt + leaseMs)) {
-            return { kind: 'already_draining', acknowledgedCount, retryAfterMs: leaseMs }
+            return { kind: 'already_draining', acknowledgedCount, retryAfterMs: await retryAfterHeldLease(userId) }
           }
           continue
         }

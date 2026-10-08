@@ -21,7 +21,10 @@ async function assertNoHorizontalOverflow(page: Page, width: number, testInfo: T
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
   await expect(page.getByRole('combobox', { name: 'Starting load', exact: true }).first()).toBeVisible()
   await expect(page.getByRole('spinbutton', { name: 'Duration in minutes', exact: true }).first()).toBeVisible()
-  await page.screenshot({ path: testInfo.outputPath(`strength-builder-${width}.png`), fullPage: true })
+  // Evidence only. WebKit refuses captures over 32767 device px, which the long
+  // builder can exceed at 3x on a narrow phone; fall back to the viewport there.
+  const fullPage = await page.evaluate(() => document.documentElement.scrollHeight * window.devicePixelRatio < 32_000)
+  await page.screenshot({ path: testInfo.outputPath(`strength-builder-${width}.png`), fullPage })
 }
 
 async function assertFitsViewport(page: Page, locatorName: string) {
