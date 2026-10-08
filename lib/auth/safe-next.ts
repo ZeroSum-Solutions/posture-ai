@@ -12,3 +12,8 @@ export function safeNextPath(next: string | null | undefined): string {
   if (next.startsWith('//') || next.startsWith('/\\')) return DEFAULT_NEXT
   return next
 }
+
+/** Hard navigation lets the next request read the refreshed auth cookies. */
+export function hardNavigate(path: string): void {
+  window.location.assign(path)
+}

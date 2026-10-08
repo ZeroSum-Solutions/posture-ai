@@ -8,6 +8,7 @@ const listFactors = vi.fn()
 const unenroll = vi.fn()
 const enroll = vi.fn()
 const challengeAndVerify = vi.fn()
+const hardNavigate = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/supabase/client', () => ({
   createSupabaseBrowserClient: () => ({
@@ -16,6 +17,10 @@ vi.mock('@/lib/supabase/client', () => ({
       mfa: { getAuthenticatorAssuranceLevel, listFactors, unenroll, enroll, challengeAndVerify },
     },
   }),
+}))
+vi.mock('@/lib/auth/safe-next', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/auth/safe-next')>(),
+  hardNavigate,
 }))
 
 import MfaPage from './page'
@@ -42,6 +47,7 @@ describe('MfaPage', () => {
       error: null,
     })
     challengeAndVerify.mockReset()
+    hardNavigate.mockReset()
     vi.stubGlobal('fetch', vi.fn())
     window.history.replaceState({}, '', '/auth/mfa')
   })
@@ -162,6 +168,23 @@ describe('MfaPage', () => {
     render(<MfaPage />)
 
     expect((await screen.findByText(/Password recovery does not bypass MFA/i)).textContent).toMatch(/contact your beta administrator/i)
+  })
+
+  it('returns to the password form after TOTP without completing admission early', async () => {
+    window.history.replaceState({}, '', '/auth/mfa?mode=recovery&next=/auth/update-password')
+    listFactors.mockResolvedValue({
+      data: { all: [{ id: 'verified', factor_type: 'totp', status: 'verified' }] },
+      error: null,
+    })
+    challengeAndVerify.mockResolvedValue({ error: null })
+
+    render(<MfaPage />)
+    fireEvent.change(await screen.findByLabelText('Authenticator code'), { target: { value: '123456' } })
+    fireEvent.click(screen.getByRole('button', { name: /verify and continue/i }))
+
+    await waitFor(() => expect(challengeAndVerify).toHaveBeenCalledWith({ factorId: 'verified', code: '123456' }))
+    expect(hardNavigate).toHaveBeenCalledWith('/auth/update-password')
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('completes athlete admission through its distinct actor-bound endpoint', async () => {
