@@ -15,6 +15,8 @@ import { createClient } from '@supabase/supabase-js'
 import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { assessPosture, testLandmarksFrames } from '@posture-ai/engine'
 import { buildFindingRow } from '../lib/findings/buildFindingRow'
 import { stripFaceLandmarks } from '../lib/pose/face-min'
@@ -34,7 +36,12 @@ import {
 // fixed 54321/54322 points at whichever stack owns those ports.
 // ─────────────────────────────────────────────────────────────
 function localStack() {
-  const out = execFileSync('npx', ['supabase', 'status', '-o', 'env'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  // Pin the CLI to this repository's supabase/config.toml: without --workdir it
+  // binds to whichever project encloses the caller's cwd.
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const out = execFileSync('npx', ['--no-install', 'supabase', 'status', '-o', 'env', '--workdir', repoRoot], {
+    cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000,
+  })
   const env = Object.fromEntries([...out.matchAll(/^([A-Z_]+)="(.*)"$/gm)].map(m => [m[1], m[2]]))
   const required = ['API_URL', 'ANON_KEY', 'SERVICE_ROLE_KEY', 'DB_URL'] as const
   for (const key of required) {
