@@ -113,8 +113,10 @@
   color: var(--ink-3) !important;
 }
 
+/* Transform only: a fade leaves the retry action and body mid-opacity when a
+   screen reader or axe reads the error the moment it mounts. */
 @keyframes error-rise {
-  from { opacity: 0; transform: translateY(8px); }
+  from { transform: translateY(8px); }
 }
 @keyframes error-ping {
   0% { opacity: 0.9; transform: scale(1); }

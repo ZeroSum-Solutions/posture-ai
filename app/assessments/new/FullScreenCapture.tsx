@@ -1093,7 +1093,8 @@ export default function FullScreenCapture({
                 </li>
               ))}
             </ol>
-            <div className={styles.setupBody}>
+            {/* Scrolls when the notice is long: focusable and named so keyboard users can scroll it. */}
+            <div className={styles.setupBody} tabIndex={0} role="region" aria-label="Before you scan">
               {screeningNotice ? (
                 <LegalNotice document={screeningNotice} compact />
               ) : (

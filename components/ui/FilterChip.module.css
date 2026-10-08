@@ -112,6 +112,14 @@
   color: var(--ink-1);
 }
 
+/* Selected: the count drops its tint plate so the face's difference blend
+   inverts it with the label (dark on the white fill). A translucent plate
+   over the fill read as white-on-white to axe (1.18:1). */
+.chip[data-selected='true'] .count {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
 /* The liquid: ink-1 fill + inverted copy, clipped to a circle from the touch. */
 .fill {
   position: absolute;

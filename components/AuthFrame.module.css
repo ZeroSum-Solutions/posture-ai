@@ -60,7 +60,9 @@
 }
 
 @keyframes authIn {
-  from { opacity: 0; transform: translateY(12px); }
+  /* Transform only: an opacity fade holds the form near-invisible on a cold
+     WebKit worker and reads as black-on-black to axe (e2e a11y budget). */
+  from { transform: translateY(12px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .column { animation: none; }
