@@ -32,4 +32,14 @@ describe('finishBrowserSignOut', () => {
     expect(assign).toHaveBeenCalledTimes(1)
     expect(assign).toHaveBeenCalledWith('/auth/sign-in')
   })
+
+  it('does not assign an unsafe sign-out destination', async () => {
+    vi.resetModules()
+    const { assignLocationOnce: assignFromFreshPage } = await import('./finish-sign-out')
+    const assign = vi.fn()
+
+    assignFromFreshPage('/%0A/evil.example', { assign })
+
+    expect(assign).toHaveBeenCalledWith('/dashboard')
+  })
 })

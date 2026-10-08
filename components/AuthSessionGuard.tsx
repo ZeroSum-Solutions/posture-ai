@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { isPublicPath } from '@/lib/auth/public-paths'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { assignLocationOnce } from '@/lib/auth/finish-sign-out'
+import { safeNextPath } from '@/lib/auth/safe-next'
 import {
   synchronizeTrainingOfflineAuth,
   trainingOfflineAuthState,
@@ -73,7 +74,9 @@ export default function AuthSessionGuard({
       void synchronized.then(() => {
         if (disposed.current) return
         navigationTimer.current = window.setTimeout(() => {
-          assignLocationOnce(changed ? window.location.href : '/auth/sign-in?reason=signed_out')
+          assignLocationOnce(changed
+            ? safeNextPath(window.location.pathname + window.location.search + window.location.hash)
+            : '/auth/sign-in?reason=signed_out')
         }, 0)
       })
     })

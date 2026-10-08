@@ -187,6 +187,20 @@ describe('MfaPage', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('returns an already-AAL2 recovery session to the password form without admission', async () => {
+    window.history.replaceState({}, '', '/auth/mfa?mode=recovery&next=/auth/update-password')
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      error: null,
+    })
+
+    render(<MfaPage />)
+
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith('/auth/update-password'))
+    expect(fetch).not.toHaveBeenCalled()
+    expect(listFactors).not.toHaveBeenCalled()
+  })
+
   it('completes athlete admission through its distinct actor-bound endpoint', async () => {
     window.history.replaceState({}, '', '/auth/mfa?mode=athlete-invite&next=/train')
     getAuthenticatorAssuranceLevel.mockResolvedValue({

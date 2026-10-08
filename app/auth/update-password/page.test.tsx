@@ -67,6 +67,29 @@ describe('UpdatePasswordPage recovery boundary', () => {
     expect(updateUser).not.toHaveBeenCalled()
   })
 
+  it('shows a security error and blocks password updates when factor lookup fails', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    listFactors.mockResolvedValue({ data: null, error: { message: 'factor lookup failed' } })
+
+    render(<UpdatePasswordPage />)
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not verify your account security/i)
+    expect(screen.queryByLabelText('New password')).toBeNull()
+    expect(updateUser).not.toHaveBeenCalled()
+  })
+
+  it('shows a security error and blocks password updates when assurance lookup fails', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    listFactors.mockResolvedValue({ data: { all: [{ id: 'verified', factor_type: 'totp', status: 'verified' }] }, error: null })
+    getAuthenticatorAssuranceLevel.mockResolvedValue({ data: null, error: { message: 'assurance lookup failed' } })
+
+    render(<UpdatePasswordPage />)
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not verify your account security/i)
+    expect(screen.queryByLabelText('New password')).toBeNull()
+    expect(updateUser).not.toHaveBeenCalled()
+  })
+
   it('updates the password after TOTP has raised the recovery session to AAL2', async () => {
     getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
     listFactors.mockResolvedValue({ data: { all: [{ id: 'verified', factor_type: 'totp', status: 'verified' }] }, error: null })
