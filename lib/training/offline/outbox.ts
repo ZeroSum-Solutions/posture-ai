@@ -103,8 +103,10 @@ export function createTrainingOfflineOutbox(options: {
   // queue unsynced for up to twice the lease. Clamp so a skewed clock can neither
   // spin nor wait past one lease.
   async function retryAfterHeldLease(userId: string): Promise<number> {
-    const heldUntil = await options.storage.readDrainLeaseExpiry?.(userId, options.ownerId)
-    if (heldUntil == null) return leaseMs
+    if (!options.storage.readDrainLeaseExpiry) return leaseMs
+    const heldUntil = await options.storage.readDrainLeaseExpiry(userId, options.ownerId)
+    // Released between the failed acquire and this read: the queue is free now.
+    if (heldUntil === null) return MIN_LEASE_RETRY_MS
     return Math.min(leaseMs, Math.max(MIN_LEASE_RETRY_MS, heldUntil - now()))
   }
 

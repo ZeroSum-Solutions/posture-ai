@@ -42,9 +42,15 @@ export default function AuthSessionGuard({
   const [endedReason, setEndedReason] = useState<'signed_out' | 'account_changed' | null>(null)
   const observedUserId = useRef(renderedUserId)
   const navigationTimer = useRef<number | null>(null)
+  const navigationPending = useRef(false)
+  const disposed = useRef(false)
 
-  useEffect(() => () => {
-    if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current)
+  useEffect(() => {
+    disposed.current = false
+    return () => {
+      disposed.current = true
+      if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -53,15 +59,22 @@ export default function AuthSessionGuard({
       const nextUserId = session?.user.id ?? null
       const changed = shouldClearForAccountChange(pathname, observedUserId.current, nextUserId)
       if (nextUserId) observedUserId.current = nextUserId
-      void synchronizeTrainingOfflineForAuthEvent(event, nextUserId)
+      const synchronized = synchronizeTrainingOfflineForAuthEvent(event, nextUserId)
         .catch(cause => console.error('[training-offline] auth synchronization failed', cause))
       if (!changed && !shouldClearForAuthEvent(event, pathname)) return
-      if (navigationTimer.current !== null) return
+      if (navigationPending.current) return
+      navigationPending.current = true
       setEndedReason(changed ? 'account_changed' : 'signed_out')
-      // Yield once so React removes protected content before navigation starts.
-      navigationTimer.current = window.setTimeout(() => {
-        window.location.assign(changed ? window.location.href : '/auth/sign-in?reason=signed_out')
-      }, 0)
+      // Navigate only once the offline queue has been cleared or switched: an
+      // unload mid-transaction would leave the previous account's pending
+      // changes on the device. The extra yield lets React remove protected
+      // content before navigation starts.
+      void synchronized.then(() => {
+        if (disposed.current) return
+        navigationTimer.current = window.setTimeout(() => {
+          window.location.assign(changed ? window.location.href : '/auth/sign-in?reason=signed_out')
+        }, 0)
+      })
     })
     return () => subscription.unsubscribe()
   }, [pathname])

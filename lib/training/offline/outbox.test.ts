@@ -297,6 +297,20 @@ describe('training offline outbox', () => {
       .toEqual({ kind: 'drained', acknowledgedCount: 1 })
   })
 
+  it('retries at the floor when the lease was released between the failed acquire and the expiry read', async () => {
+    const storage = new MemoryTrainingOfflineStorage()
+    const outbox = createTrainingOfflineOutbox({ storage, ownerId: 'doc-2', now: () => 1_000, leaseMs: 30_000 })
+    await outbox.activateUser(USER_A)
+    await outbox.enqueue(setEnvelope())
+    await storage.acquireDrainLease(USER_A, 'doc-1', 1_000, 31_000)
+    const read = storage.readDrainLeaseExpiry.bind(storage)
+    storage.readDrainLeaseExpiry = async (userId, ownerId) => {
+      await storage.releaseDrainLease(USER_A, 'doc-1')
+      return read(userId, ownerId)
+    }
+    expect(await outbox.drain(async () => ({ kind: 'acknowledged' }))).toMatchObject({ kind: 'already_draining', retryAfterMs: 250 })
+  })
+
   it('never retries sooner than 250 ms or later than one lease, whatever the stored expiry', async () => {
     const storage = new MemoryTrainingOfflineStorage()
     const outbox = createTrainingOfflineOutbox({ storage, ownerId: 'doc-2', now: () => 1_000, leaseMs: 30_000 })
