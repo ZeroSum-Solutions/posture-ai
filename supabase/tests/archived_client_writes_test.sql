@@ -28,12 +28,13 @@ SELECT is((SELECT count(*) FROM public.consent_tokens WHERE client_id = 'a200000
 -- Seed an already-issued token before archive to exercise the public resolver.
 INSERT INTO public.clients (id, practitioner_id, first_name, last_name)
 VALUES ('a2000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000001', 'Shared', 'Fixture');
-SELECT public.record_inperson_consent_governed(
+-- Wrapped in DO so the RPC's result row does not enter the TAP stream.
+DO $$ BEGIN PERFORM public.record_inperson_consent_governed(
   'a2000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000001',
   'subject-consent-test-fixture-v1', 'test-1', repeat('a', 64),
   '2026-07-19T00:00:00Z', 'US', 'us_fitness_wellness_assessment_beta_v1',
   'Shared Fixture', 'self', repeat('b', 64), clock_timestamp()
-);
+); END $$;
 INSERT INTO public.assessments (id, client_id, practitioner_id, status, practitioner_approved)
 VALUES ('a3000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000002',
   'a1000000-0000-4000-8000-000000000001', 'complete', true);
